@@ -6,15 +6,14 @@ import Link from "next/link";
 const MenuBar: React.FC = () => {
   return (
     <div className={styles.menuBar}>
-      <div className="flex items-center">
-        <Image
-          className="px-3"
-          src="/librerss.png"
-          alt="LibreRSS"
-          width={65}
-          height={65}
-        />
-      </div>
+      <Image
+        className="px-3"
+        src="/librerss.png"
+        alt="LibreRSS"
+        width={55}
+        height={55}
+        style={{ position: "absolute" }}
+      />
 
       <div className={styles.menuBarItems}>
         <Link href="/">

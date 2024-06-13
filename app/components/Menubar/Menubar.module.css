@@ -1,37 +1,27 @@
 .menuBar {
-    display: flex;
-    justify-content: left;
-    align-items: center;
-    background-color: #333;
-    color: #fff;
-  }
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  background-color: #333;
+  color: #fff;
+}
 
-  .menuBarItems {
-    width: 100%;
-    display: flex;
-    padding: 10px;
-    justify-content: center;
-    align-items: center;
-    background-color: #333;
-    color: #fff;
-  }
-  
-  .menuBar a {
-    color: #fff;
-    text-decoration: none;
-  }
+.menuBarItems {
+  display: flex;
+  width: 100%;
+  padding: 10px;
+  justify-content: center;
+  align-items: center;
+}
 
-  .menuBar button {
-    color: #fff;
-    background-color: #333;
-    border: none;
-    padding: 15px;
-    padding-left: 25px;
-    padding-right: 25px;
-    cursor: pointer;
-    transition: background-color 0.6s ease, font-weight 0.6s ease;
-   }
-
+.menuBar button {
+  border: none;
+  padding: 15px;
+  padding-left: 25px;
+  padding-right: 25px;
+  cursor: pointer;
+  transition: background-color 0.6s ease, font-weight 0.6s ease;
+}
 
 .menuBar button:hover {
   background-color: #444;
