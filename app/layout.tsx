@@ -25,7 +25,9 @@ export default function RootLayout({
         <header>
           <Menubar />
         </header>
-        {children}
+        <div style={{ overflow: "auto", height: "calc(100vh - 50px)" }}>
+          {children}
+        </div>
       </body>
     </html>
   );
