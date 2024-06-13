@@ -4,6 +4,8 @@ export default function Home() {
   return (
     <main className="m-10">
       <div className="m-5">
+        <p className="text-4xl font-bold">LibreRSS</p>
+
         <h2 className="text-2xl text-left py-2">
           A revival of extant tradition of free cloud RSS
         </h2>
