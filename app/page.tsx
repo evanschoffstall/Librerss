@@ -3,10 +3,6 @@ import Image from "next/image";
 export default function Home() {
   return (
     <main className="m-10">
-      <div className="flex items-center text-4xl font-bold text-left py-4">
-        <Image src="/librerss.png" alt="LibreRSS" width={50} height={50} />
-        <h1 className="ml-4">LibreRSS</h1>
-      </div>
       <div className="m-5">
         <h2 className="text-2xl text-left py-2">
           A revival of extant tradition of free cloud RSS

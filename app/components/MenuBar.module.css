@@ -1,0 +1,22 @@
+.menuBar {
+    display: flex;
+    padding: 10px;
+    justify-content: center;
+    align-items: center;
+    background-color: #333;
+    color: #fff;
+  }
+
+  .menuBarItems {
+    display: flex;
+    padding: 10px;
+    justify-content: center;
+    align-items: center;
+    background-color: #333;
+    color: #fff;
+  }
+  
+  .menuBar a {
+    color: #fff;
+    text-decoration: none;
+  }
