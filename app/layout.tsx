@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Menubar from "./components/MenuBar";
+import Debug from "./components/Debug/Debug";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,6 +22,7 @@ export default function RootLayout({
         <header>
           <Menubar />
         </header>
+        <Debug />
         {children}
       </body>
     </html>
