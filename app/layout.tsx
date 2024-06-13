@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Menubar from "./components/Menubar/Menubar";
 import Debug from "./components/Debug/Debug";
+import Space from "./components/Space/Space";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <Space />
         <Debug />
         <header>
           <Menubar />
