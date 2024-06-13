@@ -18,6 +18,16 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: rgb(var(--foreground-rgb));
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
