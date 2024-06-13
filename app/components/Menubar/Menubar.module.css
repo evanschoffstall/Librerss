@@ -2,21 +2,20 @@
   display: flex;
   justify-content: left;
   align-items: center;
-  background-color: #333;
+  background-color: #222;
   color: #fff;
 }
 
 .menuBarItems {
   display: flex;
   width: 100%;
-  padding: 10px;
+  padding: 3px;
   justify-content: center;
   align-items: center;
 }
 
 .menuBar button {
-  border: none;
-  padding: 15px;
+  padding: 10px;
   padding-left: 25px;
   padding-right: 25px;
   cursor: pointer;
@@ -24,6 +23,6 @@
 }
 
 .menuBar button:hover {
-  background-color: #444;
+  background-color: #ea8c23;
   font-weight: bold;
 }
