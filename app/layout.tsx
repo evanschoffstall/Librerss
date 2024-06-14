@@ -21,7 +21,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Space />
-        <Debug />
+        {process.env.NODE_ENV === "development" && <Debug />}
         <div className="glass">
           <header>
             <Menubar />
