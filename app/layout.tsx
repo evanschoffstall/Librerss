@@ -22,11 +22,13 @@ export default function RootLayout({
       <body className={inter.className}>
         <Space />
         <Debug />
-        <header>
-          <Menubar />
-        </header>
-        <div style={{ overflow: "auto", height: "calc(100vh - 50px)" }}>
-          {children}
+        <div className="glass">
+          <header>
+            <Menubar />
+          </header>
+          <div style={{ overflow: "auto", height: "calc(100vh - 50px)" }}>
+            {children}
+          </div>
         </div>
       </body>
     </html>
