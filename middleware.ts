@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
-  return NextResponse.next();
   try {
     const hostname = new URL(request.url).hostname;
     const subdomain = hostname.split(".")[0];
@@ -30,7 +29,5 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  return NextResponse.rewrite(
-    new URL(`/landing${request.nextUrl.pathname}`, request.url)
-  );
+  return NextResponse.next();
 }
