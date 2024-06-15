@@ -3,10 +3,10 @@ export default function About() {
     <div>
       <p className="text-4xl font-bold">About</p>
       <p className="py-4">
-        In the tradition of not only open internet, but also in revival of the
-        long discontinued marvel, Google Reader-- LibreRSS is a free cloud RSS
-        service and reader that allows users to subscribe to any RSS feed and
-        read their favorite websites in a single place.
+        In the tradition of not only open internet, and in revival of the
+        ideology long discontinued marvel, Google Reader-- LibreRSS is a free
+        cloud RSS service and reader that allows users to subscribe to any RSS
+        feed and read their favorite websites in a single place.
       </p>
       <p className="py-4">
         RSS feeds are collections of articles from websites that are updated
