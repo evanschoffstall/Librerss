@@ -11,6 +11,7 @@
   position: absolute;
   background: white;
   border-radius: 50%;
+  will-change: opacity, box-shadow;
 }
 
 @keyframes twinkle {

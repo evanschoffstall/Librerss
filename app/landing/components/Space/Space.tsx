@@ -22,6 +22,7 @@ const generateStarStyle = () => {
     top: `${getRandomNumber(MAX_PERCENTAGE)}vh`,
     left: `${getRandomNumber(MAX_PERCENTAGE)}vw`,
     animation,
+    willChange: `opacity, box-shadow`,
   };
 };
 
