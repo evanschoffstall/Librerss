@@ -23,7 +23,11 @@ export default function Landing({
         {process.env.NODE_ENV === "development" && <Debug />}
         <div className="glass">
           <Menubar />
-          <div style={{ overflow: "auto", height: "100vh" }}>{children}</div>
+          <div style={{ overflow: "auto", height: "100vh" }}>
+            <main className="m-10">
+              <div className="m-5 pt-10">{children}</div>
+            </main>
+          </div>
         </div>
       </body>
     </html>
