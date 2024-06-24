@@ -1,10 +1,9 @@
-// components/Item.tsx
 import "tailwindcss/tailwind.css";
 
-interface ItemProps {
+export interface ItemProps {
   title?: string;
   link?: string;
-  content?: string; // content is now optional
+  content?: string;
 }
 
 export const Item: React.FC<ItemProps> = ({ title, link, content }) => (

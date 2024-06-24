@@ -37,3 +37,6 @@ next-env.d.ts
 
 # Affinity +
 *.ignored
+
+# env
+.env
