@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function HEAD(request: NextRequest) {}
-export async function POST(request: NextRequest) {}
-export async function PUT(request: NextRequest) {}
-export async function DELETE(request: NextRequest) {}
-export async function PATCH(request: NextRequest) {}
-export async function OPTIONS(request: NextRequest) {}
+export async function HEAD() { }
+export async function POST() { }
+export async function PUT() { }
+export async function DELETE() { }
+export async function PATCH() { }
+export async function OPTIONS() { }

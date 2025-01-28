@@ -30,6 +30,7 @@ const Star = React.memo(() => {
   const style = generateStarStyle();
   return <div className={`star`} style={style} />;
 });
+Star.displayName = "Star";
 
 const Space: React.FC = () => {
   const stars = useMemo(

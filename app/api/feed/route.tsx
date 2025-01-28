@@ -1,6 +1,6 @@
 import axios from "axios";
 import Parser from "rss-parser";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { Pool } from "pg";
 
 const parser = new Parser();
@@ -13,7 +13,7 @@ const pool = new Pool({
   port: 5432,
 });
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   let feedUrl = "https://feeds.bbci.co.uk/news/world/rss.xml"; // Default feed URL
   try {
     const client = await pool.connect();
@@ -59,7 +59,6 @@ export async function GET(request: NextRequest) {
       ]);
     }
 
-    let response;
     if (shouldFetch) {
       // Fetch and parse the feed
       const feedResponse = await axios.get(feedUrl);
@@ -87,7 +86,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    response = await client.query(
+    const response = await client.query(
       `
       SELECT title, link, content
       FROM articles

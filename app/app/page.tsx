@@ -1,9 +1,8 @@
 "use client";
-
+import React from "react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Item, ItemProps } from "./components/Item";
-import { Header } from "./components/Header";
 
 export default function Home() {
   // Step 2: Initialize feed as an empty array
@@ -27,7 +26,7 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4">
-      <Header title="LibreRSS" />
+      <h1 className="text-4xl font-bold mb-4">LibreRSS</h1>
       {feed.length > 0 ? (
         feed.map((item, index) => (
           <Item

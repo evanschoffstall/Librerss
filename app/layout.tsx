@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import React from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import DebugBorder from "@/app/shared/components/Debug/DebugBorder/DebugBorder";
@@ -13,7 +13,7 @@ export default function Layout({
 }>) {
   return (
     <html lang="en">
-            {process.env.NODE_ENV === "development" && (
+      {process.env.NODE_ENV === "development" && (
         <>
           <DebugBorder />
           <DebugGrid />
