@@ -1,4 +1,5 @@
+import React from "react";
+
 export default function Contact() {
-  throw new Error("Not implemented");
-  return null;
+  return <p>Not implemented</p>
 }
