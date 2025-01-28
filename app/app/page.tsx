@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Item, ItemProps } from "./components/Item";
 import { Header } from "./components/Header";
-import { Container } from "./components/Container";
 
 export default function Home() {
   // Step 2: Initialize feed as an empty array
@@ -27,7 +26,7 @@ export default function Home() {
   }, []);
 
   return (
-    <Container>
+    <div className="container mx-auto px-4">
       <Header title="LibreRSS" />
       {feed.length > 0 ? (
         feed.map((item, index) => (
@@ -41,6 +40,6 @@ export default function Home() {
       ) : (
         <p>Loading...</p>
       )}
-    </Container>
+    </div>
   );
 }
