@@ -1,0 +1,50 @@
+:root {
+  --grid-overlay-display: none;
+  --grid-overlay-position: fixed;
+  --grid-overlay-top: 0;
+  --grid-overlay-left: 0;
+  --grid-overlay-width: 100%;
+  --grid-overlay-height: 100%;
+  --grid-overlay-pointer-events: none;
+  --grid-overlay-z-index: 9999;
+
+  --grid-line-color: rgba(255, 0, 0, 0.5); /* Red grid lines */
+  --grid-line-spacing: 50px; /* Red grid spacing */
+
+  --grid-center-line-color: rgba(0, 0, 255, 0.7); /* Blue center lines */
+}
+
+#debug-grid-overlay {
+  display: var(--grid-overlay-display);
+  position: var(--grid-overlay-position);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: var(--grid-overlay-pointer-events);
+  z-index: var(--grid-overlay-z-index);
+}
+
+/* TODO: Blue center lines thickness is not consistent with red grid lines. May be some duplication as to the vertical blue line */
+.debug-grid {
+  background: 
+    /* Blue vertical center line */ linear-gradient(to bottom, var(--grid-center-line-color), var(--grid-center-line-color)), 
+    /* Blue horizontal center line */ linear-gradient(to right, var(--grid-center-line-color), var(--grid-center-line-color)), 
+    /* Red vertical grid lines */ repeating-linear-gradient(0deg, var(--grid-line-color), var(--grid-line-color) 1px, transparent 1px, transparent var(--grid-line-spacing)), 
+    /* Red horizontal grid lines */ repeating-linear-gradient(90deg, var(--grid-line-color), var(--grid-line-color) 1px, transparent 1px, transparent var(--grid-line-spacing));
+  background-size: 
+    1px 100%, /* Blue vertical line */ 
+    100% 1px, /* Blue horizontal line */ 
+    var(--grid-line-spacing) var(--grid-line-spacing), /* Red vertical grid */ 
+    var(--grid-line-spacing) var(--grid-line-spacing); /* Red horizontal grid */
+  background-position: 
+    center center, /* Blue vertical line */ 
+    center center, /* Blue horizontal line */ 
+    center center, /* Red vertical grid */ 
+    center center; /* Red horizontal grid */
+  background-repeat: 
+    no-repeat, /* Blue vertical line */ 
+    no-repeat, /* Blue horizontal line */ 
+    repeat, /* Red vertical grid */ 
+    repeat; /* Red horizontal grid */
+}

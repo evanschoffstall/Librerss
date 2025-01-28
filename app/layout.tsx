@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Debug from "@/app/shared/components/Debug/Debug";
+import DebugBorder from "@/app/shared/components/Debug/DebugBorder/DebugBorder";
+import DebugGrid from "@/app/shared/components/Debug/DebugGrid/DebugGrid";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -12,7 +13,12 @@ export default function Layout({
 }>) {
   return (
     <html lang="en">
-      {process.env.NODE_ENV === "development" && <Debug />}
+            {process.env.NODE_ENV === "development" && (
+        <>
+          <DebugBorder />
+          <DebugGrid />
+        </>
+      )}
       <body className={inter.className}>{children}</body>
     </html>
   );
