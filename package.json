@@ -11,22 +11,22 @@
   "dependencies": {
     "axios": "^1.7.9",
     "feed": "^4.2.2",
-    "next": "15.0.0-rc.0",
+    "next": "15.1.6",
     "pg": "^8.13.1",
-    "react": "19.0.0-rc-f3e09d6328-20240612",
-    "react-dom": "19.0.0-rc-f3e09d6328-20240612",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
-    "@types/node": "^20.17.16",
+    "@types/node": "^22.12.0",
     "@types/pg": "^8.11.11",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
     "eslint": "^9.19.0",
-    "eslint-config-next": "15.0.0-rc.0",
+    "eslint-config-next": "15.1.6",
     "postcss": "^8.5.1",
     "react-hotkeys-hook": "^4.6.1",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.0.0",
     "typescript": "^5.7.3"
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
