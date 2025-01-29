@@ -1,3 +1,5 @@
+"use client";
+
 import "tailwindcss/tailwind.css";
 import React from "react";
 export interface ItemProps {
