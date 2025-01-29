@@ -5,6 +5,7 @@ import Menubar from "./components/Menubar/Menubar";
 import Space from "./components/Space/Space";
 import DebugBorder from "@/app/shared/components/Debug/DebugBorder/DebugBorder";
 import DebugGrid from "@/app/shared/components/Debug/DebugGrid/DebugGrid";
+import "./landing.css";
 
 const inter = Inter({ subsets: ["latin"] });
 

@@ -4,18 +4,29 @@ import React from "react";
 
 export default function Landing() {
   return (
-    <div>
-      <p className="text-4xl font-bold">LibreRSS</p>
-      <h2 className="text-2xl text-left py-2">
-        A revival of the extant tradition of free cloud RSS
-      </h2>
-      <h3 className="text-xl text-left py-4">Features:</h3>
-      <h4 className="text-lg text-left py-2">- Free</h4>
-      <h4 className="text-lg text-left py-2">- Modern</h4>
-      <h4 className="text-lg text-left py-2">- Cloud Service</h4>
-      <h4 className="text-lg text-left py-2">- Reader</h4>
-      <h4 className="text-lg text-left py-2">- No Ads</h4>
-      <h4 className="text-lg text-left py-2">- Open Source</h4>
+    <div className="text-center">
+      <p className="luxury-title mt-28">Libre</p>
+      <p className="luxury-title-cap-adjusted mb-16">RSS</p>
+      <div className="luxury-subtitle mb-24">
+        Reviving the
+        <br />
+        free cloud
+        <br />
+        tradition
+      </div>
+      <h3 className="py-2 mb-16">
+        Free
+        <br />
+        Modern
+        <br />
+        Cloud Service
+        <br />
+        Reader
+        <br />
+        No Ads
+        <br />
+        Open Source
+      </h3>
       <p className="py-4">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
         tempor incididunt ut labore et dolore magna aliqua. At imperdiet dui
