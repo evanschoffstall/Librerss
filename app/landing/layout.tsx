@@ -1,9 +1,10 @@
-
 import React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Menubar from "./components/Menubar/Menubar";
 import Space from "./components/Space/Space";
+import DebugBorder from "@/app/shared/components/Debug/DebugBorder/DebugBorder";
+import DebugGrid from "@/app/shared/components/Debug/DebugGrid/DebugGrid";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,6 +20,14 @@ export default function Landing({
 }>) {
   return (
     <html lang="en">
+      {
+        process.env.NODE_ENV === "development" && (
+          <>
+            <DebugBorder />
+            <DebugGrid />
+          </>
+        )
+      }
       <body className={inter.className}>
         <Space />
         <div className="glass">
