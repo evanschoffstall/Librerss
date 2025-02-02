@@ -30,6 +30,7 @@ export default function Landing({
         <Space />
         <div className="glass">
           <Menubar />
+          {/*Permits Space background to be static and not scrolling*/}
           <div style={{ overflow: "auto", height: "100vh" }}>
             <main className="m-10">
               <div className="m-5 pt-10">{children}</div>
