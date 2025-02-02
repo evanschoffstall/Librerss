@@ -1,0 +1,18 @@
+{
+    "sourceFile": "tailwind.config.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1738508807966,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1738508807966,
+            "name": "Commit-0",
+            "content": "import plugin from \"tailwindcss/plugin\";\nimport { PluginAPI } from \"tailwindcss/types/config\";\n\nmodule.exports = {\n  content: [\n    \"./pages/**/*.{js,ts,jsx,tsx,mdx}\",\n    \"./components/**/*.{js,ts,jsx,tsx,mdx}\",\n    \"./app/**/*.{js,ts,jsx,tsx,mdx}\",\n  ],\n  theme: {\n    extend: {\n      backgroundImage: {\n        \"gradient-radial\": \"radial-gradient(var(--tw-gradient-stops))\",\n        \"gradient-conic\":\n          \"conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))\",\n      },\n      screens: {\n        xs: \"480px\",\n        \"sm-md\": \"704px\",\n        \"md-lg\": \"896px\",\n        \"lg-xl\": \"1152px\",\n        \"xl-2xl\": \"1408px\",\n      },\n      spacing: Object.fromEntries(\n        Array.from({ length: 30 }, (_, i) => [`${i + 1}p`, `${i + 1}%`])\n      ),\n      fontSize: Object.fromEntries(\n        Array.from({ length: 11 }, (_, i) => [`${i + 10}xl`, `${i + 10}rem`])\n      ),\n      scale: Object.fromEntries(\n        Array.from({ length: 100 }, (_, i) => [`${i + 1}`, `${(i + 1) / 100}`]) // Converts 1-30 to 0.01-0.30\n      ),\n    },\n  },\n  plugins: [\n    plugin(function (api: PluginAPI) {\n      const { addUtilities } = api;\n\n      const textStrokeUtilities = Object.fromEntries(\n        Array.from({ length: 5 }, (_, i) => [\n          `.text-stroke-${i + 1}`,\n          { \"-webkit-text-stroke-width\": `${i + 1}px` },\n        ])\n      );\n\n      addUtilities({\n        ...textStrokeUtilities,\n        \".text-stroke-white\": { \"-webkit-text-stroke-color\": \"white\" },\n        \".text-stroke-black\": { \"-webkit-text-stroke-color\": \"black\" },\n      });\n    }),\n  ],\n};\n"
+        }
+    ]
+}

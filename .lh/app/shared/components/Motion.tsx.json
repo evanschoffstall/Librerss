@@ -1,0 +1,38 @@
+{
+    "sourceFile": "app/shared/components/Motion.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 5,
+            "patches": [
+                {
+                    "date": 1738508841592,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1738511122661,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,6 +1,6 @@\n import React, { ReactNode } from \"react\";\n-import { motion, Variants } from \"framer-motion\";\n+import { motion, Variants, Transition } from \"framer-motion\";\n \n // Define the animation variants\n const variants: Variants = {\n   fadeIn: { opacity: 0, y: 0 },\n@@ -9,25 +9,26 @@\n   fadeInRight: { opacity: 0, x: -100 },\n   fadeInLeft: { opacity: 0, x: 100 },\n };\n \n-// Define the transition properties\n-const transition = { duration: 1, ease: \"easeOut\", delay: 0.7 };\n+// Default transition properties\n+const defaultTransition: Transition = { duration: 1, ease: \"easeOut\", delay: 0.7 };\n \n // Extend props to include standard div attributes\n interface MotionProps extends React.HTMLAttributes<HTMLDivElement> {\n   variant: keyof typeof variants; // Only valid keys from variants\n   children: ReactNode;\n+  transition?: Transition; // Optional transition prop\n }\n \n-// Updated Motion component with layout handling\n-const Motion: React.FC<MotionProps> = ({ variant, className, children }) => {\n+// Updated Motion component with optional transition handling\n+const Motion: React.FC<MotionProps> = ({ variant, className, children, transition = defaultTransition }) => {\n   return (\n     <motion.div\n       initial={variant as string} // Use the variant name directly\n       animate={{ opacity: 1, x: 0, y: 0 }}\n       variants={variants} // Pass the variants object\n-      transition={transition}\n+      transition={transition} // Use provided transition or default\n       className={className}\n     >\n       {children}\n     </motion.div>\n"
+                },
+                {
+                    "date": 1738511131134,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,9 +10,9 @@\n   fadeInLeft: { opacity: 0, x: 100 },\n };\n \n // Default transition properties\n-const defaultTransition: Transition = { duration: 1, ease: \"easeOut\", delay: 0.7 };\n+const defaultTransition: Transition = { duration: 1, ease: \"easeIn\", delay: 0.7 };\n \n // Extend props to include standard div attributes\n interface MotionProps extends React.HTMLAttributes<HTMLDivElement> {\n   variant: keyof typeof variants; // Only valid keys from variants\n"
+                },
+                {
+                    "date": 1738511449138,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,4 +1,6 @@\n+\"use client\";\n+\n import React, { ReactNode } from \"react\";\n import { motion, Variants, Transition } from \"framer-motion\";\n \n // Define the animation variants\n"
+                },
+                {
+                    "date": 1738511460026,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,6 +1,4 @@\n-\"use client\";\n-\n import React, { ReactNode } from \"react\";\n import { motion, Variants, Transition } from \"framer-motion\";\n \n // Define the animation variants\n@@ -12,29 +10,34 @@\n   fadeInLeft: { opacity: 0, x: 100 },\n };\n \n // Default transition properties\n-const defaultTransition: Transition = { duration: 1, ease: \"easeIn\", delay: 0.7 };\n+const defaultTransition: Transition = { duration: 1, ease: \"easeOut\", delay: 0.7 };\n \n // Extend props to include standard div attributes\n interface MotionProps extends React.HTMLAttributes<HTMLDivElement> {\n   variant: keyof typeof variants; // Only valid keys from variants\n   children: ReactNode;\n   transition?: Transition; // Optional transition prop\n }\n \n+// Merges user-provided transition with the default values\n+const mergeTransition = (userTransition?: Transition): Transition => {\n+  return { ...defaultTransition, ...userTransition };\n+};\n+\n // Updated Motion component with optional transition handling\n-const Motion: React.FC<MotionProps> = ({ variant, className, children, transition = defaultTransition }) => {\n+const Motion: React.FC<MotionProps> = ({ variant, className, children, transition }) => {\n   return (\n     <motion.div\n       initial={variant as string} // Use the variant name directly\n       animate={{ opacity: 1, x: 0, y: 0 }}\n       variants={variants} // Pass the variants object\n-      transition={transition} // Use provided transition or default\n+      transition={mergeTransition(transition)} // Merge provided transition with default\n\\ No newline at end of file\n       className={className}\n     >\n       {children}\n     </motion.div>\n   );\n };\n \n-export default Motion;\n+export default Motion;\n"
+                },
+                {
+                    "date": 1738512140981,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,4 +1,6 @@\n+'use client';\n+\n import React, { ReactNode } from \"react\";\n import { motion, Variants, Transition } from \"framer-motion\";\n \n // Define the animation variants\n@@ -39,5 +41,5 @@\n     </motion.div>\n   );\n };\n \n-export default Motion;\n\\ No newline at end of file\n+export default Motion;\n"
+                }
+            ],
+            "date": 1738508841592,
+            "name": "Commit-0",
+            "content": "import React, { ReactNode } from \"react\";\nimport { motion, Variants } from \"framer-motion\";\n\n// Define the animation variants\nconst variants: Variants = {\n  fadeIn: { opacity: 0, y: 0 },\n  fadeInDown: { opacity: 0, y: -50 },\n  fadeInUp: { opacity: 0, y: 50 },\n  fadeInRight: { opacity: 0, x: -100 },\n  fadeInLeft: { opacity: 0, x: 100 },\n};\n\n// Define the transition properties\nconst transition = { duration: 1, ease: \"easeOut\", delay: 0.7 };\n\n// Extend props to include standard div attributes\ninterface MotionProps extends React.HTMLAttributes<HTMLDivElement> {\n  variant: keyof typeof variants; // Only valid keys from variants\n  children: ReactNode;\n}\n\n// Updated Motion component with layout handling\nconst Motion: React.FC<MotionProps> = ({ variant, className, children }) => {\n  return (\n    <motion.div\n      initial={variant as string} // Use the variant name directly\n      animate={{ opacity: 1, x: 0, y: 0 }}\n      variants={variants} // Pass the variants object\n      transition={transition}\n      className={className}\n    >\n      {children}\n    </motion.div>\n  );\n};\n\nexport default Motion;"
+        }
+    ]
+}

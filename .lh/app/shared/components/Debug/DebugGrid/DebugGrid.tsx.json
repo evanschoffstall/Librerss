@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/shared/components/Debug/DebugGrid/DebugGrid.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1738509531150,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1738509531150,
+            "name": "Commit-0",
+            "content": "\"use client\";\n\nimport React from \"react\";\nimport { useHotkeys } from \"react-hotkeys-hook\";\nimport { useCallback, useEffect, useState } from \"react\";\nimport \"./DebugGrid.css\";\n\nconst DebugGrid = () => {\n  const [debug, setDebug] = useState(false);\n\n  const toggle = useCallback(() => {\n    setDebug((prevDebug) => !prevDebug);\n  }, []);\n\n  useHotkeys(\"shift+g\", toggle);\n\n  useEffect(() => {\n    const gridOverlay = document.getElementById(\"debug-grid-overlay\");\n    if (gridOverlay) {\n      gridOverlay.style.display = debug ? \"block\" : \"none\";\n    }\n  }, [debug]);\n\n  if (typeof window === \"undefined\") {\n    return null;\n  }\n\n  return (\n    <div id=\"debug-grid-overlay\" className=\"debug-grid\">\n      <div\n        className=\"bg-green-500 xs:bg-red-500 sm:bg-blue-500 sm-md:bg-yellow-500 md:bg-purple-500 md-lg:bg-pink-500 lg:bg-indigo-500 lg-xl:bg-teal-500 xl:bg-gray-500 w-20 h-20 relative flex items-center justify-center\"\n        style={{ position: 'absolute', bottom: '20px', right: '20px', borderRadius: '10px' }}\n      >\n        <div className=\"absolute inset-0 bg-gradient-to-t from-transparent to-white opacity-40 rounded-lg pointer-events-none\"></div>\n        <span className=\"text-white text-3xl font-bold text-center block xs:hidden\">n/a</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden xs:block sm:hidden\">xs</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden sm:block sm-md:hidden\">sm</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden sm-md:block md:hidden\">sm-md</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden md:block md-lg:hidden\">md</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden md-lg:block lg-lx:hidden\">md-lg</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden lg-xl:block lg:hidden\">lg-xl</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden lg:block xl:hidden\">lg</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden xl:block 2xl:hidden\">xl</span>\n        <span className=\"text-white text-3xl font-bold text-center hidden 2xl:block\">2xl+</span>\n      </div>\n    </div>\n  );\n};\n\nexport default DebugGrid;"
+        }
+    ]
+}

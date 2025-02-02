@@ -1,26 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700');
+@import '@/app/globals.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 .luxury-title {
+  @apply title;
+  font-family: 'Great Vibes';
   @apply leading-none;
   @apply text-9xl sm:text-12xl lg:text-15xl;
-  font-family: 'Great Vibes';
 }
 
 .luxury-title-cap-adjusted {
   @apply luxury-title;
-  @apply text-stroke-white text-stroke-3 sm:text-stroke-5;
+  @apply text-stroke-white text-stroke-3 sm:text-stroke-3;
   @apply text-7xl sm:text-9xl lg:text-10xl;
 }
 
 .luxury-subtitle {
+  @apply title;
   @apply text-3xl sm:text-6xl lg:text-7xl;
-  font-family: 'Playfair Display';
+}
+
+.button {
+  @apply component;
 }
 
 h3 {
@@ -34,6 +39,12 @@ h4 {
 .text {
   font-size: 17px;
   font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  @apply transition-all-1;
+}
+
+.component {
+  @apply transition-all-1;
+  @apply scale-75 sm:scale-100;
 }
 
 @layer base {
@@ -41,8 +52,7 @@ h4 {
     color: rgb(var(--foreground-rgb));
   }
 
-  .luxury-title,
-  .luxury-subtitle,
+  .title,
   h1,
   h2,
   h3,
@@ -63,4 +73,13 @@ h4 {
   code {
     @apply text;
   }
+}
+
+.transition-all-1 {
+  transition: all 1.0s ease;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(2px);
 }
