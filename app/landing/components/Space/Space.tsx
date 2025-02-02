@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import "./Space.css";
 
-const MAX_PERCENTAGE = 100;
+const STAR_COUNT = 100;
 const MAX_STAR_SIZE = 3;
 const MAX_GLOW_TIME = 10;
 const MAX_TWINKLE_TIME = 15;
@@ -11,35 +11,39 @@ const MAX_TWINKLE_TIME = 15;
 const getRandomNumber = (max: number, min: number = 0) =>
   Math.random() * (max - min) + min;
 
-const generateStarStyle = () => {
-  const shouldTwinkle = Math.random() < 0.5;
-  const animation = shouldTwinkle
-    ? `glow ${getRandomNumber(MAX_GLOW_TIME, 1)}s infinite alternate-reverse,
-         twinkle ${getRandomNumber(MAX_TWINKLE_TIME, 4)}s infinite`
-    : `glow ${getRandomNumber(MAX_GLOW_TIME, 1)}s infinite alternate-reverse`;
-
-  return {
-    height: `${getRandomNumber(MAX_STAR_SIZE, 1)}px`,
-    width: `${getRandomNumber(MAX_STAR_SIZE, 1)}px`,
-    top: `${getRandomNumber(MAX_PERCENTAGE)}vh`,
-    left: `${getRandomNumber(MAX_PERCENTAGE)}vw`,
-    animation,
-    willChange: `opacity, box-shadow`,
-  };
+const generateStars = () => {
+  return Array.from({ length: STAR_COUNT }, (_, i) => ({
+    id: i,
+    size: getRandomNumber(MAX_STAR_SIZE, 1),
+    x: getRandomNumber(100),
+    y: getRandomNumber(100),
+    glowTime: getRandomNumber(MAX_GLOW_TIME, 1),
+    twinkleTime: getRandomNumber(MAX_TWINKLE_TIME, 4),
+    shouldTwinkle: Math.random() < 0.5,
+  }));
 };
 
-const Star = React.memo(() => {
-  const style = generateStarStyle();
-  return <div className={`star`} style={style} />;
-});
-Star.displayName = "Star";
-
 const Space: React.FC = () => {
-  const stars = useMemo(
-    () => Array.from({ length: 100 }, (_, i) => <Star key={i} />),
-    []
+  const stars = useMemo(generateStars, []);
+
+  return (
+    <div className="space">
+      {stars.map(({ id, size, x, y, glowTime, twinkleTime, shouldTwinkle }) => (
+        <div
+          key={id}
+          className="star"
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            transform: `translate(${x}vw, ${y}vh)`,
+            animation: shouldTwinkle
+              ? `glow ${glowTime}s infinite alternate-reverse, twinkle ${twinkleTime}s infinite`
+              : `glow ${glowTime}s infinite alternate-reverse`,
+          }}
+        />
+      ))}
+    </div>
   );
-  return <div className="space">{stars}</div>;
 };
 
 export default Space;

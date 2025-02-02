@@ -11,16 +11,18 @@
   position: absolute;
   background: white;
   border-radius: 50%;
-  will-change: opacity, box-shadow;
+  will-change: opacity, box-shadow, transform;
 }
 
 @keyframes twinkle {
   0% {
     opacity: 0;
   }
+
   50% {
     opacity: 1;
   }
+
   100% {
     opacity: 0;
   }
@@ -30,9 +32,11 @@
   0% {
     box-shadow: 0 0 0px 0px rgba(255, 255, 255, 0);
   }
+
   50% {
     box-shadow: 0 0 10px 5px rgba(255, 255, 255, 0.1);
   }
+
   100% {
     box-shadow: 0 0 0px 0px rgba(255, 255, 255, 0);
   }
