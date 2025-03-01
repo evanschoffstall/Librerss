@@ -18,14 +18,14 @@ export default function App({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <>
       {process.env.NODE_ENV === "development" && (
         <>
           <DebugBorder />
           <DebugGrid />
         </>
       )}
-      <body className={inter.className}>{children}</body>
-    </html>
+      <div className={inter.className}>{children}</div>
+    </>
   );
 }

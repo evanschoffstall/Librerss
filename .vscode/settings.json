@@ -8,7 +8,17 @@
     "**/Thumbs.db": true,
     ".lh": true,
     ".vscode": true,
-    "node_modules": true
+    "node_modules": true,
+    "next-env.d.ts": true,
+    "bun.lock": true,
+    ".next": true
   },
-  "hide-files.files": [".lh", ".vscode", "node_modules"]
+  "hide-files.files": [
+    ".lh",
+    ".vscode",
+    "node_modules",
+    "next-env.d.ts",
+    "bun.lock",
+    ".next"
+  ]
 }

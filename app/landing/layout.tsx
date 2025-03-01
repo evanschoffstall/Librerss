@@ -20,7 +20,7 @@ export default function Landing({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <>
       {
         process.env.NODE_ENV === "development" && (
           <>
@@ -29,7 +29,7 @@ export default function Landing({
           </>
         )
       }
-      <body className={inter.className}>
+      <div className={inter.className}>
         <Space />
         <div className="glass">
           <Menubar />
@@ -39,7 +39,7 @@ export default function Landing({
             </main>
           </div>
         </div>
-      </body>
-    </html>
+      </div>
+    </>
   );
 }
