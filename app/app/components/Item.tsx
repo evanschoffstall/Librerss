@@ -1,7 +1,7 @@
 "use client";
 
-import "tailwindcss/tailwind.css";
 import React from "react";
+import "tailwindcss/tailwind.css";
 export interface ItemProps {
   title?: string;
   link?: string;

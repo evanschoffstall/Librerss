@@ -1,29 +1,26 @@
 "use client";
 
-import React from "react";
-import { useEffect, useState } from "react";
 import axios from "axios";
+import { useEffect, useState } from "react";
 import { Item, ItemProps } from "./components/Item";
 
 export default function Home() {
-  // Step 2: Initialize feed as an empty array
   const [feed, setFeed] = useState<ItemProps[]>([]);
+  const feedUrl = "https://feeds.bbci.co.uk/news/world/rss.xml"; // Example feed URL
 
   useEffect(() => {
     const fetchFeed = async () => {
-      const response = await axios.get("/api/feed");
-      // Step 3: Validate API response
+      const response = await axios.get(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
       if (Array.isArray(response.data)) {
         setFeed(response.data);
       } else {
         console.error("API response is not an array:", response.data);
-        // Optionally set feed to an empty array or handle differently
         setFeed([]);
       }
     };
 
     fetchFeed();
-  }, []);
+  }, [feedUrl]);
 
   return (
     <div className="container mx-auto px-4">
