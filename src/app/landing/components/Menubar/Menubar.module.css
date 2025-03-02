@@ -4,12 +4,10 @@
   align-items: center;
   color: #fff;
   backdrop-filter: blur(3px);
-  background: linear-gradient(
-    to right bottom,
-    rgba(0, 0, 0, 0.3),
-    rgba(16, 16, 18, 0.1),
-    rgba(0, 0, 0, 0.3)
-  );
+  background: linear-gradient(to right bottom,
+      rgba(0, 0, 0, 0.3),
+      rgba(16, 16, 18, 0.1),
+      rgba(0, 0, 0, 0.3));
   position: fixed;
   width: 100%;
 }

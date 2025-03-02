@@ -1,7 +1,7 @@
 "use client";
 
-import { useHotkeys } from "react-hotkeys-hook";
 import { useCallback } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import "./DebugBorder.css";
 
 const DebugBorder = () => {

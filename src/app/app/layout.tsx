@@ -1,9 +1,8 @@
-import DebugBorder from "@/app/shared/components/Debug/DebugBorder/DebugBorder";
-import DebugGrid from "@/app/shared/components/Debug/DebugGrid/DebugGrid";
+import DebugBorder from "@/src/app/shared/components/Debug/DebugBorder/DebugBorder";
+import DebugGrid from "@/src/app/shared/components/Debug/DebugGrid/DebugGrid";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "primeicons/primeicons.css";
-import { Button } from "primereact/button";
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/saga-blue/theme.css";
 import React from "react";

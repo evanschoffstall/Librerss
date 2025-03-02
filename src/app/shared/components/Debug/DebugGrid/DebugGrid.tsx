@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { useCallback, useEffect, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import "./DebugGrid.css";
 
 const DebugGrid = () => {
