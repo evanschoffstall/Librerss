@@ -2,7 +2,7 @@ import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import "primereact/resources/themes/md-dark-deeppurple/theme.css";
 import { useState } from "react";
-import CategoryTree from "./components/CategoryTree";
+import TreeView from "../components/FeedView/TreeView";
 
 export default function Settings() {
   const [categories, setCategories] = useState([
@@ -45,7 +45,7 @@ export default function Settings() {
         <InputText value={newFeedUrl} onChange={(e) => setNewFeedUrl(e.target.value)} className="mt-1 block w-full" />
         <Button label="Add" icon="pi pi-plus" onClick={addFeed} className="mt-2" />
       </div>
-      <CategoryTree categories={categories} expandedKeys={{}} />
+      <TreeView categories={categories} expandedKeys={{}} />
       {/* Manage user account here */}
     </section>
   );

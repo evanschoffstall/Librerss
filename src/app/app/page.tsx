@@ -1,12 +1,9 @@
 "use client";
 import axios from "axios";
-import { DataView } from "primereact/dataview";
-import "primereact/resources/themes/md-dark-deeppurple/theme.css";
 import { useEffect, useState } from "react";
-import ButtonBar from "./components/ButtonBar";
-import CategoryTree from "./components/CategoryTree";
-import FeedItem from "./components/FeedItem";
-import "./primereact-custom.css";
+import ButtonBar from "./components/FeedView/ButtonBar";
+import ItemView from "./components/FeedView/ItemView";
+import TreeView from "./components/FeedView/TreeView";
 
 export default function Home() {
   const [feed, setFeed] = useState<any[]>([]);
@@ -42,11 +39,9 @@ export default function Home() {
       <ButtonBar onRefresh={fetchFeed} />
       <div className="md:flex">
         <div className="md:w-1/4 md:h-full flex flex-col">
-          <CategoryTree categories={categories} expandedKeys={expandedKeys} />
+          <TreeView categories={categories} expandedKeys={expandedKeys} />
         </div>
-        <div className="md:w-3/4">
-          <DataView value={feed} itemTemplate={(item) => <FeedItem item={item} />} layout="list" />
-        </div>
+        <ItemView feed={feed} />
       </div>
     </div>
   );

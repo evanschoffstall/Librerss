@@ -1,4 +1,12 @@
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 export default function Home() {
-  return <p>Should not see</p>;
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push('/landing');
+  }, [router]);
+
+  return null;
 }
