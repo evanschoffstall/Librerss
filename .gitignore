@@ -45,3 +45,6 @@ next-env.d.ts
 
 # .lh
 .lh
+
+# prisma
+/prisma/migrations

@@ -19,6 +19,8 @@
     "axios": "^1.8.1",
     "next": "15.1.6",
     "pg": "^8.13.3",
+    "primeicons": "^7.0.0",
+    "primereact": "^10.9.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hotkeys-hook": "^4.6.1",

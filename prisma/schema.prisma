@@ -1,30 +1,31 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("SUPABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider     = "postgresql"
+  url          = env("SUPABASE_URL")
+  directUrl    = env("SUPABASE_DIRECT_URL")
+  relationMode = "prisma"
+}
+
 model Feed {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  url         String
-  last_fetched DateTime @default(dbgenerated("now() - interval '1 day'"))
-  articles    Article[]
-  categories  FeedCategory[]
+  id           Int            @id @default(autoincrement())
+  url          String         @unique
+  last_fetched DateTime       @default(dbgenerated("(now() - '1 day'::interval)"))
+  articles     Article[]
+  categories   FeedCategory[]
 }
 
 model Article {
-  id              Int      @id @default(autoincrement())
-  title           String
-  link            String   @unique
+  id               Int      @id @default(autoincrement())
+  title            String
+  link             String   @unique
   publication_date DateTime
-  content         String
-  feed_id         Int
-  feed            Feed     @relation(fields: [feed_id], references: [id])
-  last_checked    DateTime @default(now())
+  content          String
+  feed_id          Int
+  last_checked     DateTime @default(now())
+  feed             Feed     @relation(fields: [feed_id], references: [id])
 }
 
 model FeedSource {
@@ -36,10 +37,6 @@ model FeedSource {
 model FeedCategory {
   id       Int    @id @default(autoincrement())
   feed_id  Int
-  feed     Feed   @relation(fields: [feed_id], references: [id])
   category String
+  feed     Feed   @relation(fields: [feed_id], references: [id])
 }
-
-@@index([url], name: "idx_feed_url")
-@@index([link], name: "idx_article_link")
-@@index([feed_id], name: "idx_article_feed_id")

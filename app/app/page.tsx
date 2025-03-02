@@ -1,42 +1,53 @@
 "use client";
-
 import axios from "axios";
+import { DataView } from "primereact/dataview";
+import "primereact/resources/themes/md-dark-deeppurple/theme.css";
 import { useEffect, useState } from "react";
-import { Item, ItemProps } from "./components/Item";
+import ButtonBar from "./components/ButtonBar";
+import CategoryTree from "./components/CategoryTree";
+import FeedItem from "./components/FeedItem";
+import "./primereact-custom.css";
 
 export default function Home() {
-  const [feed, setFeed] = useState<ItemProps[]>([]);
-  const feedUrl = "https://feeds.bbci.co.uk/news/world/rss.xml"; // Example feed URL
+  const [feed, setFeed] = useState<any[]>([]);
+  const feedUrl = "https://feeds.bbci.co.uk/news/world/rss.xml";
+  const [categories] = useState([
+    {
+      key: "0",
+      label: "Categories",
+      children: [
+        {
+          key: "0-0",
+          label: "World News",
+          data: { url: feedUrl },
+        },
+      ],
+    },
+  ]);
+  const [expandedKeys] = useState<Record<string, boolean>>({});
+
+  const fetchFeed = async () => {
+    const response = await axios.get(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
+    if (Array.isArray(response.data)) setFeed(response.data);
+    else setFeed([]);
+  };
 
   useEffect(() => {
-    const fetchFeed = async () => {
-      const response = await axios.get(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
-      if (Array.isArray(response.data)) {
-        setFeed(response.data);
-      } else {
-        console.error("API response is not an array:", response.data);
-        setFeed([]);
-      }
-    };
-
     fetchFeed();
   }, [feedUrl]);
 
   return (
     <div className="container mx-auto px-4">
       <h1 className="text-4xl font-bold mb-4">LibreRSS</h1>
-      {feed.length > 0 ? (
-        feed.map((item, index) => (
-          <Item
-            key={index}
-            title={item.title}
-            link={item.link}
-            content={item.content}
-          />
-        ))
-      ) : (
-        <p>Loading...</p>
-      )}
+      <ButtonBar onRefresh={fetchFeed} />
+      <div className="md:flex">
+        <div className="md:w-1/4 md:h-full flex flex-col">
+          <CategoryTree categories={categories} expandedKeys={expandedKeys} />
+        </div>
+        <div className="md:w-3/4">
+          <DataView value={feed} itemTemplate={(item) => <FeedItem item={item} />} layout="list" />
+        </div>
+      </div>
     </div>
   );
 }

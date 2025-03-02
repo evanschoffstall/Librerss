@@ -1,0 +1,16 @@
+:root {
+  --text-color: rgb(var(--foreground-rgb));
+}
+
+.p-button {
+  color: var(--text-color);
+}
+
+.p-tree .p-tree-container,
+.p-dataview .p-dataview-content {
+  color: var(--text-color);
+}
+
+.p-tree {
+  height: 100%;
+}
