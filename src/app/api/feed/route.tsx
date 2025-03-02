@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
             last_checked: new Date(),
           },
           create: {
-            title,
-            link,
+            title: title as string,
+            link: link as string,
             publication_date: isoDate ? new Date(isoDate) : new Date(),
-            content,
+            content: content as string,
             feed: { connect: { id: feed ? feed.id : undefined } },
             last_checked: new Date(),
           },
