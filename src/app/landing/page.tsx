@@ -1,7 +1,8 @@
 "use client";
 
 import { DebugBorder, DebugGrid, Menubar, Space } from "@/src/components";
-import { ENV, LANDING_CONTENT, multiLine } from "@/src/lib";
+import { ENV, multiLine } from "@/src/lib";
+import { LANDING_CONTENT } from "./constants";
 
 // Main Landing Component
 const LandingView = () => {
@@ -76,28 +77,22 @@ const LandingView = () => {
         </div>
       </div>
 
-      {/* Features Grid */}
-      <div id="features" className="max-w-4xl mx-auto mb-32 pt-16">
+      {/* About Section */}
+      <div id="about" className="max-w-4xl mx-auto mb-32 pt-16">
         <div className="text-center mb-16">
-          <h3 className="section-header">{sections.features.title}</h3>
-          <p className="text-lg text-gray-400 max-w-2xl mx-auto">{sections.features.subtitle}</p>
+          <h3 className="section-header">{LANDING_CONTENT.sections.about.title}</h3>
+          <p className="text-lg text-gray-400 max-w-2xl mx-auto">{LANDING_CONTENT.sections.about.subtitle}</p>
+          <div className="w-24 h-1 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto mt-4"></div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Feature Highlights */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {features.map((feature, index) => (
             <div key={feature} className="group feature-card" style={{ animationDelay: `${index * 100}ms` }}>
               <h3 className="text-xl font-semibold text-white mb-4 group-hover:text-blue-200 transition-colors duration-300">{feature}</h3>
               <div className="w-16 h-1 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto rounded-full group-hover:w-24 transition-all duration-300"></div>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* About Section */}
-      <div id="about" className="max-w-4xl mx-auto mb-32 pt-16">
-        <div className="text-center mb-16">
-          <h3 className="section-header">{LANDING_CONTENT.sections.about.title}</h3>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto"></div>
         </div>
 
         {/* Description Content */}

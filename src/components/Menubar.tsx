@@ -1,4 +1,4 @@
-import { MENU_ITEMS } from "@/src/lib";
+import { MENU_ITEMS } from "@/src/app/landing/constants";
 import "@/src/styles/components.css";
 import Image from "next/image";
 import Link from "next/link";

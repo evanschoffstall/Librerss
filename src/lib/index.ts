@@ -8,7 +8,7 @@ export type {
 
 export {
   API_CONSTANTS,
-  ENV, LANDING_CONTENT, MENU_ITEMS, SPACE_CONSTANTS
+  ENV, SPACE_CONSTANTS
 } from "./core/constants";
 
 export {

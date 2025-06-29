@@ -157,6 +157,9 @@
       rgba(0, 0, 0, 0.3));
   position: fixed;
   width: 100%;
+  z-index: 1000;
+  top: 0;
+  left: 0;
 }
 
 .menu-bar-items {
@@ -165,6 +168,8 @@
   padding: 3px;
   justify-content: center;
   align-items: center;
+  position: relative;
+  z-index: 1001;
 }
 
 .menu-button {
@@ -177,6 +182,8 @@
   background: none;
   font-family: inherit;
   font-size: inherit;
+  position: relative;
+  z-index: 1001;
 }
 
 .menu-button:hover {
