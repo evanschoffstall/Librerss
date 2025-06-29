@@ -1,21 +1,18 @@
 "use client";
 
+import { SPACE_CONSTANTS } from "@/src/constants";
+import { getRandomNumber } from "@/src/lib/utils";
+import type { StarStyle } from "@/src/types";
 import React, { useEffect, useMemo, useState } from "react";
 import "./Space.css";
 
-const MAX_PERCENTAGE = 100;
-const MAX_STAR_SIZE = 3;
-const MAX_GLOW_TIME = 10;
-const MAX_TWINKLE_TIME = 15;
-
-const getRandomNumber = (max: number, min: number = 0) =>
-  Math.random() * (max - min) + min;
-
-const generateStarStyle = () => {
+const generateStarStyle = (): StarStyle => {
+  const { MAX_PERCENTAGE, MAX_STAR_SIZE, MAX_GLOW_TIME, MAX_TWINKLE_TIME } = SPACE_CONSTANTS;
   const shouldTwinkle = Math.random() < 0.5;
+
   const animation = shouldTwinkle
     ? `glow ${getRandomNumber(MAX_GLOW_TIME, 1)}s infinite alternate-reverse,
-         twinkle ${getRandomNumber(MAX_TWINKLE_TIME, 4)}s infinite`
+       twinkle ${getRandomNumber(MAX_TWINKLE_TIME, 4)}s infinite`
     : `glow ${getRandomNumber(MAX_GLOW_TIME, 1)}s infinite alternate-reverse`;
 
   return {
@@ -24,23 +21,29 @@ const generateStarStyle = () => {
     top: `${getRandomNumber(MAX_PERCENTAGE)}vh`,
     left: `${getRandomNumber(MAX_PERCENTAGE)}vw`,
     animation,
-    willChange: `opacity, box-shadow`,
+    willChange: "opacity, box-shadow",
   };
 };
 
-const Star = React.memo(({ starData }: { starData: any }) => {
-  return <div className={`star`} style={starData} />;
+interface StarProps {
+  starData: StarStyle;
+}
+
+const Star = React.memo<StarProps>(({ starData }) => {
+  return <div className="star" style={starData} />;
 });
 Star.displayName = "Star";
 
 const Space: React.FC = () => {
   const [isClient, setIsClient] = useState(false);
-  const [starData, setStarData] = useState<any[]>([]);
+  const [starData, setStarData] = useState<StarStyle[]>([]);
 
   useEffect(() => {
     setIsClient(true);
     // Generate star data on client side only
-    setStarData(Array.from({ length: 100 }, () => generateStarStyle()));
+    setStarData(
+      Array.from({ length: SPACE_CONSTANTS.STAR_COUNT }, () => generateStarStyle())
+    );
   }, []);
 
   const stars = useMemo(

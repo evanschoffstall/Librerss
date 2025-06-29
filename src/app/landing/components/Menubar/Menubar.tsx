@@ -1,3 +1,4 @@
+import { MENU_ITEMS } from "@/src/constants";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
@@ -16,15 +17,11 @@ const MenuBar: React.FC = () => {
       />
 
       <div className={styles.menuBarItems}>
-        <Link href="/" className={styles.menuButton}>
-          Home
-        </Link>
-        <Link href="/about" className={styles.menuButton}>
-          About
-        </Link>
-        <Link href="/contact" className={styles.menuButton}>
-          Contact
-        </Link>
+        {MENU_ITEMS.map(({ href, label }) => (
+          <Link key={href} href={href} className={styles.menuButton}>
+            {label}
+          </Link>
+        ))}
       </div>
     </div>
   );

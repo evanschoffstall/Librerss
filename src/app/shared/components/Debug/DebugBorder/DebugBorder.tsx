@@ -1,22 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useDebugState } from "@/src/hooks";
+import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import "./DebugBorder.css";
 
 const DebugBorder = () => {
-  const [debug, setDebug] = useState(false);
-  const [isClient, setIsClient] = useState(false);
+  const { debug, toggleDebug, isClient } = useDebugState();
 
-  const toggle = useCallback(() => {
-    setDebug((prevDebug) => !prevDebug);
-  }, []);
-
-  useHotkeys("shift+d", toggle);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useHotkeys("shift+d", toggleDebug);
 
   useEffect(() => {
     if (isClient) {

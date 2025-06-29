@@ -1,15 +1,37 @@
+import type { Article } from "@/src/types";
 import { DataView } from "primereact/dataview";
 import React from "react";
-import Item from "./Item";
+import FeedItem from "./Item";
 
 interface ItemViewProps {
-  feed: any[];
+  feed: Article[];
+  loading?: boolean;
 }
 
-const ItemView: React.FC<ItemViewProps> = ({ feed }) => {
+const ItemView: React.FC<ItemViewProps> = ({ feed, loading = false }) => {
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading articles...</div>
+      </div>
+    );
+  }
+
+  if (feed.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg text-gray-500">No articles found</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="md:w-3/4">
-      <DataView value={feed} itemTemplate={(item) => <Item item={item} />} layout="list" />
+    <div className="w-full">
+      <DataView
+        value={feed}
+        itemTemplate={(item) => <FeedItem item={item} />}
+        layout="list"
+      />
     </div>
   );
 };

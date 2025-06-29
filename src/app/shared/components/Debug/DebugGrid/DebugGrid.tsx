@@ -1,22 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useDebugState } from "@/src/hooks";
+import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import "./DebugGrid.css";
 
 const DebugGrid = () => {
-  const [debug, setDebug] = useState(false);
-  const [isClient, setIsClient] = useState(false);
+  const { debug, toggleDebug, isClient } = useDebugState();
 
-  const toggle = useCallback(() => {
-    setDebug((prevDebug) => !prevDebug);
-  }, []);
-
-  useHotkeys("shift+g", toggle);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useHotkeys("shift+g", toggleDebug);
 
   useEffect(() => {
     if (isClient) {
@@ -27,7 +19,13 @@ const DebugGrid = () => {
     }
   }, [debug, isClient]);
 
-  return <div id="debug-grid-overlay" className="debug-grid" style={{ display: !isClient ? "none" : undefined }}></div>;
+  return (
+    <div
+      id="debug-grid-overlay"
+      className="debug-grid"
+      style={{ display: !isClient ? "none" : undefined }}
+    />
+  );
 };
 
 export default DebugGrid;

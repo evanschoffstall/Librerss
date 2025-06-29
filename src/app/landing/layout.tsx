@@ -1,5 +1,6 @@
 import DebugBorder from "@/src/app/shared/components/Debug/DebugBorder/DebugBorder";
 import DebugGrid from "@/src/app/shared/components/Debug/DebugGrid/DebugGrid";
+import { ENV } from "@/src/constants";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import React from "react";
@@ -19,11 +20,9 @@ export default function Landing({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isDevelopment = process.env.NODE_ENV === "development";
-
   return (
     <>
-      {isDevelopment && (
+      {ENV.isDevelopment && (
         <>
           <DebugBorder />
           <DebugGrid />

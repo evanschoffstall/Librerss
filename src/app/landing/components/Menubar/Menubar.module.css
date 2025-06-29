@@ -20,11 +20,8 @@
   align-items: center;
 }
 
-.menuBar button,
 .menuButton {
-  padding: 10px;
-  padding-left: 25px;
-  padding-right: 25px;
+  padding: 10px 25px;
   cursor: pointer;
   transition: background-color 0.6s ease, font-weight 0.6s ease;
   text-decoration: none;
@@ -35,7 +32,6 @@
   font-size: inherit;
 }
 
-.menuBar button:hover,
 .menuButton:hover {
   background-color: #101012;
   font-weight: bold;
