@@ -1,7 +1,7 @@
 "use client";
 
 import { DebugBorder, DebugGrid, Menubar, Space } from "@/src/components";
-import { ENV, LANDING_CONTENT } from "@/src/shared";
+import { ENV, LANDING_CONTENT } from "@/src/lib";
 import { useSearchParams } from "next/navigation";
 import React from "react";
 

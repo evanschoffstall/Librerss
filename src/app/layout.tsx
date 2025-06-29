@@ -1,5 +1,5 @@
 import { DebugBorder, DebugGrid } from "@/src/components";
-import { ENV } from "@/src/shared";
+import { ENV } from "@/src/lib";
 import "@/src/styles/components.css";
 import "@/src/styles/dashboard.css";
 import "@/src/styles/landing.css";

@@ -1,4 +1,4 @@
-import type { Article, CategoryTreeNode } from "@/src/shared";
+import type { Article, CategoryTreeNode } from "@/src/lib";
 import { Button } from "primereact/button";
 import { DataView } from "primereact/dataview";
 import { Tree } from "primereact/tree";

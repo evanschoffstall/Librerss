@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonBar, ItemView, TreeView } from "@/src/components";
-import { FeedService, isValidUrl, type Article, type CategoryTreeNode } from "@/src/shared";
+import { FeedService, isValidUrl, type Article, type CategoryTreeNode } from "@/src/lib";
 import { useSearchParams } from "next/navigation";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";

@@ -1,4 +1,4 @@
-import { prisma } from "@/src/utils/prisma-client";
+import { prisma } from "@/src/lib/prisma";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import Parser from "rss-parser";

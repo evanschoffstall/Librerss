@@ -141,7 +141,7 @@ export class FeedService {
 
   static async getFeed(url: string): Promise<Article[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/feed?url=${encodeURIComponent(url)}`);
+      const response = await axios.get(`${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`);
       if (!Array.isArray(response.data)) throw new Error("Invalid response format");
       return response.data;
     } catch (error) {
@@ -152,7 +152,7 @@ export class FeedService {
 
   static async createFeed(feedData: Partial<Feed>): Promise<Feed> {
     try {
-      const response = await axios.post(`${this.baseUrl}/feed`, feedData);
+      const response = await axios.post(`${this.baseUrl}/feeds`, feedData);
       return response.data;
     } catch (error) {
       console.error("Error creating feed:", error);
@@ -162,7 +162,7 @@ export class FeedService {
 
   static async updateFeed(id: number, feedData: Partial<Feed>): Promise<Feed> {
     try {
-      const response = await axios.put(`${this.baseUrl}/feed/${id}`, feedData);
+      const response = await axios.put(`${this.baseUrl}/feeds/${id}`, feedData);
       return response.data;
     } catch (error) {
       console.error("Error updating feed:", error);
@@ -172,7 +172,7 @@ export class FeedService {
 
   static async deleteFeed(id: number): Promise<void> {
     try {
-      await axios.delete(`${this.baseUrl}/feed/${id}`);
+      await axios.delete(`${this.baseUrl}/feeds/${id}`);
     } catch (error) {
       console.error("Error deleting feed:", error);
       throw error;
@@ -185,7 +185,7 @@ export class ArticleService {
 
   static async getArticles(): Promise<Article[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/article`);
+      const response = await axios.get(`${this.baseUrl}/articles`);
       return response.data;
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -195,7 +195,7 @@ export class ArticleService {
 
   static async getArticle(id: number): Promise<Article> {
     try {
-      const response = await axios.get(`${this.baseUrl}/article/${id}`);
+      const response = await axios.get(`${this.baseUrl}/articles/${id}`);
       return response.data;
     } catch (error) {
       console.error("Error fetching article:", error);

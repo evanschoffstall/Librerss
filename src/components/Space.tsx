@@ -1,6 +1,6 @@
 "use client";
 
-import { SPACE_CONSTANTS, getRandomNumber, type StarStyle } from "@/src/shared";
+import { SPACE_CONSTANTS, getRandomNumber, type StarStyle } from "@/src/lib";
 import "@/src/styles/components.css";
 import React, { useEffect, useMemo, useState } from "react";
 
