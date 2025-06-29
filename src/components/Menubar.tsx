@@ -1,8 +1,8 @@
 import { MENU_ITEMS } from "@/src/shared";
+import "@/src/styles/components.css";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
-import "@/src/styles/components.css";
 
 export const Menubar: React.FC = () => (
   <div className="menu-bar">

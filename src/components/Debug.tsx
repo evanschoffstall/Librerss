@@ -1,9 +1,9 @@
 "use client";
 
 import { useDebugState } from "@/src/shared/clientHooks";
+import "@/src/styles/components.css";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import "@/src/styles/components.css";
 
 export const DebugBorder = () => {
   const { debug, toggleDebug, isClient } = useDebugState();
