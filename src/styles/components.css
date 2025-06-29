@@ -68,4 +68,83 @@
     /* Red vertical grid */
     repeat;
   /* Red horizontal grid */
+}.space {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(to right bottom, #000000, #101012, #000000);
+  overflow: hidden;
+  z-index: -1;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  will-change: opacity, box-shadow;
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 0px 0px rgba(255, 255, 255, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 10px 5px rgba(255, 255, 255, 0.1);
+  }
+
+  100% {
+    box-shadow: 0 0 0px 0px rgba(255, 255, 255, 0);
+  }
+}.menu-bar {
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  color: #fff;
+  backdrop-filter: blur(3px);
+  background: linear-gradient(to right bottom,
+      rgba(0, 0, 0, 0.3),
+      rgba(16, 16, 18, 0.1),
+      rgba(0, 0, 0, 0.3));
+  position: fixed;
+  width: 100%;
+}
+
+.menu-bar-items {
+  display: flex;
+  width: 100%;
+  padding: 3px;
+  justify-content: center;
+  align-items: center;
+}
+
+.menu-button {
+  padding: 10px 25px;
+  cursor: pointer;
+  transition: background-color 0.6s ease, font-weight 0.6s ease;
+  text-decoration: none;
+  color: inherit;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.menu-button:hover {
+  background-color: #101012;
+  font-weight: bold;
 }

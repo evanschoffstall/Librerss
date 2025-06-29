@@ -69,9 +69,10 @@ export const ENV = {
 
 // Navigation menu items
 export const MENU_ITEMS = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/landing", label: "Home" },
+  { href: "/landing/about", label: "About" },
+  { href: "/landing/contact", label: "Contact" },
 ] as const;
 
 // Landing page content

@@ -3,7 +3,7 @@
 import { useDebugState } from "@/src/shared/clientHooks";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import "./Debug.css";
+import "@/src/styles/components.css";
 
 export const DebugBorder = () => {
   const { debug, toggleDebug, isClient } = useDebugState();

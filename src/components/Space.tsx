@@ -2,7 +2,7 @@
 
 import { SPACE_CONSTANTS, getRandomNumber, type StarStyle } from "@/src/shared";
 import React, { useEffect, useMemo, useState } from "react";
-import "./Space.css";
+import "@/src/styles/components.css";
 
 const generateStarStyle = (): StarStyle => {
   const { MAX_PERCENTAGE, MAX_STAR_SIZE, MAX_GLOW_TIME, MAX_TWINKLE_TIME } = SPACE_CONSTANTS;

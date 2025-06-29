@@ -3,7 +3,7 @@ import { ENV } from "@/src/shared";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import React from "react";
-import "./landing.css";
+import "@/src/styles/landing.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
