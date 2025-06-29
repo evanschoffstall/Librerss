@@ -6,6 +6,7 @@ import "./DebugGrid.css";
 
 const DebugGrid = () => {
   const [debug, setDebug] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   const toggle = useCallback(() => {
     setDebug((prevDebug) => !prevDebug);
@@ -14,17 +15,19 @@ const DebugGrid = () => {
   useHotkeys("shift+g", toggle);
 
   useEffect(() => {
-    const gridOverlay = document.getElementById("debug-grid-overlay");
-    if (gridOverlay) {
-      gridOverlay.style.display = debug ? "block" : "none";
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      const gridOverlay = document.getElementById("debug-grid-overlay");
+      if (gridOverlay) {
+        gridOverlay.style.display = debug ? "block" : "none";
+      }
     }
-  }, [debug]);
+  }, [debug, isClient]);
 
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return <div id="debug-grid-overlay" className="debug-grid"></div>;
+  return <div id="debug-grid-overlay" className="debug-grid" style={{ display: !isClient ? "none" : undefined }}></div>;
 };
 
 export default DebugGrid;
