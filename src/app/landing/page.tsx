@@ -25,10 +25,8 @@ const LandingView = () => {
       <div className="text-center pt-24 pb-32">
         {/* Main Title with Enhanced Typography */}
         <div className="mb-12 px-4">
-          <div className="hero-title text-center">
-            <h1 className="mb-2">{title.main}</h1>
-            <h2>{title.secondary}</h2>
-          </div>
+          <h1 className="hero-title mb-2 text-center">{title.main}</h1>
+          <h2 className="hero-title text-center">{title.secondary}</h2>
         </div>
 
         {/* Subtitle with Better Visual Treatment */}
