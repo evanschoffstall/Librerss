@@ -2,6 +2,7 @@
 
 import { DebugBorder, DebugGrid, Menubar, Space } from "@/src/components";
 import { ENV, LANDING_CONTENT } from "@/src/lib";
+import { multiLine } from "@/src/lib/textUtils";
 import { useSearchParams } from "next/navigation";
 import React from "react";
 
@@ -54,12 +55,7 @@ const LandingView = () => {
       <p className="luxury-title-cap-adjusted mb-16">{title.secondary}</p>
 
       <div className="luxury-subtitle mb-24">
-        {subtitle.split(" ").map((word, index, array) => (
-          <React.Fragment key={word}>
-            {word}
-            {index < array.length - 1 && <br />}
-          </React.Fragment>
-        ))}
+        {multiLine(subtitle, 3, 2)}
       </div>
 
       <h3 className="py-2 mb-16">
@@ -104,15 +100,13 @@ export default function Landing() {
           <DebugGrid />
         </>
       )}
-      <div>
-        <Space />
-        <div className="glass">
-          <Menubar />
-          <div style={{ overflow: "auto", height: "100vh" }}>
-            <main className="m-10">
-              <div className="m-5 pt-10">{content}</div>
-            </main>
-          </div>
+      <Space />
+      <div className="glass" style={{ display: "flex", flexDirection: "column" }}>
+        <Menubar />
+        <div style={{ flex: 1, overflow: "auto", overscrollBehavior: "contain" }}>
+          <main className="m-10">
+            <div className="m-5 pt-10">{content}</div>
+          </main>
         </div>
       </div>
     </>
