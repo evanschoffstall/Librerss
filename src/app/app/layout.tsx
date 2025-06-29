@@ -1,6 +1,5 @@
-import DebugBorder from "@/src/app/shared/components/Debug/DebugBorder/DebugBorder";
-import DebugGrid from "@/src/app/shared/components/Debug/DebugGrid/DebugGrid";
-import { ENV } from "@/src/constants";
+import { DebugBorder, DebugGrid } from "@/src/components";
+import { ENV } from "@/src/shared";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "primeicons/primeicons.css";

@@ -1,12 +1,11 @@
 "use client";
 
-import { isValidUrl } from "@/src/lib/utils";
-import type { CategoryTreeNode } from "@/src/types";
+import { TreeView } from "@/src/components";
+import { isValidUrl, type CategoryTreeNode } from "@/src/shared";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import "primereact/resources/themes/md-dark-deeppurple/theme.css";
 import { useRef, useState } from "react";
-import TreeView from "../components/FeedView/TreeView";
 
 const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   {

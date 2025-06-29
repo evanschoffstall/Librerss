@@ -1,8 +1,6 @@
 "use client";
 
-import { SPACE_CONSTANTS } from "@/src/constants";
-import { getRandomNumber } from "@/src/lib/utils";
-import type { StarStyle } from "@/src/types";
+import { SPACE_CONSTANTS, getRandomNumber, type StarStyle } from "@/src/shared";
 import React, { useEffect, useMemo, useState } from "react";
 import "./Space.css";
 
@@ -25,25 +23,18 @@ const generateStarStyle = (): StarStyle => {
   };
 };
 
-interface StarProps {
-  starData: StarStyle;
-}
-
-const Star = React.memo<StarProps>(({ starData }) => {
-  return <div className="star" style={starData} />;
-});
+const Star = React.memo<{ starData: StarStyle }>(({ starData }) => (
+  <div className="star" style={starData} />
+));
 Star.displayName = "Star";
 
-const Space: React.FC = () => {
+export const Space: React.FC = () => {
   const [isClient, setIsClient] = useState(false);
   const [starData, setStarData] = useState<StarStyle[]>([]);
 
   useEffect(() => {
     setIsClient(true);
-    // Generate star data on client side only
-    setStarData(
-      Array.from({ length: SPACE_CONSTANTS.STAR_COUNT }, () => generateStarStyle())
-    );
+    setStarData(Array.from({ length: SPACE_CONSTANTS.STAR_COUNT }, () => generateStarStyle()));
   }, []);
 
   const stars = useMemo(
@@ -51,12 +42,5 @@ const Space: React.FC = () => {
     [starData]
   );
 
-  if (!isClient) {
-    // Return empty div with same structure on server
-    return <div className="space"></div>;
-  }
-
-  return <div className="space">{stars}</div>;
+  return <div className="space">{isClient ? stars : null}</div>;
 };
-
-export default Space;

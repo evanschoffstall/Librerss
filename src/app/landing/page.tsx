@@ -1,6 +1,6 @@
 "use client";
 
-import { LANDING_CONTENT } from "@/src/constants/content";
+import { LANDING_CONTENT } from "@/src/shared";
 import React from "react";
 
 export default function Landing() {

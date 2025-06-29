@@ -1,11 +1,25 @@
 "use client";
 
-import { useDebugState } from "@/src/hooks";
+import { useDebugState } from "@/src/shared/clientHooks";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import "./DebugGrid.css";
+import "./Debug.css";
 
-const DebugGrid = () => {
+export const DebugBorder = () => {
+  const { debug, toggleDebug, isClient } = useDebugState();
+
+  useHotkeys("shift+d", toggleDebug);
+
+  useEffect(() => {
+    if (isClient) {
+      document.body.classList.toggle("debug-border", debug);
+    }
+  }, [debug, isClient]);
+
+  return null;
+};
+
+export const DebugGrid = () => {
   const { debug, toggleDebug, isClient } = useDebugState();
 
   useHotkeys("shift+g", toggleDebug);
@@ -27,5 +41,3 @@ const DebugGrid = () => {
     />
   );
 };
-
-export default DebugGrid;

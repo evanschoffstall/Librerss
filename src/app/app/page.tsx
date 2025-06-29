@@ -1,11 +1,8 @@
 "use client";
 
-import { FeedService } from "@/src/services/api";
-import type { Article, CategoryTreeNode } from "@/src/types";
+import { ButtonBar, ItemView, TreeView } from "@/src/components";
+import { FeedService, type Article, type CategoryTreeNode } from "@/src/shared";
 import { useEffect, useState } from "react";
-import ButtonBar from "./components/FeedView/ButtonBar";
-import ItemView from "./components/FeedView/ItemView";
-import TreeView from "./components/FeedView/TreeView";
 
 const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 

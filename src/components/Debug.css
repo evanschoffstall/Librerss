@@ -1,4 +1,6 @@
-:root {
+.debug-border * {
+  border: 1px solid red;
+}:root {
   --grid-overlay-display: none;
   --grid-overlay-position: fixed;
   --grid-overlay-top: 0;
