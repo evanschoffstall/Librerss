@@ -16,14 +16,14 @@ const MenuBar: React.FC = () => {
       />
 
       <div className={styles.menuBarItems}>
-        <Link href="/">
-          <button>Home</button>
+        <Link href="/" className={styles.menuButton}>
+          Home
         </Link>
-        <Link href="/about">
-          <button>About</button>
+        <Link href="/about" className={styles.menuButton}>
+          About
         </Link>
-        <Link href="/contact">
-          <button>Contact</button>
+        <Link href="/contact" className={styles.menuButton}>
+          Contact
         </Link>
       </div>
     </div>

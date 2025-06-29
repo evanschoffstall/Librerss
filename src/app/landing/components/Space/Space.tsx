@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import "./Space.css";
 
 const MAX_PERCENTAGE = 100;
@@ -28,17 +28,31 @@ const generateStarStyle = () => {
   };
 };
 
-const Star = React.memo(() => {
-  const style = generateStarStyle();
-  return <div className={`star`} style={style} />;
+const Star = React.memo(({ starData }: { starData: any }) => {
+  return <div className={`star`} style={starData} />;
 });
 Star.displayName = "Star";
 
 const Space: React.FC = () => {
+  const [isClient, setIsClient] = useState(false);
+  const [starData, setStarData] = useState<any[]>([]);
+
+  useEffect(() => {
+    setIsClient(true);
+    // Generate star data on client side only
+    setStarData(Array.from({ length: 100 }, () => generateStarStyle()));
+  }, []);
+
   const stars = useMemo(
-    () => Array.from({ length: 100 }, (_, i) => <Star key={i} />),
-    []
+    () => starData.map((data, i) => <Star key={i} starData={data} />),
+    [starData]
   );
+
+  if (!isClient) {
+    // Return empty div with same structure on server
+    return <div className="space"></div>;
+  }
+
   return <div className="space">{stars}</div>;
 };
 

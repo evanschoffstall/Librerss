@@ -1,10 +1,13 @@
+"use client";
+
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import "primereact/resources/themes/md-dark-deeppurple/theme.css";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import TreeView from "../components/FeedView/TreeView";
 
 export default function Settings() {
+  const keyCounter = useRef(0);
   const [categories, setCategories] = useState([
     {
       key: "0",
@@ -22,7 +25,8 @@ export default function Settings() {
   const [newFeedUrl, setNewFeedUrl] = useState("");
 
   const addCategory = () => {
-    const newKey = Date.now().toString();
+    keyCounter.current += 1;
+    const newKey = keyCounter.current.toString();
     setCategories([...categories, { key: newKey, label: newCategory, children: [] }]);
     setNewCategory("");
   };

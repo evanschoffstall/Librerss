@@ -19,16 +19,16 @@ export default function Landing({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  
   return (
     <>
-      {
-        process.env.NODE_ENV === "development" && (
-          <>
-            <DebugBorder />
-            <DebugGrid />
-          </>
-        )
-      }
+      {isDevelopment && (
+        <>
+          <DebugBorder />
+          <DebugGrid />
+        </>
+      )}
       <div className={inter.className}>
         <Space />
         <div className="glass">

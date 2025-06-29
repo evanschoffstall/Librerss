@@ -20,9 +20,11 @@ export default function App({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  
   return (
     <>
-      {process.env.NODE_ENV === "development" && (
+      {isDevelopment && (
         <>
           <DebugBorder />
           <DebugGrid />
