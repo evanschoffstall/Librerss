@@ -36,5 +36,5 @@ export interface StarStyle {
   top: string;
   left: string;
   animation: string;
-  willChange: string;
+  willChange?: string;
 }
