@@ -4,42 +4,22 @@ import { DebugBorder, DebugGrid, Space } from "@/src/components";
 import { ENV, FeedService, isValidUrl, type Article, type CategoryTreeNode } from "@/src/lib";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-
-const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
-
-const SAMPLE_FEEDS = [
-  { name: "BBC World News", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
-  { name: "Reuters", url: "http://feeds.reuters.com/reuters/topNews" },
-  { name: "TechCrunch", url: "https://techcrunch.com/feed/" },
-  { name: "Hacker News", url: "https://feeds.feedburner.com/ycombinator" },
-];
-
-const INITIAL_CATEGORIES: CategoryTreeNode[] = [
-  {
-    key: "0",
-    label: "My Feeds",
-    children: [
-      { key: "0-0", label: "World News", data: { url: DEFAULT_FEED_URL } },
-      { key: "0-1", label: "Technology", data: { url: "https://techcrunch.com/feed/" } },
-      { key: "0-2", label: "Science", data: { url: "https://feeds.feedburner.com/oreilly/radar" } },
-    ],
-  },
-];
+import { DASHBOARD_CONFIG, DEFAULT_FEED_URL, INITIAL_CATEGORIES, SAMPLE_FEEDS } from "./constants";
 
 // Beautiful Article Card Component
 const ArticleCard = ({ article }: { article: Article }) => (
-  <div className="glass-card p-6 mb-6 hover:bg-white/10 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/10 group cursor-pointer">
+  <div className="article-card group">
     <div className="flex flex-col h-full">
-      <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-blue-200 transition-colors duration-300 line-clamp-2">
+      <h3 className="article-card-title group-hover:text-blue-200">
         {article.title}
       </h3>
 
-      <p className="text-gray-300 mb-4 line-clamp-3 flex-grow leading-relaxed">
+      <p className="article-card-content">
         {article.content || "No description available"}
       </p>
 
-      <div className="flex items-center justify-between pt-4 border-t border-white/10">
-        <span className="text-sm text-gray-400">
+      <div className="article-card-footer">
+        <span className="article-card-date">
           {new Date(article.publication_date || Date.now()).toLocaleDateString()}
         </span>
         <a
@@ -71,15 +51,16 @@ const FeedCategory = ({
 }) => (
   <div
     onClick={onClick}
-    className={`glass-card p-4 mb-3 cursor-pointer transition-all duration-300 group ${isActive
-      ? 'bg-blue-500/20 border-blue-400/50 shadow-lg shadow-blue-500/20'
-      : 'hover:bg-white/10 hover:border-white/20'
-      }`}
+    className={`feed-category group ${isActive ? 'feed-category-active' : 'feed-category-hover'}`}
   >
     <div className="flex items-center space-x-3">
-      <div className={`w-3 h-3 rounded-full transition-all duration-300 ${isActive ? 'bg-blue-400' : 'bg-gray-400 group-hover:bg-white'
+      <div className={`feed-category-indicator ${isActive
+        ? 'feed-category-indicator-active'
+        : 'feed-category-indicator-inactive group-hover:bg-white'
         }`} />
-      <span className={`font-medium transition-colors duration-300 ${isActive ? 'text-blue-200' : 'text-white group-hover:text-blue-200'
+      <span className={`feed-category-label ${isActive
+        ? 'feed-category-label-active'
+        : 'feed-category-label-inactive group-hover:text-blue-200'
         }`}>
         {category.label}
       </span>
@@ -288,20 +269,20 @@ const DashboardView = () => {
 
   // Settings Modal Component
   const SettingsModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="dashboard-modal-backdrop">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="dashboard-modal-overlay"
         onClick={() => setShowSettingsModal(false)}
       />
 
       {/* Modal Content */}
-      <div className="relative bg-black/90 border border-white/20 rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto backdrop-blur-md">
-        <div className="flex items-center justify-between mb-6">
+      <div className="dashboard-modal-content">
+        <div className="dashboard-modal-header">
           <h2 className="text-3xl font-bold text-white">Dashboard Settings</h2>
           <button
             onClick={() => setShowSettingsModal(false)}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200"
+            className="dashboard-modal-close"
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -309,13 +290,13 @@ const DashboardView = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="settings-grid">
           {/* Feed Management */}
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white border-b border-white/20 pb-2">Feed Management</h3>
+          <div className="settings-section">
+            <h3 className="settings-section-title">Feed Management</h3>
 
             <div className="space-y-4">
-              <button className="w-full glass-card p-4 text-left hover:bg-white/10 transition-all duration-300 flex items-center space-x-3">
+              <button className="settings-option">
                 <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
@@ -325,7 +306,7 @@ const DashboardView = () => {
                 </div>
               </button>
 
-              <button className="w-full glass-card p-4 text-left hover:bg-white/10 transition-all duration-300 flex items-center space-x-3">
+              <button className="settings-option">
                 <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
@@ -335,7 +316,7 @@ const DashboardView = () => {
                 </div>
               </button>
 
-              <button className="w-full glass-card p-4 text-left hover:bg-white/10 transition-all duration-300 flex items-center space-x-3">
+              <button className="settings-option">
                 <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -348,8 +329,8 @@ const DashboardView = () => {
           </div>
 
           {/* Preferences */}
-          <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white border-b border-white/20 pb-2">Preferences</h3>
+          <div className="settings-section">
+            <h3 className="settings-section-title">Preferences</h3>
 
             <div className="space-y-4">
               <div className="glass-card p-4">
@@ -358,8 +339,8 @@ const DashboardView = () => {
                     <div className="text-white font-medium">Auto-refresh</div>
                     <div className="text-gray-400 text-sm">Automatically refresh feeds</div>
                   </div>
-                  <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
-                    <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 transition-transform duration-200"></div>
+                  <div className="settings-toggle">
+                    <div className="settings-toggle-handle"></div>
                   </div>
                 </div>
               </div>
@@ -370,8 +351,8 @@ const DashboardView = () => {
                     <div className="text-white font-medium">Dark mode</div>
                     <div className="text-gray-400 text-sm">Use dark theme</div>
                   </div>
-                  <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
-                    <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 transition-transform duration-200"></div>
+                  <div className="settings-toggle">
+                    <div className="settings-toggle-handle"></div>
                   </div>
                 </div>
               </div>
@@ -412,7 +393,7 @@ const DashboardView = () => {
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
       {/* Compact Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="dashboard-header">
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">Libre</h1>
           <p className="text-gray-400">Really Simple Syndication</p>
@@ -420,15 +401,15 @@ const DashboardView = () => {
 
         <div className="flex items-center space-x-4">
           {/* Search Bar */}
-          <div className="relative">
+          <div className="dashboard-search-container">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search articles..."
-              className="w-80 p-3 pl-10 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none transition-colors duration-300"
+              className="dashboard-search-input"
             />
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="dashboard-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -437,10 +418,10 @@ const DashboardView = () => {
           <button
             onClick={() => fetchFeed(categories[0]?.children?.find(c => c.key === selectedCategory)?.data?.url)}
             disabled={loading}
-            className="glass-card px-4 py-3 hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
+            className="dashboard-action-button disabled:opacity-50"
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="dashboard-loading-spinner" />
             ) : (
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -451,7 +432,7 @@ const DashboardView = () => {
           {/* Settings Button */}
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="glass-card px-4 py-3 hover:bg-white/10 transition-all duration-300"
+            className="dashboard-action-button"
           >
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -463,15 +444,15 @@ const DashboardView = () => {
 
       {/* Error Message */}
       {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <svg className="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="error-message">
+          <div className="error-content">
+            <svg className="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-red-200">{error}</span>
+            <span className="error-text">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-red-400 hover:text-red-300 transition-colors duration-300"
+              className="error-close"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -481,9 +462,9 @@ const DashboardView = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="dashboard-grid">
         {/* Sidebar */}
-        <aside className="lg:col-span-1">
+        <aside className="dashboard-sidebar">
           <div className="glass-card p-6">
             <h2 className="section-header mb-6">Feed Categories</h2>
             <div className="space-y-2">
@@ -502,10 +483,10 @@ const DashboardView = () => {
                 <p className="text-gray-400 mb-4">
                   {filteredFeed.length} articles
                 </p>
-                <div className="w-full bg-white/10 rounded-full h-2">
+                <div className="dashboard-progress-bar">
                   <div
-                    className="bg-gradient-to-r from-blue-400 to-purple-500 h-2 rounded-full transition-all duration-500"
-                    style={{ width: loading ? '100%' : `${Math.min((filteredFeed.length / 50) * 100, 100)}%` }}
+                    className="dashboard-progress-fill"
+                    style={{ width: loading ? '100%' : `${Math.min((filteredFeed.length / DASHBOARD_CONFIG.MAX_ARTICLES_FOR_PROGRESS) * 100, 100)}%` }}
                   />
                 </div>
               </div>
@@ -514,24 +495,24 @@ const DashboardView = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="lg:col-span-3">
+        <main className="dashboard-main">
           {loading ? (
-            <div className="glass-card p-12">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-white/20 border-t-blue-400 rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-xl text-gray-300">Loading fresh articles...</p>
+            <div className="loading-container">
+              <div className="loading-content">
+                <div className="loading-spinner-large" />
+                <p className="loading-text">Loading fresh articles...</p>
               </div>
             </div>
           ) : filteredFeed.length === 0 ? (
-            <div className="glass-card p-12">
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-white/5 rounded-full flex items-center justify-center">
+            <div className="empty-state">
+              <div className="empty-state-content">
+                <div className="empty-state-icon">
                   <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-300 mb-2">No articles available</h3>
-                <p className="text-gray-400 mb-6">
+                <h3 className="empty-state-title">No articles available</h3>
+                <p className="empty-state-description">
                   {searchTerm ?
                     "No articles match your search. Try different keywords." :
                     "Try refreshing or selecting a different feed category."
@@ -564,11 +545,11 @@ const DashboardView = () => {
         </main>
 
         {/* Footer */}
-        <footer className="mt-16 pt-8 border-t border-white/10">
-          <div className="flex items-center justify-center">
+        <footer className="dashboard-footer">
+          <div className="dashboard-footer-content">
             <a
               href="/landing"
-              className="text-gray-400 hover:text-white transition-colors duration-300 flex items-center space-x-2"
+              className="dashboard-footer-link"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
