@@ -20,7 +20,7 @@ export default function Landing({
   children: React.ReactNode;
 }>) {
   const isDevelopment = process.env.NODE_ENV === "development";
-  
+
   return (
     <>
       {isDevelopment && (

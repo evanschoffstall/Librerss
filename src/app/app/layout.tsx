@@ -21,7 +21,7 @@ export default function App({
   children: React.ReactNode;
 }>) {
   const isDevelopment = process.env.NODE_ENV === "development";
-  
+
   return (
     <>
       {isDevelopment && (
