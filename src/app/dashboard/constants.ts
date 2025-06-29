@@ -27,3 +27,22 @@ export const DASHBOARD_CONFIG = {
   SEARCH_DEBOUNCE_MS: 300,
   AUTO_REFRESH_INTERVAL_MS: 300000, // 5 minutes
 } as const;
+
+// UI Constants
+export const UI_MESSAGES = {
+  LOADING: "Loading fresh articles...",
+  NO_ARTICLES_TITLE: "No articles available",
+  NO_ARTICLES_SEARCH: "No articles match your search. Try different keywords.",
+  NO_ARTICLES_DEFAULT: "Try refreshing or selecting a different feed category.",
+  ERROR_FETCH: "Failed to fetch feed. Please try again.",
+  SEARCH_PLACEHOLDER: "Search articles...",
+  CLEAR_SEARCH: "Clear search",
+  TRY_REFRESHING: "Try refreshing"
+} as const;
+
+export const DASHBOARD_TEXTS = {
+  TITLE: "Libre",
+  SUBTITLE: "Really Simple Syndication",
+  FEED_CATEGORIES: "Feed Categories",
+  BACK_TO_LANDING: "Back to Landing"
+} as const;
