@@ -64,3 +64,50 @@ h4 {
     @apply text;
   }
 }
+
+/* Menu Bar Styles */
+.menu-bar {
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  color: #fff;
+  backdrop-filter: blur(3px);
+  background: linear-gradient(to right bottom,
+      rgba(0, 0, 0, 0.3),
+      rgba(16, 16, 18, 0.1),
+      rgba(0, 0, 0, 0.3));
+  position: fixed;
+  width: 100%;
+  z-index: 1000;
+  top: 0;
+  left: 0;
+}
+
+.menu-bar-items {
+  display: flex;
+  width: 100%;
+  padding: 3px;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 1001;
+}
+
+.menu-button {
+  padding: 10px 25px;
+  cursor: pointer;
+  transition: background-color 0.6s ease, font-weight 0.6s ease;
+  text-decoration: none;
+  color: inherit;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  position: relative;
+  z-index: 1001;
+}
+
+.menu-button:hover {
+  background-color: #101012;
+  font-weight: bold;
+}

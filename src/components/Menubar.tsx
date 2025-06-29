@@ -1,5 +1,5 @@
 import { MENU_ITEMS } from "@/src/app/landing/constants";
-import "@/src/styles/components.css";
+import "@/src/styles/landing.css";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
