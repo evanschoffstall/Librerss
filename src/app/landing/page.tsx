@@ -1,7 +1,8 @@
 "use client";
 
-import { DebugBorder, DebugGrid, Menubar, Space } from "@/src/components";
+import { DebugBorder, DebugGrid, Space } from "@/src/components";
 import { ENV, multiLine } from "@/src/lib";
+import { Menubar } from "./components";
 import { LANDING_CONTENT } from "./constants";
 
 // Main Landing Component

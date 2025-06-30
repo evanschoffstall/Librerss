@@ -1,8 +1,8 @@
-import { MENU_ITEMS } from "@/src/app/landing/constants";
-import "@/src/app/landing/landing.css";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import { MENU_ITEMS } from "../constants";
+import "../landing.css";
 
 export const Menubar: React.FC = () => {
   const handleScrollToSection = (sectionId: string) => {

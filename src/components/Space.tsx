@@ -1,8 +1,8 @@
 "use client";
 
 import { SPACE_CONSTANTS, getRandomNumber, type StarStyle } from "@/src/lib";
-import "@/src/styles/components.css";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "./components.css";
 
 // Pre-generate animation variations to reduce runtime calculations
 const ANIMATION_VARIANTS = {
