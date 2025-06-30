@@ -34,7 +34,7 @@ export async function sendPromptToChatGPT(prompt: string): Promise<string> {
   */
 export async function requestAIforNewsArticleRelatedImageURL(articleURL: string): Promise<string> {
 
-    var prompt = `
+    const prompt = `
     
     You are a meticulous, technically rigorous assistant tasked with locating exactly one valid, publicly accessible, fully-qualified direct image hyperlink relevant specifically to the content described by the following news article URL. Your task does NOT restrict you to images found on the article's webpage. Instead, you must carefully search and select from anywhere across the internet an image that:
       

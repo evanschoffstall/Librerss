@@ -16,6 +16,8 @@ export default [
       "@typescript-eslint/no-unused-vars": "off",
       // Disable React in scope requirement
       "react/react-in-jsx-scope": "off",
+      // Disable prop-types validation since we're using TypeScript
+      "react/prop-types": "off",
     },
   },
 ];
