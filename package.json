@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "bunx prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "bunx prisma generate",
+    "db:push": "bunx prisma db push",
+    "db:generate": "bunx prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.10.1",

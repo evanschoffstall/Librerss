@@ -3,7 +3,7 @@
 import { DebugBorder, DebugGrid, Space } from "@/src/components";
 import { ENV, FeedService, type Article, type CategoryTreeNode } from "@/src/lib";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } from "./components";
 import { DASHBOARD_CONFIG, DASHBOARD_TEXTS, DEFAULT_FEED_URL, INITIAL_CATEGORIES, UI_MESSAGES } from "./constants";
 
@@ -221,10 +221,25 @@ const DashboardView = () => {
   );
 };
 
-export default function Dashboard() {
+// Component that uses useSearchParams
+function DashboardRouter() {
   const searchParams = useSearchParams();
   const view = searchParams?.get('view') || 'dashboard';
 
+  return (
+    <main className="min-h-screen">
+      {view === 'login' ? (
+        <LoginView />
+      ) : view === 'settings' ? (
+        <SettingsView />
+      ) : (
+        <DashboardView />
+      )}
+    </main>
+  );
+}
+
+export default function Dashboard() {
   return (
     <>
       {ENV.isDevelopment && (
@@ -236,15 +251,9 @@ export default function Dashboard() {
       <Space />
       <div className="glass" style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1, overflow: "auto", overscrollBehavior: "contain" }}>
-          <main className="min-h-screen">
-            {view === 'login' ? (
-              <LoginView />
-            ) : view === 'settings' ? (
-              <SettingsView />
-            ) : (
-              <DashboardView />
-            )}
-          </main>
+          <Suspense fallback={<div>Loading...</div>}>
+            <DashboardRouter />
+          </Suspense>
         </div>
       </div>
     </>
