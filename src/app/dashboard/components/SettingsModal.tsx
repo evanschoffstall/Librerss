@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CategoryTreeNode } from "@/src/lib";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -184,7 +185,12 @@ export const SettingsModal = ({
           <DialogDescription>Manage categories, feeds, ordering, and runtime behavior.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <motion.div
+          className="flex-1 overflow-y-auto min-h-0"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+        >
           <Tabs defaultValue="feeds" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="feeds">Feeds</TabsTrigger>
@@ -195,7 +201,12 @@ export const SettingsModal = ({
             <TabsContent value="feeds" className="mt-4">
               <TooltipProvider delayDuration={300}>
                 {categories.length === 0 ? (
-                  <div className="py-8 text-center">
+                  <motion.div
+                    className="py-8 text-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <p className="text-sm text-muted-foreground">No categories yet.</p>
                     <div className="mt-3 flex items-center justify-center gap-2">
                       <Input
@@ -210,7 +221,7 @@ export const SettingsModal = ({
                         Add
                       </Button>
                     </div>
-                  </div>
+                  </motion.div>
                 ) : (
                   <Accordion
                     type="multiple"
@@ -223,6 +234,12 @@ export const SettingsModal = ({
                       const isAddingFeed = addingFeedInCategory === categoryNode.label;
 
                       return (
+                        <motion.div
+                          key={`${categoryNode.key}-motion`}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, ease: "easeOut", delay: categoryIndex * 0.02 }}
+                        >
                         <AccordionItem
                           key={categoryNode.key}
                           value={categoryNode.key}
@@ -330,54 +347,66 @@ export const SettingsModal = ({
 
                           <AccordionContent className="px-3 pb-3">
                             {/* Inline add feed form */}
-                            {isAddingFeed && (
-                              <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2">
-                                <Input
-                                  value={newFeedName}
-                                  onChange={(e) => setNewFeedName(e.target.value)}
-                                  placeholder="Feed name"
-                                  className="h-8 text-sm"
-                                  autoFocus
-                                />
-                                <Input
-                                  value={newFeedUrl}
-                                  onChange={(e) => setNewFeedUrl(e.target.value)}
-                                  placeholder="https://example.com/feed.xml"
-                                  className="h-8 text-sm"
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
-                                      handleAddFeed(categoryNode.label);
-                                    }
-                                    if (e.key === "Escape") setAddingFeedInCategory(null);
-                                  }}
-                                />
-                                <Button
-                                  size="sm"
-                                  className="h-8 shrink-0"
-                                  onClick={() => handleAddFeed(categoryNode.label)}
-                                  disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
+                            <AnimatePresence initial={false}>
+                              {isAddingFeed && (
+                                <motion.div
+                                  className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2"
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.2, ease: "easeOut" }}
                                 >
-                                  {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 shrink-0 px-2"
-                                  onClick={() => setAddingFeedInCategory(null)}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            )}
+                                  <Input
+                                    value={newFeedName}
+                                    onChange={(e) => setNewFeedName(e.target.value)}
+                                    placeholder="Feed name"
+                                    className="h-8 text-sm"
+                                    autoFocus
+                                  />
+                                  <Input
+                                    value={newFeedUrl}
+                                    onChange={(e) => setNewFeedUrl(e.target.value)}
+                                    placeholder="https://example.com/feed.xml"
+                                    className="h-8 text-sm"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
+                                        handleAddFeed(categoryNode.label);
+                                      }
+                                      if (e.key === "Escape") setAddingFeedInCategory(null);
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    className="h-8 shrink-0"
+                                    onClick={() => handleAddFeed(categoryNode.label)}
+                                    disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
+                                  >
+                                    {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 shrink-0 px-2"
+                                    onClick={() => setAddingFeedInCategory(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
 
                             {categoryFeeds.length === 0 && !isAddingFeed ? (
                               <p className="py-2 text-xs text-muted-foreground">Empty — click + to add a feed.</p>
                             ) : (
                               <div className="space-y-1.5">
                                 {categoryFeeds.map((feedNode, index) => (
-                                  <div
+                                  <motion.div
                                     key={feedNode.key}
                                     className="flex items-center gap-2 rounded-md border px-3 py-2"
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, ease: "easeOut", delay: index * 0.015 }}
+                                    whileHover={{ y: -1 }}
                                   >
                                     <button
                                       onClick={() => onSelectFeed(feedNode.key)}
@@ -444,12 +473,13 @@ export const SettingsModal = ({
                                         )}
                                       </IconBtn>
                                     </div>
-                                  </div>
+                                  </motion.div>
                                 ))}
                               </div>
                             )}
                           </AccordionContent>
                         </AccordionItem>
+                        </motion.div>
                       );
                     })}
 
@@ -523,7 +553,7 @@ export const SettingsModal = ({
               </div>
             </TabsContent>
           </Tabs>
-        </div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

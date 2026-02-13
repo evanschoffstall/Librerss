@@ -1,4 +1,5 @@
 import { type Article } from "@/src/lib";
+import { motion } from "framer-motion";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -89,13 +90,19 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
   };
 
   return (
-    <article
+    <motion.article
       role={hasOverflow ? "button" : undefined}
       tabIndex={hasOverflow ? 0 : undefined}
       aria-expanded={hasOverflow ? isExpanded : undefined}
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
       className="group relative flex flex-col rounded-xl border bg-card/40 p-3 transition-all duration-300 hover:bg-card/70"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      whileHover={{ y: -2, scale: 1.005 }}
+      whileTap={{ scale: 0.995 }}
+      layout
     >
       <div className="space-y-2 pr-7">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground/60">
@@ -139,16 +146,18 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
         </div>
       </div>
 
-      <a
+      <motion.a
         href={article.link}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
         aria-label="Open article"
         className="absolute bottom-2 right-2 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/40 transition-colors duration-200 hover:text-foreground"
+        whileHover={{ scale: 1.08, rotate: -3 }}
+        whileTap={{ scale: 0.95 }}
       >
         <ArrowUpRight className="size-3.5" />
-      </a>
-    </article>
+      </motion.a>
+    </motion.article>
   );
 };

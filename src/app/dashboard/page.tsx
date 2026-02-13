@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { DebugBorder, DebugGrid } from "@/src/components";
 import { ENV, FeedService, isValidUrl, type Article, type CategoryTreeNode } from "@/src/lib";
+import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -22,6 +23,11 @@ const toCategoryKey = (label: string) =>
   `cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "default"}`;
 
 const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
+const panelMotion = {
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+};
 
 const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
   nodes.flatMap((category) => category.children ?? []);
@@ -80,6 +86,7 @@ const DashboardView = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
   const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>([]);
 
@@ -494,7 +501,12 @@ const DashboardView = () => {
       });
     });
 
-  const displayCategories = orderedCategoryLabels
+  const orderedLabels =
+    orderedCategoryLabels.length > 0
+      ? orderedCategoryLabels
+      : [...categoryMap.values()].map((categoryNode) => categoryNode.label);
+
+  const displayCategories = orderedLabels
     .map((label) => categoryMap.get(normalizeLabel(label)))
     .filter((categoryNode): categoryNode is CategoryTreeNode => Boolean(categoryNode));
   const categoryOptions = displayCategories.map((categoryNode) => categoryNode.label);
@@ -549,90 +561,190 @@ const DashboardView = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsSidebarVisible(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-6 pt-20 md:px-6">
+    <motion.div
+      className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-6 pt-20 md:px-6"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+    >
 
       {/* Main layout */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-6 overflow-hidden lg:grid-cols-[220px_1px_minmax(0,1fr)] lg:grid-rows-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
         {/* Sidebar */}
-        <aside className="min-h-0 overflow-hidden">
-          <ScrollArea className="h-full pr-3">
+        <aside className="min-h-0 overflow-hidden lg:w-[220px] lg:shrink-0">
+          <div
+            className={`h-full overflow-y-auto pr-3 transition-opacity duration-300 ease-out ${
+              isSidebarVisible ? "opacity-100" : "opacity-0"
+            }`}
+          >
             <div className="space-y-4">
-              {displayCategories.map((categoryNode) => (
-                <div key={categoryNode.key} className="space-y-1">
-                  <p className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                    {categoryNode.label}
-                  </p>
-                  {(categoryNode.children ?? []).map((feedNode) => (
-                    <FeedCategory
-                      key={feedNode.key}
-                      category={feedNode}
-                      isActive={selectedCategory === feedNode.key}
-                      onClick={() => handleCategoryClick(feedNode)}
-                    />
-                  ))}
-                </div>
-              ))}
+              {displayCategories.length === 0 ? (
+                <div className="px-2 py-8 text-xs text-muted-foreground/70">No feed sources yet.</div>
+              ) : (
+                displayCategories.map((categoryNode, index) => (
+                  <div
+                    key={categoryNode.key}
+                    className={`space-y-1 transition-opacity duration-300 ease-out ${
+                      isSidebarVisible ? "opacity-100" : "opacity-0"
+                    }`}
+                    style={{ transitionDelay: `${index * 35}ms` }}
+                  >
+                    <p className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                      {categoryNode.label}
+                    </p>
+                    {(categoryNode.children ?? []).map((feedNode) => (
+                      <FeedCategory
+                        key={feedNode.key}
+                        category={feedNode}
+                        isActive={selectedCategory === feedNode.key}
+                        onClick={() => handleCategoryClick(feedNode)}
+                      />
+                    ))}
+                  </div>
+                ))
+              )}
             </div>
-          </ScrollArea>
+          </div>
         </aside>
 
         <Separator orientation="vertical" className="hidden lg:block" />
 
         {/* Feed area */}
-        <section className="flex min-h-0 flex-col overflow-hidden lg:min-w-0">
+        <motion.section
+          className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0"
+          initial={panelMotion.initial}
+          animate={panelMotion.animate}
+          transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
+        >
 
           <ScrollArea className="min-h-0 flex-1">
-            {loading ? (
-              <div className="flex items-center justify-center py-32">
-                <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
-              </div>
-            ) : filteredFeed.length === 0 ? (
-              <div className="flex items-center justify-center py-32">
-                <div className="text-center space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    {searchTerm ? "No matches." : "No articles yet."}
-                  </p>
-                  {searchTerm ? (
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
+            <AnimatePresence mode="wait" initial={false}>
+              {loading ? (
+                <motion.div
+                  key="loading"
+                  className="grid grid-cols-1 gap-2 pr-3 py-2 xl:grid-cols-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.24 }}
+                >
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <motion.div
+                      key={`loading-skeleton-${index}`}
+                      className="rounded-xl border bg-card/40 p-3"
+                      initial={{ opacity: 0, scale: 0.985 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.24, ease: "easeOut", delay: index * 0.04 }}
                     >
-                      Clear search
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL)}
-                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                    >
-                      Refresh
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 pr-3 xl:grid-cols-2">
-                {filteredFeed.map((article, index) => {
-                  const cardKey = `${article.link}-${index}`;
-                  const isExpanded = expandedArticleKey === cardKey;
+                      <motion.div
+                        className="h-3 w-1/3 rounded bg-muted/60"
+                        animate={{ opacity: [0.45, 0.85, 0.45] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      <motion.div
+                        className="mt-2 h-4 w-5/6 rounded bg-muted/70"
+                        animate={{ opacity: [0.5, 0.9, 0.5] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: 0.08 }}
+                      />
+                      <motion.div
+                        className="mt-3 space-y-2"
+                        animate={{ opacity: [0.45, 0.8, 0.45] }}
+                        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.12 }}
+                      >
+                        <div className="h-3 w-full rounded bg-muted/50" />
+                        <div className="h-3 w-4/5 rounded bg-muted/50" />
+                        <div className="h-3 w-2/3 rounded bg-muted/50" />
+                      </motion.div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : filteredFeed.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  className="flex items-center justify-center py-32"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
+                >
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {searchTerm ? "No matches." : "No articles yet."}
+                    </p>
+                    {searchTerm ? (
+                      <button
+                        onClick={() => setSearchTerm("")}
+                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                      >
+                        Clear search
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL)}
+                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                      >
+                        Refresh
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="feed-grid"
+                  className="grid grid-cols-1 gap-2 pr-3 xl:grid-cols-2"
+                  initial="initial"
+                  animate="animate"
+                  exit={{ opacity: 0 }}
+                  variants={{
+                    initial: {},
+                    animate: {
+                      transition: {
+                        staggerChildren: 0.04,
+                        delayChildren: 0.06,
+                      },
+                    },
+                  }}
+                >
+                  {filteredFeed.map((article, index) => {
+                    const cardKey = `${article.link}-${index}`;
+                    const isExpanded = expandedArticleKey === cardKey;
 
-                  return (
-                    <ArticleCard
-                      key={cardKey}
-                      article={article}
-                      isExpanded={isExpanded}
-                      onToggle={() =>
-                        setExpandedArticleKey((current) =>
-                          current === cardKey ? null : cardKey,
-                        )
-                      }
-                    />
-                  );
-                })}
-              </div>
-            )}
+                    return (
+                      <motion.div
+                        key={cardKey}
+                        layout
+                        variants={{
+                          initial: { opacity: 0, y: 10 },
+                          animate: { opacity: 1, y: 0 },
+                        }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                      >
+                        <ArticleCard
+                          article={article}
+                          isExpanded={isExpanded}
+                          onToggle={() =>
+                            setExpandedArticleKey((current) =>
+                              current === cardKey ? null : cardKey,
+                            )
+                          }
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </ScrollArea>
-        </section>
+        </motion.section>
       </div>
 
       {showSettingsModal && (
@@ -655,7 +767,7 @@ const DashboardView = () => {
           onRemoveFeed={removeFeedSource}
         />
       )}
-    </div>
+    </motion.div>
   );
 };
 
@@ -688,9 +800,19 @@ export default function Dashboard() {
       <div className="h-[100dvh] overflow-hidden">
         <Suspense
           fallback={
-            <div className="flex h-full items-center justify-center overflow-hidden">
-              <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
-            </div>
+            <motion.div
+              className="flex h-full items-center justify-center overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
+              >
+                <Loader2 className="size-4 text-muted-foreground/40" />
+              </motion.div>
+            </motion.div>
           }
         >
           <DashboardRouter />
