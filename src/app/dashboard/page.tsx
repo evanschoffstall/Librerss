@@ -1,31 +1,421 @@
 "use client";
 
-import { DebugBorder, DebugGrid, Space } from "@/src/components";
-import { ENV, FeedService, type Article, type CategoryTreeNode } from "@/src/lib";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { DebugBorder, DebugGrid } from "@/src/components";
+import { ENV, FeedService, isValidUrl, type Article, type CategoryTreeNode } from "@/src/lib";
+import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } from "./components";
-import { DASHBOARD_CONFIG, DASHBOARD_TEXTS, DEFAULT_FEED_URL, INITIAL_CATEGORIES, UI_MESSAGES } from "./constants";
+import {
+  DEFAULT_CATEGORY_LABEL,
+  DEFAULT_FEED_URL,
+  DEV_PLACEHOLDER_ARTICLES,
+  DEV_PLACEHOLDER_CATEGORY_LABEL,
+  DEV_PLACEHOLDER_FEED_SOURCES,
+  INITIAL_CATEGORIES,
+} from "./constants";
 
-// Main Dashboard Component
+const toCategoryKey = (label: string) =>
+  `cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "default"}`;
+
+const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
+const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
+  nodes.flatMap((category) => category.children ?? []);
+
+const buildCategoriesFromSources = (
+  sources: Array<{ id: number; name: string; url: string; category?: string | null }>,
+): CategoryTreeNode[] => {
+  const grouped = new Map<string, CategoryTreeNode[]>();
+
+  for (const source of sources) {
+    const categoryLabel = source.category?.trim() || DEFAULT_CATEGORY_LABEL;
+    const current = grouped.get(categoryLabel) ?? [];
+
+    current.push({
+      key: `${toCategoryKey(categoryLabel)}-${source.id}`,
+      label: source.name,
+      data: { url: source.url, sourceId: source.id, category: categoryLabel },
+    });
+
+    grouped.set(categoryLabel, current);
+  }
+
+  return [...grouped.entries()].map(([label, children]) => ({
+    key: toCategoryKey(label),
+    label,
+    children,
+  }));
+};
+
+const buildDefaultCategories = (isDevelopment: boolean): CategoryTreeNode[] => {
+  if (!isDevelopment) {
+    return INITIAL_CATEGORIES;
+  }
+
+  return [
+    {
+      key: toCategoryKey(DEV_PLACEHOLDER_CATEGORY_LABEL),
+      label: DEV_PLACEHOLDER_CATEGORY_LABEL,
+      children: DEV_PLACEHOLDER_FEED_SOURCES.map((source, index) => ({
+        key: `${toCategoryKey(DEV_PLACEHOLDER_CATEGORY_LABEL)}-dev-${index}`,
+        label: source.name,
+        data: { url: source.url, category: source.category },
+      })),
+    },
+  ];
+};
+
 const DashboardView = () => {
   const [feed, setFeed] = useState<Article[]>([]);
+  const [isUsingDevPlaceholder, setIsUsingDevPlaceholder] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [categories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
-  const [selectedCategory, setSelectedCategory] = useState("0-0");
+  const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState(
+    INITIAL_CATEGORIES[0]?.children?.[0]?.key ?? "",
+  );
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
+  const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>([]);
+
+  const loadFeedSources = async (): Promise<CategoryTreeNode[]> => {
+    try {
+      const sources = await FeedService.getFeedSources();
+
+      if (sources.length === 0) {
+        const defaults = buildDefaultCategories(ENV.isDevelopment);
+        setCategories(defaults);
+        return defaults;
+      }
+
+      const nextCategories = buildCategoriesFromSources(sources);
+
+      setCategories(nextCategories);
+      return nextCategories;
+    } catch (err) {
+      console.error("Feed source fetch error:", err);
+      return buildDefaultCategories(ENV.isDevelopment);
+    }
+  };
+
+  const selectFeedByKey = (feedKey: string) => {
+    const sourceNode = flattenCategoryFeeds(categories).find((item) => item.key === feedKey);
+    if (!sourceNode?.data?.url) {
+      return;
+    }
+
+    setSelectedCategory(sourceNode.key);
+    fetchFeed(sourceNode.data.url);
+  };
+
+  const addFeedSource = async (name: string, url: string, category: string) => {
+    if (!name.trim() || !url.trim()) {
+      toast.error("Feed name and URL are required.");
+      return false;
+    }
+
+    if (!isValidUrl(url)) {
+      toast.error("Please enter a valid feed URL.");
+      return false;
+    }
+
+    try {
+      await FeedService.createFeedSource({
+        name: name.trim(),
+        url: url.trim(),
+        category: category.trim() || DEFAULT_CATEGORY_LABEL,
+      });
+      const nextCategories = await loadFeedSources();
+      const latestNode = flattenCategoryFeeds(nextCategories).find(
+        (node) => node.data?.url === url.trim(),
+      );
+
+      if (latestNode?.data?.url) {
+        setSelectedCategory(latestNode.key);
+        await fetchFeed(latestNode.data.url);
+      }
+
+      toast.success("Feed source added.");
+      return true;
+    } catch (err) {
+      console.error("Add feed source error:", err);
+      toast.error("Unable to add feed source.");
+      return false;
+    }
+  };
+
+  const removeFeedSource = async (key: string) => {
+    const selectedNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
+    const sourceId = selectedNode?.data?.sourceId;
+
+    if (typeof sourceId !== "number" || !Number.isInteger(sourceId) || sourceId <= 0) {
+      return;
+    }
+
+    try {
+      await FeedService.deleteFeedSource(sourceId);
+      const nextCategories = await loadFeedSources();
+      const nextAvailable = flattenCategoryFeeds(nextCategories);
+
+      if (nextAvailable.length === 0) {
+        setSelectedCategory("");
+        setFeed([]);
+      } else if (selectedCategory === key) {
+        const fallback = nextAvailable[0];
+        setSelectedCategory(fallback.key);
+        if (fallback.data?.url) {
+          await fetchFeed(fallback.data.url);
+        }
+      }
+
+      toast.success("Feed source removed.");
+    } catch (err) {
+      console.error("Remove feed source error:", err);
+      toast.error("Unable to remove feed source.");
+    }
+  };
+
+  const moveFeedSource = (key: string, direction: "up" | "down") => {
+    setCategories((currentCategories) => {
+      return currentCategories.map((categoryNode) => {
+        const sources = categoryNode.children ?? [];
+        const currentIndex = sources.findIndex((source) => source.key === key);
+
+        if (currentIndex < 0) {
+          return categoryNode;
+        }
+
+        const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+        if (nextIndex < 0 || nextIndex >= sources.length) {
+          return categoryNode;
+        }
+
+        const nextSources = [...sources];
+        const [movedSource] = nextSources.splice(currentIndex, 1);
+        nextSources.splice(nextIndex, 0, movedSource);
+
+        return {
+          ...categoryNode,
+          children: nextSources,
+        };
+      });
+    });
+  };
+
+  const moveFeedToCategory = async (key: string, category: string) => {
+    const sourceNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
+    const sourceUrl = sourceNode?.data?.url;
+    const sourceName = sourceNode?.label?.trim();
+    const nextCategory = category.trim();
+
+    if (!sourceUrl || !sourceName || !nextCategory) {
+      return;
+    }
+
+    try {
+      await FeedService.createFeedSource({
+        name: sourceName,
+        url: sourceUrl,
+        category: nextCategory,
+      });
+
+      const nextCategories = await loadFeedSources();
+      const movedNode = flattenCategoryFeeds(nextCategories).find(
+        (node) => node.data?.url === sourceUrl,
+      );
+
+      if (movedNode?.data?.url) {
+        setSelectedCategory(movedNode.key);
+        await fetchFeed(movedNode.data.url);
+      }
+
+      toast.success("Feed category updated.");
+    } catch (err) {
+      console.error("Move feed category error:", err);
+      toast.error("Unable to update feed category.");
+    }
+  };
+
+  const addCategory = (label: string) => {
+    const normalized = label.trim();
+    if (!normalized) {
+      toast.error("Category name is required.");
+      return false;
+    }
+
+    const existing = new Set([
+      ...categories.map((node) => normalizeLabel(node.label)),
+      ...customCategoryLabels.map((node) => normalizeLabel(node)),
+    ]);
+
+    if (existing.has(normalizeLabel(normalized))) {
+      toast.error("Category already exists.");
+      return false;
+    }
+
+    setCustomCategoryLabels((current) => [...current, normalized]);
+    toast.success("Category added.");
+    return true;
+  };
+
+  const renameCategory = async (currentLabel: string, nextLabel: string) => {
+    const normalizedCurrent = currentLabel.trim();
+    const normalizedNext = nextLabel.trim();
+
+    if (!normalizedCurrent || !normalizedNext) {
+      toast.error("Category name is required.");
+      return false;
+    }
+
+    if (normalizeLabel(normalizedCurrent) === normalizeLabel(normalizedNext)) {
+      return false;
+    }
+
+    const allLabels = new Set([
+      ...categories.map((node) => normalizeLabel(node.label)),
+      ...customCategoryLabels.map((node) => normalizeLabel(node)),
+    ]);
+
+    if (allLabels.has(normalizeLabel(normalizedNext))) {
+      toast.error("Category already exists.");
+      return false;
+    }
+
+    const categoryNode = categories.find(
+      (node) => normalizeLabel(node.label) === normalizeLabel(normalizedCurrent),
+    );
+    const feedsInCategory = categoryNode?.children ?? [];
+    const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
+      (node) => node.key === selectedCategory,
+    )?.data?.url;
+
+    try {
+      if (feedsInCategory.length > 0) {
+        await Promise.all(
+          feedsInCategory
+            .filter((feedNode) => Boolean(feedNode.data?.url))
+            .map((feedNode) =>
+              FeedService.createFeedSource({
+                name: feedNode.label,
+                url: feedNode.data?.url ?? "",
+                category: normalizedNext,
+              }),
+            ),
+        );
+
+        await loadFeedSources();
+      }
+
+      setCustomCategoryLabels((current) =>
+        current.map((label) =>
+          normalizeLabel(label) === normalizeLabel(normalizedCurrent) ? normalizedNext : label,
+        ),
+      );
+      setOrderedCategoryLabels((current) =>
+        current.map((label) =>
+          normalizeLabel(label) === normalizeLabel(normalizedCurrent) ? normalizedNext : label,
+        ),
+      );
+
+      if (previousSelectedSourceUrl) {
+        const refreshedCategories = await loadFeedSources();
+        const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
+          (node) => node.data?.url === previousSelectedSourceUrl,
+        );
+
+        if (selectedNode) {
+          setSelectedCategory(selectedNode.key);
+        }
+      }
+
+      toast.success("Category updated.");
+      return true;
+    } catch (err) {
+      console.error("Rename category error:", err);
+      toast.error("Unable to rename category.");
+      return false;
+    }
+  };
+
+  const moveCategory = (label: string, direction: "up" | "down") => {
+    setOrderedCategoryLabels((current) => {
+      const currentIndex = current.findIndex(
+        (currentLabel) => normalizeLabel(currentLabel) === normalizeLabel(label),
+      );
+
+      if (currentIndex < 0) {
+        return current;
+      }
+
+      const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (nextIndex < 0 || nextIndex >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      const [moved] = next.splice(currentIndex, 1);
+      next.splice(nextIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const removeCategory = (label: string) => {
+    const categoryNode = categories.find(
+      (node) => normalizeLabel(node.label) === normalizeLabel(label),
+    );
+    const feedCount = (categoryNode?.children ?? []).length;
+
+    if (feedCount > 0) {
+      toast.error("Move or remove feeds in this category first.");
+      return false;
+    }
+
+    setCustomCategoryLabels((current) =>
+      current.filter((currentLabel) => normalizeLabel(currentLabel) !== normalizeLabel(label)),
+    );
+    setOrderedCategoryLabels((current) =>
+      current.filter((currentLabel) => normalizeLabel(currentLabel) !== normalizeLabel(label)),
+    );
+    toast.success("Category removed.");
+    return true;
+  };
 
   const fetchFeed = async (url: string = DEFAULT_FEED_URL) => {
     setLoading(true);
-    setError(null);
+    setIsUsingDevPlaceholder(false);
 
     try {
       const articles = await FeedService.getFeed(url);
+
+      if (ENV.isDevelopment && articles.length === 0) {
+        setFeed(DEV_PLACEHOLDER_ARTICLES);
+        setIsUsingDevPlaceholder(true);
+        setExpandedArticleKey(null);
+        return;
+      }
+
       setFeed(articles);
+      setExpandedArticleKey(null);
     } catch (err) {
-      setError(UI_MESSAGES.ERROR_FETCH);
+      if (ENV.isDevelopment) {
+        setFeed(DEV_PLACEHOLDER_ARTICLES);
+        setIsUsingDevPlaceholder(true);
+        setExpandedArticleKey(null);
+        toast.info("Showing development placeholder content.", {
+          description: "Feed request failed, so mock articles are displayed.",
+        });
+        console.error("Feed fetch error (using dev placeholders):", err);
+        return;
+      }
+
+      toast.error("Unable to load this feed right now.", {
+        description: "Please try refreshing the selected source again.",
+      });
       console.error("Feed fetch error:", err);
     } finally {
       setLoading(false);
@@ -41,196 +431,243 @@ const DashboardView = () => {
 
   const filteredFeed = feed.filter(article =>
     article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (article.content || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (article.content || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
-    fetchFeed();
+    const initializeDashboard = async () => {
+      const loadedCategories = await loadFeedSources();
+      const firstCategory = flattenCategoryFeeds(loadedCategories)[0];
+      const nextSelectedKey = firstCategory?.key ?? "";
+      const nextFeedUrl = firstCategory?.data?.url ?? DEFAULT_FEED_URL;
+
+      setCategories(loadedCategories);
+      setSelectedCategory(nextSelectedKey);
+      await fetchFeed(nextFeedUrl);
+    };
+
+    initializeDashboard();
+  }, []);
+
+  useEffect(() => {
+    const uniqueLabels = [
+      ...categories.map((node) => node.label),
+      ...customCategoryLabels.filter(
+        (label) =>
+          !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)),
+      ),
+    ].filter((label, index, allLabels) => {
+      return (
+        allLabels.findIndex((candidate) => normalizeLabel(candidate) === normalizeLabel(label)) === index
+      );
+    });
+
+    setOrderedCategoryLabels((current) => {
+      const preserved = current.filter((label) =>
+        uniqueLabels.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
+      );
+      const additions = uniqueLabels.filter(
+        (label) => !preserved.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
+      );
+
+      return [...preserved, ...additions];
+    });
+  }, [categories, customCategoryLabels]);
+
+  const availableSources = flattenCategoryFeeds(categories);
+  const selectedFeedNode = availableSources.find((c) => c.key === selectedCategory);
+  const selectedFeedUrl = selectedFeedNode?.data?.url;
+  const selectedFeed = selectedFeedNode?.label;
+  const categoryMap = new Map<string, CategoryTreeNode>();
+  categories.forEach((categoryNode) => {
+    categoryMap.set(normalizeLabel(categoryNode.label), categoryNode);
+  });
+  customCategoryLabels
+    .filter(
+      (label) => !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)),
+    )
+    .forEach((label) => {
+      categoryMap.set(normalizeLabel(label), {
+        key: toCategoryKey(label),
+        label,
+        children: [] as CategoryTreeNode[],
+      });
+    });
+
+  const displayCategories = orderedCategoryLabels
+    .map((label) => categoryMap.get(normalizeLabel(label)))
+    .filter((categoryNode): categoryNode is CategoryTreeNode => Boolean(categoryNode));
+  const categoryOptions = displayCategories.map((categoryNode) => categoryNode.label);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("dashboard:title-change", {
+        detail: { title: selectedFeed ?? "LibreRSS" },
+      }),
+    );
+  }, [selectedFeed]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL);
+    };
+
+    const handleOpenSettings = () => {
+      setShowSettingsModal(true);
+    };
+
+    const handleSearchChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ term?: string }>;
+      setSearchTerm(customEvent.detail?.term ?? "");
+    };
+
+    window.addEventListener("dashboard:refresh", handleRefresh);
+    window.addEventListener("dashboard:open-settings", handleOpenSettings);
+    window.addEventListener("dashboard:search-change", handleSearchChange as EventListener);
+
+    return () => {
+      window.removeEventListener("dashboard:refresh", handleRefresh);
+      window.removeEventListener("dashboard:open-settings", handleOpenSettings);
+      window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
+    };
+  }, [selectedFeedUrl]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("dashboard:search-sync", { detail: { term: searchTerm } }));
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-6">
-      {/* Compact Header */}
-      <div className="dashboard-header">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-1">{DASHBOARD_TEXTS.TITLE}</h1>
-          <p className="text-gray-400">{DASHBOARD_TEXTS.SUBTITLE}</p>
-        </div>
+    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-6 pt-20 md:px-6">
 
-        <div className="flex items-center space-x-4">
-          {/* Search Bar */}
-          <div className="dashboard-search-container">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={UI_MESSAGES.SEARCH_PLACEHOLDER}
-              className="dashboard-search-input"
-            />
-            <svg className="dashboard-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-
-          {/* Refresh Button */}
-          <button
-            onClick={() => fetchFeed(categories[0]?.children?.find(c => c.key === selectedCategory)?.data?.url)}
-            disabled={loading}
-            className="dashboard-action-button disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="dashboard-loading-spinner" />
-            ) : (
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            )}
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="dashboard-action-button"
-          >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="error-message">
-          <div className="error-content">
-            <svg className="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="error-text">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="error-close"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="dashboard-grid">
+      {/* Main layout */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-6 overflow-hidden lg:grid-cols-[220px_1px_minmax(0,1fr)] lg:grid-rows-1">
         {/* Sidebar */}
-        <aside className="dashboard-sidebar">
-          <div className="glass-card p-6">
-            <h2 className="section-header mb-6">{DASHBOARD_TEXTS.FEED_CATEGORIES}</h2>
-            <div className="space-y-2">
-              {categories[0]?.children?.map((category) => (
-                <FeedCategory
-                  key={category.key}
-                  category={category}
-                  isActive={selectedCategory === category.key}
-                  onClick={() => handleCategoryClick(category)}
-                />
+        <aside className="min-h-0 overflow-hidden">
+          <ScrollArea className="h-full pr-3">
+            <div className="space-y-4">
+              {displayCategories.map((categoryNode) => (
+                <div key={categoryNode.key} className="space-y-1">
+                  <p className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                    {categoryNode.label}
+                  </p>
+                  {(categoryNode.children ?? []).map((feedNode) => (
+                    <FeedCategory
+                      key={feedNode.key}
+                      category={feedNode}
+                      isActive={selectedCategory === feedNode.key}
+                      onClick={() => handleCategoryClick(feedNode)}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
-
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <div className="text-center">
-                <p className="text-gray-400 mb-4">
-                  {filteredFeed.length} articles
-                </p>
-                <div className="dashboard-progress-bar">
-                  <div
-                    className="dashboard-progress-fill"
-                    style={{ width: loading ? '100%' : `${Math.min((filteredFeed.length / DASHBOARD_CONFIG.MAX_ARTICLES_FOR_PROGRESS) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          </ScrollArea>
         </aside>
 
-        {/* Main Content */}
-        <main className="dashboard-main">
-          {loading ? (
-            <div className="loading-container">
-              <div className="loading-content">
-                <div className="loading-spinner-large" />
-                <p className="loading-text">{UI_MESSAGES.LOADING}</p>
-              </div>
-            </div>
-          ) : filteredFeed.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-content">
-                <div className="empty-state-icon">
-                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="empty-state-title">{UI_MESSAGES.NO_ARTICLES_TITLE}</h3>
-                <p className="empty-state-description">
-                  {searchTerm ? UI_MESSAGES.NO_ARTICLES_SEARCH : UI_MESSAGES.NO_ARTICLES_DEFAULT}
-                </p>
-                {searchTerm ? (
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="glass-card px-6 py-3 hover:bg-white/10 transition-all duration-300 text-blue-300"
-                  >
-                    {UI_MESSAGES.CLEAR_SEARCH}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => fetchFeed(categories[0]?.children?.find(c => c.key === selectedCategory)?.data?.url)}
-                    className="glass-card px-6 py-3 hover:bg-white/10 transition-all duration-300 text-blue-300"
-                  >
-                    {UI_MESSAGES.TRY_REFRESHING}
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredFeed.map((article, index) => (
-                <ArticleCard key={`${article.link}-${index}`} article={article} />
-              ))}
-            </div>
-          )}
-        </main>
+        <Separator orientation="vertical" className="hidden lg:block" />
 
-        {/* Footer */}
-        <footer className="dashboard-footer">
-          <div className="dashboard-footer-content">
-            <a
-              href="/landing"
-              className="dashboard-footer-link"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>{DASHBOARD_TEXTS.BACK_TO_LANDING}</span>
-            </a>
-          </div>
-        </footer>
+        {/* Feed area */}
+        <section className="flex min-h-0 flex-col overflow-hidden lg:min-w-0">
+
+          <ScrollArea className="min-h-0 flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-32">
+                <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+              </div>
+            ) : filteredFeed.length === 0 ? (
+              <div className="flex items-center justify-center py-32">
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm ? "No matches." : "No articles yet."}
+                  </p>
+                  {searchTerm ? (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                    >
+                      Clear search
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL)}
+                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                    >
+                      Refresh
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 pr-3 xl:grid-cols-2">
+                {filteredFeed.map((article, index) => {
+                  const cardKey = `${article.link}-${index}`;
+                  const isExpanded = expandedArticleKey === cardKey;
+
+                  return (
+                    <ArticleCard
+                      key={cardKey}
+                      article={article}
+                      isExpanded={isExpanded}
+                      onToggle={() =>
+                        setExpandedArticleKey((current) =>
+                          current === cardKey ? null : cardKey,
+                        )
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </section>
       </div>
 
-      {/* Settings Modal */}
-      {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+      {showSettingsModal && (
+        <SettingsModal
+          onClose={() => setShowSettingsModal(false)}
+          categories={displayCategories}
+          categoryOptions={categoryOptions}
+          selectedCategory={selectedCategory}
+          isDevelopment={ENV.isDevelopment}
+          isUsingDevPlaceholder={isUsingDevPlaceholder}
+          feedCount={availableSources.length}
+          onSelectFeed={selectFeedByKey}
+          onMoveFeed={moveFeedSource}
+          onMoveFeedToCategory={moveFeedToCategory}
+          onAddFeed={addFeedSource}
+          onAddCategory={addCategory}
+          onRenameCategory={renameCategory}
+          onMoveCategory={moveCategory}
+          onRemoveCategory={removeCategory}
+          onRemoveFeed={removeFeedSource}
+        />
+      )}
     </div>
   );
 };
 
-// Component that uses useSearchParams
 function DashboardRouter() {
   const searchParams = useSearchParams();
-  const view = searchParams?.get('view') || 'dashboard';
+  const view = searchParams?.get("view") || "dashboard";
 
   return (
-    <main className="min-h-screen">
-      {view === 'login' ? (
+    <main className="h-full overflow-hidden bg-background">
+      {view === "login" ? (
         <LoginView />
-      ) : view === 'settings' ? (
+      ) : view === "settings" ? (
         <SettingsView />
       ) : (
         <DashboardView />
@@ -248,13 +685,16 @@ export default function Dashboard() {
           <DebugGrid />
         </>
       )}
-      <Space />
-      <div className="glass" style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, overflow: "auto", overscrollBehavior: "contain" }}>
-          <Suspense fallback={<div>Loading...</div>}>
-            <DashboardRouter />
-          </Suspense>
-        </div>
+      <div className="h-[100dvh] overflow-hidden">
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center overflow-hidden">
+              <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+            </div>
+          }
+        >
+          <DashboardRouter />
+        </Suspense>
       </div>
     </>
   );

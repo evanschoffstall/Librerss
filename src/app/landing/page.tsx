@@ -1,145 +1,93 @@
 "use client";
 
-import { DebugBorder, DebugGrid, Space } from "@/src/components";
-import { ENV, multiLine } from "@/src/lib";
-import { Menubar } from "./components";
-import { LANDING_CONTENT } from "./constants";
+import { Button } from "@/components/ui/button";
+import { DebugBorder, DebugGrid } from "@/src/components";
+import { ENV } from "@/src/lib";
+import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
+import Link from "next/link";
 
-// Main Landing Component
 const LandingView = () => {
-  const { title, subtitle, features, description, cta, sections, trustIndicators } = LANDING_CONTENT;
-
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const goToDashboard = () => {
-    window.location.href = '/dashboard';
-  };
-
   return (
-    <div id="top" className="max-w-6xl mx-auto px-6">
-      {/* Hero Section */}
-      <div className="text-center pt-24 pb-32">
-        {/* Main Title with Enhanced Typography */}
-        <div className="mb-12 px-4">
-          <h1 className="hero-title mb-2 text-center">{title.main}</h1>
-          <h2 className="hero-title text-center">{title.secondary}</h2>
-        </div>
-
-        {/* Subtitle with Better Visual Treatment */}
-        <div className="mb-16 px-4">
-          <div className="hero-subtitle mb-8 max-w-4xl mx-auto">
-            {multiLine(subtitle, 3, 2)}
-          </div>
-          {/* Decorative Element */}
-          <div className="flex justify-center items-center space-x-4 mb-12">
-            <div className="w-16 decorative-line from-transparent via-blue-400 to-transparent"></div>
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-            <div className="w-24 decorative-line from-blue-400 via-purple-400 to-blue-400"></div>
-            <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
-            <div className="w-16 decorative-line from-transparent via-purple-400 to-transparent"></div>
-          </div>
-        </div>
-
-        {/* Enhanced CTA Section */}
-        <div className="mb-20">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <button onClick={goToDashboard} className="group cta-button-primary">
-              <span className="relative z-10">{cta.primary}</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-            </button>
-            <button onClick={() => scrollToSection('features')} className="group cta-button-secondary">
-              <span className="relative z-10">{cta.secondary}</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/10 to-purple-500/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
-            </button>
-          </div>
-
-          {/* Trust Indicators */}
-          <div className="mt-12 flex items-center justify-center space-x-8 text-sm text-gray-400">
-            {trustIndicators.map((indicator, index) => {
-              const circleColor = indicator.color === 'green' ? 'bg-green-400' :
-                indicator.color === 'blue' ? 'bg-blue-400' :
-                  indicator.color === 'purple' ? 'bg-purple-400' : 'bg-gray-400';
-
-              return (
-                <div key={index} className="trust-indicator">
-                  <div className={`w-2 h-2 rounded-full ${circleColor}`}></div>
-                  <span>{indicator.text}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-1/2 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-radial from-primary/[0.03] to-transparent" />
+        <div className="absolute left-1/4 top-1/3 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-radial from-primary/[0.02] to-transparent blur-3xl" />
+        <div className="absolute right-1/4 bottom-1/3 h-[300px] w-[300px] rounded-full bg-gradient-radial from-primary/[0.02] to-transparent blur-3xl" />
       </div>
 
-      {/* About Section */}
-      <div id="about" className="max-w-4xl mx-auto mb-32 pt-16">
-        <div className="text-center mb-16">
-          <h3 className="section-header">{LANDING_CONTENT.sections.about.title}</h3>
-          <p className="text-lg text-gray-400 max-w-2xl mx-auto">{LANDING_CONTENT.sections.about.subtitle}</p>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto mt-4"></div>
+      {/* Subtle grid pattern */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage:
+            "linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
+
+        {/* Headline */}
+        <h1 className="mt-10 mb-6 text-5xl font-bold tracking-tight sm:text-7xl lg:text-8xl">
+          <span className="block">Your reading,</span>
+          <span className="block text-muted-foreground/70">without the noise.</span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="mx-auto mb-10 max-w-lg text-lg text-muted-foreground sm:text-xl">
+          A free, open-source cloud reader for RSS.
+          All your sources in one calm, focused inbox.
+        </p>
+
+        {/* Single CTA */}
+        <div className="mb-16">
+          <Button size="lg" className="h-12 px-8 text-base" asChild>
+            <Link href="/dashboard">
+              Start Reading
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </div>
 
-        {/* Feature Highlights */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {features.map((feature, index) => (
-            <div key={feature} className="group feature-card" style={{ animationDelay: `${index * 100}ms` }}>
-              <h3 className="text-xl font-semibold text-white mb-4 group-hover:text-blue-200 transition-colors duration-300">{feature}</h3>
-              <div className="w-16 h-1 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto rounded-full group-hover:w-24 transition-all duration-300"></div>
+        {/* Feature pillars */}
+        <div className="mx-auto grid max-w-2xl gap-6 sm:grid-cols-3">
+          {[
+            {
+              icon: Cloud,
+              label: "Cloud Synced",
+              desc: "Access your feeds from anywhere",
+            },
+            {
+              icon: Zap,
+              label: "Instant & Free",
+              desc: "No accounts, no ads, no cost",
+            },
+            {
+              icon: Rss,
+              label: "Any RSS Feed",
+              desc: "Add any source in seconds",
+            },
+          ].map(({ icon: Icon, label, desc }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center gap-2 rounded-xl border border-transparent p-5 transition-colors hover:border-border/40 hover:bg-card/40"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
+                <Icon className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <span className="text-sm font-medium">{label}</span>
+              <span className="text-xs text-muted-foreground">{desc}</span>
             </div>
           ))}
         </div>
-
-        {/* Description Content */}
-        <div className="space-y-12 text-center">
-          <div className="prose prose-lg prose-invert mx-auto max-w-3xl">
-            <p className="text-xl leading-relaxed text-gray-300 mb-8">{description.intro}</p>
-            <p className="text-lg leading-relaxed text-gray-400 mb-8">{description.mission}</p>
-            <p className="text-lg leading-relaxed text-gray-400">{description.legacy}</p>
-          </div>
-        </div>
       </div>
 
-      {/* Contact Section */}
-      <div id="contact" className="max-w-4xl mx-auto mb-32 pt-16">
-        <div className="text-center mb-16">
-          <h3 className="section-header">{LANDING_CONTENT.sections.contact.title}</h3>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-400 to-purple-400 mx-auto"></div>
-        </div>
-
-        <div className="text-center">
-          <div className="glass-card p-12 max-w-2xl mx-auto">
-            <p className="text-xl text-gray-300 mb-8">{LANDING_CONTENT.sections.contact.greeting}</p>
-            <p className="text-lg text-gray-400 mb-8">{LANDING_CONTENT.sections.contact.comingSoon}</p>
-
-            <div className="space-y-4">
-              {LANDING_CONTENT.sections.contact.status.map((status, index) => (
-                <div key={index} className="flex items-center justify-center space-x-4">
-                  <div className={`w-3 h-3 rounded-full animate-pulse ${index === 0 ? 'bg-blue-400' : 'bg-purple-400'}`}
-                    style={index === 1 ? { animationDelay: '0.5s' } : {}}></div>
-                  <span className="text-gray-400">{status}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Final CTA */}
-            <div className="pt-12">
-              <div className="inline-flex items-center space-x-4">
-                <button onClick={goToDashboard} className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-full font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                  {cta.getStarted}
-                </button>
-                <button onClick={() => scrollToSection('features')} className="border border-white/20 text-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition-all duration-300">
-                  {cta.secondary}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Bottom tagline */}
+      <p className="absolute bottom-8 text-xs text-muted-foreground/40">
+        Open source &middot; Self-hostable &middot; No tracking
+      </p>
     </div>
   );
 };
@@ -153,17 +101,9 @@ export default function Landing() {
           <DebugGrid />
         </>
       )}
-      <Space />
-      <div className="glass" style={{ display: "flex", flexDirection: "column" }}>
-        <Menubar />
-        <div style={{ flex: 1, overflow: "auto", overscrollBehavior: "contain" }}>
-          <main className="m-10">
-            <div className="m-5 pt-10">
-              <LandingView />
-            </div>
-          </main>
-        </div>
-      </div>
+      <main>
+        <LandingView />
+      </main>
     </>
   );
 }

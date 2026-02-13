@@ -1,122 +1,173 @@
-import { isValidUrl, type CategoryTreeNode } from "@/src/lib";
-import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FeedService, isValidUrl, type CategoryTreeNode } from "@/src/lib";
+import { useEffect, useState } from "react";
 import { INITIAL_CATEGORIES, SAMPLE_FEEDS } from "../constants";
 
 export const SettingsView = () => {
-  const keyCounter = useRef(0);
   const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const addCategory = () => {
-    if (!newCategory.trim()) return;
+  const loadSources = async () => {
+    try {
+      const sources = await FeedService.getFeedSources();
 
-    const newKey = `0-${++keyCounter.current}`;
-    const newNode: CategoryTreeNode = {
-      key: newKey,
-      label: newCategory,
-      data: newFeedUrl && isValidUrl(newFeedUrl) ? { url: newFeedUrl } : undefined,
-    };
+      if (sources.length === 0) {
+        setCategories(INITIAL_CATEGORIES);
+        return;
+      }
 
-    setCategories([
-      {
-        ...categories[0],
-        children: [...(categories[0].children || []), newNode],
-      },
-    ]);
+      setCategories([
+        {
+          key: "0",
+          label: "My Feeds",
+          children: sources.map((source) => ({
+            key: `0-${source.id}`,
+            label: source.name,
+            data: { url: source.url },
+          })),
+        },
+      ]);
+    } catch (error) {
+      console.error("Error loading feed sources:", error);
+    }
+  };
 
-    setNewCategory("");
-    setNewFeedUrl("");
+  useEffect(() => {
+    loadSources();
+  }, []);
+
+  const addCategory = async () => {
+    if (!newCategory.trim() || !newFeedUrl.trim()) {
+      return;
+    }
+
+    if (!isValidUrl(newFeedUrl)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await FeedService.createFeedSource({
+        name: newCategory.trim(),
+        url: newFeedUrl.trim(),
+      });
+
+      await loadSources();
+      setNewCategory("");
+      setNewFeedUrl("");
+    } catch (error) {
+      console.error("Error saving source:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeSource = async (key: string) => {
+    const sourceId = Number(key.replace("0-", ""));
+    if (!Number.isInteger(sourceId) || sourceId <= 0) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await FeedService.deleteFeedSource(sourceId);
+      await loadSources();
+    } catch (error) {
+      console.error("Error removing source:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-12">
-      <div className="text-center mb-16">
-        <h1 className="page-header">Feed Settings</h1>
-        <p className="text-xl text-gray-300">Manage your RSS feeds and categories</p>
+    <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-12">
+      <div className="mb-10 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Source Management</h1>
+        <p className="mt-2 text-muted-foreground">Create categories, add feed URLs, and maintain your reading sources.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Add New Feed */}
-        <div className="glass-card p-8">
-          <h2 className="section-header mb-6">Add New Feed</h2>
-
-          <div className="space-y-6">
-            <div>
-              <label className="block text-gray-300 mb-2">Category Name</label>
-              <input
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Add Source</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="category-name">Category Name</Label>
+              <Input
+                id="category-name"
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
-                placeholder="Enter category name..."
-                className="w-full p-4 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none transition-colors duration-300"
+                placeholder="e.g. Security, Design, Frontend"
               />
             </div>
 
-            <div>
-              <label className="block text-gray-300 mb-2">RSS Feed URL</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="feed-url">RSS Feed URL</Label>
+              <Input
+                id="feed-url"
                 value={newFeedUrl}
                 onChange={(e) => setNewFeedUrl(e.target.value)}
                 placeholder="https://example.com/feed.xml"
-                className="w-full p-4 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none transition-colors duration-300"
               />
             </div>
 
-            <button
+            <Button
               onClick={addCategory}
-              disabled={!newCategory.trim()}
-              className="w-full cta-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!newCategory.trim() || !newFeedUrl.trim() || loading}
+              className="w-full"
             >
-              Add Feed Category
-            </button>
-          </div>
+              Save Source
+            </Button>
+          </CardContent>
 
-          {/* Sample Feeds */}
-          <div className="mt-8 pt-8 border-t border-white/10">
-            <h3 className="text-lg font-semibold text-white mb-4">Popular Feeds</h3>
-            <div className="space-y-2">
+          <CardContent className="mt-2 border-t pt-6">
+            <h3 className="mb-4 text-base font-medium">Starter Sources</h3>
+            <div className="space-y-3">
               {SAMPLE_FEEDS.map((feed, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-gray-300">{feed.name}</span>
-                  <button
+                <div key={index} className="flex items-center justify-between rounded-md border p-3">
+                  <span className="text-sm">{feed.name}</span>
+                  <Button
                     onClick={() => {
                       setNewCategory(feed.name);
                       setNewFeedUrl(feed.url);
                     }}
-                    className="text-blue-300 hover:text-blue-200 transition-colors duration-300"
+                    variant="ghost"
+                    size="sm"
                   >
                     Use
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Current Categories */}
-        <div className="glass-card p-8">
-          <h2 className="section-header mb-6">Current Categories</h2>
-
-          <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Existing Sources</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
             {categories[0]?.children?.map((category) => (
-              <div key={category.key} className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div key={category.key} className="rounded-md border p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-semibold text-white">{category.label}</h4>
+                    <h4 className="font-medium">{category.label}</h4>
                     {category.data?.url && (
-                      <p className="text-sm text-gray-400 mt-1 truncate">{category.data.url}</p>
+                      <p className="mt-1 truncate text-sm text-muted-foreground">{category.data.url}</p>
                     )}
                   </div>
-                  <button className="text-red-400 hover:text-red-300 transition-colors duration-300">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <Button variant="ghost" size="sm" onClick={() => removeSource(category.key)} disabled={loading}>Remove</Button>
                 </div>
               </div>
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
