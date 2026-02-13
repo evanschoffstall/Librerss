@@ -1,18 +1,29 @@
-import { prisma } from "@/src/lib";
+import { db } from "@/src/lib/services/db";
+import { articles } from "@/src/lib/services/schema";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
-  const articles = await prisma.article.findMany();
+  const allArticles = await db.select().from(articles);
 
-  return NextResponse.json(articles);
+  return NextResponse.json(allArticles);
 }
 
 export async function POST(request: NextRequest) {
   const data = await request.json();
 
-  const newArticle = await prisma.article.create({
-    data,
-  });
+  const [newArticle] = await db
+    .insert(articles)
+    .values({
+      title: data.title,
+      link: data.link,
+      publicationDate: data.publication_date
+        ? new Date(data.publication_date)
+        : new Date(),
+      content: data.content || "",
+      feedId: data.feed_id,
+      lastChecked: data.last_checked ? new Date(data.last_checked) : new Date(),
+    })
+    .returning();
 
   return NextResponse.json(newArticle);
 }

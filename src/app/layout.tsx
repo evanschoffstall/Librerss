@@ -1,14 +1,9 @@
-import "@/src/app/dashboard/dashboard.css";
 import "@/src/app/globals.css";
-import "@/src/app/landing/landing.css";
 import { DebugBorder, DebugGrid } from "@/src/components";
-import "@/src/components/components.css";
+import { AppThemeProvider } from "@/src/components/theme/AppThemeProvider";
 import { ENV } from "@/src/lib";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "primeicons/primeicons.css";
-import "primereact/resources/primereact.min.css";
-import "primereact/resources/themes/saga-blue/theme.css";
 import React from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -24,15 +19,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} min-h-screen bg-background text-foreground antialiased`}>
         {ENV.isDevelopment && (
           <>
             <DebugBorder />
             <DebugGrid />
           </>
         )}
-        {children}
+        <AppThemeProvider>{children}</AppThemeProvider>
       </body>
     </html>
   );

@@ -1,35 +1,62 @@
-import { prisma } from "@/src/lib";
+import { db } from "@/src/lib/services/db";
+import {
+  articles,
+  feedCategories,
+  feeds,
+  feedSources,
+} from "@/src/lib/services/schema";
 import axios from "axios";
+import { desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import Parser from "rss-parser";
 
 const parser = new Parser();
+
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const feedUrl = url.searchParams.get("url");
 
     if (!feedUrl) {
-      return NextResponse.json({ error: "Missing feed URL" }, { status: 400 });
+      const sourcesSelection = {
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+        category: feedCategories.category,
+      };
+
+      const sources = await db
+        .select(sourcesSelection)
+        .from(feedSources)
+        .leftJoin(feeds, eq(feeds.url, feedSources.url))
+        .leftJoin(feedCategories, eq(feedCategories.feedId, feeds.id))
+        .orderBy(feedSources.name);
+
+      return NextResponse.json(sources);
     }
 
-    const feed = await prisma.feed.findFirst({
-      where: { url: feedUrl },
-      include: { articles: true },
-    });
+    const existingFeed = await db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.url, feedUrl))
+      .limit(1);
+
+    let currentFeed = existingFeed[0];
 
     let shouldFetch = true;
-    if (feed) {
-      const lastFetched = feed.last_fetched;
+    if (currentFeed) {
+      const lastFetched = currentFeed.lastFetched;
       const diffMinutes =
         (new Date().getTime() - new Date(lastFetched).getTime()) / 60000;
       if (diffMinutes < 15) {
         shouldFetch = false;
       }
     } else {
-      await prisma.feed.create({
-        data: { url: feedUrl },
-      });
+      const [createdFeed] = await db
+        .insert(feeds)
+        .values({ url: feedUrl })
+        .returning();
+      currentFeed = createdFeed;
     }
 
     if (shouldFetch) {
@@ -38,46 +65,189 @@ export async function GET(request: NextRequest) {
 
       for (const item of feedResponseParsed.items) {
         const { title, link, isoDate, content } = item;
-        await prisma.article.upsert({
-          where: { link },
-          update: {
+        if (!title || !link || !currentFeed) {
+          continue;
+        }
+
+        await db
+          .insert(articles)
+          .values({
             title,
-            publication_date: isoDate ? new Date(isoDate) : new Date(),
-            content,
-            last_checked: new Date(),
-          },
-          create: {
-            title: title as string,
-            link: link as string,
-            publication_date: isoDate ? new Date(isoDate) : new Date(),
-            content: content as string,
-            feed: { connect: { id: feed ? feed.id : undefined } },
-            last_checked: new Date(),
-          },
-        });
+            link,
+            publicationDate: isoDate ? new Date(isoDate) : new Date(),
+            content: content || "",
+            feedId: currentFeed.id,
+            lastChecked: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: articles.link,
+            set: {
+              title,
+              publicationDate: isoDate ? new Date(isoDate) : new Date(),
+              content: content || "",
+              lastChecked: new Date(),
+            },
+          });
       }
 
-      await prisma.feed.update({
-        where: { url: feedUrl },
-        data: { last_fetched: new Date() },
-      });
+      await db
+        .update(feeds)
+        .set({ lastFetched: new Date() })
+        .where(eq(feeds.url, feedUrl));
     }
 
-    if (feed) {
-      const articles = await prisma.article.findMany({
-        where: { feed_id: feed.id },
-        select: { title: true, link: true, content: true },
-        orderBy: { publication_date: "desc" },
-      });
+    if (currentFeed) {
+      const feedArticles = await db
+        .select({
+          title: articles.title,
+          link: articles.link,
+          content: articles.content,
+        })
+        .from(articles)
+        .where(eq(articles.feedId, currentFeed.id))
+        .orderBy(desc(articles.publicationDate));
 
-      return NextResponse.json(articles);
+      return NextResponse.json(feedArticles);
     } else {
       return NextResponse.json({ error: "Feed not found" }, { status: 404 });
     }
   } catch (error) {
     console.error("Error fetching feed:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect(); // Close the connection properly
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const name = body?.name?.trim();
+    const url = body?.url?.trim();
+    const category = body?.category?.trim() || "My Feeds";
+
+    if (!name || !url) {
+      return NextResponse.json(
+        { error: "Both name and url are required" },
+        { status: 400 },
+      );
+    }
+
+    const existingSource = await db
+      .select({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      })
+      .from(feedSources)
+      .where(eq(feedSources.url, url))
+      .limit(1);
+
+    let sourceFeedId: number;
+    const existingFeed = await db
+      .select({ id: feeds.id })
+      .from(feeds)
+      .where(eq(feeds.url, url))
+      .limit(1);
+
+    if (!existingFeed[0]) {
+      const [createdFeed] = await db
+        .insert(feeds)
+        .values({ url })
+        .returning({ id: feeds.id });
+      sourceFeedId = createdFeed.id;
+    } else {
+      sourceFeedId = existingFeed[0].id;
+    }
+
+    await db
+      .delete(feedCategories)
+      .where(eq(feedCategories.feedId, sourceFeedId));
+    await db.insert(feedCategories).values({
+      feedId: sourceFeedId,
+      category,
+    });
+
+    if (existingSource[0]) {
+      return NextResponse.json({ ...existingSource[0], category });
+    }
+
+    const [createdSource] = await db
+      .insert(feedSources)
+      .values({ name, url })
+      .returning({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      });
+
+    return NextResponse.json({ ...createdSource, category }, { status: 201 });
+  } catch (error) {
+    console.error("Error creating feed source:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const url = new URL(request.url);
+    const sourceId = Number(url.searchParams.get("id"));
+
+    if (!Number.isInteger(sourceId) || sourceId <= 0) {
+      return NextResponse.json(
+        { error: "A valid id query parameter is required" },
+        { status: 400 },
+      );
+    }
+
+    const [sourceToDelete] = await db
+      .select({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      })
+      .from(feedSources)
+      .where(eq(feedSources.id, sourceId))
+      .limit(1);
+
+    if (!sourceToDelete) {
+      return NextResponse.json(
+        { error: "Feed source not found" },
+        { status: 404 },
+      );
+    }
+
+    const [feedForSource] = await db
+      .select({ id: feeds.id })
+      .from(feeds)
+      .where(eq(feeds.url, sourceToDelete.url))
+      .limit(1);
+
+    if (feedForSource) {
+      await db
+        .delete(feedCategories)
+        .where(eq(feedCategories.feedId, feedForSource.id));
+    }
+
+    const [deletedSource] = await db
+      .delete(feedSources)
+      .where(eq(feedSources.id, sourceId))
+      .returning({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      });
+
+    return NextResponse.json(deletedSource);
+  } catch (error) {
+    console.error("Error deleting feed source:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

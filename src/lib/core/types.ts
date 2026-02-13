@@ -13,6 +13,13 @@ export interface Feed {
   articles: Article[];
 }
 
+export interface FeedSource {
+  id: number;
+  name: string;
+  url: string;
+  category?: string;
+}
+
 export interface Article {
   id: number;
   title: string;
@@ -27,14 +34,5 @@ export interface CategoryTreeNode {
   key: string;
   label: string;
   children?: CategoryTreeNode[];
-  data?: { url: string };
-}
-
-export interface StarStyle {
-  height: string;
-  width: string;
-  top: string;
-  left: string;
-  animation: string;
-  willChange?: string;
+  data?: { url: string; sourceId?: number; category?: string };
 }
