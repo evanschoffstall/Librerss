@@ -1,14 +1,24 @@
-import { db } from "@/src/lib/services/db";
+import { db } from "@/src/lib/db/db";
 import {
   articles,
   feedCategories,
   feeds,
   feedSources,
-} from "@/src/lib/services/schema";
+} from "@/src/lib/db/schema";
 import axios from "axios";
 import { desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import Parser from "rss-parser";
+
+/** Only allow http/https feed URLs to prevent SSRF against internal services. */
+function isAllowedFeedUrl(raw: string): boolean {
+  try {
+    const { protocol } = new URL(raw);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 const parser = new Parser();
 
@@ -16,6 +26,13 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const feedUrl = url.searchParams.get("url");
+
+    if (feedUrl && !isAllowedFeedUrl(feedUrl)) {
+      return NextResponse.json(
+        { error: "Feed URL must use http or https" },
+        { status: 400 },
+      );
+    }
 
     if (!feedUrl) {
       const sourcesSelection = {
@@ -63,36 +80,36 @@ export async function GET(request: NextRequest) {
       const feedResponse = await axios.get(feedUrl);
       const feedResponseParsed = await parser.parseString(feedResponse.data);
 
-      for (const item of feedResponseParsed.items) {
-        const { title, link, isoDate, content } = item;
-        if (!title || !link || !currentFeed) {
-          continue;
-        }
+      const now = new Date();
+      const validItems = feedResponseParsed.items
+        .filter((item) => Boolean(item.title) && Boolean(item.link) && currentFeed)
+        .map((item) => ({
+          title: item.title!,
+          link: item.link!,
+          publicationDate: item.isoDate ? new Date(item.isoDate) : now,
+          content: item.content || "",
+          feedId: currentFeed.id,
+          lastChecked: now,
+        }));
 
+      if (validItems.length > 0) {
         await db
           .insert(articles)
-          .values({
-            title,
-            link,
-            publicationDate: isoDate ? new Date(isoDate) : new Date(),
-            content: content || "",
-            feedId: currentFeed.id,
-            lastChecked: new Date(),
-          })
+          .values(validItems)
           .onConflictDoUpdate({
             target: articles.link,
             set: {
-              title,
-              publicationDate: isoDate ? new Date(isoDate) : new Date(),
-              content: content || "",
-              lastChecked: new Date(),
+              title: articles.title,
+              publicationDate: articles.publicationDate,
+              content: articles.content,
+              lastChecked: articles.lastChecked,
             },
           });
       }
 
       await db
         .update(feeds)
-        .set({ lastFetched: new Date() })
+        .set({ lastFetched: now })
         .where(eq(feeds.url, feedUrl));
     }
 

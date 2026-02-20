@@ -1,5 +1,5 @@
-import { db } from "@/src/lib/services/db";
-import { articles } from "@/src/lib/services/schema";
+import { db } from "@/src/lib/db/db";
+import { articles } from "@/src/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
