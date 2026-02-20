@@ -64,8 +64,9 @@ bun-debug.log*
 # prisma
 /prisma/migrations
 
-# local tool state
-.lh
+# IDE
+.vscode/
+.lh/
 
 # misc
 .DS_Store
