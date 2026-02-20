@@ -1,6 +1,6 @@
 import "@/src/app/globals.css";
 import { DebugBorder, DebugGrid } from "@/src/components";
-import { AppThemeProvider } from "@/src/components/theme/AppThemeProvider";
+import { AppThemeProvider } from "@/src/components/AppThemeProvider";
 import { ENV } from "@/src/lib";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
