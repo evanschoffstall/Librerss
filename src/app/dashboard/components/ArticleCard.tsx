@@ -37,6 +37,8 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
         return safeCut.trimEnd();
       })()
     : content;
+  // showFullContent leads isExpanded so the text swap happens before the
+  // height animation finishes (expand) and after it finishes (collapse).
   const [showFullContent, setShowFullContent] = useState(isExpanded);
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [expandedHeight, setExpandedHeight] = useState(0);
@@ -62,8 +64,12 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
 
   useEffect(() => {
     if (isExpanded) {
+      // Show full content immediately when expanding so it's visible during the animation.
       setShowFullContent(true);
     }
+    // When collapsing, keep showFullContent=true until the transition ends
+    // (handled in handleContentTransitionEnd) so the text doesn't flash
+    // before the height animation closes.
   }, [isExpanded]);
 
   const toggleExpanded = () => {
@@ -75,6 +81,8 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
   };
 
   const handleContentTransitionEnd = () => {
+    // Only hide full content once the collapse animation has fully completed.
+    // Guard against the case where heights are equal (no transitionend fires).
     if (!isExpanded) {
       setShowFullContent(false);
     }
@@ -107,7 +115,7 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
       <div className="space-y-2 pr-7">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground/60">
           <CalendarDays className="size-3" />
-          {new Date(article.publication_date || Date.now()).toLocaleDateString()}
+          {new Date(article.publicationDate ?? Date.now()).toLocaleDateString()}
           <span className="text-border">|</span>
           <span className="truncate">{getHostname(article.link)}</span>
         </div>
@@ -123,6 +131,10 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
               maxHeight: hasOverflow
                 ? `${isExpanded ? expandedHeight : collapsedHeight}px`
                 : "none",
+              // If heights are equal the browser won't fire transitionend; hide directly.
+              ...(hasOverflow && collapsedHeight === expandedHeight && !isExpanded
+                ? { maxHeight: `${collapsedHeight}px` }
+                : {}),
             }}
           >
             <p className="text-xs leading-relaxed text-muted-foreground/75">

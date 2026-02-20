@@ -9,7 +9,7 @@ export interface ItemProps {
 export interface Feed {
   id: number;
   url: string;
-  last_fetched: Date;
+  lastFetched: Date;
   articles: Article[];
 }
 
@@ -25,9 +25,9 @@ export interface Article {
   title: string;
   link: string;
   content: string;
-  publication_date: Date;
-  last_checked: Date;
-  feed_id: number;
+  publicationDate: Date;
+  lastChecked: Date;
+  feedId: number;
 }
 
 export interface CategoryTreeNode {

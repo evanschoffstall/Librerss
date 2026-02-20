@@ -1,6 +1,6 @@
 // Main library exports - organized by domain
 
-// Core utilities, types, constants, and hooks
+// Core: types, constants, utilities, hooks
 export type {
   Article,
   CategoryTreeNode,
@@ -21,12 +21,8 @@ export {
 
 export { useDebugState, useIsClient } from "./core/clientHooks";
 
-// Services - API, database, and UI utilities
-export { ArticleService, FeedService } from "./services/services";
+// API clients
+export { ArticleService, FeedService } from "./api/services";
 
-export {
-  requestAIforNewsArticleRelatedImageURL,
-  sendPromptToChatGPT,
-} from "./services/chatgpt";
-
-export { multiLine } from "./services/textUtils";
+// Shared utilities
+export { cn, multiLine } from "./utils";

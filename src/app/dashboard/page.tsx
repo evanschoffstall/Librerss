@@ -631,7 +631,7 @@ const DashboardView = () => {
               {loading ? (
                 <motion.div
                   key="loading"
-                  className="grid grid-cols-1 gap-2 pr-3 py-2 xl:grid-cols-2"
+                  className="grid grid-cols-1 gap-2 pr-3 py-2"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -700,7 +700,7 @@ const DashboardView = () => {
               ) : (
                 <motion.div
                   key="feed-grid"
-                  className="grid grid-cols-1 gap-2 pr-3 xl:grid-cols-2"
+                  className="grid grid-cols-1 gap-2 pr-3"
                   initial="initial"
                   animate="animate"
                   exit={{ opacity: 0 }}
