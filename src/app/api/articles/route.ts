@@ -1,6 +1,7 @@
 import { getUserFromRequest } from "@/src/lib/auth/session";
 import { getDb } from "@/src/lib/db/db";
-import { articles } from "@/src/lib/db/schema";
+import { articles, feeds, feedSources } from "@/src/lib/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -31,9 +32,35 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDb();
-    const allArticles = await db.select().from(articles);
 
-    return NextResponse.json(allArticles);
+    const userFeedSources = await db
+      .select({ url: feedSources.url })
+      .from(feedSources)
+      .where(eq(feedSources.userId, user.userId));
+
+    if (userFeedSources.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const userFeedUrls = userFeedSources.map((s) => s.url);
+
+    const userFeeds = await db
+      .select({ id: feeds.id })
+      .from(feeds)
+      .where(inArray(feeds.url, userFeedUrls));
+
+    if (userFeeds.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const userFeedIds = userFeeds.map((f) => f.id);
+
+    const userArticles = await db
+      .select()
+      .from(articles)
+      .where(inArray(articles.feedId, userFeedIds));
+
+    return NextResponse.json(userArticles);
   } catch (error) {
     console.error("Articles GET error:", error);
     return NextResponse.json(
