@@ -6,6 +6,16 @@ export interface ItemProps {
   content?: string;
 }
 
+export interface AuthUser {
+  id: number;
+  email: string;
+}
+
+export interface AuthSession {
+  authenticated: boolean;
+  user: AuthUser | null;
+}
+
 export interface Feed {
   id: number;
   url: string;

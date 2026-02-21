@@ -1,7 +1,42 @@
 // API service classes for LibreRSS
 
 import axios from "axios";
-import type { Article, Feed, FeedSource } from "../core/types";
+import type {
+  Article,
+  AuthSession,
+  AuthUser,
+  Feed,
+  FeedSource,
+} from "../core/types";
+
+export class AuthService {
+  private static baseUrl = "/api/auth";
+
+  static async getSession(): Promise<AuthSession> {
+    const response = await axios.get(`${this.baseUrl}/session`);
+    return response.data;
+  }
+
+  static async login(email: string, password: string): Promise<AuthUser> {
+    const response = await axios.post(`${this.baseUrl}/login`, {
+      email,
+      password,
+    });
+    return response.data.user;
+  }
+
+  static async signup(email: string, password: string): Promise<AuthUser> {
+    const response = await axios.post(`${this.baseUrl}/signup`, {
+      email,
+      password,
+    });
+    return response.data.user;
+  }
+
+  static async logout(): Promise<void> {
+    await axios.post(`${this.baseUrl}/logout`);
+  }
+}
 
 export class FeedService {
   private static baseUrl = "/api";
