@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -32,7 +31,7 @@ import {
 import type { CategoryTreeNode } from "@/src/lib";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const IconBtn = ({
   tip,
@@ -68,9 +67,6 @@ interface SettingsModalProps {
   categories: CategoryTreeNode[];
   categoryOptions: string[];
   selectedCategory: string;
-  isDevelopment: boolean;
-  isUsingDevPlaceholder: boolean;
-  feedCount: number;
   onSelectFeed: (key: string) => void;
   onMoveFeed: (key: string, direction: "up" | "down") => void;
   onMoveFeedToCategory: (key: string, categoryLabel: string) => Promise<void>;
@@ -87,9 +83,6 @@ export const SettingsModal = ({
   categories,
   categoryOptions,
   selectedCategory,
-  isDevelopment,
-  isUsingDevPlaceholder,
-  feedCount,
   onSelectFeed,
   onMoveFeed,
   onMoveFeedToCategory,
@@ -111,11 +104,6 @@ export const SettingsModal = ({
   const [movingFeedKey, setMovingFeedKey] = useState<string | null>(null);
   const [savingCategoryLabel, setSavingCategoryLabel] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
-
-  const feedNodes = useMemo(
-    () => categories.flatMap((categoryNode) => categoryNode.children ?? []),
-    [categories],
-  );
 
   useEffect(() => {
     if (!categoryOptions.includes(newFeedCategory)) {
@@ -191,14 +179,14 @@ export const SettingsModal = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, ease: "easeOut" }}
         >
-          <Tabs defaultValue="feeds" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="feeds">Feeds</TabsTrigger>
-              <TabsTrigger value="preferences">Display</TabsTrigger>
-              <TabsTrigger value="runtime">Runtime</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="feeds" className="mt-4">
+          <div className="space-y-6 py-1">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-sm font-medium">Feeds</h3>
+                <p className="text-xs text-muted-foreground">
+                  Manage categories, feeds, and ordering.
+                </p>
+              </div>
               <TooltipProvider delayDuration={300}>
                 {categories.length === 0 ? (
                   <motion.div
@@ -506,17 +494,21 @@ export const SettingsModal = ({
                   </Accordion>
                 )}
               </TooltipProvider>
-            </TabsContent>
+            </section>
 
-            <TabsContent value="preferences" className="space-y-6">
-              <div className="flex items-center justify-between rounded-md border p-4">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-sm font-medium">Display</h3>
+                <p className="text-xs text-muted-foreground">Adjust reader presentation preferences.</p>
+              </div>
+              <div className="flex items-center justify-between">
                 <Label htmlFor="auto-refresh">Auto-refresh</Label>
                 <Switch id="auto-refresh" defaultChecked />
               </div>
-              <div className="space-y-2 rounded-md border p-4">
+              <div className="flex items-center justify-between gap-4">
                 <Label>Items per page</Label>
                 <Select defaultValue="25">
-                  <SelectTrigger>
+                  <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Select amount" />
                   </SelectTrigger>
                   <SelectContent>
@@ -526,33 +518,9 @@ export const SettingsModal = ({
                   </SelectContent>
                 </Select>
               </div>
-            </TabsContent>
+            </section>
 
-            <TabsContent value="runtime" className="space-y-3">
-              <div className="rounded-md border p-4">
-                <h3 className="text-sm font-medium">Environment</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Mode: {isDevelopment ? "Development" : "Production"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Placeholder content: {isUsingDevPlaceholder ? "Active" : "Inactive"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {isDevelopment
-                    ? "Development mode can show mock articles when feeds are empty or fail."
-                    : "Production mode only shows live feed responses."}
-                </p>
-              </div>
-
-              <div className="rounded-md border p-4">
-                <h3 className="text-sm font-medium">Current Feed State</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Configured feeds: {feedCount}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Selected source: {feedNodes.find((node) => node.key === selectedCategory)?.label ?? "None"}
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
+          </div>
         </motion.div>
       </DialogContent>
     </Dialog>
