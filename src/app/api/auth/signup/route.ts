@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   try {
     if (RUNTIME_FLAGS.usePlaceholderData) {
       return NextResponse.json(
-        { error: "Signup is disabled when SUPABASE_URL is not configured" },
+        { error: "Signup is disabled when DATABASE_URL is not configured" },
         { status: 503 },
       );
     }

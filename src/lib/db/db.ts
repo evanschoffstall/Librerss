@@ -8,10 +8,10 @@ const globalForDb = globalThis as unknown as {
 };
 
 function getConnectionString(): string {
-  const connectionString = process.env.SUPABASE_URL;
+  const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error(
-      "Missing required environment variable: SUPABASE_URL. " +
+      "Missing required environment variable: DATABASE_URL. " +
         "Add it to your .env.local file.",
     );
   }

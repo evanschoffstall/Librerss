@@ -5,11 +5,11 @@ export {
   PLACEHOLDER_FEED_SOURCES,
 } from "./placeholder";
 
-const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL?.trim());
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
 
 export const RUNTIME_FLAGS = {
-  hasSupabaseUrl,
-  usePlaceholderData: !hasSupabaseUrl,
+  hasDatabaseUrl,
+  usePlaceholderData: !hasDatabaseUrl,
 } as const;
 
 export const PLACEHOLDER_ADMIN_USER = {

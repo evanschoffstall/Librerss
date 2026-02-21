@@ -16,10 +16,60 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import Parser from "rss-parser";
 
+const BLOCKED_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^0\.0\.0\.0$/,
+  /^127\./,
+  /^10\./,
+  /^169\.254\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^::1$/i,
+  /^fc/i,
+  /^fd/i,
+  /^fe80:/i,
+];
+
+function normalizeFeedUrl(raw: string): string {
+  const parsed = new URL(raw.trim());
+  parsed.hash = "";
+  parsed.username = "";
+  parsed.password = "";
+  return parsed.toString().replace(/\/+$/, "");
+}
+
+function isBlockedFeedHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized.endsWith(".local") ||
+    BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(normalized))
+  );
+}
+
 function isAllowedFeedUrl(raw: string): boolean {
   try {
-    const { protocol } = new URL(raw);
-    return protocol === "http:" || protocol === "https:";
+    const parsed = new URL(raw);
+    const hasSupportedProtocol =
+      parsed.protocol === "http:" || parsed.protocol === "https:";
+
+    if (!hasSupportedProtocol) {
+      return false;
+    }
+
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+
+    return !isBlockedFeedHost(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedArticleLink(raw: string): boolean {
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
   } catch {
     return false;
   }
@@ -44,7 +94,7 @@ export async function GET(request: NextRequest) {
     }
 
     const requestUrl = new URL(request.url);
-    const feedUrl = requestUrl.searchParams.get("url");
+    const feedUrl = requestUrl.searchParams.get("url")?.trim();
 
     if (feedUrl && !isAllowedFeedUrl(feedUrl)) {
       return NextResponse.json(
@@ -53,22 +103,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const normalizedFeedUrl = feedUrl ? normalizeFeedUrl(feedUrl) : null;
+
     if (RUNTIME_FLAGS.usePlaceholderData) {
-      if (!feedUrl) {
-        console.log("[feeds] placeholder: returning feed sources");
+      if (!normalizedFeedUrl) {
         return NextResponse.json(PLACEHOLDER_FEED_SOURCES);
       }
 
-      const placeholderArticles = getPlaceholderArticlesForSource(feedUrl);
-      console.log(
-        `[feeds] placeholder: url=${feedUrl} count=${placeholderArticles.length}`,
+      return NextResponse.json(
+        getPlaceholderArticlesForSource(normalizedFeedUrl),
       );
-      return NextResponse.json(placeholderArticles);
     }
 
     const db = getDb();
 
-    if (!feedUrl) {
+    if (!normalizedFeedUrl) {
       const sources = await db
         .select({
           id: feedSources.id,
@@ -95,7 +144,10 @@ export async function GET(request: NextRequest) {
       .select({ id: feedSources.id })
       .from(feedSources)
       .where(
-        and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)),
+        and(
+          eq(feedSources.userId, user.userId),
+          eq(feedSources.url, normalizedFeedUrl),
+        ),
       )
       .limit(1);
 
@@ -109,7 +161,7 @@ export async function GET(request: NextRequest) {
     const [existingFeed] = await db
       .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
       .from(feeds)
-      .where(eq(feeds.url, feedUrl))
+      .where(eq(feeds.url, normalizedFeedUrl))
       .limit(1);
 
     let currentFeed = existingFeed;
@@ -124,27 +176,55 @@ export async function GET(request: NextRequest) {
     } else {
       const [createdFeed] = await db
         .insert(feeds)
-        .values({ url: feedUrl })
+        .values({ url: normalizedFeedUrl })
+        .onConflictDoNothing({ target: feeds.url })
         .returning({
           id: feeds.id,
           url: feeds.url,
           lastFetched: feeds.lastFetched,
         });
-      currentFeed = createdFeed;
+
+      if (createdFeed) {
+        currentFeed = createdFeed;
+      } else {
+        const [persistedFeed] = await db
+          .select({
+            id: feeds.id,
+            url: feeds.url,
+            lastFetched: feeds.lastFetched,
+          })
+          .from(feeds)
+          .where(eq(feeds.url, normalizedFeedUrl))
+          .limit(1);
+        currentFeed = persistedFeed;
+      }
+    }
+
+    if (!currentFeed) {
+      throw new Error("Unable to resolve feed record");
     }
 
     if (shouldFetch) {
-      const feedResponse = await axios.get(feedUrl);
+      const feedResponse = await axios.get(normalizedFeedUrl, {
+        timeout: 10000,
+        maxContentLength: 5 * 1024 * 1024,
+        maxRedirects: 3,
+      });
       const feedResponseParsed = await parser.parseString(feedResponse.data);
       const now = new Date();
 
       const validItems = feedResponseParsed.items
-        .filter((item) => Boolean(item.title) && Boolean(item.link))
+        .filter(
+          (item) =>
+            Boolean(item.title) &&
+            Boolean(item.link) &&
+            isAllowedArticleLink(item.link ?? ""),
+        )
         .map((item) => ({
           title: item.title!,
           link: item.link!,
-          publicationDate: parseFeedItemDate(item.isoDate, now),
-          content: item.content || "",
+          publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
+          content: item.content || item.contentSnippet || "",
           feedId: currentFeed.id,
           lastChecked: now,
         }));
@@ -167,7 +247,7 @@ export async function GET(request: NextRequest) {
       await db
         .update(feeds)
         .set({ lastFetched: now })
-        .where(eq(feeds.url, feedUrl));
+        .where(eq(feeds.url, normalizedFeedUrl));
     }
 
     const feedArticles = await db
@@ -205,7 +285,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Feed source management is disabled when SUPABASE_URL is not configured",
+            "Feed source management is disabled when DATABASE_URL is not configured",
         },
         { status: 503 },
       );
@@ -213,10 +293,20 @@ export async function POST(request: NextRequest) {
 
     const db = getDb();
 
-    const body = await request.json();
-    const name = body?.name?.trim();
-    const url = body?.url?.trim();
-    const category = body?.category?.trim() || "My Feeds";
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+    const url = typeof payload.url === "string" ? payload.url.trim() : "";
+    const category =
+      typeof payload.category === "string" && payload.category.trim()
+        ? payload.category.trim()
+        : "My Feeds";
 
     if (!name || !url) {
       return NextResponse.json(
@@ -239,6 +329,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedUrl = normalizeFeedUrl(url);
+
     const [existingSource] = await db
       .select({
         id: feedSources.id,
@@ -246,49 +338,96 @@ export async function POST(request: NextRequest) {
         url: feedSources.url,
       })
       .from(feedSources)
-      .where(and(eq(feedSources.userId, user.userId), eq(feedSources.url, url)))
+      .where(
+        and(
+          eq(feedSources.userId, user.userId),
+          eq(feedSources.url, normalizedUrl),
+        ),
+      )
       .limit(1);
 
     const [existingFeed] = await db
       .select({ id: feeds.id })
       .from(feeds)
-      .where(eq(feeds.url, url))
+      .where(eq(feeds.url, normalizedUrl))
       .limit(1);
 
-    const sourceFeedId =
-      existingFeed?.id ??
-      (await db.insert(feeds).values({ url }).returning({ id: feeds.id }))[0]
-        .id;
+    let sourceFeedId = existingFeed?.id;
 
-    await db
-      .delete(feedCategories)
-      .where(
-        and(
-          eq(feedCategories.userId, user.userId),
-          eq(feedCategories.feedId, sourceFeedId),
-        ),
-      );
+    if (!sourceFeedId) {
+      const [createdFeed] = await db
+        .insert(feeds)
+        .values({ url: normalizedUrl })
+        .onConflictDoNothing({ target: feeds.url })
+        .returning({ id: feeds.id });
 
-    await db.insert(feedCategories).values({
-      userId: user.userId,
-      feedId: sourceFeedId,
-      category,
-    });
-
-    if (existingSource) {
-      return NextResponse.json({ ...existingSource, category });
+      if (createdFeed) {
+        sourceFeedId = createdFeed.id;
+      } else {
+        const [persistedFeed] = await db
+          .select({ id: feeds.id })
+          .from(feeds)
+          .where(eq(feeds.url, normalizedUrl))
+          .limit(1);
+        sourceFeedId = persistedFeed?.id;
+      }
     }
 
-    const [createdSource] = await db
-      .insert(feedSources)
-      .values({ userId: user.userId, name, url })
-      .returning({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
+    if (!sourceFeedId) {
+      throw new Error("Unable to resolve feed source id");
+    }
+
+    const sourceRecord = await db.transaction(async (tx) => {
+      await tx
+        .delete(feedCategories)
+        .where(
+          and(
+            eq(feedCategories.userId, user.userId),
+            eq(feedCategories.feedId, sourceFeedId),
+          ),
+        );
+
+      await tx.insert(feedCategories).values({
+        userId: user.userId,
+        feedId: sourceFeedId,
+        category,
       });
 
-    return NextResponse.json({ ...createdSource, category }, { status: 201 });
+      if (existingSource) {
+        const [updatedSource] = await tx
+          .update(feedSources)
+          .set({ name })
+          .where(
+            and(
+              eq(feedSources.id, existingSource.id),
+              eq(feedSources.userId, user.userId),
+            ),
+          )
+          .returning({
+            id: feedSources.id,
+            name: feedSources.name,
+            url: feedSources.url,
+          });
+
+        return updatedSource ?? existingSource;
+      }
+
+      const [createdSource] = await tx
+        .insert(feedSources)
+        .values({ userId: user.userId, name, url: normalizedUrl })
+        .returning({
+          id: feedSources.id,
+          name: feedSources.name,
+          url: feedSources.url,
+        });
+
+      return createdSource;
+    });
+
+    return NextResponse.json(
+      { ...sourceRecord, category },
+      { status: existingSource ? 200 : 201 },
+    );
   } catch (error) {
     console.error("Error creating feed source:", error);
     return NextResponse.json(
@@ -309,7 +448,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Feed source management is disabled when SUPABASE_URL is not configured",
+            "Feed source management is disabled when DATABASE_URL is not configured",
         },
         { status: 503 },
       );
