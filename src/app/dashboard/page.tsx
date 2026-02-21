@@ -310,6 +310,8 @@ const DashboardView = () => {
     )?.data?.url;
 
     try {
+      let refreshedCategories: CategoryTreeNode[] | null = null;
+
       if (feedsInCategory.length > 0) {
         await Promise.all(
           feedsInCategory
@@ -322,8 +324,7 @@ const DashboardView = () => {
               }),
             ),
         );
-
-        await loadFeedSources();
+        refreshedCategories = await loadFeedSources();
       }
 
       setCustomCategoryLabels((current) =>
@@ -338,7 +339,10 @@ const DashboardView = () => {
       );
 
       if (previousSelectedSourceUrl) {
-        const refreshedCategories = await loadFeedSources();
+        if (!refreshedCategories) {
+          refreshedCategories = await loadFeedSources();
+        }
+
         const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
           (node) => node.data?.url === previousSelectedSourceUrl,
         );
@@ -401,14 +405,12 @@ const DashboardView = () => {
   };
 
   const fetchFeed = async (url: string = DEFAULT_FEED_URL) => {
-    console.log("[fetchFeed] start", url);
     setLoading(true);
     setFeed([]);
     setIsUsingDevPlaceholder(false);
 
     try {
       const articles = await FeedService.getFeed(url);
-      console.log("[fetchFeed] success count=" + articles.length + " url=" + url);
 
       if (ENV.isDevelopment && articles.length === 0) {
         setFeed(getDevPlaceholderArticlesForSource(url));
@@ -420,7 +422,6 @@ const DashboardView = () => {
       setFeed(articles);
       setExpandedArticleKey(null);
     } catch (err) {
-      console.error("[fetchFeed] error url=" + url, err);
       if (ENV.isDevelopment) {
         setFeed(getDevPlaceholderArticlesForSource(url));
         setIsUsingDevPlaceholder(true);
