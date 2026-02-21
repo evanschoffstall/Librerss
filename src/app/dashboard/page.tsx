@@ -3,8 +3,16 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { DebugBorder, DebugGrid } from "@/src/components";
-import { ENV, FeedService, isValidUrl, type Article, type CategoryTreeNode } from "@/src/lib";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  AuthService,
+  ENV,
+  FeedService,
+  isValidUrl,
+  type Article,
+  type AuthUser,
+  type CategoryTreeNode,
+} from "@/src/lib";
+import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -13,10 +21,10 @@ import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } fro
 import {
   DEFAULT_CATEGORY_LABEL,
   DEFAULT_FEED_URL,
-  DEV_PLACEHOLDER_ARTICLES,
   DEV_PLACEHOLDER_CATEGORY_LABEL,
   DEV_PLACEHOLDER_FEED_SOURCES,
   INITIAL_CATEGORIES,
+  getDevPlaceholderArticlesForSource,
 } from "./constants";
 
 const toCategoryKey = (label: string) =>
@@ -302,6 +310,8 @@ const DashboardView = () => {
     )?.data?.url;
 
     try {
+      let refreshedCategories: CategoryTreeNode[] | null = null;
+
       if (feedsInCategory.length > 0) {
         await Promise.all(
           feedsInCategory
@@ -314,8 +324,7 @@ const DashboardView = () => {
               }),
             ),
         );
-
-        await loadFeedSources();
+        refreshedCategories = await loadFeedSources();
       }
 
       setCustomCategoryLabels((current) =>
@@ -330,7 +339,10 @@ const DashboardView = () => {
       );
 
       if (previousSelectedSourceUrl) {
-        const refreshedCategories = await loadFeedSources();
+        if (!refreshedCategories) {
+          refreshedCategories = await loadFeedSources();
+        }
+
         const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
           (node) => node.data?.url === previousSelectedSourceUrl,
         );
@@ -394,13 +406,14 @@ const DashboardView = () => {
 
   const fetchFeed = async (url: string = DEFAULT_FEED_URL) => {
     setLoading(true);
+    setFeed([]);
     setIsUsingDevPlaceholder(false);
 
     try {
       const articles = await FeedService.getFeed(url);
 
       if (ENV.isDevelopment && articles.length === 0) {
-        setFeed(DEV_PLACEHOLDER_ARTICLES);
+        setFeed(getDevPlaceholderArticlesForSource(url));
         setIsUsingDevPlaceholder(true);
         setExpandedArticleKey(null);
         return;
@@ -410,7 +423,7 @@ const DashboardView = () => {
       setExpandedArticleKey(null);
     } catch (err) {
       if (ENV.isDevelopment) {
-        setFeed(DEV_PLACEHOLDER_ARTICLES);
+        setFeed(getDevPlaceholderArticlesForSource(url));
         setIsUsingDevPlaceholder(true);
         setExpandedArticleKey(null);
         toast.info("Showing development placeholder content.", {
@@ -582,9 +595,8 @@ const DashboardView = () => {
         {/* Sidebar */}
         <aside className="min-h-0 overflow-hidden lg:w-[220px] lg:shrink-0">
           <div
-            className={`h-full overflow-y-auto pr-3 transition-opacity duration-300 ease-out ${
-              isSidebarVisible ? "opacity-100" : "opacity-0"
-            }`}
+            className={`h-full overflow-y-auto pr-3 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
+              }`}
           >
             <div className="space-y-4">
               {displayCategories.length === 0 ? (
@@ -593,9 +605,8 @@ const DashboardView = () => {
                 displayCategories.map((categoryNode, index) => (
                   <div
                     key={categoryNode.key}
-                    className={`space-y-1 transition-opacity duration-300 ease-out ${
-                      isSidebarVisible ? "opacity-100" : "opacity-0"
-                    }`}
+                    className={`space-y-1 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                      }`}
                     style={{ transitionDelay: `${index * 35}ms` }}
                   >
                     <p className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
@@ -627,122 +638,62 @@ const DashboardView = () => {
         >
 
           <ScrollArea className="min-h-0 flex-1">
-            <AnimatePresence mode="wait" initial={false}>
-              {loading ? (
-                <motion.div
-                  key="loading"
-                  className="grid grid-cols-1 gap-2 pr-3 py-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.24 }}
-                >
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <motion.div
-                      key={`loading-skeleton-${index}`}
-                      className="rounded-xl border bg-card/40 p-3"
-                      initial={{ opacity: 0, scale: 0.985 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.24, ease: "easeOut", delay: index * 0.04 }}
-                    >
-                      <motion.div
-                        className="h-3 w-1/3 rounded bg-muted/60"
-                        animate={{ opacity: [0.45, 0.85, 0.45] }}
-                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                      <motion.div
-                        className="mt-2 h-4 w-5/6 rounded bg-muted/70"
-                        animate={{ opacity: [0.5, 0.9, 0.5] }}
-                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: 0.08 }}
-                      />
-                      <motion.div
-                        className="mt-3 space-y-2"
-                        animate={{ opacity: [0.45, 0.8, 0.45] }}
-                        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.12 }}
-                      >
-                        <div className="h-3 w-full rounded bg-muted/50" />
-                        <div className="h-3 w-4/5 rounded bg-muted/50" />
-                        <div className="h-3 w-2/3 rounded bg-muted/50" />
-                      </motion.div>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : filteredFeed.length === 0 ? (
-                <motion.div
-                  key="empty"
-                  className="flex items-center justify-center py-32"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.24, ease: "easeOut" }}
-                >
-                  <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {searchTerm ? "No matches." : "No articles yet."}
-                    </p>
-                    {searchTerm ? (
-                      <button
-                        onClick={() => setSearchTerm("")}
-                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                      >
-                        Clear search
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL)}
-                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                      >
-                        Refresh
-                      </button>
-                    )}
+            {loading ? (
+              <div className="grid grid-cols-1 gap-2 pr-3 py-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="rounded-xl border bg-card/40 p-3">
+                    <div className="h-3 w-1/3 rounded bg-muted/60" />
+                    <div className="mt-2 h-4 w-5/6 rounded bg-muted/70" />
+                    <div className="mt-3 space-y-2">
+                      <div className="h-3 w-full rounded bg-muted/50" />
+                      <div className="h-3 w-4/5 rounded bg-muted/50" />
+                      <div className="h-3 w-2/3 rounded bg-muted/50" />
+                    </div>
                   </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="feed-grid"
-                  className="grid grid-cols-1 gap-2 pr-3"
-                  initial="initial"
-                  animate="animate"
-                  exit={{ opacity: 0 }}
-                  variants={{
-                    initial: {},
-                    animate: {
-                      transition: {
-                        staggerChildren: 0.04,
-                        delayChildren: 0.06,
-                      },
-                    },
-                  }}
-                >
-                  {filteredFeed.map((article, index) => {
-                    const cardKey = `${article.link}-${index}`;
-                    const isExpanded = expandedArticleKey === cardKey;
-
-                    return (
-                      <motion.div
-                        key={cardKey}
-                        layout
-                        variants={{
-                          initial: { opacity: 0, y: 10 },
-                          animate: { opacity: 1, y: 0 },
-                        }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                      >
-                        <ArticleCard
-                          article={article}
-                          isExpanded={isExpanded}
-                          onToggle={() =>
-                            setExpandedArticleKey((current) =>
-                              current === cardKey ? null : cardKey,
-                            )
-                          }
-                        />
-                      </motion.div>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                ))}
+              </div>
+            ) : filteredFeed.length === 0 ? (
+              <div className="flex items-center justify-center py-32">
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm ? "No matches." : "No articles yet."}
+                  </p>
+                  {searchTerm ? (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                    >
+                      Clear search
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL)}
+                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                    >
+                      Refresh
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 pr-3">
+                {filteredFeed.map((article, index) => {
+                  const cardKey = `${article.link}-${index}`;
+                  return (
+                    <ArticleCard
+                      key={cardKey}
+                      article={article}
+                      isExpanded={expandedArticleKey === cardKey}
+                      onToggle={() =>
+                        setExpandedArticleKey((current) =>
+                          current === cardKey ? null : cardKey,
+                        )
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
           </ScrollArea>
         </motion.section>
       </div>
@@ -753,9 +704,6 @@ const DashboardView = () => {
           categories={displayCategories}
           categoryOptions={categoryOptions}
           selectedCategory={selectedCategory}
-          isDevelopment={ENV.isDevelopment}
-          isUsingDevPlaceholder={isUsingDevPlaceholder}
-          feedCount={availableSources.length}
           onSelectFeed={selectFeedByKey}
           onMoveFeed={moveFeedSource}
           onMoveFeedToCategory={moveFeedToCategory}
@@ -774,12 +722,45 @@ const DashboardView = () => {
 function DashboardRouter() {
   const searchParams = useSearchParams();
   const view = searchParams?.get("view") || "dashboard";
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const session = await AuthService.getSession();
+        setCurrentUser(session.authenticated ? session.user : null);
+      } catch {
+        setCurrentUser(null);
+      } finally {
+        setIsSessionLoading(false);
+      }
+    };
+
+    loadSession();
+  }, []);
+
+  if (isSessionLoading) {
+    return (
+      <main className="h-full overflow-hidden bg-background">
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+        </div>
+      </main>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="h-full overflow-hidden bg-background">
+        <LoginView onAuthenticated={setCurrentUser} />
+      </main>
+    );
+  }
 
   return (
     <main className="h-full overflow-hidden bg-background">
-      {view === "login" ? (
-        <LoginView />
-      ) : view === "settings" ? (
+      {view === "settings" ? (
         <SettingsView />
       ) : (
         <DashboardView />

@@ -13,7 +13,7 @@ Free, open-source RSS reader for a calm, ad-free reading flow.
 
 - Next.js 16 + React 19 + TypeScript
 - Tailwind CSS + shadcn/ui (Radix)
-- Drizzle ORM + PostgreSQL (Supabase-compatible)
+- Drizzle ORM + PostgreSQL
 - Bun scripts
 
 ## 🚀 Quick start
@@ -27,7 +27,7 @@ Free, open-source RSS reader for a calm, ad-free reading flow.
 2. Create `.env.local`
 
    ```env
-   SUPABASE_URL="postgres://user:password@host:5432/dbname"
+   DATABASE_URL="postgres://user:password@host:5432/dbname"
    NODE_ENV="development"
    ```
 

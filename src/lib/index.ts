@@ -3,6 +3,8 @@
 // Core: types, constants, utilities, hooks
 export type {
   Article,
+  AuthSession,
+  AuthUser,
   CategoryTreeNode,
   Feed,
   FeedSource,
@@ -22,7 +24,7 @@ export {
 export { useDebugState, useIsClient } from "./core/clientHooks";
 
 // API clients
-export { ArticleService, FeedService } from "./api/services";
+export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
 export { cn, multiLine } from "./utils";

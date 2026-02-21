@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 function ThemeModeToggle() {
@@ -159,8 +159,12 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       disableTransitionOnChange
     >
       {children}
-      <ThemeModeToggle />
-      <ThemedToaster />
+      <Suspense fallback={null}>
+        <ThemeModeToggle />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ThemedToaster />
+      </Suspense>
     </ThemeProvider>
   );
 }
