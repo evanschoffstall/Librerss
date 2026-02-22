@@ -20,9 +20,11 @@
     ],
     "baseUrl": ".",
     "paths": {
+      "@/components": ["./src/components/index.ts"],
       "@/components/*": ["./src/components/*"],
+      "@/lib": ["./src/lib/index.ts"],
       "@/lib/*": ["./src/lib/*"],
-      "@/*": ["./*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [

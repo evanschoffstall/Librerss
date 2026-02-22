@@ -1,12 +1,22 @@
-import { type Article } from "@/src/lib";
+import { type Article } from "@/lib";
 import { motion } from "framer-motion";
-import { ArrowUpRight, CalendarDays } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Loader2 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+  getCachedFaviconIndex,
+  getFaviconCacheKey,
+  getHostnameLabel,
+  getMergedFaviconCandidates,
+  setCachedFaviconIndex,
+} from "./favicons";
 
 interface ArticleCardProps {
   article: Article;
   isExpanded: boolean;
+  useRichFormatting: boolean;
+  isHydrating: boolean;
   onToggle: () => void;
+  showFavicon: boolean;
 }
 
 const toPlainText = (value: string) =>
@@ -17,33 +27,50 @@ const toPlainText = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const getHostname = (url: string) => {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
+const getArticleSourceLabel = (article: Article) => {
+  if (article.feedName?.trim()) {
+    return article.feedName;
   }
+
+  return getHostnameLabel(article.feedUrl ?? article.link);
 };
 
-export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps) => {
+export const ArticleCard = ({
+  article,
+  isExpanded,
+  useRichFormatting,
+  isHydrating,
+  onToggle,
+  showFavicon,
+}: ArticleCardProps) => {
   const content = toPlainText(article.content || "") || "No description available";
   const previewLimit = 170;
   const hasOverflow = content.length > previewLimit;
   const preview = hasOverflow
     ? (() => {
-        const candidate = content.slice(0, previewLimit + 1);
-        const lastSpace = candidate.lastIndexOf(" ");
-        const safeCut = lastSpace > 0 ? candidate.slice(0, lastSpace) : content.slice(0, previewLimit);
-        return safeCut.trimEnd();
-      })()
+      const candidate = content.slice(0, previewLimit + 1);
+      const lastSpace = candidate.lastIndexOf(" ");
+      const safeCut = lastSpace > 0 ? candidate.slice(0, lastSpace) : content.slice(0, previewLimit);
+      return safeCut.trimEnd();
+    })()
     : content;
   // showFullContent leads isExpanded so the text swap happens before the
   // height animation finishes (expand) and after it finishes (collapse).
   const [showFullContent, setShowFullContent] = useState(isExpanded);
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [expandedHeight, setExpandedHeight] = useState(0);
+  const faviconCandidates = getMergedFaviconCandidates(article.feedUrl, article.link);
+  const faviconCacheKey = getFaviconCacheKey(article.feedUrl, article.link);
+  const [faviconIndex, setFaviconIndex] = useState(() => getCachedFaviconIndex(faviconCacheKey));
+  const faviconUrl = faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
   const previewRef = useRef<HTMLParagraphElement>(null);
-  const fullContentRef = useRef<HTMLParagraphElement>(null);
+  const fullContentRef = useRef<HTMLDivElement>(null);
+
+  const richContentClassName = "text-xs leading-relaxed text-muted-foreground/75 whitespace-pre-wrap break-words [&_p]:mb-3 [&_p:last-child]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2";
+
+  useEffect(() => {
+    setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
+  }, [faviconCacheKey]);
 
   useEffect(() => {
     const measure = () => {
@@ -73,10 +100,6 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
   }, [isExpanded]);
 
   const toggleExpanded = () => {
-    if (!hasOverflow) {
-      return;
-    }
-
     onToggle();
   };
 
@@ -99,9 +122,9 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
 
   return (
     <motion.article
-      role={hasOverflow ? "button" : undefined}
-      tabIndex={hasOverflow ? 0 : undefined}
-      aria-expanded={hasOverflow ? isExpanded : undefined}
+      role="button"
+      tabIndex={0}
+      aria-expanded={isExpanded}
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
       className="group relative flex flex-col rounded-xl border bg-card/40 p-3 transition-all duration-300 hover:bg-card/70"
@@ -117,11 +140,37 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
           <CalendarDays className="size-3" />
           {new Date(article.publicationDate ?? Date.now()).toLocaleDateString()}
           <span className="text-border">|</span>
-          <span className="truncate">{getHostname(article.link)}</span>
+          {showFavicon && faviconUrl ? (
+            <img
+              src={faviconUrl}
+              alt=""
+              className="size-3 rounded-sm"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onLoad={() => {
+                setCachedFaviconIndex(faviconCacheKey, faviconIndex);
+              }}
+              onError={() => {
+                setFaviconIndex((current) => {
+                  const next = current + 1;
+                  const resolved = next < faviconCandidates.length ? next : -1;
+                  setCachedFaviconIndex(faviconCacheKey, resolved);
+                  return resolved;
+                });
+              }}
+            />
+          ) : null}
+          <span className="truncate">{getArticleSourceLabel(article)}</span>
         </div>
         <h3 className="line-clamp-2 text-sm font-medium leading-snug">
           {article.title}
         </h3>
+        {isHydrating ? (
+          <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/70">
+            <Loader2 className="size-3 animate-spin" />
+            Fetching full text…
+          </div>
+        ) : null}
 
         <div>
           <div
@@ -137,9 +186,20 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
                 : {}),
             }}
           >
-            <p className="text-xs leading-relaxed text-muted-foreground/75">
-              {hasOverflow && !showFullContent ? `${preview}…` : content}
-            </p>
+            {hasOverflow && !showFullContent ? (
+              <p className="text-xs leading-relaxed text-muted-foreground/75">
+                {`${preview}…`}
+              </p>
+            ) : useRichFormatting ? (
+              <div
+                className={richContentClassName}
+                dangerouslySetInnerHTML={{ __html: article.content || "" }}
+              />
+            ) : (
+              <p className="text-xs leading-relaxed text-muted-foreground/75">
+                {content}
+              </p>
+            )}
           </div>
           <p
             ref={previewRef}
@@ -148,13 +208,22 @@ export const ArticleCard = ({ article, isExpanded, onToggle }: ArticleCardProps)
           >
             {`${preview}…`}
           </p>
-          <p
+          <div
             ref={fullContentRef}
             aria-hidden="true"
-            className="pointer-events-none h-0 overflow-hidden opacity-0 text-xs leading-relaxed"
+            className="pointer-events-none h-0 overflow-hidden opacity-0"
           >
-            {content}
-          </p>
+            {useRichFormatting ? (
+              <div
+                className={richContentClassName}
+                dangerouslySetInnerHTML={{ __html: article.content || "" }}
+              />
+            ) : (
+              <p className="text-xs leading-relaxed text-muted-foreground/75">
+                {content}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

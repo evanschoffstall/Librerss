@@ -1,7 +1,7 @@
-import "@/src/app/globals.css";
-import { DebugBorder, DebugGrid } from "@/src/components";
-import { AppThemeProvider } from "@/src/components/AppThemeProvider";
-import { ENV } from "@/src/lib";
+import "./globals.css";
+import { DebugBorder, DebugGrid } from "../components";
+import { AppThemeProvider } from "../components/AppThemeProvider";
+import { ENV } from "../lib";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import React from "react";

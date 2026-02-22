@@ -1,5 +1,5 @@
-import { getUserFromRequest } from "@/src/lib/auth/session";
-import { RUNTIME_FLAGS } from "@/src/lib/core/runtime";
+import { getUserFromRequest } from "@/lib/auth/session";
+import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {

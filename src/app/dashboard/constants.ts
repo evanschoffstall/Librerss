@@ -1,13 +1,16 @@
-import { type CategoryTreeNode } from "@/src/lib";
+import { type CategoryTreeNode } from "@/lib";
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_ARTICLES,
   PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
-} from "@/src/lib/core/placeholder";
+} from "@/lib/core/placeholder";
 
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
+export const SYSTEM_CATEGORY_LABEL = "System";
+export const ALL_FEEDS_LABEL = "All Feeds";
+export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
 export const DEV_PLACEHOLDER_CATEGORY_LABEL = PLACEHOLDER_CATEGORY;
 
 export const DEV_PLACEHOLDER_FEED_SOURCES = PLACEHOLDER_FEED_SOURCES;

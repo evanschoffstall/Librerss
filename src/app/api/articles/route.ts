@@ -1,7 +1,7 @@
-import { requireSameOrigin } from "@/src/lib/auth/csrf";
-import { getUserFromRequest } from "@/src/lib/auth/session";
-import { getDb } from "@/src/lib/db/db";
-import { articles, feeds, feedSources } from "@/src/lib/db/schema";
+import { requireSameOrigin } from "@/lib/auth/csrf";
+import { getUserFromRequest } from "@/lib/auth/session";
+import { getDb } from "@/lib/db/db";
+import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 

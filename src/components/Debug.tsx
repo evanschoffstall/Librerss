@@ -1,6 +1,6 @@
 "use client";
 
-import { useDebugState } from "@/src/lib";
+import { useDebugState } from "../lib";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import "./components.css";

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AuthService, type AuthUser } from "@/src/lib";
+import { AuthService, type AuthUser } from "@/lib";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";

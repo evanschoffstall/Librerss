@@ -2,10 +2,10 @@ import {
   SESSION_COOKIE_NAME,
   clearSessionCookie,
   deleteSessionByToken,
-} from "@/src/lib/auth/session";
+} from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireSameOrigin } from "@/src/lib/auth/csrf";
+import { requireSameOrigin } from "@/lib/auth/csrf";
 export async function POST(request: NextRequest) {
   try {
     const csrfError = requireSameOrigin(request);
