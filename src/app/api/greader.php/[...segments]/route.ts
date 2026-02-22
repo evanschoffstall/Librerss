@@ -503,7 +503,7 @@ async function handleSubscriptionList(user: SessionUser): Promise<Response> {
       category: feedCategories.category,
     })
     .from(feedSources)
-    .innerJoin(feeds, eq(feeds.url, feedSources.url))
+    .leftJoin(feeds, eq(feeds.url, feedSources.url))
     .leftJoin(
       feedCategories,
       and(
@@ -848,7 +848,7 @@ async function handleStreamItemIds(
   }
 
   return NextResponse.json({
-    itemRefs: rows.map((row) => ({ id: toStreamItemId(row.articleId) })),
+    itemRefs: rows.map((row) => ({ id: String(row.articleId) })),
     continuation:
       rows.length === limit ? `offset:${offset + rows.length}` : undefined,
   });
