@@ -19,8 +19,8 @@ import {
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_FEED_SOURCES,
-  RUNTIME_FLAGS,
-} from "@/lib/core/runtime";
+} from "@/lib/core/placeholder";
+import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { rateLimiter } from "@/lib/utils/rate-limit";
@@ -36,6 +36,10 @@ import { NextRequest, NextResponse } from "next/server";
 type FeedTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
+type AuthenticatedUser = Exclude<
+  Awaited<ReturnType<typeof requireAuthenticatedUser>>,
+  Response
+>;
 
 type CreateFeedPayload = {
   name: string;
@@ -54,10 +58,63 @@ type CreateFeedSourceResult = {
   isNew: boolean;
 };
 
+type RenameFeedPayload = {
+  sourceId: number;
+  name: string;
+};
+
 const PUBLIC_FEED_URL_ERROR =
   "Feed URL must use http or https and resolve to a public host";
 const FEED_MANAGEMENT_DISABLED_ERROR =
   "Feed source management is disabled when DATABASE_URL is not configured";
+
+async function getAuthenticatedUser(
+  request: NextRequest,
+): Promise<AuthenticatedUser | Response> {
+  const authResult = await requireAuthenticatedUser(request);
+  if (authResult instanceof Response) {
+    return authResult;
+  }
+
+  return authResult;
+}
+
+async function requireMutableFeedAccess(
+  request: NextRequest,
+  options?: {
+    rateLimitKey?: string;
+    windowMs?: number;
+    maxAttempts?: number;
+  },
+): Promise<AuthenticatedUser | Response> {
+  if (options?.rateLimitKey) {
+    const rateLimitError = rateLimiter.check(request, options.rateLimitKey, {
+      windowMs: options.windowMs ?? CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
+      maxAttempts: options.maxAttempts ?? CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
+    });
+
+    if (rateLimitError) {
+      return rateLimitError;
+    }
+  }
+
+  const csrfError = requireSameOrigin(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
+  const user = await getAuthenticatedUser(request);
+  if (user instanceof Response) {
+    return user;
+  }
+
+  const feedManagementDisabledResponse = ensureFeedManagementEnabled();
+  if (feedManagementDisabledResponse) {
+    return feedManagementDisabledResponse;
+  }
+
+  return user;
+}
 
 function ensureFeedManagementEnabled(): Response | null {
   if (!RUNTIME_FLAGS.usePlaceholderData) {
@@ -106,6 +163,47 @@ async function parseCreateFeedPayload(
   }
 
   return { name, url, category };
+}
+
+async function parseRenameFeedPayload(
+  request: NextRequest,
+): Promise<RenameFeedPayload | Response> {
+  const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+  if (!parsedBody.ok) {
+    return parsedBody.response;
+  }
+
+  const payload = parsedBody.data;
+  const sourceId = parsePositiveInt(payload.id);
+  const name = asTrimmedString(payload.name);
+
+  if (!sourceId) {
+    return jsonError("A valid id is required", 400);
+  }
+
+  if (!name) {
+    return jsonError("name is required", 400);
+  }
+
+  if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
+    return jsonError(
+      `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
+      400,
+    );
+  }
+
+  return { sourceId, name };
+}
+
+function parseDeleteSourceId(request: NextRequest): number | Response {
+  const requestUrl = new URL(request.url);
+  const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
+
+  if (!sourceId) {
+    return jsonError("A valid id query parameter is required", 400);
+  }
+
+  return sourceId;
 }
 
 async function resolveFeedId(
@@ -235,11 +333,10 @@ async function createOrUpdateFeedSource(
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuthenticatedUser(request);
-    if (authResult instanceof Response) {
-      return authResult;
+    const user = await getAuthenticatedUser(request);
+    if (user instanceof Response) {
+      return user;
     }
-    const user = authResult;
 
     const requestUrl = new URL(request.url);
     const feedUrl = requestUrl.searchParams.get("url")?.trim();
@@ -312,29 +409,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
-    const rateLimitError = rateLimiter.check(request, "feed-create", {
+    const user = await requireMutableFeedAccess(request, {
+      rateLimitKey: "feed-create",
       windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
       maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
     });
-    if (rateLimitError) {
-      return rateLimitError;
-    }
-
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
-    }
-
-    const authResult = await requireAuthenticatedUser(request);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-    const user = authResult;
-
-    const feedManagementDisabledResponse = ensureFeedManagementEnabled();
-    if (feedManagementDisabledResponse) {
-      return feedManagementDisabledResponse;
+    if (user instanceof Response) {
+      return user;
     }
 
     const parsedPayload = await parseCreateFeedPayload(request);
@@ -366,47 +447,17 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    const user = await requireMutableFeedAccess(request);
+    if (user instanceof Response) {
+      return user;
     }
 
-    const authResult = await requireAuthenticatedUser(request);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-    const user = authResult;
-
-    const feedManagementDisabledResponse = ensureFeedManagementEnabled();
-    if (feedManagementDisabledResponse) {
-      return feedManagementDisabledResponse;
+    const parsedPayload = await parseRenameFeedPayload(request);
+    if (parsedPayload instanceof Response) {
+      return parsedPayload;
     }
 
-    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
-    }
-
-    const payload = parsedBody.data;
-    const sourceId = parsePositiveInt(payload.id);
-    const name = asTrimmedString(payload.name);
-
-    if (!sourceId) {
-      return jsonError("A valid id is required", 400);
-    }
-
-    if (!name) {
-      return jsonError("name is required", 400);
-    }
-
-    if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
-      return NextResponse.json(
-        {
-          error: `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
-        },
-        { status: 400 },
-      );
-    }
+    const { sourceId, name } = parsedPayload;
 
     const db = getDb();
 
@@ -434,30 +485,17 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    const user = await requireMutableFeedAccess(request);
+    if (user instanceof Response) {
+      return user;
     }
 
-    const authResult = await requireAuthenticatedUser(request);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-    const user = authResult;
-
-    const feedManagementDisabledResponse = ensureFeedManagementEnabled();
-    if (feedManagementDisabledResponse) {
-      return feedManagementDisabledResponse;
+    const sourceId = parseDeleteSourceId(request);
+    if (sourceId instanceof Response) {
+      return sourceId;
     }
 
     const db = getDb();
-
-    const requestUrl = new URL(request.url);
-    const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
-
-    if (!sourceId) {
-      return jsonError("A valid id query parameter is required", 400);
-    }
 
     const [sourceToDelete] = await db
       .select({

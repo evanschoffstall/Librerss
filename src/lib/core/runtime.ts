@@ -1,8 +1,3 @@
-export {
-  getPlaceholderArticlesForSource,
-  PLACEHOLDER_FEED_SOURCES,
-} from "./placeholder";
-
 import { randomBytes } from "node:crypto";
 
 const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
