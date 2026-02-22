@@ -1,199 +1,34 @@
 /**
- * Shared feed-fetching logic.
+ * Public API for fetching and caching feed articles.
  *
- * Extracted so that both /api/feeds (single URL) and /api/feeds/batch (many
- * URLs) can call it as a plain function instead of going through an in-process
- * HTTP round-trip, which was the previous batch implementation.
+ * DB access pattern for batch (regardless of N):
+ *   1. One SELECT to verify ownership of all URLs.
+ *   2. One SELECT to load all Feed records + lastFetched timestamps.
+ *   3. If any Feed records are missing: one INSERT + one SELECT to resolve them.
+ *   4. All stale upstream HTTP refreshes run in parallel (Promise.allSettled).
+ *   5. One window-function SELECT to retrieve top-N articles per feed.
  */
 
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
-import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
-import { toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
-import {
-  sanitizeAndTruncateArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/utils/sanitize";
-import {
-  isBlockedHost,
-  isBlockedResolvedAddress,
-  normalizeHostname,
-} from "@/lib/utils/ssrf";
-import { isValidUrl } from "@/lib/utils/url";
-import axios from "axios";
+import { articleStatuses, articles, feeds, feedSources } from "@/lib/db/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-import Parser from "rss-parser";
+import { type FeedRecord, refreshFeedFromUpstream, shouldRefreshFeed } from "./feed-refresh";
 
-// ─── DNS cache ────────────────────────────────────────────────────────────────
-// Module-level so it persists across requests within the same process.
+// Re-export for callers that still reference these from here.
+export { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "./feed-url-validator";
 
-const DNS_CACHE = new Map<string, { blocked: boolean; expiresAt: number }>();
-const DNS_CACHE_MAX_ENTRIES = 10_000;
+// ─── Error types ──────────────────────────────────────────────────────────────
 
-function setCacheSafe(
-  key: string,
-  value: { blocked: boolean; expiresAt: number },
-): void {
-  if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
-    const now = Date.now();
-    for (const [k, entry] of DNS_CACHE.entries()) {
-      if (entry.expiresAt <= now) DNS_CACHE.delete(k);
-    }
-    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
-      // Evict the oldest 20 % of entries (Map preserves insertion order) so
-      // we avoid a full flush that causes a thundering-herd of DNS lookups.
-      const evictCount = Math.ceil(DNS_CACHE_MAX_ENTRIES * 0.2);
-      let evicted = 0;
-      for (const k of DNS_CACHE.keys()) {
-        DNS_CACHE.delete(k);
-        if (++evicted >= evictCount) break;
-      }
-    }
-  }
-  DNS_CACHE.set(key, value);
-}
-
-async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
-  const cached = DNS_CACHE.get(hostname);
-  if (cached && cached.expiresAt > Date.now()) return cached.blocked;
-
-  try {
-    const lookupPromise = lookup(hostname, { all: true, verbatim: true });
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("DNS lookup timeout")),
-        CONFIG.DNS_LOOKUP_TIMEOUT_MS,
-      ),
-    );
-
-    const records = await Promise.race([lookupPromise, timeoutPromise]);
-    const isBlocked = records.some((r) => isBlockedResolvedAddress(r.address));
-
-    setCacheSafe(hostname, {
-      blocked: isBlocked,
-      expiresAt: Date.now() + CONFIG.DNS_CACHE_TTL_MS,
-    });
-
-    return isBlocked;
-  } catch (error) {
-    logger.warn("DNS lookup failed for feed validation", {
-      hostname,
-      error: toErrorMessage(error),
-    });
-    // Fail-closed: if we cannot resolve the hostname we cannot confirm it
-    // resolves to a public address, so we treat it as blocked.  A transient
-    // DNS hiccup is cached for only 60 s to avoid prolonged false-positives.
-    setCacheSafe(hostname, {
-      blocked: true,
-      expiresAt: Date.now() + 60_000,
-    });
-    return true;
+/** Returned when the authenticated user doesn't own the requested feed source. */
+export class FeedSourceNotFoundError extends Error {
+  constructor(feedUrl: string) {
+    super(`Feed source not found for URL: ${feedUrl}`);
+    this.name = "FeedSourceNotFoundError";
   }
 }
 
-// ─── URL validation ───────────────────────────────────────────────────────────
-
-export const PUBLIC_FEED_URL_ERROR =
-  "Feed URL must use http or https and resolve to a public host";
-
-async function assertPublicFeedUrl(rawUrl: string): Promise<void> {
-  if (!isValidUrl(rawUrl)) {
-    throw new Error("Blocked feed protocol");
-  }
-
-  const parsed = new URL(rawUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error("Blocked credentialed feed URL");
-  }
-
-  const host = normalizeHostname(parsed.hostname);
-  if (isBlockedHost(host)) {
-    throw new Error("Blocked feed hostname");
-  }
-
-  if (isIP(host)) {
-    if (isBlockedResolvedAddress(host)) {
-      throw new Error("Blocked feed IP address");
-    }
-    return;
-  }
-
-  if (await resolvesToBlockedAddress(host)) {
-    throw new Error("Blocked resolved feed address");
-  }
-}
-
-export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
-  try {
-    await assertPublicFeedUrl(raw);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// ─── HTML sanitization ───────────────────────────────────────────────────────
-
-// Sanitization options and the sanitizeAndTruncateArticleContent helper live
-// in @/lib/utils/sanitize so every write path shares the same tag-allowlist.
-
-// ─── Date helpers ─────────────────────────────────────────────────────────────
-
-function parseFeedItemDate(value: string | undefined, fallback: Date): Date {
-  if (!value) return fallback;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
-}
-
-// ─── Article deduplication ────────────────────────────────────────────────────
-
-type PendingArticle = {
-  title: string;
-  link: string;
-  publicationDate: Date;
-  content: string;
-  feedId: number;
-  lastChecked: Date;
-};
-
-function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
-  const byLink = new Map<string, PendingArticle>();
-
-  for (const item of items) {
-    const normalizedLink = item.link.trim();
-    if (!normalizedLink) continue;
-
-    const current = byLink.get(normalizedLink);
-    if (!current) {
-      byLink.set(normalizedLink, { ...item, link: normalizedLink });
-      continue;
-    }
-
-    const itemDate = new Date(item.publicationDate).getTime();
-    const currentDate = new Date(current.publicationDate).getTime();
-    // Prefer the newer article; use content length only as a tiebreaker
-    // for articles with identical publication timestamps so that a newer-but-
-    // empty item never silently displaces a complete older article body.
-    const shouldReplace =
-      itemDate > currentDate ||
-      (itemDate === currentDate &&
-        item.content.length > current.content.length);
-
-    if (shouldReplace)
-      byLink.set(normalizedLink, { ...item, link: normalizedLink });
-  }
-
-  return [...byLink.values()];
-}
-
-// ─── RSS parser singleton ─────────────────────────────────────────────────────
-// rss-parser's parseString() creates a fresh readable stream internally for
-// each call and carries no mutable per-instance state between invocations,
-// so the singleton is safe under concurrent requests.
-const parser = new Parser();
+// ─── Internal helpers ─────────────────────────────────────────────────────────
 
 type ArticleRow = {
   id: number;
@@ -206,134 +41,6 @@ type ArticleRow = {
   isRead: boolean;
   isStarred: boolean;
 };
-
-/** Returned when the authenticated user doesn't own the requested feed source. */
-export class FeedSourceNotFoundError extends Error {
-  constructor(feedUrl: string) {
-    super(`Feed source not found for URL: ${feedUrl}`);
-    this.name = "FeedSourceNotFoundError";
-  }
-}
-
-// ─── Upstream RSS refresh (shared by single and batch paths) ──────────────────
-
-type FeedRecord = { id: number; url: string; lastFetched: Date };
-
-function shouldRefreshFeed(lastFetched: Date): boolean {
-  const ageMinutes = (Date.now() - new Date(lastFetched).getTime()) / 60_000;
-  return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
-}
-
-function toPendingArticle(
-  item: Parser.Item,
-  feedId: number,
-  now: Date,
-): PendingArticle | null {
-  if (!item.title || !item.link || !isValidUrl(item.link)) {
-    return null;
-  }
-
-  return {
-    title: sanitizeArticleTitle(item.title),
-    link: item.link,
-    publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
-    content: sanitizeAndTruncateArticleContent(
-      item.content || item.contentSnippet || "",
-    ),
-    feedId,
-    lastChecked: now,
-  };
-}
-
-async function fetchFeedXmlWithValidatedRedirects(
-  initialUrl: string,
-): Promise<string> {
-  let currentUrl = initialUrl;
-
-  for (let redirects = 0; redirects <= 3; redirects += 1) {
-    await assertPublicFeedUrl(currentUrl);
-
-    const response = await axios.get(currentUrl, {
-      timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-      maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-      maxRedirects: 0,
-      responseType: "text",
-      validateStatus: (status) => status >= 200 && status < 400,
-    });
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.location;
-      if (typeof location !== "string" || !location.trim()) {
-        throw new Error("Redirect without Location header");
-      }
-
-      currentUrl = new URL(location, currentUrl).toString();
-      continue;
-    }
-
-    return typeof response.data === "string"
-      ? response.data
-      : String(response.data ?? "");
-  }
-
-  throw new Error("Too many redirects");
-}
-
-async function refreshFeedFromUpstream(
-  db: ReturnType<typeof getDb>,
-  feed: FeedRecord,
-): Promise<void> {
-  try {
-    const feedXml = await fetchFeedXmlWithValidatedRedirects(feed.url);
-    const feedResponseParsed = await parser.parseString(feedXml);
-    const now = new Date();
-
-    const mappedItems = feedResponseParsed.items
-      .map((item) => toPendingArticle(item, feed.id, now))
-      .filter((item): item is PendingArticle => item !== null);
-    const validItems = dedupePendingArticles(mappedItems);
-
-    if (validItems.length > 0) {
-      await db
-        .insert(articles)
-        .values(validItems)
-        .onConflictDoUpdate({
-          target: articles.link,
-          set: {
-            title: sql`excluded.title`,
-            publicationDate: sql`excluded.publication_date`,
-            content: sql`excluded.content`,
-            lastChecked: sql`excluded.last_checked`,
-          },
-        });
-    }
-
-    await db
-      .update(feeds)
-      .set({ lastFetched: now })
-      .where(eq(feeds.id, feed.id));
-  } catch (err) {
-    // Log and swallow so a single bad feed never blocks the whole batch.
-    logger.warn("Upstream feed refresh failed", {
-      url: feed.url,
-      error: toErrorMessage(err),
-    });
-
-    // Still advance lastFetched so the TTL cooldown applies to failed feeds
-    // too — otherwise every request retries the upstream immediately and
-    // hammers a consistently-failing endpoint on every page load.
-    try {
-      await db
-        .update(feeds)
-        .set({ lastFetched: new Date() })
-        .where(eq(feeds.url, feed.url));
-    } catch {
-      // Best-effort; ignore secondary DB errors.
-    }
-  }
-}
-
-// ─── Ensure a Feed row exists for a URL, returning it ────────────────────────
 
 async function ensureFeedRecord(
   db: ReturnType<typeof getDb>,
@@ -351,15 +58,11 @@ async function ensureFeedRecord(
     .insert(feeds)
     .values({ url: feedUrl })
     .onConflictDoNothing({ target: feeds.url })
-    .returning({
-      id: feeds.id,
-      url: feeds.url,
-      lastFetched: feeds.lastFetched,
-    });
+    .returning({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched });
 
   if (created) return created;
 
-  // Concurrent insert — just re-select.
+  // Concurrent insert — re-select.
   const [persisted] = await db
     .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
     .from(feeds)
@@ -370,21 +73,8 @@ async function ensureFeedRecord(
   return persisted;
 }
 
-// ─── Batch: N feeds → ~3 DB round-trips total ────────────────────────────────
+// ─── Batch fetch ──────────────────────────────────────────────────────────────
 
-/**
- * Fetches and caches articles for multiple feed URLs in one shot.
- *
- * DB access pattern (regardless of N):
- *   1. One SELECT to verify ownership of all URLs.
- *   2. One SELECT to load all Feed records + lastFetched timestamps.
- *   3. If any Feed records are missing: one INSERT + one SELECT to resolve them.
- *   4. All stale upstream HTTP refreshes run in parallel (Promise.allSettled).
- *   5. One window-function SELECT to retrieve top-N articles per feed.
- *
- * Returns a Map<normalizedUrl, ArticleRow[]>.
- * URLs not owned by the user are silently omitted.
- */
 export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<typeof getDb>,
   userId: number,
@@ -393,19 +83,17 @@ export async function fetchAndCacheFeedArticlesBatch(
 ): Promise<Map<string, ArticleRow[]>> {
   if (feedUrls.length === 0) return new Map();
 
-  // ── 1. Ownership check (1 query) ──────────────────────────────────────────
+  // 1. Ownership check
   const ownedRows = await db
     .select({ url: feedSources.url })
     .from(feedSources)
-    .where(
-      and(eq(feedSources.userId, userId), inArray(feedSources.url, feedUrls)),
-    );
+    .where(and(eq(feedSources.userId, userId), inArray(feedSources.url, feedUrls)));
 
   const ownedUrlSet = new Set(ownedRows.map((r) => r.url));
   const allowedUrls = feedUrls.filter((u) => ownedUrlSet.has(u));
   if (allowedUrls.length === 0) return new Map();
 
-  // ── 2. Load all Feed records (1 query) ────────────────────────────────────
+  // 2. Load existing Feed records
   const existingFeeds = await db
     .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
     .from(feeds)
@@ -415,10 +103,9 @@ export async function fetchAndCacheFeedArticlesBatch(
     existingFeeds.map((f) => [f.url, f]),
   );
 
-  // ── 3. Create any missing Feed records ───────────────────────────────────
+  // 3. Create missing Feed records
   const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
   if (missingUrls.length > 0) {
-    // Insert all at once; ignore conflicts from concurrent requests.
     await db
       .insert(feeds)
       .values(missingUrls.map((url) => ({ url })))
@@ -432,17 +119,12 @@ export async function fetchAndCacheFeedArticlesBatch(
     for (const f of resolvedFeeds) feedByUrl.set(f.url, f);
   }
 
-  // ── 4. Refresh stale feeds in parallel ───────────────────────────────────
-  // Skip when the caller only wants cached articles (e.g. fast initial render).
+  // 4. Refresh stale feeds in parallel
   if (!skipRefresh) {
     const staleFeeds = allowedUrls
       .map((u) => feedByUrl.get(u))
-      .filter((f): f is FeedRecord => {
-        if (!f) return false;
-        return shouldRefreshFeed(f.lastFetched);
-      });
+      .filter((f): f is FeedRecord => Boolean(f) && shouldRefreshFeed(f!.lastFetched));
 
-    // Fire all upstream fetches concurrently; failures are swallowed per-feed.
     if (staleFeeds.length > 0) {
       await Promise.allSettled(
         staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
@@ -450,14 +132,13 @@ export async function fetchAndCacheFeedArticlesBatch(
     }
   }
 
-  // ── 5. Read articles for all feeds (1 window-function query) ──────────────
+  // 5. Read articles with ROW_NUMBER() window function (1 query for all feeds)
   const feedIds = allowedUrls
     .map((u) => feedByUrl.get(u)?.id)
     .filter((id): id is number => id !== undefined);
 
   if (feedIds.length === 0) return new Map(allowedUrls.map((u) => [u, []]));
 
-  // Use a ROW_NUMBER() window to get top-N per feed in a single roundtrip.
   type RankedRow = {
     id: unknown;
     title: unknown;
@@ -469,6 +150,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     isRead: unknown;
     isStarred: unknown;
   };
+
   const queryResult = await db.execute<RankedRow>(sql`
     SELECT id, title, link, content,
            publication_date AS "publicationDate",
@@ -505,7 +187,6 @@ export async function fetchAndCacheFeedArticlesBatch(
     ? queryResult
     : (queryResult as { rows: RankedRow[] }).rows;
 
-  // Group results by URL.
   const idToUrl = new Map<number, string>(
     allowedUrls
       .map((u): [number, string] | null => {
@@ -536,11 +217,10 @@ export async function fetchAndCacheFeedArticlesBatch(
   return result;
 }
 
-// ─── Single-feed wrapper (used by /api/feeds?url=…) ──────────────────────────
+// ─── Single-feed wrapper ──────────────────────────────────────────────────────
 
 /**
  * Fetches and caches articles for one feed URL.
- *
  * @throws {FeedSourceNotFoundError} if userId doesn't own the feed.
  */
 export async function fetchAndCacheFeedArticles(
@@ -548,8 +228,6 @@ export async function fetchAndCacheFeedArticles(
   userId: number,
   feedUrl: string,
 ): Promise<ArticleRow[]> {
-  // Fast path: verify ownership and get-or-create Feed record with minimal
-  // queries, then refresh if stale, then select articles.
   const [userSource] = await db
     .select({ id: feedSources.id })
     .from(feedSources)
