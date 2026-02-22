@@ -22,9 +22,17 @@ export function requireSameOrigin(request: Request): NextResponse | null {
     return null;
   }
 
+  // Use the Host header to derive the expected origin, since request.url may
+  // resolve to 0.0.0.0 when Next.js listens on all interfaces (e.g. WSL2).
+  const host = request.headers.get("host");
+  if (!host) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   try {
-    const requestOrigin = new URL(request.url).origin;
-    if (origin !== requestOrigin) {
+    const requestUrl = new URL(request.url);
+    const expectedOrigin = `${requestUrl.protocol}//${host}`;
+    if (origin !== expectedOrigin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   } catch {
