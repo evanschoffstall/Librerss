@@ -146,27 +146,33 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "i",
     "u",
     "a",
+    "img",
     "hr",
   ],
-  // figure/figcaption, aside, nav, section are discarded along with their
-  // text so that image captions, sidebars, and related-article blocks don't
-  // appear in place of article body text.
-  nonTextTags: [
-    "figure",
-    "figcaption",
-    "style",
-    "script",
-    "textarea",
-    "aside",
-    "nav",
-    "section",
-  ],
+  // aside/nav/section are discarded along with their text so that sidebars
+  // and related-article blocks don't appear in place of article body text.
+  nonTextTags: ["style", "script", "textarea", "aside", "nav", "section"],
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
+    img: [
+      "src",
+      "srcset",
+      "sizes",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "loading",
+      "decoding",
+      "referrerpolicy",
+    ],
     code: ["class"],
     pre: ["class"],
   },
   allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesByTag: {
+    img: ["http", "https"],
+  },
   transformTags: {
     a: (tagName: string, attribs: Record<string, string>) => ({
       tagName,
