@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
 import { AnimatePresence, motion } from "framer-motion";
-import { FeedCategory } from "./FeedCategory";
+import { FeedCategory } from "./feed/FeedCategory";
 
 type DashboardSidebarContentProps = {
   isCategoriesLoading: boolean;
@@ -70,8 +70,8 @@ export function DashboardSidebarContent({
                   <button
                     type="button"
                     className={`w-full rounded px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide transition-colors ${selectedCategory === categoryNode.key
-                        ? "bg-muted/60 text-foreground"
-                        : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
+                      ? "bg-muted/60 text-foreground"
+                      : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
                       }`}
                     onClick={() => onCategoryClick(categoryNode)}
                   >
