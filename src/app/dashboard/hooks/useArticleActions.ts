@@ -3,7 +3,7 @@
 import { ArticleService, isValidUrl, type Article } from "@/lib";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getArticleKey } from "../helpers/helpers";
+import { getArticleKey } from "../helpers/article-helpers";
 
 interface UseArticleActionsOptions {
   feed: Article[];

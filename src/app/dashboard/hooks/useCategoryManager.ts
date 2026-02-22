@@ -13,7 +13,10 @@ import {
 } from "@/lib";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { flattenCategoryFeeds, normalizeLabel } from "../helpers/helpers";
+import {
+  flattenCategoryFeeds,
+  normalizeLabel,
+} from "../helpers/category-helpers";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
 interface UseCategoryManagerOptions {

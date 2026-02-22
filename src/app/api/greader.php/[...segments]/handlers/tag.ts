@@ -2,19 +2,14 @@ import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
 import { parseReaderItemId } from "@/lib/core/reader-item-id";
 import { getDb } from "@/lib/db/db";
-import {
-  articleStatuses,
-  articles,
-  feedSources,
-  feeds,
-} from "@/lib/db/schema";
+import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "../constants";
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
-} from "../helpers/article-status-helpers";
-import { TAG_MUTATIONS, MAX_STREAM_ITEMS } from "../constants";
+} from "../utils/article-status";
 import { textResponse } from "../utils/responses";
 
 export async function handleMarkAllAsRead(
@@ -34,7 +29,10 @@ export async function handleMarkAllAsRead(
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
         .innerJoin(
           feedSources,
-          and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
         )
         .where(eq(feeds.url, stream.slice("feed/".length)))
     : stream === "user/-/state/com.google/starred" && useArticleStatuses
@@ -44,7 +42,10 @@ export async function handleMarkAllAsRead(
           .innerJoin(feeds, eq(feeds.id, articles.feedId))
           .innerJoin(
             feedSources,
-            and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+            and(
+              eq(feedSources.url, feeds.url),
+              eq(feedSources.userId, user.userId),
+            ),
           )
           .innerJoin(
             articleStatuses,
@@ -62,7 +63,10 @@ export async function handleMarkAllAsRead(
             .innerJoin(feeds, eq(feeds.id, articles.feedId))
             .innerJoin(
               feedSources,
-              and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+              and(
+                eq(feedSources.url, feeds.url),
+                eq(feedSources.userId, user.userId),
+              ),
             );
 
   await upsertArticleStatuses(

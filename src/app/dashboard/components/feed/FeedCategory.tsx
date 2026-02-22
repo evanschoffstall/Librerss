@@ -9,7 +9,7 @@ import {
   getFaviconTintColors,
   getHostnameLabel,
   setCachedFaviconIndex,
-} from "../../utils/favicons";
+} from "../../helpers/favicons";
 
 interface FeedCategoryProps {
   category: CategoryTreeNode;

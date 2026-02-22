@@ -5,7 +5,7 @@ export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
 
 export { ENV } from "./config";
 
-export { useDebugState, useLocalStorage } from "./core/client-hooks";
+export { useDebugState, useLocalStorage } from "@/hooks/client-hooks";
 
 // API clients
 export { ArticleService, AuthService, FeedService } from "./api/services";
@@ -21,7 +21,6 @@ export {
   normalizeCategoryLabelKey,
   parseOpmlFeedImport,
   tryGetUrlHostname,
-  tryNormalizeFeedUrl
+  tryNormalizeFeedUrl,
 } from "./utils";
 export type { OpmlFeedImportEntry } from "./utils";
-

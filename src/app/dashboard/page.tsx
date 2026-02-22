@@ -32,14 +32,14 @@ import {
   DEFAULT_FEED_URL,
   INITIAL_CATEGORIES,
 } from "./constants";
+import { getArticleKey } from "./helpers/article-helpers";
 import {
   flattenCategoryFeeds,
-  getArticleKey,
   normalizeLabel,
   panelMotion,
   SYSTEM_ALL_FEEDS_CATEGORY,
   toCategoryKey,
-} from "./helpers/helpers";
+} from "./helpers/category-helpers";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useFeedLoader } from "./hooks/useFeedLoader";
@@ -331,7 +331,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
   return (
     <motion.div
-      className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-6 pt-20 md:px-6"
+      className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-20 md:px-6"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
@@ -504,7 +504,7 @@ export default function Dashboard() {
           <DebugGrid />
         </>
       )}
-      <div className="h-[100dvh] overflow-hidden">
+      <div className="h-screen min-h-[100svh] overflow-hidden md:h-[100dvh]">
         <Suspense
           fallback={
             <motion.div

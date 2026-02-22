@@ -5,14 +5,16 @@ import { FeedService } from "@/lib";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { dedupeAndSortArticles } from "../helpers/article-helpers";
 import {
   type FeedBatchSource,
+  mapBatchResultsToArticles,
+} from "../helpers/batch-helpers";
+import {
   buildCategoriesFromSources,
   buildDefaultCategories,
-  dedupeAndSortArticles,
   flattenCategoryFeeds,
-  mapBatchResultsToArticles,
-} from "../helpers/helpers";
+} from "../helpers/category-helpers";
 
 const FEED_LOADING_FAILSAFE_MS = 20_000;
 

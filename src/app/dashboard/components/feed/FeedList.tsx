@@ -4,8 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { getArticleKey } from "../../helpers/helpers";
-import { ArticleCard } from "../DashboardArticleCard";
+import { getArticleKey } from "../../helpers/article-helpers";
+import { ArticleCard } from "../ArticleCard";
 
 interface FeedListProps {
   loading: boolean;

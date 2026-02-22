@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
+import { dedupeAndSortArticles } from "@/app/dashboard/helpers/article-helpers";
 import {
-  dedupeAndSortArticles,
   relocateFeedInCategories,
   toCategoryKey,
-} from "@/app/dashboard/helpers/helpers";
+} from "@/app/dashboard/helpers/category-helpers";
 import type { Article, CategoryTreeNode } from "@/lib";
 
 function article(overrides: Partial<Article>): Article {

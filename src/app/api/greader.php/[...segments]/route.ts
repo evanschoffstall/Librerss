@@ -2,7 +2,11 @@ import { type SessionUser } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { handleClientLogin, requireGReaderUser } from "./handlers/auth";
-import { notFoundResponse, textResponse } from "./utils/responses";
+import {
+  handleStreamContents,
+  handleStreamItemContents,
+  handleStreamItemIds,
+} from "./handlers/stream";
 import {
   handleDisableTag,
   handleRenameTag,
@@ -10,17 +14,13 @@ import {
   handleSubscriptionList,
   handleSubscriptionQuickAdd,
   handleTagList,
-} from "./handlers/subscription-handlers";
-import {
-  handleStreamContents,
-  handleStreamItemContents,
-  handleStreamItemIds,
-} from "./handlers/stream-handlers";
+} from "./handlers/subscription";
 import {
   handleEditTag,
   handleMarkAllAsRead,
   handleUnreadCount,
-} from "./handlers/tag-handlers";
+} from "./handlers/tag";
+import { notFoundResponse, textResponse } from "./utils/responses";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +76,9 @@ function isClientLoginRoute(segments: string[]): boolean {
 }
 
 function isReaderApiRoute(segments: string[]): boolean {
-  return segments[0] === "reader" && segments[1] === "api" && segments[2] === "0";
+  return (
+    segments[0] === "reader" && segments[1] === "api" && segments[2] === "0"
+  );
 }
 
 async function handleReaderRequest(
@@ -96,7 +98,10 @@ async function handleReaderRequest(
   return notFoundResponse();
 }
 
-async function dispatch(request: NextRequest, segments: string[]): Promise<Response> {
+async function dispatch(
+  request: NextRequest,
+  segments: string[],
+): Promise<Response> {
   if (isClientLoginRoute(segments)) {
     return handleClientLogin(request);
   }
@@ -116,7 +121,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return dispatch(request, segments);
   } catch (error) {
     console.error("[greader] Unhandled GET error", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -126,6 +134,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return dispatch(request, segments);
   } catch (error) {
     console.error("[greader] Unhandled POST error", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

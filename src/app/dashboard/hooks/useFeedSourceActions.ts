@@ -19,7 +19,7 @@ import {
   flattenCategoryFeeds,
   normalizeLabel,
   relocateFeedInCategories,
-} from "../helpers/helpers";
+} from "../helpers/category-helpers";
 
 interface UseFeedSourceActionsOptions {
   categories: CategoryTreeNode[];
