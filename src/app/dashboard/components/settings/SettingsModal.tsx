@@ -22,7 +22,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useSettingsDrag } from "../../hooks/use-settings-drag";
+import { useSettingsDrag } from "../../hooks/useSettingsDrag";
 import { CategoryAccordionItem } from "./SettingsCategoryAccordionItem";
 import { SettingsDisplaySection } from "./SettingsDisplaySection";
 
