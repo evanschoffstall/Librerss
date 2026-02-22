@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
   urls?: unknown;
+  skipRefresh?: unknown;
 };
 
 function normalizeUrlList(urls: unknown): string[] {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const urls = normalizeUrlList(body.urls);
+    const skipRefresh = body.skipRefresh === true;
     if (urls.length === 0) {
       return NextResponse.json([]);
     }
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
       db,
       user.userId,
       normalizedUrls,
+      { skipRefresh },
     );
 
     const results = normalizedUrls.map((normalizedUrl) => ({

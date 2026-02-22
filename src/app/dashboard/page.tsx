@@ -17,6 +17,11 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 
+import {
+  getPlaceholderArticlesForSource,
+  PLACEHOLDER_CATEGORY,
+  PLACEHOLDER_FEED_SOURCES,
+} from "@/lib/core/placeholder";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -27,10 +32,7 @@ import {
   ALL_FEEDS_LABEL,
   ALL_FEEDS_NODE_KEY,
   DEFAULT_FEED_URL,
-  DEV_PLACEHOLDER_CATEGORY_LABEL,
-  DEV_PLACEHOLDER_FEED_SOURCES,
   INITIAL_CATEGORIES,
-  getDevPlaceholderArticlesForSource
 } from "./constants";
 
 const toCategoryKey = (label: string) =>
@@ -117,10 +119,10 @@ const buildDefaultCategories = (usePlaceholderData: boolean): CategoryTreeNode[]
 
   return [
     {
-      key: toCategoryKey(DEV_PLACEHOLDER_CATEGORY_LABEL),
-      label: DEV_PLACEHOLDER_CATEGORY_LABEL,
-      children: DEV_PLACEHOLDER_FEED_SOURCES.map((source, index) => ({
-        key: `${toCategoryKey(DEV_PLACEHOLDER_CATEGORY_LABEL)}-dev-${index}`,
+      key: toCategoryKey(PLACEHOLDER_CATEGORY),
+      label: PLACEHOLDER_CATEGORY,
+      children: PLACEHOLDER_FEED_SOURCES.map((source, index) => ({
+        key: `${toCategoryKey(PLACEHOLDER_CATEGORY)}-dev-${index}`,
         label: source.name,
         data: { url: source.url, category: source.category },
       })),
@@ -699,7 +701,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     return true;
   };
 
-  const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[]) => {
+  const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[], { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
     const requestId = latestFeedRequestIdRef.current + 1;
     latestFeedRequestIdRef.current = requestId;
     const normalizedSources = Array.from(
@@ -728,17 +730,50 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         normalizedSources.map((source) => [source.url, source.name] as const),
       );
 
-      let batchResults: Array<{ url: string; articles: Article[]; ok: boolean }>;
+      const mapBatchResults = (
+        batchResults: Array<{ url: string; articles: Article[]; ok: boolean }>,
+      ): Article[] => {
+        const results: Array<Article[] | null> = batchResults.map((result) => {
+          const sourceName = sourceNameByUrl.get(result.url);
+
+          if (result.ok && result.articles.length > 0) {
+            return result.articles.map((article: Article) => ({
+              ...article,
+              feedName: sourceName,
+              feedUrl: result.url,
+            }));
+          }
+
+          if (usePlaceholderData) {
+            return getPlaceholderArticlesForSource(result.url).map((article) => ({
+              ...article,
+              feedName: sourceName,
+              feedUrl: result.url,
+            }));
+          }
+
+          return null;
+        });
+
+        return dedupeAndSortArticles(
+          results
+            .filter((result: Article[] | null): result is Article[] => Array.isArray(result))
+            .flat(),
+        );
+      };
+
+      const urls = normalizedSources.map((source) => source.url);
+
+      // ── Phase 1: Return cached DB articles immediately (no upstream HTTP) ──
+      let cachedBatchResults: Array<{ url: string; articles: Article[]; ok: boolean }>;
 
       try {
-        batchResults = await FeedService.getFeedsBatch(
-          normalizedSources.map((source) => source.url),
-        );
+        cachedBatchResults = await FeedService.getFeedsBatch(urls, { skipRefresh: true });
       } catch (error) {
         if (usePlaceholderData) {
           const fallbackArticles = dedupeAndSortArticles(
             normalizedSources.flatMap((source) =>
-              getDevPlaceholderArticlesForSource(source.url).map((article) => ({
+              getPlaceholderArticlesForSource(source.url).map((article) => ({
                 ...article,
                 feedName: source.name,
                 feedUrl: source.url,
@@ -758,55 +793,51 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         return;
       }
 
-      const results: Array<Article[] | null> = batchResults.map((result) => {
-        const sourceName = sourceNameByUrl.get(result.url);
+      if (latestFeedRequestIdRef.current !== requestId) return;
 
-        if (result.ok && result.articles.length > 0) {
-          return result.articles.map((article: Article) => ({
-            ...article,
-            feedName: sourceName,
-            feedUrl: result.url,
-          }));
-        }
+      const cachedArticles = mapBatchResults(cachedBatchResults);
 
-        if (usePlaceholderData) {
-          return getDevPlaceholderArticlesForSource(result.url).map((article) => ({
-            ...article,
-            feedName: sourceName,
-            feedUrl: result.url,
-          }));
-        }
-
-        return null;
-      });
-
-      if (latestFeedRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      const mergedArticles = dedupeAndSortArticles(
-        results
-          .filter((result: Article[] | null): result is Article[] => Array.isArray(result))
-          .flat(),
-      );
-
-      if (mergedArticles.length > 0) {
-        setFeed(mergedArticles);
+      // Show cached articles right away so the user sees content immediately.
+      if (cachedArticles.length > 0) {
+        setFeed(cachedArticles);
         setExpandedArticleKey(null);
-        return;
+        setLoading(false);
       }
 
-      const hasConfiguredFeeds = flattenCategoryFeeds(categoriesRef.current).length > 0;
-      if (!hasConfiguredFeeds) {
-        toast.info("No feed sources yet.", {
-          description: "Add your feeds in Settings to start reading.",
-        });
-        return;
-      }
+      // ── Phase 2: Refresh stale feeds in the background ────────────────────
+      // Placeholder data never needs an upstream refresh.
+      if (!usePlaceholderData) {
+        try {
+          const freshBatchResults = await FeedService.getFeedsBatch(urls, { skipRefresh: false, forceRefresh });
 
-      toast.error("Unable to load this feed right now.", {
-        description: "Please try refreshing the selected source again.",
-      });
+          if (latestFeedRequestIdRef.current !== requestId) return;
+
+          const freshArticles = mapBatchResults(freshBatchResults);
+
+          if (freshArticles.length > 0) {
+            setFeed(freshArticles);
+            setExpandedArticleKey(null);
+            return;
+          }
+        } catch {
+          // Background refresh failed — cached articles (if any) remain visible.
+        }
+
+        // Neither phase produced articles.
+        if (cachedArticles.length === 0 && latestFeedRequestIdRef.current === requestId) {
+          const hasConfiguredFeeds = flattenCategoryFeeds(categoriesRef.current).length > 0;
+          if (!hasConfiguredFeeds) {
+            toast.info("No feed sources yet.", {
+              description: "Add your feeds in Settings to start reading.",
+            });
+            return;
+          }
+
+          toast.error("Unable to load this feed right now.", {
+            description: "Please try refreshing the selected source again.",
+          });
+        }
+      }
     } finally {
       if (latestFeedRequestIdRef.current === requestId) {
         setLoading(false);
@@ -814,12 +845,12 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     }
   }, [usePlaceholderData]);
 
-  const fetchFeed = useCallback(async (url: string = DEFAULT_FEED_URL) => {
+  const fetchFeed = useCallback(async (url: string = DEFAULT_FEED_URL, { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
     const sourceName = flattenCategoryFeeds(categoriesRef.current).find((node) => node.data?.url === url)?.label;
-    await fetchFeedBatch([{ url, name: sourceName }]);
+    await fetchFeedBatch([{ url, name: sourceName }], { forceRefresh });
   }, [fetchFeedBatch]);
 
-  const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode) => {
+  const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode, { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
     const sources: FeedBatchSource[] = [];
     (categoryNode.children ?? []).forEach((node: CategoryTreeNode) => {
       if (node.data?.url) {
@@ -827,10 +858,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       }
     });
 
-    await fetchFeedBatch(sources);
+    await fetchFeedBatch(sources, { forceRefresh });
   }, [fetchFeedBatch]);
 
-  const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[]) => {
+  const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[], { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
     const resolvedCategories = sourceCategories ?? categoriesRef.current;
     const sources: FeedBatchSource[] = [];
     flattenCategoryFeeds(resolvedCategories).forEach((node: CategoryTreeNode) => {
@@ -839,7 +870,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       }
     });
 
-    await fetchFeedBatch(sources);
+    await fetchFeedBatch(sources, { forceRefresh });
   }, [fetchFeedBatch]);
 
   const handleFeedClick = (feedNode: CategoryTreeNode) => {
@@ -1044,22 +1075,23 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
   useEffect(() => {
     const handleRefresh = () => {
+      // Manual refresh button always bypasses the auto-refresh TTL cap.
       if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-        fetchAllFeeds();
+        fetchAllFeeds(undefined, { forceRefresh: true });
         return;
       }
 
       if (selectedFeedUrl) {
-        fetchFeed(selectedFeedUrl);
+        fetchFeed(selectedFeedUrl, { forceRefresh: true });
         return;
       }
 
       if (selectedCategoryNode) {
-        fetchCategoryFeeds(selectedCategoryNode);
+        fetchCategoryFeeds(selectedCategoryNode, { forceRefresh: true });
         return;
       }
 
-      fetchFeed(DEFAULT_FEED_URL);
+      fetchFeed(DEFAULT_FEED_URL, { forceRefresh: true });
     };
 
     const handleOpenSettings = () => {
