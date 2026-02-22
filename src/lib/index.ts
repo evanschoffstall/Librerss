@@ -11,7 +11,7 @@ export type {
   ItemProps,
 } from "./core/types";
 
-export { API_CONSTANTS, ENV } from "./core/constants";
+export { ENV } from "./core/constants";
 
 export {
   formatDate,
