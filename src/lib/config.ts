@@ -53,6 +53,8 @@ export const CONFIG = {
   RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: 3,
   RATE_LIMIT_FEED_WINDOW_MS: 60 * 1000, // 1 minute
   RATE_LIMIT_FEED_MAX_REQUESTS: 30,
+  RATE_LIMIT_FEED_BATCH_WINDOW_MS: 60 * 1000, // 1 minute
+  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: 20,
   // Article extraction — makes outbound HTTP requests; keep tight to prevent
   // the server being used as an amplification proxy by authenticated users.
   RATE_LIMIT_EXTRACT_WINDOW_MS: 60 * 1000, // 1 minute
@@ -61,4 +63,7 @@ export const CONFIG = {
   // DNS validation
   DNS_CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes
   DNS_LOOKUP_TIMEOUT_MS: 3000, // 3 seconds
+
+  // Request parsing
+  MAX_JSON_BODY_BYTES: 64 * 1024, // 64KB
 } as const;
