@@ -62,6 +62,24 @@ export function sanitizeArticleHtml(raw: string): string {
 }
 
 /**
+ * Sanitizes an article title: strips ALL HTML tags, trims whitespace, and
+ * enforces {@link CONFIG.MAX_ARTICLE_TITLE_LENGTH}.
+ *
+ * RSS feed titles occasionally contain escaped or literal HTML
+ * (e.g. `<b>Breaking</b>` or `<script>…</script>`); all markup must be
+ * removed before the value is stored or rendered.
+ */
+export function sanitizeArticleTitle(title: string | null | undefined): string {
+  const stripped = sanitizeHtml(title ?? "", {
+    allowedTags: [],
+    allowedAttributes: {},
+  }).trim();
+  const cleaned = stripped || "Untitled";
+  if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
+  return cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH).trim() + "...";
+}
+
+/**
  * Sanitizes article HTML and enforces {@link CONFIG.MAX_ARTICLE_CONTENT_LENGTH}.
  *
  * Unlike naively calling `sanitizeArticleHtml` + `substring`, this function

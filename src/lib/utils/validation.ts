@@ -51,13 +51,6 @@ export function isStrongPassword(password: string): boolean {
   return complexityCount >= CONFIG.PASSWORD_COMPLEXITY_REQUIRED_TYPES;
 }
 
-/**
- * Sanitizes article title to prevent XSS and enforce length limits
- * @param title - Raw article title
- * @returns Sanitized title
- */
-export function sanitizeArticleTitle(title: string | null | undefined): string {
-  const cleaned = (title || "Untitled").trim();
-  if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
-  return cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH).trim() + "...";
-}
+// sanitizeArticleTitle has moved to @/lib/utils/sanitize to keep all
+// sanitize-html usage in one module. Re-export for backwards compatibility.
+export { sanitizeArticleTitle } from "@/lib/utils/sanitize";
