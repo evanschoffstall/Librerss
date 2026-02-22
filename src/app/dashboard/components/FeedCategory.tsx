@@ -6,6 +6,7 @@ import {
   getCachedFaviconIndex,
   getFaviconCacheKey,
   getFaviconCandidates,
+  getFaviconTintColors,
   getHostnameLabel,
   setCachedFaviconIndex,
 } from "./favicons";
@@ -22,6 +23,7 @@ export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedC
   const faviconCacheKey = getFaviconCacheKey(category.data?.url);
   const [faviconIndex, setFaviconIndex] = useState(() => getCachedFaviconIndex(faviconCacheKey));
   const faviconUrl = faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
+  const faviconTint = getFaviconTintColors(category.data?.url);
 
   useEffect(() => {
     setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
@@ -66,7 +68,13 @@ export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedC
           }}
         />
       ) : (
-        <Globe className="size-3.5 shrink-0 text-muted-foreground/40" />
+        <span
+          className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full"
+          style={{ backgroundColor: faviconTint.background }}
+          aria-hidden="true"
+        >
+          <Globe className="size-2.5" style={{ color: faviconTint.foreground }} />
+        </span>
       )}
     </motion.button>
   );

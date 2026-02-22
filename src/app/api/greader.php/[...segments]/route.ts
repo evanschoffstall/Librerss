@@ -17,7 +17,11 @@ import {
   users,
 } from "@/lib/db/schema";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
-import { isValidUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
+import {
+  isValidUrl,
+  tryGetUrlHostname,
+  tryNormalizeFeedUrl,
+} from "@/lib/utils/url";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
@@ -27,10 +31,7 @@ export const dynamic = "force-dynamic";
 const GOOGLE_LOGIN_PREFIX = "googlelogin auth=";
 const MAX_STREAM_ITEMS = 250;
 const DEFAULT_STREAM_ITEMS = 50;
-const NETNEWSWIRE_MAX_STREAM_ITEMS = 100;
-const NETNEWSWIRE_FIRST_PAGE_MAX_ITEMS = 50;
-const NETNEWSWIRE_IDS_MAX_ITEMS = 50;
-const NETNEWSWIRE_IDS_FIRST_PAGE_MAX_ITEMS = 25;
+const NETNEWSWIRE_MAX_STREAM_ITEMS = 250;
 const ITEM_ID_PREFIX = "tag:google.com,2005:reader/item/";
 const READER_API_EDIT_TOKEN = randomBytes(24).toString("hex");
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
@@ -382,6 +383,15 @@ function toReaderCategoryLabel(category: string | null | undefined): string {
   return trimmed ? trimmed : DEFAULT_CATEGORY_LABEL;
 }
 
+function toReaderIconUrl(feedUrl: string): string {
+  const hostname = tryGetUrlHostname(feedUrl);
+  if (!hostname) {
+    return "";
+  }
+
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
+}
+
 function mapArticleAsItem(row: ListedArticle) {
   const publishedSec = Math.floor(row.publicationDate.getTime() / 1000);
   const categories = ["user/-/state/com.google/reading-list"];
@@ -566,7 +576,7 @@ async function handleSubscriptionList(user: SessionUser): Promise<Response> {
         title: row.title,
         url: row.url,
         htmlUrl: row.url,
-        iconUrl: "",
+        iconUrl: toReaderIconUrl(row.url),
         sortid: String(row.sourceId),
         categories: [
           {
@@ -658,14 +668,7 @@ async function handleStreamContents(
     continuationId,
     isNetNewsWire,
   } = parseStreamPaging(searchParams, request.headers.get("user-agent") ?? "");
-  const limit = isNetNewsWire
-    ? Math.min(
-        requestedLimit,
-        continuationId
-          ? NETNEWSWIRE_MAX_STREAM_ITEMS
-          : NETNEWSWIRE_FIRST_PAGE_MAX_ITEMS,
-      )
-    : requestedLimit;
+  const limit = requestedLimit;
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
   const sinceDate = Number.isInteger(olderThanSec)
     ? new Date(olderThanSec * 1000)
@@ -860,14 +863,7 @@ async function handleStreamItemIds(
     continuationId,
     isNetNewsWire,
   } = parseStreamPaging(searchParams, request.headers.get("user-agent") ?? "");
-  const limit = isNetNewsWire
-    ? Math.min(
-        requestedLimit,
-        continuationId
-          ? NETNEWSWIRE_IDS_MAX_ITEMS
-          : NETNEWSWIRE_IDS_FIRST_PAGE_MAX_ITEMS,
-      )
-    : requestedLimit;
+  const limit = requestedLimit;
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
   const sinceDate = Number.isInteger(olderThanSec)
     ? new Date(olderThanSec * 1000)
