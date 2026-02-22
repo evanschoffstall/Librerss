@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
@@ -11,6 +12,11 @@ import { articles, feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import {
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
+import {
   sanitizeArticleContent,
   sanitizeArticleTitle,
 } from "@/lib/utils/validation";
@@ -21,20 +27,6 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import Parser from "rss-parser";
 
-const BLOCKED_HOST_PATTERNS = [
-  /^localhost$/i,
-  /^0\.0\.0\.0$/,
-  /^127\./,
-  /^10\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./,
-  /^::1$/i,
-  /^fc/i,
-  /^fd/i,
-  /^fe80:/i,
-];
-
 function normalizeFeedUrl(raw: string): string {
   const parsed = new URL(raw.trim());
   parsed.hash = "";
@@ -43,39 +35,85 @@ function normalizeFeedUrl(raw: string): string {
   return parsed.toString().replace(/\/+$/, "");
 }
 
-function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase().replace(/\.$/, "");
+/**
+ * Sanitize raw HTML from untrusted RSS feeds.
+ * Uses a permissive but safe allowlist so normal formatting is preserved
+ * while script injection, event handlers, and unsafe URLs are stripped.
+ */
+function sanitizeRssHtml(raw: string): string {
+  if (!raw.trim()) return "";
+  return sanitizeHtml(raw, {
+    allowedTags: [
+      "p",
+      "br",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "pre",
+      "code",
+      "strong",
+      "em",
+      "b",
+      "i",
+      "u",
+      "a",
+      "hr",
+      "figure",
+      "figcaption",
+    ],
+    allowedAttributes: {
+      a: ["href", "name", "target", "rel"],
+      code: ["class"],
+      pre: ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: {
+      a: (tagName: string, attribs: Record<string, string>) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: "noopener noreferrer nofollow",
+          target: "_blank",
+        },
+      }),
+    },
+  }).trim();
 }
 
-function isBlockedFeedHost(hostname: string): boolean {
-  const normalized = normalizeHostname(hostname);
-  if (!normalized) {
-    return true;
+// Alias kept for clarity at call sites within this file.
+const isBlockedFeedHost = isBlockedHost;
+
+// DNS cache for blocked address checks.
+// Bounded to prevent memory exhaustion from attacker-controlled hostnames.
+const DNS_CACHE = new Map<string, { blocked: boolean; expiresAt: number }>();
+const DNS_CACHE_MAX_ENTRIES = 10_000;
+
+function setCacheSafe(
+  key: string,
+  value: { blocked: boolean; expiresAt: number },
+): void {
+  if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+    // Evict expired entries first
+    const now = Date.now();
+    for (const [k, entry] of DNS_CACHE.entries()) {
+      if (entry.expiresAt <= now) {
+        DNS_CACHE.delete(k);
+      }
+    }
+    // If still at limit after expiry sweep, hard-clear to prevent OOM
+    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+      DNS_CACHE.clear();
+    }
   }
-
-  return (
-    normalized === "localhost" ||
-    normalized.endsWith(".local") ||
-    BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(normalized))
-  );
+  DNS_CACHE.set(key, value);
 }
-
-function isBlockedResolvedAddress(address: string): boolean {
-  const normalized = address.trim().toLowerCase();
-  const ipv4MappedPrefix = "::ffff:";
-
-  if (normalized.startsWith(ipv4MappedPrefix)) {
-    return isBlockedFeedHost(normalized.slice(ipv4MappedPrefix.length));
-  }
-
-  return isBlockedFeedHost(normalized);
-}
-
-// DNS cache for blocked address checks
-const DNS_CACHE = new Map<
-  string,
-  { blocked: boolean; expiresAt: number }
->();
 
 async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
   // Check cache first
@@ -100,7 +138,7 @@ async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
     );
 
     // Cache result
-    DNS_CACHE.set(hostname, {
+    setCacheSafe(hostname, {
       blocked: isBlocked,
       expiresAt: Date.now() + CONFIG.DNS_CACHE_TTL_MS,
     });
@@ -115,7 +153,7 @@ async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
     });
 
     // Cache negative result briefly to avoid repeated failures
-    DNS_CACHE.set(hostname, {
+    setCacheSafe(hostname, {
       blocked: false,
       expiresAt: Date.now() + 60000, // 1 minute for errors
     });
@@ -372,7 +410,7 @@ export async function GET(request: NextRequest) {
               now,
             ),
             content: sanitizeArticleContent(
-              item.content || item.contentSnippet || "",
+              sanitizeRssHtml(item.content || item.contentSnippet || ""),
             ),
             feedId: currentFeed.id,
             lastChecked: now,
@@ -773,27 +811,34 @@ export async function DELETE(request: NextRequest) {
       .where(eq(feeds.url, sourceToDelete.url))
       .limit(1);
 
-    if (feedForSource) {
-      await db
-        .delete(feedCategories)
+    // Delete feedCategories and feedSources atomically so a crash between
+    // the two statements cannot leave orphaned category rows.
+    const [deletedSource] = await db.transaction(async (tx) => {
+      if (feedForSource) {
+        await tx
+          .delete(feedCategories)
+          .where(
+            and(
+              eq(feedCategories.userId, user.userId),
+              eq(feedCategories.feedId, feedForSource.id),
+            ),
+          );
+      }
+
+      return tx
+        .delete(feedSources)
         .where(
           and(
-            eq(feedCategories.userId, user.userId),
-            eq(feedCategories.feedId, feedForSource.id),
+            eq(feedSources.id, sourceId),
+            eq(feedSources.userId, user.userId),
           ),
-        );
-    }
-
-    const [deletedSource] = await db
-      .delete(feedSources)
-      .where(
-        and(eq(feedSources.id, sourceId), eq(feedSources.userId, user.userId)),
-      )
-      .returning({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
-      });
+        )
+        .returning({
+          id: feedSources.id,
+          name: feedSources.name,
+          url: feedSources.url,
+        });
+    });
 
     return NextResponse.json(deletedSource);
   } catch (error) {

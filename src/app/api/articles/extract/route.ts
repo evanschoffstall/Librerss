@@ -1,5 +1,11 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
+import { logger } from "@/lib/utils/logger";
+import {
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
 import { extract } from "@extractus/article-extractor";
 import { NextRequest, NextResponse } from "next/server";
 import { lookup } from "node:dns/promises";
@@ -8,48 +14,6 @@ import sanitizeHtml from "sanitize-html";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const BLOCKED_HOST_PATTERNS = [
-  /^localhost$/i,
-  /^0\.0\.0\.0$/,
-  /^127\./,
-  /^10\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./,
-  /^::1$/i,
-  /^fc/i,
-  /^fd/i,
-  /^fe80:/i,
-];
-
-function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase().replace(/\.$/, "");
-}
-
-function isBlockedHost(hostname: string): boolean {
-  const normalized = normalizeHostname(hostname);
-  if (!normalized) {
-    return true;
-  }
-
-  return (
-    normalized === "localhost" ||
-    normalized.endsWith(".local") ||
-    BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(normalized))
-  );
-}
-
-function isBlockedResolvedAddress(address: string): boolean {
-  const normalized = address.trim().toLowerCase();
-  const ipv4MappedPrefix = "::ffff:";
-
-  if (normalized.startsWith(ipv4MappedPrefix)) {
-    return isBlockedHost(normalized.slice(ipv4MappedPrefix.length));
-  }
-
-  return isBlockedHost(normalized);
-}
 
 async function isAllowedPublicHttpUrl(raw: string): Promise<boolean> {
   try {
@@ -197,7 +161,9 @@ export async function POST(request: NextRequest) {
       source: extracted?.source ?? null,
     });
   } catch (error) {
-    console.error("Article extract error:", error);
+    logger.error("Article extract error", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: "Unable to extract article" },
       { status: 500 },
