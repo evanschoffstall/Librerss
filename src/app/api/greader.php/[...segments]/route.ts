@@ -1,4 +1,9 @@
-import { parsePositiveInt } from "@/lib/api/request";
+import { parseFormOrQueryParams, parsePositiveInt } from "@/lib/api/request";
+import {
+  parseEmailPasswordFromFormData,
+  parseEmailPasswordFromRecord,
+  parseEmailPasswordFromSearchParams,
+} from "@/lib/auth/credentials";
 import {
   createSession,
   getUserFromRequest,
@@ -6,6 +11,7 @@ import {
   verifyPassword,
   type SessionUser,
 } from "@/lib/auth/session";
+import { parseReaderItemId, toReaderItemId } from "@/lib/core/reader-item-id";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import {
@@ -32,7 +38,6 @@ const GOOGLE_LOGIN_PREFIX = "googlelogin auth=";
 const MAX_STREAM_ITEMS = 250;
 const DEFAULT_STREAM_ITEMS = 50;
 const NETNEWSWIRE_MAX_STREAM_ITEMS = 250;
-const ITEM_ID_PREFIX = "tag:google.com,2005:reader/item/";
 const READER_API_EDIT_TOKEN = randomBytes(24).toString("hex");
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
 let warnedMissingArticleStatusesTable = false;
@@ -47,6 +52,40 @@ type ClientLoginPayload = {
   email: string;
   password: string;
 };
+
+type ReaderResourceHandler = () => Promise<Response>;
+
+type TagMutation = {
+  target: "a" | "r";
+  tag: string;
+  patch: {
+    isRead?: boolean;
+    isStarred?: boolean;
+  };
+};
+
+const TAG_MUTATIONS: TagMutation[] = [
+  {
+    target: "a",
+    tag: "user/-/state/com.google/read",
+    patch: { isRead: true },
+  },
+  {
+    target: "r",
+    tag: "user/-/state/com.google/read",
+    patch: { isRead: false },
+  },
+  {
+    target: "a",
+    tag: "user/-/state/com.google/starred",
+    patch: { isStarred: true },
+  },
+  {
+    target: "r",
+    tag: "user/-/state/com.google/starred",
+    patch: { isStarred: false },
+  },
+];
 
 function isMissingArticleStatusesTableError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -117,26 +156,17 @@ function textResponse(body: string, status = 200): Response {
   });
 }
 
+function notFoundResponse(): Response {
+  return NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+
 function parseClientLoginParams(
   searchParams: URLSearchParams,
 ): ClientLoginPayload | null {
-  const email =
-    searchParams.get("Email") ??
-    searchParams.get("email") ??
-    searchParams.get("username");
-  const password =
-    searchParams.get("Passwd") ??
-    searchParams.get("password") ??
-    searchParams.get("passwd");
-
-  if (!email || !password) {
-    return null;
-  }
-
-  return {
-    email: email.trim().toLowerCase(),
-    password,
-  };
+  return parseEmailPasswordFromSearchParams(searchParams, {
+    emailKeys: ["Email", "email", "username"],
+    passwordKeys: ["Passwd", "password", "passwd"],
+  });
 }
 
 async function parseClientLoginPayload(
@@ -155,20 +185,10 @@ async function parseClientLoginPayload(
 
   if (contentType.includes("application/x-www-form-urlencoded")) {
     const form = await request.formData();
-    const email = String(
-      form.get("Email") ?? form.get("email") ?? form.get("username") ?? "",
-    )
-      .trim()
-      .toLowerCase();
-    const password = String(
-      form.get("Passwd") ?? form.get("password") ?? form.get("passwd") ?? "",
-    );
-
-    if (!email || !password) {
-      return null;
-    }
-
-    return { email, password };
+    return parseEmailPasswordFromFormData(form, {
+      emailKeys: ["Email", "email", "username"],
+      passwordKeys: ["Passwd", "password", "passwd"],
+    });
   }
 
   const rawBody = await request.text();
@@ -183,24 +203,10 @@ async function parseClientLoginPayload(
 
   try {
     const json = JSON.parse(rawBody) as Record<string, unknown>;
-    const email =
-      typeof json.Email === "string"
-        ? json.Email
-        : typeof json.email === "string"
-          ? json.email
-          : "";
-    const password =
-      typeof json.Passwd === "string"
-        ? json.Passwd
-        : typeof json.password === "string"
-          ? json.password
-          : "";
-
-    if (!email || !password) {
-      return null;
-    }
-
-    return { email: email.trim().toLowerCase(), password };
+    return parseEmailPasswordFromRecord(json, {
+      emailKeys: ["Email", "email", "username"],
+      passwordKeys: ["Passwd", "password", "passwd"],
+    });
   } catch {
     return null;
   }
@@ -303,10 +309,6 @@ async function requireGReaderUser(
   return tokenUser;
 }
 
-function toStreamItemId(articleId: number): string {
-  return `${ITEM_ID_PREFIX}${articleId.toString(16)}`;
-}
-
 function isSafePositiveItemId(value: unknown): value is number {
   return (
     typeof value === "number" &&
@@ -314,55 +316,6 @@ function isSafePositiveItemId(value: unknown): value is number {
     value > 0 &&
     value <= Number.MAX_SAFE_INTEGER
   );
-}
-
-function parseItemRefArticleId(rawId: string): number | null {
-  const trimmed = rawId.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const lastSegment = trimmed.includes("/")
-    ? trimmed.slice(trimmed.lastIndexOf("/") + 1)
-    : trimmed;
-
-  if (/^[0-9a-f]+$/i.test(lastSegment)) {
-    const hexValue = Number.parseInt(lastSegment, 16);
-    if (Number.isInteger(hexValue) && hexValue > 0) {
-      return hexValue;
-    }
-  }
-
-  const decimalValue = Number.parseInt(lastSegment, 10);
-  if (Number.isInteger(decimalValue) && decimalValue > 0) {
-    return decimalValue;
-  }
-
-  return null;
-}
-
-async function parseFormOrQueryParams(
-  request: NextRequest,
-): Promise<URLSearchParams> {
-  if (request.method === "GET") {
-    return new URL(request.url).searchParams;
-  }
-
-  const contentType = request.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const form = await request.formData();
-    const params = new URLSearchParams();
-    for (const [key, value] of form.entries()) {
-      if (typeof value === "string") {
-        params.append(key, value);
-      }
-    }
-    return params;
-  }
-
-  const raw = await request.text();
-  return new URLSearchParams(raw);
 }
 
 type ListedArticle = {
@@ -408,7 +361,7 @@ function mapArticleAsItem(row: ListedArticle) {
   }
 
   return {
-    id: toStreamItemId(row.articleId),
+    id: toReaderItemId(row.articleId),
     crawlTimeMsec: String(row.publicationDate.getTime()),
     timestampUsec: String(row.publicationDate.getTime() * 1000),
     title: row.title,
@@ -1037,7 +990,7 @@ async function handleStreamItemContents(
   const articleIds = Array.from(
     new Set(
       itemRefs
-        .map((value) => parseItemRefArticleId(value))
+        .map((value) => parseReaderItemId(value))
         .filter((value): value is number => value !== null),
     ),
   );
@@ -1466,7 +1419,7 @@ async function handleEditTag(
     new Set(
       params
         .getAll("i")
-        .map((value) => parseItemRefArticleId(value))
+        .map((value) => parseReaderItemId(value))
         .filter((value): value is number => value !== null),
     ),
   );
@@ -1478,23 +1431,47 @@ async function handleEditTag(
   const addTags = params.getAll("a");
   const removeTags = params.getAll("r");
 
-  if (addTags.includes("user/-/state/com.google/read")) {
-    await upsertArticleStatuses(user.userId, articleIds, { isRead: true });
-  }
+  for (const mutation of TAG_MUTATIONS) {
+    const tags = mutation.target === "a" ? addTags : removeTags;
+    if (!tags.includes(mutation.tag)) {
+      continue;
+    }
 
-  if (removeTags.includes("user/-/state/com.google/read")) {
-    await upsertArticleStatuses(user.userId, articleIds, { isRead: false });
-  }
-
-  if (addTags.includes("user/-/state/com.google/starred")) {
-    await upsertArticleStatuses(user.userId, articleIds, { isStarred: true });
-  }
-
-  if (removeTags.includes("user/-/state/com.google/starred")) {
-    await upsertArticleStatuses(user.userId, articleIds, { isStarred: false });
+    await upsertArticleStatuses(user.userId, articleIds, mutation.patch);
   }
 
   return textResponse("OK\n");
+}
+
+function createReaderResourceHandlers(
+  request: NextRequest,
+  user: SessionUser,
+): Record<string, ReaderResourceHandler> {
+  return {
+    "user-info": () => handleUserInfo(user),
+    token: () => handleToken(),
+    "tag/list": () => handleTagList(user),
+    "disable-tag": () => handleDisableTag(),
+    "rename-tag": () => handleRenameTag(),
+    "subscription/list": () => handleSubscriptionList(user),
+    "subscription/quickadd": () => handleSubscriptionQuickAdd(user, request),
+    "subscription/edit": () => handleSubscriptionEdit(user, request),
+    "unread-count": () => handleUnreadCount(user),
+    "mark-all-as-read": () => handleMarkAllAsRead(user, request),
+    "stream/items/ids": () => handleStreamItemIds(user, request),
+    "stream/items/contents": () => handleStreamItemContents(user, request),
+    "edit-tag": () => handleEditTag(user, request),
+  };
+}
+
+function isClientLoginRoute(segments: string[]): boolean {
+  return segments[0] === "accounts" && segments[1] === "ClientLogin";
+}
+
+function isReaderApiRoute(segments: string[]): boolean {
+  return (
+    segments[0] === "reader" && segments[1] === "api" && segments[2] === "0"
+  );
 }
 
 async function handleReaderRequest(
@@ -1503,79 +1480,28 @@ async function handleReaderRequest(
   segments: string[],
 ): Promise<Response> {
   const resource = segments.slice(3).join("/");
+  const handler = createReaderResourceHandlers(request, user)[resource];
 
-  if (resource === "user-info") {
-    return handleUserInfo(user);
-  }
-
-  if (resource === "token") {
-    return handleToken();
-  }
-
-  if (resource === "tag/list") {
-    return handleTagList(user);
-  }
-
-  if (resource === "disable-tag") {
-    return handleDisableTag();
-  }
-
-  if (resource === "rename-tag") {
-    return handleRenameTag();
-  }
-
-  if (resource === "subscription/list") {
-    return handleSubscriptionList(user);
-  }
-
-  if (resource === "subscription/quickadd") {
-    return handleSubscriptionQuickAdd(user, request);
-  }
-
-  if (resource === "subscription/edit") {
-    return handleSubscriptionEdit(user, request);
-  }
-
-  if (resource === "unread-count") {
-    return handleUnreadCount(user);
-  }
-
-  if (resource === "mark-all-as-read") {
-    return handleMarkAllAsRead(user, request);
-  }
-
-  if (resource === "stream/items/ids") {
-    return handleStreamItemIds(user, request);
-  }
-
-  if (resource === "stream/items/contents") {
-    return handleStreamItemContents(user, request);
-  }
-
-  if (resource === "edit-tag") {
-    return handleEditTag(user, request);
+  if (handler) {
+    return handler();
   }
 
   if (resource.startsWith("stream/contents/")) {
     return handleStreamContents(user, request, resource);
   }
 
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return notFoundResponse();
 }
 
 async function dispatch(
   request: NextRequest,
   segments: string[],
 ): Promise<Response> {
-  if (segments[0] === "accounts" && segments[1] === "ClientLogin") {
+  if (isClientLoginRoute(segments)) {
     return handleClientLogin(request);
   }
 
-  if (
-    segments[0] === "reader" &&
-    segments[1] === "api" &&
-    segments[2] === "0"
-  ) {
+  if (isReaderApiRoute(segments)) {
     const authResult = await requireGReaderUser(request);
     if (authResult instanceof Response) {
       return authResult;
@@ -1584,7 +1510,7 @@ async function dispatch(
     return handleReaderRequest(request, authResult, segments);
   }
 
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return notFoundResponse();
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
