@@ -1,6 +1,10 @@
-import { asTrimmedString, parseJsonBody } from "@/lib/api/request";
-import { jsonError, logAndRespondError } from "@/lib/api/route-helpers";
-import { requireSameOrigin } from "@/lib/auth/csrf";
+import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import {
+  jsonError,
+  logAndRespondError,
+  requireMutableRequest,
+} from "@/lib/api/route-helpers";
+import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,
   hashPassword,
@@ -11,10 +15,9 @@ import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
-import { rateLimiter } from "@/lib/utils/rate-limit";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
 import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 type SignupPayload = {
   email: string;
@@ -24,7 +27,7 @@ type SignupPayload = {
 function parseSignupPayload(
   payload: Record<string, unknown>,
 ): SignupPayload | Response {
-  const email = asTrimmedString(payload.email).toLowerCase();
+  const email = normalizeEmailInput(payload.email);
   const password = payload.password;
 
   if (!email || !isValidEmail(email)) {
@@ -45,21 +48,17 @@ function parseSignupPayload(
   return { email, password };
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
-    const rateLimitError = rateLimiter.check(request, "signup", {
-      windowMs: CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS,
-      maxAttempts: CONFIG.RATE_LIMIT_SIGNUP_MAX_ATTEMPTS,
+    const requestError = requireMutableRequest(request, {
+      rateLimit: {
+        key: "signup",
+        windowMs: CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS,
+        maxAttempts: CONFIG.RATE_LIMIT_SIGNUP_MAX_ATTEMPTS,
+      },
     });
-    if (rateLimitError) {
-      return rateLimitError;
-    }
-
-    // CSRF protection
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    if (requestError) {
+      return requestError;
     }
 
     if (!RUNTIME_FLAGS.allowSignup) {
@@ -77,12 +76,13 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
+    const payloadOrResponse =
+      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    if (payloadOrResponse instanceof Response) {
+      return payloadOrResponse;
     }
 
-    const parsedPayload = parseSignupPayload(parsedBody.data);
+    const parsedPayload = parseSignupPayload(payloadOrResponse);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }

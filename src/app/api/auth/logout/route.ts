@@ -1,5 +1,7 @@
-import { logAndRespondError } from "@/lib/api/route-helpers";
-import { requireSameOrigin } from "@/lib/auth/csrf";
+import {
+  logAndRespondError,
+  requireMutableRequest,
+} from "@/lib/api/route-helpers";
 import {
   SESSION_COOKIE_NAME,
   clearSessionCookie,
@@ -9,9 +11,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    const requestError = requireMutableRequest(request);
+    if (requestError) {
+      return requestError;
     }
 
     const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
