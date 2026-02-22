@@ -1,3 +1,9 @@
+import { DEFAULT_CATEGORY_LABEL } from "@/lib";
+import {
+  asTrimmedString,
+  parseJsonBody,
+  parsePositiveInt,
+} from "@/lib/api/request";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
@@ -13,7 +19,6 @@ import {
 } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
-import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
@@ -146,16 +151,14 @@ export async function POST(request: NextRequest) {
 
     const db = getDb();
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
 
-    const payload = body as Record<string, unknown>;
-    const name = typeof payload.name === "string" ? payload.name.trim() : "";
-    const url = typeof payload.url === "string" ? payload.url.trim() : "";
+    const payload = parsedBody.data;
+    const name = asTrimmedString(payload.name);
+    const url = asTrimmedString(payload.url);
     const category =
       typeof payload.category === "string" && payload.category.trim()
         ? payload.category.trim()
@@ -336,18 +339,16 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
 
-    const payload = body as Record<string, unknown>;
-    const sourceId = Number(payload.id);
-    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+    const payload = parsedBody.data;
+    const sourceId = parsePositiveInt(payload.id);
+    const name = asTrimmedString(payload.name);
 
-    if (!Number.isInteger(sourceId) || sourceId <= 0) {
+    if (!sourceId) {
       return NextResponse.json(
         { error: "A valid id is required" },
         { status: 400 },
@@ -425,9 +426,9 @@ export async function DELETE(request: NextRequest) {
     const db = getDb();
 
     const requestUrl = new URL(request.url);
-    const sourceId = Number(requestUrl.searchParams.get("id"));
+    const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
 
-    if (!Number.isInteger(sourceId) || sourceId <= 0) {
+    if (!sourceId) {
       return NextResponse.json(
         { error: "A valid id query parameter is required" },
         { status: 400 },

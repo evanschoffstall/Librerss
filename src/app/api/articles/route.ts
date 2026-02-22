@@ -1,3 +1,9 @@
+import {
+  asTrimmedString,
+  parseDateInput,
+  parseJsonBody,
+  parsePositiveInt,
+} from "@/lib/api/request";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
@@ -15,15 +21,6 @@ import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-
-function parseDateInput(value: unknown): Date | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -87,20 +84,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let data: unknown;
-    try {
-      data = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
 
-    const payload = data as Record<string, unknown>;
-    const rawTitle =
-      typeof payload.title === "string" ? payload.title.trim() : "";
-    const link = typeof payload.link === "string" ? payload.link.trim() : "";
+    const payload = parsedBody.data;
+    const rawTitle = asTrimmedString(payload.title);
+    const link = asTrimmedString(payload.link);
     const rawContent =
       typeof payload.content === "string" ? payload.content : "";
-    const feedId = Number(payload.feed_id);
+    const feedId = parsePositiveInt(payload.feed_id);
 
     if (!rawTitle) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -121,7 +115,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!Number.isInteger(feedId) || feedId <= 0) {
+    if (!feedId) {
       return NextResponse.json(
         { error: "A valid feed_id is required" },
         { status: 400 },

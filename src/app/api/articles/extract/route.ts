@@ -1,3 +1,4 @@
+import { parseJsonBody } from "@/lib/api/request";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
@@ -53,13 +54,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let payload: { url?: string };
-    try {
-      payload = (await request.json()) as { url?: string };
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<{ url?: string }>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
-    const articleUrl = payload?.url?.trim() ?? "";
+    const articleUrl = parsedBody.data?.url?.trim() ?? "";
 
     if (!articleUrl) {
       return NextResponse.json(

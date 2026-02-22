@@ -1,3 +1,4 @@
+import { asTrimmedString, parseJsonBody } from "@/lib/api/request";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import {
   createSession,
@@ -49,18 +50,13 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
 
-    const payload = body as Record<string, unknown>;
-    const email =
-      typeof payload.email === "string"
-        ? payload.email.trim().toLowerCase()
-        : "";
+    const payload = parsedBody.data;
+    const email = asTrimmedString(payload.email).toLowerCase();
     const password = payload.password;
 
     // Email validation
