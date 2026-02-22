@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site"]);
 
 export function requireSameOrigin(request: Request): NextResponse | null {
   const method = request.method.toUpperCase();
@@ -9,16 +10,19 @@ export function requireSameOrigin(request: Request): NextResponse | null {
   }
 
   const secFetchSite = request.headers.get("sec-fetch-site");
-  if (
-    secFetchSite &&
-    secFetchSite !== "same-origin" &&
-    secFetchSite !== "same-site"
-  ) {
+  if (secFetchSite && !ALLOWED_FETCH_SITES.has(secFetchSite)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const origin = request.headers.get("origin");
-  if (!origin) {
+  const referer = request.headers.get("referer");
+
+  if (
+    !origin &&
+    !referer &&
+    secFetchSite &&
+    ALLOWED_FETCH_SITES.has(secFetchSite)
+  ) {
     return null;
   }
 
@@ -31,13 +35,25 @@ export function requireSameOrigin(request: Request): NextResponse | null {
 
   try {
     const requestUrl = new URL(request.url);
-    const expectedOrigin = `${requestUrl.protocol}//${host}`;
-    if (origin !== expectedOrigin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const expectedOrigin = `${requestUrl.protocol}//${host}`.toLowerCase();
+    if (origin) {
+      const normalizedOrigin = new URL(origin).origin.toLowerCase();
+      if (normalizedOrigin !== expectedOrigin) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      return null;
     }
+
+    if (referer) {
+      const normalizedRefererOrigin = new URL(referer).origin.toLowerCase();
+      if (normalizedRefererOrigin !== expectedOrigin) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      return null;
+    }
+
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   } catch {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-
-  return null;
 }
