@@ -211,7 +211,27 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
     const xss = '<img src="x" onerror="alert(1)">';
     const result = sanitizeArticleHtml(xss);
     expect(result).not.toContain("onerror");
-    expect(result).not.toContain("<img");
+    expect(result).toContain("<img");
+  });
+
+  test("preserves safe images", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const html =
+      '<img src="https://example.com/image.jpg" alt="Example" width="800" height="600">';
+    const result = sanitizeArticleHtml(html);
+    expect(result).toContain('<img src="https://example.com/image.jpg"');
+    expect(result).toContain('alt="Example"');
+    expect(result).toContain('width="800"');
+    expect(result).toContain('height="600"');
+  });
+
+  test("preserves bullet lists", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const html = "<ul><li>First</li><li>Second</li></ul>";
+    const result = sanitizeArticleHtml(html);
+    expect(result).toContain("<ul>");
+    expect(result).toContain("<li>First</li>");
+    expect(result).toContain("<li>Second</li>");
   });
 
   test("strips javascript: href links", async () => {
