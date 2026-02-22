@@ -658,10 +658,12 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
       const cachedArticles = toBatchArticles(cachedBatchResults);
 
-      // Show cached articles right away so the user sees content immediately.
       if (cachedArticles.length > 0) {
         setFeed(cachedArticles);
         setExpandedArticleKey(null);
+      }
+
+      if (latestFeedRequestIdRef.current === requestId) {
         setLoading(false);
       }
 
