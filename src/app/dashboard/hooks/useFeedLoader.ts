@@ -12,7 +12,7 @@ import {
   dedupeAndSortArticles,
   flattenCategoryFeeds,
   mapBatchResultsToArticles,
-} from "../helpers";
+} from "../helpers/helpers";
 
 const FEED_LOADING_FAILSAFE_MS = 20_000;
 
