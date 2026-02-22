@@ -79,21 +79,43 @@ function stripOrphanedRelatedBlocks(html: string): string {
 }
 
 /**
- * Collapses runs of more than two consecutive blank lines in sanitized HTML.
+ * Collapses runs of more than
+ * {@link CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES} consecutive blank lines
+ * in sanitized HTML.
  * Handles raw `\n` sequences, consecutive `<br>` tags, and consecutive
  * empty `<p>` elements so the rendered article never has large vertical gaps.
  */
 function collapseExcessNewlines(html: string): string {
+  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+  const minOverflowRun = maxConsecutiveBlankLines + 1;
+
   return (
     html
       // Normalize CRLF/CR to LF so newline collapsing is deterministic.
       .replace(/\r\n?/g, "\n")
-      // 3+ consecutive <br> tags (with optional whitespace between) → <br><br>
-      .replace(/((?:<br\s*\/?>[\s\n]*){3,})/gi, "<br><br>")
-      // 3+ consecutive empty <p> tags → two
-      .replace(/((?:<p>\s*<\/p>\s*){3,})/gi, "<p></p><p></p>")
-      // 3+ raw newlines (optionally separated by spaces/tabs) → two
-      .replace(/(?:\n[ \t]*){3,}/g, "\n\n")
+      // N+1 consecutive <br> tags (with optional whitespace between) → N.
+      .replace(
+        new RegExp(`((?:<br\\s*\\/?>[\\s\\n]*){${minOverflowRun},})`, "gi"),
+        "<br>".repeat(maxConsecutiveBlankLines),
+      )
+      // N+1 consecutive blank paragraphs (empty, nbsp, or <br>-only) → N.
+      .replace(
+        new RegExp(
+          `((?:<p>(?:\\s|&nbsp;|&#160;|<br\\s*\\/?>)*<\\/p>\\s*){${minOverflowRun},})`,
+          "gi",
+        ),
+        "<p></p>".repeat(maxConsecutiveBlankLines),
+      )
+      // N+1 raw newlines (optionally separated by spaces/tabs) → N.
+      .replace(
+        new RegExp(`(?:\\n[ \\t]*){${minOverflowRun},}`, "g"),
+        "\n".repeat(maxConsecutiveBlankLines),
+      )
+      // N+1 whitespace-only lines (spaces/tabs before newline) → N.
+      .replace(
+        new RegExp(`(?:[ \\t]*\\n){${minOverflowRun},}`, "g"),
+        "\n".repeat(maxConsecutiveBlankLines),
+      )
   );
 }
 

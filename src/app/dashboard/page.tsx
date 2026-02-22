@@ -157,6 +157,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const [selectedCategory, setSelectedCategory] = useState(ALL_FEEDS_NODE_KEY);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
+  const expandedArticleKeyRef = useRef<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
@@ -174,6 +175,26 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
+
+  useEffect(() => {
+    expandedArticleKeyRef.current = expandedArticleKey;
+  }, [expandedArticleKey]);
+
+  const scrollArticleIntoView = useCallback((articleKey: string) => {
+    const escapedKey = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(articleKey)
+      : articleKey.replace(/[\\"]/g, "\\$&");
+
+    const articleElement = document.querySelector<HTMLElement>(
+      `[data-article-key="${escapedKey}"]`,
+    );
+
+    articleElement?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "auto",
+    });
+  }, []);
 
   const ensureCategoryLabelExists = (label: string) => {
     const normalized = normalizeLabel(label);
@@ -971,7 +992,17 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       return;
     }
 
+    requestAnimationFrame(() => {
+      scrollArticleIntoView(nextArticleKey);
+    });
+
     await hydrateArticleContent(article);
+
+    if (expandedArticleKeyRef.current === nextArticleKey) {
+      requestAnimationFrame(() => {
+        scrollArticleIntoView(nextArticleKey);
+      });
+    }
   };
 
   const filteredFeed = feed.filter(article =>
@@ -1317,6 +1348,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
                     return (
                       <ArticleCard
                         key={cardKey}
+                        articleKey={cardKey}
                         article={article}
                         isExpanded={expandedArticleKey === cardKey}
                         useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}

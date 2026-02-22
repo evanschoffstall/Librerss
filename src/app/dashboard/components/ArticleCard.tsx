@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
+import { CONFIG } from "@/lib/config";
 import { motion } from "framer-motion";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
@@ -12,6 +13,7 @@ import {
 } from "./favicons";
 
 interface ArticleCardProps {
+  articleKey: string;
   article: Article;
   isExpanded: boolean;
   useRichFormatting: boolean;
@@ -20,17 +22,27 @@ interface ArticleCardProps {
   showFavicon: boolean;
 }
 
-const toPlainText = (value: string) =>
-  value
+const toPlainText = (value: string) => {
+  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+  const minOverflowRun = maxConsecutiveBlankLines + 1;
+
+  return value
     // Strip figure/figcaption blocks (and any nested content) so image
     // captions like "Image: Pic: iStock" don't appear in the preview.
-    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, " ")
-    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, " ")
+    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
+    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
+    // Preserve block boundaries and explicit line breaks.
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|section|article|blockquote|li|h[1-6]|ul|ol|pre)>/gi, "\n")
     .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
     .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(new RegExp(`(?:\\n){${minOverflowRun},}`, "g"), "\n".repeat(maxConsecutiveBlankLines))
     .trim();
+};
 
 const getArticleSourceLabel = (article: Article) => {
   if (article.feedName?.trim()) {
@@ -41,6 +53,7 @@ const getArticleSourceLabel = (article: Article) => {
 };
 
 export const ArticleCard = ({
+  articleKey,
   article,
   isExpanded,
   useRichFormatting,
@@ -72,8 +85,8 @@ export const ArticleCard = ({
   const fullContentRef = useRef<HTMLDivElement>(null);
 
   const richContentClassName = isExpanded
-    ? "text-sm leading-relaxed text-foreground/70 whitespace-pre-wrap break-words [&_p]:mb-3 [&_p:last-child]:mb-0 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden"
-    : "text-xs leading-relaxed text-muted-foreground/75 whitespace-pre-wrap break-words [&_p]:mb-3 [&_p:last-child]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden";
+    ? "text-sm leading-relaxed text-foreground/70 break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden"
+    : "text-xs leading-relaxed text-muted-foreground/75 break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden";
 
   useEffect(() => {
     setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
@@ -145,6 +158,7 @@ export const ArticleCard = ({
 
   return (
     <motion.article
+      data-article-key={articleKey}
       role="button"
       tabIndex={0}
       aria-expanded={isExpanded}
@@ -220,7 +234,7 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className={`leading-relaxed transition-all duration-300 ${isExpanded ? "text-sm text-foreground/70" : "text-xs text-muted-foreground/75"}`}>
+              <p className={`leading-relaxed whitespace-pre-line break-words transition-all duration-300 ${isExpanded ? "text-sm text-foreground/70" : "text-xs text-muted-foreground/75"}`}>
                 {content}
               </p>
             )}
@@ -250,7 +264,7 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground/75">
+              <p className="text-xs leading-relaxed whitespace-pre-line break-words text-muted-foreground/75">
                 {content}
               </p>
             )}
