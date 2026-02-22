@@ -14,6 +14,8 @@ export interface AuthUser {
 export interface AuthSession {
   authenticated: boolean;
   user: AuthUser | null;
+  allowSignup: boolean;
+  usePlaceholderData: boolean;
 }
 
 export interface Feed {
@@ -38,6 +40,8 @@ export interface Article {
   publicationDate: Date;
   lastChecked: Date;
   feedId: number;
+  feedName?: string;
+  feedUrl?: string;
 }
 
 export interface CategoryTreeNode {

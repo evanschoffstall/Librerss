@@ -1,34 +1,31 @@
-import { getUserFromRequest } from "@/src/lib/auth/session";
+import sanitizeHtml from "sanitize-html";
+import { requireSameOrigin } from "@/lib/auth/csrf";
+import { getUserFromRequest } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_FEED_SOURCES,
   RUNTIME_FLAGS,
-} from "@/src/lib/core/runtime";
-import { getDb } from "@/src/lib/db/db";
+} from "@/lib/core/runtime";
+import { getDb } from "@/lib/db/db";
+import { articles, feedCategories, feeds, feedSources } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
+import { rateLimiter } from "@/lib/utils/rate-limit";
 import {
-  articles,
-  feedCategories,
-  feeds,
-  feedSources,
-} from "@/src/lib/db/schema";
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
+import {
+  sanitizeArticleContent,
+  sanitizeArticleTitle,
+} from "@/lib/utils/validation";
 import axios from "axios";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import Parser from "rss-parser";
-
-const BLOCKED_HOST_PATTERNS = [
-  /^localhost$/i,
-  /^0\.0\.0\.0$/,
-  /^127\./,
-  /^10\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./,
-  /^::1$/i,
-  /^fc/i,
-  /^fd/i,
-  /^fe80:/i,
-];
 
 function normalizeFeedUrl(raw: string): string {
   const parsed = new URL(raw.trim());
@@ -38,15 +35,134 @@ function normalizeFeedUrl(raw: string): string {
   return parsed.toString().replace(/\/+$/, "");
 }
 
-function isBlockedFeedHost(hostname: string): boolean {
-  const normalized = hostname.trim().toLowerCase();
-  return (
-    normalized.endsWith(".local") ||
-    BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(normalized))
-  );
+/**
+ * Sanitize raw HTML from untrusted RSS feeds.
+ * Uses a permissive but safe allowlist so normal formatting is preserved
+ * while script injection, event handlers, and unsafe URLs are stripped.
+ */
+function sanitizeRssHtml(raw: string): string {
+  if (!raw.trim()) return "";
+  return sanitizeHtml(raw, {
+    allowedTags: [
+      "p",
+      "br",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "pre",
+      "code",
+      "strong",
+      "em",
+      "b",
+      "i",
+      "u",
+      "a",
+      "hr",
+      "figure",
+      "figcaption",
+    ],
+    allowedAttributes: {
+      a: ["href", "name", "target", "rel"],
+      code: ["class"],
+      pre: ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: {
+      a: (tagName: string, attribs: Record<string, string>) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: "noopener noreferrer nofollow",
+          target: "_blank",
+        },
+      }),
+    },
+  }).trim();
 }
 
-function isAllowedFeedUrl(raw: string): boolean {
+// Alias kept for clarity at call sites within this file.
+const isBlockedFeedHost = isBlockedHost;
+
+// DNS cache for blocked address checks.
+// Bounded to prevent memory exhaustion from attacker-controlled hostnames.
+const DNS_CACHE = new Map<string, { blocked: boolean; expiresAt: number }>();
+const DNS_CACHE_MAX_ENTRIES = 10_000;
+
+function setCacheSafe(
+  key: string,
+  value: { blocked: boolean; expiresAt: number },
+): void {
+  if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+    // Evict expired entries first
+    const now = Date.now();
+    for (const [k, entry] of DNS_CACHE.entries()) {
+      if (entry.expiresAt <= now) {
+        DNS_CACHE.delete(k);
+      }
+    }
+    // If still at limit after expiry sweep, hard-clear to prevent OOM
+    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+      DNS_CACHE.clear();
+    }
+  }
+  DNS_CACHE.set(key, value);
+}
+
+async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
+  // Check cache first
+  const cached = DNS_CACHE.get(hostname);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.blocked;
+  }
+
+  try {
+    // DNS lookup with timeout
+    const lookupPromise = lookup(hostname, { all: true, verbatim: true });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("DNS lookup timeout")),
+        CONFIG.DNS_LOOKUP_TIMEOUT_MS,
+      ),
+    );
+
+    const records = await Promise.race([lookupPromise, timeoutPromise]);
+    const isBlocked = records.some((record) =>
+      isBlockedResolvedAddress(record.address),
+    );
+
+    // Cache result
+    setCacheSafe(hostname, {
+      blocked: isBlocked,
+      expiresAt: Date.now() + CONFIG.DNS_CACHE_TTL_MS,
+    });
+
+    return isBlocked;
+  } catch (error) {
+    // Fail open for transient DNS errors (allow the feed)
+    // but log the issue for monitoring
+    logger.warn("DNS lookup failed for feed validation", {
+      hostname,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    // Cache negative result briefly to avoid repeated failures
+    setCacheSafe(hostname, {
+      blocked: false,
+      expiresAt: Date.now() + 60000, // 1 minute for errors
+    });
+
+    return false;
+  }
+}
+
+async function isAllowedFeedUrl(raw: string): Promise<boolean> {
   try {
     const parsed = new URL(raw);
     const hasSupportedProtocol =
@@ -60,7 +176,16 @@ function isAllowedFeedUrl(raw: string): boolean {
       return false;
     }
 
-    return !isBlockedFeedHost(parsed.hostname);
+    const normalizedHostname = normalizeHostname(parsed.hostname);
+    if (isBlockedFeedHost(normalizedHostname)) {
+      return false;
+    }
+
+    if (isIP(normalizedHostname)) {
+      return !isBlockedResolvedAddress(normalizedHostname);
+    }
+
+    return !(await resolvesToBlockedAddress(normalizedHostname));
   } catch {
     return false;
   }
@@ -86,6 +211,50 @@ function parseFeedItemDate(value: string | undefined, fallback: Date): Date {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
+type PendingArticle = {
+  title: string;
+  link: string;
+  publicationDate: Date;
+  content: string;
+  feedId: number;
+  lastChecked: Date;
+};
+
+function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
+  const byLink = new Map<string, PendingArticle>();
+
+  for (const item of items) {
+    const normalizedLink = item.link.trim();
+    if (!normalizedLink) {
+      continue;
+    }
+
+    const current = byLink.get(normalizedLink);
+    if (!current) {
+      byLink.set(normalizedLink, {
+        ...item,
+        link: normalizedLink,
+      });
+      continue;
+    }
+
+    const currentPublication = new Date(current.publicationDate).getTime();
+    const nextPublication = new Date(item.publicationDate).getTime();
+    const shouldReplace =
+      nextPublication > currentPublication ||
+      item.content.length > current.content.length;
+
+    if (shouldReplace) {
+      byLink.set(normalizedLink, {
+        ...item,
+        link: normalizedLink,
+      });
+    }
+  }
+
+  return [...byLink.values()];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request);
@@ -96,9 +265,11 @@ export async function GET(request: NextRequest) {
     const requestUrl = new URL(request.url);
     const feedUrl = requestUrl.searchParams.get("url")?.trim();
 
-    if (feedUrl && !isAllowedFeedUrl(feedUrl)) {
+    if (feedUrl && !(await isAllowedFeedUrl(feedUrl))) {
       return NextResponse.json(
-        { error: "Feed URL must use http or https" },
+        {
+          error: "Feed URL must use http or https and resolve to a public host",
+        },
         { status: 400 },
       );
     }
@@ -170,7 +341,7 @@ export async function GET(request: NextRequest) {
     if (currentFeed) {
       const diffMinutes =
         (Date.now() - new Date(currentFeed.lastFetched).getTime()) / 60000;
-      if (diffMinutes < 15) {
+      if (diffMinutes < CONFIG.FEED_CACHE_TTL_MINUTES) {
         shouldFetch = false;
       }
     } else {
@@ -206,28 +377,45 @@ export async function GET(request: NextRequest) {
 
     if (shouldFetch) {
       const feedResponse = await axios.get(normalizedFeedUrl, {
-        timeout: 10000,
-        maxContentLength: 5 * 1024 * 1024,
+        timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+        maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
         maxRedirects: 3,
+        beforeRedirect: (options) => {
+          const protocol = options.protocol?.toLowerCase() ?? "";
+          const hostname = normalizeHostname(options.hostname ?? "");
+
+          const hasSupportedProtocol =
+            protocol === "http:" || protocol === "https:";
+          if (!hasSupportedProtocol || isBlockedFeedHost(hostname)) {
+            throw new Error("Blocked redirect target");
+          }
+        },
       });
       const feedResponseParsed = await parser.parseString(feedResponse.data);
       const now = new Date();
 
-      const validItems = feedResponseParsed.items
-        .filter(
-          (item) =>
-            Boolean(item.title) &&
-            Boolean(item.link) &&
-            isAllowedArticleLink(item.link ?? ""),
-        )
-        .map((item) => ({
-          title: item.title!,
-          link: item.link!,
-          publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
-          content: item.content || item.contentSnippet || "",
-          feedId: currentFeed.id,
-          lastChecked: now,
-        }));
+      const validItems = dedupePendingArticles(
+        feedResponseParsed.items
+          .filter(
+            (item) =>
+              Boolean(item.title) &&
+              Boolean(item.link) &&
+              isAllowedArticleLink(item.link ?? ""),
+          )
+          .map((item) => ({
+            title: sanitizeArticleTitle(item.title),
+            link: item.link!,
+            publicationDate: parseFeedItemDate(
+              item.isoDate ?? item.pubDate,
+              now,
+            ),
+            content: sanitizeArticleContent(
+              sanitizeRssHtml(item.content || item.contentSnippet || ""),
+            ),
+            feedId: currentFeed.id,
+            lastChecked: now,
+          })),
+      );
 
       if (validItems.length > 0) {
         await db
@@ -266,7 +454,17 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(feedArticles);
   } catch (error) {
-    console.error("Error fetching feed:", error);
+    logger.error("Error fetching feed", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
+
+    if (axios.isAxiosError(error)) {
+      return NextResponse.json(
+        { error: "Unable to fetch upstream feed" },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
@@ -276,6 +474,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitError = rateLimiter.check(request, "feed-create", {
+      windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
+      maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
+    });
+    if (rateLimitError) {
+      return rateLimitError;
+    }
+
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const user = await getUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -315,16 +527,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (name.length > 255 || category.length > 255) {
+    if (
+      name.length > CONFIG.MAX_FEED_NAME_LENGTH ||
+      category.length > CONFIG.MAX_CATEGORY_NAME_LENGTH
+    ) {
       return NextResponse.json(
-        { error: "name and category must be 255 characters or less" },
+        {
+          error: `name and category must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
+        },
         { status: 400 },
       );
     }
 
-    if (!isAllowedFeedUrl(url)) {
+    if (!(await isAllowedFeedUrl(url))) {
       return NextResponse.json(
-        { error: "Feed URL must use http or https" },
+        {
+          error: "Feed URL must use http or https and resolve to a public host",
+        },
         { status: 400 },
       );
     }
@@ -409,7 +628,11 @@ export async function POST(request: NextRequest) {
             url: feedSources.url,
           });
 
-        return updatedSource ?? existingSource;
+        if (!updatedSource) {
+          throw new Error("Failed to update feed source");
+        }
+
+        return updatedSource;
       }
 
       const [createdSource] = await tx
@@ -421,6 +644,10 @@ export async function POST(request: NextRequest) {
           url: feedSources.url,
         });
 
+      if (!createdSource) {
+        throw new Error("Failed to create feed source");
+      }
+
       return createdSource;
     });
 
@@ -429,7 +656,95 @@ export async function POST(request: NextRequest) {
       { status: existingSource ? 200 : 201 },
     );
   } catch (error) {
-    console.error("Error creating feed source:", error);
+    logger.error("Error creating feed source", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
+    const user = await getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (RUNTIME_FLAGS.usePlaceholderData) {
+      return NextResponse.json(
+        {
+          error:
+            "Feed source management is disabled when DATABASE_URL is not configured",
+        },
+        { status: 503 },
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const sourceId = Number(payload.id);
+    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+
+    if (!Number.isInteger(sourceId) || sourceId <= 0) {
+      return NextResponse.json(
+        { error: "A valid id is required" },
+        { status: 400 },
+      );
+    }
+
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    }
+
+    if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
+      return NextResponse.json(
+        {
+          error: `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const db = getDb();
+
+    const [updatedSource] = await db
+      .update(feedSources)
+      .set({ name })
+      .where(
+        and(eq(feedSources.id, sourceId), eq(feedSources.userId, user.userId)),
+      )
+      .returning({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      });
+
+    if (!updatedSource) {
+      return NextResponse.json(
+        { error: "Feed source not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(updatedSource);
+  } catch (error) {
+    logger.error("Error renaming feed source", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
@@ -439,6 +754,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const user = await getUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -491,31 +811,40 @@ export async function DELETE(request: NextRequest) {
       .where(eq(feeds.url, sourceToDelete.url))
       .limit(1);
 
-    if (feedForSource) {
-      await db
-        .delete(feedCategories)
+    // Delete feedCategories and feedSources atomically so a crash between
+    // the two statements cannot leave orphaned category rows.
+    const [deletedSource] = await db.transaction(async (tx) => {
+      if (feedForSource) {
+        await tx
+          .delete(feedCategories)
+          .where(
+            and(
+              eq(feedCategories.userId, user.userId),
+              eq(feedCategories.feedId, feedForSource.id),
+            ),
+          );
+      }
+
+      return tx
+        .delete(feedSources)
         .where(
           and(
-            eq(feedCategories.userId, user.userId),
-            eq(feedCategories.feedId, feedForSource.id),
+            eq(feedSources.id, sourceId),
+            eq(feedSources.userId, user.userId),
           ),
-        );
-    }
-
-    const [deletedSource] = await db
-      .delete(feedSources)
-      .where(
-        and(eq(feedSources.id, sourceId), eq(feedSources.userId, user.userId)),
-      )
-      .returning({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
-      });
+        )
+        .returning({
+          id: feedSources.id,
+          name: feedSources.name,
+          url: feedSources.url,
+        });
+    });
 
     return NextResponse.json(deletedSource);
   } catch (error) {
-    console.error("Error deleting feed source:", error);
+    logger.error("Error deleting feed source", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

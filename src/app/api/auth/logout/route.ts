@@ -2,20 +2,22 @@ import {
   SESSION_COOKIE_NAME,
   clearSessionCookie,
   deleteSessionByToken,
-} from "@/src/lib/auth/session";
-import { NextResponse } from "next/server";
+} from "@/lib/auth/session";
+import { logger } from "@/lib/utils/logger";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+import { requireSameOrigin } from "@/lib/auth/csrf";
+export async function POST(request: NextRequest) {
   try {
-    const cookieHeader = request.headers.get("cookie") ?? "";
-    const token = cookieHeader
-      .split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`))
-      ?.split("=")[1];
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
     if (token) {
-      await deleteSessionByToken(decodeURIComponent(token));
+      await deleteSessionByToken(token);
     }
 
     const response = NextResponse.json({ ok: true });
@@ -23,7 +25,9 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    console.error("Logout error:", error);
+    logger.error("Logout error", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

@@ -1,7 +1,8 @@
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/src/lib/core/runtime";
-import { getDb } from "@/src/lib/db/db";
-import { sessions, users } from "@/src/lib/db/schema";
-import { and, eq, gt } from "drizzle-orm";
+import { CONFIG } from "@/lib/config";
+import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
+import { getDb } from "@/lib/db/db";
+import { sessions, users } from "@/lib/db/schema";
+import { and, asc, eq, gt } from "drizzle-orm";
 import type { NextRequest, NextResponse } from "next/server";
 import {
   createHash,
@@ -14,7 +15,8 @@ import { promisify } from "node:util";
 const scrypt = promisify(scryptCallback);
 
 export const SESSION_COOKIE_NAME = "librerss_session";
-const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
+const SESSION_DURATION_MS =
+  1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -63,6 +65,10 @@ export function clearSessionCookie(response: NextResponse): void {
 
 export async function createSession(userId: number): Promise<string> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
+    if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
+      throw new Error("Placeholder authentication is disabled");
+    }
+
     if (userId !== PLACEHOLDER_ADMIN_USER.id) {
       throw new Error("Placeholder mode only supports the admin account");
     }
@@ -75,7 +81,30 @@ export async function createSession(userId: number): Promise<string> {
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 
-  await db.insert(sessions).values({ userId, tokenHash, expiresAt });
+  // Use transaction to ensure session limit is enforced
+  await db.transaction(async (tx) => {
+    // Get all sessions for this user, ordered by creation date (oldest first)
+    const userSessions = await tx
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.userId, userId))
+      .orderBy(asc(sessions.createdAt));
+
+    // If user has too many sessions, delete the oldest ones
+    if (userSessions.length >= CONFIG.MAX_SESSIONS_PER_USER) {
+      const sessionsToDelete = userSessions.slice(
+        0,
+        userSessions.length - CONFIG.MAX_SESSIONS_PER_USER + 1,
+      );
+
+      for (const session of sessionsToDelete) {
+        await tx.delete(sessions).where(eq(sessions.id, session.id));
+      }
+    }
+
+    // Create new session
+    await tx.insert(sessions).values({ userId, tokenHash, expiresAt });
+  });
 
   return token;
 }
@@ -95,6 +124,10 @@ export async function getUserFromRequest(request: NextRequest) {
   if (!token) return null;
 
   if (RUNTIME_FLAGS.usePlaceholderData) {
+    if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
+      return null;
+    }
+
     if (token !== PLACEHOLDER_ADMIN_USER.sessionToken) {
       return null;
     }

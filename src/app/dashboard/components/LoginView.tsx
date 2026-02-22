@@ -3,16 +3,18 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { AuthService, type AuthUser } from "@/src/lib";
+import { AuthService, type AuthUser } from "@/lib";
+import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 interface LoginViewProps {
   onAuthenticated: (user: AuthUser) => void;
+  allowSignup: boolean;
 }
 
-export const LoginView = ({ onAuthenticated }: LoginViewProps) => {
+export const LoginView = ({ onAuthenticated, allowSignup }: LoginViewProps) => {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +22,11 @@ export const LoginView = ({ onAuthenticated }: LoginViewProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    if (mode === "signup" && !allowSignup) {
+      toast.error("Signup is disabled by server configuration.");
+      return;
+    }
+
     if (!email.trim() || !password) {
       toast.error("Email and password are required.");
       return;
@@ -46,8 +53,11 @@ export const LoginView = ({ onAuthenticated }: LoginViewProps) => {
 
       onAuthenticated(user);
       toast.success(mode === "signup" ? "Account created." : "Welcome back.");
-    } catch (error: any) {
-      const message = error?.response?.data?.error || "Authentication failed.";
+    } catch (error: unknown) {
+      const message =
+        axios.isAxiosError(error) && typeof error.response?.data?.error === "string"
+          ? error.response.data.error
+          : "Authentication failed.";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -90,14 +100,16 @@ export const LoginView = ({ onAuthenticated }: LoginViewProps) => {
             {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
             {mode === "signup" ? "Create account" : "Continue"}
           </Button>
-          <Button
-            variant="link"
-            className="px-0"
-            onClick={() => setMode((current) => (current === "login" ? "signup" : "login"))}
-            disabled={isSubmitting}
-          >
-            {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Sign up"}
-          </Button>
+          {allowSignup && (
+            <Button
+              variant="link"
+              className="px-0"
+              onClick={() => setMode((current) => (current === "login" ? "signup" : "login"))}
+              disabled={isSubmitting}
+            >
+              {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Sign up"}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

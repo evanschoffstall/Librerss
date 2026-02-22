@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FeedService, isValidUrl, type CategoryTreeNode } from "@/src/lib";
+import { FeedService, isValidUrl, type CategoryTreeNode } from "@/lib";
 import { useEffect, useState } from "react";
 import { INITIAL_CATEGORIES, SAMPLE_FEEDS } from "../constants";
 
@@ -26,9 +26,10 @@ export const SettingsView = () => {
           key: "0",
           label: "My Feeds",
           children: sources.map((source) => ({
-            key: `0-${source.id}`,
+            key: `src-${source.id}`,
             label: source.name,
-            data: { url: source.url },
+            // Store sourceId explicitly — avoids fragile string parsing in removeSource.
+            data: { url: source.url, sourceId: source.id },
           })),
         },
       ]);
@@ -68,8 +69,11 @@ export const SettingsView = () => {
   };
 
   const removeSource = async (key: string) => {
-    const sourceId = Number(key.replace("0-", ""));
-    if (!Number.isInteger(sourceId) || sourceId <= 0) {
+    // Read sourceId from data rather than parsing the display key string.
+    const categoryChild = categories[0]?.children?.find((c) => c.key === key);
+    const sourceId = categoryChild?.data?.sourceId;
+
+    if (typeof sourceId !== "number" || !Number.isInteger(sourceId) || sourceId <= 0) {
       return;
     }
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { DebugBorder, DebugGrid } from "@/src/components";
-import { ENV } from "@/src/lib";
+import { DebugBorder, DebugGrid } from "@/components";
+import { ENV } from "@/lib";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
