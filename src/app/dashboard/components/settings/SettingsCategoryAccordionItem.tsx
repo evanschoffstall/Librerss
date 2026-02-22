@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
 import { AnimatePresence, motion } from "framer-motion";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
-import { FeedRow } from "./FeedRow";
-import { IconBtn } from "./IconBtn";
+import { FeedRow } from "./SettingsFeedRow";
+import { IconBtn } from "./SettingsIconBtn";
 
 interface CategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
@@ -267,11 +267,10 @@ export function CategoryAccordionItem({
 
           {categoryFeeds.length === 0 && !isAddingFeed ? (
             <div
-              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs ${
-                feedDropTarget?.categoryLabel === categoryNode.label && feedDropTarget?.index === 0
+              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs ${feedDropTarget?.categoryLabel === categoryNode.label && feedDropTarget?.index === 0
                   ? "border-primary bg-primary/5 text-foreground"
                   : "text-muted-foreground"
-              }`}
+                }`}
               onDragOver={(event) => onFeedDragOver(event, categoryNode.label, 0)}
               onDrop={(event) => onFeedDrop(event, categoryNode.label, 0)}
             >
@@ -307,12 +306,11 @@ export function CategoryAccordionItem({
               ))}
               {draggingFeedKey && (
                 <div
-                  className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${
-                    feedDropTarget?.categoryLabel === categoryNode.label &&
-                    feedDropTarget?.index === categoryFeeds.length
+                  className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${feedDropTarget?.categoryLabel === categoryNode.label &&
+                      feedDropTarget?.index === categoryFeeds.length
                       ? "border-primary bg-primary/5 text-foreground"
                       : "text-muted-foreground"
-                  }`}
+                    }`}
                   onDragOver={(event) =>
                     onFeedDragOver(event, categoryNode.label, categoryFeeds.length)
                   }
