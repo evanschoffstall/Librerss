@@ -334,7 +334,11 @@ async function ensureFeedRecord(
     .insert(feeds)
     .values({ url: feedUrl })
     .onConflictDoNothing({ target: feeds.url })
-    .returning({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched });
+    .returning({
+      id: feeds.id,
+      url: feeds.url,
+      lastFetched: feeds.lastFetched,
+    });
 
   if (created) return created;
 
@@ -376,10 +380,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     .select({ url: feedSources.url })
     .from(feedSources)
     .where(
-      and(
-        eq(feedSources.userId, userId),
-        inArray(feedSources.url, feedUrls),
-      ),
+      and(eq(feedSources.userId, userId), inArray(feedSources.url, feedUrls)),
     );
 
   const ownedUrlSet = new Set(ownedRows.map((r) => r.url));
@@ -460,7 +461,10 @@ export async function fetchAndCacheFeedArticlesBatch(
                PARTITION BY feed_id ORDER BY publication_date DESC
              ) AS rn
       FROM "Article"
-      WHERE feed_id = ANY(${feedIds})
+      WHERE feed_id IN (${sql.join(
+        feedIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
     ) ranked
     WHERE rn <= ${MAX_ARTICLES_PER_FEED}
     ORDER BY publication_date DESC
@@ -480,9 +484,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       .filter((e): e is [number, string] => e !== null),
   );
 
-  const result = new Map<string, ArticleRow[]>(
-    allowedUrls.map((u) => [u, []]),
-  );
+  const result = new Map<string, ArticleRow[]>(allowedUrls.map((u) => [u, []]));
 
   for (const row of rows) {
     const url = idToUrl.get(Number(row.feedId));
