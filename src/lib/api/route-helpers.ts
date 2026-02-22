@@ -1,14 +1,16 @@
+import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
+import { toError } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
-import { NextRequest, NextResponse } from "next/server";
+import { rateLimiter } from "@/lib/utils/rate-limit";
+import { NextRequest } from "next/server";
+import { jsonError } from "./responses";
 
 export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>
 >;
 
-export function jsonError(error: string, status: number): Response {
-  return NextResponse.json({ error }, { status });
-}
+export { jsonError };
 
 export async function requireAuthenticatedUser(
   request: NextRequest,
@@ -21,6 +23,44 @@ export async function requireAuthenticatedUser(
   return user;
 }
 
+export type MutationRequestOptions = {
+  rateLimit?: {
+    key: string;
+    windowMs: number;
+    maxAttempts: number;
+  };
+};
+
+export function requireMutableRequest(
+  request: Request,
+  options?: MutationRequestOptions,
+): Response | null {
+  if (options?.rateLimit) {
+    const rateLimitError = rateLimiter.check(request, options.rateLimit.key, {
+      windowMs: options.rateLimit.windowMs,
+      maxAttempts: options.rateLimit.maxAttempts,
+    });
+
+    if (rateLimitError) {
+      return rateLimitError;
+    }
+  }
+
+  return requireSameOrigin(request);
+}
+
+export async function requireMutableAuthenticatedUser(
+  request: NextRequest,
+  options?: MutationRequestOptions,
+): Promise<AuthenticatedUser | Response> {
+  const requestError = requireMutableRequest(request, options);
+  if (requestError) {
+    return requestError;
+  }
+
+  return requireAuthenticatedUser(request);
+}
+
 export function logAndRespondError(
   message: string,
   error: unknown,
@@ -30,7 +70,7 @@ export function logAndRespondError(
   },
 ): Response {
   logger.error(message, {
-    error: error instanceof Error ? error : new Error(String(error)),
+    error: toError(error),
   });
 
   return jsonError(

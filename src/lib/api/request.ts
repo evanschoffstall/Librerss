@@ -1,5 +1,6 @@
 import { CONFIG } from "@/lib/config";
 import { NextResponse } from "next/server";
+import { jsonError } from "./responses";
 
 type ParsedJsonSuccess<T> = {
   ok: true;
@@ -25,10 +26,7 @@ export async function parseJsonBody<T>(
     if (Number.isFinite(contentLength) && contentLength > maxBytes) {
       return {
         ok: false,
-        response: NextResponse.json(
-          { error: "Request body too large" },
-          { status: 413 },
-        ),
+        response: jsonError("Request body too large", 413),
       };
     }
   }
@@ -38,10 +36,7 @@ export async function parseJsonBody<T>(
     if (Buffer.byteLength(raw, "utf8") > maxBytes) {
       return {
         ok: false,
-        response: NextResponse.json(
-          { error: "Request body too large" },
-          { status: 413 },
-        ),
+        response: jsonError("Request body too large", 413),
       };
     }
 
@@ -52,12 +47,46 @@ export async function parseJsonBody<T>(
   } catch {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 },
-      ),
+      response: jsonError("Invalid JSON body", 400),
     };
   }
+}
+
+export async function parseJsonBodyOrResponse<T>(
+  request: Request,
+  options?: { maxBytes?: number },
+): Promise<T | Response> {
+  const parsed = await parseJsonBody<T>(request, options);
+  if (!parsed.ok) {
+    return parsed.response;
+  }
+
+  return parsed.data;
+}
+
+export async function parseFormOrQueryParams(
+  request: Request,
+): Promise<URLSearchParams> {
+  if (request.method === "GET") {
+    return new URL(request.url).searchParams;
+  }
+
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    const form = await request.formData();
+    const params = new URLSearchParams();
+
+    for (const [key, value] of form.entries()) {
+      if (typeof value === "string") {
+        params.append(key, value);
+      }
+    }
+
+    return params;
+  }
+
+  const raw = await request.text();
+  return new URLSearchParams(raw);
 }
 
 export function asTrimmedString(value: unknown): string {

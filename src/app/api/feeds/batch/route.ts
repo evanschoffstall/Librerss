@@ -1,12 +1,12 @@
-import { parseJsonBody } from "@/lib/api/request";
-import { requireSameOrigin } from "@/lib/auth/csrf";
-import { getUserFromRequest } from "@/lib/auth/session";
+import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import {
+  logAndRespondError,
+  requireMutableAuthenticatedUser,
+} from "@/lib/api/route-helpers";
 import { CONFIG } from "@/lib/config";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feedFetcher";
 import { getDb } from "@/lib/db/db";
-import { logger } from "@/lib/utils/logger";
-import { rateLimiter } from "@/lib/utils/rate-limit";
-import { normalizeFeedUrl } from "@/lib/utils/url";
+import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
@@ -14,49 +14,28 @@ type BatchRequestBody = {
   skipRefresh?: unknown;
 };
 
-function normalizeUrlList(urls: unknown): string[] {
-  if (!Array.isArray(urls)) {
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      urls
-        .filter((url): url is string => typeof url === "string")
-        .map((url) => url.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitError = rateLimiter.check(request, "feed-batch", {
-      windowMs: CONFIG.RATE_LIMIT_FEED_BATCH_WINDOW_MS,
-      maxAttempts: CONFIG.RATE_LIMIT_FEED_BATCH_MAX_REQUESTS,
+    const user = await requireMutableAuthenticatedUser(request, {
+      rateLimit: {
+        key: "feed-batch",
+        windowMs: CONFIG.RATE_LIMIT_FEED_BATCH_WINDOW_MS,
+        maxAttempts: CONFIG.RATE_LIMIT_FEED_BATCH_MAX_REQUESTS,
+      },
     });
-    if (rateLimitError) {
-      return rateLimitError;
+    if (user instanceof Response) {
+      return user;
     }
 
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    const bodyOrResponse =
+      await parseJsonBodyOrResponse<BatchRequestBody>(request);
+    if (bodyOrResponse instanceof Response) {
+      return bodyOrResponse;
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const body = bodyOrResponse;
 
-    const parsedBody = await parseJsonBody<BatchRequestBody>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
-    }
-
-    const body = parsedBody.data;
-
-    const urls = normalizeUrlList(body.urls);
+    const urls = normalizeDistinctUrlList(body.urls);
     const skipRefresh = body.skipRefresh === true;
     if (urls.length === 0) {
       return NextResponse.json([]);
@@ -106,12 +85,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(results);
   } catch (error) {
-    logger.error("Feed batch fetch error", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Feed batch fetch error", error);
   }
 }

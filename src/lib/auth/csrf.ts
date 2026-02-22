@@ -1,7 +1,22 @@
-import { NextResponse } from "next/server";
+import { forbiddenResponse } from "@/lib/api/responses";
+import type { NextResponse } from "next/server";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site"]);
+
+function getExpectedOrigin(request: Request): string | null {
+  const host = request.headers.get("host");
+  if (!host) {
+    return null;
+  }
+
+  const requestUrl = new URL(request.url);
+  return `${requestUrl.protocol}//${host}`.toLowerCase();
+}
+
+function isSameOrigin(value: string, expectedOrigin: string): boolean {
+  return new URL(value).origin.toLowerCase() === expectedOrigin;
+}
 
 export function requireSameOrigin(request: Request): NextResponse | null {
   const method = request.method.toUpperCase();
@@ -11,7 +26,7 @@ export function requireSameOrigin(request: Request): NextResponse | null {
 
   const secFetchSite = request.headers.get("sec-fetch-site");
   if (secFetchSite && !ALLOWED_FETCH_SITES.has(secFetchSite)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbiddenResponse();
   }
 
   const origin = request.headers.get("origin");
@@ -26,34 +41,29 @@ export function requireSameOrigin(request: Request): NextResponse | null {
     return null;
   }
 
-  // Use the Host header to derive the expected origin, since request.url may
-  // resolve to 0.0.0.0 when Next.js listens on all interfaces (e.g. WSL2).
-  const host = request.headers.get("host");
-  if (!host) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   try {
-    const requestUrl = new URL(request.url);
-    const expectedOrigin = `${requestUrl.protocol}//${host}`.toLowerCase();
+    // Use Host-derived origin because request.url may resolve to 0.0.0.0.
+    const expectedOrigin = getExpectedOrigin(request);
+    if (!expectedOrigin) {
+      return forbiddenResponse();
+    }
+
     if (origin) {
-      const normalizedOrigin = new URL(origin).origin.toLowerCase();
-      if (normalizedOrigin !== expectedOrigin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!isSameOrigin(origin, expectedOrigin)) {
+        return forbiddenResponse();
       }
       return null;
     }
 
     if (referer) {
-      const normalizedRefererOrigin = new URL(referer).origin.toLowerCase();
-      if (normalizedRefererOrigin !== expectedOrigin) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!isSameOrigin(referer, expectedOrigin)) {
+        return forbiddenResponse();
       }
       return null;
     }
 
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbiddenResponse();
   } catch {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbiddenResponse();
   }
 }
