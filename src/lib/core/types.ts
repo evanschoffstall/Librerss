@@ -40,6 +40,8 @@ export interface Article {
   publicationDate: Date;
   lastChecked: Date;
   feedId: number;
+  feedName?: string;
+  feedUrl?: string;
 }
 
 export interface CategoryTreeNode {
