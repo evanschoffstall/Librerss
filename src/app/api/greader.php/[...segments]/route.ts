@@ -17,7 +17,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { isValidUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 
@@ -301,6 +301,15 @@ function toStreamItemId(articleId: number): string {
   return `${ITEM_ID_PREFIX}${articleId.toString(16)}`;
 }
 
+function isSafePositiveItemId(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= Number.MAX_SAFE_INTEGER
+  );
+}
+
 function parseItemRefArticleId(rawId: string): number | null {
   const trimmed = rawId.trim();
   if (!trimmed) {
@@ -553,13 +562,14 @@ async function handleSubscriptionList(user: SessionUser): Promise<Response> {
 function parseStreamPaging(searchParams: URLSearchParams): {
   limit: number;
   offset: number;
+  continuationId: number | null;
 } {
   const requested = parsePositiveInt(searchParams.get("n"));
   const limit = Math.min(requested ?? DEFAULT_STREAM_ITEMS, MAX_STREAM_ITEMS);
 
   const continuation = searchParams.get("c");
   if (!continuation) {
-    return { limit, offset: 0 };
+    return { limit, offset: 0, continuationId: null };
   }
 
   if (continuation.startsWith("offset:")) {
@@ -569,17 +579,17 @@ function parseStreamPaging(searchParams: URLSearchParams): {
     );
 
     if (Number.isInteger(continuationOffset) && continuationOffset >= 0) {
-      return { limit, offset: continuationOffset };
+      return { limit, offset: continuationOffset, continuationId: null };
     }
   }
 
-  const parsedRawOffset = Number.parseInt(continuation, 10);
+  const parsedContinuationId = Number.parseInt(continuation, 10);
 
-  if (Number.isInteger(parsedRawOffset) && parsedRawOffset >= 0) {
-    return { limit, offset: parsedRawOffset };
+  if (Number.isInteger(parsedContinuationId) && parsedContinuationId > 0) {
+    return { limit, offset: 0, continuationId: parsedContinuationId };
   }
 
-  return { limit, offset: 0 };
+  return { limit, offset: 0, continuationId: null };
 }
 
 function parseStreamId(resource: string): string {
@@ -604,7 +614,7 @@ async function handleStreamContents(
   const feedUrl = isFeed ? streamId.slice("feed/".length) : null;
 
   const searchParams = new URL(request.url).searchParams;
-  const { limit, offset } = parseStreamPaging(searchParams);
+  const { limit, offset, continuationId } = parseStreamPaging(searchParams);
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
   const sinceDate = Number.isInteger(olderThanSec)
     ? new Date(olderThanSec * 1000)
@@ -641,6 +651,10 @@ async function handleStreamContents(
 
       if (isStarredStream) {
         conditions.push(eq(articleStatuses.isStarred, true));
+      }
+
+      if (continuationId) {
+        conditions.push(lt(articles.id, continuationId));
       }
 
       const query = db
@@ -680,7 +694,7 @@ async function handleStreamContents(
           ),
         )
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(articles.publicationDate))
+        .orderBy(desc(articles.id))
         .limit(limit)
         .offset(offset);
 
@@ -697,6 +711,10 @@ async function handleStreamContents(
       conditions.push(eq(feeds.url, feedUrl));
     } else if (dateFilter) {
       conditions.push(gte(articles.publicationDate, dateFilter));
+    }
+
+    if (continuationId) {
+      conditions.push(lt(articles.id, continuationId));
     }
 
     const query = db
@@ -729,7 +747,7 @@ async function handleStreamContents(
         ),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(articles.publicationDate))
+      .orderBy(desc(articles.id))
       .limit(limit)
       .offset(offset);
 
@@ -746,24 +764,27 @@ async function handleStreamContents(
 
   const items = rows.map(mapArticleAsItem);
 
-  const nextOffset = offset + rows.length;
+  const nextContinuationId = rows.length === limit ? rows.at(-1)?.articleId : null;
 
   console.info("[greader] stream/contents", {
     userId: user.userId,
     streamId,
     limit,
     offset,
+    continuationId,
     ot: searchParams.get("ot"),
     itemCount: rows.length,
     usedOtFallback,
-    continuation: rows.length === limit ? `offset:${nextOffset}` : null,
+    continuation: nextContinuationId ? String(nextContinuationId) : null,
   });
 
   return NextResponse.json({
     id: streamId,
     direction: "ltr",
     updated: Math.floor(Date.now() / 1000),
-    continuation: rows.length === limit ? `offset:${nextOffset}` : undefined,
+    continuation: nextContinuationId
+      ? String(nextContinuationId)
+      : undefined,
     items,
   });
 }
@@ -782,7 +803,7 @@ async function handleStreamItemIds(
     .getAll("xt")
     .some((value) => value === "user/-/state/com.google/read");
 
-  const { limit, offset } = parseStreamPaging(searchParams);
+  const { limit, offset, continuationId } = parseStreamPaging(searchParams);
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
   const sinceDate = Number.isInteger(olderThanSec)
     ? new Date(olderThanSec * 1000)
@@ -828,6 +849,10 @@ async function handleStreamItemIds(
         );
       }
 
+      if (continuationId) {
+        conditions.push(lt(articles.id, continuationId));
+      }
+
       const query = db
         .select({
           articleId: articles.id,
@@ -851,7 +876,7 @@ async function handleStreamItemIds(
           ),
         )
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(articles.publicationDate))
+        .orderBy(desc(articles.id))
         .limit(limit)
         .offset(offset);
 
@@ -870,6 +895,10 @@ async function handleStreamItemIds(
       conditions.push(gte(articles.publicationDate, dateFilter));
     }
 
+    if (continuationId) {
+      conditions.push(lt(articles.id, continuationId));
+    }
+
     const query = db
       .select({
         articleId: articles.id,
@@ -886,7 +915,7 @@ async function handleStreamItemIds(
         ),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(articles.publicationDate))
+      .orderBy(desc(articles.id))
       .limit(limit)
       .offset(offset);
 
@@ -905,23 +934,35 @@ async function handleStreamItemIds(
     usedOtFallback = true;
   }
 
-  const continuation =
-    rows.length === limit ? `offset:${offset + rows.length}` : undefined;
+  const safeRows = rows.filter((row) => isSafePositiveItemId(row.articleId));
+  const itemIds = safeRows.map((row) => row.articleId);
+  const minItemId = itemIds.length > 0 ? Math.min(...itemIds) : null;
+  const maxItemId = itemIds.length > 0 ? Math.max(...itemIds) : null;
+  const continuationIdToReturn =
+    safeRows.length === limit ? safeRows.at(-1)?.articleId ?? null : null;
+  const continuation = continuationIdToReturn
+    ? String(continuationIdToReturn)
+    : undefined;
 
   console.info("[greader] stream/items/ids", {
     userId: user.userId,
     streamId,
     limit,
     offset,
+    continuationId,
     ot: searchParams.get("ot"),
     excludeRead,
-    itemRefCount: rows.length,
+    itemRefCount: safeRows.length,
+    droppedUnsafeItemRefCount: rows.length - safeRows.length,
     usedOtFallback,
+    minItemId,
+    maxItemId,
+    sampleItemIds: itemIds.slice(0, 5),
     continuation: continuation ?? null,
   });
 
   return NextResponse.json({
-    itemRefs: rows.map((row) => ({ id: String(row.articleId) })),
+    itemRefs: safeRows.map((row) => ({ id: String(row.articleId) })),
     continuation,
   });
 }

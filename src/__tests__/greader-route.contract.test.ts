@@ -147,7 +147,7 @@ describe("greader route compatibility contracts", () => {
     const { GET } = await routeModulePromise;
 
     const request = new NextRequest(
-      "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&output=json",
+      "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&output=json&n=2",
     );
 
     const response = await GET(request, {
@@ -158,10 +158,12 @@ describe("greader route compatibility contracts", () => {
 
     const payload = (await response.json()) as {
       itemRefs: Array<{ id: string }>;
+      continuation?: string;
     };
 
     expect(response.status).toBe(200);
     expect(payload.itemRefs).toEqual([{ id: "42" }, { id: "255" }]);
+    expect(payload.continuation).toBe("255");
     expect(
       payload.itemRefs.some((item) => item.id.includes("tag:google.com")),
     ).toBe(false);
