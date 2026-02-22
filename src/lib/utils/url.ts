@@ -42,3 +42,23 @@ export function tryNormalizeFeedUrl(raw: string): string {
     return raw.trim().replace(/\/+$/, "");
   }
 }
+
+/**
+ * Returns unique, trimmed, non-empty URL candidates from unknown input.
+ */
+export function toUniqueUrlCandidates(urls: unknown): string[] {
+  if (!Array.isArray(urls)) {
+    return [];
+  }
+
+  return normalizeUrlCandidates(
+    urls.filter((url): url is string => typeof url === "string"),
+  );
+}
+
+/**
+ * Returns unique, trimmed, non-empty URL candidates from a string list.
+ */
+export function normalizeUrlCandidates(urls: readonly string[]): string[] {
+  return Array.from(new Set(urls.map((url) => url.trim()).filter(Boolean)));
+}
