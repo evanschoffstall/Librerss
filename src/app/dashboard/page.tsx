@@ -10,7 +10,6 @@ import {
   FeedService,
   isValidUrl,
   normalizeCategory,
-  normalizeCategoryLabelKey,
   useLocalStorage,
   type Article,
   type AuthUser,
@@ -19,11 +18,7 @@ import {
 } from "@/lib";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getPlaceholderArticlesForSource,
-  PLACEHOLDER_CATEGORY,
-  PLACEHOLDER_FEED_SOURCES,
-} from "@/lib/core/placeholder";
+import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -32,119 +27,21 @@ import { ArticleCard } from "./components/ArticleCard";
 import { FeedCategory } from "./components/FeedCategory";
 import { LoginView } from "./components/LoginView";
 import { SettingsModal } from "./components/SettingsModal";
+import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL, INITIAL_CATEGORIES } from "./constants";
 import {
-  ALL_FEEDS_LABEL,
-  ALL_FEEDS_NODE_KEY,
-  DEFAULT_FEED_URL,
-  INITIAL_CATEGORIES,
-} from "./constants";
-
-const toCategoryKey = (label: string) =>
-  `cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "default"}`;
-
-const normalizeLabel = normalizeCategoryLabelKey;
-
-const panelMotion = {
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-};
-
-const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
-  nodes.flatMap((category) => category.children ?? []);
-
-const dedupeAndSortArticles = (articles: Article[]) => {
-  const uniqueArticles = new Map<string, Article>();
-
-  for (const article of articles) {
-    // Always require link - skip articles without it
-    if (!article.link?.trim()) {
-      // Avoid logging user content (article titles) to the browser console.
-      continue;
-    }
-
-    const key = article.link.trim();
-    const existing = uniqueArticles.get(key);
-
-    if (!existing) {
-      uniqueArticles.set(key, article);
-      continue;
-    }
-
-    // Keep article with longer content, or newer publication date
-    const shouldReplace =
-      (article.content?.length ?? 0) > (existing.content?.length ?? 0) ||
-      (article.content?.length === existing.content?.length &&
-        new Date(article.publicationDate).getTime() >
-        new Date(existing.publicationDate).getTime());
-
-    if (shouldReplace) {
-      uniqueArticles.set(key, article);
-    }
-  }
-
-  return [...uniqueArticles.values()].sort((a, b) => {
-    const aTime = new Date(a.publicationDate).getTime();
-    const bTime = new Date(b.publicationDate).getTime();
-    return bTime - aTime;
-  });
-};
-
-const getArticleKey = (article: Article) => article.link.trim();
-
-const buildCategoriesFromSources = (
-  sources: Array<{ id: number; name: string; url: string; category?: string | null }>,
-): CategoryTreeNode[] => {
-  const grouped = new Map<string, CategoryTreeNode[]>();
-
-  for (const source of sources) {
-    const categoryLabel = normalizeCategory(source.category);
-    const current = grouped.get(categoryLabel) ?? [];
-
-    current.push({
-      key: `${toCategoryKey(categoryLabel)}-${source.id}`,
-      label: source.name,
-      data: { url: source.url, sourceId: source.id, category: categoryLabel },
-    });
-
-    grouped.set(categoryLabel, current);
-  }
-
-  return [...grouped.entries()].map(([label, children]) => ({
-    key: toCategoryKey(label),
-    label,
-    children,
-  }));
-};
-
-const buildDefaultCategories = (usePlaceholderData: boolean): CategoryTreeNode[] => {
-  if (!usePlaceholderData) {
-    return INITIAL_CATEGORIES;
-  }
-
-  return [
-    {
-      key: toCategoryKey(PLACEHOLDER_CATEGORY),
-      label: PLACEHOLDER_CATEGORY,
-      children: PLACEHOLDER_FEED_SOURCES.map((source, index) => ({
-        key: `${toCategoryKey(PLACEHOLDER_CATEGORY)}-dev-${index}`,
-        label: source.name,
-        data: { url: source.url, category: source.category },
-      })),
-    },
-  ];
-};
-
-const SYSTEM_ALL_FEEDS_CATEGORY: CategoryTreeNode = {
-  key: ALL_FEEDS_NODE_KEY,
-  label: ALL_FEEDS_LABEL,
-  data: { url: "" },
-  children: [],
-};
-
-interface FeedBatchSource {
-  url: string;
-  name: string | undefined;
-}
+  buildCategoriesFromSources,
+  buildDefaultCategories,
+  dedupeAndSortArticles,
+  flattenCategoryFeeds,
+  getArticleKey,
+  mapBatchResultsToArticles,
+  normalizeLabel,
+  panelMotion,
+  relocateFeedInCategories,
+  SYSTEM_ALL_FEEDS_CATEGORY,
+  toCategoryKey,
+  type FeedBatchSource,
+} from "./helpers";
 
 const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) => {
   const [feed, setFeed] = useState<Article[]>([]);
@@ -364,58 +261,9 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       return;
     }
 
-    setCategories((currentCategories) => {
-      const sourceCategoryIndex = currentCategories.findIndex((categoryNode) =>
-        (categoryNode.children ?? []).some((source: CategoryTreeNode) => source.key === key),
-      );
-      let destinationCategoryIndex = currentCategories.findIndex(
-        (categoryNode) => normalizeLabel(categoryNode.label) === normalizeLabel(normalizedTargetCategory),
-      );
-
-      if (sourceCategoryIndex < 0) {
-        return currentCategories;
-      }
-
-      const nextCategories = currentCategories.map((categoryNode) => ({
-        ...categoryNode,
-        children: [...(categoryNode.children ?? [])],
-      }));
-
-      if (destinationCategoryIndex < 0) {
-        nextCategories.push({
-          key: toCategoryKey(normalizedTargetCategory),
-          label: normalizedTargetCategory,
-          children: [],
-        });
-        destinationCategoryIndex = nextCategories.length - 1;
-      }
-
-      const sourceFeeds = nextCategories[sourceCategoryIndex].children ?? [];
-      const sourceFeedIndex = sourceFeeds.findIndex((source: CategoryTreeNode) => source.key === key);
-
-      if (sourceFeedIndex < 0) {
-        return currentCategories;
-      }
-
-      const [movedSource] = sourceFeeds.splice(sourceFeedIndex, 1);
-      const destinationFeeds = nextCategories[destinationCategoryIndex].children ?? [];
-
-      const safeTargetIndex = Math.max(0, Math.min(targetIndex, destinationFeeds.length));
-      const insertionIndex =
-        sourceCategoryIndex === destinationCategoryIndex && sourceFeedIndex < safeTargetIndex
-          ? safeTargetIndex - 1
-          : safeTargetIndex;
-
-      destinationFeeds.splice(insertionIndex, 0, {
-        ...movedSource,
-        data: {
-          ...(movedSource.data ?? { url: "" }),
-          category: nextCategories[destinationCategoryIndex].label,
-        },
-      });
-
-      return nextCategories;
-    });
+    setCategories((prev) =>
+      relocateFeedInCategories(prev, key, normalizedTargetCategory, targetIndex),
+    );
 
     if (normalizeLabel(sourceCategoryNode.label) === normalizeLabel(normalizedTargetCategory)) {
       return;
@@ -730,18 +578,14 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[]) => {
     const requestId = latestFeedRequestIdRef.current + 1;
     latestFeedRequestIdRef.current = requestId;
-    const normalizedSources = Array.from(
-      sources
-        .filter((source) => source.url)
-        .reduce((accumulator, source) => {
-          if (!accumulator.has(source.url)) {
-            accumulator.set(source.url, source);
-          }
 
-          return accumulator;
-        }, new Map<string, FeedBatchSource>())
-        .values(),
-    );
+    // Deduplicate by URL, keeping the first occurrence.
+    const seen = new Set<string>();
+    const normalizedSources = sources.filter((s) => {
+      if (!s.url || seen.has(s.url)) return false;
+      seen.add(s.url);
+      return true;
+    });
 
     setLoading(true);
     setFeed([]);
@@ -756,37 +600,15 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         normalizedSources.map((source) => [source.url, source.name] as const),
       );
 
-      const mapBatchResults = (
+      const toBatchArticles = (
         batchResults: Array<{ url: string; articles: Article[]; ok: boolean }>,
-      ): Article[] => {
-        const results: Array<Article[] | null> = batchResults.map((result) => {
-          const sourceName = sourceNameByUrl.get(result.url);
-
-          if (result.ok && result.articles.length > 0) {
-            return result.articles.map((article: Article) => ({
-              ...article,
-              feedName: sourceName,
-              feedUrl: result.url,
-            }));
-          }
-
-          if (usePlaceholderData) {
-            return getPlaceholderArticlesForSource(result.url).map((article) => ({
-              ...article,
-              feedName: sourceName,
-              feedUrl: result.url,
-            }));
-          }
-
-          return null;
-        });
-
-        return dedupeAndSortArticles(
-          results
-            .filter((result: Article[] | null): result is Article[] => Array.isArray(result))
-            .flat(),
+      ) =>
+        mapBatchResultsToArticles(
+          batchResults,
+          sourceNameByUrl,
+          usePlaceholderData,
+          getPlaceholderArticlesForSource,
         );
-      };
 
       const urls = normalizedSources.map((source) => source.url);
 
@@ -821,7 +643,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
       if (latestFeedRequestIdRef.current !== requestId) return;
 
-      const cachedArticles = mapBatchResults(cachedBatchResults);
+      const cachedArticles = toBatchArticles(cachedBatchResults);
 
       // Show cached articles right away so the user sees content immediately.
       if (cachedArticles.length > 0) {
@@ -838,7 +660,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
           if (latestFeedRequestIdRef.current !== requestId) return;
 
-          const freshArticles = mapBatchResults(freshBatchResults);
+          const freshArticles = toBatchArticles(freshBatchResults);
 
           if (freshArticles.length > 0) {
             setFeed(freshArticles);
@@ -877,24 +699,18 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   }, [fetchFeedBatch]);
 
   const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode) => {
-    const sources: FeedBatchSource[] = [];
-    (categoryNode.children ?? []).forEach((node: CategoryTreeNode) => {
-      if (node.data?.url) {
-        sources.push({ url: node.data.url, name: node.label });
-      }
-    });
+    const sources = (categoryNode.children ?? [])
+      .filter((node: CategoryTreeNode) => node.data?.url)
+      .map((node: CategoryTreeNode): FeedBatchSource => ({ url: node.data!.url, name: node.label }));
 
     await fetchFeedBatch(sources);
   }, [fetchFeedBatch]);
 
   const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[]) => {
     const resolvedCategories = sourceCategories ?? categoriesRef.current;
-    const sources: FeedBatchSource[] = [];
-    flattenCategoryFeeds(resolvedCategories).forEach((node: CategoryTreeNode) => {
-      if (node.data?.url) {
-        sources.push({ url: node.data.url, name: node.label });
-      }
-    });
+    const sources = flattenCategoryFeeds(resolvedCategories)
+      .filter((node: CategoryTreeNode) => node.data?.url)
+      .map((node: CategoryTreeNode): FeedBatchSource => ({ url: node.data!.url, name: node.label }));
 
     await fetchFeedBatch(sources);
   }, [fetchFeedBatch]);
