@@ -113,41 +113,9 @@ export async function POST(request: Request) {
       .where(eq(users.email, email))
       .limit(1);
 
-    // SECURITY FIX: Only create placeholder admin in development mode
+    // SECURITY: Never auto-create users from the committed placeholder
+    // credentials. Use /api/auth/signup or a seed script instead.
     if (!user) {
-      // In development, allow creating placeholder admin
-      if (process.env.NODE_ENV === "development") {
-        const isPlaceholderEmail = email === PLACEHOLDER_ADMIN_USER.email;
-        const isPlaceholderPassword = await verifyPassword(
-          password,
-          PLACEHOLDER_ADMIN_USER.passwordHash,
-        );
-
-        if (isPlaceholderEmail && isPlaceholderPassword) {
-          logger.info(
-            "Creating placeholder admin user (development mode only)",
-            { email },
-          );
-
-          const [createdUser] = await db
-            .insert(users)
-            .values({
-              email: PLACEHOLDER_ADMIN_USER.email,
-              passwordHash: PLACEHOLDER_ADMIN_USER.passwordHash,
-            })
-            .returning({ id: users.id, email: users.email });
-
-          const token = await createSession(createdUser.id);
-
-          const response = NextResponse.json({
-            user: { id: createdUser.id, email: createdUser.email },
-          });
-          setSessionCookie(response, token);
-
-          return response;
-        }
-      }
-
       logger.warn("Login attempt with non-existent email", { email });
       return NextResponse.json(
         { error: "Invalid email or password" },
