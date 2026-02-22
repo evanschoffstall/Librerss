@@ -16,6 +16,7 @@ import {
   feedSources,
   users,
 } from "@/lib/db/schema";
+import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import { isValidUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -376,13 +377,17 @@ type ListedArticle = {
   isStarred: boolean | null;
 };
 
+function toReaderCategoryLabel(category: string | null | undefined): string {
+  const trimmed = category?.trim();
+  return trimmed ? trimmed : DEFAULT_CATEGORY_LABEL;
+}
+
 function mapArticleAsItem(row: ListedArticle) {
   const publishedSec = Math.floor(row.publicationDate.getTime() / 1000);
   const categories = ["user/-/state/com.google/reading-list"];
+  const categoryLabel = toReaderCategoryLabel(row.category);
 
-  if (row.category) {
-    categories.push(`user/-/label/${row.category}`);
-  }
+  categories.push(`user/-/label/${categoryLabel}`);
 
   if (row.isRead) {
     categories.push("user/-/state/com.google/read");
@@ -494,6 +499,15 @@ async function handleTagList(user: SessionUser): Promise<Response> {
     .where(eq(feedCategories.userId, user.userId))
     .groupBy(feedCategories.category);
 
+  const normalizedLabels = Array.from(
+    new Set([
+      DEFAULT_CATEGORY_LABEL,
+      ...labels
+        .map((label) => label.category?.trim())
+        .filter((label): label is string => Boolean(label)),
+    ]),
+  );
+
   return NextResponse.json({
     tags: [
       {
@@ -508,8 +522,8 @@ async function handleTagList(user: SessionUser): Promise<Response> {
         id: "user/-/state/com.google/starred",
         sortid: "2",
       },
-      ...labels.map((label, index) => ({
-        id: `user/-/label/${label.category}`,
+      ...normalizedLabels.map((label, index) => ({
+        id: `user/-/label/${label}`,
         sortid: String(index + 10),
       })),
     ],
@@ -544,22 +558,24 @@ async function handleSubscriptionList(user: SessionUser): Promise<Response> {
   });
 
   return NextResponse.json({
-    subscriptions: rows.map((row) => ({
-      id: `feed/${row.url}`,
-      title: row.title,
-      url: row.url,
-      htmlUrl: row.url,
-      iconUrl: "",
-      sortid: String(row.sourceId),
-      categories: row.category
-        ? [
-            {
-              id: `user/-/label/${row.category}`,
-              label: row.category,
-            },
-          ]
-        : [],
-    })),
+    subscriptions: rows.map((row) => {
+      const categoryLabel = toReaderCategoryLabel(row.category);
+
+      return {
+        id: `feed/${row.url}`,
+        title: row.title,
+        url: row.url,
+        htmlUrl: row.url,
+        iconUrl: "",
+        sortid: String(row.sourceId),
+        categories: [
+          {
+            id: `user/-/label/${categoryLabel}`,
+            label: categoryLabel,
+          },
+        ],
+      };
+    }),
   });
 }
 

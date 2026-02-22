@@ -224,6 +224,11 @@ describe("greader route compatibility contracts", () => {
         label: "Tech",
       },
     ]);
-    expect(payload.subscriptions[1]?.categories).toEqual([]);
+    expect(payload.subscriptions[1]?.categories).toEqual([
+      {
+        id: "user/-/label/My Feeds",
+        label: "My Feeds",
+      },
+    ]);
   });
 });

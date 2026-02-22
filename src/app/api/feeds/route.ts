@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_LABEL } from "@/lib";
+import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
 import {
   asTrimmedString,
   parseJsonBody,
@@ -145,7 +145,7 @@ async function parseCreateFeedPayload(
   const url = asTrimmedString(payload.url);
   const category =
     typeof payload.category === "string" && payload.category.trim()
-      ? payload.category.trim()
+      ? normalizeCategory(payload.category)
       : DEFAULT_CATEGORY_LABEL;
 
   if (!name || !url) {
@@ -249,6 +249,8 @@ async function upsertCategoryAssignment(
   feedId: number,
   category: string,
 ): Promise<void> {
+  const normalizedCategory = normalizeCategory(category);
+
   await tx
     .delete(feedCategories)
     .where(
@@ -258,7 +260,7 @@ async function upsertCategoryAssignment(
   await tx.insert(feedCategories).values({
     userId,
     feedId,
-    category,
+    category: normalizedCategory,
   });
 }
 
@@ -382,7 +384,12 @@ export async function GET(request: NextRequest) {
         .where(eq(feedSources.userId, user.userId))
         .orderBy(feedSources.name);
 
-      return NextResponse.json(sources);
+      return NextResponse.json(
+        sources.map((source) => ({
+          ...source,
+          category: source.category?.trim() || DEFAULT_CATEGORY_LABEL,
+        })),
+      );
     }
 
     const feedArticles = await fetchAndCacheFeedArticles(
