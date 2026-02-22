@@ -596,92 +596,7 @@ async function handleStreamContents(
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
 
-  let query = useArticleStatuses
-    ? db
-        .select({
-          articleId: articles.id,
-          title: articles.title,
-          link: articles.link,
-          content: articles.content,
-          publicationDate: articles.publicationDate,
-          sourceName: feedSources.name,
-          sourceUrl: feedSources.url,
-          category: feedCategories.category,
-          isRead: articleStatuses.isRead,
-          isStarred: articleStatuses.isStarred,
-        })
-        .from(articles)
-        .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .leftJoin(
-          feedCategories,
-          and(
-            eq(feedCategories.userId, feedSources.userId),
-            eq(feedCategories.feedId, feeds.id),
-          ),
-        )
-        .leftJoin(
-          articleStatuses,
-          and(
-            eq(articleStatuses.userId, user.userId),
-            eq(articleStatuses.articleId, articles.id),
-          ),
-        )
-        .orderBy(desc(articles.publicationDate))
-        .limit(limit)
-        .offset(offset)
-    : db
-        .select({
-          articleId: articles.id,
-          title: articles.title,
-          link: articles.link,
-          content: articles.content,
-          publicationDate: articles.publicationDate,
-          sourceName: feedSources.name,
-          sourceUrl: feedSources.url,
-          category: feedCategories.category,
-          isRead: sql<boolean>`false`,
-          isStarred: sql<boolean>`false`,
-        })
-        .from(articles)
-        .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .leftJoin(
-          feedCategories,
-          and(
-            eq(feedCategories.userId, feedSources.userId),
-            eq(feedCategories.feedId, feeds.id),
-          ),
-        )
-        .orderBy(desc(articles.publicationDate))
-        .limit(limit)
-        .offset(offset);
-
-  if (feedUrl && sinceDate) {
-    query = query.where(
-      and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
-    );
-  } else if (feedUrl) {
-    query = query.where(eq(feeds.url, feedUrl));
-  } else if (sinceDate) {
-    query = query.where(gte(articles.publicationDate, sinceDate));
-  }
-
-  if (isStarredStream && useArticleStatuses) {
-    query = query.where(eq(articleStatuses.isStarred, true));
-  } else if (isStarredStream) {
+  if (isStarredStream && !useArticleStatuses) {
     return NextResponse.json({
       id: streamId,
       direction: "ltr",
@@ -690,7 +605,116 @@ async function handleStreamContents(
     });
   }
 
-  const rows = await query;
+  let rows: ListedArticle[];
+
+  if (useArticleStatuses) {
+    const conditions: Parameters<typeof and> = [];
+
+    if (feedUrl && sinceDate) {
+      conditions.push(
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
+      );
+    } else if (feedUrl) {
+      conditions.push(eq(feeds.url, feedUrl));
+    } else if (sinceDate) {
+      conditions.push(gte(articles.publicationDate, sinceDate));
+    }
+
+    if (isStarredStream) {
+      conditions.push(eq(articleStatuses.isStarred, true));
+    }
+
+    const query = db
+      .select({
+        articleId: articles.id,
+        title: articles.title,
+        link: articles.link,
+        content: articles.content,
+        publicationDate: articles.publicationDate,
+        sourceName: feedSources.name,
+        sourceUrl: feedSources.url,
+        category: feedCategories.category,
+        isRead: articleStatuses.isRead,
+        isStarred: articleStatuses.isStarred,
+      })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(
+        feedSources,
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
+      )
+      .leftJoin(
+        feedCategories,
+        and(
+          eq(feedCategories.userId, feedSources.userId),
+          eq(feedCategories.feedId, feeds.id),
+        ),
+      )
+      .leftJoin(
+        articleStatuses,
+        and(
+          eq(articleStatuses.userId, user.userId),
+          eq(articleStatuses.articleId, articles.id),
+        ),
+      )
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(articles.publicationDate))
+      .limit(limit)
+      .offset(offset);
+
+    rows = await query;
+  } else {
+    const conditions: Parameters<typeof and> = [];
+
+    if (feedUrl && sinceDate) {
+      conditions.push(
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
+      );
+    } else if (feedUrl) {
+      conditions.push(eq(feeds.url, feedUrl));
+    } else if (sinceDate) {
+      conditions.push(gte(articles.publicationDate, sinceDate));
+    }
+
+    const query = db
+      .select({
+        articleId: articles.id,
+        title: articles.title,
+        link: articles.link,
+        content: articles.content,
+        publicationDate: articles.publicationDate,
+        sourceName: feedSources.name,
+        sourceUrl: feedSources.url,
+        category: feedCategories.category,
+        isRead: sql<boolean>`false`,
+        isStarred: sql<boolean>`false`,
+      })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(
+        feedSources,
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
+      )
+      .leftJoin(
+        feedCategories,
+        and(
+          eq(feedCategories.userId, feedSources.userId),
+          eq(feedCategories.feedId, feeds.id),
+        ),
+      )
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(articles.publicationDate))
+      .limit(limit)
+      .offset(offset);
+
+    rows = await query;
+  }
 
   const items = rows.map(mapArticleAsItem);
 
@@ -728,74 +752,100 @@ async function handleStreamItemIds(
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
 
-  let query = useArticleStatuses
-    ? db
-        .select({
-          articleId: articles.id,
-          isRead: articleStatuses.isRead,
-          isStarred: articleStatuses.isStarred,
-        })
-        .from(articles)
-        .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .leftJoin(
-          articleStatuses,
-          and(
-            eq(articleStatuses.userId, user.userId),
-            eq(articleStatuses.articleId, articles.id),
-          ),
-        )
-        .orderBy(desc(articles.publicationDate))
-        .limit(limit)
-        .offset(offset)
-    : db
-        .select({
-          articleId: articles.id,
-          isRead: sql<boolean>`false`,
-          isStarred: sql<boolean>`false`,
-        })
-        .from(articles)
-        .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .orderBy(desc(articles.publicationDate))
-        .limit(limit)
-        .offset(offset);
-
-  if (feedUrl && sinceDate) {
-    query = query.where(
-      and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
-    );
-  } else if (feedUrl) {
-    query = query.where(eq(feeds.url, feedUrl));
-  } else if (sinceDate) {
-    query = query.where(gte(articles.publicationDate, sinceDate));
-  }
-
-  if (streamId === "user/-/state/com.google/starred" && useArticleStatuses) {
-    query = query.where(eq(articleStatuses.isStarred, true));
-  } else if (streamId === "user/-/state/com.google/starred") {
+  if (streamId === "user/-/state/com.google/starred" && !useArticleStatuses) {
     return NextResponse.json({ itemRefs: [], continuation: undefined });
   }
 
-  if (excludeRead && useArticleStatuses) {
-    query = query.where(
-      sql`coalesce(${articleStatuses.isRead}, false) = false`,
-    );
-  }
+  let rows: Array<{
+    articleId: number;
+    isRead: boolean | null;
+    isStarred: boolean | null;
+  }>;
 
-  const rows = await query;
+  if (useArticleStatuses) {
+    const conditions: Parameters<typeof and> = [];
+
+    if (feedUrl && sinceDate) {
+      conditions.push(
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
+      );
+    } else if (feedUrl) {
+      conditions.push(eq(feeds.url, feedUrl));
+    } else if (sinceDate) {
+      conditions.push(gte(articles.publicationDate, sinceDate));
+    }
+
+    if (streamId === "user/-/state/com.google/starred") {
+      conditions.push(eq(articleStatuses.isStarred, true));
+    }
+
+    if (excludeRead) {
+      conditions.push(sql`coalesce(${articleStatuses.isRead}, false) = false`);
+    }
+
+    const query = db
+      .select({
+        articleId: articles.id,
+        isRead: articleStatuses.isRead,
+        isStarred: articleStatuses.isStarred,
+      })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(
+        feedSources,
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
+      )
+      .leftJoin(
+        articleStatuses,
+        and(
+          eq(articleStatuses.userId, user.userId),
+          eq(articleStatuses.articleId, articles.id),
+        ),
+      )
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(articles.publicationDate))
+      .limit(limit)
+      .offset(offset);
+
+    rows = await query;
+  } else {
+    const conditions: Parameters<typeof and> = [];
+
+    if (feedUrl && sinceDate) {
+      conditions.push(
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
+      );
+    } else if (feedUrl) {
+      conditions.push(eq(feeds.url, feedUrl));
+    } else if (sinceDate) {
+      conditions.push(gte(articles.publicationDate, sinceDate));
+    }
+
+    const query = db
+      .select({
+        articleId: articles.id,
+        isRead: sql<boolean>`false`,
+        isStarred: sql<boolean>`false`,
+      })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(
+        feedSources,
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
+      )
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(articles.publicationDate))
+      .limit(limit)
+      .offset(offset);
+
+    rows = await query;
+  }
 
   return NextResponse.json({
     itemRefs: rows.map((row) => ({ id: toStreamItemId(row.articleId) })),
@@ -1111,35 +1161,52 @@ async function handleMarkAllAsRead(
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
 
-  let query = db
-    .select({ articleId: articles.id })
-    .from(articles)
-    .innerJoin(feeds, eq(feeds.id, articles.feedId))
-    .innerJoin(
-      feedSources,
-      and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
-    );
-
-  if (stream.startsWith("feed/")) {
-    query = query.where(eq(feeds.url, stream.slice("feed/".length)));
-  } else if (
-    stream === "user/-/state/com.google/starred" &&
-    useArticleStatuses
-  ) {
-    query = query
-      .innerJoin(
-        articleStatuses,
-        and(
-          eq(articleStatuses.userId, user.userId),
-          eq(articleStatuses.articleId, articles.id),
-        ),
-      )
-      .where(eq(articleStatuses.isStarred, true));
-  } else if (stream === "user/-/state/com.google/starred") {
-    return textResponse("OK\n");
-  }
-
-  const rows = await query;
+  const rows = stream.startsWith("feed/")
+    ? await db
+        .select({ articleId: articles.id })
+        .from(articles)
+        .innerJoin(feeds, eq(feeds.id, articles.feedId))
+        .innerJoin(
+          feedSources,
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
+        )
+        .where(eq(feeds.url, stream.slice("feed/".length)))
+    : stream === "user/-/state/com.google/starred" && useArticleStatuses
+      ? await db
+          .select({ articleId: articles.id })
+          .from(articles)
+          .innerJoin(feeds, eq(feeds.id, articles.feedId))
+          .innerJoin(
+            feedSources,
+            and(
+              eq(feedSources.url, feeds.url),
+              eq(feedSources.userId, user.userId),
+            ),
+          )
+          .innerJoin(
+            articleStatuses,
+            and(
+              eq(articleStatuses.userId, user.userId),
+              eq(articleStatuses.articleId, articles.id),
+            ),
+          )
+          .where(eq(articleStatuses.isStarred, true))
+      : stream === "user/-/state/com.google/starred"
+        ? []
+        : await db
+            .select({ articleId: articles.id })
+            .from(articles)
+            .innerJoin(feeds, eq(feeds.id, articles.feedId))
+            .innerJoin(
+              feedSources,
+              and(
+                eq(feedSources.url, feeds.url),
+                eq(feedSources.userId, user.userId),
+              ),
+            );
   await upsertArticleStatuses(
     user.userId,
     rows.map((row) => row.articleId),
