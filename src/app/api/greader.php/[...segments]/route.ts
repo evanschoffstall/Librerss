@@ -26,7 +26,7 @@ const GOOGLE_LOGIN_PREFIX = "googlelogin auth=";
 const MAX_STREAM_ITEMS = 250;
 const DEFAULT_STREAM_ITEMS = 50;
 const ITEM_ID_PREFIX = "tag:google.com,2005:reader/item/";
-let articleStatusesTableAvailable = false;
+let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
 let warnedMissingArticleStatusesTable = false;
 
 type RouteContext = {
@@ -75,17 +75,22 @@ function warnMissingArticleStatusesTable(): void {
 }
 
 async function canUseArticleStatusesTable(): Promise<boolean> {
-  if (articleStatusesTableAvailable) {
+  if (articleStatusesTableState === "available") {
     return true;
+  }
+
+  if (articleStatusesTableState === "missing") {
+    return false;
   }
 
   try {
     const db = getDb();
     await db.select({ id: articleStatuses.id }).from(articleStatuses).limit(1);
-    articleStatusesTableAvailable = true;
+    articleStatusesTableState = "available";
     return true;
   } catch (error) {
     if (isMissingArticleStatusesTableError(error)) {
+      articleStatusesTableState = "missing";
       warnMissingArticleStatusesTable();
       return false;
     }
@@ -1402,11 +1407,27 @@ async function dispatch(
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { segments } = await context.params;
-  return dispatch(request, segments);
+  try {
+    const { segments } = await context.params;
+    return dispatch(request, segments);
+  } catch (error) {
+    console.error("[greader] Unhandled GET error", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const { segments } = await context.params;
-  return dispatch(request, segments);
+  try {
+    const { segments } = await context.params;
+    return dispatch(request, segments);
+  } catch (error) {
+    console.error("[greader] Unhandled POST error", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
 }
