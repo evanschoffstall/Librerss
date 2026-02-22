@@ -11,7 +11,7 @@ import {
   requireMutableAuthenticatedUser,
 } from "@/lib/api/route-helpers";
 import { CONFIG } from "@/lib/config";
-import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
+import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";

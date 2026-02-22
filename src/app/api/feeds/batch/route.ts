@@ -4,7 +4,7 @@ import {
   requireMutableAuthenticatedUser,
 } from "@/lib/api/route-helpers";
 import { CONFIG } from "@/lib/config";
-import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feedFetcher";
+import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";

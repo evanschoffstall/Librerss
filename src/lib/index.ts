@@ -5,7 +5,7 @@ export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
 
 export { ENV } from "./config";
 
-export { useDebugState, useLocalStorage } from "./core/clientHooks";
+export { useDebugState, useLocalStorage } from "./core/client-hooks";
 
 // API clients
 export { ArticleService, AuthService, FeedService } from "./api/services";
