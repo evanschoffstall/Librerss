@@ -2,9 +2,9 @@ import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { logger } from "@/lib/utils/logger";
+import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
 import { extract } from "@extractus/article-extractor";
 import { NextRequest, NextResponse } from "next/server";
-import sanitizeHtml from "sanitize-html";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,49 +27,7 @@ function sanitizeExtractedContent(rawContent: string): string {
   const containsHtml = /<\/?[a-z][\s\S]*>/i.test(normalized);
   const htmlCandidate = containsHtml ? normalized : toParagraphHtml(normalized);
 
-  return sanitizeHtml(htmlCandidate, {
-    allowedTags: [
-      "p",
-      "br",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "ul",
-      "ol",
-      "li",
-      "blockquote",
-      "pre",
-      "code",
-      "strong",
-      "em",
-      "b",
-      "i",
-      "u",
-      "a",
-      "hr",
-      "figure",
-      "figcaption",
-    ],
-    allowedAttributes: {
-      a: ["href", "name", "target", "rel"],
-      code: ["class"],
-      pre: ["class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    transformTags: {
-      a: (tagName: string, attribs: Record<string, string>) => ({
-        tagName,
-        attribs: {
-          ...attribs,
-          rel: "noopener noreferrer nofollow",
-          target: "_blank",
-        },
-      }),
-    },
-  }).trim();
+  return sanitizeArticleHtml(htmlCandidate);
 }
 
 export async function POST(request: NextRequest) {
@@ -84,7 +42,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const payload = (await request.json()) as { url?: string };
+    let payload: { url?: string };
+    try {
+      payload = (await request.json()) as { url?: string };
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
     const articleUrl = payload?.url?.trim() ?? "";
 
     if (!articleUrl) {

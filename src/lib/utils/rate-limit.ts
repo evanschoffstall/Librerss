@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { logger } from "@/lib/utils/logger";
+import { NextResponse } from "next/server";
 
 interface RateLimitConfig {
   windowMs: number;
@@ -17,12 +17,26 @@ interface RateLimitEntry {
  */
 class RateLimiter {
   private store = new Map<string, RateLimitEntry>();
+  private readonly cleanupTimer: ReturnType<typeof setInterval>;
 
   // Clean up expired entries every 5 minutes
   constructor() {
-    setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupTimer = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000,
+    );
+
+    // In Node.js, unref() prevents the interval from keeping the process alive
+    // when it is the only remaining handle — important during tests and
+    // hot-module reload where the module may be discarded before the timer fires.
+    this.cleanupTimer.unref();
+  }
+
+  /** Cancels the periodic cleanup interval. Call during test teardown. */
+  destroy(): void {
+    clearInterval(this.cleanupTimer);
   }
 
   private cleanup(): void {
@@ -35,19 +49,39 @@ class RateLimiter {
   }
 
   private getClientIdentifier(request: Request): string {
-    // Try to get IP from headers (for proxies/load balancers)
-    const forwarded = request.headers.get("x-forwarded-for");
-    if (forwarded) {
-      return forwarded.split(",")[0].trim();
+    // A client can forge any left-hand entries in X-Forwarded-For. The
+    // rightmost entry is appended by the last trusted proxy (i.e. your load
+    // balancer), making it the safest value to key on.
+    //
+    // TRUSTED_PROXY_COUNT (default: 1) — number of proxy hops you control.
+    // Set to 0 in direct-to-internet deployments where no proxy header is
+    // present; all clients will share a single "unknown" bucket in that case.
+    const trustedProxies = Math.max(
+      0,
+      Number(process.env.TRUSTED_PROXY_COUNT ?? "1"),
+    );
+
+    if (trustedProxies > 0) {
+      const forwarded = request.headers.get("x-forwarded-for");
+      if (forwarded) {
+        const ips = forwarded
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        // Strip the last (trustedProxies - 1) proxy-appended entries;
+        // what remains at the tail is the real client IP.
+        const clientIp = ips[ips.length - trustedProxies];
+        if (clientIp) return clientIp;
+      }
+
+      const realIp = request.headers.get("x-real-ip")?.trim();
+      if (realIp) return realIp;
     }
 
-    const realIp = request.headers.get("x-real-ip");
-    if (realIp) {
-      return realIp;
-    }
-
-    // Fallback to user agent as a weak identifier
-    return request.headers.get("user-agent") || "unknown";
+    // No usable proxy header — bucket all unidentified clients together.
+    // User-agent is intentionally NOT used: a shared UA across many genuine
+    // users funnels them into one bucket; a bot that picks a unique UA escapes.
+    return "unknown";
   }
 
   check(

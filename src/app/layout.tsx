@@ -1,10 +1,9 @@
-import "./globals.css";
-import { DebugBorder, DebugGrid } from "../components";
-import { AppThemeProvider } from "../components/AppThemeProvider";
-import { ENV } from "../lib";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import React from "react";
+import { AppThemeProvider, DebugBorder, DebugGrid } from "../components";
+import { ENV } from "../lib";
+import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 

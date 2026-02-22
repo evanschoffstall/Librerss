@@ -7,24 +7,24 @@
  */
 
 import { CONFIG } from "@/lib/config";
+import { isValidUrl } from "@/lib/core/utils";
 import type { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
+import {
+  sanitizeAndTruncateArticleContent,
+  sanitizeArticleTitle,
+} from "@/lib/utils/sanitize";
 import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
 } from "@/lib/utils/ssrf";
-import {
-  sanitizeArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/utils/validation";
 import axios from "axios";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import Parser from "rss-parser";
-import sanitizeHtml from "sanitize-html";
 
 // ─── DNS cache ────────────────────────────────────────────────────────────────
 // Module-level so it persists across requests within the same process.
@@ -41,7 +41,16 @@ function setCacheSafe(
     for (const [k, entry] of DNS_CACHE.entries()) {
       if (entry.expiresAt <= now) DNS_CACHE.delete(k);
     }
-    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) DNS_CACHE.clear();
+    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+      // Evict the oldest 20 % of entries (Map preserves insertion order) so
+      // we avoid a full flush that causes a thundering-herd of DNS lookups.
+      const evictCount = Math.ceil(DNS_CACHE_MAX_ENTRIES * 0.2);
+      let evicted = 0;
+      for (const k of DNS_CACHE.keys()) {
+        DNS_CACHE.delete(k);
+        if (++evicted >= evictCount) break;
+      }
+    }
   }
   DNS_CACHE.set(key, value);
 }
@@ -73,11 +82,14 @@ async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
       hostname,
       error: error instanceof Error ? error.message : String(error),
     });
+    // Fail-closed: if we cannot resolve the hostname we cannot confirm it
+    // resolves to a public address, so we treat it as blocked.  A transient
+    // DNS hiccup is cached for only 60 s to avoid prolonged false-positives.
     setCacheSafe(hostname, {
-      blocked: false,
+      blocked: true,
       expiresAt: Date.now() + 60_000,
     });
-    return false;
+    return true;
   }
 }
 
@@ -85,9 +97,11 @@ async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
 
 export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
   try {
+    // Reuse the same protocol + parse checks from isValidUrl so the two
+    // cannot drift independently.
+    if (!isValidUrl(raw)) return false;
+
     const parsed = new URL(raw);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
-      return false;
     if (parsed.username || parsed.password) return false;
 
     const host = normalizeHostname(parsed.hostname);
@@ -100,73 +114,10 @@ export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
   }
 }
 
-export function isAllowedArticleLink(raw: string): boolean {
-  try {
-    const parsed = new URL(raw);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-// ─── Feed URL normalization ───────────────────────────────────────────────────
-
-export function normalizeFeedUrl(raw: string): string {
-  const parsed = new URL(raw.trim());
-  parsed.hash = "";
-  parsed.username = "";
-  parsed.password = "";
-  return parsed.toString().replace(/\/+$/, "");
-}
-
 // ─── HTML sanitization ───────────────────────────────────────────────────────
 
-function sanitizeRssHtml(raw: string): string {
-  if (!raw.trim()) return "";
-  return sanitizeHtml(raw, {
-    allowedTags: [
-      "p",
-      "br",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "ul",
-      "ol",
-      "li",
-      "blockquote",
-      "pre",
-      "code",
-      "strong",
-      "em",
-      "b",
-      "i",
-      "u",
-      "a",
-      "hr",
-      "figure",
-      "figcaption",
-    ],
-    allowedAttributes: {
-      a: ["href", "name", "target", "rel"],
-      code: ["class"],
-      pre: ["class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    transformTags: {
-      a: (tagName: string, attribs: Record<string, string>) => ({
-        tagName,
-        attribs: {
-          ...attribs,
-          rel: "noopener noreferrer nofollow",
-          target: "_blank",
-        },
-      }),
-    },
-  }).trim();
-}
+// Sanitization options and the sanitizeAndTruncateArticleContent helper live
+// in @/lib/utils/sanitize so every write path shares the same tag-allowlist.
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -200,10 +151,15 @@ function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
       continue;
     }
 
+    const itemDate = new Date(item.publicationDate).getTime();
+    const currentDate = new Date(current.publicationDate).getTime();
+    // Prefer the newer article; use content length only as a tiebreaker
+    // for articles with identical publication timestamps so that a newer-but-
+    // empty item never silently displaces a complete older article body.
     const shouldReplace =
-      new Date(item.publicationDate).getTime() >
-        new Date(current.publicationDate).getTime() ||
-      item.content.length > current.content.length;
+      itemDate > currentDate ||
+      (itemDate === currentDate &&
+        item.content.length > current.content.length);
 
     if (shouldReplace)
       byLink.set(normalizedLink, { ...item, link: normalizedLink });
@@ -213,7 +169,9 @@ function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
 }
 
 // ─── RSS parser singleton ─────────────────────────────────────────────────────
-
+// rss-parser's parseString() creates a fresh readable stream internally for
+// each call and carries no mutable per-instance state between invocations,
+// so the singleton is safe under concurrent requests.
 const parser = new Parser();
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -235,10 +193,6 @@ export class FeedSourceNotFoundError extends Error {
     this.name = "FeedSourceNotFoundError";
   }
 }
-
-// ─── Limits ───────────────────────────────────────────────────────────────────
-
-const MAX_ARTICLES_PER_FEED = 200;
 
 // ─── Upstream RSS refresh (shared by single and batch paths) ──────────────────
 
@@ -262,6 +216,15 @@ async function refreshFeedFromUpstream(
         ) {
           throw new Error("Blocked redirect target");
         }
+        // Best-effort: if the redirect target's hostname is already in the
+        // DNS cache and was resolved as blocked, reject immediately.
+        // Full async DNS re-validation of redirect targets would require
+        // manual redirect handling; this provides defence-in-depth for
+        // cached resolutions (e.g. a host blocked after initial validation).
+        const cached = DNS_CACHE.get(hostname);
+        if (cached && cached.expiresAt > Date.now() && cached.blocked) {
+          throw new Error("Blocked redirect target (cached DNS)");
+        }
       },
     });
 
@@ -274,14 +237,14 @@ async function refreshFeedFromUpstream(
           (item) =>
             Boolean(item.title) &&
             Boolean(item.link) &&
-            isAllowedArticleLink(item.link ?? ""),
+            isValidUrl(item.link ?? ""),
         )
         .map((item) => ({
           title: sanitizeArticleTitle(item.title),
           link: item.link!,
           publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
-          content: sanitizeArticleContent(
-            sanitizeRssHtml(item.content || item.contentSnippet || ""),
+          content: sanitizeAndTruncateArticleContent(
+            item.content || item.contentSnippet || "",
           ),
           feedId: feed.id,
           lastChecked: now,
@@ -464,7 +427,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         sql`, `,
       )})
     ) ranked
-    WHERE rn <= ${MAX_ARTICLES_PER_FEED}
+    WHERE rn <= ${CONFIG.MAX_ARTICLES_PER_FEED}
     ORDER BY publication_date DESC
   `);
 
@@ -544,5 +507,5 @@ export async function fetchAndCacheFeedArticles(
     .from(articles)
     .where(eq(articles.feedId, feed.id))
     .orderBy(desc(articles.publicationDate))
-    .limit(MAX_ARTICLES_PER_FEED);
+    .limit(CONFIG.MAX_ARTICLES_PER_FEED);
 }

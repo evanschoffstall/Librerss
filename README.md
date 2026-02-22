@@ -30,9 +30,12 @@ Free, open-source RSS reader for a calm, ad-free reading flow.
    DATABASE_URL="postgres://user:password@host:5432/dbname"
    ALLOW_SIGNUP="false"
    NODE_ENV="development"
+   # TRUSTED_PROXY_COUNT=1
    ```
 
    `ALLOW_SIGNUP` controls whether users can create accounts through the UI/API. Set it to `"false"` to disable public signup while keeping login available for existing users.
+
+   `TRUSTED_PROXY_COUNT` (default `1`) sets the number of trusted reverse-proxy hops in front of the app. The rate-limiter reads this value to select the correct IP from the `X-Forwarded-For` header (rightmost trusted hop), preventing IP spoofing. Set to `0` if running without any proxy, `1` behind a single load-balancer or Vercel edge, and increase by one per additional upstream hop.
 
 3. Provision the database
 

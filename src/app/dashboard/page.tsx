@@ -10,16 +10,17 @@ import {
   FeedService,
   isValidUrl,
   normalizeCategory,
+  useLocalStorage,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
 } from "@/lib";
-import { useLocalStorage } from "@/lib/core/clientHooks";
+
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } from "./components";
 import {
@@ -143,6 +144,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const [feed, setFeed] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
+  // Always reflects the latest categories value without requiring re-creation
+  // of callbacks that depend on it (avoids the useCallback dep-cycle).
+  const categoriesRef = useRef<CategoryTreeNode[]>(INITIAL_CATEGORIES);
+  categoriesRef.current = categories;
   const [selectedCategory, setSelectedCategory] = useState(ALL_FEEDS_NODE_KEY);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
@@ -187,7 +192,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     });
   };
 
-  const loadFeedSources = async (): Promise<CategoryTreeNode[]> => {
+  const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
     try {
       const sources = await FeedService.getFeedSources();
 
@@ -207,7 +212,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       setCategories(defaults);
       return defaults;
     }
-  };
+  }, [usePlaceholderData]);
 
   const selectFeedByKey = (feedKey: string) => {
     const sourceNode = flattenCategoryFeeds(categories).find((item) => item.key === feedKey);
@@ -694,7 +699,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     return true;
   };
 
-  const fetchFeedBatch = async (sources: FeedBatchSource[]) => {
+  const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[]) => {
     const requestId = latestFeedRequestIdRef.current + 1;
     latestFeedRequestIdRef.current = requestId;
     const normalizedSources = Array.from(
@@ -791,7 +796,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         return;
       }
 
-      const hasConfiguredFeeds = flattenCategoryFeeds(categories).length > 0;
+      const hasConfiguredFeeds = flattenCategoryFeeds(categoriesRef.current).length > 0;
       if (!hasConfiguredFeeds) {
         toast.info("No feed sources yet.", {
           description: "Add your feeds in Settings to start reading.",
@@ -807,14 +812,14 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         setLoading(false);
       }
     }
-  };
+  }, [usePlaceholderData]);
 
-  const fetchFeed = async (url: string = DEFAULT_FEED_URL) => {
-    const sourceName = flattenCategoryFeeds(categories).find((node) => node.data?.url === url)?.label;
+  const fetchFeed = useCallback(async (url: string = DEFAULT_FEED_URL) => {
+    const sourceName = flattenCategoryFeeds(categoriesRef.current).find((node) => node.data?.url === url)?.label;
     await fetchFeedBatch([{ url, name: sourceName }]);
-  };
+  }, [fetchFeedBatch]);
 
-  const fetchCategoryFeeds = async (categoryNode: CategoryTreeNode) => {
+  const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode) => {
     const sources: FeedBatchSource[] = [];
     (categoryNode.children ?? []).forEach((node: CategoryTreeNode) => {
       if (node.data?.url) {
@@ -823,18 +828,19 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     });
 
     await fetchFeedBatch(sources);
-  };
+  }, [fetchFeedBatch]);
 
-  const fetchAllFeeds = async (sourceCategories: CategoryTreeNode[] = categories) => {
+  const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[]) => {
+    const resolvedCategories = sourceCategories ?? categoriesRef.current;
     const sources: FeedBatchSource[] = [];
-    flattenCategoryFeeds(sourceCategories).forEach((node: CategoryTreeNode) => {
+    flattenCategoryFeeds(resolvedCategories).forEach((node: CategoryTreeNode) => {
       if (node.data?.url) {
         sources.push({ url: node.data.url, name: node.label });
       }
     });
 
     await fetchFeedBatch(sources);
-  };
+  }, [fetchFeedBatch]);
 
   const handleFeedClick = (feedNode: CategoryTreeNode) => {
     setSelectedCategory(feedNode.key);
@@ -968,6 +974,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     };
 
     initializeDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1073,7 +1080,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       window.removeEventListener("dashboard:open-settings", handleOpenSettings);
       window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
     };
-  }, [selectedCategory, selectedCategoryNode, selectedFeedUrl]);
+  }, [selectedCategory, selectedCategoryNode, selectedFeedUrl, fetchAllFeeds, fetchFeed, fetchCategoryFeeds]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("dashboard:search-sync", { detail: { term: searchTerm } }));

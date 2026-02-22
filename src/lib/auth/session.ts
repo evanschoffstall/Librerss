@@ -2,7 +2,7 @@ import { CONFIG } from "@/lib/config";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { sessions, users } from "@/lib/db/schema";
-import { and, asc, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
 import type { NextRequest, NextResponse } from "next/server";
 import {
   createHash,
@@ -15,8 +15,7 @@ import { promisify } from "node:util";
 const scrypt = promisify(scryptCallback);
 
 export const SESSION_COOKIE_NAME = "librerss_session";
-const SESSION_DURATION_MS =
-  1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
+const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -92,14 +91,11 @@ export async function createSession(userId: number): Promise<string> {
 
     // If user has too many sessions, delete the oldest ones
     if (userSessions.length >= CONFIG.MAX_SESSIONS_PER_USER) {
-      const sessionsToDelete = userSessions.slice(
-        0,
-        userSessions.length - CONFIG.MAX_SESSIONS_PER_USER + 1,
-      );
+      const idsToDelete = userSessions
+        .slice(0, userSessions.length - CONFIG.MAX_SESSIONS_PER_USER + 1)
+        .map((s) => s.id);
 
-      for (const session of sessionsToDelete) {
-        await tx.delete(sessions).where(eq(sessions.id, session.id));
-      }
+      await tx.delete(sessions).where(inArray(sessions.id, idsToDelete));
     }
 
     // Create new session

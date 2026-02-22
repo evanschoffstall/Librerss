@@ -1,5 +1,4 @@
 import { CONFIG } from "@/lib/config";
-import { truncateText } from "@/lib/core/utils";
 
 /**
  * Validates email addresses using RFC-compliant regex
@@ -52,32 +51,6 @@ export function isStrongPassword(password: string): boolean {
   return complexityCount >= CONFIG.PASSWORD_COMPLEXITY_REQUIRED_TYPES;
 }
 
-/**
- * Sanitizes article title to prevent XSS and enforce length limits
- * @param title - Raw article title
- * @returns Sanitized title
- */
-export function sanitizeArticleTitle(title: string | null | undefined): string {
-  const cleaned = (title || "Untitled").trim();
-  return truncateText(cleaned, CONFIG.MAX_ARTICLE_TITLE_LENGTH);
-}
-
-/**
- * Sanitizes article content to enforce length limits
- * @param content - Raw article content
- * @returns Sanitized content
- */
-export function sanitizeArticleContent(
-  content: string | null | undefined,
-): string {
-  const cleaned = (content || "").trim();
-
-  if (cleaned.length > CONFIG.MAX_ARTICLE_CONTENT_LENGTH) {
-    return (
-      cleaned.substring(0, CONFIG.MAX_ARTICLE_CONTENT_LENGTH) +
-      "\n\n... [content truncated]"
-    );
-  }
-
-  return cleaned;
-}
+// sanitizeArticleTitle has moved to @/lib/utils/sanitize to keep all
+// sanitize-html usage in one module. Re-export for backwards compatibility.
+export { sanitizeArticleTitle } from "@/lib/utils/sanitize";
