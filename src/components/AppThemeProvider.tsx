@@ -1,11 +1,12 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
+import { AuthService } from "@/lib";
+import { LogOut, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 
 function ThemeModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -14,6 +15,8 @@ function ThemeModeToggle() {
   const [mounted, setMounted] = useState(false);
   const [dashboardTitle, setDashboardTitle] = useState("LibreRSS");
   const [dashboardSearch, setDashboardSearch] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -37,11 +40,15 @@ function ThemeModeToggle() {
       setDashboardSearch(customEvent.detail?.term ?? "");
     };
 
+    const handleEnterPreview = () => setIsPreviewMode(true);
+
     window.addEventListener("dashboard:title-change", handleTitleChange as EventListener);
     window.addEventListener("dashboard:search-sync", handleSearchSync as EventListener);
+    window.addEventListener("dashboard:enter-preview", handleEnterPreview);
     return () => {
       window.removeEventListener("dashboard:title-change", handleTitleChange as EventListener);
       window.removeEventListener("dashboard:search-sync", handleSearchSync as EventListener);
+      window.removeEventListener("dashboard:enter-preview", handleEnterPreview);
     };
   }, []);
 
@@ -56,6 +63,26 @@ function ThemeModeToggle() {
   const handleDashboardSearchChange = (term: string) => {
     setDashboardSearch(term);
     window.dispatchEvent(new CustomEvent("dashboard:search-change", { detail: { term } }));
+  };
+
+  const handleDashboardSignOut = async () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    if (isPreviewMode) {
+      window.location.assign("/dashboard");
+      return;
+    }
+
+    setIsSigningOut(true);
+    try {
+      await AuthService.logout();
+      window.location.assign("/landing");
+    } catch {
+      toast.error("Unable to sign out.");
+      setIsSigningOut(false);
+    }
   };
 
   if (shouldShowDashboardBar) {
@@ -91,6 +118,17 @@ function ThemeModeToggle() {
             >
               <Settings2 className="h-4 w-4" />
               <span className="sr-only">Open settings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleDashboardSignOut()}
+              aria-label="Sign out"
+              disabled={isSigningOut}
+              className="transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="sr-only">Sign out</span>
             </button>
 
             <span className="h-3 w-px bg-zinc-800" />

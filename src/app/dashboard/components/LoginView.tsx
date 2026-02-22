@@ -12,9 +12,10 @@ import { toast } from "sonner";
 interface LoginViewProps {
   onAuthenticated: (user: AuthUser) => void;
   allowSignup: boolean;
+  onEnterPreview?: () => void;
 }
 
-export const LoginView = ({ onAuthenticated, allowSignup }: LoginViewProps) => {
+export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: LoginViewProps) => {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,6 +109,16 @@ export const LoginView = ({ onAuthenticated, allowSignup }: LoginViewProps) => {
               disabled={isSubmitting}
             >
               {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Sign up"}
+            </Button>
+          )}
+          {!allowSignup && onEnterPreview && (
+            <Button
+              variant="link"
+              className="w-full px-0 text-muted-foreground"
+              onClick={onEnterPreview}
+              disabled={isSubmitting}
+            >
+              Explore without an account
             </Button>
           )}
         </CardContent>

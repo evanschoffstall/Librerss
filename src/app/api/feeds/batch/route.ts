@@ -2,7 +2,7 @@ import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import {
-  fetchAndCacheFeedArticles,
+  fetchAndCacheFeedArticlesBatch,
   normalizeFeedUrl,
 } from "@/lib/core/feedFetcher";
 import { getDb } from "@/lib/db/db";
@@ -11,12 +11,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
   urls?: unknown;
-};
-
-type BatchFeedResult = {
-  url: string;
-  articles: unknown[];
-  ok: boolean;
 };
 
 function normalizeUrlList(urls: unknown): string[] {
@@ -32,38 +26,6 @@ function normalizeUrlList(urls: unknown): string[] {
         .filter(Boolean),
     ),
   );
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  items: TInput[],
-  concurrency: number,
-  mapper: (item: TInput, index: number) => Promise<TOutput>,
-): Promise<TOutput[]> {
-  if (items.length === 0) {
-    return [];
-  }
-
-  const results = new Array<TOutput>(items.length);
-  let nextIndex = 0;
-
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    async () => {
-      while (true) {
-        const currentIndex = nextIndex;
-        nextIndex += 1;
-
-        if (currentIndex >= items.length) {
-          return;
-        }
-
-        results[currentIndex] = await mapper(items[currentIndex], currentIndex);
-      }
-    },
-  );
-
-  await Promise.all(workers);
-  return results;
 }
 
 export async function POST(request: NextRequest) {
@@ -92,39 +54,39 @@ export async function POST(request: NextRequest) {
 
     if (urls.length > CONFIG.FEED_BATCH_MAX_URLS) {
       return NextResponse.json(
-        {
-          error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once`,
-        },
+        { error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once` },
         { status: 400 },
       );
     }
 
     const db = getDb();
 
-    const results = await mapWithConcurrency(
-      urls,
-      CONFIG.FEED_BATCH_CONCURRENCY,
-      async (url): Promise<BatchFeedResult> => {
-        // Normalize the URL to match what's stored in the DB.
-        let normalized: string;
-        try {
-          normalized = normalizeFeedUrl(url);
-        } catch {
-          return { url, articles: [], ok: false };
-        }
+    // Normalize all URLs up front so they match what's stored in the DB.
+    const normalizedUrls: string[] = [];
+    for (const url of urls) {
+      try {
+        normalizedUrls.push(normalizeFeedUrl(url));
+      } catch {
+        // Malformed URL — skip silently.
+      }
+    }
 
-        try {
-          const articles = await fetchAndCacheFeedArticles(
-            db,
-            user.userId,
-            normalized,
-          );
-          return { url: normalized, articles, ok: true };
-        } catch {
-          return { url: normalized, articles: [], ok: false };
-        }
-      },
+    if (normalizedUrls.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // Single batch call: ~3 DB round-trips regardless of how many feeds.
+    const batchMap = await fetchAndCacheFeedArticlesBatch(
+      db,
+      user.userId,
+      normalizedUrls,
     );
+
+    const results = normalizedUrls.map((normalizedUrl) => ({
+      url: normalizedUrl,
+      articles: batchMap.get(normalizedUrl) ?? [],
+      ok: (batchMap.get(normalizedUrl)?.length ?? 0) > 0,
+    }));
 
     return NextResponse.json(results);
   } catch (error) {

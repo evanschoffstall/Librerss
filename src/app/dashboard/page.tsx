@@ -3,14 +3,13 @@
 import { DebugBorder, DebugGrid } from "@/components";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   ArticleService,
   AuthService,
   ENV,
   FeedService,
   isValidUrl,
-  normalizeCategory,
-  useLocalStorage,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
@@ -25,6 +24,7 @@ import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } fro
 import {
   ALL_FEEDS_LABEL,
   ALL_FEEDS_NODE_KEY,
+  DEFAULT_CATEGORY_LABEL,
   DEFAULT_FEED_URL,
   DEV_PLACEHOLDER_CATEGORY_LABEL,
   DEV_PLACEHOLDER_FEED_SOURCES,
@@ -36,6 +36,24 @@ const toCategoryKey = (label: string) =>
   `cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "default"}`;
 
 const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
+const canonicalizeCategoryLabel = (label?: string | null) => {
+  const trimmedLabel = label?.trim();
+  if (!trimmedLabel) {
+    return DEFAULT_CATEGORY_LABEL;
+  }
+
+  const normalized = normalizeLabel(trimmedLabel);
+  if (
+    normalized === "uncategorized" ||
+    normalized === "uncategorised" ||
+    normalized === "uncategoried"
+  ) {
+    return DEFAULT_CATEGORY_LABEL;
+  }
+
+  return trimmedLabel;
+};
 
 const panelMotion = {
   initial: { opacity: 0, y: 14 },
@@ -90,7 +108,7 @@ const buildCategoriesFromSources = (
   const grouped = new Map<string, CategoryTreeNode[]>();
 
   for (const source of sources) {
-    const categoryLabel = normalizeCategory(source.category);
+    const categoryLabel = canonicalizeCategoryLabel(source.category);
     const current = grouped.get(categoryLabel) ?? [];
 
     current.push({
@@ -232,7 +250,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       await FeedService.createFeedSource({
         name: name.trim(),
         url: url.trim(),
-        category: normalizeCategory(category),
+        category: canonicalizeCategoryLabel(category),
       });
       const nextCategories = await loadFeedSources();
       const latestNode = flattenCategoryFeeds(nextCategories).find(
@@ -315,7 +333,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   };
 
   const moveFeedByDrop = async (key: string, targetCategory: string, targetIndex: number) => {
-    const normalizedTargetCategory = normalizeCategory(targetCategory);
+    const normalizedTargetCategory = canonicalizeCategoryLabel(targetCategory);
     if (!normalizedTargetCategory) {
       return;
     }
@@ -423,10 +441,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         FeedService.createFeedSource({
           name: entry.name.trim(),
           url: entry.url.trim(),
-          category: normalizeCategory(entry.category),
+          category: canonicalizeCategoryLabel(entry.category),
         }).then(() => ({
           url: entry.url.trim(),
-          category: normalizeCategory(entry.category),
+          category: canonicalizeCategoryLabel(entry.category),
         })),
       ),
     );
@@ -488,7 +506,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   };
 
   const addCategory = (label: string) => {
-    const normalized = normalizeCategory(label);
+    const normalized = canonicalizeCategoryLabel(label);
     if (!normalized) {
       toast.error("Category name is required.");
       return false;
@@ -533,8 +551,8 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   };
 
   const renameCategory = async (currentLabel: string, nextLabel: string) => {
-    const normalizedCurrent = normalizeCategory(currentLabel);
-    const normalizedNext = normalizeCategory(nextLabel);
+    const normalizedCurrent = canonicalizeCategoryLabel(currentLabel);
+    const normalizedNext = canonicalizeCategoryLabel(nextLabel);
 
     if (!normalizedCurrent || !normalizedNext) {
       toast.error("Category name is required.");
@@ -641,7 +659,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         ...categories.map((categoryNode) => categoryNode.label),
         ...customCategoryLabels,
       ]
-        .map((categoryLabel) => normalizeCategory(categoryLabel))
+        .map((categoryLabel) => canonicalizeCategoryLabel(categoryLabel))
         .find((categoryLabel) => normalizeLabel(categoryLabel) !== normalizeLabel(label));
 
       if (!targetCategory) {
@@ -1276,6 +1294,7 @@ function DashboardRouter() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [allowSignup, setAllowSignup] = useState(true);
   const [usePlaceholderData, setUsePlaceholderData] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -1295,6 +1314,11 @@ function DashboardRouter() {
     loadSession();
   }, []);
 
+  const handleEnterPreview = () => {
+    setIsPreviewMode(true);
+    window.dispatchEvent(new CustomEvent("dashboard:enter-preview"));
+  };
+
   if (isSessionLoading) {
     return (
       <main className="h-full overflow-hidden bg-background">
@@ -1305,10 +1329,14 @@ function DashboardRouter() {
     );
   }
 
-  if (!currentUser) {
+  if (!currentUser && !isPreviewMode) {
     return (
       <main className="h-full overflow-hidden bg-background">
-        <LoginView onAuthenticated={setCurrentUser} allowSignup={allowSignup} />
+        <LoginView
+          onAuthenticated={setCurrentUser}
+          allowSignup={allowSignup}
+          onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
+        />
       </main>
     );
   }
@@ -1318,7 +1346,7 @@ function DashboardRouter() {
       {view === "settings" ? (
         <SettingsView />
       ) : (
-        <DashboardView usePlaceholderData={usePlaceholderData} />
+        <DashboardView usePlaceholderData={isPreviewMode || usePlaceholderData} />
       )}
     </main>
   );
