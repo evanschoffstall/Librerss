@@ -6,7 +6,8 @@ import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
-import { extract } from "@extractus/article-extractor";
+import { extractFromHtml } from "@extractus/article-extractor";
+import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,44 @@ function sanitizeExtractedContent(rawContent: string): string {
   const htmlCandidate = containsHtml ? normalized : toParagraphHtml(normalized);
 
   return sanitizeArticleHtml(htmlCandidate);
+}
+
+async function fetchHtmlWithValidatedRedirects(url: string): Promise<string> {
+  let currentUrl = url;
+
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    if (!(await isAllowedFeedUrl(currentUrl))) {
+      throw new Error("Blocked URL");
+    }
+
+    const response = await axios.get(currentUrl, {
+      timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+      maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+      maxRedirects: 0,
+      responseType: "text",
+      validateStatus: (status) => status >= 200 && status < 400,
+      headers: {
+        "user-agent": "librerss/0.1 (+https://github.com)",
+        "accept-language": "en-US,en;q=0.9",
+      },
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.location;
+      if (typeof location !== "string" || !location.trim()) {
+        throw new Error("Redirect without Location header");
+      }
+
+      currentUrl = new URL(location, currentUrl).toString();
+      continue;
+    }
+
+    return typeof response.data === "string"
+      ? response.data
+      : String(response.data ?? "");
+  }
+
+  throw new Error("Too many redirects");
 }
 
 export async function POST(request: NextRequest) {
@@ -77,16 +116,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const extracted = await extract(
-      articleUrl,
-      { contentLengthThreshold: 120 },
-      {
-        headers: {
-          "user-agent": "librerss/0.1 (+https://github.com)",
-          "accept-language": "en-US,en;q=0.9",
-        },
-      },
-    );
+    const html = await fetchHtmlWithValidatedRedirects(articleUrl);
+    const extracted = await extractFromHtml(html, articleUrl, {
+      contentLengthThreshold: 120,
+    });
 
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
