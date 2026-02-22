@@ -2,11 +2,49 @@ import { CONFIG } from "@/lib/config";
 import sanitizeHtml from "sanitize-html";
 
 /**
+ * Class-name fragments used by AP News (and similar wire-service feeds) to
+ * wrap "related articles" / "hub-peek" sections.  These blocks survive generic
+ * sanitization because their inner content uses otherwise-allowed tags
+ * (h2, ul, li, a).  We strip the entire element – including its subtree –
+ * before running sanitize-html so no stray headings or link lists appear in
+ * the rendered article body.
+ *
+ * Patterns are matched against the element's `class` attribute (case-insensitive).
+ */
+const AP_JUNK_CLASS_PATTERN =
+  /(?:hub[\s_-]?peek|related[\s_-]?stories|related[\s_-]?content|related[\s_-]?links|more[\s_-]?on|tag[\s_-]?page|inline[\s_-]?module)/i;
+
+/**
+ * Strips AP-style related-article / sidebar blocks from raw HTML before the
+ * main sanitizer runs.  Removes block-level elements whose `class` attribute
+ * matches {@link AP_JUNK_CLASS_PATTERN} plus all of their inner HTML.
+ */
+function stripApJunkBlocks(html: string): string {
+  // Match common block wrappers: div, section, aside, nav, ul, figure.
+  return html
+    .replace(
+      /<(div|section|aside|nav|ul|figure)(\s[^>]*)?>/gi,
+      (openTag, tagName: string, attrs: string = "") => {
+        if (AP_JUNK_CLASS_PATTERN.test(attrs)) {
+          // Replace the opening tag with a sentinel comment so we can slice out
+          // everything up to (and including) the matching closing tag.
+          return `<!--STRIP_${tagName.toUpperCase()}-->`;
+        }
+        return openTag;
+      },
+    )
+    .replace(
+      /<!--STRIP_(DIV|SECTION|ASIDE|NAV|UL|FIGURE)-->(?:[\s\S]*?)<\/\1>/gi,
+      "",
+    );
+}
+
+/**
  * Shared sanitize-html options for all article / RSS content.
  * Used by the RSS feed fetcher, manual article POST endpoint, and article
  * extractor so every write path enforces the same tag-allowlist.
  */
-export const ARTICLE_SANITIZE_OPTIONS = {
+const ARTICLE_SANITIZE_OPTIONS = {
   allowedTags: [
     "p",
     "br",
@@ -29,8 +67,19 @@ export const ARTICLE_SANITIZE_OPTIONS = {
     "u",
     "a",
     "hr",
+  ],
+  // figure/figcaption, aside, nav, section are discarded along with their
+  // text so that image captions, sidebars, and related-article blocks don't
+  // appear in place of article body text.
+  nonTextTags: [
     "figure",
     "figcaption",
+    "style",
+    "script",
+    "textarea",
+    "aside",
+    "nav",
+    "section",
   ],
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
@@ -58,7 +107,7 @@ export const ARTICLE_SANITIZE_OPTIONS = {
  */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
-  return sanitizeHtml(raw, ARTICLE_SANITIZE_OPTIONS).trim();
+  return sanitizeHtml(stripApJunkBlocks(raw), ARTICLE_SANITIZE_OPTIONS).trim();
 }
 
 /**
