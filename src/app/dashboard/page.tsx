@@ -69,7 +69,7 @@ const dedupeAndSortArticles = (articles: Article[]) => {
   for (const article of articles) {
     // Always require link - skip articles without it
     if (!article.link?.trim()) {
-      console.warn("Skipping article without link:", article.title);
+      // Avoid logging user content (article titles) to the browser console.
       continue;
     }
 
@@ -434,20 +434,29 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     const successfulUrls: string[] = [];
     const importedCategoryLabels = new Set<string>();
 
-    for (const entry of entries) {
-      try {
-        await FeedService.createFeedSource({
+    // Import feeds concurrently — serial awaits in a for…of loop blocked UI
+    // for large OPML files (e.g. 200 feeds × 12 s timeout ≈ 40 min).
+    const importResults = await Promise.allSettled(
+      entries.map((entry) =>
+        FeedService.createFeedSource({
           name: entry.name.trim(),
           url: entry.url.trim(),
           category: canonicalizeCategoryLabel(entry.category),
-        });
+        }).then(() => ({
+          url: entry.url.trim(),
+          category: canonicalizeCategoryLabel(entry.category),
+        })),
+      ),
+    );
 
-        successfulUrls.push(entry.url.trim());
-        importedCategoryLabels.add(canonicalizeCategoryLabel(entry.category));
+    for (const result of importResults) {
+      if (result.status === "fulfilled") {
+        successfulUrls.push(result.value.url);
+        importedCategoryLabels.add(result.value.category);
         importedCount += 1;
-      } catch (error) {
+      } else {
         failedCount += 1;
-        console.error("OPML import item failed:", entry, error);
+        console.error("OPML import item failed:", result.reason);
       }
     }
 
