@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AuthService, type AuthUser } from "@/src/lib";
+import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -21,10 +22,10 @@ export const LoginView = ({ onAuthenticated, allowSignup }: LoginViewProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-        if (mode === "signup" && !allowSignup) {
-          toast.error("Signup is disabled by server configuration.");
-          return;
-        }
+    if (mode === "signup" && !allowSignup) {
+      toast.error("Signup is disabled by server configuration.");
+      return;
+    }
 
     if (!email.trim() || !password) {
       toast.error("Email and password are required.");
@@ -52,8 +53,11 @@ export const LoginView = ({ onAuthenticated, allowSignup }: LoginViewProps) => {
 
       onAuthenticated(user);
       toast.success(mode === "signup" ? "Account created." : "Welcome back.");
-    } catch (error: any) {
-      const message = error?.response?.data?.error || "Authentication failed.";
+    } catch (error: unknown) {
+      const message =
+        axios.isAxiosError(error) && typeof error.response?.data?.error === "string"
+          ? error.response.data.error
+          : "Authentication failed.";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
