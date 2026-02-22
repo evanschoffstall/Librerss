@@ -1,4 +1,10 @@
-// Utility functions for LibreRSS
+// Utility functions and shared constants for LibreRSS
+
+// Environment constants (inlined here to avoid a one-line constants.ts file)
+export const ENV = {
+  isDevelopment: process.env.NODE_ENV === "development",
+  isProduction: process.env.NODE_ENV === "production",
+} as const;
 
 export const isClient = (): boolean => typeof window !== "undefined";
 
