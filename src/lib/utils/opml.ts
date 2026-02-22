@@ -61,7 +61,8 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const walkOutlineTree = (outline: Element, parentCategory: string | null) => {
     const outlineCategory = getOutlineLabel(outline);
     const xmlUrl = outline.getAttribute("xmlUrl")?.trim();
-    const nextCategory = outlineCategory || parentCategory || DEFAULT_CATEGORY_LABEL;
+    const nextCategory =
+      outlineCategory || parentCategory || DEFAULT_CATEGORY_LABEL;
 
     if (xmlUrl) {
       const normalizedUrl = normalizeImportUrl(xmlUrl);
