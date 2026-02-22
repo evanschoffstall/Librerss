@@ -29,6 +29,8 @@ export interface Article {
   feedId: number;
   feedName?: string;
   feedUrl?: string;
+  isRead?: boolean;
+  isStarred?: boolean;
 }
 
 export interface CategoryTreeNode {
