@@ -10,12 +10,13 @@ import {
   FeedService,
   isValidUrl,
   normalizeCategory,
+  useLocalStorage,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
 } from "@/lib";
-import { useLocalStorage } from "@/lib/core/clientHooks";
+
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
