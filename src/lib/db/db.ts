@@ -53,10 +53,13 @@ export function getDb() {
   runInitialDbConnectivityCheck(pool);
   const db = drizzle(pool, { schema });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForDb.pool = pool;
-    globalForDb.db = db;
-  }
+  // Cache pool and db instance in all environments so the pg connection pool
+  // is reused across requests.  In development Next.js hot-reloads modules,
+  // so we attach to globalThis to survive those reloads without leaking
+  // connections.  In production the same logic prevents creating a new Pool
+  // (and exhausting OS sockets) on every incoming request.
+  globalForDb.pool = pool;
+  globalForDb.db = db;
 
   return db;
 }

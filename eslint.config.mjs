@@ -1,5 +1,4 @@
 import pluginJs from "@eslint/js";
-import pluginReact from "eslint-plugin-react";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -7,7 +6,14 @@ import tseslint from "typescript-eslint";
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ["**/.next/**", "**/node_modules/**", "**/dist/**", "**/build/**"],
+    ignores: [
+      "node_modules",
+      "**/node_modules/**",
+      ".next",
+      "dist",
+      "build",
+      "src/components/ui/**",
+    ],
   },
   { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"] },
   {
@@ -17,13 +23,9 @@ export default [
         ...globals.node,
       },
     },
-    settings: {
-      react: { version: "detect" },
-    },
   },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
-  pluginReact.configs.flat.recommended,
   {
     plugins: {
       "react-hooks": pluginReactHooks,

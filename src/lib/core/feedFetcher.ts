@@ -7,7 +7,6 @@
  */
 
 import { CONFIG } from "@/lib/config";
-import { isValidUrl } from "@/lib/core/utils";
 import type { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
@@ -20,6 +19,7 @@ import {
   isBlockedResolvedAddress,
   normalizeHostname,
 } from "@/lib/utils/ssrf";
+import { isValidUrl } from "@/lib/utils/url";
 import axios from "axios";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { lookup } from "node:dns/promises";
@@ -174,9 +174,7 @@ function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
 // so the singleton is safe under concurrent requests.
 const parser = new Parser();
 
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-export type ArticleRow = {
+type ArticleRow = {
   id: number;
   title: string;
   link: string;
@@ -198,37 +196,75 @@ export class FeedSourceNotFoundError extends Error {
 
 type FeedRecord = { id: number; url: string; lastFetched: Date };
 
+async function assertOutboundFeedUrlSafe(rawUrl: string): Promise<void> {
+  const parsed = new URL(rawUrl);
+  const protocol = parsed.protocol.toLowerCase();
+  if (protocol !== "http:" && protocol !== "https:") {
+    throw new Error("Blocked feed protocol");
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new Error("Blocked credentialed feed URL");
+  }
+
+  const host = normalizeHostname(parsed.hostname);
+  if (isBlockedHost(host)) {
+    throw new Error("Blocked feed hostname");
+  }
+
+  if (isIP(host)) {
+    if (isBlockedResolvedAddress(host)) {
+      throw new Error("Blocked feed IP address");
+    }
+    return;
+  }
+
+  if (await resolvesToBlockedAddress(host)) {
+    throw new Error("Blocked resolved feed address");
+  }
+}
+
+async function fetchFeedXmlWithValidatedRedirects(
+  initialUrl: string,
+): Promise<string> {
+  let currentUrl = initialUrl;
+
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    await assertOutboundFeedUrlSafe(currentUrl);
+
+    const response = await axios.get(currentUrl, {
+      timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+      maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+      maxRedirects: 0,
+      responseType: "text",
+      validateStatus: (status) => status >= 200 && status < 400,
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.location;
+      if (typeof location !== "string" || !location.trim()) {
+        throw new Error("Redirect without Location header");
+      }
+
+      currentUrl = new URL(location, currentUrl).toString();
+      continue;
+    }
+
+    return typeof response.data === "string"
+      ? response.data
+      : String(response.data ?? "");
+  }
+
+  throw new Error("Too many redirects");
+}
+
 async function refreshFeedFromUpstream(
   db: ReturnType<typeof getDb>,
   feed: FeedRecord,
 ): Promise<void> {
   try {
-    const feedResponse = await axios.get(feed.url, {
-      timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-      maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-      maxRedirects: 3,
-      beforeRedirect: (options) => {
-        const protocol = options.protocol?.toLowerCase() ?? "";
-        const hostname = normalizeHostname(options.hostname ?? "");
-        if (
-          (protocol !== "http:" && protocol !== "https:") ||
-          isBlockedHost(hostname)
-        ) {
-          throw new Error("Blocked redirect target");
-        }
-        // Best-effort: if the redirect target's hostname is already in the
-        // DNS cache and was resolved as blocked, reject immediately.
-        // Full async DNS re-validation of redirect targets would require
-        // manual redirect handling; this provides defence-in-depth for
-        // cached resolutions (e.g. a host blocked after initial validation).
-        const cached = DNS_CACHE.get(hostname);
-        if (cached && cached.expiresAt > Date.now() && cached.blocked) {
-          throw new Error("Blocked redirect target (cached DNS)");
-        }
-      },
-    });
-
-    const feedResponseParsed = await parser.parseString(feedResponse.data);
+    const feedXml = await fetchFeedXmlWithValidatedRedirects(feed.url);
+    const feedResponseParsed = await parser.parseString(feedXml);
     const now = new Date();
 
     const validItems = dedupePendingArticles(
@@ -269,13 +305,25 @@ async function refreshFeedFromUpstream(
     await db
       .update(feeds)
       .set({ lastFetched: now })
-      .where(eq(feeds.url, feed.url));
+      .where(eq(feeds.id, feed.id));
   } catch (err) {
     // Log and swallow so a single bad feed never blocks the whole batch.
     logger.warn("Upstream feed refresh failed", {
       url: feed.url,
       error: err instanceof Error ? err.message : String(err),
     });
+
+    // Still advance lastFetched so the TTL cooldown applies to failed feeds
+    // too — otherwise every request retries the upstream immediately and
+    // hammers a consistently-failing endpoint on every page load.
+    try {
+      await db
+        .update(feeds)
+        .set({ lastFetched: new Date() })
+        .where(eq(feeds.url, feed.url));
+    } catch {
+      // Best-effort; ignore secondary DB errors.
+    }
   }
 }
 
@@ -335,6 +383,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedUrls: string[],
+  { skipRefresh = false }: { skipRefresh?: boolean } = {},
 ): Promise<Map<string, ArticleRow[]>> {
   if (feedUrls.length === 0) return new Map();
 
@@ -378,20 +427,23 @@ export async function fetchAndCacheFeedArticlesBatch(
   }
 
   // ── 4. Refresh stale feeds in parallel ───────────────────────────────────
-  const staleFeeds = allowedUrls
-    .map((u) => feedByUrl.get(u))
-    .filter((f): f is FeedRecord => {
-      if (!f) return false;
-      const ageMinutes =
-        (Date.now() - new Date(f.lastFetched).getTime()) / 60_000;
-      return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
-    });
+  // Skip when the caller only wants cached articles (e.g. fast initial render).
+  if (!skipRefresh) {
+    const staleFeeds = allowedUrls
+      .map((u) => feedByUrl.get(u))
+      .filter((f): f is FeedRecord => {
+        if (!f) return false;
+        const ageMinutes =
+          (Date.now() - new Date(f.lastFetched).getTime()) / 60_000;
+        return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
+      });
 
-  // Fire all upstream fetches concurrently; failures are swallowed per-feed.
-  if (staleFeeds.length > 0) {
-    await Promise.allSettled(
-      staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
-    );
+    // Fire all upstream fetches concurrently; failures are swallowed per-feed.
+    if (staleFeeds.length > 0) {
+      await Promise.allSettled(
+        staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
+      );
+    }
   }
 
   // ── 5. Read articles for all feeds (1 window-function query) ──────────────

@@ -31,7 +31,11 @@ export function isStrongPassword(password: string): boolean {
     return false;
   }
 
-  if (password.length < CONFIG.PASSWORD_MIN_LENGTH) {
+  // SECURITY: Reject overlong passwords to prevent scrypt DoS.
+  if (
+    password.length < CONFIG.PASSWORD_MIN_LENGTH ||
+    password.length > CONFIG.PASSWORD_MAX_LENGTH
+  ) {
     return false;
   }
 
@@ -50,7 +54,3 @@ export function isStrongPassword(password: string): boolean {
 
   return complexityCount >= CONFIG.PASSWORD_COMPLEXITY_REQUIRED_TYPES;
 }
-
-// sanitizeArticleTitle has moved to @/lib/utils/sanitize to keep all
-// sanitize-html usage in one module. Re-export for backwards compatibility.
-export { sanitizeArticleTitle } from "@/lib/utils/sanitize";

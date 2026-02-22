@@ -32,7 +32,6 @@
   z-index: var(--grid-overlay-z-index);
 }
 
-/* TODO: Blue center lines thickness is not consistent with red grid lines. May be some duplication as to the vertical blue line */
 .debug-grid {
   background:
     /* Blue vertical center line */

@@ -1,3 +1,5 @@
+import { asTrimmedString, parseJsonBody } from "@/lib/api/request";
+import { jsonError, logAndRespondError } from "@/lib/api/route-helpers";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import {
   createSession,
@@ -13,6 +15,35 @@ import { rateLimiter } from "@/lib/utils/rate-limit";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+
+type SignupPayload = {
+  email: string;
+  password: string;
+};
+
+function parseSignupPayload(
+  payload: Record<string, unknown>,
+): SignupPayload | Response {
+  const email = asTrimmedString(payload.email).toLowerCase();
+  const password = payload.password;
+
+  if (!email || !isValidEmail(email)) {
+    logger.warn("Signup attempt with invalid email", {
+      email: email ? "provided" : "missing",
+    });
+    return jsonError("A valid email is required", 400);
+  }
+
+  if (typeof password !== "string" || !isStrongPassword(password)) {
+    logger.warn("Signup attempt with weak password", { email });
+    return jsonError(
+      `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters and include at least 3 of: uppercase letter, lowercase letter, number, special character`,
+      400,
+    );
+  }
+
+  return { email, password };
+}
 
 export async function POST(request: Request) {
   try {
@@ -33,57 +64,29 @@ export async function POST(request: Request) {
 
     if (!RUNTIME_FLAGS.allowSignup) {
       logger.warn("Signup attempt when signup is disabled");
-      return NextResponse.json(
-        { error: "Signup is disabled by server configuration" },
-        { status: 403 },
-      );
+      return jsonError("Signup is disabled by server configuration", 403);
     }
 
     if (RUNTIME_FLAGS.usePlaceholderData) {
       logger.warn("Signup attempt when using placeholder data");
-      return NextResponse.json(
-        { error: "Signup is disabled when DATABASE_URL is not configured" },
-        { status: 503 },
+      return jsonError(
+        "Signup is disabled when DATABASE_URL is not configured",
+        503,
       );
     }
 
     const db = getDb();
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
 
-    const payload = body as Record<string, unknown>;
-    const email =
-      typeof payload.email === "string"
-        ? payload.email.trim().toLowerCase()
-        : "";
-    const password = payload.password;
-
-    // Email validation
-    if (!email || !isValidEmail(email)) {
-      logger.warn("Signup attempt with invalid email", {
-        email: email ? "provided" : "missing",
-      });
-      return NextResponse.json(
-        { error: "A valid email is required" },
-        { status: 400 },
-      );
+    const parsedPayload = parseSignupPayload(parsedBody.data);
+    if (parsedPayload instanceof Response) {
+      return parsedPayload;
     }
-
-    // Password validation
-    if (typeof password !== "string" || !isStrongPassword(password)) {
-      logger.warn("Signup attempt with weak password", { email });
-      return NextResponse.json(
-        {
-          error: `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters and include at least 3 of: uppercase letter, lowercase letter, number, special character`,
-        },
-        { status: 400 },
-      );
-    }
+    const { email, password } = parsedPayload;
 
     // Check for existing user
     const [existingUser] = await db
@@ -95,12 +98,9 @@ export async function POST(request: Request) {
     if (existingUser) {
       logger.warn("Signup attempt with existing email", { email });
       // Don't reveal that email exists (prevents enumeration)
-      return NextResponse.json(
-        {
-          error:
-            "Unable to create account. Please try a different email or contact support.",
-        },
-        { status: 400 },
+      return jsonError(
+        "Unable to create account. Please try a different email or contact support.",
+        400,
       );
     }
 
@@ -114,10 +114,7 @@ export async function POST(request: Request) {
 
     if (!createdUser) {
       logger.error("Failed to create user during signup", { email });
-      return NextResponse.json(
-        { error: "Failed to create account" },
-        { status: 500 },
-      );
+      return jsonError("Failed to create account", 500);
     }
 
     // Create session
@@ -133,12 +130,6 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    logger.error("Signup error", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Signup error", error);
   }
 }

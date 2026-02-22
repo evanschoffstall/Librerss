@@ -7,7 +7,7 @@
  * different caching and failure semantics.
  */
 
-export const BLOCKED_HOST_PATTERNS = [
+const BLOCKED_HOST_PATTERNS = [
   /^localhost$/i,
   /^0\.0\.0\.0$/,
   /^127\./,

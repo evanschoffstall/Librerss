@@ -9,10 +9,18 @@ import {
   randomBytes,
   scrypt as scryptCallback,
   timingSafeEqual,
+  type ScryptOptions,
 } from "node:crypto";
 import { promisify } from "node:util";
 
-const scrypt = promisify(scryptCallback);
+// Re-type the promisify wrapper to include the optional options parameter that
+// @types/node does not expose through the standard promisify overloads.
+const scrypt = promisify(scryptCallback) as (
+  password: string | Buffer,
+  salt: string | Buffer,
+  keylen: number,
+  options?: ScryptOptions,
+) => Promise<Buffer>;
 
 export const SESSION_COOKIE_NAME = "librerss_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
@@ -20,21 +28,42 @@ const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
+// SECURITY: scrypt cost parameters — versioned so stored hashes remain
+// verifiable after a future cost-factor upgrade.
+//
+// V1 (legacy): the Node.js default, N=16384.  Hash format: "<salt>:<hex>".
+//   Any hash created before this versioning scheme was introduced.
+// V2 (current): same N as V1 but stored with the "v2:" prefix to establish
+//   the upgrade-path infrastructure.  Once the test runner migrates fully to
+//   Node.js (rather than Bun's OpenSSL which caps memory at ~16 MB), bump
+//   SCRYPT_V2 to { N: 32768, r: 8, p: 1 } and this format will carry the
+//   new params automatically without requiring a migration.
+//
+// New passwords are always hashed with V2.  verifyPassword detects the format
+// and falls back to V1 params automatically, so no DB migration is needed and
+// existing users' passwords continue to work.
+const SCRYPT_V1 = { N: 16384, r: 8, p: 1 } as const; // legacy (read-only)
+const SCRYPT_V2 = { N: 16384, r: 8, p: 1 } as const; // current — bump N when runtime allows
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
-  const key = (await scrypt(password, salt, 64)) as Buffer;
-  return `${salt}:${key.toString("hex")}`;
+  const key = (await scrypt(password, salt, 64, SCRYPT_V2)) as Buffer;
+  return `v2:${salt}:${key.toString("hex")}`;
 }
 
 export async function verifyPassword(
   password: string,
   storedHash: string,
 ): Promise<boolean> {
-  const [salt, keyHex] = storedHash.split(":");
+  // Detect hash version from the format prefix.
+  const isV2 = storedHash.startsWith("v2:");
+  const stripped = isV2 ? storedHash.slice(3) : storedHash;
+  const params = isV2 ? SCRYPT_V2 : SCRYPT_V1;
 
+  const [salt, keyHex] = stripped.split(":");
   if (!salt || !keyHex) return false;
 
-  const derived = (await scrypt(password, salt, 64)) as Buffer;
+  const derived = (await scrypt(password, salt, 64, params)) as Buffer;
   const stored = Buffer.from(keyHex, "hex");
 
   if (derived.length !== stored.length) return false;
@@ -80,14 +109,19 @@ export async function createSession(userId: number): Promise<string> {
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 
-  // Use transaction to ensure session limit is enforced
+  // Use transaction to ensure session limit is enforced.
+  // SELECT FOR UPDATE serializes concurrent logins for the same user so each
+  // transaction sees a consistent session count before inserting a new row.
+  // Without this two simultaneous logins can both read count = N-1, skip
+  // deletion, and insert — leaving N+1 sessions until the next login cleans up.
   await db.transaction(async (tx) => {
-    // Get all sessions for this user, ordered by creation date (oldest first)
+    // Lock all existing sessions for this user before reading their count.
     const userSessions = await tx
       .select({ id: sessions.id })
       .from(sessions)
       .where(eq(sessions.userId, userId))
-      .orderBy(asc(sessions.createdAt));
+      .orderBy(asc(sessions.createdAt))
+      .for("update");
 
     // If user has too many sessions, delete the oldest ones
     if (userSessions.length >= CONFIG.MAX_SESSIONS_PER_USER) {

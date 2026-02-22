@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
@@ -30,6 +31,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  DEFAULT_CATEGORY_LABEL,
+  isSameCategoryLabel,
   parseOpmlFeedImport,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
@@ -114,7 +117,7 @@ export const SettingsModal = ({
   const [newFeedName, setNewFeedName] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [newFeedCategory, setNewFeedCategory] = useState(categoryOptions[0] ?? "My Feeds");
+  const [newFeedCategory, setNewFeedCategory] = useState(categoryOptions[0] ?? DEFAULT_CATEGORY_LABEL);
   const [addingFeedInCategory, setAddingFeedInCategory] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -136,7 +139,7 @@ export const SettingsModal = ({
 
   useEffect(() => {
     if (!categoryOptions.includes(newFeedCategory)) {
-      setNewFeedCategory(categoryOptions[0] ?? "My Feeds");
+      setNewFeedCategory(categoryOptions[0] ?? DEFAULT_CATEGORY_LABEL);
     }
   }, [categoryOptions, newFeedCategory]);
 
@@ -144,7 +147,7 @@ export const SettingsModal = ({
     if (
       addingFeedInCategory &&
       !categories.some(
-        (categoryNode) => categoryNode.label.trim().toLowerCase() === addingFeedInCategory.trim().toLowerCase(),
+        (categoryNode) => isSameCategoryLabel(categoryNode.label, addingFeedInCategory),
       )
     ) {
       setAddingFeedInCategory(null);
@@ -153,7 +156,7 @@ export const SettingsModal = ({
     if (
       editingCategory &&
       !categories.some(
-        (categoryNode) => categoryNode.label.trim().toLowerCase() === editingCategory.trim().toLowerCase(),
+        (categoryNode) => isSameCategoryLabel(categoryNode.label, editingCategory),
       )
     ) {
       setEditingCategory(null);
@@ -440,31 +443,79 @@ export const SettingsModal = ({
                 </div>
               </div>
               <TooltipProvider delayDuration={300}>
-                {categories.length === 0 ? (
-                  <motion.div
-                    className="py-8 text-center"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <p className="text-sm text-muted-foreground">No categories yet.</p>
-                    <div className="mt-3 flex items-center justify-center gap-2">
-                      <Input
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        placeholder="Category name..."
-                        className="max-w-[200px]"
-                        onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-                      />
-                      <Button size="sm" onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add
-                      </Button>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <Accordion
-                    key={categories.map((categoryNode) => `${categoryNode.key}:${(categoryNode.children ?? []).length}`).join("|")}
+                <AnimatePresence mode="wait" initial={false}>
+                  {isImportingOpml ? (
+                    <motion.div
+                      key="feeds-skeleton"
+                      className="space-y-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="rounded-md border px-3 py-2.5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-3 w-20" />
+                            <div className="flex gap-1">
+                              <Skeleton className="size-7 rounded-md" />
+                              <Skeleton className="size-7 rounded-md" />
+                            </div>
+                          </div>
+                          {i < 3 && (
+                            <div className="space-y-1.5 pt-0.5">
+                              {Array.from({ length: 2 + (i % 2) }).map((_, j) => (
+                                <div key={j} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                                  <Skeleton className="size-4" />
+                                  <div className="flex-1 space-y-1">
+                                    <Skeleton className="h-3 w-32" />
+                                    <Skeleton className="h-2.5 w-40" />
+                                  </div>
+                                  <Skeleton className="size-7 rounded-md" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <p className="text-center text-xs text-muted-foreground animate-pulse pt-1">
+                        Importing feeds…
+                      </p>
+                    </motion.div>
+                  ) : categories.length === 0 ? (
+                    <motion.div
+                      key="feeds-empty"
+                      className="py-8 text-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <p className="text-sm text-muted-foreground">No categories yet.</p>
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        <Input
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          placeholder="Category name..."
+                          className="max-w-[200px]"
+                          onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                        />
+                        <Button size="sm" onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
+                          <Plus className="mr-1.5 size-3.5" />
+                          Add
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="feeds-accordion"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                    >
+                    <Accordion
+                      key={categories.map((categoryNode) => `${categoryNode.key}:${(categoryNode.children ?? []).length}`).join("|")}
                     type="multiple"
                     defaultValue={categories.map((c) => c.key)}
                     className="space-y-2"
@@ -474,8 +525,10 @@ export const SettingsModal = ({
                       const isEditing = editingCategory === categoryNode.label;
                       const isAddingFeed = addingFeedInCategory === categoryNode.label;
                       const isPendingRemoval =
-                        categoryNode.label.trim().toLowerCase() ===
-                        (pendingCategoryRemovalLabel ?? "").trim().toLowerCase();
+                        isSameCategoryLabel(
+                          categoryNode.label,
+                          pendingCategoryRemovalLabel,
+                        );
 
                       return (
                         <motion.div
@@ -830,8 +883,10 @@ export const SettingsModal = ({
                         Add Category
                       </Button>
                     </div>
-                  </Accordion>
-                )}
+                    </Accordion>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </TooltipProvider>
             </section>
 

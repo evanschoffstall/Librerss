@@ -1,6 +1,7 @@
 import { DEFAULT_CATEGORY_LABEL } from "./categories";
+import { tryNormalizeFeedUrl } from "./url";
 
-export { DEFAULT_CATEGORY_LABEL };
+import { CONFIG } from "@/lib/config";
 
 export interface OpmlFeedImportEntry {
   name: string;
@@ -28,20 +29,23 @@ const getFeedName = (outline: Element): string => {
   return xmlUrl ?? "Imported Feed";
 };
 
+/**
+ * Normalizes an OPML feed URL.  Returns null when the URL is invalid or uses a
+ * non-HTTP(S) protocol.  Delegates to tryNormalizeFeedUrl for consistent
+ * parsing / stripping behaviour across the codebase.
+ */
 const normalizeImportUrl = (rawUrl: string): string | null => {
   try {
     const parsed = new URL(rawUrl.trim());
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return null;
     }
-
-    parsed.hash = "";
-    parsed.username = "";
-    parsed.password = "";
-    return parsed.toString().replace(/\/+$/, "");
   } catch {
     return null;
   }
+  // tryNormalizeFeedUrl strips hash, credentials, and trailing slashes
+  // using the same logic as the server-side normalizeFeedUrl.
+  return tryNormalizeFeedUrl(rawUrl);
 };
 
 export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
@@ -61,6 +65,9 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const imported = new Map<string, OpmlFeedImportEntry>();
 
   const walkOutlineTree = (outline: Element, parentCategory: string | null) => {
+    // Stop collecting once the cap is reached — prevents a crafted OPML with
+    // thousands of entries from flooding the database via bulk import.
+    if (imported.size >= CONFIG.OPML_MAX_IMPORT_ENTRIES) return;
     const xmlUrl = outline.getAttribute("xmlUrl")?.trim();
 
     if (xmlUrl) {

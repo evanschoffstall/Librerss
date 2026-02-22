@@ -1,11 +1,5 @@
 // Type definitions and interfaces for LibreRSS
 
-export interface ItemProps {
-  title?: string;
-  link?: string;
-  content?: string;
-}
-
 export interface AuthUser {
   id: number;
   email: string;
@@ -16,13 +10,6 @@ export interface AuthSession {
   user: AuthUser | null;
   allowSignup: boolean;
   usePlaceholderData: boolean;
-}
-
-export interface Feed {
-  id: number;
-  url: string;
-  lastFetched: Date;
-  articles: Article[];
 }
 
 export interface FeedSource {

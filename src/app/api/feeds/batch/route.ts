@@ -1,14 +1,17 @@
+import { parseJsonBody } from "@/lib/api/request";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feedFetcher";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/utils/logger";
+import { rateLimiter } from "@/lib/utils/rate-limit";
 import { normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
   urls?: unknown;
+  skipRefresh?: unknown;
 };
 
 function normalizeUrlList(urls: unknown): string[] {
@@ -28,6 +31,14 @@ function normalizeUrlList(urls: unknown): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitError = rateLimiter.check(request, "feed-batch", {
+      windowMs: CONFIG.RATE_LIMIT_FEED_BATCH_WINDOW_MS,
+      maxAttempts: CONFIG.RATE_LIMIT_FEED_BATCH_MAX_REQUESTS,
+    });
+    if (rateLimitError) {
+      return rateLimitError;
+    }
+
     const csrfError = requireSameOrigin(request);
     if (csrfError) {
       return csrfError;
@@ -38,14 +49,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let body: BatchRequestBody;
-    try {
-      body = (await request.json()) as BatchRequestBody;
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    const parsedBody = await parseJsonBody<BatchRequestBody>(request);
+    if (!parsedBody.ok) {
+      return parsedBody.response;
     }
 
+    const body = parsedBody.data;
+
     const urls = normalizeUrlList(body.urls);
+    const skipRefresh = body.skipRefresh === true;
     if (urls.length === 0) {
       return NextResponse.json([]);
     }
@@ -80,6 +92,7 @@ export async function POST(request: NextRequest) {
       db,
       user.userId,
       normalizedUrls,
+      { skipRefresh },
     );
 
     const results = normalizedUrls.map((normalizedUrl) => ({

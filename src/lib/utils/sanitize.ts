@@ -2,11 +2,129 @@ import { CONFIG } from "@/lib/config";
 import sanitizeHtml from "sanitize-html";
 
 /**
+ * Class-name fragments used by AP News (and similar wire-service feeds) to
+ * wrap "related articles" / "hub-peek" sections.  These blocks survive generic
+ * sanitization because their inner content uses otherwise-allowed tags
+ * (h2, ul, li, a).  We strip the entire element – including its subtree –
+ * before running sanitize-html so no stray headings or link lists appear in
+ * the rendered article body.
+ *
+ * Patterns are matched against the element's `class` attribute (case-insensitive).
+ */
+const AP_JUNK_CLASS_PATTERN =
+  /(?:hub[\s_-]?peek|related[\s_-]?stories|related[\s_-]?content|related[\s_-]?links|more[\s_-]?on|tag[\s_-]?page|inline[\s_-]?module)/i;
+
+/**
+ * Strips AP-style related-article / sidebar blocks from raw HTML before the
+ * main sanitizer runs.  Removes block-level elements whose `class` attribute
+ * matches {@link AP_JUNK_CLASS_PATTERN} plus all of their inner HTML.
+ */
+function stripApJunkBlocks(html: string): string {
+  // Match common block wrappers: div, section, aside, nav, ul, figure.
+  return html
+    .replace(
+      /<(div|section|aside|nav|ul|figure)(\s[^>]*)?>/gi,
+      (openTag, tagName: string, attrs: string = "") => {
+        if (AP_JUNK_CLASS_PATTERN.test(attrs)) {
+          // Replace the opening tag with a sentinel comment so we can slice out
+          // everything up to (and including) the matching closing tag.
+          return `<!--STRIP_${tagName.toUpperCase()}-->`;
+        }
+        return openTag;
+      },
+    )
+    .replace(
+      /<!--STRIP_(DIV|SECTION|ASIDE|NAV|UL|FIGURE)-->(?:[\s\S]*?)<\/\1>/gi,
+      "",
+    );
+}
+
+/**
+ * Heading text patterns that indicate a related-articles / widget section
+ * injected by wire services (AP, Reuters, etc.) into article bodies.
+ */
+const RELATED_HEADING_PATTERN =
+  /^\s*(?:more\s+on|related(?:\s+(?:stories|articles|content|links|news))?|see\s+also|also\s+(?:of\s+interest|read)|you\s+may\s+(?:also\s+)?like|trending\s+now|popular\s+now|from\s+our\s+partners)\b/i;
+
+/**
+ * Post-sanitize pass that removes orphaned related-article sections from
+ * already-sanitized HTML.
+ *
+ * When content was stored before {@link stripApJunkBlocks} was introduced the
+ * sanitizer stripped the wrapper `<div class="hub-peek">` but kept its inner
+ * `<h2>`, `<ul>/<li>/<a>` children because those are all in the tag allowlist.
+ * This function detects the resulting pattern – a heading whose text matches
+ * {@link RELATED_HEADING_PATTERN} followed (optionally with whitespace) by a
+ * `<ul>` or `<ol>` – and removes both the heading and the list.
+ */
+function stripOrphanedRelatedBlocks(html: string): string {
+  // Step 1 – heading + immediately following list.
+  // The \s* between the closing heading tag and <ul>/<ol> handles cases where
+  // the sanitizer left a newline or space between them.
+  let result = html.replace(
+    /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
+    (match, headingText: string) =>
+      RELATED_HEADING_PATTERN.test(headingText) ? "" : match,
+  );
+
+  // Step 2 – stray heading with no following list (can be left behind if the
+  // list was already removed or appears at the very end of the content).
+  result = result.replace(
+    /<h[1-6]>([^<]*)<\/h[1-6]>/gi,
+    (match, headingText: string) =>
+      RELATED_HEADING_PATTERN.test(headingText) ? "" : match,
+  );
+
+  return collapseExcessNewlines(result);
+}
+
+/**
+ * Collapses runs of more than
+ * {@link CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES} consecutive blank lines
+ * in sanitized HTML.
+ * Handles raw `\n` sequences, consecutive `<br>` tags, and consecutive
+ * empty `<p>` elements so the rendered article never has large vertical gaps.
+ */
+function collapseExcessNewlines(html: string): string {
+  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+  const minOverflowRun = maxConsecutiveBlankLines + 1;
+
+  return (
+    html
+      // Normalize CRLF/CR to LF so newline collapsing is deterministic.
+      .replace(/\r\n?/g, "\n")
+      // N+1 consecutive <br> tags (with optional whitespace between) → N.
+      .replace(
+        new RegExp(`((?:<br\\s*\\/?>[\\s\\n]*){${minOverflowRun},})`, "gi"),
+        "<br>".repeat(maxConsecutiveBlankLines),
+      )
+      // N+1 consecutive blank paragraphs (empty, nbsp, or <br>-only) → N.
+      .replace(
+        new RegExp(
+          `((?:<p>(?:\\s|&nbsp;|&#160;|<br\\s*\\/?>)*<\\/p>\\s*){${minOverflowRun},})`,
+          "gi",
+        ),
+        "<p></p>".repeat(maxConsecutiveBlankLines),
+      )
+      // N+1 raw newlines (optionally separated by spaces/tabs) → N.
+      .replace(
+        new RegExp(`(?:\\n[ \\t]*){${minOverflowRun},}`, "g"),
+        "\n".repeat(maxConsecutiveBlankLines),
+      )
+      // N+1 whitespace-only lines (spaces/tabs before newline) → N.
+      .replace(
+        new RegExp(`(?:[ \\t]*\\n){${minOverflowRun},}`, "g"),
+        "\n".repeat(maxConsecutiveBlankLines),
+      )
+  );
+}
+
+/**
  * Shared sanitize-html options for all article / RSS content.
  * Used by the RSS feed fetcher, manual article POST endpoint, and article
  * extractor so every write path enforces the same tag-allowlist.
  */
-export const ARTICLE_SANITIZE_OPTIONS = {
+const ARTICLE_SANITIZE_OPTIONS = {
   allowedTags: [
     "p",
     "br",
@@ -29,8 +147,19 @@ export const ARTICLE_SANITIZE_OPTIONS = {
     "u",
     "a",
     "hr",
+  ],
+  // figure/figcaption, aside, nav, section are discarded along with their
+  // text so that image captions, sidebars, and related-article blocks don't
+  // appear in place of article body text.
+  nonTextTags: [
     "figure",
     "figcaption",
+    "style",
+    "script",
+    "textarea",
+    "aside",
+    "nav",
+    "section",
   ],
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
@@ -51,6 +180,12 @@ export const ARTICLE_SANITIZE_OPTIONS = {
 };
 
 /**
+ * Exported for use when serving already-stored article content that may have
+ * been saved before the pre-sanitize AP-block stripping was introduced.
+ */
+export { stripOrphanedRelatedBlocks };
+
+/**
  * Strips all HTML tags that are not in the allowed set and forces links to
  * open safely (`rel="noopener noreferrer nofollow"`, `target="_blank"`).
  *
@@ -58,7 +193,11 @@ export const ARTICLE_SANITIZE_OPTIONS = {
  */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
-  return sanitizeHtml(raw, ARTICLE_SANITIZE_OPTIONS).trim();
+  const sanitized = sanitizeHtml(
+    stripApJunkBlocks(raw),
+    ARTICLE_SANITIZE_OPTIONS,
+  );
+  return stripOrphanedRelatedBlocks(sanitized).trim();
 }
 
 /**

@@ -5,6 +5,23 @@
 
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
+/**
+ * Stable key used for case-insensitive category label comparisons.
+ */
+export function normalizeCategoryLabelKey(label?: string | null): string {
+  return label?.trim().toLowerCase() ?? "";
+}
+
+/**
+ * Compares category labels with consistent trimming/case-folding.
+ */
+export function isSameCategoryLabel(
+  left?: string | null,
+  right?: string | null,
+): boolean {
+  return normalizeCategoryLabelKey(left) === normalizeCategoryLabelKey(right);
+}
+
 const UNCATEGORIZED_VARIANTS = new Set([
   "uncategorized",
   "uncategorised",
@@ -26,21 +43,11 @@ export function normalizeCategory(label?: string | null): string {
     return DEFAULT_CATEGORY_LABEL;
   }
 
-  const lowercased = trimmed.toLowerCase();
+  const lowercased = normalizeCategoryLabelKey(trimmed);
 
   if (UNCATEGORIZED_VARIANTS.has(lowercased)) {
     return DEFAULT_CATEGORY_LABEL;
   }
 
   return trimmed;
-}
-
-/**
- * Checks if a category label represents the default/uncategorized category
- * @param label - Category label to check
- * @returns true if label represents uncategorized
- */
-export function isDefaultCategory(label?: string | null): boolean {
-  const normalized = normalizeCategory(label);
-  return normalized === DEFAULT_CATEGORY_LABEL;
 }

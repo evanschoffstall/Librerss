@@ -1,42 +1,23 @@
 // Main library exports - organized by domain
 
 // Core: types, constants, utilities, hooks
-export type {
-  Article,
-  AuthSession,
-  AuthUser,
-  CategoryTreeNode,
-  Feed,
-  FeedSource,
-  ItemProps,
-} from "./core/types";
+export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
 
-export { ENV } from "./core/utils";
+export { ENV } from "./config";
 
-export {
-  formatDate,
-  getTimeDifferenceInMinutes,
-  isClient,
-  isValidUrl,
-  truncateText,
-} from "./core/utils";
+export { formatRelativeDate } from "./utils/date-utils";
 
-export {
-  useDebugState,
-  useIsClient,
-  useLocalStorage,
-} from "./core/clientHooks";
+export { isValidUrl } from "./utils/url";
+
+export { useDebugState, useLocalStorage } from "./core/clientHooks";
 
 // API clients
 export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
 export {
-  cn,
   DEFAULT_CATEGORY_LABEL,
-  isDefaultCategory,
-  multiLine,
-  normalizeCategory,
-  parseOpmlFeedImport,
+  isSameCategoryLabel, normalizeCategory, normalizeCategoryLabelKey, parseOpmlFeedImport
 } from "./utils";
 export type { OpmlFeedImportEntry } from "./utils";
+

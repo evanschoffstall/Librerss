@@ -1,33 +1,12 @@
-export const getHostnameLabel = (url?: string) => {
-  if (!url) {
-    return "No source URL";
-  }
+import { getUrlHostnameLabel, tryGetUrlHostname } from "@/lib/utils/url";
 
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
-  }
-};
-
-const toHostname = (url?: string) => {
-  if (!url) {
-    return null;
-  }
-
-  try {
-    const hostname = new URL(url).hostname.trim().toLowerCase();
-    return hostname || null;
-  } catch {
-    return null;
-  }
-};
+export const getHostnameLabel = (url?: string) => getUrlHostnameLabel(url);
 
 const faviconIndexCache = new Map<string, number>();
 
 export const getFaviconCacheKey = (...urls: Array<string | undefined>) => {
   for (const url of urls) {
-    const hostname = toHostname(url);
+    const hostname = tryGetUrlHostname(url);
     if (hostname) {
       return hostname;
     }
@@ -44,7 +23,10 @@ export const getCachedFaviconIndex = (cacheKey: string | null) => {
   return faviconIndexCache.get(cacheKey) ?? 0;
 };
 
-export const setCachedFaviconIndex = (cacheKey: string | null, index: number) => {
+export const setCachedFaviconIndex = (
+  cacheKey: string | null,
+  index: number,
+) => {
   if (!cacheKey) {
     return;
   }
@@ -83,7 +65,7 @@ const getProviderCandidates = (hostname: string) => [
 ];
 
 export const getFaviconCandidates = (url?: string) => {
-  const hostname = toHostname(url);
+  const hostname = tryGetUrlHostname(url);
   if (!hostname) {
     return [];
   }
