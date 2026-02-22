@@ -1,13 +1,14 @@
-import { parseJsonBody } from "@/lib/api/request";
+import { parseJsonBodyOrResponse } from "@/lib/api/request";
 import {
   jsonError,
   logAndRespondError,
-  requireAuthenticatedUser,
+  requireMutableAuthenticatedUser,
 } from "@/lib/api/route-helpers";
-import { requireSameOrigin } from "@/lib/auth/csrf";
 import { CONFIG } from "@/lib/config";
-import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
-import { rateLimiter } from "@/lib/utils/rate-limit";
+import {
+  isAllowedFeedUrl,
+  PUBLIC_FEED_URL_ERROR,
+} from "@/lib/core/feedFetcher";
 import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
@@ -19,21 +20,20 @@ export const runtime = "nodejs";
 async function parseAndValidateArticleUrl(
   request: NextRequest,
 ): Promise<string | Response> {
-  const parsedBody = await parseJsonBody<{ url?: string }>(request);
-  if (!parsedBody.ok) {
-    return parsedBody.response;
+  const payloadOrResponse = await parseJsonBodyOrResponse<{ url?: string }>(
+    request,
+  );
+  if (payloadOrResponse instanceof Response) {
+    return payloadOrResponse;
   }
 
-  const articleUrl = parsedBody.data?.url?.trim() ?? "";
+  const articleUrl = payloadOrResponse.url?.trim() ?? "";
   if (!articleUrl) {
     return jsonError("Article URL is required", 400);
   }
 
   if (!(await isAllowedFeedUrl(articleUrl))) {
-    return jsonError(
-      "Article URL must use http or https and resolve to a public host",
-      400,
-    );
+    return jsonError(PUBLIC_FEED_URL_ERROR, 400);
   }
 
   return articleUrl;
@@ -100,21 +100,13 @@ async function fetchHtmlWithValidatedRedirects(url: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting — this endpoint makes outbound HTTP requests per call.
-    const rateLimitError = rateLimiter.check(request, "article-extract", {
-      windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
-      maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
+    const authResult = await requireMutableAuthenticatedUser(request, {
+      rateLimit: {
+        key: "article-extract",
+        windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
+        maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
+      },
     });
-    if (rateLimitError) {
-      return rateLimitError;
-    }
-
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
-    }
-
-    const authResult = await requireAuthenticatedUser(request);
     if (authResult instanceof Response) {
       return authResult;
     }

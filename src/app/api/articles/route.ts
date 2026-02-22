@@ -1,15 +1,15 @@
 import {
   asTrimmedString,
   parseDateInput,
-  parseJsonBody,
+  parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/request";
 import {
   jsonError,
   logAndRespondError,
   requireAuthenticatedUser,
+  requireMutableAuthenticatedUser,
 } from "@/lib/api/route-helpers";
-import { requireSameOrigin } from "@/lib/auth/csrf";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
@@ -142,23 +142,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    const user = await requireMutableAuthenticatedUser(request);
+    if (user instanceof Response) {
+      return user;
     }
 
-    const authResult = await requireAuthenticatedUser(request);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-    const user = authResult;
-
-    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
+    const payloadOrResponse =
+      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    if (payloadOrResponse instanceof Response) {
+      return payloadOrResponse;
     }
 
-    const parsedPayload = parseCreateArticlePayload(parsedBody.data);
+    const parsedPayload = parseCreateArticlePayload(payloadOrResponse);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }
