@@ -9,13 +9,17 @@ import {
   FeedService,
   isValidUrl,
   normalizeCategory,
+  type Article,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
-  type Article,
 } from "@/lib";
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { flattenCategoryFeeds, normalizeLabel, relocateFeedInCategories } from "../helpers";
+import {
+  flattenCategoryFeeds,
+  normalizeLabel,
+  relocateFeedInCategories,
+} from "../helpers/helpers";
 
 interface UseFeedSourceActionsOptions {
   categories: CategoryTreeNode[];
@@ -42,7 +46,9 @@ export function useFeedSourceActions({
 }: UseFeedSourceActionsOptions) {
   const selectFeedByKey = useCallback(
     (feedKey: string) => {
-      const sourceNode = flattenCategoryFeeds(categories).find((item) => item.key === feedKey);
+      const sourceNode = flattenCategoryFeeds(categories).find(
+        (item) => item.key === feedKey,
+      );
       if (!sourceNode?.data?.url) return;
       setSelectedCategory(sourceNode.key);
       void fetchFeed(sourceNode.data.url);
@@ -91,16 +97,25 @@ export function useFeedSourceActions({
 
   const removeFeedSource = useCallback(
     async (key: string) => {
-      const selectedNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
+      const selectedNode = flattenCategoryFeeds(categories).find(
+        (node) => node.key === key,
+      );
       const sourceId = selectedNode?.data?.sourceId;
 
-      if (typeof sourceId !== "number" || !Number.isInteger(sourceId) || sourceId <= 0) return;
+      if (
+        typeof sourceId !== "number" ||
+        !Number.isInteger(sourceId) ||
+        sourceId <= 0
+      )
+        return;
 
       try {
         await FeedService.deleteFeedSource(sourceId);
         const nextCategories = await loadFeedSources();
         const nextAvailable = flattenCategoryFeeds(nextCategories);
-        const selectedCategoryNode = nextCategories.find((node) => node.key === selectedCategory);
+        const selectedCategoryNode = nextCategories.find(
+          (node) => node.key === selectedCategory,
+        );
 
         if (nextAvailable.length === 0) {
           setSelectedCategory("");
@@ -132,7 +147,9 @@ export function useFeedSourceActions({
 
   const renameFeedSource = useCallback(
     async (key: string, nextName: string) => {
-      const selectedNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
+      const selectedNode = flattenCategoryFeeds(categories).find(
+        (node) => node.key === key,
+      );
       const sourceId = selectedNode?.data?.sourceId;
       const normalizedName = nextName.trim();
 
@@ -141,7 +158,11 @@ export function useFeedSourceActions({
         return false;
       }
 
-      if (typeof sourceId !== "number" || !Number.isInteger(sourceId) || sourceId <= 0) {
+      if (
+        typeof sourceId !== "number" ||
+        !Number.isInteger(sourceId) ||
+        sourceId <= 0
+      ) {
         toast.error("Unable to rename this feed.");
         return false;
       }
@@ -168,15 +189,25 @@ export function useFeedSourceActions({
       const sourceCategoryNode = categories.find((cat) =>
         (cat.children ?? []).some((node) => node.key === key),
       );
-      const sourceNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
+      const sourceNode = flattenCategoryFeeds(categories).find(
+        (node) => node.key === key,
+      );
 
       if (!sourceCategoryNode || !sourceNode) return;
 
       setCategories((prev) =>
-        relocateFeedInCategories(prev, key, normalizedTargetCategory, targetIndex),
+        relocateFeedInCategories(
+          prev,
+          key,
+          normalizedTargetCategory,
+          targetIndex,
+        ),
       );
 
-      if (normalizeLabel(sourceCategoryNode.label) === normalizeLabel(normalizedTargetCategory)) {
+      if (
+        normalizeLabel(sourceCategoryNode.label) ===
+        normalizeLabel(normalizedTargetCategory)
+      ) {
         return;
       }
 
@@ -269,8 +300,8 @@ export function useFeedSourceActions({
             (node) => node.data?.url === previousSelectedSourceUrl,
           )
         : null;
-      const importedSelection = flattenCategoryFeeds(nextCategories).find((node) =>
-        successfulUrls.includes(node.data?.url ?? ""),
+      const importedSelection = flattenCategoryFeeds(nextCategories).find(
+        (node) => successfulUrls.includes(node.data?.url ?? ""),
       );
       const nextSelection = importedSelection ?? restoredSelection;
 
@@ -285,7 +316,13 @@ export function useFeedSourceActions({
           : `Imported ${importedCount} feeds from OPML.`,
       );
     },
-    [categories, selectedCategory, loadFeedSources, setSelectedCategory, fetchFeed],
+    [
+      categories,
+      selectedCategory,
+      loadFeedSources,
+      setSelectedCategory,
+      fetchFeed,
+    ],
   );
 
   return {

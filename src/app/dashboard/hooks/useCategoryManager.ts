@@ -5,10 +5,15 @@
  * Feed-source CRUD lives in useFeedSourceActions.
  */
 
-import { FeedService, normalizeCategory, type CategoryTreeNode, type Article } from "@/lib";
+import {
+  FeedService,
+  normalizeCategory,
+  type Article,
+  type CategoryTreeNode,
+} from "@/lib";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { flattenCategoryFeeds, normalizeLabel } from "../helpers";
+import { flattenCategoryFeeds, normalizeLabel } from "../helpers/helpers";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
 interface UseCategoryManagerOptions {
@@ -32,22 +37,32 @@ export function useCategoryManager({
   fetchFeed,
   fetchCategoryFeeds,
 }: UseCategoryManagerOptions) {
-  const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
-  const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>([]);
-  const [pendingCategoryRemovalLabel, setPendingCategoryRemovalLabel] = useState<string | null>(null);
+  const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>(
+    [],
+  );
+  const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>(
+    [],
+  );
+  const [pendingCategoryRemovalLabel, setPendingCategoryRemovalLabel] =
+    useState<string | null>(null);
 
   const ensureCategoryLabelExists = useCallback(
     (label: string) => {
       const normalized = normalizeLabel(label);
 
       setCustomCategoryLabels((current) => {
-        if (current.some((l) => normalizeLabel(l) === normalized)) return current;
-        if (categories.some((node) => normalizeLabel(node.label) === normalized)) return current;
+        if (current.some((l) => normalizeLabel(l) === normalized))
+          return current;
+        if (
+          categories.some((node) => normalizeLabel(node.label) === normalized)
+        )
+          return current;
         return [...current, label];
       });
 
       setOrderedCategoryLabels((current) => {
-        if (current.some((l) => normalizeLabel(l) === normalized)) return current;
+        if (current.some((l) => normalizeLabel(l) === normalized))
+          return current;
         return [...current, label];
       });
     },
@@ -93,7 +108,9 @@ export function useCategoryManager({
 
   const assignFeedsToCategory = useCallback(
     async (feedNodes: CategoryTreeNode[], targetCategory: string) => {
-      const transferableFeeds = feedNodes.filter((node) => Boolean(node.data?.url));
+      const transferableFeeds = feedNodes.filter((node) =>
+        Boolean(node.data?.url),
+      );
       if (transferableFeeds.length === 0) return;
 
       await Promise.all(
@@ -119,7 +136,8 @@ export function useCategoryManager({
         return false;
       }
 
-      if (normalizeLabel(normalizedCurrent) === normalizeLabel(normalizedNext)) return false;
+      if (normalizeLabel(normalizedCurrent) === normalizeLabel(normalizedNext))
+        return false;
 
       const allLabels = new Set([
         ...categories.map((node) => normalizeLabel(node.label)),
@@ -132,7 +150,8 @@ export function useCategoryManager({
       }
 
       const categoryNode = categories.find(
-        (node) => normalizeLabel(node.label) === normalizeLabel(normalizedCurrent),
+        (node) =>
+          normalizeLabel(node.label) === normalizeLabel(normalizedCurrent),
       );
       const feedsInCategory = categoryNode?.children ?? [];
       const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
@@ -149,17 +168,22 @@ export function useCategoryManager({
 
         setCustomCategoryLabels((current) =>
           current.map((label) =>
-            normalizeLabel(label) === normalizeLabel(normalizedCurrent) ? normalizedNext : label,
+            normalizeLabel(label) === normalizeLabel(normalizedCurrent)
+              ? normalizedNext
+              : label,
           ),
         );
         setOrderedCategoryLabels((current) =>
           current.map((label) =>
-            normalizeLabel(label) === normalizeLabel(normalizedCurrent) ? normalizedNext : label,
+            normalizeLabel(label) === normalizeLabel(normalizedCurrent)
+              ? normalizedNext
+              : label,
           ),
         );
 
         if (previousSelectedSourceUrl) {
-          if (!refreshedCategories) refreshedCategories = await loadFeedSources();
+          if (!refreshedCategories)
+            refreshedCategories = await loadFeedSources();
           const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
             (node) => node.data?.url === previousSelectedSourceUrl,
           );
@@ -184,21 +208,26 @@ export function useCategoryManager({
     ],
   );
 
-  const moveCategoryByDrop = useCallback(async (label: string, targetIndex: number) => {
-    setOrderedCategoryLabels((current) => {
-      const currentIndex = current.findIndex(
-        (l) => normalizeLabel(l) === normalizeLabel(label),
-      );
-      if (currentIndex < 0) return current;
-      const next = [...current];
-      const [moved] = next.splice(currentIndex, 1);
-      const safeTargetIndex = Math.max(0, Math.min(targetIndex, next.length));
-      const insertionIndex =
-        currentIndex < safeTargetIndex ? safeTargetIndex - 1 : safeTargetIndex;
-      next.splice(insertionIndex, 0, moved);
-      return next;
-    });
-  }, []);
+  const moveCategoryByDrop = useCallback(
+    async (label: string, targetIndex: number) => {
+      setOrderedCategoryLabels((current) => {
+        const currentIndex = current.findIndex(
+          (l) => normalizeLabel(l) === normalizeLabel(label),
+        );
+        if (currentIndex < 0) return current;
+        const next = [...current];
+        const [moved] = next.splice(currentIndex, 1);
+        const safeTargetIndex = Math.max(0, Math.min(targetIndex, next.length));
+        const insertionIndex =
+          currentIndex < safeTargetIndex
+            ? safeTargetIndex - 1
+            : safeTargetIndex;
+        next.splice(insertionIndex, 0, moved);
+        return next;
+      });
+    },
+    [],
+  );
 
   const removeCategory = useCallback(
     async (label: string) => {
@@ -208,7 +237,10 @@ export function useCategoryManager({
       const feedsInCategory = categoryNode?.children ?? [];
 
       if (feedsInCategory.length > 0) {
-        if (normalizeLabel(pendingCategoryRemovalLabel ?? "") !== normalizeLabel(label)) {
+        if (
+          normalizeLabel(pendingCategoryRemovalLabel ?? "") !==
+          normalizeLabel(label)
+        ) {
           setPendingCategoryRemovalLabel(label);
           return false;
         }
@@ -231,9 +263,9 @@ export function useCategoryManager({
         try {
           await assignFeedsToCategory(feedsInCategory, targetCategory);
           const refreshedCategories = await loadFeedSources();
-          const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-            (node) => node.key === selectedCategory,
-          )?.data?.url;
+          const previousSelectedSourceUrl = flattenCategoryFeeds(
+            categories,
+          ).find((node) => node.key === selectedCategory)?.data?.url;
 
           if (previousSelectedSourceUrl) {
             const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
@@ -243,7 +275,9 @@ export function useCategoryManager({
           }
 
           setPendingCategoryRemovalLabel(null);
-          toast.success(`Category removed. Feeds moved to "${targetCategory}".`);
+          toast.success(
+            `Category removed. Feeds moved to "${targetCategory}".`,
+          );
           return true;
         } catch (err) {
           console.error("Remove category error:", err);

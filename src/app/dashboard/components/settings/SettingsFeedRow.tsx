@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
 import { motion } from "framer-motion";
 import { GripVertical, Loader2, Trash2 } from "lucide-react";
-import { IconBtn } from "./IconBtn";
+import { IconBtn } from "./SettingsIconBtn";
 
 interface FeedRowProps {
   feedNode: CategoryTreeNode;

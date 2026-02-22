@@ -24,9 +24,9 @@ import { Loader2 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
-import { FeedList } from "./components/FeedList";
-import { LoginView } from "./components/LoginView";
-import { SettingsModal } from "./components/SettingsModal";
+import { FeedList } from "./components/feed/FeedList";
+import { LoginView } from "./components/login/LoginView";
+import { SettingsModal } from "./components/settings/SettingsModal";
 import {
   ALL_FEEDS_NODE_KEY,
   DEFAULT_FEED_URL,
@@ -39,7 +39,7 @@ import {
   panelMotion,
   SYSTEM_ALL_FEEDS_CATEGORY,
   toCategoryKey,
-} from "./helpers";
+} from "./helpers/helpers";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useFeedLoader } from "./hooks/useFeedLoader";
@@ -352,9 +352,8 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <ScrollArea
-            className={`h-full transition-opacity duration-300 ease-out ${
-              isSidebarVisible ? "opacity-100" : "opacity-0"
-            }`}
+            className={`h-full transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
+              }`}
           >
             <DashboardSidebarContent {...sidebarProps} />
           </ScrollArea>
@@ -374,11 +373,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
                 key={value}
                 type="button"
                 onClick={() => setArticleFilter(value)}
-                className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${
-                  articleFilter === value
-                    ? "bg-muted/70 text-foreground"
-                    : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
-                }`}
+                className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${articleFilter === value
+                  ? "bg-muted/70 text-foreground"
+                  : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
+                  }`}
               >
                 {value}
               </button>

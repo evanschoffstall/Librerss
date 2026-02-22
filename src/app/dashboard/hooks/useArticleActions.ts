@@ -3,7 +3,7 @@
 import { ArticleService, isValidUrl, type Article } from "@/lib";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getArticleKey } from "../helpers";
+import { getArticleKey } from "../helpers/helpers";
 
 interface UseArticleActionsOptions {
   feed: Article[];
@@ -20,9 +20,15 @@ export function useArticleActions({
   setExpandedArticleKey,
   articleFilter,
 }: UseArticleActionsOptions) {
-  const [updatingArticleState, setUpdatingArticleState] = useState<Record<string, boolean>>({});
-  const [hydratedArticleLinks, setHydratedArticleLinks] = useState<Record<string, boolean>>({});
-  const [hydratingArticleLinks, setHydratingArticleLinks] = useState<Record<string, boolean>>({});
+  const [updatingArticleState, setUpdatingArticleState] = useState<
+    Record<string, boolean>
+  >({});
+  const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
+    Record<string, boolean>
+  >({});
+  const [hydratingArticleLinks, setHydratingArticleLinks] = useState<
+    Record<string, boolean>
+  >({});
   const hydratedArticleLinksRef = useRef(new Set<string>());
   const articleHydrationInFlightRef = useRef(new Set<string>());
   const expandedArticleKeyRef = useRef<string | null>(null);
@@ -36,8 +42,14 @@ export function useArticleActions({
         ? CSS.escape(articleKey)
         : articleKey.replace(/[\\"]/g, "\\$&");
 
-    const el = document.querySelector<HTMLElement>(`[data-article-key="${escapedKey}"]`);
-    el?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+    const el = document.querySelector<HTMLElement>(
+      `[data-article-key="${escapedKey}"]`,
+    );
+    el?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "auto",
+    });
   }, []);
 
   const setArticleReadState = useCallback(
@@ -48,7 +60,10 @@ export function useArticleActions({
     ) => {
       const articleKey = getArticleKey(article);
 
-      setUpdatingArticleState((current) => ({ ...current, [articleKey]: true }));
+      setUpdatingArticleState((current) => ({
+        ...current,
+        [articleKey]: true,
+      }));
       setFeed((currentFeed) =>
         currentFeed.map((a) =>
           getArticleKey(a) === articleKey ? { ...a, isRead: nextReadState } : a,
@@ -61,7 +76,9 @@ export function useArticleActions({
         console.error("Set read state error:", error);
         setFeed((currentFeed) =>
           currentFeed.map((a) =>
-            getArticleKey(a) === articleKey ? { ...a, isRead: article.isRead } : a,
+            getArticleKey(a) === articleKey
+              ? { ...a, isRead: article.isRead }
+              : a,
           ),
         );
         if (!options?.suppressErrorToast) {
@@ -91,7 +108,8 @@ export function useArticleActions({
       setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
 
       try {
-        const extractedContent = await ArticleService.extractArticleContent(link);
+        const extractedContent =
+          await ArticleService.extractArticleContent(link);
 
         if (!extractedContent) {
           hydratedArticleLinksRef.current.add(link);
@@ -101,7 +119,8 @@ export function useArticleActions({
         setFeed((currentFeed) =>
           currentFeed.map((a) => {
             if (a.link.trim() !== link) return a;
-            if ((extractedContent.length ?? 0) <= (a.content?.length ?? 0)) return a;
+            if ((extractedContent.length ?? 0) <= (a.content?.length ?? 0))
+              return a;
             return { ...a, content: extractedContent };
           }),
         );
@@ -127,7 +146,9 @@ export function useArticleActions({
       const nextArticleKey = getArticleKey(article);
       const shouldExpand = expandedArticleKey !== nextArticleKey;
 
-      setExpandedArticleKey((current) => (current === nextArticleKey ? null : nextArticleKey));
+      setExpandedArticleKey((current) =>
+        current === nextArticleKey ? null : nextArticleKey,
+      );
 
       if (!shouldExpand) return;
 
@@ -164,11 +185,16 @@ export function useArticleActions({
       const articleKey = getArticleKey(article);
       const nextStarredState = !article.isStarred;
 
-      setUpdatingArticleState((current) => ({ ...current, [articleKey]: true }));
+      setUpdatingArticleState((current) => ({
+        ...current,
+        [articleKey]: true,
+      }));
 
       setFeed((currentFeed) => {
         const updated = currentFeed.map((a) =>
-          getArticleKey(a) === articleKey ? { ...a, isStarred: nextStarredState } : a,
+          getArticleKey(a) === articleKey
+            ? { ...a, isStarred: nextStarredState }
+            : a,
         );
         if (articleFilter === "starred" && !nextStarredState) {
           return updated.filter((a) => getArticleKey(a) !== articleKey);
@@ -177,16 +203,23 @@ export function useArticleActions({
       });
 
       try {
-        await ArticleService.setArticleStarredState(article.id, nextStarredState);
+        await ArticleService.setArticleStarredState(
+          article.id,
+          nextStarredState,
+        );
       } catch (error) {
         console.error("Toggle starred state error:", error);
         setFeed((currentFeed) => {
           const reverted = currentFeed.map((a) =>
-            getArticleKey(a) === articleKey ? { ...a, isStarred: article.isStarred } : a,
+            getArticleKey(a) === articleKey
+              ? { ...a, isStarred: article.isStarred }
+              : a,
           );
 
           if (articleFilter === "starred" && article.isStarred) {
-            const alreadyPresent = reverted.some((a) => getArticleKey(a) === articleKey);
+            const alreadyPresent = reverted.some(
+              (a) => getArticleKey(a) === articleKey,
+            );
             if (!alreadyPresent) return [article, ...reverted];
           }
 

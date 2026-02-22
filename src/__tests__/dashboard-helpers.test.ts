@@ -4,7 +4,7 @@ import {
   dedupeAndSortArticles,
   relocateFeedInCategories,
   toCategoryKey,
-} from "@/app/dashboard/helpers";
+} from "@/app/dashboard/helpers/helpers";
 import type { Article, CategoryTreeNode } from "@/lib";
 
 function article(overrides: Partial<Article>): Article {

@@ -22,8 +22,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CategoryAccordionItem } from "./settings/CategoryAccordionItem";
-import { SettingsDisplaySection } from "./settings/SettingsDisplaySection";
+import { useSettingsDrag } from "../../hooks/use-settings-drag";
+import { CategoryAccordionItem } from "./SettingsCategoryAccordionItem";
+import { SettingsDisplaySection } from "./SettingsDisplaySection";
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -88,16 +89,9 @@ export const SettingsModal = ({
   const [editingFeedName, setEditingFeedName] = useState("");
   const [savingFeedKey, setSavingFeedKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
-  const [movingFeedKey, setMovingFeedKey] = useState<string | null>(null);
 
-  // ── Drag state ────────────────────────────────────────────────────────────
-  const [draggingFeedKey, setDraggingFeedKey] = useState<string | null>(null);
-  const [feedDropTarget, setFeedDropTarget] = useState<{
-    categoryLabel: string;
-    index: number;
-  } | null>(null);
-  const [draggingCategoryLabel, setDraggingCategoryLabel] = useState<string | null>(null);
-  const [categoryDropIndex, setCategoryDropIndex] = useState<number | null>(null);
+  // ── Drag state & handlers ─────────────────────────────────────────────────
+  const drag = useSettingsDrag({ onDropFeed, onDropCategory });
 
   // ── OPML ──────────────────────────────────────────────────────────────────
   const [isImportingOpml, setIsImportingOpml] = useState(false);
@@ -192,80 +186,6 @@ export const SettingsModal = ({
     }
   };
 
-  // ── Feed drag handlers ────────────────────────────────────────────────────
-
-  const handleFeedDragStart = (event: React.DragEvent<HTMLButtonElement>, key: string) => {
-    setDraggingFeedKey(key);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", key);
-  };
-
-  const handleFeedDragEnd = () => {
-    setDraggingFeedKey(null);
-    setFeedDropTarget(null);
-  };
-
-  const handleFeedDragOver = (
-    event: React.DragEvent<HTMLElement>,
-    categoryLabel: string,
-    index: number,
-  ) => {
-    if (!draggingFeedKey) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    setFeedDropTarget({ categoryLabel, index });
-  };
-
-  const handleFeedDrop = async (
-    event: React.DragEvent<HTMLElement>,
-    categoryLabel: string,
-    index: number,
-  ) => {
-    event.preventDefault();
-    const droppedKey = event.dataTransfer.getData("text/plain") || draggingFeedKey;
-    setFeedDropTarget(null);
-    if (!droppedKey) return;
-    setMovingFeedKey(droppedKey);
-    try {
-      await onDropFeed(droppedKey, categoryLabel, index);
-    } finally {
-      setMovingFeedKey(null);
-      setDraggingFeedKey(null);
-    }
-  };
-
-  // ── Category drag handlers ────────────────────────────────────────────────
-
-  const handleCategoryDragStart = (event: React.DragEvent<HTMLButtonElement>, label: string) => {
-    setDraggingCategoryLabel(label);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", label);
-  };
-
-  const handleCategoryDragEnd = () => {
-    setDraggingCategoryLabel(null);
-    setCategoryDropIndex(null);
-  };
-
-  const handleCategoryDragOver = (event: React.DragEvent<HTMLElement>, index: number) => {
-    if (!draggingCategoryLabel) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    setCategoryDropIndex(index);
-  };
-
-  const handleCategoryDrop = async (event: React.DragEvent<HTMLElement>, index: number) => {
-    event.preventDefault();
-    const droppedLabel = event.dataTransfer.getData("text/plain") || draggingCategoryLabel;
-    setCategoryDropIndex(null);
-    if (!droppedLabel) return;
-    try {
-      await onDropCategory(droppedLabel, index);
-    } finally {
-      setDraggingCategoryLabel(null);
-    }
-  };
-
   // ── OPML handlers ─────────────────────────────────────────────────────────
 
   const handleOpmlFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,13 +218,13 @@ export const SettingsModal = ({
     editingFeedName,
     savingFeedKey,
     deletingKey,
-    movingFeedKey,
-    draggingFeedKey,
-    feedDropTarget,
-    onFeedDragStart: handleFeedDragStart,
-    onFeedDragEnd: handleFeedDragEnd,
-    onFeedDragOver: handleFeedDragOver,
-    onFeedDrop: handleFeedDrop,
+    movingFeedKey: drag.movingFeedKey,
+    draggingFeedKey: drag.draggingFeedKey,
+    feedDropTarget: drag.feedDropTarget,
+    onFeedDragStart: drag.onFeedDragStart,
+    onFeedDragEnd: drag.onFeedDragEnd,
+    onFeedDragOver: drag.onFeedDragOver,
+    onFeedDrop: drag.onFeedDrop,
     onSelectFeed,
     onEditingFeedNameChange: setEditingFeedName,
     onSaveFeedRename: (key: string) => void handleSaveFeedRename(key),
@@ -468,11 +388,11 @@ export const SettingsModal = ({
                             editingCategory={editingCategory}
                             editingCategoryName={editingCategoryName}
                             savingCategoryLabel={savingCategoryLabel}
-                            categoryDropIndex={categoryDropIndex}
-                            onCategoryDragStart={handleCategoryDragStart}
-                            onCategoryDragEnd={handleCategoryDragEnd}
-                            onCategoryDragOver={handleCategoryDragOver}
-                            onCategoryDrop={handleCategoryDrop}
+                            categoryDropIndex={drag.categoryDropIndex}
+                            onCategoryDragStart={drag.onCategoryDragStart}
+                            onCategoryDragEnd={drag.onCategoryDragEnd}
+                            onCategoryDragOver={drag.onCategoryDragOver}
+                            onCategoryDrop={drag.onCategoryDrop}
                             onEditingCategoryNameChange={setEditingCategoryName}
                             onSaveCategoryRename={(label) => void handleSaveCategoryRename(label)}
                             onCancelCategoryEdit={() => {
@@ -499,17 +419,16 @@ export const SettingsModal = ({
                           />
                         ))}
 
-                        {draggingCategoryLabel && (
+                        {drag.draggingCategoryLabel && (
                           <div
-                            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${
-                              categoryDropIndex === categories.length
-                                ? "border-primary bg-primary/5 text-foreground"
-                                : "text-muted-foreground"
-                            }`}
+                            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${drag.categoryDropIndex === categories.length
+                              ? "border-primary bg-primary/5 text-foreground"
+                              : "text-muted-foreground"
+                              }`}
                             onDragOver={(event) =>
-                              handleCategoryDragOver(event, categories.length)
+                              drag.onCategoryDragOver(event, categories.length)
                             }
-                            onDrop={(event) => handleCategoryDrop(event, categories.length)}
+                            onDrop={(event) => drag.onCategoryDrop(event, categories.length)}
                           >
                             Drop category here
                           </div>
