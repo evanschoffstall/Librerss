@@ -1,8 +1,8 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
+import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { isValidUrl } from "@/lib/core/utils";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
@@ -10,6 +10,7 @@ import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
 } from "@/lib/utils/sanitize";
+import { isValidUrl } from "@/lib/utils/url";
 import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -108,6 +109,14 @@ export async function POST(request: NextRequest) {
     if (!link || !isValidUrl(link)) {
       return NextResponse.json(
         { error: "A valid article link is required" },
+        { status: 400 },
+      );
+    }
+
+    // SSRF guard — reject links that resolve to private/internal addresses.
+    if (!(await isAllowedFeedUrl(link))) {
+      return NextResponse.json(
+        { error: "Article link must resolve to a public host" },
         { status: 400 },
       );
     }

@@ -1,7 +1,9 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { logger } from "@/lib/utils/logger";
+import { rateLimiter } from "@/lib/utils/rate-limit";
 import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
 import { extract } from "@extractus/article-extractor";
 import { NextRequest, NextResponse } from "next/server";
@@ -32,6 +34,15 @@ function sanitizeExtractedContent(rawContent: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting — this endpoint makes outbound HTTP requests per call.
+    const rateLimitError = rateLimiter.check(request, "article-extract", {
+      windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
+      maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
+    });
+    if (rateLimitError) {
+      return rateLimitError;
+    }
+
     const csrfError = requireSameOrigin(request);
     if (csrfError) {
       return csrfError;
@@ -91,9 +102,10 @@ export async function POST(request: NextRequest) {
     logger.error("Article extract error", {
       error: error instanceof Error ? error : new Error(String(error)),
     });
+    // 502 Bad Gateway — the failure is in the upstream site, not this server.
     return NextResponse.json(
       { error: "Unable to extract article" },
-      { status: 500 },
+      { status: 502 },
     );
   }
 }
