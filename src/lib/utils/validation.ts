@@ -1,4 +1,5 @@
 import { CONFIG } from "@/lib/config";
+import { truncateText } from "@/lib/core/utils";
 
 /**
  * Validates email addresses using RFC-compliant regex
@@ -41,24 +42,14 @@ export function isStrongPassword(password: string): boolean {
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>[\]\\/'`~;_\-+=]/.test(password);
 
   // Require at least 3 of 4 character types
-  const complexityCount = [hasUpperCase, hasLowerCase, hasNumber, hasSpecial]
-    .filter(Boolean).length;
+  const complexityCount = [
+    hasUpperCase,
+    hasLowerCase,
+    hasNumber,
+    hasSpecial,
+  ].filter(Boolean).length;
 
   return complexityCount >= CONFIG.PASSWORD_COMPLEXITY_REQUIRED_TYPES;
-}
-
-/**
- * Truncates text to maximum length and adds ellipsis
- * @param text - Text to truncate
- * @param maxLength - Maximum length
- * @returns Truncated text
- */
-export function truncateText(text: string, maxLength: number): string {
-  if (!text || text.length <= maxLength) {
-    return text;
-  }
-
-  return text.substring(0, maxLength) + "...";
 }
 
 /**
