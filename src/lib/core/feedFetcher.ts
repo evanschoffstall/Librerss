@@ -8,7 +8,7 @@
 
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
-import { articles, feeds, feedSources } from "@/lib/db/schema";
+import { articleStatuses, articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import {
   sanitizeAndTruncateArticleContent,
@@ -182,6 +182,8 @@ type ArticleRow = {
   publicationDate: Date;
   feedId: number;
   lastChecked: Date;
+  isRead: boolean;
+  isStarred: boolean;
 };
 
 /** Returned when the authenticated user doesn't own the requested feed source. */
@@ -462,19 +464,33 @@ export async function fetchAndCacheFeedArticlesBatch(
     publicationDate: unknown;
     feedId: unknown;
     lastChecked: unknown;
+    isRead: unknown;
+    isStarred: unknown;
   };
   const queryResult = await db.execute<RankedRow>(sql`
     SELECT id, title, link, content,
            publication_date AS "publicationDate",
            feed_id          AS "feedId",
-           last_checked     AS "lastChecked"
+           last_checked     AS "lastChecked",
+           "isRead",
+           "isStarred"
     FROM (
-      SELECT id, title, link, content, publication_date, feed_id, last_checked,
+      SELECT a.id,
+             a.title,
+             a.link,
+             a.content,
+             a.publication_date,
+             a.feed_id,
+             a.last_checked,
+             COALESCE(s.is_read, false) AS "isRead",
+             COALESCE(s.is_starred, false) AS "isStarred",
              ROW_NUMBER() OVER (
-               PARTITION BY feed_id ORDER BY publication_date DESC
+               PARTITION BY a.feed_id ORDER BY a.publication_date DESC
              ) AS rn
-      FROM "Article"
-      WHERE feed_id IN (${sql.join(
+      FROM "Article" a
+      LEFT JOIN "ArticleStatus" s
+        ON s.article_id = a.id AND s.user_id = ${userId}
+      WHERE a.feed_id IN (${sql.join(
         feedIds.map((id) => sql`${id}`),
         sql`, `,
       )})
@@ -510,6 +526,8 @@ export async function fetchAndCacheFeedArticlesBatch(
       publicationDate: new Date(row.publicationDate as string | Date),
       feedId: Number(row.feedId),
       lastChecked: new Date(row.lastChecked as string | Date),
+      isRead: Boolean(row.isRead),
+      isStarred: Boolean(row.isStarred),
     });
   }
 
@@ -555,8 +573,17 @@ export async function fetchAndCacheFeedArticles(
       publicationDate: articles.publicationDate,
       feedId: articles.feedId,
       lastChecked: articles.lastChecked,
+      isRead: sql<boolean>`coalesce(${articleStatuses.isRead}, false)`,
+      isStarred: sql<boolean>`coalesce(${articleStatuses.isStarred}, false)`,
     })
     .from(articles)
+    .leftJoin(
+      articleStatuses,
+      and(
+        eq(articleStatuses.articleId, articles.id),
+        eq(articleStatuses.userId, userId),
+      ),
+    )
     .where(eq(articles.feedId, feed.id))
     .orderBy(desc(articles.publicationDate))
     .limit(CONFIG.MAX_ARTICLES_PER_FEED);
