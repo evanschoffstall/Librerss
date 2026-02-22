@@ -1,8 +1,8 @@
 "use client";
 
-import { useDebugState } from "../lib";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useDebugState } from "../lib";
 import "./components.css";
 
 export const DebugBorder = () => {
