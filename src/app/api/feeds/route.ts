@@ -19,8 +19,8 @@ import {
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_FEED_SOURCES,
-  RUNTIME_FLAGS,
-} from "@/lib/core/runtime";
+} from "@/lib/core/placeholder";
+import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { rateLimiter } from "@/lib/utils/rate-limit";
@@ -400,11 +400,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
-      return NextResponse.json(
-        {
-          error: `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
-        },
-        { status: 400 },
+      return jsonError(
+        `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
+        400,
       );
     }
 
