@@ -1,5 +1,7 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
+import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
@@ -11,10 +13,6 @@ type BatchFeedResult = {
   articles: unknown[];
   ok: boolean;
 };
-
-const MAX_BATCH_SIZE = 64;
-const FETCH_TIMEOUT_MS = 12000;
-const DEFAULT_CONCURRENCY = 8;
 
 function normalizeUrlList(urls: unknown): string[] {
   if (!Array.isArray(urls)) {
@@ -71,7 +69,10 @@ async function fetchFeedForUrl(
   endpoint.searchParams.set("url", url);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    CONFIG.FEED_REQUEST_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(endpoint.toString(), {
@@ -124,22 +125,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json([]);
     }
 
-    if (urls.length > MAX_BATCH_SIZE) {
+    if (urls.length > CONFIG.FEED_BATCH_MAX_URLS) {
       return NextResponse.json(
         {
-          error: `A maximum of ${MAX_BATCH_SIZE} feed URLs can be loaded at once`,
+          error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once`,
         },
         { status: 400 },
       );
     }
 
-    const results = await mapWithConcurrency(urls, DEFAULT_CONCURRENCY, (url) =>
-      fetchFeedForUrl(request, url),
+    const results = await mapWithConcurrency(
+      urls,
+      CONFIG.FEED_BATCH_CONCURRENCY,
+      (url) => fetchFeedForUrl(request, url),
     );
 
     return NextResponse.json(results);
   } catch (error) {
-    console.error("Feed batch fetch error:", error);
+    logger.error("Feed batch fetch error", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

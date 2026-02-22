@@ -3,6 +3,7 @@ import {
   clearSessionCookie,
   deleteSessionByToken,
 } from "@/lib/auth/session";
+import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireSameOrigin } from "@/lib/auth/csrf";
@@ -24,7 +25,9 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Logout error:", error);
+    logger.error("Logout error", {
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
