@@ -42,8 +42,14 @@ class Logger {
 
       // Partially redact email
       if (sanitized.email && typeof sanitized.email === "string") {
-        const [local, domain] = sanitized.email.split("@");
-        sanitized.email = `${local.substring(0, 2)}***@${domain}`;
+        const atIdx = sanitized.email.lastIndexOf("@");
+        if (atIdx > 0) {
+          const local = sanitized.email.slice(0, atIdx);
+          const domain = sanitized.email.slice(atIdx + 1);
+          sanitized.email = `${local.substring(0, 2)}***@${domain}`;
+        } else {
+          sanitized.email = "***";
+        }
       }
     }
 
