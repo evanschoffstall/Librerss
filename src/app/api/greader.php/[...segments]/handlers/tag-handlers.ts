@@ -13,9 +13,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
-} from "./article-statuses";
-import { TAG_MUTATIONS, MAX_STREAM_ITEMS } from "./constants";
-import { textResponse } from "./responses";
+} from "../helpers/article-status-helpers";
+import { TAG_MUTATIONS, MAX_STREAM_ITEMS } from "../constants";
+import { textResponse } from "../utils/responses";
 
 export async function handleMarkAllAsRead(
   user: SessionUser,

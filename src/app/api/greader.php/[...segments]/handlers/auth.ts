@@ -15,8 +15,8 @@ import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
-import { GOOGLE_LOGIN_PREFIX } from "./constants";
-import { textResponse } from "./responses";
+import { GOOGLE_LOGIN_PREFIX } from "../constants";
+import { textResponse } from "../utils/responses";
 
 type ClientLoginPayload = {
   email: string;

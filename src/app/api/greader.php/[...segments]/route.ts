@@ -1,8 +1,8 @@
 import { type SessionUser } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { handleClientLogin, requireGReaderUser } from "./auth";
-import { notFoundResponse, textResponse } from "./responses";
+import { handleClientLogin, requireGReaderUser } from "./handlers/auth";
+import { notFoundResponse, textResponse } from "./utils/responses";
 import {
   handleDisableTag,
   handleRenameTag,
@@ -10,17 +10,17 @@ import {
   handleSubscriptionList,
   handleSubscriptionQuickAdd,
   handleTagList,
-} from "./subscription";
+} from "./handlers/subscription-handlers";
 import {
   handleStreamContents,
   handleStreamItemContents,
   handleStreamItemIds,
-} from "./stream-handlers";
+} from "./handlers/stream-handlers";
 import {
   handleEditTag,
   handleMarkAllAsRead,
   handleUnreadCount,
-} from "./tag-handlers";
+} from "./handlers/tag-handlers";
 
 export const dynamic = "force-dynamic";
 
