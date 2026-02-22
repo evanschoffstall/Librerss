@@ -6,8 +6,8 @@ import { isValidUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { parseFormOrQueryParams } from "@/lib/api/request";
-import { textResponse } from "./responses";
-import { toReaderCategoryLabel, toReaderIconUrl } from "./mappers";
+import { textResponse } from "../utils/responses";
+import { toReaderCategoryLabel, toReaderIconUrl } from "../utils/mappers";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const db = getDb();

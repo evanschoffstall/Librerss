@@ -57,6 +57,7 @@ export function mapArticleAsItem(row: ListedArticle) {
     canonical: [{ href: row.link }],
     alternate: [{ href: row.link, type: "text/html" }],
     summary: { direction: "ltr", content: row.content },
+    content: [{ direction: "ltr", content: row.content }],
     origin: {
       streamId: `feed/${row.sourceUrl}`,
       title: row.sourceName,
