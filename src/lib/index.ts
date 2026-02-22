@@ -27,4 +27,5 @@ export { useDebugState, useIsClient } from "./core/clientHooks";
 export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
-export { cn, multiLine } from "./utils";
+export { cn, multiLine, parseOpmlFeedImport } from "./utils";
+export type { OpmlFeedImportEntry } from "./utils";

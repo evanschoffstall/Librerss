@@ -28,10 +28,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { CategoryTreeNode } from "@/src/lib";
+import {
+  parseOpmlFeedImport,
+  type CategoryTreeNode,
+  type OpmlFeedImportEntry,
+} from "@/src/lib";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 const IconBtn = ({
   tip,
@@ -67,6 +72,7 @@ interface SettingsModalProps {
   categories: CategoryTreeNode[];
   categoryOptions: string[];
   selectedCategory: string;
+  onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
   onSelectFeed: (key: string) => void;
   onMoveFeed: (key: string, direction: "up" | "down") => void;
   onMoveFeedToCategory: (key: string, categoryLabel: string) => Promise<void>;
@@ -83,6 +89,7 @@ export const SettingsModal = ({
   categories,
   categoryOptions,
   selectedCategory,
+  onImportOpml,
   onSelectFeed,
   onMoveFeed,
   onMoveFeedToCategory,
@@ -104,6 +111,8 @@ export const SettingsModal = ({
   const [movingFeedKey, setMovingFeedKey] = useState<string | null>(null);
   const [savingCategoryLabel, setSavingCategoryLabel] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [isImportingOpml, setIsImportingOpml] = useState(false);
+  const opmlInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!categoryOptions.includes(newFeedCategory)) {
@@ -165,6 +174,37 @@ export const SettingsModal = ({
     }
   };
 
+  const openOpmlPicker = () => {
+    opmlInputRef.current?.click();
+  };
+
+  const handleOpmlFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setIsImportingOpml(true);
+    try {
+      const content = await file.text();
+      const entries = parseOpmlFeedImport(content);
+
+      if (entries.length === 0) {
+        toast.error("No valid feeds found in this OPML file.");
+        return;
+      }
+
+      await onImportOpml(entries);
+    } catch (error) {
+      console.error("OPML import parse error:", error);
+      toast.error("Unable to import this OPML file.");
+    } finally {
+      setIsImportingOpml(false);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-3xl flex flex-col">
@@ -181,11 +221,37 @@ export const SettingsModal = ({
         >
           <div className="space-y-6 py-1">
             <section className="space-y-3">
-              <div>
-                <h3 className="text-sm font-medium">Feeds</h3>
-                <p className="text-xs text-muted-foreground">
-                  Manage categories, feeds, and ordering.
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-medium">Feeds</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Manage categories, feeds, and ordering.
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <input
+                    ref={opmlInputRef}
+                    type="file"
+                    accept=".opml,.xml,text/xml,application/xml"
+                    className="hidden"
+                    onChange={handleOpmlFileChange}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={openOpmlPicker}
+                    disabled={isImportingOpml}
+                  >
+                    {isImportingOpml ? (
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="mr-1.5 size-3.5" />
+                    )}
+                    Import OPML
+                  </Button>
+                </div>
               </div>
               <TooltipProvider delayDuration={300}>
                 {categories.length === 0 ? (
@@ -228,245 +294,245 @@ export const SettingsModal = ({
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2, ease: "easeOut", delay: categoryIndex * 0.02 }}
                         >
-                        <AccordionItem
-                          key={categoryNode.key}
-                          value={categoryNode.key}
-                          className="rounded-md border border-b px-0"
-                        >
-                          <div className="flex items-center gap-2 px-3">
-                            <AccordionTrigger className="flex-1 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground/70 hover:no-underline">
-                              {isEditing ? (
-                                <div
-                                  className="mr-2 flex flex-1 items-center gap-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Input
-                                    value={editingCategoryName}
-                                    onChange={(e) => setEditingCategoryName(e.target.value)}
-                                    className="h-7 text-xs"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") handleSaveCategoryRename(categoryNode.label);
-                                      if (e.key === "Escape") {
+                          <AccordionItem
+                            key={categoryNode.key}
+                            value={categoryNode.key}
+                            className="rounded-md border border-b px-0"
+                          >
+                            <div className="flex items-center gap-2 px-3">
+                              <AccordionTrigger className="flex-1 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground/70 hover:no-underline">
+                                {isEditing ? (
+                                  <div
+                                    className="mr-2 flex flex-1 items-center gap-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Input
+                                      value={editingCategoryName}
+                                      onChange={(e) => setEditingCategoryName(e.target.value)}
+                                      className="h-7 text-xs"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleSaveCategoryRename(categoryNode.label);
+                                        if (e.key === "Escape") {
+                                          setEditingCategory(null);
+                                          setEditingCategoryName("");
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSaveCategoryRename(categoryNode.label);
+                                      }}
+                                      disabled={!editingCategoryName.trim() || savingCategoryLabel === categoryNode.label}
+                                    >
+                                      {savingCategoryLabel === categoryNode.label && (
+                                        <Loader2 className="mr-1 size-3 animate-spin" />
+                                      )}
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         setEditingCategory(null);
                                         setEditingCategoryName("");
-                                      }
-                                    }}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSaveCategoryRename(categoryNode.label);
-                                    }}
-                                    disabled={!editingCategoryName.trim() || savingCategoryLabel === categoryNode.label}
-                                  >
-                                    {savingCategoryLabel === categoryNode.label && (
-                                      <Loader2 className="mr-1 size-3 animate-spin" />
-                                    )}
-                                    Save
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingCategory(null);
-                                      setEditingCategoryName("");
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              ) : (
-                                <span className="flex items-center gap-2">
-                                  {categoryNode.label}
-                                </span>
-                              )}
-                            </AccordionTrigger>
-
-                            {!isEditing && (
-                              <div className="flex shrink-0 items-center gap-0.5">
-                                <IconBtn
-                                  tip="Add feed"
-                                  onClick={() => {
-                                    setAddingFeedInCategory(isAddingFeed ? null : categoryNode.label);
-                                    setNewFeedName("");
-                                    setNewFeedUrl("");
-                                  }}
-                                  className={isAddingFeed ? "bg-accent" : ""}
-                                >
-                                  <Plus className="size-3.5" />
-                                </IconBtn>
-                                <IconBtn
-                                  tip="Move up"
-                                  onClick={() => onMoveCategory(categoryNode.label, "up")}
-                                  disabled={categoryIndex === 0}
-                                >
-                                  <ArrowUp className="size-3.5" />
-                                </IconBtn>
-                                <IconBtn
-                                  tip="Move down"
-                                  onClick={() => onMoveCategory(categoryNode.label, "down")}
-                                  disabled={categoryIndex === categories.length - 1}
-                                >
-                                  <ArrowDown className="size-3.5" />
-                                </IconBtn>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => startEditingCategory(categoryNode.label)}
-                                >
-                                  Rename
-                                </Button>
-                                <IconBtn
-                                  tip="Delete category"
-                                  onClick={() => onRemoveCategory(categoryNode.label)}
-                                  className="text-muted-foreground hover:text-destructive"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </IconBtn>
-                              </div>
-                            )}
-                          </div>
-
-                          <AccordionContent className="px-3 pb-3">
-                            {/* Inline add feed form */}
-                            <AnimatePresence initial={false}>
-                              {isAddingFeed && (
-                                <motion.div
-                                  className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2"
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: "auto" }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  transition={{ duration: 0.2, ease: "easeOut" }}
-                                >
-                                  <Input
-                                    value={newFeedName}
-                                    onChange={(e) => setNewFeedName(e.target.value)}
-                                    placeholder="Feed name"
-                                    className="h-8 text-sm"
-                                    autoFocus
-                                  />
-                                  <Input
-                                    value={newFeedUrl}
-                                    onChange={(e) => setNewFeedUrl(e.target.value)}
-                                    placeholder="https://example.com/feed.xml"
-                                    className="h-8 text-sm"
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
-                                        handleAddFeed(categoryNode.label);
-                                      }
-                                      if (e.key === "Escape") setAddingFeedInCategory(null);
-                                    }}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    className="h-8 shrink-0"
-                                    onClick={() => handleAddFeed(categoryNode.label)}
-                                    disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
-                                  >
-                                    {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 shrink-0 px-2"
-                                    onClick={() => setAddingFeedInCategory(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            {categoryFeeds.length === 0 && !isAddingFeed ? (
-                              <p className="py-2 text-xs text-muted-foreground">Empty — click + to add a feed.</p>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {categoryFeeds.map((feedNode, index) => (
-                                  <motion.div
-                                    key={feedNode.key}
-                                    className="flex items-center gap-2 rounded-md border px-3 py-2"
-                                    initial={{ opacity: 0, y: 6 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.2, ease: "easeOut", delay: index * 0.015 }}
-                                    whileHover={{ y: -1 }}
-                                  >
-                                    <button
-                                      onClick={() => onSelectFeed(feedNode.key)}
-                                      className="min-w-0 flex-1 text-left"
+                                      }}
                                     >
-                                      <p className={`truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}>
-                                        {feedNode.label}
-                                      </p>
-                                      {feedNode.data?.url && (
-                                        <p className="truncate text-xs text-muted-foreground/70">
-                                          {feedNode.data.url}
-                                        </p>
-                                      )}
-                                    </button>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="flex items-center gap-2">
+                                    {categoryNode.label}
+                                  </span>
+                                )}
+                              </AccordionTrigger>
 
-                                    <div className="flex shrink-0 items-center gap-1">
-                                      <Select
-                                        value={categoryNode.label}
-                                        onValueChange={(nextCategory) =>
-                                          handleMoveFeedToCategory(feedNode.key, nextCategory)
+                              {!isEditing && (
+                                <div className="flex shrink-0 items-center gap-0.5">
+                                  <IconBtn
+                                    tip="Add feed"
+                                    onClick={() => {
+                                      setAddingFeedInCategory(isAddingFeed ? null : categoryNode.label);
+                                      setNewFeedName("");
+                                      setNewFeedUrl("");
+                                    }}
+                                    className={isAddingFeed ? "bg-accent" : ""}
+                                  >
+                                    <Plus className="size-3.5" />
+                                  </IconBtn>
+                                  <IconBtn
+                                    tip="Move up"
+                                    onClick={() => onMoveCategory(categoryNode.label, "up")}
+                                    disabled={categoryIndex === 0}
+                                  >
+                                    <ArrowUp className="size-3.5" />
+                                  </IconBtn>
+                                  <IconBtn
+                                    tip="Move down"
+                                    onClick={() => onMoveCategory(categoryNode.label, "down")}
+                                    disabled={categoryIndex === categories.length - 1}
+                                  >
+                                    <ArrowDown className="size-3.5" />
+                                  </IconBtn>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => startEditingCategory(categoryNode.label)}
+                                  >
+                                    Rename
+                                  </Button>
+                                  <IconBtn
+                                    tip="Delete category"
+                                    onClick={() => onRemoveCategory(categoryNode.label)}
+                                    className="text-muted-foreground hover:text-destructive"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </IconBtn>
+                                </div>
+                              )}
+                            </div>
+
+                            <AccordionContent className="px-3 pb-3">
+                              {/* Inline add feed form */}
+                              <AnimatePresence initial={false}>
+                                {isAddingFeed && (
+                                  <motion.div
+                                    className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2"
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.2, ease: "easeOut" }}
+                                  >
+                                    <Input
+                                      value={newFeedName}
+                                      onChange={(e) => setNewFeedName(e.target.value)}
+                                      placeholder="Feed name"
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                    <Input
+                                      value={newFeedUrl}
+                                      onChange={(e) => setNewFeedUrl(e.target.value)}
+                                      placeholder="https://example.com/feed.xml"
+                                      className="h-8 text-sm"
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
+                                          handleAddFeed(categoryNode.label);
                                         }
-                                        disabled={movingFeedKey === feedNode.key}
-                                      >
-                                        <SelectTrigger className="h-7 w-[140px] text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {categoryOptions.map((categoryLabel) => (
-                                            <SelectItem
-                                              key={`${feedNode.key}-${categoryLabel}`}
-                                              value={categoryLabel}
-                                              className="text-xs"
-                                            >
-                                              {categoryLabel}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-
-                                      <IconBtn
-                                        tip="Move up"
-                                        onClick={() => onMoveFeed(feedNode.key, "up")}
-                                        disabled={index === 0}
-                                      >
-                                        <ArrowUp className="size-3.5" />
-                                      </IconBtn>
-                                      <IconBtn
-                                        tip="Move down"
-                                        onClick={() => onMoveFeed(feedNode.key, "down")}
-                                        disabled={index === categoryFeeds.length - 1}
-                                      >
-                                        <ArrowDown className="size-3.5" />
-                                      </IconBtn>
-                                      <IconBtn
-                                        tip="Remove feed"
-                                        onClick={() => handleRemoveFeed(feedNode.key)}
-                                        disabled={deletingKey === feedNode.key}
-                                        className="text-muted-foreground hover:text-destructive"
-                                      >
-                                        {deletingKey === feedNode.key ? (
-                                          <Loader2 className="size-3.5 animate-spin" />
-                                        ) : (
-                                          <Trash2 className="size-3.5" />
-                                        )}
-                                      </IconBtn>
-                                    </div>
+                                        if (e.key === "Escape") setAddingFeedInCategory(null);
+                                      }}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      className="h-8 shrink-0"
+                                      onClick={() => handleAddFeed(categoryNode.label)}
+                                      disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
+                                    >
+                                      {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 shrink-0 px-2"
+                                      onClick={() => setAddingFeedInCategory(null)}
+                                    >
+                                      Cancel
+                                    </Button>
                                   </motion.div>
-                                ))}
-                              </div>
-                            )}
-                          </AccordionContent>
-                        </AccordionItem>
+                                )}
+                              </AnimatePresence>
+
+                              {categoryFeeds.length === 0 && !isAddingFeed ? (
+                                <p className="py-2 text-xs text-muted-foreground">Empty — click + to add a feed.</p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {categoryFeeds.map((feedNode, index) => (
+                                    <motion.div
+                                      key={feedNode.key}
+                                      className="flex items-center gap-2 rounded-md border px-3 py-2"
+                                      initial={{ opacity: 0, y: 6 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ duration: 0.2, ease: "easeOut", delay: index * 0.015 }}
+                                      whileHover={{ y: -1 }}
+                                    >
+                                      <button
+                                        onClick={() => onSelectFeed(feedNode.key)}
+                                        className="min-w-0 flex-1 text-left"
+                                      >
+                                        <p className={`truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}>
+                                          {feedNode.label}
+                                        </p>
+                                        {feedNode.data?.url && (
+                                          <p className="truncate text-xs text-muted-foreground/70">
+                                            {feedNode.data.url}
+                                          </p>
+                                        )}
+                                      </button>
+
+                                      <div className="flex shrink-0 items-center gap-1">
+                                        <Select
+                                          value={categoryNode.label}
+                                          onValueChange={(nextCategory) =>
+                                            handleMoveFeedToCategory(feedNode.key, nextCategory)
+                                          }
+                                          disabled={movingFeedKey === feedNode.key}
+                                        >
+                                          <SelectTrigger className="h-7 w-[140px] text-xs">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {categoryOptions.map((categoryLabel) => (
+                                              <SelectItem
+                                                key={`${feedNode.key}-${categoryLabel}`}
+                                                value={categoryLabel}
+                                                className="text-xs"
+                                              >
+                                                {categoryLabel}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+
+                                        <IconBtn
+                                          tip="Move up"
+                                          onClick={() => onMoveFeed(feedNode.key, "up")}
+                                          disabled={index === 0}
+                                        >
+                                          <ArrowUp className="size-3.5" />
+                                        </IconBtn>
+                                        <IconBtn
+                                          tip="Move down"
+                                          onClick={() => onMoveFeed(feedNode.key, "down")}
+                                          disabled={index === categoryFeeds.length - 1}
+                                        >
+                                          <ArrowDown className="size-3.5" />
+                                        </IconBtn>
+                                        <IconBtn
+                                          tip="Remove feed"
+                                          onClick={() => handleRemoveFeed(feedNode.key)}
+                                          disabled={deletingKey === feedNode.key}
+                                          className="text-muted-foreground hover:text-destructive"
+                                        >
+                                          {deletingKey === feedNode.key ? (
+                                            <Loader2 className="size-3.5 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="size-3.5" />
+                                          )}
+                                        </IconBtn>
+                                      </div>
+                                    </motion.div>
+                                  ))}
+                                </div>
+                              )}
+                            </AccordionContent>
+                          </AccordionItem>
                         </motion.div>
                       );
                     })}
