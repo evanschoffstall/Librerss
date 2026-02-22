@@ -1,6 +1,10 @@
-import { asTrimmedString, parseJsonBody } from "@/lib/api/request";
-import { jsonError, logAndRespondError } from "@/lib/api/route-helpers";
-import { requireSameOrigin } from "@/lib/auth/csrf";
+import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import {
+  jsonError,
+  logAndRespondError,
+  requireMutableRequest,
+} from "@/lib/api/route-helpers";
+import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,
   setSessionCookie,
@@ -11,10 +15,9 @@ import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
-import { rateLimiter } from "@/lib/utils/rate-limit";
 import { isValidEmail } from "@/lib/utils/validation";
 import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 type LoginPayload = {
   email: string;
@@ -24,7 +27,7 @@ type LoginPayload = {
 function parseLoginPayload(
   payload: Record<string, unknown>,
 ): LoginPayload | Response {
-  const email = asTrimmedString(payload.email).toLowerCase();
+  const email = normalizeEmailInput(payload.email);
   const password = payload.password;
 
   if (!email || !isValidEmail(email)) {
@@ -82,29 +85,26 @@ async function handlePlaceholderLogin(
   return response;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
-    const rateLimitError = rateLimiter.check(request, "login", {
-      windowMs: CONFIG.RATE_LIMIT_LOGIN_WINDOW_MS,
-      maxAttempts: CONFIG.RATE_LIMIT_LOGIN_MAX_ATTEMPTS,
+    const requestError = requireMutableRequest(request, {
+      rateLimit: {
+        key: "login",
+        windowMs: CONFIG.RATE_LIMIT_LOGIN_WINDOW_MS,
+        maxAttempts: CONFIG.RATE_LIMIT_LOGIN_MAX_ATTEMPTS,
+      },
     });
-    if (rateLimitError) {
-      return rateLimitError;
+    if (requestError) {
+      return requestError;
     }
 
-    // CSRF protection
-    const csrfError = requireSameOrigin(request);
-    if (csrfError) {
-      return csrfError;
+    const payloadOrResponse =
+      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    if (payloadOrResponse instanceof Response) {
+      return payloadOrResponse;
     }
 
-    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
-    }
-
-    const parsedPayload = parseLoginPayload(parsedBody.data);
+    const parsedPayload = parseLoginPayload(payloadOrResponse);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }

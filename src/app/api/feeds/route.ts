@@ -1,20 +1,22 @@
 import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
 import {
   asTrimmedString,
-  parseJsonBody,
+  parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/request";
 import {
+  type AuthenticatedUser,
   jsonError,
   logAndRespondError,
   requireAuthenticatedUser,
+  requireMutableAuthenticatedUser,
 } from "@/lib/api/route-helpers";
-import { requireSameOrigin } from "@/lib/auth/csrf";
 import { CONFIG } from "@/lib/config";
 import {
   FeedSourceNotFoundError,
   fetchAndCacheFeedArticles,
   isAllowedFeedUrl,
+  PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feedFetcher";
 import {
   getPlaceholderArticlesForSource,
@@ -23,7 +25,6 @@ import {
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
-import { rateLimiter } from "@/lib/utils/rate-limit";
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import axios from "axios";
 import { and, eq } from "drizzle-orm";
@@ -36,10 +37,6 @@ import { NextRequest, NextResponse } from "next/server";
 type FeedTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
-type AuthenticatedUser = Exclude<
-  Awaited<ReturnType<typeof requireAuthenticatedUser>>,
-  Response
->;
 
 type CreateFeedPayload = {
   name: string;
@@ -63,47 +60,22 @@ type RenameFeedPayload = {
   name: string;
 };
 
-const PUBLIC_FEED_URL_ERROR =
-  "Feed URL must use http or https and resolve to a public host";
 const FEED_MANAGEMENT_DISABLED_ERROR =
   "Feed source management is disabled when DATABASE_URL is not configured";
-
-async function getAuthenticatedUser(
-  request: NextRequest,
-): Promise<AuthenticatedUser | Response> {
-  const authResult = await requireAuthenticatedUser(request);
-  if (authResult instanceof Response) {
-    return authResult;
-  }
-
-  return authResult;
-}
 
 async function requireMutableFeedAccess(
   request: NextRequest,
   options?: {
-    rateLimitKey?: string;
-    windowMs?: number;
-    maxAttempts?: number;
+    rateLimit?: {
+      key: string;
+      windowMs: number;
+      maxAttempts: number;
+    };
   },
 ): Promise<AuthenticatedUser | Response> {
-  if (options?.rateLimitKey) {
-    const rateLimitError = rateLimiter.check(request, options.rateLimitKey, {
-      windowMs: options.windowMs ?? CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
-      maxAttempts: options.maxAttempts ?? CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
-    });
-
-    if (rateLimitError) {
-      return rateLimitError;
-    }
-  }
-
-  const csrfError = requireSameOrigin(request);
-  if (csrfError) {
-    return csrfError;
-  }
-
-  const user = await getAuthenticatedUser(request);
+  const user = await requireMutableAuthenticatedUser(request, {
+    rateLimit: options?.rateLimit ? options.rateLimit : undefined,
+  });
   if (user instanceof Response) {
     return user;
   }
@@ -135,12 +107,13 @@ async function assertAllowedFeedUrl(url: string): Promise<Response | null> {
 async function parseCreateFeedPayload(
   request: NextRequest,
 ): Promise<CreateFeedPayload | Response> {
-  const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-  if (!parsedBody.ok) {
-    return parsedBody.response;
+  const payloadOrResponse =
+    await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+  if (payloadOrResponse instanceof Response) {
+    return payloadOrResponse;
   }
 
-  const payload = parsedBody.data;
+  const payload = payloadOrResponse;
   const name = asTrimmedString(payload.name);
   const url = asTrimmedString(payload.url);
   const category =
@@ -168,12 +141,13 @@ async function parseCreateFeedPayload(
 async function parseRenameFeedPayload(
   request: NextRequest,
 ): Promise<RenameFeedPayload | Response> {
-  const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-  if (!parsedBody.ok) {
-    return parsedBody.response;
+  const payloadOrResponse =
+    await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+  if (payloadOrResponse instanceof Response) {
+    return payloadOrResponse;
   }
 
-  const payload = parsedBody.data;
+  const payload = payloadOrResponse;
   const sourceId = parsePositiveInt(payload.id);
   const name = asTrimmedString(payload.name);
 
@@ -335,7 +309,7 @@ async function createOrUpdateFeedSource(
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request);
+    const user = await requireAuthenticatedUser(request);
     if (user instanceof Response) {
       return user;
     }
@@ -417,9 +391,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireMutableFeedAccess(request, {
-      rateLimitKey: "feed-create",
-      windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
-      maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
+      rateLimit: {
+        key: "feed-create",
+        windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
+        maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
+      },
     });
     if (user instanceof Response) {
       return user;

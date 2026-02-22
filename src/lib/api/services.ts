@@ -1,12 +1,35 @@
 // API service classes for LibreRSS
 
 import axios from "axios";
+import { parseReaderItemId, toReaderItemId } from "../core/reader-item-id";
 import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
+import { normalizeDistinctUrlList } from "../utils/url";
 
 /** Default timeout for all API calls (ms). Prevents indefinite hangs. */
 const REQUEST_TIMEOUT_MS = 15_000;
 
 const api = axios.create({ timeout: REQUEST_TIMEOUT_MS });
+
+async function withRequestDeadline<T>(
+  request: Promise<T>,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error("Request timeout"));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([request, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
 
 interface BatchFeedResponseItem {
   url: string;
@@ -32,6 +55,23 @@ type ReaderApiItem = {
 type ReaderApiStreamResponse = {
   items?: ReaderApiItem[];
 };
+
+const READER_STATE_TAGS = {
+  read: "user/-/state/com.google/read",
+  starred: "user/-/state/com.google/starred",
+} as const;
+
+function resolvePublishedTimestamp(item: ReaderApiItem): number {
+  if (typeof item.published === "number") {
+    return item.published * 1000;
+  }
+
+  if (typeof item.updated === "number") {
+    return item.updated * 1000;
+  }
+
+  return Date.now();
+}
 
 function ensureArrayResponse<T>(data: unknown): T[] {
   if (!Array.isArray(data)) {
@@ -89,14 +129,16 @@ export class FeedService {
   private static baseUrl = "/api";
 
   static async getFeed(url: string): Promise<Article[]> {
-    const response = await api.get(
-      `${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`,
+    const response = await withRequestDeadline(
+      api.get(`${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`),
     );
     return ensureArrayResponse<Article>(response.data);
   }
 
   static async getFeedSources(): Promise<FeedSource[]> {
-    const response = await api.get(`${this.baseUrl}/feeds`);
+    const response = await withRequestDeadline(
+      api.get(`${this.baseUrl}/feeds`),
+    );
     return ensureArrayResponse<FeedSource>(response.data);
   }
 
@@ -104,18 +146,18 @@ export class FeedService {
     urls: string[],
     { skipRefresh = false }: { skipRefresh?: boolean } = {},
   ): Promise<BatchFeedResponseItem[]> {
-    const normalizedUrls = Array.from(
-      new Set(urls.map((url) => url.trim()).filter(Boolean)),
-    );
+    const normalizedUrls = normalizeDistinctUrlList(urls);
 
     if (normalizedUrls.length === 0) {
       return [];
     }
 
-    const response = await api.post(`${this.baseUrl}/feeds/batch`, {
-      urls: normalizedUrls,
-      skipRefresh,
-    });
+    const response = await withRequestDeadline(
+      api.post(`${this.baseUrl}/feeds/batch`, {
+        urls: normalizedUrls,
+        skipRefresh,
+      }),
+    );
 
     const batchItems = ensureArrayResponse<unknown>(response.data);
     return batchItems.map(normalizeBatchItem);
@@ -144,42 +186,8 @@ export class ArticleService {
 
   private static greaderBaseUrl = "/api/greader.php/reader/api/0";
 
-  private static toReaderItemId(articleId: number): string {
-    return `tag:google.com,2005:reader/item/${articleId.toString(16)}`;
-  }
-
-  private static parseArticleId(
-    value: string | undefined,
-    fallback: number,
-  ): number {
-    if (!value) {
-      return fallback;
-    }
-
-    const suffix = value.includes("/")
-      ? value.slice(value.lastIndexOf("/") + 1)
-      : value;
-    const parsedHex = Number.parseInt(suffix, 16);
-    if (Number.isInteger(parsedHex) && parsedHex > 0) {
-      return parsedHex;
-    }
-
-    const parsedDecimal = Number.parseInt(suffix, 10);
-    if (Number.isInteger(parsedDecimal) && parsedDecimal > 0) {
-      return parsedDecimal;
-    }
-
-    return fallback;
-  }
-
   private static toArticle(item: ReaderApiItem, index: number): Article {
-    const publishedMs =
-      typeof item.published === "number"
-        ? item.published * 1000
-        : typeof item.updated === "number"
-          ? item.updated * 1000
-          : Date.now();
-    const publicationDate = new Date(publishedMs);
+    const publicationDate = new Date(resolvePublishedTimestamp(item));
     const canonicalLink = item.canonical?.[0]?.href;
     const alternateLink = item.alternate?.[0]?.href;
     const link = canonicalLink || alternateLink || `about:reader-item-${index}`;
@@ -191,7 +199,7 @@ export class ArticleService {
     const categories = item.categories ?? [];
 
     return {
-      id: this.parseArticleId(item.id, index + 1),
+      id: (item.id ? parseReaderItemId(item.id) : null) ?? index + 1,
       title: item.title?.trim() || "Untitled",
       link,
       content: item.summary?.content || "",
@@ -200,8 +208,8 @@ export class ArticleService {
       feedId: 0,
       feedName: item.origin?.title,
       feedUrl: originFeedUrl,
-      isRead: categories.includes("user/-/state/com.google/read"),
-      isStarred: categories.includes("user/-/state/com.google/starred"),
+      isRead: categories.includes(READER_STATE_TAGS.read),
+      isStarred: categories.includes(READER_STATE_TAGS.starred),
     };
   }
 
@@ -245,7 +253,7 @@ export class ArticleService {
     { addTag, removeTag }: { addTag?: string; removeTag?: string },
   ): Promise<void> {
     const body = new URLSearchParams({
-      i: this.toReaderItemId(articleId),
+      i: toReaderItemId(articleId),
       async: "true",
     });
 
@@ -264,35 +272,32 @@ export class ArticleService {
     });
   }
 
+  private static async setArticleTagState(
+    articleId: number,
+    tag: string,
+    enabled: boolean,
+  ): Promise<void> {
+    await this.editArticleTags(articleId, {
+      addTag: enabled ? tag : undefined,
+      removeTag: enabled ? undefined : tag,
+    });
+  }
+
   static async setArticleReadState(
     articleId: number,
     isRead: boolean,
   ): Promise<void> {
-    if (isRead) {
-      await this.editArticleTags(articleId, {
-        addTag: "user/-/state/com.google/read",
-      });
-      return;
-    }
-
-    await this.editArticleTags(articleId, {
-      removeTag: "user/-/state/com.google/read",
-    });
+    await this.setArticleTagState(articleId, READER_STATE_TAGS.read, isRead);
   }
 
   static async setArticleStarredState(
     articleId: number,
     isStarred: boolean,
   ): Promise<void> {
-    if (isStarred) {
-      await this.editArticleTags(articleId, {
-        addTag: "user/-/state/com.google/starred",
-      });
-      return;
-    }
-
-    await this.editArticleTags(articleId, {
-      removeTag: "user/-/state/com.google/starred",
-    });
+    await this.setArticleTagState(
+      articleId,
+      READER_STATE_TAGS.starred,
+      isStarred,
+    );
   }
 }

@@ -8,7 +8,8 @@
 
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
-import { articleStatuses, articles, feeds, feedSources } from "@/lib/db/schema";
+import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
+import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
 import {
   sanitizeAndTruncateArticleContent,
@@ -80,7 +81,7 @@ async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
   } catch (error) {
     logger.warn("DNS lookup failed for feed validation", {
       hostname,
-      error: error instanceof Error ? error.message : String(error),
+      error: toErrorMessage(error),
     });
     // Fail-closed: if we cannot resolve the hostname we cannot confirm it
     // resolves to a public address, so we treat it as blocked.  A transient
@@ -95,20 +96,40 @@ async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
 
 // ─── URL validation ───────────────────────────────────────────────────────────
 
+export const PUBLIC_FEED_URL_ERROR =
+  "Feed URL must use http or https and resolve to a public host";
+
+async function assertPublicFeedUrl(rawUrl: string): Promise<void> {
+  if (!isValidUrl(rawUrl)) {
+    throw new Error("Blocked feed protocol");
+  }
+
+  const parsed = new URL(rawUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error("Blocked credentialed feed URL");
+  }
+
+  const host = normalizeHostname(parsed.hostname);
+  if (isBlockedHost(host)) {
+    throw new Error("Blocked feed hostname");
+  }
+
+  if (isIP(host)) {
+    if (isBlockedResolvedAddress(host)) {
+      throw new Error("Blocked feed IP address");
+    }
+    return;
+  }
+
+  if (await resolvesToBlockedAddress(host)) {
+    throw new Error("Blocked resolved feed address");
+  }
+}
+
 export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
   try {
-    // Reuse the same protocol + parse checks from isValidUrl so the two
-    // cannot drift independently.
-    if (!isValidUrl(raw)) return false;
-
-    const parsed = new URL(raw);
-    if (parsed.username || parsed.password) return false;
-
-    const host = normalizeHostname(parsed.hostname);
-    if (isBlockedHost(host)) return false;
-    if (isIP(host)) return !isBlockedResolvedAddress(host);
-
-    return !(await resolvesToBlockedAddress(host));
+    await assertPublicFeedUrl(raw);
+    return true;
   } catch {
     return false;
   }
@@ -198,32 +219,30 @@ export class FeedSourceNotFoundError extends Error {
 
 type FeedRecord = { id: number; url: string; lastFetched: Date };
 
-async function assertOutboundFeedUrlSafe(rawUrl: string): Promise<void> {
-  const parsed = new URL(rawUrl);
-  const protocol = parsed.protocol.toLowerCase();
-  if (protocol !== "http:" && protocol !== "https:") {
-    throw new Error("Blocked feed protocol");
+function shouldRefreshFeed(lastFetched: Date): boolean {
+  const ageMinutes = (Date.now() - new Date(lastFetched).getTime()) / 60_000;
+  return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
+}
+
+function toPendingArticle(
+  item: Parser.Item,
+  feedId: number,
+  now: Date,
+): PendingArticle | null {
+  if (!item.title || !item.link || !isValidUrl(item.link)) {
+    return null;
   }
 
-  if (parsed.username || parsed.password) {
-    throw new Error("Blocked credentialed feed URL");
-  }
-
-  const host = normalizeHostname(parsed.hostname);
-  if (isBlockedHost(host)) {
-    throw new Error("Blocked feed hostname");
-  }
-
-  if (isIP(host)) {
-    if (isBlockedResolvedAddress(host)) {
-      throw new Error("Blocked feed IP address");
-    }
-    return;
-  }
-
-  if (await resolvesToBlockedAddress(host)) {
-    throw new Error("Blocked resolved feed address");
-  }
+  return {
+    title: sanitizeArticleTitle(item.title),
+    link: item.link,
+    publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
+    content: sanitizeAndTruncateArticleContent(
+      item.content || item.contentSnippet || "",
+    ),
+    feedId,
+    lastChecked: now,
+  };
 }
 
 async function fetchFeedXmlWithValidatedRedirects(
@@ -232,7 +251,7 @@ async function fetchFeedXmlWithValidatedRedirects(
   let currentUrl = initialUrl;
 
   for (let redirects = 0; redirects <= 3; redirects += 1) {
-    await assertOutboundFeedUrlSafe(currentUrl);
+    await assertPublicFeedUrl(currentUrl);
 
     const response = await axios.get(currentUrl, {
       timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
@@ -269,25 +288,10 @@ async function refreshFeedFromUpstream(
     const feedResponseParsed = await parser.parseString(feedXml);
     const now = new Date();
 
-    const validItems = dedupePendingArticles(
-      feedResponseParsed.items
-        .filter(
-          (item) =>
-            Boolean(item.title) &&
-            Boolean(item.link) &&
-            isValidUrl(item.link ?? ""),
-        )
-        .map((item) => ({
-          title: sanitizeArticleTitle(item.title),
-          link: item.link!,
-          publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
-          content: sanitizeAndTruncateArticleContent(
-            item.content || item.contentSnippet || "",
-          ),
-          feedId: feed.id,
-          lastChecked: now,
-        })),
-    );
+    const mappedItems = feedResponseParsed.items
+      .map((item) => toPendingArticle(item, feed.id, now))
+      .filter((item): item is PendingArticle => item !== null);
+    const validItems = dedupePendingArticles(mappedItems);
 
     if (validItems.length > 0) {
       await db
@@ -312,7 +316,7 @@ async function refreshFeedFromUpstream(
     // Log and swallow so a single bad feed never blocks the whole batch.
     logger.warn("Upstream feed refresh failed", {
       url: feed.url,
-      error: err instanceof Error ? err.message : String(err),
+      error: toErrorMessage(err),
     });
 
     // Still advance lastFetched so the TTL cooldown applies to failed feeds
@@ -435,9 +439,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       .map((u) => feedByUrl.get(u))
       .filter((f): f is FeedRecord => {
         if (!f) return false;
-        const ageMinutes =
-          (Date.now() - new Date(f.lastFetched).getTime()) / 60_000;
-        return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
+        return shouldRefreshFeed(f.lastFetched);
       });
 
     // Fire all upstream fetches concurrently; failures are swallowed per-feed.
@@ -558,9 +560,7 @@ export async function fetchAndCacheFeedArticles(
 
   const feed = await ensureFeedRecord(db, feedUrl);
 
-  const ageMinutes =
-    (Date.now() - new Date(feed.lastFetched).getTime()) / 60_000;
-  if (ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES) {
+  if (shouldRefreshFeed(feed.lastFetched)) {
     await refreshFeedFromUpstream(db, feed);
   }
 

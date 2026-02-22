@@ -44,6 +44,25 @@ export function tryNormalizeFeedUrl(raw: string): string {
 }
 
 /**
+ * Normalizes an unknown list of URL candidates into a deduplicated array.
+ * Non-string and empty values are discarded.
+ */
+export function normalizeDistinctUrlList(urls: unknown): string[] {
+  if (!Array.isArray(urls)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      urls
+        .filter((url): url is string => typeof url === "string")
+        .map((url) => url.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+/**
  * Best-effort hostname extraction for display/caching.
  */
 export function tryGetUrlHostname(raw?: string): string | null {

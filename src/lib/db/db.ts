@@ -1,3 +1,4 @@
+import { toErrorMessage } from "@/lib/utils/errors";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
@@ -23,7 +24,7 @@ function runInitialDbConnectivityCheck(pool: Pool) {
 
     globalForDb.hasLoggedInitialDbConnectionWarning = true;
 
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     console.warn(
       `[db] Initial database connectivity check failed: ${message}. ` +
         "The app will continue running, but database-backed features may fail until the connection is restored.",
