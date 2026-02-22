@@ -86,12 +86,14 @@ function stripOrphanedRelatedBlocks(html: string): string {
 function collapseExcessNewlines(html: string): string {
   return (
     html
+      // Normalize CRLF/CR to LF so newline collapsing is deterministic.
+      .replace(/\r\n?/g, "\n")
       // 3+ consecutive <br> tags (with optional whitespace between) → <br><br>
       .replace(/((?:<br\s*\/?>[\s\n]*){3,})/gi, "<br><br>")
       // 3+ consecutive empty <p> tags → two
       .replace(/((?:<p>\s*<\/p>\s*){3,})/gi, "<p></p><p></p>")
-      // 3+ raw newlines → two
-      .replace(/\n{3,}/g, "\n\n")
+      // 3+ raw newlines (optionally separated by spaces/tabs) → two
+      .replace(/(?:\n[ \t]*){3,}/g, "\n\n")
   );
 }
 

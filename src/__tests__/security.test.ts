@@ -251,6 +251,14 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
     const result = sanitizeArticleHtml(css);
     expect(result).not.toContain("<style>");
   });
+
+  test("collapses excessive CRLF and whitespace-only blank lines", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const html = "<p>First</p>\r\n\r\n  \r\n\r\n<p>Second</p>";
+    const result = sanitizeArticleHtml(html);
+
+    expect(result).toBe("<p>First</p>\n\n<p>Second</p>");
+  });
 });
 
 describe("sanitizeAndTruncateArticleContent", () => {
@@ -420,6 +428,169 @@ describe("next.config.ts CSP headers", () => {
       .map((h) => h.value);
     for (const csp of allValues) {
       expect(csp).toContain("worker-src 'self'");
+    }
+  });
+});
+
+// ─── 8. CSRF evidence and JSON body-size limits ─────────────────────────────
+
+describe("requireSameOrigin", () => {
+  test("rejects unsafe request when both Origin and Referer are missing", async () => {
+    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const req = new Request("https://app.example.test/api/auth/login", {
+      method: "POST",
+      headers: {
+        host: "app.example.test",
+      },
+    });
+
+    const result = requireSameOrigin(req);
+    expect(result).not.toBeNull();
+    expect(result?.status).toBe(403);
+  });
+
+  test("accepts unsafe request when Referer origin matches host", async () => {
+    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const req = new Request("https://app.example.test/api/auth/login", {
+      method: "POST",
+      headers: {
+        host: "app.example.test",
+        referer: "https://app.example.test/dashboard",
+      },
+    });
+
+    const result = requireSameOrigin(req);
+    expect(result).toBeNull();
+  });
+});
+
+describe("parseJsonBody", () => {
+  test("returns 413 when content-length exceeds configured max", async () => {
+    const { parseJsonBody } = await import("@/lib/api/request");
+    const req = new Request("https://app.example.test/api/feeds", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": "2048",
+      },
+      body: "{}",
+    });
+
+    const result = await parseJsonBody<Record<string, unknown>>(req, {
+      maxBytes: 1024,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.response.status).toBe(413);
+    }
+  });
+
+  test("returns 413 when UTF-8 body bytes exceed max", async () => {
+    const { parseJsonBody } = await import("@/lib/api/request");
+    const payload = JSON.stringify({ data: "x".repeat(2048) });
+    const req = new Request("https://app.example.test/api/feeds", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: payload,
+    });
+
+    const result = await parseJsonBody<Record<string, unknown>>(req, {
+      maxBytes: 1024,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.response.status).toBe(413);
+    }
+  });
+});
+
+describe("logger redaction", () => {
+  test("redacts sensitive keys recursively", async () => {
+    const logs: string[] = [];
+    const originalInfo = console.log;
+    console.log = (message?: unknown) => {
+      logs.push(String(message ?? ""));
+    };
+
+    try {
+      const { logger } = await import("@/lib/utils/logger");
+      logger.info("security-log", {
+        token: "secret-token",
+        nested: { authorization: "Bearer abc", email: "admin@example.test" },
+      });
+    } finally {
+      console.log = originalInfo;
+    }
+
+    const merged = logs.join("\n");
+    expect(merged).toContain("[redacted]");
+    expect(merged).not.toContain("secret-token");
+    expect(merged).not.toContain("Bearer abc");
+    expect(merged).not.toContain("admin@example.test");
+  });
+});
+
+// ─── 8. CSRF strictness and trusted-proxy rate-limit identity ───────────────
+
+describe("requireSameOrigin", () => {
+  test("blocks unsafe requests when neither Origin nor Sec-Fetch-Site is present", async () => {
+    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const request = new Request("https://example.com/api/auth/login", {
+      method: "POST",
+    });
+
+    const result = requireSameOrigin(request);
+    expect(result?.status).toBe(403);
+  });
+
+  test("allows unsafe requests with same-origin Sec-Fetch-Site when Origin is absent", async () => {
+    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const request = new Request("https://example.com/api/auth/login", {
+      method: "POST",
+      headers: {
+        "sec-fetch-site": "same-origin",
+      },
+    });
+
+    const result = requireSameOrigin(request);
+    expect(result).toBeNull();
+  });
+});
+
+describe("RateLimiter trusted proxy extraction", () => {
+  test("uses the client IP (not the proxy IP) when TRUSTED_PROXY_COUNT=1", async () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "1";
+
+    const { RateLimiter } = await import("@/lib/utils/rate-limit");
+    const limiter = new RateLimiter();
+
+    try {
+      const config = { windowMs: 60_000, maxAttempts: 1 };
+      const requestA = new Request("https://example.com/api/auth/login", {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "203.0.113.10, 10.0.0.5",
+        },
+      });
+      const requestB = new Request("https://example.com/api/auth/login", {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "198.51.100.20, 10.0.0.5",
+        },
+      });
+
+      expect(limiter.check(requestA, "login", config)).toBeNull();
+      expect(limiter.check(requestB, "login", config)).toBeNull();
+    } finally {
+      limiter.destroy();
+      if (typeof previous === "string") {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
     }
   });
 });
