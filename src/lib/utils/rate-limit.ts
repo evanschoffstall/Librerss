@@ -1,5 +1,6 @@
 import { logger } from "@/lib/utils/logger";
 import { NextResponse } from "next/server";
+import { isIP } from "node:net";
 
 interface RateLimitConfig {
   windowMs: number;
@@ -15,7 +16,7 @@ interface RateLimitEntry {
  * In-memory rate limiter
  * For production with multiple servers, use Redis-based rate limiting
  */
-class RateLimiter {
+export class RateLimiter {
   private store = new Map<string, RateLimitEntry>();
   private readonly cleanupTimer: ReturnType<typeof setInterval>;
 
@@ -68,14 +69,20 @@ class RateLimiter {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean);
-        // Strip the last (trustedProxies - 1) proxy-appended entries;
-        // what remains at the tail is the real client IP.
-        const clientIp = ips[ips.length - trustedProxies];
-        if (clientIp) return clientIp;
+        // XFF is ordered: client, proxy1, proxy2, ..., proxyN.
+        // Remove the right-most trusted proxy hops and read the client that
+        // precedes them.
+        const clientIndex = ips.length - trustedProxies - 1;
+        if (clientIndex >= 0) {
+          const clientIp = ips[clientIndex];
+          if (clientIp && isIP(clientIp)) {
+            return clientIp;
+          }
+        }
       }
 
       const realIp = request.headers.get("x-real-ip")?.trim();
-      if (realIp) return realIp;
+      if (realIp && isIP(realIp)) return realIp;
     }
 
     // No usable proxy header — bucket all unidentified clients together.
