@@ -11,7 +11,10 @@ import {
 } from "@/lib/db/schema";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { canUseArticleStatusesTable, isSafePositiveItemId } from "../helpers/article-status-helpers";
+import {
+  canUseArticleStatusesTable,
+  isSafePositiveItemId,
+} from "../utils/article-status";
 import { ListedArticle, mapArticleAsItem } from "../utils/mappers";
 import { parseStreamId, parseStreamPaging } from "../utils/stream";
 
@@ -36,7 +39,9 @@ export async function handleStreamContents(
     request.headers.get("user-agent") ?? "",
   );
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
-  const sinceDate = Number.isInteger(olderThanSec) ? new Date(olderThanSec * 1000) : null;
+  const sinceDate = Number.isInteger(olderThanSec)
+    ? new Date(olderThanSec * 1000)
+    : null;
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
@@ -54,7 +59,9 @@ export async function handleStreamContents(
     const conditions: Parameters<typeof and> = [];
 
     if (feedUrl && dateFilter) {
-      conditions.push(and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)));
+      conditions.push(
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
+      );
     } else if (feedUrl) {
       conditions.push(eq(feeds.url, feedUrl));
     } else if (dateFilter) {
@@ -83,14 +90,25 @@ export async function handleStreamContents(
     const fromClause = db
       .select(
         useArticleStatuses
-          ? { ...baseSelect, isRead: articleStatuses.isRead, isStarred: articleStatuses.isStarred }
-          : { ...baseSelect, isRead: sql<boolean>`false`, isStarred: sql<boolean>`false` },
+          ? {
+              ...baseSelect,
+              isRead: articleStatuses.isRead,
+              isStarred: articleStatuses.isStarred,
+            }
+          : {
+              ...baseSelect,
+              isRead: sql<boolean>`false`,
+              isStarred: sql<boolean>`false`,
+            },
       )
       .from(articles)
       .innerJoin(feeds, eq(feeds.id, articles.feedId))
       .innerJoin(
         feedSources,
-        and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
       )
       .leftJoin(
         feedCategories,
@@ -130,7 +148,8 @@ export async function handleStreamContents(
     usedOtFallback = true;
   }
 
-  const nextContinuationId = rows.length === limit ? rows.at(-1)?.articleId : null;
+  const nextContinuationId =
+    rows.length === limit ? rows.at(-1)?.articleId : null;
 
   console.info("[greader] stream/contents", {
     userId: user.userId,
@@ -159,7 +178,8 @@ export async function handleStreamItemIds(
   request: NextRequest,
 ): Promise<Response> {
   const searchParams = new URL(request.url).searchParams;
-  const streamId = searchParams.get("s") ?? "user/-/state/com.google/reading-list";
+  const streamId =
+    searchParams.get("s") ?? "user/-/state/com.google/reading-list";
   const isFeed = streamId.startsWith("feed/");
   const feedUrl = isFeed ? streamId.slice("feed/".length) : null;
   const excludeRead = searchParams
@@ -171,7 +191,9 @@ export async function handleStreamItemIds(
     request.headers.get("user-agent") ?? "",
   );
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
-  const sinceDate = Number.isInteger(olderThanSec) ? new Date(olderThanSec * 1000) : null;
+  const sinceDate = Number.isInteger(olderThanSec)
+    ? new Date(olderThanSec * 1000)
+    : null;
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
@@ -181,12 +203,18 @@ export async function handleStreamItemIds(
   }
 
   async function queryRows(dateFilter: Date | null): Promise<
-    Array<{ articleId: number; isRead: boolean | null; isStarred: boolean | null }>
+    Array<{
+      articleId: number;
+      isRead: boolean | null;
+      isStarred: boolean | null;
+    }>
   > {
     const conditions: Parameters<typeof and> = [];
 
     if (feedUrl && dateFilter) {
-      conditions.push(and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)));
+      conditions.push(
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
+      );
     } else if (feedUrl) {
       conditions.push(eq(feeds.url, feedUrl));
     } else if (dateFilter) {
@@ -216,7 +244,10 @@ export async function handleStreamItemIds(
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
         .innerJoin(
           feedSources,
-          and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
         )
         .leftJoin(
           articleStatuses,
@@ -241,7 +272,10 @@ export async function handleStreamItemIds(
       .innerJoin(feeds, eq(feeds.id, articles.feedId))
       .innerJoin(
         feedSources,
-        and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(articles.id))
@@ -260,7 +294,9 @@ export async function handleStreamItemIds(
   const safeRows = rows.filter((row) => isSafePositiveItemId(row.articleId));
   const itemIds = safeRows.map((row) => row.articleId);
   const continuation =
-    safeRows.length === limit ? (safeRows.at(-1)?.articleId?.toString() ?? undefined) : undefined;
+    safeRows.length === limit
+      ? (safeRows.at(-1)?.articleId?.toString() ?? undefined)
+      : undefined;
 
   console.info("[greader] stream/items/ids", {
     userId: user.userId,
@@ -329,12 +365,19 @@ export async function handleStreamItemContents(
 
   const rows = await (useArticleStatuses
     ? db
-        .select({ ...baseSelect, isRead: articleStatuses.isRead, isStarred: articleStatuses.isStarred })
+        .select({
+          ...baseSelect,
+          isRead: articleStatuses.isRead,
+          isStarred: articleStatuses.isStarred,
+        })
         .from(articles)
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
         .innerJoin(
           feedSources,
-          and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
         )
         .leftJoin(
           feedCategories,
@@ -352,12 +395,19 @@ export async function handleStreamItemContents(
         )
         .where(inArray(articles.id, articleIds))
     : db
-        .select({ ...baseSelect, isRead: sql<boolean>`false`, isStarred: sql<boolean>`false` })
+        .select({
+          ...baseSelect,
+          isRead: sql<boolean>`false`,
+          isStarred: sql<boolean>`false`,
+        })
         .from(articles)
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
         .innerJoin(
           feedSources,
-          and(eq(feedSources.url, feeds.url), eq(feedSources.userId, user.userId)),
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
         )
         .leftJoin(
           feedCategories,
