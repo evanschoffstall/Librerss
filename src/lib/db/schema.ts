@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -111,6 +112,38 @@ export const feedCategories = pgTable(
     userFeedIdx: uniqueIndex("feed_category_user_feed_idx").on(
       table.userId,
       table.feedId,
+    ),
+  }),
+);
+
+export const articleStatuses = pgTable(
+  "ArticleStatus",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    articleId: integer("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    isRead: boolean("is_read").notNull().default(false),
+    isStarred: boolean("is_starred").notNull().default(false),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userArticleIdx: uniqueIndex("article_status_user_article_idx").on(
+      table.userId,
+      table.articleId,
+    ),
+    userReadIdx: index("article_status_user_read_idx").on(
+      table.userId,
+      table.isRead,
+    ),
+    userStarredIdx: index("article_status_user_starred_idx").on(
+      table.userId,
+      table.isStarred,
     ),
   }),
 );
