@@ -19,6 +19,7 @@ import {
 import { isValidUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ const GOOGLE_LOGIN_PREFIX = "googlelogin auth=";
 const MAX_STREAM_ITEMS = 250;
 const DEFAULT_STREAM_ITEMS = 50;
 const ITEM_ID_PREFIX = "tag:google.com,2005:reader/item/";
+const READER_API_EDIT_TOKEN = randomBytes(24).toString("hex");
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
 let warnedMissingArticleStatusesTable = false;
 
@@ -463,7 +465,12 @@ async function handleUserInfo(user: SessionUser): Promise<Response> {
 }
 
 async function handleToken(): Promise<Response> {
-  return textResponse("librerss-greader-token\n");
+  console.info("[greader] token", {
+    tokenLength: READER_API_EDIT_TOKEN.length,
+    isAlphanumeric: /^[a-z0-9]+$/i.test(READER_API_EDIT_TOKEN),
+  });
+
+  return textResponse(`${READER_API_EDIT_TOKEN}\n`);
 }
 
 async function handleTagList(user: SessionUser): Promise<Response> {
@@ -517,6 +524,11 @@ async function handleSubscriptionList(user: SessionUser): Promise<Response> {
       ),
     )
     .where(eq(feedSources.userId, user.userId));
+
+  console.info("[greader] subscription/list", {
+    userId: user.userId,
+    subscriptionCount: rows.length,
+  });
 
   return NextResponse.json({
     subscriptions: rows.map((row) => ({
@@ -610,78 +622,81 @@ async function handleStreamContents(
     });
   }
 
-  let rows: ListedArticle[];
+  async function queryRows(dateFilter: Date | null): Promise<ListedArticle[]> {
+    if (useArticleStatuses) {
+      const conditions: Parameters<typeof and> = [];
 
-  if (useArticleStatuses) {
+      if (feedUrl && dateFilter) {
+        conditions.push(
+          and(
+            eq(feeds.url, feedUrl),
+            gte(articles.publicationDate, dateFilter),
+          ),
+        );
+      } else if (feedUrl) {
+        conditions.push(eq(feeds.url, feedUrl));
+      } else if (dateFilter) {
+        conditions.push(gte(articles.publicationDate, dateFilter));
+      }
+
+      if (isStarredStream) {
+        conditions.push(eq(articleStatuses.isStarred, true));
+      }
+
+      const query = db
+        .select({
+          articleId: articles.id,
+          title: articles.title,
+          link: articles.link,
+          content: articles.content,
+          publicationDate: articles.publicationDate,
+          sourceName: feedSources.name,
+          sourceUrl: feedSources.url,
+          category: feedCategories.category,
+          isRead: articleStatuses.isRead,
+          isStarred: articleStatuses.isStarred,
+        })
+        .from(articles)
+        .innerJoin(feeds, eq(feeds.id, articles.feedId))
+        .innerJoin(
+          feedSources,
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
+        )
+        .leftJoin(
+          feedCategories,
+          and(
+            eq(feedCategories.userId, feedSources.userId),
+            eq(feedCategories.feedId, feeds.id),
+          ),
+        )
+        .leftJoin(
+          articleStatuses,
+          and(
+            eq(articleStatuses.userId, user.userId),
+            eq(articleStatuses.articleId, articles.id),
+          ),
+        )
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(articles.publicationDate))
+        .limit(limit)
+        .offset(offset);
+
+      return query;
+    }
+
     const conditions: Parameters<typeof and> = [];
 
-    if (feedUrl && sinceDate) {
+    if (feedUrl && dateFilter) {
       conditions.push(
-        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
       );
     } else if (feedUrl) {
       conditions.push(eq(feeds.url, feedUrl));
-    } else if (sinceDate) {
-      conditions.push(gte(articles.publicationDate, sinceDate));
-    }
-
-    if (isStarredStream) {
-      conditions.push(eq(articleStatuses.isStarred, true));
-    }
-
-    const query = db
-      .select({
-        articleId: articles.id,
-        title: articles.title,
-        link: articles.link,
-        content: articles.content,
-        publicationDate: articles.publicationDate,
-        sourceName: feedSources.name,
-        sourceUrl: feedSources.url,
-        category: feedCategories.category,
-        isRead: articleStatuses.isRead,
-        isStarred: articleStatuses.isStarred,
-      })
-      .from(articles)
-      .innerJoin(feeds, eq(feeds.id, articles.feedId))
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-        ),
-      )
-      .leftJoin(
-        feedCategories,
-        and(
-          eq(feedCategories.userId, feedSources.userId),
-          eq(feedCategories.feedId, feeds.id),
-        ),
-      )
-      .leftJoin(
-        articleStatuses,
-        and(
-          eq(articleStatuses.userId, user.userId),
-          eq(articleStatuses.articleId, articles.id),
-        ),
-      )
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(articles.publicationDate))
-      .limit(limit)
-      .offset(offset);
-
-    rows = await query;
-  } else {
-    const conditions: Parameters<typeof and> = [];
-
-    if (feedUrl && sinceDate) {
-      conditions.push(
-        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
-      );
-    } else if (feedUrl) {
-      conditions.push(eq(feeds.url, feedUrl));
-    } else if (sinceDate) {
-      conditions.push(gte(articles.publicationDate, sinceDate));
+    } else if (dateFilter) {
+      conditions.push(gte(articles.publicationDate, dateFilter));
     }
 
     const query = db
@@ -718,12 +733,31 @@ async function handleStreamContents(
       .limit(limit)
       .offset(offset);
 
-    rows = await query;
+    return query;
+  }
+
+  let rows = await queryRows(sinceDate);
+  let usedOtFallback = false;
+
+  if (rows.length === 0 && sinceDate) {
+    rows = await queryRows(null);
+    usedOtFallback = true;
   }
 
   const items = rows.map(mapArticleAsItem);
 
   const nextOffset = offset + rows.length;
+
+  console.info("[greader] stream/contents", {
+    userId: user.userId,
+    streamId,
+    limit,
+    offset,
+    ot: searchParams.get("ot"),
+    itemCount: rows.length,
+    usedOtFallback,
+    continuation: rows.length === limit ? `offset:${nextOffset}` : null,
+  });
 
   return NextResponse.json({
     id: streamId,
@@ -761,72 +795,79 @@ async function handleStreamItemIds(
     return NextResponse.json({ itemRefs: [], continuation: undefined });
   }
 
-  let rows: Array<{
-    articleId: number;
-    isRead: boolean | null;
-    isStarred: boolean | null;
-  }>;
+  async function queryRows(dateFilter: Date | null): Promise<
+    Array<{
+      articleId: number;
+      isRead: boolean | null;
+      isStarred: boolean | null;
+    }>
+  > {
+    if (useArticleStatuses) {
+      const conditions: Parameters<typeof and> = [];
 
-  if (useArticleStatuses) {
+      if (feedUrl && dateFilter) {
+        conditions.push(
+          and(
+            eq(feeds.url, feedUrl),
+            gte(articles.publicationDate, dateFilter),
+          ),
+        );
+      } else if (feedUrl) {
+        conditions.push(eq(feeds.url, feedUrl));
+      } else if (dateFilter) {
+        conditions.push(gte(articles.publicationDate, dateFilter));
+      }
+
+      if (streamId === "user/-/state/com.google/starred") {
+        conditions.push(eq(articleStatuses.isStarred, true));
+      }
+
+      if (excludeRead) {
+        conditions.push(
+          sql`coalesce(${articleStatuses.isRead}, false) = false`,
+        );
+      }
+
+      const query = db
+        .select({
+          articleId: articles.id,
+          isRead: articleStatuses.isRead,
+          isStarred: articleStatuses.isStarred,
+        })
+        .from(articles)
+        .innerJoin(feeds, eq(feeds.id, articles.feedId))
+        .innerJoin(
+          feedSources,
+          and(
+            eq(feedSources.url, feeds.url),
+            eq(feedSources.userId, user.userId),
+          ),
+        )
+        .leftJoin(
+          articleStatuses,
+          and(
+            eq(articleStatuses.userId, user.userId),
+            eq(articleStatuses.articleId, articles.id),
+          ),
+        )
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(articles.publicationDate))
+        .limit(limit)
+        .offset(offset);
+
+      return query;
+    }
+
     const conditions: Parameters<typeof and> = [];
 
-    if (feedUrl && sinceDate) {
+    if (feedUrl && dateFilter) {
       conditions.push(
-        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
+        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
       );
     } else if (feedUrl) {
       conditions.push(eq(feeds.url, feedUrl));
-    } else if (sinceDate) {
-      conditions.push(gte(articles.publicationDate, sinceDate));
-    }
-
-    if (streamId === "user/-/state/com.google/starred") {
-      conditions.push(eq(articleStatuses.isStarred, true));
-    }
-
-    if (excludeRead) {
-      conditions.push(sql`coalesce(${articleStatuses.isRead}, false) = false`);
-    }
-
-    const query = db
-      .select({
-        articleId: articles.id,
-        isRead: articleStatuses.isRead,
-        isStarred: articleStatuses.isStarred,
-      })
-      .from(articles)
-      .innerJoin(feeds, eq(feeds.id, articles.feedId))
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-        ),
-      )
-      .leftJoin(
-        articleStatuses,
-        and(
-          eq(articleStatuses.userId, user.userId),
-          eq(articleStatuses.articleId, articles.id),
-        ),
-      )
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(articles.publicationDate))
-      .limit(limit)
-      .offset(offset);
-
-    rows = await query;
-  } else {
-    const conditions: Parameters<typeof and> = [];
-
-    if (feedUrl && sinceDate) {
-      conditions.push(
-        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, sinceDate)),
-      );
-    } else if (feedUrl) {
-      conditions.push(eq(feeds.url, feedUrl));
-    } else if (sinceDate) {
-      conditions.push(gte(articles.publicationDate, sinceDate));
+    } else if (dateFilter) {
+      conditions.push(gte(articles.publicationDate, dateFilter));
     }
 
     const query = db
@@ -849,13 +890,39 @@ async function handleStreamItemIds(
       .limit(limit)
       .offset(offset);
 
-    rows = await query;
+    return query;
   }
+
+  let rows: Array<{
+    articleId: number;
+    isRead: boolean | null;
+    isStarred: boolean | null;
+  }> = await queryRows(sinceDate);
+  let usedOtFallback = false;
+
+  if (rows.length === 0 && sinceDate) {
+    rows = await queryRows(null);
+    usedOtFallback = true;
+  }
+
+  const continuation =
+    rows.length === limit ? `offset:${offset + rows.length}` : undefined;
+
+  console.info("[greader] stream/items/ids", {
+    userId: user.userId,
+    streamId,
+    limit,
+    offset,
+    ot: searchParams.get("ot"),
+    excludeRead,
+    itemRefCount: rows.length,
+    usedOtFallback,
+    continuation: continuation ?? null,
+  });
 
   return NextResponse.json({
     itemRefs: rows.map((row) => ({ id: String(row.articleId) })),
-    continuation:
-      rows.length === limit ? `offset:${offset + rows.length}` : undefined,
+    continuation,
   });
 }
 
@@ -874,6 +941,12 @@ async function handleStreamItemContents(
   );
 
   if (articleIds.length === 0) {
+    console.info("[greader] stream/items/contents", {
+      userId: user.userId,
+      requestedItemCount: 0,
+      returnedItemCount: 0,
+    });
+
     return NextResponse.json({
       id: "user/-/state/com.google/reading-list",
       updated: Math.floor(Date.now() / 1000),
@@ -957,6 +1030,12 @@ async function handleStreamItemContents(
     (left, right) =>
       articleIds.indexOf(left.articleId) - articleIds.indexOf(right.articleId),
   );
+
+  console.info("[greader] stream/items/contents", {
+    userId: user.userId,
+    requestedItemCount: articleIds.length,
+    returnedItemCount: rows.length,
+  });
 
   return NextResponse.json({
     id: "user/-/state/com.google/reading-list",

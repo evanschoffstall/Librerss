@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { AuthService } from "@/lib";
-import { CheckCheck, LogOut, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
+import { CheckCheck, LogOut, Menu, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -81,6 +81,15 @@ export function DashboardTopBar() {
   return (
     <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-6">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("dashboard:open-feeds-sidebar"))}
+          aria-label="Open feeds"
+          className={`${toolbarBtnClass} lg:hidden`}
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
         <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
 
         <div className="relative flex-1">
