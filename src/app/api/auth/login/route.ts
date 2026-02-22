@@ -62,6 +62,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // SECURITY: Reject overlong passwords before hashing to prevent scrypt DoS.
+    if (password.length > CONFIG.PASSWORD_MAX_LENGTH) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 },
+      );
+    }
+
     // Placeholder mode (dev/demo only)
     if (RUNTIME_FLAGS.usePlaceholderData) {
       if (!RUNTIME_FLAGS.allowPlaceholderAuth) {

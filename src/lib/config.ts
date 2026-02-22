@@ -38,6 +38,9 @@ export const CONFIG = {
   // Authentication
   SESSION_DURATION_DAYS: 30,
   PASSWORD_MIN_LENGTH: 8,
+  // SECURITY: scrypt CPU time scales with password length. Cap at a safe upper
+  // bound to prevent DoS via extremely long passwords submitted to /api/auth/*.
+  PASSWORD_MAX_LENGTH: 1024,
   PASSWORD_COMPLEXITY_REQUIRED_TYPES: 3, // out of 4 types (upper, lower, number, special)
   MAX_SESSIONS_PER_USER: 5,
 

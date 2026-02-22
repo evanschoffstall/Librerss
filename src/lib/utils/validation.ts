@@ -31,7 +31,11 @@ export function isStrongPassword(password: string): boolean {
     return false;
   }
 
-  if (password.length < CONFIG.PASSWORD_MIN_LENGTH) {
+  // SECURITY: Reject overlong passwords to prevent scrypt DoS.
+  if (
+    password.length < CONFIG.PASSWORD_MIN_LENGTH ||
+    password.length > CONFIG.PASSWORD_MAX_LENGTH
+  ) {
     return false;
   }
 
