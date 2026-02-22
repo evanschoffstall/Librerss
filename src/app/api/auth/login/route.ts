@@ -119,8 +119,13 @@ export async function POST(request: Request) {
 
     // SECURITY: Never auto-create users from the committed placeholder
     // credentials. Use /api/auth/signup or a seed script instead.
+    //
+    // SECURITY: Use a single generic log message for ALL login failures so
+    // that log access cannot be used to enumerate registered email addresses.
+    // Do not log the reason (email not found vs wrong password) — only log
+    // the client identifier, which is already used for rate-limiting.
     if (!user) {
-      logger.warn("Login attempt with non-existent email", { email });
+      logger.warn("Failed login attempt");
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 },
@@ -130,10 +135,7 @@ export async function POST(request: Request) {
     // Verify password
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
-      logger.warn("Failed login attempt (invalid password)", {
-        userId: user.id,
-        email: user.email,
-      });
+      logger.warn("Failed login attempt");
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 },
