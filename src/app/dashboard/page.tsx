@@ -13,24 +13,18 @@ import {
   ArticleService,
   AuthService,
   ENV,
-  FeedService,
-  isValidUrl,
-  normalizeCategory,
   useLocalStorage,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
-  type OpmlFeedImportEntry,
 } from "@/lib";
 
-import { Skeleton } from "@/components/ui/skeleton";
-import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArticleCard } from "./components/ArticleCard";
-import { FeedCategory } from "./components/FeedCategory";
+import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
+import { FeedList } from "./components/FeedList";
 import { LoginView } from "./components/LoginView";
 import { SettingsModal } from "./components/SettingsModal";
 import {
@@ -39,1000 +33,91 @@ import {
   INITIAL_CATEGORIES,
 } from "./constants";
 import {
-  buildCategoriesFromSources,
-  buildDefaultCategories,
-  dedupeAndSortArticles,
   flattenCategoryFeeds,
   getArticleKey,
-  mapBatchResultsToArticles,
   normalizeLabel,
   panelMotion,
-  relocateFeedInCategories,
   SYSTEM_ALL_FEEDS_CATEGORY,
   toCategoryKey,
-  type FeedBatchSource,
 } from "./helpers";
+import { useArticleActions } from "./hooks/useArticleActions";
+import { useCategoryManager } from "./hooks/useCategoryManager";
+import { useFeedLoader } from "./hooks/useFeedLoader";
 
 const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) => {
   const [feed, setFeed] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
-  // Always reflects the latest categories value without requiring re-creation
-  // of callbacks that depend on it (avoids the useCallback dep-cycle).
   const categoriesRef = useRef<CategoryTreeNode[]>(INITIAL_CATEGORIES);
   categoriesRef.current = categories;
   const [selectedCategory, setSelectedCategory] = useState(ALL_FEEDS_NODE_KEY);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
-  const expandedArticleKeyRef = useRef<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
-  const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>([]);
-  const [pendingCategoryRemovalLabel, setPendingCategoryRemovalLabel] = useState<string | null>(
-    null,
-  );
-  const latestFeedRequestIdRef = useRef(0);
-  const hydratedArticleLinksRef = useRef(new Set<string>());
-  const articleHydrationInFlightRef = useRef(new Set<string>());
-  const [hydratedArticleLinks, setHydratedArticleLinks] = useState<Record<string, boolean>>({});
-  const [hydratingArticleLinks, setHydratingArticleLinks] = useState<Record<string, boolean>>({});
-  const [updatingArticleState, setUpdatingArticleState] = useState<Record<string, boolean>>({});
   const [articleFilter, setArticleFilter] = useState<"all" | "unread" | "starred">("unread");
   const [pageSize, setPageSize] = useLocalStorage<number>("librerss:pageSize", 25);
   const [showFavicons, setShowFavicons] = useLocalStorage<boolean>("librerss:showFavicons", true);
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
-
-  useEffect(() => {
-    expandedArticleKeyRef.current = expandedArticleKey;
-  }, [expandedArticleKey]);
-
-  const scrollArticleIntoView = useCallback((articleKey: string) => {
-    const escapedKey = typeof CSS !== "undefined" && typeof CSS.escape === "function"
-      ? CSS.escape(articleKey)
-      : articleKey.replace(/[\\"]/g, "\\$&");
-
-    const articleElement = document.querySelector<HTMLElement>(
-      `[data-article-key="${escapedKey}"]`,
-    );
-
-    articleElement?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: "auto",
-    });
-  }, []);
-
-  const ensureCategoryLabelExists = (label: string) => {
-    const normalized = normalizeLabel(label);
-
-    setCustomCategoryLabels((current) => {
-      if (current.some((currentLabel) => normalizeLabel(currentLabel) === normalized)) {
-        return current;
-      }
-
-      if (categories.some((node) => normalizeLabel(node.label) === normalized)) {
-        return current;
-      }
-
-      return [...current, label];
-    });
-
-    setOrderedCategoryLabels((current) => {
-      if (current.some((currentLabel) => normalizeLabel(currentLabel) === normalized)) {
-        return current;
-      }
-
-      return [...current, label];
-    });
-  };
-
-  const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
-    try {
-      const sources = await FeedService.getFeedSources();
-
-      if (sources.length === 0) {
-        const defaults = buildDefaultCategories(usePlaceholderData);
-        setCategories(defaults);
-        return defaults;
-      }
-
-      const nextCategories = buildCategoriesFromSources(sources);
-
-      setCategories(nextCategories);
-      return nextCategories;
-    } catch (err) {
-      console.error("Feed source fetch error:", err);
-      const defaults = buildDefaultCategories(usePlaceholderData);
-      setCategories(defaults);
-      return defaults;
-    }
-  }, [usePlaceholderData]);
-
-  const selectFeedByKey = (feedKey: string) => {
-    const sourceNode = flattenCategoryFeeds(categories).find((item) => item.key === feedKey);
-    if (!sourceNode?.data?.url) {
-      return;
-    }
-
-    setSelectedCategory(sourceNode.key);
-    fetchFeed(sourceNode.data.url);
-  };
-
-  const addFeedSource = async (name: string, url: string, category: string) => {
-    if (!name.trim() || !url.trim()) {
-      toast.error("Feed name and URL are required.");
-      return false;
-    }
-
-    if (!isValidUrl(url)) {
-      toast.error("Please enter a valid feed URL.");
-      return false;
-    }
-
-    try {
-      await FeedService.createFeedSource({
-        name: name.trim(),
-        url: url.trim(),
-        category: normalizeCategory(category),
-      });
-      const nextCategories = await loadFeedSources();
-      const latestNode = flattenCategoryFeeds(nextCategories).find(
-        (node) => node.data?.url === url.trim(),
-      );
-
-      if (latestNode?.data?.url) {
-        setSelectedCategory(latestNode.key);
-        await fetchFeed(latestNode.data.url);
-      }
-
-      toast.success("Feed source added.");
-      return true;
-    } catch (err) {
-      console.error("Add feed source error:", err);
-      toast.error("Unable to add feed source.");
-      return false;
-    }
-  };
-
-  const removeFeedSource = async (key: string) => {
-    const selectedNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
-    const sourceId = selectedNode?.data?.sourceId;
-
-    if (typeof sourceId !== "number" || !Number.isInteger(sourceId) || sourceId <= 0) {
-      return;
-    }
-
-    try {
-      await FeedService.deleteFeedSource(sourceId);
-      const nextCategories = await loadFeedSources();
-      const nextAvailable = flattenCategoryFeeds(nextCategories);
-      const selectedCategoryNode = nextCategories.find((node) => node.key === selectedCategory);
-
-      if (nextAvailable.length === 0) {
-        setSelectedCategory("");
-        setFeed([]);
-      } else if (selectedCategory === key) {
-        const fallback = nextAvailable[0];
-        setSelectedCategory(fallback.key);
-        if (fallback.data?.url) {
-          await fetchFeed(fallback.data.url);
-        }
-      } else if (selectedCategoryNode) {
-        await fetchCategoryFeeds(selectedCategoryNode);
-      }
-
-      toast.success("Feed source removed.");
-    } catch (err) {
-      console.error("Remove feed source error:", err);
-      toast.error("Unable to remove feed source.");
-    }
-  };
-
-  const renameFeedSource = async (key: string, nextName: string) => {
-    const selectedNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
-    const sourceId = selectedNode?.data?.sourceId;
-    const normalizedName = nextName.trim();
-
-    if (!normalizedName) {
-      toast.error("Feed name is required.");
-      return false;
-    }
-
-    if (typeof sourceId !== "number" || !Number.isInteger(sourceId) || sourceId <= 0) {
-      toast.error("Unable to rename this feed.");
-      return false;
-    }
-
-    try {
-      await FeedService.renameFeedSource(sourceId, normalizedName);
-      await loadFeedSources();
-      toast.success("Feed source renamed.");
-      return true;
-    } catch (err) {
-      console.error("Rename feed source error:", err);
-      toast.error("Unable to rename feed source.");
-      return false;
-    }
-  };
-
-  const moveFeedByDrop = async (key: string, targetCategory: string, targetIndex: number) => {
-    const normalizedTargetCategory = normalizeCategory(targetCategory);
-    if (!normalizedTargetCategory) {
-      return;
-    }
-
-    const sourceCategoryNode = categories.find((categoryNode) =>
-      (categoryNode.children ?? []).some((source: CategoryTreeNode) => source.key === key),
-    );
-    const sourceNode = flattenCategoryFeeds(categories).find((node) => node.key === key);
-
-    if (!sourceCategoryNode || !sourceNode) {
-      return;
-    }
-
-    setCategories((prev) =>
-      relocateFeedInCategories(prev, key, normalizedTargetCategory, targetIndex),
-    );
-
-    if (normalizeLabel(sourceCategoryNode.label) === normalizeLabel(normalizedTargetCategory)) {
-      return;
-    }
-
-    ensureCategoryLabelExists(normalizedTargetCategory);
-
-    try {
-      await FeedService.createFeedSource({
-        name: sourceNode.label,
-        url: sourceNode.data?.url ?? "",
-        category: normalizedTargetCategory,
-      });
-    } catch (err) {
-      console.error("Drag move feed category error:", err);
-      toast.error("Unable to move feed right now.");
-      await loadFeedSources();
-    }
-  };
-
-  const importOpmlFeeds = async (entries: OpmlFeedImportEntry[]) => {
-    if (entries.length === 0) {
-      toast.error("No valid feeds found in OPML file.");
-      return;
-    }
-
-    const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-      (node) => node.key === selectedCategory,
-    )?.data?.url;
-
-    let importedCount = 0;
-    let failedCount = 0;
-    const successfulUrls: string[] = [];
-    const importedCategoryLabels = new Set<string>();
-
-    // Import feeds concurrently — serial awaits in a for…of loop blocked UI
-    // for large OPML files (e.g. 200 feeds × 12 s timeout ≈ 40 min).
-    const importResults = await Promise.allSettled(
-      entries.map((entry) =>
-        FeedService.createFeedSource({
-          name: entry.name.trim(),
-          url: entry.url.trim(),
-          category: normalizeCategory(entry.category),
-        }).then(() => ({
-          url: entry.url.trim(),
-          category: normalizeCategory(entry.category),
-        })),
-      ),
-    );
-
-    for (const result of importResults) {
-      if (result.status === "fulfilled") {
-        successfulUrls.push(result.value.url);
-        importedCategoryLabels.add(result.value.category);
-        importedCount += 1;
-      } else {
-        failedCount += 1;
-        console.error("OPML import item failed:", result.reason);
-      }
-    }
-
-    if (importedCount === 0) {
-      toast.error("Unable to import feeds from OPML.");
-      return;
-    }
-
-    if (importedCategoryLabels.size > 0) {
-      setCustomCategoryLabels((current) => {
-        const existing = new Set(current.map((label) => normalizeLabel(label)));
-        const next = [...current];
-
-        for (const label of importedCategoryLabels) {
-          if (!existing.has(normalizeLabel(label))) {
-            next.push(label);
-            existing.add(normalizeLabel(label));
-          }
-        }
-
-        return next;
-      });
-    }
-
-    const nextCategories = await loadFeedSources();
-    const restoredSelection = previousSelectedSourceUrl
-      ? flattenCategoryFeeds(nextCategories).find(
-        (node) => node.data?.url === previousSelectedSourceUrl,
-      )
-      : null;
-    const importedSelection = flattenCategoryFeeds(nextCategories).find((node) =>
-      successfulUrls.includes(node.data?.url ?? ""),
-    );
-    const nextSelection = importedSelection ?? restoredSelection;
-
-    if (nextSelection?.data?.url) {
-      setSelectedCategory(nextSelection.key);
-      await fetchFeed(nextSelection.data.url);
-    }
-
-    if (failedCount > 0) {
-      toast.success(`Imported ${importedCount} feeds (${failedCount} skipped).`);
-      return;
-    }
-
-    toast.success(`Imported ${importedCount} feeds from OPML.`);
-  };
-
-  const addCategory = (label: string) => {
-    const normalized = normalizeCategory(label);
-    if (!normalized) {
-      toast.error("Category name is required.");
-      return false;
-    }
-
-    const existing = new Set([
-      ...categories.map((node) => normalizeLabel(node.label)),
-      ...customCategoryLabels.map((node) => normalizeLabel(node)),
-    ]);
-
-    if (existing.has(normalizeLabel(normalized))) {
-      toast.error("Category already exists.");
-      return false;
-    }
-
-    setCustomCategoryLabels((current) => [...current, normalized]);
-    toast.success("Category added.");
-    return true;
-  };
-
-  const assignFeedsToCategory = async (
-    feedNodes: CategoryTreeNode[],
-    targetCategory: string,
-  ) => {
-    const transferableFeeds = feedNodes.filter((feedNode: CategoryTreeNode) =>
-      Boolean(feedNode.data?.url),
-    );
-
-    if (transferableFeeds.length === 0) {
-      return;
-    }
-
-    await Promise.all(
-      transferableFeeds.map((feedNode: CategoryTreeNode) =>
-        FeedService.createFeedSource({
-          name: feedNode.label,
-          url: feedNode.data?.url ?? "",
-          category: targetCategory,
-        }),
-      ),
-    );
-  };
-
-  const renameCategory = async (currentLabel: string, nextLabel: string) => {
-    const normalizedCurrent = normalizeCategory(currentLabel);
-    const normalizedNext = normalizeCategory(nextLabel);
-
-    if (!normalizedCurrent || !normalizedNext) {
-      toast.error("Category name is required.");
-      return false;
-    }
-
-    if (normalizeLabel(normalizedCurrent) === normalizeLabel(normalizedNext)) {
-      return false;
-    }
-
-    const allLabels = new Set([
-      ...categories.map((node) => normalizeLabel(node.label)),
-      ...customCategoryLabels.map((node) => normalizeLabel(node)),
-    ]);
-
-    if (allLabels.has(normalizeLabel(normalizedNext))) {
-      toast.error("Category already exists.");
-      return false;
-    }
-
-    const categoryNode = categories.find(
-      (node) => normalizeLabel(node.label) === normalizeLabel(normalizedCurrent),
-    );
-    const feedsInCategory = categoryNode?.children ?? [];
-    const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-      (node) => node.key === selectedCategory,
-    )?.data?.url;
-
-    try {
-      let refreshedCategories: CategoryTreeNode[] | null = null;
-
-      if (feedsInCategory.length > 0) {
-        await assignFeedsToCategory(feedsInCategory, normalizedNext);
-        refreshedCategories = await loadFeedSources();
-      }
-
-      setCustomCategoryLabels((current) =>
-        current.map((label) =>
-          normalizeLabel(label) === normalizeLabel(normalizedCurrent) ? normalizedNext : label,
-        ),
-      );
-      setOrderedCategoryLabels((current) =>
-        current.map((label) =>
-          normalizeLabel(label) === normalizeLabel(normalizedCurrent) ? normalizedNext : label,
-        ),
-      );
-
-      if (previousSelectedSourceUrl) {
-        if (!refreshedCategories) {
-          refreshedCategories = await loadFeedSources();
-        }
-
-        const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
-          (node) => node.data?.url === previousSelectedSourceUrl,
-        );
-
-        if (selectedNode) {
-          setSelectedCategory(selectedNode.key);
-        }
-      }
-
-      toast.success("Category updated.");
-      return true;
-    } catch (err) {
-      console.error("Rename category error:", err);
-      toast.error("Unable to rename category.");
-      return false;
-    }
-  };
-
-  const moveCategoryByDrop = async (label: string, targetIndex: number) => {
-    setOrderedCategoryLabels((current) => {
-      const currentIndex = current.findIndex(
-        (currentLabel) => normalizeLabel(currentLabel) === normalizeLabel(label),
-      );
-
-      if (currentIndex < 0) {
-        return current;
-      }
-
-      const next = [...current];
-      const [moved] = next.splice(currentIndex, 1);
-      const safeTargetIndex = Math.max(0, Math.min(targetIndex, next.length));
-      const insertionIndex = currentIndex < safeTargetIndex ? safeTargetIndex - 1 : safeTargetIndex;
-      next.splice(insertionIndex, 0, moved);
-      return next;
-    });
-  };
-
-  const removeCategory = async (label: string) => {
-    const categoryNode = categories.find(
-      (node) => normalizeLabel(node.label) === normalizeLabel(label),
-    );
-    const feedsInCategory = categoryNode?.children ?? [];
-    const feedCount = feedsInCategory.length;
-
-    if (feedCount > 0) {
-      if (normalizeLabel(pendingCategoryRemovalLabel ?? "") !== normalizeLabel(label)) {
-        setPendingCategoryRemovalLabel(label);
-        return false;
-      }
-
-      const targetCategory = [
-        ...categories.map((categoryNode) => categoryNode.label),
-        ...customCategoryLabels,
-      ]
-        .map((categoryLabel) => normalizeCategory(categoryLabel))
-        .find((categoryLabel) => normalizeLabel(categoryLabel) !== normalizeLabel(label));
-
-      if (!targetCategory) {
-        setPendingCategoryRemovalLabel(null);
-        toast.error("Add another category before removing this one.");
-        return false;
-      }
-
-      ensureCategoryLabelExists(targetCategory);
-
-      try {
-        await assignFeedsToCategory(feedsInCategory, targetCategory);
-
-        const refreshedCategories = await loadFeedSources();
-        const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-          (node) => node.key === selectedCategory,
-        )?.data?.url;
-
-        if (previousSelectedSourceUrl) {
-          const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
-            (node) => node.data?.url === previousSelectedSourceUrl,
-          );
-
-          if (selectedNode) {
-            setSelectedCategory(selectedNode.key);
-          }
-        }
-
-        setPendingCategoryRemovalLabel(null);
-        toast.success(`Category removed. Feeds moved to "${targetCategory}".`);
-        return true;
-      } catch (err) {
-        console.error("Remove category error:", err);
-        setPendingCategoryRemovalLabel(null);
-        toast.error("Unable to remove category right now.");
-        return false;
-      }
-    }
-
-    setPendingCategoryRemovalLabel(null);
-    setCustomCategoryLabels((current) =>
-      current.filter((currentLabel) => normalizeLabel(currentLabel) !== normalizeLabel(label)),
-    );
-    setOrderedCategoryLabels((current) =>
-      current.filter((currentLabel) => normalizeLabel(currentLabel) !== normalizeLabel(label)),
-    );
-    toast.success("Category removed.");
-    return true;
-  };
-
-  const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[]) => {
-    const requestId = latestFeedRequestIdRef.current + 1;
-    latestFeedRequestIdRef.current = requestId;
-
-    // Deduplicate by URL, keeping the first occurrence.
-    const seen = new Set<string>();
-    const normalizedSources = sources.filter((s) => {
-      if (!s.url || seen.has(s.url)) return false;
-      seen.add(s.url);
-      return true;
-    });
-
-    setLoading(true);
-    setFeed([]);
-
-    try {
-      if (normalizedSources.length === 0) {
-        setExpandedArticleKey(null);
-        return;
-      }
-
-      const sourceNameByUrl = new Map(
-        normalizedSources.map((source) => [source.url, source.name] as const),
-      );
-
-      const toBatchArticles = (
-        batchResults: Array<{ url: string; articles: Article[]; ok: boolean }>,
-      ) =>
-        mapBatchResultsToArticles(
-          batchResults,
-          sourceNameByUrl,
-          usePlaceholderData,
-          getPlaceholderArticlesForSource,
-        );
-
-      const urls = normalizedSources.map((source) => source.url);
-
-      // ── Phase 1: Return cached DB articles immediately (no upstream HTTP) ──
-      let cachedBatchResults: Array<{ url: string; articles: Article[]; ok: boolean }>;
-
-      try {
-        cachedBatchResults = await FeedService.getFeedsBatch(urls, { skipRefresh: true });
-      } catch (error) {
-        if (usePlaceholderData) {
-          const fallbackArticles = dedupeAndSortArticles(
-            normalizedSources.flatMap((source) =>
-              getPlaceholderArticlesForSource(source.url).map((article) => ({
-                ...article,
-                feedName: source.name,
-                feedUrl: source.url,
-              })),
-            ),
-          );
-
-          setFeed(fallbackArticles);
-          setExpandedArticleKey(null);
-          return;
-        }
-
-        console.error("Batch feed fetch error:", error);
-        toast.error("Unable to load this feed right now.", {
-          description: "Please try refreshing the selected source again.",
-        });
-        return;
-      }
-
-      if (latestFeedRequestIdRef.current !== requestId) return;
-
-      const cachedArticles = toBatchArticles(cachedBatchResults);
-
-      if (cachedArticles.length > 0) {
-        setFeed(cachedArticles);
-        setExpandedArticleKey(null);
-      }
-
-      if (latestFeedRequestIdRef.current === requestId) {
-        setLoading(false);
-      }
-
-      // ── Phase 2: Refresh stale feeds in the background ────────────────────
-      // Placeholder data never needs an upstream refresh.
-      if (!usePlaceholderData) {
-        try {
-          const freshBatchResults = await FeedService.getFeedsBatch(urls, { skipRefresh: false });
-
-          if (latestFeedRequestIdRef.current !== requestId) return;
-
-          const freshArticles = toBatchArticles(freshBatchResults);
-
-          if (freshArticles.length > 0) {
-            setFeed(freshArticles);
-            setExpandedArticleKey(null);
-            return;
-          }
-        } catch {
-          // Background refresh failed — cached articles (if any) remain visible.
-        }
-
-        // Neither phase produced articles.
-        if (cachedArticles.length === 0 && latestFeedRequestIdRef.current === requestId) {
-          const hasConfiguredFeeds = flattenCategoryFeeds(categoriesRef.current).length > 0;
-          if (!hasConfiguredFeeds) {
-            toast.info("No feed sources yet.", {
-              description: "Add your feeds in Settings to start reading.",
-            });
-            return;
-          }
-
-          toast.error("Unable to load this feed right now.", {
-            description: "Please try refreshing the selected source again.",
-          });
-        }
-      }
-    } finally {
-      if (latestFeedRequestIdRef.current === requestId) {
-        setLoading(false);
-      }
-    }
-  }, [usePlaceholderData]);
-
-  const fetchFeed = useCallback(async (url: string = DEFAULT_FEED_URL) => {
-    const sourceName = flattenCategoryFeeds(categoriesRef.current).find((node) => node.data?.url === url)?.label;
-    await fetchFeedBatch([{ url, name: sourceName }]);
-  }, [fetchFeedBatch]);
-
-  const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode) => {
-    const sources = (categoryNode.children ?? [])
-      .filter((node: CategoryTreeNode) => node.data?.url)
-      .map((node: CategoryTreeNode): FeedBatchSource => ({ url: node.data!.url, name: node.label }));
-
-    await fetchFeedBatch(sources);
-  }, [fetchFeedBatch]);
-
-  const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[]) => {
-    const resolvedCategories = sourceCategories ?? categoriesRef.current;
-    const sources = flattenCategoryFeeds(resolvedCategories)
-      .filter((node: CategoryTreeNode) => node.data?.url)
-      .map((node: CategoryTreeNode): FeedBatchSource => ({ url: node.data!.url, name: node.label }));
-
-    await fetchFeedBatch(sources);
-  }, [fetchFeedBatch]);
-
-  const handleFeedClick = (feedNode: CategoryTreeNode) => {
-    setSelectedCategory(feedNode.key);
-    setIsMobileSidebarOpen(false);
-    if (feedNode.data?.url) {
-      fetchFeed(feedNode.data.url);
-    }
-  };
-
-  const handleCategoryClick = (categoryNode: CategoryTreeNode) => {
-    setSelectedCategory(categoryNode.key);
-    setIsMobileSidebarOpen(false);
-
-    if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
-      fetchAllFeeds();
-      return;
-    }
-
-    fetchCategoryFeeds(categoryNode);
-  };
-
-  const hydrateArticleContent = async (article: Article) => {
-    const link = article.link?.trim();
-
-    if (!link || !isValidUrl(link)) {
-      return;
-    }
-
-    if (
-      hydratedArticleLinksRef.current.has(link) ||
-      articleHydrationInFlightRef.current.has(link)
-    ) {
-      return;
-    }
-
-    articleHydrationInFlightRef.current.add(link);
-    setHydratingArticleLinks((current) => ({
-      ...current,
-      [link]: true,
-    }));
-
-    try {
-      const extractedContent = await ArticleService.extractArticleContent(link);
-
-      if (!extractedContent) {
-        hydratedArticleLinksRef.current.add(link);
-        return;
-      }
-
-      setFeed((currentFeed) =>
-        currentFeed.map((currentArticle) => {
-          if (currentArticle.link.trim() !== link) {
-            return currentArticle;
-          }
-
-          if ((extractedContent.length ?? 0) <= (currentArticle.content?.length ?? 0)) {
-            return currentArticle;
-          }
-
-          return {
-            ...currentArticle,
-            content: extractedContent,
-          };
-        }),
-      );
-
-      hydratedArticleLinksRef.current.add(link);
-      setHydratedArticleLinks((current) => ({
-        ...current,
-        [link]: true,
-      }));
-    } catch (error) {
-      console.error("Article hydration error:", error);
-    } finally {
-      articleHydrationInFlightRef.current.delete(link);
-      setHydratingArticleLinks((current) => {
-        if (!current[link]) {
-          return current;
-        }
-
-        const { [link]: _, ...rest } = current;
-        return rest;
-      });
-    }
-  };
-
-  const setArticleReadState = async (
-    article: Article,
-    nextReadState: boolean,
-    options?: { suppressErrorToast?: boolean },
-  ) => {
-    const articleKey = getArticleKey(article);
-
-    setUpdatingArticleState((current) => ({
-      ...current,
-      [articleKey]: true,
-    }));
-
-    setFeed((currentFeed) =>
-      currentFeed.map((currentArticle) =>
-        getArticleKey(currentArticle) === articleKey
-          ? { ...currentArticle, isRead: nextReadState }
-          : currentArticle
-      ),
-    );
-
-    try {
-      await ArticleService.setArticleReadState(article.id, nextReadState);
-    } catch (error) {
-      console.error("Set read state error:", error);
-      setFeed((currentFeed) =>
-        currentFeed.map((currentArticle) =>
-          getArticleKey(currentArticle) === articleKey
-            ? { ...currentArticle, isRead: article.isRead }
-            : currentArticle
-        ),
-      );
-
-      if (!options?.suppressErrorToast) {
-        toast.error("Unable to update read state right now.");
-      }
-    } finally {
-      setUpdatingArticleState((current) => {
-        const { [articleKey]: _, ...rest } = current;
-        return rest;
-      });
-    }
-  };
-
-  const handleArticleToggle = async (article: Article) => {
-    const nextArticleKey = getArticleKey(article);
-    const shouldExpand = expandedArticleKey !== nextArticleKey;
-
-    setExpandedArticleKey((current) => (current === nextArticleKey ? null : nextArticleKey));
-
-    if (!shouldExpand) {
-      return;
-    }
-
-    if (!article.isRead && !updatingArticleState[nextArticleKey]) {
-      void setArticleReadState(article, true, { suppressErrorToast: true });
-    }
-
-    requestAnimationFrame(() => {
-      scrollArticleIntoView(nextArticleKey);
-    });
-
-    await hydrateArticleContent(article);
-
-    if (expandedArticleKeyRef.current === nextArticleKey) {
-      requestAnimationFrame(() => {
-        scrollArticleIntoView(nextArticleKey);
-      });
-    }
-  };
-
-  const handleToggleReadState = async (article: Article) => {
-    const nextReadState = !article.isRead;
-    await setArticleReadState(article, nextReadState);
-  };
-
-  const handleToggleStarredState = async (article: Article) => {
-    const articleKey = getArticleKey(article);
-    const nextStarredState = !article.isStarred;
-
-    setUpdatingArticleState((current) => ({
-      ...current,
-      [articleKey]: true,
-    }));
-
-    setFeed((currentFeed) => {
-      const updated = currentFeed.map((currentArticle) =>
-        getArticleKey(currentArticle) === articleKey
-          ? { ...currentArticle, isStarred: nextStarredState }
-          : currentArticle
-      );
-
-      if (articleFilter === "starred" && !nextStarredState) {
-        return updated.filter((currentArticle) => getArticleKey(currentArticle) !== articleKey);
-      }
-
-      return updated;
-    });
-
-    try {
-      await ArticleService.setArticleStarredState(article.id, nextStarredState);
-    } catch (error) {
-      console.error("Toggle starred state error:", error);
-      setFeed((currentFeed) => {
-        const reverted = currentFeed.map((currentArticle) =>
-          getArticleKey(currentArticle) === articleKey
-            ? { ...currentArticle, isStarred: article.isStarred }
-            : currentArticle
-        );
-
-        if (articleFilter === "starred" && article.isStarred) {
-          const alreadyPresent = reverted.some(
-            (currentArticle) => getArticleKey(currentArticle) === articleKey,
-          );
-
-          if (!alreadyPresent) {
-            return [article, ...reverted];
-          }
-        }
-
-        return reverted;
-      });
-      toast.error("Unable to update starred state right now.");
-    } finally {
-      setUpdatingArticleState((current) => {
-        const { [articleKey]: _, ...rest } = current;
-        return rest;
-      });
-    }
-  };
-
+  const hasInitializedDashboardRef = useRef(false);
+
+  const feedLoader = useFeedLoader({
+    usePlaceholderData,
+    categoriesRef,
+    setFeed,
+    setCategories,
+    setExpandedArticleKey,
+    setLoading,
+  });
+
+  const { loadFeedSources, fetchFeed, fetchCategoryFeeds, fetchAllFeeds } = feedLoader;
+
+  const categoryManager = useCategoryManager({
+    categories,
+    selectedCategory,
+    setCategories,
+    setSelectedCategory,
+    setFeed,
+    loadFeedSources,
+    fetchFeed,
+    fetchCategoryFeeds,
+  });
+
+  const articleActions = useArticleActions({
+    feed,
+    setFeed,
+    expandedArticleKey,
+    setExpandedArticleKey,
+    articleFilter,
+  });
+
+  // ── Derived data (computed before effects that depend on them) ────────────
+
+  // Article filter + search
   const feedByState = feed.filter((article) => {
     if (articleFilter === "unread") {
-      const articleKey = getArticleKey(article);
-      return !article.isRead || expandedArticleKey === articleKey;
+      return !article.isRead || expandedArticleKey === getArticleKey(article);
     }
-
-    if (articleFilter === "starred") {
-      return Boolean(article.isStarred);
-    }
-
+    if (articleFilter === "starred") return Boolean(article.isStarred);
     return true;
   });
 
-  const filteredFeed = feedByState.filter((article) =>
-    article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (article.content || "").toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredFeed = feedByState.filter(
+    (article) =>
+      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (article.content || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  // Reset visible window whenever the underlying feed or search changes.
-  useEffect(() => {
-    setVisibleCount(pageSize);
-  }, [feed, searchTerm, pageSize, articleFilter]);
-
-  // Infinite scroll: load next page when sentinel enters viewport.
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + pageSize, filteredFeed.length));
-        }
-      },
-      { threshold: 0 },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [filteredFeed.length, pageSize]);
-
-  useEffect(() => {
-    const initializeDashboard = async () => {
-      const loadedCategories = await loadFeedSources();
-      setIsCategoriesLoading(false);
-      setSelectedCategory(ALL_FEEDS_NODE_KEY);
-      await fetchAllFeeds(loadedCategories);
-    };
-
-    initializeDashboard();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const uniqueLabels = [
-      ...categories.map((node) => node.label),
-      ...customCategoryLabels.filter(
-        (label) =>
-          !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)),
-      ),
-    ].filter((label, index, allLabels) => {
-      return (
-        allLabels.findIndex((candidate) => normalizeLabel(candidate) === normalizeLabel(label)) === index
-      );
-    });
-
-    setOrderedCategoryLabels((current) => {
-      const preserved = current.filter((label) =>
-        uniqueLabels.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
-      );
-      const additions = uniqueLabels.filter(
-        (label) => !preserved.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
-      );
-
-      return [...preserved, ...additions];
-    });
-  }, [categories, customCategoryLabels]);
-
+  // Sidebar data
   const availableSources = flattenCategoryFeeds(categories);
   const selectedFeedNode = availableSources.find((c) => c.key === selectedCategory);
   const categoryMap = new Map<string, CategoryTreeNode>();
-  categories.forEach((categoryNode) => {
-    categoryMap.set(normalizeLabel(categoryNode.label), categoryNode);
-  });
-  customCategoryLabels
-    .filter(
-      (label) => !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)),
-    )
+  categories.forEach((node) => categoryMap.set(normalizeLabel(node.label), node));
+  categoryManager.customCategoryLabels
+    .filter((label) => !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)))
     .forEach((label) => {
       categoryMap.set(normalizeLabel(label), {
         key: toCategoryKey(label),
@@ -1042,22 +127,116 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     });
 
   const orderedLabels =
-    orderedCategoryLabels.length > 0
-      ? orderedCategoryLabels
-      : [...categoryMap.values()].map((categoryNode) => categoryNode.label);
+    categoryManager.orderedCategoryLabels.length > 0
+      ? categoryManager.orderedCategoryLabels
+      : [...categoryMap.values()].map((node) => node.label);
 
   const displayCategories = orderedLabels
     .map((label) => categoryMap.get(normalizeLabel(label)))
-    .filter((categoryNode): categoryNode is CategoryTreeNode => Boolean(categoryNode));
-  const sidebarCategories = [
-    SYSTEM_ALL_FEEDS_CATEGORY,
-    ...displayCategories,
-  ];
-  const selectedCategoryNode = sidebarCategories.find((categoryNode) => categoryNode.key === selectedCategory);
+    .filter((node): node is CategoryTreeNode => Boolean(node));
+
+  const sidebarCategories = [SYSTEM_ALL_FEEDS_CATEGORY, ...displayCategories];
+  const selectedCategoryNode = sidebarCategories.find((node) => node.key === selectedCategory);
   const selectedFeedUrl = selectedFeedNode?.data?.url;
   const selectedFeed = selectedFeedNode?.label ?? selectedCategoryNode?.label;
-  const categoryOptions = displayCategories.map((categoryNode) => categoryNode.label);
+  const categoryOptions = displayCategories.map((node) => node.label);
 
+  // ── Effects ───────────────────────────────────────────────────────────────
+
+  // Feed loading failsafe
+  useEffect(() => {
+    if (!loading) return;
+    const timeoutId = window.setTimeout(() => {
+      setLoading(false);
+      toast.error("Feed loading timed out.", {
+        description: "Please try refreshing the selected source again.",
+      });
+    }, 20_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [loading]);
+
+  // Body overflow lock
+  useEffect(() => {
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
+    };
+  }, []);
+
+  // Sidebar fade-in after mount
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setIsSidebarVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  // Reset visible count on feed/filter change
+  useEffect(() => {
+    setVisibleCount(pageSize);
+  }, [feed, searchTerm, pageSize, articleFilter]);
+
+  // Infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + pageSize, filteredFeed.length));
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredFeed.length, pageSize]);
+
+  // Dashboard initialization
+  useEffect(() => {
+    if (hasInitializedDashboardRef.current) return;
+    hasInitializedDashboardRef.current = true;
+
+    const init = async () => {
+      const loadedCategories = await loadFeedSources();
+      setIsCategoriesLoading(false);
+      setSelectedCategory(ALL_FEEDS_NODE_KEY);
+      await fetchAllFeeds(loadedCategories);
+    };
+
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync ordered category labels when categories/custom labels change
+  useEffect(() => {
+    const uniqueLabels = [
+      ...categories.map((node) => node.label),
+      ...categoryManager.customCategoryLabels.filter(
+        (label) =>
+          !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)),
+      ),
+    ].filter(
+      (label, index, allLabels) =>
+        allLabels.findIndex((candidate) => normalizeLabel(candidate) === normalizeLabel(label)) ===
+        index,
+    );
+
+    categoryManager.setOrderedCategoryLabels((current) => {
+      const preserved = current.filter((label) =>
+        uniqueLabels.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
+      );
+      const additions = uniqueLabels.filter(
+        (label) =>
+          !preserved.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
+      );
+      return [...preserved, ...additions];
+    });
+  }, [categories, categoryManager.customCategoryLabels]);
+
+  // Title sync
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("dashboard:title-change", {
@@ -1066,29 +245,24 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     );
   }, [selectedFeed]);
 
+  // Search sync
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("dashboard:search-sync", { detail: { term: searchTerm } }),
+    );
+  }, [searchTerm]);
+
+  // Dashboard event bus
   useEffect(() => {
     const refreshSelection = () => {
-      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-        fetchAllFeeds();
-        return;
-      }
-
-      if (selectedFeedUrl) {
-        fetchFeed(selectedFeedUrl);
-        return;
-      }
-
-      if (selectedCategoryNode) {
-        fetchCategoryFeeds(selectedCategoryNode);
-        return;
-      }
-
+      if (selectedCategory === ALL_FEEDS_NODE_KEY) { fetchAllFeeds(); return; }
+      if (selectedFeedUrl) { fetchFeed(selectedFeedUrl); return; }
+      if (selectedCategoryNode) { fetchCategoryFeeds(selectedCategoryNode); return; }
       fetchFeed(DEFAULT_FEED_URL);
     };
 
     const handleMarkAllRead = async () => {
       const streams: string[] = [];
-
       if (selectedCategory === ALL_FEEDS_NODE_KEY) {
         streams.push("user/-/state/com.google/reading-list");
       } else if (selectedFeedUrl) {
@@ -1096,16 +270,11 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       } else if (selectedCategoryNode?.children?.length) {
         for (const node of selectedCategoryNode.children) {
           const url = node.data?.url;
-          if (url) {
-            streams.push(`feed/${url}`);
-          }
+          if (url) streams.push(`feed/${url}`);
         }
       }
 
-      if (streams.length === 0) {
-        toast.info("No readable feed selected.");
-        return;
-      }
+      if (streams.length === 0) { toast.info("No readable feed selected."); return; }
 
       try {
         await Promise.all(Array.from(new Set(streams)).map((stream) => ArticleService.markAllRead(stream)));
@@ -1117,137 +286,48 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       }
     };
 
-    const handleRefresh = () => {
-      refreshSelection();
-    };
-
-    const handleOpenSettings = () => {
-      setShowSettingsModal(true);
-    };
-
-    const handleOpenFeedsSidebar = () => {
-      setIsMobileSidebarOpen(true);
-    };
-
     const handleSearchChange = (event: Event) => {
       const customEvent = event as CustomEvent<{ term?: string }>;
       setSearchTerm(customEvent.detail?.term ?? "");
     };
 
-    window.addEventListener("dashboard:refresh", handleRefresh);
+    window.addEventListener("dashboard:refresh", refreshSelection);
     window.addEventListener("dashboard:mark-all-read", handleMarkAllRead);
-    window.addEventListener("dashboard:open-settings", handleOpenSettings);
-    window.addEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
+    window.addEventListener("dashboard:open-settings", () => setShowSettingsModal(true));
+    window.addEventListener("dashboard:open-feeds-sidebar", () => setIsMobileSidebarOpen(true));
     window.addEventListener("dashboard:search-change", handleSearchChange as EventListener);
 
     return () => {
-      window.removeEventListener("dashboard:refresh", handleRefresh);
+      window.removeEventListener("dashboard:refresh", refreshSelection);
       window.removeEventListener("dashboard:mark-all-read", handleMarkAllRead);
-      window.removeEventListener("dashboard:open-settings", handleOpenSettings);
-      window.removeEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
+      window.removeEventListener("dashboard:open-settings", () => setShowSettingsModal(true));
+      window.removeEventListener("dashboard:open-feeds-sidebar", () => setIsMobileSidebarOpen(true));
       window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
     };
-  }, [
+  }, [selectedCategory, selectedCategoryNode, selectedFeedUrl, fetchAllFeeds, fetchFeed, fetchCategoryFeeds]);
+
+  const handleFeedClick = (feedNode: CategoryTreeNode) => {
+    setSelectedCategory(feedNode.key);
+    setIsMobileSidebarOpen(false);
+    if (feedNode.data?.url) fetchFeed(feedNode.data.url);
+  };
+
+  const handleCategoryClick = (categoryNode: CategoryTreeNode) => {
+    setSelectedCategory(categoryNode.key);
+    setIsMobileSidebarOpen(false);
+    if (categoryNode.key === ALL_FEEDS_NODE_KEY) { fetchAllFeeds(); return; }
+    fetchCategoryFeeds(categoryNode);
+  };
+
+  const sidebarProps = {
+    isCategoriesLoading,
+    isSidebarVisible,
+    sidebarCategories,
     selectedCategory,
-    selectedCategoryNode,
-    selectedFeedUrl,
-    fetchAllFeeds,
-    fetchFeed,
-    fetchCategoryFeeds,
-  ]);
-
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent("dashboard:search-sync", { detail: { term: searchTerm } }));
-  }, [searchTerm]);
-
-  useEffect(() => {
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-    };
-  }, []);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setIsSidebarVisible(true);
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  const renderSidebarContent = () => (
-    <AnimatePresence mode="wait" initial={false}>
-      {isCategoriesLoading ? (
-        <motion.div
-          key="sidebar-skeleton"
-          className="space-y-4 pr-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-        >
-          {[3, 2, 4].map((count, groupIndex) => (
-            <div key={groupIndex} className="space-y-1">
-              <Skeleton className="mx-2 h-3.5 w-16 rounded" />
-              {Array.from({ length: count }).map((_, itemIndex) => (
-                <Skeleton key={itemIndex} className="mx-1 h-9 w-[calc(100%-8px)] rounded-lg" />
-              ))}
-            </div>
-          ))}
-        </motion.div>
-      ) : (
-        <motion.div
-          key="sidebar-content"
-          className="space-y-4 pr-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {sidebarCategories.length === 0 ? (
-            <div className="px-2 py-8 text-xs text-muted-foreground/70">No feed sources yet.</div>
-          ) : (
-            sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
-              <div
-                key={categoryNode.key}
-                className={`space-y-1 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
-                  }`}
-                style={{ transitionDelay: `${index * 35}ms` }}
-              >
-                <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                  <button
-                    type="button"
-                    className={`w-full rounded px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide transition-colors ${selectedCategory === categoryNode.key
-                      ? "bg-muted/60 text-foreground"
-                      : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
-                      }`}
-                    onClick={() => handleCategoryClick(categoryNode)}
-                  >
-                    {categoryNode.label}
-                  </button>
-                </div>
-                {(categoryNode.children ?? []).map((feedNode: CategoryTreeNode) => (
-                  <FeedCategory
-                    key={feedNode.key}
-                    category={feedNode}
-                    isActive={selectedCategory === feedNode.key}
-                    showFavicon={showFavicons}
-                    onClick={() => handleFeedClick(feedNode)}
-                  />
-                ))}
-              </div>
-            ))
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+    showFavicons,
+    onCategoryClick: handleCategoryClick,
+    onFeedClick: handleFeedClick,
+  };
 
   return (
     <motion.div
@@ -1263,27 +343,25 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4">
             <ScrollArea className="h-[65vh]">
-              {renderSidebarContent()}
+              <DashboardSidebarContent {...sidebarProps} />
             </ScrollArea>
           </div>
         </DrawerContent>
       </Drawer>
 
-      {/* Main layout */}
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
-        {/* Sidebar */}
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <ScrollArea
-            className={`h-full transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
-              }`}
+            className={`h-full transition-opacity duration-300 ease-out ${
+              isSidebarVisible ? "opacity-100" : "opacity-0"
+            }`}
           >
-            {renderSidebarContent()}
+            <DashboardSidebarContent {...sidebarProps} />
           </ScrollArea>
         </aside>
 
         <Separator orientation="vertical" className="hidden lg:block" />
 
-        {/* Feed area */}
         <motion.section
           className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0"
           initial={panelMotion.initial}
@@ -1296,10 +374,11 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
                 key={value}
                 type="button"
                 onClick={() => setArticleFilter(value)}
-                className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${articleFilter === value
-                  ? "bg-muted/70 text-foreground"
-                  : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
-                  }`}
+                className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${
+                  articleFilter === value
+                    ? "bg-muted/70 text-foreground"
+                    : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
+                }`}
               >
                 {value}
               </button>
@@ -1307,106 +386,28 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
           </div>
 
           <ScrollArea className="min-h-0 flex-1">
-            <AnimatePresence mode="wait" initial={false}>
-              {loading ? (
-                <motion.div
-                  key="feed-skeleton"
-                  className="grid grid-cols-1 gap-2 pr-3 py-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div key={index} className="rounded-xl border bg-card/40 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="h-3 w-24" />
-                        <Skeleton className="h-3 w-3 rounded-full" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                      <Skeleton className="h-4 w-5/6" />
-                      <Skeleton className="h-4 w-3/4" />
-                      <div className="space-y-1.5 pt-1">
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-3 w-[92%]" />
-                        <Skeleton className="h-3 w-[78%]" />
-                      </div>
-                    </div>
-                  ))}
-                </motion.div>
-              ) : filteredFeed.length === 0 ? (
-                <motion.div
-                  key="feed-empty"
-                  className="flex items-center justify-center py-32"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {searchTerm ? "No matches." : "No articles yet."}
-                    </p>
-                    {searchTerm ? (
-                      <button
-                        onClick={() => setSearchTerm("")}
-                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                      >
-                        Clear search
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-                            fetchAllFeeds();
-                            return;
-                          }
-
-                          fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL);
-                        }}
-                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                      >
-                        Refresh
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="feed-list"
-                  className="grid grid-cols-1 gap-2 pr-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {filteredFeed.slice(0, visibleCount).map((article) => {
-                    const cardKey = getArticleKey(article);
-                    return (
-                      <ArticleCard
-                        key={cardKey}
-                        articleKey={cardKey}
-                        article={article}
-                        isExpanded={expandedArticleKey === cardKey}
-                        useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
-                        isHydrating={Boolean(hydratingArticleLinks[cardKey])}
-                        isUpdatingState={Boolean(updatingArticleState[cardKey])}
-                        showFavicon={showFavicons}
-                        onToggle={() => void handleArticleToggle(article)}
-                        onToggleRead={() => void handleToggleReadState(article)}
-                        onToggleStarred={() => void handleToggleStarredState(article)}
-                      />
-                    );
-                  })}
-                  {/* Sentinel: triggers next page load when scrolled into view */}
-                  <div ref={sentinelRef} className="py-1 flex justify-center">
-                    {visibleCount < filteredFeed.length && (
-                      <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <FeedList
+              loading={loading}
+              filteredFeed={filteredFeed}
+              visibleCount={visibleCount}
+              expandedArticleKey={expandedArticleKey}
+              hydratedArticleLinks={articleActions.hydratedArticleLinks}
+              hydratingArticleLinks={articleActions.hydratingArticleLinks}
+              updatingArticleState={articleActions.updatingArticleState}
+              showFavicons={showFavicons}
+              searchTerm={searchTerm}
+              selectedCategory={selectedCategory}
+              selectedFeedUrl={selectedFeedUrl}
+              sentinelRef={sentinelRef}
+              onToggle={(article) => void articleActions.handleArticleToggle(article)}
+              onToggleRead={(article) => void articleActions.handleToggleReadState(article)}
+              onToggleStarred={(article) => void articleActions.handleToggleStarredState(article)}
+              onClearSearch={() => setSearchTerm("")}
+              onRefresh={() => {
+                if (selectedCategory === ALL_FEEDS_NODE_KEY) { fetchAllFeeds(); return; }
+                fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL);
+              }}
+            />
           </ScrollArea>
         </motion.section>
       </div>
@@ -1416,26 +417,22 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
           onClose={() => setShowSettingsModal(false)}
           categories={displayCategories}
           categoryOptions={categoryOptions}
-          pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
+          pendingCategoryRemovalLabel={categoryManager.pendingCategoryRemovalLabel}
           selectedCategory={selectedCategory}
           pageSize={pageSize}
           showFavicons={showFavicons}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-          }}
-          onShowFaviconsChange={(value) => {
-            setShowFavicons(value);
-          }}
-          onImportOpml={importOpmlFeeds}
-          onSelectFeed={selectFeedByKey}
-          onDropFeed={moveFeedByDrop}
-          onAddFeed={addFeedSource}
-          onAddCategory={addCategory}
-          onRenameCategory={renameCategory}
-          onDropCategory={moveCategoryByDrop}
-          onRemoveCategory={removeCategory}
-          onRemoveFeed={removeFeedSource}
-          onRenameFeed={renameFeedSource}
+          onPageSizeChange={setPageSize}
+          onShowFaviconsChange={setShowFavicons}
+          onImportOpml={categoryManager.importOpmlFeeds}
+          onSelectFeed={categoryManager.selectFeedByKey}
+          onDropFeed={categoryManager.moveFeedByDrop}
+          onAddFeed={categoryManager.addFeedSource}
+          onAddCategory={categoryManager.addCategory}
+          onRenameCategory={categoryManager.renameCategory}
+          onDropCategory={categoryManager.moveCategoryByDrop}
+          onRemoveCategory={categoryManager.removeCategory}
+          onRemoveFeed={categoryManager.removeFeedSource}
+          onRenameFeed={categoryManager.renameFeedSource}
         />
       )}
     </motion.div>
@@ -1463,7 +460,6 @@ function DashboardRouter() {
         setIsSessionLoading(false);
       }
     };
-
     loadSession();
   }, []);
 
