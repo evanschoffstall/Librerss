@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
   <!-- background -->
-  <rect width="24" height="24" rx="6" fill="rgb(17, 17, 18)"></rect>
+  <circle cx="12" cy="12" r="12" fill="rgb(17, 17, 18)"></circle>
 
   <!-- nodes + links -->
-  <g stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(0 0.8) translate(12 12) scale(0.78) translate(-12 -12)" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="6" cy="7" r="2"></circle>
     <circle cx="18" cy="7" r="2"></circle>
     <circle cx="12" cy="17" r="2"></circle>

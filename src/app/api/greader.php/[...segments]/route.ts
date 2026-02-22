@@ -26,6 +26,10 @@ export const dynamic = "force-dynamic";
 const GOOGLE_LOGIN_PREFIX = "googlelogin auth=";
 const MAX_STREAM_ITEMS = 250;
 const DEFAULT_STREAM_ITEMS = 50;
+const NETNEWSWIRE_MAX_STREAM_ITEMS = 100;
+const NETNEWSWIRE_FIRST_PAGE_MAX_ITEMS = 50;
+const NETNEWSWIRE_IDS_MAX_ITEMS = 50;
+const NETNEWSWIRE_IDS_FIRST_PAGE_MAX_ITEMS = 25;
 const ITEM_ID_PREFIX = "tag:google.com,2005:reader/item/";
 const READER_API_EDIT_TOKEN = randomBytes(24).toString("hex");
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
@@ -559,17 +563,25 @@ async function handleSubscriptionList(user: SessionUser): Promise<Response> {
   });
 }
 
-function parseStreamPaging(searchParams: URLSearchParams): {
+function parseStreamPaging(
+  searchParams: URLSearchParams,
+  userAgent: string,
+): {
   limit: number;
   offset: number;
   continuationId: number | null;
+  isNetNewsWire: boolean;
 } {
+  const isNetNewsWire = /netnewswire/i.test(userAgent);
   const requested = parsePositiveInt(searchParams.get("n"));
-  const limit = Math.min(requested ?? DEFAULT_STREAM_ITEMS, MAX_STREAM_ITEMS);
+  const maxStreamItems = isNetNewsWire
+    ? NETNEWSWIRE_MAX_STREAM_ITEMS
+    : MAX_STREAM_ITEMS;
+  const limit = Math.min(requested ?? DEFAULT_STREAM_ITEMS, maxStreamItems);
 
   const continuation = searchParams.get("c");
   if (!continuation) {
-    return { limit, offset: 0, continuationId: null };
+    return { limit, offset: 0, continuationId: null, isNetNewsWire };
   }
 
   if (continuation.startsWith("offset:")) {
@@ -579,17 +591,27 @@ function parseStreamPaging(searchParams: URLSearchParams): {
     );
 
     if (Number.isInteger(continuationOffset) && continuationOffset >= 0) {
-      return { limit, offset: continuationOffset, continuationId: null };
+      return {
+        limit,
+        offset: continuationOffset,
+        continuationId: null,
+        isNetNewsWire,
+      };
     }
   }
 
   const parsedContinuationId = Number.parseInt(continuation, 10);
 
   if (Number.isInteger(parsedContinuationId) && parsedContinuationId > 0) {
-    return { limit, offset: 0, continuationId: parsedContinuationId };
+    return {
+      limit,
+      offset: 0,
+      continuationId: parsedContinuationId,
+      isNetNewsWire,
+    };
   }
 
-  return { limit, offset: 0, continuationId: null };
+  return { limit, offset: 0, continuationId: null, isNetNewsWire };
 }
 
 function parseStreamId(resource: string): string {
@@ -614,7 +636,20 @@ async function handleStreamContents(
   const feedUrl = isFeed ? streamId.slice("feed/".length) : null;
 
   const searchParams = new URL(request.url).searchParams;
-  const { limit, offset, continuationId } = parseStreamPaging(searchParams);
+  const {
+    limit: requestedLimit,
+    offset,
+    continuationId,
+    isNetNewsWire,
+  } = parseStreamPaging(searchParams, request.headers.get("user-agent") ?? "");
+  const limit = isNetNewsWire
+    ? Math.min(
+        requestedLimit,
+        continuationId
+          ? NETNEWSWIRE_MAX_STREAM_ITEMS
+          : NETNEWSWIRE_FIRST_PAGE_MAX_ITEMS,
+      )
+    : requestedLimit;
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
   const sinceDate = Number.isInteger(olderThanSec)
     ? new Date(olderThanSec * 1000)
@@ -764,12 +799,14 @@ async function handleStreamContents(
 
   const items = rows.map(mapArticleAsItem);
 
-  const nextContinuationId = rows.length === limit ? rows.at(-1)?.articleId : null;
+  const nextContinuationId =
+    rows.length === limit ? rows.at(-1)?.articleId : null;
 
   console.info("[greader] stream/contents", {
     userId: user.userId,
     streamId,
     limit,
+    isNetNewsWire,
     offset,
     continuationId,
     ot: searchParams.get("ot"),
@@ -782,9 +819,7 @@ async function handleStreamContents(
     id: streamId,
     direction: "ltr",
     updated: Math.floor(Date.now() / 1000),
-    continuation: nextContinuationId
-      ? String(nextContinuationId)
-      : undefined,
+    continuation: nextContinuationId ? String(nextContinuationId) : undefined,
     items,
   });
 }
@@ -803,7 +838,20 @@ async function handleStreamItemIds(
     .getAll("xt")
     .some((value) => value === "user/-/state/com.google/read");
 
-  const { limit, offset, continuationId } = parseStreamPaging(searchParams);
+  const {
+    limit: requestedLimit,
+    offset,
+    continuationId,
+    isNetNewsWire,
+  } = parseStreamPaging(searchParams, request.headers.get("user-agent") ?? "");
+  const limit = isNetNewsWire
+    ? Math.min(
+        requestedLimit,
+        continuationId
+          ? NETNEWSWIRE_IDS_MAX_ITEMS
+          : NETNEWSWIRE_IDS_FIRST_PAGE_MAX_ITEMS,
+      )
+    : requestedLimit;
   const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
   const sinceDate = Number.isInteger(olderThanSec)
     ? new Date(olderThanSec * 1000)
@@ -939,7 +987,7 @@ async function handleStreamItemIds(
   const minItemId = itemIds.length > 0 ? Math.min(...itemIds) : null;
   const maxItemId = itemIds.length > 0 ? Math.max(...itemIds) : null;
   const continuationIdToReturn =
-    safeRows.length === limit ? safeRows.at(-1)?.articleId ?? null : null;
+    safeRows.length === limit ? (safeRows.at(-1)?.articleId ?? null) : null;
   const continuation = continuationIdToReturn
     ? String(continuationIdToReturn)
     : undefined;
@@ -948,6 +996,7 @@ async function handleStreamItemIds(
     userId: user.userId,
     streamId,
     limit,
+    isNetNewsWire,
     offset,
     continuationId,
     ot: searchParams.get("ot"),
