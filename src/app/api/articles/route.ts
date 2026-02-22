@@ -8,7 +8,7 @@ import {
   sanitizeArticleContent,
   sanitizeArticleTitle,
 } from "@/lib/utils/validation";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -31,28 +31,7 @@ export async function GET(request: NextRequest) {
 
     const db = getDb();
 
-    const userFeedSources = await db
-      .select({ url: feedSources.url })
-      .from(feedSources)
-      .where(eq(feedSources.userId, user.userId));
-
-    if (userFeedSources.length === 0) {
-      return NextResponse.json([]);
-    }
-
-    const userFeedUrls = userFeedSources.map((s) => s.url);
-
-    const userFeeds = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(inArray(feeds.url, userFeedUrls));
-
-    if (userFeeds.length === 0) {
-      return NextResponse.json([]);
-    }
-
-    const userFeedIds = userFeeds.map((f) => f.id);
-
+    // Single JOIN replaces the previous 3 sequential queries.
     const userArticles = await db
       .select({
         id: articles.id,
@@ -64,8 +43,16 @@ export async function GET(request: NextRequest) {
         feedId: articles.feedId,
       })
       .from(articles)
-      .where(inArray(articles.feedId, userFeedIds))
-      .orderBy(desc(articles.publicationDate));
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(
+        feedSources,
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
+      )
+      .orderBy(desc(articles.publicationDate))
+      .limit(500);
 
     return NextResponse.json(userArticles);
   } catch (error) {

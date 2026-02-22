@@ -1,6 +1,11 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
+import {
+  fetchAndCacheFeedArticles,
+  normalizeFeedUrl,
+} from "@/lib/core/feedFetcher";
+import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -61,46 +66,6 @@ async function mapWithConcurrency<TInput, TOutput>(
   return results;
 }
 
-async function fetchFeedForUrl(
-  request: NextRequest,
-  url: string,
-): Promise<BatchFeedResult> {
-  const endpoint = new URL("/api/feeds", request.nextUrl.origin);
-  endpoint.searchParams.set("url", url);
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    CONFIG.FEED_REQUEST_TIMEOUT_MS,
-  );
-
-  try {
-    const response = await fetch(endpoint.toString(), {
-      method: "GET",
-      cache: "no-store",
-      signal: controller.signal,
-      headers: {
-        cookie: request.headers.get("cookie") ?? "",
-      },
-    });
-
-    if (!response.ok) {
-      return { url, articles: [], ok: false };
-    }
-
-    const data: unknown = await response.json();
-    if (!Array.isArray(data)) {
-      return { url, articles: [], ok: false };
-    }
-
-    return { url, articles: data, ok: true };
-  } catch {
-    return { url, articles: [], ok: false };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     const csrfError = requireSameOrigin(request);
@@ -134,10 +99,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = getDb();
+
     const results = await mapWithConcurrency(
       urls,
       CONFIG.FEED_BATCH_CONCURRENCY,
-      (url) => fetchFeedForUrl(request, url),
+      async (url): Promise<BatchFeedResult> => {
+        // Normalize the URL to match what's stored in the DB.
+        let normalized: string;
+        try {
+          normalized = normalizeFeedUrl(url);
+        } catch {
+          return { url, articles: [], ok: false };
+        }
+
+        try {
+          const articles = await fetchAndCacheFeedArticles(
+            db,
+            user.userId,
+            normalized,
+          );
+          return { url: normalized, articles, ok: true };
+        } catch {
+          return { url: normalized, articles: [], ok: false };
+        }
+      },
     );
 
     return NextResponse.json(results);

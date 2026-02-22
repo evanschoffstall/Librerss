@@ -21,11 +21,22 @@ export {
   truncateText,
 } from "./core/utils";
 
-export { useDebugState, useIsClient } from "./core/clientHooks";
+export {
+  useDebugState,
+  useIsClient,
+  useLocalStorage,
+} from "./core/clientHooks";
 
 // API clients
 export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
-export { cn, multiLine, parseOpmlFeedImport } from "./utils";
+export {
+  cn,
+  DEFAULT_CATEGORY_LABEL,
+  isDefaultCategory,
+  multiLine,
+  normalizeCategory,
+  parseOpmlFeedImport,
+} from "./utils";
 export type { OpmlFeedImportEntry } from "./utils";

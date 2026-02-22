@@ -1,259 +1,28 @@
-import sanitizeHtml from "sanitize-html";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
+import {
+  FeedSourceNotFoundError,
+  fetchAndCacheFeedArticles,
+  isAllowedFeedUrl,
+  normalizeFeedUrl,
+} from "@/lib/core/feedFetcher";
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_FEED_SOURCES,
   RUNTIME_FLAGS,
 } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
-import { articles, feedCategories, feeds, feedSources } from "@/lib/db/schema";
+import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
-import {
-  isBlockedHost,
-  isBlockedResolvedAddress,
-  normalizeHostname,
-} from "@/lib/utils/ssrf";
-import {
-  sanitizeArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/utils/validation";
 import axios from "axios";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-import Parser from "rss-parser";
 
-function normalizeFeedUrl(raw: string): string {
-  const parsed = new URL(raw.trim());
-  parsed.hash = "";
-  parsed.username = "";
-  parsed.password = "";
-  return parsed.toString().replace(/\/+$/, "");
-}
-
-/**
- * Sanitize raw HTML from untrusted RSS feeds.
- * Uses a permissive but safe allowlist so normal formatting is preserved
- * while script injection, event handlers, and unsafe URLs are stripped.
- */
-function sanitizeRssHtml(raw: string): string {
-  if (!raw.trim()) return "";
-  return sanitizeHtml(raw, {
-    allowedTags: [
-      "p",
-      "br",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "ul",
-      "ol",
-      "li",
-      "blockquote",
-      "pre",
-      "code",
-      "strong",
-      "em",
-      "b",
-      "i",
-      "u",
-      "a",
-      "hr",
-      "figure",
-      "figcaption",
-    ],
-    allowedAttributes: {
-      a: ["href", "name", "target", "rel"],
-      code: ["class"],
-      pre: ["class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    transformTags: {
-      a: (tagName: string, attribs: Record<string, string>) => ({
-        tagName,
-        attribs: {
-          ...attribs,
-          rel: "noopener noreferrer nofollow",
-          target: "_blank",
-        },
-      }),
-    },
-  }).trim();
-}
-
-// Alias kept for clarity at call sites within this file.
-const isBlockedFeedHost = isBlockedHost;
-
-// DNS cache for blocked address checks.
-// Bounded to prevent memory exhaustion from attacker-controlled hostnames.
-const DNS_CACHE = new Map<string, { blocked: boolean; expiresAt: number }>();
-const DNS_CACHE_MAX_ENTRIES = 10_000;
-
-function setCacheSafe(
-  key: string,
-  value: { blocked: boolean; expiresAt: number },
-): void {
-  if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
-    // Evict expired entries first
-    const now = Date.now();
-    for (const [k, entry] of DNS_CACHE.entries()) {
-      if (entry.expiresAt <= now) {
-        DNS_CACHE.delete(k);
-      }
-    }
-    // If still at limit after expiry sweep, hard-clear to prevent OOM
-    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
-      DNS_CACHE.clear();
-    }
-  }
-  DNS_CACHE.set(key, value);
-}
-
-async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
-  // Check cache first
-  const cached = DNS_CACHE.get(hostname);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.blocked;
-  }
-
-  try {
-    // DNS lookup with timeout
-    const lookupPromise = lookup(hostname, { all: true, verbatim: true });
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("DNS lookup timeout")),
-        CONFIG.DNS_LOOKUP_TIMEOUT_MS,
-      ),
-    );
-
-    const records = await Promise.race([lookupPromise, timeoutPromise]);
-    const isBlocked = records.some((record) =>
-      isBlockedResolvedAddress(record.address),
-    );
-
-    // Cache result
-    setCacheSafe(hostname, {
-      blocked: isBlocked,
-      expiresAt: Date.now() + CONFIG.DNS_CACHE_TTL_MS,
-    });
-
-    return isBlocked;
-  } catch (error) {
-    // Fail open for transient DNS errors (allow the feed)
-    // but log the issue for monitoring
-    logger.warn("DNS lookup failed for feed validation", {
-      hostname,
-      error: error instanceof Error ? error.message : String(error),
-    });
-
-    // Cache negative result briefly to avoid repeated failures
-    setCacheSafe(hostname, {
-      blocked: false,
-      expiresAt: Date.now() + 60000, // 1 minute for errors
-    });
-
-    return false;
-  }
-}
-
-async function isAllowedFeedUrl(raw: string): Promise<boolean> {
-  try {
-    const parsed = new URL(raw);
-    const hasSupportedProtocol =
-      parsed.protocol === "http:" || parsed.protocol === "https:";
-
-    if (!hasSupportedProtocol) {
-      return false;
-    }
-
-    if (parsed.username || parsed.password) {
-      return false;
-    }
-
-    const normalizedHostname = normalizeHostname(parsed.hostname);
-    if (isBlockedFeedHost(normalizedHostname)) {
-      return false;
-    }
-
-    if (isIP(normalizedHostname)) {
-      return !isBlockedResolvedAddress(normalizedHostname);
-    }
-
-    return !(await resolvesToBlockedAddress(normalizedHostname));
-  } catch {
-    return false;
-  }
-}
-
-function isAllowedArticleLink(raw: string): boolean {
-  try {
-    const parsed = new URL(raw);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-const parser = new Parser();
-
-function parseFeedItemDate(value: string | undefined, fallback: Date): Date {
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
-}
-
-type PendingArticle = {
-  title: string;
-  link: string;
-  publicationDate: Date;
-  content: string;
-  feedId: number;
-  lastChecked: Date;
-};
-
-function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
-  const byLink = new Map<string, PendingArticle>();
-
-  for (const item of items) {
-    const normalizedLink = item.link.trim();
-    if (!normalizedLink) {
-      continue;
-    }
-
-    const current = byLink.get(normalizedLink);
-    if (!current) {
-      byLink.set(normalizedLink, {
-        ...item,
-        link: normalizedLink,
-      });
-      continue;
-    }
-
-    const currentPublication = new Date(current.publicationDate).getTime();
-    const nextPublication = new Date(item.publicationDate).getTime();
-    const shouldReplace =
-      nextPublication > currentPublication ||
-      item.content.length > current.content.length;
-
-    if (shouldReplace) {
-      byLink.set(normalizedLink, {
-        ...item,
-        link: normalizedLink,
-      });
-    }
-  }
-
-  return [...byLink.values()];
-}
+// DNS cache, URL validators, HTML sanitizer, RSS parser, and article-dedupe
+// helpers have all moved to @/lib/core/feedFetcher.ts. This file contains
+// only the Next.js route handlers.
 
 export async function GET(request: NextRequest) {
   try {
@@ -311,149 +80,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(sources);
     }
 
-    const [userSource] = await db
-      .select({ id: feedSources.id })
-      .from(feedSources)
-      .where(
-        and(
-          eq(feedSources.userId, user.userId),
-          eq(feedSources.url, normalizedFeedUrl),
-        ),
-      )
-      .limit(1);
-
-    if (!userSource) {
+    const feedArticles = await fetchAndCacheFeedArticles(
+      db,
+      user.userId,
+      normalizedFeedUrl,
+    );
+    return NextResponse.json(feedArticles);
+  } catch (error) {
+    if (error instanceof FeedSourceNotFoundError) {
       return NextResponse.json(
         { error: "Feed source not found" },
         { status: 404 },
       );
     }
 
-    const [existingFeed] = await db
-      .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
-      .from(feeds)
-      .where(eq(feeds.url, normalizedFeedUrl))
-      .limit(1);
-
-    let currentFeed = existingFeed;
-    let shouldFetch = true;
-
-    if (currentFeed) {
-      const diffMinutes =
-        (Date.now() - new Date(currentFeed.lastFetched).getTime()) / 60000;
-      if (diffMinutes < CONFIG.FEED_CACHE_TTL_MINUTES) {
-        shouldFetch = false;
-      }
-    } else {
-      const [createdFeed] = await db
-        .insert(feeds)
-        .values({ url: normalizedFeedUrl })
-        .onConflictDoNothing({ target: feeds.url })
-        .returning({
-          id: feeds.id,
-          url: feeds.url,
-          lastFetched: feeds.lastFetched,
-        });
-
-      if (createdFeed) {
-        currentFeed = createdFeed;
-      } else {
-        const [persistedFeed] = await db
-          .select({
-            id: feeds.id,
-            url: feeds.url,
-            lastFetched: feeds.lastFetched,
-          })
-          .from(feeds)
-          .where(eq(feeds.url, normalizedFeedUrl))
-          .limit(1);
-        currentFeed = persistedFeed;
-      }
-    }
-
-    if (!currentFeed) {
-      throw new Error("Unable to resolve feed record");
-    }
-
-    if (shouldFetch) {
-      const feedResponse = await axios.get(normalizedFeedUrl, {
-        timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-        maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-        maxRedirects: 3,
-        beforeRedirect: (options) => {
-          const protocol = options.protocol?.toLowerCase() ?? "";
-          const hostname = normalizeHostname(options.hostname ?? "");
-
-          const hasSupportedProtocol =
-            protocol === "http:" || protocol === "https:";
-          if (!hasSupportedProtocol || isBlockedFeedHost(hostname)) {
-            throw new Error("Blocked redirect target");
-          }
-        },
-      });
-      const feedResponseParsed = await parser.parseString(feedResponse.data);
-      const now = new Date();
-
-      const validItems = dedupePendingArticles(
-        feedResponseParsed.items
-          .filter(
-            (item) =>
-              Boolean(item.title) &&
-              Boolean(item.link) &&
-              isAllowedArticleLink(item.link ?? ""),
-          )
-          .map((item) => ({
-            title: sanitizeArticleTitle(item.title),
-            link: item.link!,
-            publicationDate: parseFeedItemDate(
-              item.isoDate ?? item.pubDate,
-              now,
-            ),
-            content: sanitizeArticleContent(
-              sanitizeRssHtml(item.content || item.contentSnippet || ""),
-            ),
-            feedId: currentFeed.id,
-            lastChecked: now,
-          })),
-      );
-
-      if (validItems.length > 0) {
-        await db
-          .insert(articles)
-          .values(validItems)
-          .onConflictDoUpdate({
-            target: articles.link,
-            set: {
-              title: sql`excluded.title`,
-              publicationDate: sql`excluded.publication_date`,
-              content: sql`excluded.content`,
-              lastChecked: sql`excluded.last_checked`,
-            },
-          });
-      }
-
-      await db
-        .update(feeds)
-        .set({ lastFetched: now })
-        .where(eq(feeds.url, normalizedFeedUrl));
-    }
-
-    const feedArticles = await db
-      .select({
-        id: articles.id,
-        title: articles.title,
-        link: articles.link,
-        content: articles.content,
-        publicationDate: articles.publicationDate,
-        feedId: articles.feedId,
-        lastChecked: articles.lastChecked,
-      })
-      .from(articles)
-      .where(eq(articles.feedId, currentFeed.id))
-      .orderBy(desc(articles.publicationDate));
-
-    return NextResponse.json(feedArticles);
-  } catch (error) {
     logger.error("Error fetching feed", {
       error: error instanceof Error ? error : new Error(String(error)),
     });

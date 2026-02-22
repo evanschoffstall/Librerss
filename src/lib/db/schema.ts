@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   integer,
   pgTable,
   serial,
@@ -47,22 +48,34 @@ export const feeds = pgTable("Feed", {
     .default(sql`(now() - interval '1 day')`),
 });
 
-export const articles = pgTable("Article", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  link: text("link").notNull().unique(),
-  publicationDate: timestamp("publication_date", {
-    mode: "date",
-    withTimezone: true,
-  }).notNull(),
-  content: text("content").notNull(),
-  feedId: integer("feed_id")
-    .notNull()
-    .references(() => feeds.id),
-  lastChecked: timestamp("last_checked", { mode: "date", withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const articles = pgTable(
+  "Article",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    link: text("link").notNull().unique(),
+    publicationDate: timestamp("publication_date", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    content: text("content").notNull(),
+    feedId: integer("feed_id")
+      .notNull()
+      .references(() => feeds.id),
+    lastChecked: timestamp("last_checked", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    // Speeds up per-feed article lookups (WHERE feed_id = ?)
+    feedIdIdx: index("article_feed_id_idx").on(table.feedId),
+    // Speeds up the common query pattern: WHERE feed_id = ? ORDER BY publication_date DESC
+    feedIdPubDateIdx: index("article_feed_id_pub_date_idx").on(
+      table.feedId,
+      table.publicationDate,
+    ),
+  }),
+);
 
 export const feedSources = pgTable(
   "FeedSource",
