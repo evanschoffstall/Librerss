@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "db:provision": "bun scripts/provision-db.ts",
     "create-user": "bun scripts/create-user.ts",
     "db:generate": "bunx drizzle-kit generate",
