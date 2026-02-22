@@ -5,9 +5,10 @@ import {
   PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
 } from "@/lib/core/placeholder";
+import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/opml";
 
+export { DEFAULT_CATEGORY_LABEL };
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
-export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 export const SYSTEM_CATEGORY_LABEL = "System";
 export const ALL_FEEDS_LABEL = "All Feeds";
 export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
