@@ -1,3 +1,4 @@
+import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import type { Article, FeedSource } from "./types";
 
 export const PLACEHOLDER_CATEGORY = "Placeholder Feeds";
@@ -22,16 +23,6 @@ export const PLACEHOLDER_FEED_SOURCES: FeedSource[] = [
     category: PLACEHOLDER_CATEGORY,
   },
 ];
-
-const normalizeFeedUrl = (value: string): string => {
-  try {
-    const parsed = new URL(value.trim());
-    parsed.hash = "";
-    return parsed.toString().replace(/\/+$/, "");
-  } catch {
-    return value.trim().replace(/\/+$/, "");
-  }
-};
 
 type PlaceholderSeed = { title: string; slug: string; content: string };
 
@@ -272,4 +263,5 @@ export const PLACEHOLDER_ARTICLES: Article[] = Object.values(
 ).flat();
 
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
-  PLACEHOLDER_ARTICLES_BY_SOURCE[normalizeFeedUrl(url)] ?? PLACEHOLDER_ARTICLES;
+  PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ??
+  PLACEHOLDER_ARTICLES;

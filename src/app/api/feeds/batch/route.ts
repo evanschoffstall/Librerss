@@ -1,12 +1,10 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
-import {
-  fetchAndCacheFeedArticlesBatch,
-  normalizeFeedUrl,
-} from "@/lib/core/feedFetcher";
+import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feedFetcher";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/utils/logger";
+import { normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
@@ -54,7 +52,9 @@ export async function POST(request: NextRequest) {
 
     if (urls.length > CONFIG.FEED_BATCH_MAX_URLS) {
       return NextResponse.json(
-        { error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once` },
+        {
+          error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once`,
+        },
         { status: 400 },
       );
     }

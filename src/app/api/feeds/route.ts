@@ -5,7 +5,6 @@ import {
   FeedSourceNotFoundError,
   fetchAndCacheFeedArticles,
   isAllowedFeedUrl,
-  normalizeFeedUrl,
 } from "@/lib/core/feedFetcher";
 import {
   getPlaceholderArticlesForSource,
@@ -16,6 +15,7 @@ import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
+import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import axios from "axios";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const normalizedFeedUrl = feedUrl ? normalizeFeedUrl(feedUrl) : null;
+    const normalizedFeedUrl = feedUrl ? tryNormalizeFeedUrl(feedUrl) : null;
 
     if (RUNTIME_FLAGS.usePlaceholderData) {
       if (!normalizedFeedUrl) {
@@ -190,53 +190,59 @@ export async function POST(request: NextRequest) {
 
     const normalizedUrl = normalizeFeedUrl(url);
 
-    const [existingSource] = await db
-      .select({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
-      })
-      .from(feedSources)
-      .where(
-        and(
-          eq(feedSources.userId, user.userId),
-          eq(feedSources.url, normalizedUrl),
-        ),
-      )
-      .limit(1);
+    // All reads and writes are inside one transaction so no concurrent request
+    // can observe partial state (e.g. a Feed row created outside the tx that
+    // a concurrent DELETE races against).
+    const { sourceRecord, isNew } = await db.transaction(async (tx) => {
+      // ── Check existing FeedSource ─────────────────────────────────────────
+      const [existingSource] = await tx
+        .select({
+          id: feedSources.id,
+          name: feedSources.name,
+          url: feedSources.url,
+        })
+        .from(feedSources)
+        .where(
+          and(
+            eq(feedSources.userId, user.userId),
+            eq(feedSources.url, normalizedUrl),
+          ),
+        )
+        .limit(1);
 
-    const [existingFeed] = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(eq(feeds.url, normalizedUrl))
-      .limit(1);
+      // ── Ensure a Feed row exists ──────────────────────────────────────────
+      const [existingFeed] = await tx
+        .select({ id: feeds.id })
+        .from(feeds)
+        .where(eq(feeds.url, normalizedUrl))
+        .limit(1);
 
-    let sourceFeedId = existingFeed?.id;
+      let sourceFeedId = existingFeed?.id;
 
-    if (!sourceFeedId) {
-      const [createdFeed] = await db
-        .insert(feeds)
-        .values({ url: normalizedUrl })
-        .onConflictDoNothing({ target: feeds.url })
-        .returning({ id: feeds.id });
+      if (!sourceFeedId) {
+        const [createdFeed] = await tx
+          .insert(feeds)
+          .values({ url: normalizedUrl })
+          .onConflictDoNothing({ target: feeds.url })
+          .returning({ id: feeds.id });
 
-      if (createdFeed) {
-        sourceFeedId = createdFeed.id;
-      } else {
-        const [persistedFeed] = await db
-          .select({ id: feeds.id })
-          .from(feeds)
-          .where(eq(feeds.url, normalizedUrl))
-          .limit(1);
-        sourceFeedId = persistedFeed?.id;
+        if (createdFeed) {
+          sourceFeedId = createdFeed.id;
+        } else {
+          const [persistedFeed] = await tx
+            .select({ id: feeds.id })
+            .from(feeds)
+            .where(eq(feeds.url, normalizedUrl))
+            .limit(1);
+          sourceFeedId = persistedFeed?.id;
+        }
       }
-    }
 
-    if (!sourceFeedId) {
-      throw new Error("Unable to resolve feed source id");
-    }
+      if (!sourceFeedId) {
+        throw new Error("Unable to resolve feed source id");
+      }
 
-    const sourceRecord = await db.transaction(async (tx) => {
+      // ── Update category assignment ────────────────────────────────────────
       await tx
         .delete(feedCategories)
         .where(
@@ -252,6 +258,7 @@ export async function POST(request: NextRequest) {
         category,
       });
 
+      // ── Update or create the FeedSource row ──────────────────────────────
       if (existingSource) {
         const [updatedSource] = await tx
           .update(feedSources)
@@ -272,7 +279,7 @@ export async function POST(request: NextRequest) {
           throw new Error("Failed to update feed source");
         }
 
-        return updatedSource;
+        return { sourceRecord: updatedSource, isNew: false };
       }
 
       const [createdSource] = await tx
@@ -288,12 +295,12 @@ export async function POST(request: NextRequest) {
         throw new Error("Failed to create feed source");
       }
 
-      return createdSource;
+      return { sourceRecord: createdSource, isNew: true };
     });
 
     return NextResponse.json(
       { ...sourceRecord, category },
-      { status: existingSource ? 200 : 201 },
+      { status: isNew ? 201 : 200 },
     );
   } catch (error) {
     logger.error("Error creating feed source", {
