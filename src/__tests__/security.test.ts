@@ -1,0 +1,320 @@
+/**
+ * Security Regression Tests
+ *
+ * Covers every vulnerability class fixed in the security audit:
+ *   1. Static placeholder session token (CRITICAL)
+ *   2. Password max-length DoS via scrypt (HIGH)
+ *   3. SSRF blocked-host detection (HIGH)
+ *   4. HTML sanitization / XSS (HIGH)
+ *   5. URL validation (MEDIUM)
+ */
+
+import { describe, expect, test } from "bun:test";
+
+// ─── 1. Placeholder session token ────────────────────────────────────────────
+
+describe("PLACEHOLDER_ADMIN_USER.sessionToken", () => {
+  test("is not the legacy hardcoded string", async () => {
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    expect(PLACEHOLDER_ADMIN_USER.sessionToken).not.toBe(
+      "librerss-placeholder-admin-session",
+    );
+  });
+
+  test("is a 64-char hex string (32 random bytes)", async () => {
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    expect(PLACEHOLDER_ADMIN_USER.sessionToken).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test("is stable within the same process", async () => {
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const first = PLACEHOLDER_ADMIN_USER.sessionToken;
+    const second = PLACEHOLDER_ADMIN_USER.sessionToken;
+    expect(first).toBe(second);
+  });
+});
+
+// ─── 2. Password length limit (scrypt DoS) ───────────────────────────────────
+
+describe("isStrongPassword – MAX_PASSWORD_LENGTH", () => {
+  test("accepts a password at the maximum length", async () => {
+    const { isStrongPassword } = await import("@/lib/utils/validation");
+    const { CONFIG } = await import("@/lib/config");
+    // Construct a password exactly at the limit with all complexity classes.
+    const pw = "Aa1!" + "x".repeat(CONFIG.PASSWORD_MAX_LENGTH - 4);
+    expect(pw.length).toBe(CONFIG.PASSWORD_MAX_LENGTH);
+    expect(isStrongPassword(pw)).toBe(true);
+  });
+
+  test("rejects a password one byte over the maximum length", async () => {
+    const { isStrongPassword } = await import("@/lib/utils/validation");
+    const { CONFIG } = await import("@/lib/config");
+    const pw = "Aa1!" + "x".repeat(CONFIG.PASSWORD_MAX_LENGTH - 4 + 1);
+    expect(pw.length).toBe(CONFIG.PASSWORD_MAX_LENGTH + 1);
+    expect(isStrongPassword(pw)).toBe(false);
+  });
+
+  test("rejects a 10 KB password (DoS vector)", async () => {
+    const { isStrongPassword } = await import("@/lib/utils/validation");
+    const pw = "Aa1!" + "x".repeat(10_000);
+    expect(isStrongPassword(pw)).toBe(false);
+  });
+
+  test("rejects an empty password", async () => {
+    const { isStrongPassword } = await import("@/lib/utils/validation");
+    expect(isStrongPassword("")).toBe(false);
+  });
+
+  test("rejects a password below minimum length", async () => {
+    const { isStrongPassword } = await import("@/lib/utils/validation");
+    const { CONFIG } = await import("@/lib/config");
+    const pw = "Aa1!".slice(0, CONFIG.PASSWORD_MIN_LENGTH - 1);
+    expect(isStrongPassword(pw)).toBe(false);
+  });
+});
+
+// ─── 3. SSRF – blocked-host detection ────────────────────────────────────────
+
+describe("isBlockedHost", () => {
+  test("blocks localhost", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("localhost")).toBe(true);
+  });
+
+  test("blocks 127.0.0.1", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("127.0.0.1")).toBe(true);
+  });
+
+  test("blocks 10.x RFC-1918", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("10.0.0.1")).toBe(true);
+    expect(isBlockedHost("10.255.255.255")).toBe(true);
+  });
+
+  test("blocks 192.168.x RFC-1918", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("192.168.0.1")).toBe(true);
+    expect(isBlockedHost("192.168.255.255")).toBe(true);
+  });
+
+  test("blocks 172.16-31.x RFC-1918", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("172.16.0.1")).toBe(true);
+    expect(isBlockedHost("172.31.255.255")).toBe(true);
+    // 172.15 and 172.32 are NOT private
+    expect(isBlockedHost("172.15.0.1")).toBe(false);
+    expect(isBlockedHost("172.32.0.1")).toBe(false);
+  });
+
+  test("blocks 169.254.x link-local", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("169.254.169.254")).toBe(true); // AWS metadata
+  });
+
+  test("blocks 0.0.0.0", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("0.0.0.0")).toBe(true);
+  });
+
+  test("blocks ::1 IPv6 loopback", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("::1")).toBe(true);
+  });
+
+  test("blocks .local mDNS addresses", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("myhost.local")).toBe(true);
+  });
+
+  test("allows a public IP", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("8.8.8.8")).toBe(false);
+    expect(isBlockedHost("1.1.1.1")).toBe(false);
+  });
+
+  test("allows a public hostname", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(isBlockedHost("example.com")).toBe(false);
+  });
+});
+
+describe("isBlockedResolvedAddress", () => {
+  test("blocks IPv4-mapped IPv6 loopback (::ffff:127.0.0.1)", async () => {
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    expect(isBlockedResolvedAddress("::ffff:127.0.0.1")).toBe(true);
+  });
+
+  test("blocks IPv4-mapped IPv6 link-local (::ffff:169.254.169.254)", async () => {
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    expect(isBlockedResolvedAddress("::ffff:169.254.169.254")).toBe(true);
+  });
+
+  test("blocks IPv4-mapped IPv6 private range (::ffff:10.0.0.1)", async () => {
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    expect(isBlockedResolvedAddress("::ffff:10.0.0.1")).toBe(true);
+  });
+
+  test("allows IPv4-mapped public IP (::ffff:8.8.8.8)", async () => {
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    expect(isBlockedResolvedAddress("::ffff:8.8.8.8")).toBe(false);
+  });
+});
+
+// ─── 4. HTML sanitization / XSS prevention ───────────────────────────────────
+
+describe("sanitizeArticleTitle", () => {
+  test("strips script tags completely", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const result = sanitizeArticleTitle("<script>alert(1)</script>Title");
+    expect(result).not.toContain("<script>");
+    expect(result).not.toContain("alert");
+    expect(result).toContain("Title");
+  });
+
+  test("strips all HTML tags from a title", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const result = sanitizeArticleTitle("<b>Bold</b> <em>title</em>");
+    expect(result).toBe("Bold title");
+  });
+
+  test("returns Untitled for empty input", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    expect(sanitizeArticleTitle("")).toBe("Untitled");
+    expect(sanitizeArticleTitle("   ")).toBe("Untitled");
+    expect(sanitizeArticleTitle(null)).toBe("Untitled");
+    expect(sanitizeArticleTitle(undefined)).toBe("Untitled");
+  });
+
+  test("truncates overlong titles", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { CONFIG } = await import("@/lib/config");
+    const long = "a".repeat(CONFIG.MAX_ARTICLE_TITLE_LENGTH + 50);
+    const result = sanitizeArticleTitle(long);
+    expect(result.length).toBeLessThanOrEqual(
+      CONFIG.MAX_ARTICLE_TITLE_LENGTH + 3, // +3 for "..."
+    );
+  });
+});
+
+describe("sanitizeArticleHtml – XSS vectors", () => {
+  test("strips <script> tags", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const xss = '<p>Hello</p><script>alert("xss")</script>';
+    const result = sanitizeArticleHtml(xss);
+    expect(result).not.toContain("<script>");
+    expect(result).not.toContain("alert");
+  });
+
+  test("strips onerror event handlers", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const xss = '<img src="x" onerror="alert(1)">';
+    const result = sanitizeArticleHtml(xss);
+    expect(result).not.toContain("onerror");
+    expect(result).not.toContain("<img");
+  });
+
+  test("strips javascript: href links", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const xss = '<a href="javascript:alert(1)">click</a>';
+    const result = sanitizeArticleHtml(xss);
+    // The link should be stripped or the href should not contain javascript:
+    expect(result).not.toContain("javascript:");
+  });
+
+  test("strips data: URI links", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const xss = '<a href="data:text/html,<script>alert(1)</script>">x</a>';
+    const result = sanitizeArticleHtml(xss);
+    expect(result).not.toContain("data:");
+  });
+
+  test("preserves safe <a> tags with rel and target attributes added", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const safe = '<a href="https://example.com">Click</a>';
+    const result = sanitizeArticleHtml(safe);
+    expect(result).toContain('href="https://example.com"');
+    expect(result).toContain('rel="noopener noreferrer nofollow"');
+    expect(result).toContain('target="_blank"');
+  });
+
+  test("strips <iframe> tags", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const xss = '<iframe src="https://evil.com/pwned"></iframe>';
+    const result = sanitizeArticleHtml(xss);
+    expect(result).not.toContain("<iframe");
+  });
+
+  test("strips <style> tags", async () => {
+    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const css = "<style>body { display: none }</style><p>Content</p>";
+    const result = sanitizeArticleHtml(css);
+    expect(result).not.toContain("<style>");
+  });
+});
+
+describe("sanitizeAndTruncateArticleContent", () => {
+  test("enforces MAX_ARTICLE_CONTENT_LENGTH", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+    const { CONFIG } = await import("@/lib/config");
+    // Wrap content in <p> tags so the sanitizer doesn't strip it.
+    const longContent =
+      "<p>" + "a".repeat(CONFIG.MAX_ARTICLE_CONTENT_LENGTH + 5000) + "</p>";
+    const result = sanitizeAndTruncateArticleContent(longContent);
+    // Result must be at most the limit + small overhead for sentinel paragraph.
+    expect(result.length).toBeLessThan(CONFIG.MAX_ARTICLE_CONTENT_LENGTH + 200);
+    expect(result).toContain("[content truncated]");
+  });
+});
+
+// ─── 5. URL validation ────────────────────────────────────────────────────────
+
+describe("isValidUrl", () => {
+  test("accepts http and https URLs", async () => {
+    const { isValidUrl } = await import("@/lib/utils/url");
+    expect(isValidUrl("http://example.com/feed")).toBe(true);
+    expect(isValidUrl("https://example.com/feed")).toBe(true);
+  });
+
+  test("rejects javascript: protocol", async () => {
+    const { isValidUrl } = await import("@/lib/utils/url");
+    expect(isValidUrl("javascript:alert(1)")).toBe(false);
+  });
+
+  test("rejects data: URIs", async () => {
+    const { isValidUrl } = await import("@/lib/utils/url");
+    expect(isValidUrl("data:text/html,<script>alert(1)</script>")).toBe(false);
+  });
+
+  test("rejects file: protocol", async () => {
+    const { isValidUrl } = await import("@/lib/utils/url");
+    expect(isValidUrl("file:///etc/passwd")).toBe(false);
+  });
+
+  test("rejects empty string", async () => {
+    const { isValidUrl } = await import("@/lib/utils/url");
+    expect(isValidUrl("")).toBe(false);
+  });
+
+  test("rejects plain hostnames without protocol", async () => {
+    const { isValidUrl } = await import("@/lib/utils/url");
+    expect(isValidUrl("example.com")).toBe(false);
+  });
+});
+
+describe("normalizeFeedUrl", () => {
+  test("strips credentials from URLs", async () => {
+    const { normalizeFeedUrl } = await import("@/lib/utils/url");
+    const result = normalizeFeedUrl("https://user:pass@example.com/feed");
+    expect(result).not.toContain("user");
+    expect(result).not.toContain("pass");
+    expect(result).toContain("example.com");
+  });
+
+  test("strips URL fragments", async () => {
+    const { normalizeFeedUrl } = await import("@/lib/utils/url");
+    const result = normalizeFeedUrl("https://example.com/feed#tracker-param");
+    expect(result).not.toContain("#");
+  });
+});
