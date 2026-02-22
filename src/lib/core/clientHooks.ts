@@ -30,15 +30,11 @@ export function useIsMobile(): boolean {
 // CLIENT-ONLY CUSTOM HOOKS
 // =============================================================================
 
-export const useIsClient = (): boolean => {
-  const [isClientState, setIsClientState] = useState(false);
-  useEffect(() => setIsClientState(true), []);
-  return isClientState;
-};
-
 export const useDebugState = (initialValue: boolean = false) => {
   const [debugState, setDebugState] = useState(initialValue);
-  const isClientState = useIsClient();
+  const [isClientState, setIsClientState] = useState(false);
+
+  useEffect(() => setIsClientState(true), []);
 
   const toggleDebug = () => setDebugState((prev) => !prev);
 
