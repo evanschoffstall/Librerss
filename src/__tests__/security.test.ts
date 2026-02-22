@@ -318,3 +318,108 @@ describe("normalizeFeedUrl", () => {
     expect(result).not.toContain("#");
   });
 });
+// ─── 6. Scrypt versioned hashing (v2: format prefix) ─────────────────────────
+// New passwords are stored with a "v2:" prefix so future cost-factor upgrades
+// can be rolled out without a separate migration step.  The current V2 uses
+// N=16384 (same as legacy V1) — bump to N=32768 when the runtime moves to
+// Node.js natively (Bun 1.3.x caps OpenSSL scrypt memory at ~16 MB).
+
+describe("hashPassword / verifyPassword – versioned scrypt", () => {
+  test("hashPassword produces a v2: prefixed hash", async () => {
+    const { hashPassword } = await import("@/lib/auth/session");
+    const hash = await hashPassword("Aa1!correct");
+    expect(hash).toMatch(/^v2:[0-9a-f]+:[0-9a-f]+$/);
+  });
+
+  test("new hashes do NOT use the legacy un-prefixed format", async () => {
+    const { hashPassword } = await import("@/lib/auth/session");
+    const hash = await hashPassword("Aa1!correct");
+    // Must start with 'v2:' — a bare '<salt>:<hex>' format would be legacy.
+    expect(hash.startsWith("v2:")).toBe(true);
+  });
+
+  test("verifyPassword accepts a correct v2 password", async () => {
+    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const hash = await hashPassword("Aa1!correct");
+    expect(await verifyPassword("Aa1!correct", hash)).toBe(true);
+  });
+
+  test("verifyPassword rejects a wrong password against v2 hash", async () => {
+    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const hash = await hashPassword("Aa1!correct");
+    expect(await verifyPassword("Aa1!wrong", hash)).toBe(false);
+  });
+
+  test("verifyPassword still handles legacy v1 (no-prefix) hashes", async () => {
+    // Pre-compute a v1 hash (N=16384) to verify backward-compatibility.
+    // node:crypto scrypt with explicit N=16384 r=8 p=1.
+    const { scrypt } = await import("node:crypto");
+    const { promisify } = await import("node:util");
+    const scryptAsync = promisify(scrypt) as (
+      password: string,
+      salt: string,
+      keylen: number,
+      options?: { N: number; r: number; p: number },
+    ) => Promise<Buffer>;
+
+    const password = "LegacyPass1!";
+    const salt = "deadbeef1234";
+    const key = await scryptAsync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+    const legacyHash = `${salt}:${key.toString("hex")}`;
+
+    const { verifyPassword } = await import("@/lib/auth/session");
+    expect(await verifyPassword(password, legacyHash)).toBe(true);
+    expect(await verifyPassword("WrongPass1!", legacyHash)).toBe(false);
+  });
+
+  test("placeholder password hash verifies correctly with v1 fallback", async () => {
+    // The committed placeholder hash was derived with N=16384 (no v2: prefix).
+    // verifyPassword must accept it via the v1 path so demo login works.
+    const { verifyPassword } = await import("@/lib/auth/session");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    // The placeholder hash must start without 'v2:' (legacy format).
+    expect(PLACEHOLDER_ADMIN_USER.passwordHash).not.toMatch(/^v2:/);
+    // Verify that verifyPassword does NOT throw on the legacy format.
+    // (We cannot assert the plaintext password here since it's not stored,
+    //  just that the function executes without throwing for a known-bad password.)
+    await expect(
+      verifyPassword("definitely-wrong", PLACEHOLDER_ADMIN_USER.passwordHash),
+    ).resolves.toBe(false);
+  });
+});
+
+// ─── 7. CSP includes form-action and worker-src ───────────────────────────────
+
+describe("next.config.ts CSP headers", () => {
+  test("CSP includes form-action 'self'", async () => {
+    const { default: nextConfig } = await import("../../next.config");
+    const headersFn = nextConfig.headers;
+    expect(typeof headersFn).toBe("function");
+    const entries = await (headersFn as () => Promise<unknown[]>)();
+    const allValues = (
+      entries as { headers: { key: string; value: string }[] }[]
+    )
+      .flatMap((e) => e.headers)
+      .filter((h) => h.key === "Content-Security-Policy")
+      .map((h) => h.value);
+    expect(allValues.length).toBeGreaterThan(0);
+    for (const csp of allValues) {
+      expect(csp).toContain("form-action 'self'");
+    }
+  });
+
+  test("CSP includes worker-src 'self'", async () => {
+    const { default: nextConfig } = await import("../../next.config");
+    const headersFn = nextConfig.headers;
+    const entries = await (headersFn as () => Promise<unknown[]>)();
+    const allValues = (
+      entries as { headers: { key: string; value: string }[] }[]
+    )
+      .flatMap((e) => e.headers)
+      .filter((h) => h.key === "Content-Security-Policy")
+      .map((h) => h.value);
+    for (const csp of allValues) {
+      expect(csp).toContain("worker-src 'self'");
+    }
+  });
+});
