@@ -1,9 +1,12 @@
 import { parseJsonBody } from "@/lib/api/request";
+import {
+  jsonError,
+  logAndRespondError,
+  requireAuthenticatedUser,
+} from "@/lib/api/route-helpers";
 import { requireSameOrigin } from "@/lib/auth/csrf";
-import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
-import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
@@ -12,6 +15,29 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+async function parseAndValidateArticleUrl(
+  request: NextRequest,
+): Promise<string | Response> {
+  const parsedBody = await parseJsonBody<{ url?: string }>(request);
+  if (!parsedBody.ok) {
+    return parsedBody.response;
+  }
+
+  const articleUrl = parsedBody.data?.url?.trim() ?? "";
+  if (!articleUrl) {
+    return jsonError("Article URL is required", 400);
+  }
+
+  if (!(await isAllowedFeedUrl(articleUrl))) {
+    return jsonError(
+      "Article URL must use http or https and resolve to a public host",
+      400,
+    );
+  }
+
+  return articleUrl;
+}
 
 function toParagraphHtml(raw: string): string {
   return raw
@@ -88,33 +114,16 @@ export async function POST(request: NextRequest) {
       return csrfError;
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
 
-    const parsedBody = await parseJsonBody<{ url?: string }>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
+    const parsedUrl = await parseAndValidateArticleUrl(request);
+    if (parsedUrl instanceof Response) {
+      return parsedUrl;
     }
-    const articleUrl = parsedBody.data?.url?.trim() ?? "";
-
-    if (!articleUrl) {
-      return NextResponse.json(
-        { error: "Article URL is required" },
-        { status: 400 },
-      );
-    }
-
-    if (!(await isAllowedFeedUrl(articleUrl))) {
-      return NextResponse.json(
-        {
-          error:
-            "Article URL must use http or https and resolve to a public host",
-        },
-        { status: 400 },
-      );
-    }
+    const articleUrl = parsedUrl;
 
     const html = await fetchHtmlWithValidatedRedirects(articleUrl);
     const extracted = await extractFromHtml(html, articleUrl, {
@@ -131,13 +140,9 @@ export async function POST(request: NextRequest) {
       source: extracted?.source ?? null,
     });
   } catch (error) {
-    logger.error("Article extract error", {
-      error: error instanceof Error ? error : new Error(String(error)),
+    return logAndRespondError("Article extract error", error, {
+      status: 502,
+      publicMessage: "Unable to extract article",
     });
-    // 502 Bad Gateway — the failure is in the upstream site, not this server.
-    return NextResponse.json(
-      { error: "Unable to extract article" },
-      { status: 502 },
-    );
   }
 }

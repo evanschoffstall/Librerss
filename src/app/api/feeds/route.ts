@@ -4,8 +4,12 @@ import {
   parseJsonBody,
   parsePositiveInt,
 } from "@/lib/api/request";
+import {
+  jsonError,
+  logAndRespondError,
+  requireAuthenticatedUser,
+} from "@/lib/api/route-helpers";
 import { requireSameOrigin } from "@/lib/auth/csrf";
-import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import {
   FeedSourceNotFoundError,
@@ -19,7 +23,6 @@ import {
 } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import axios from "axios";
@@ -30,23 +33,222 @@ import { NextRequest, NextResponse } from "next/server";
 // helpers have all moved to @/lib/core/feedFetcher.ts. This file contains
 // only the Next.js route handlers.
 
+type FeedTransaction = Parameters<
+  Parameters<ReturnType<typeof getDb>["transaction"]>[0]
+>[0];
+
+type CreateFeedPayload = {
+  name: string;
+  url: string;
+  category: string;
+};
+
+type FeedSourceRecord = {
+  id: number;
+  name: string;
+  url: string;
+};
+
+type CreateFeedSourceResult = {
+  sourceRecord: FeedSourceRecord;
+  isNew: boolean;
+};
+
+const PUBLIC_FEED_URL_ERROR =
+  "Feed URL must use http or https and resolve to a public host";
+const FEED_MANAGEMENT_DISABLED_ERROR =
+  "Feed source management is disabled when DATABASE_URL is not configured";
+
+function ensureFeedManagementEnabled(): Response | null {
+  if (!RUNTIME_FLAGS.usePlaceholderData) {
+    return null;
+  }
+
+  return jsonError(FEED_MANAGEMENT_DISABLED_ERROR, 503);
+}
+
+async function assertAllowedFeedUrl(url: string): Promise<Response | null> {
+  if (await isAllowedFeedUrl(url)) {
+    return null;
+  }
+
+  return jsonError(PUBLIC_FEED_URL_ERROR, 400);
+}
+
+async function parseCreateFeedPayload(
+  request: NextRequest,
+): Promise<CreateFeedPayload | Response> {
+  const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
+  if (!parsedBody.ok) {
+    return parsedBody.response;
+  }
+
+  const payload = parsedBody.data;
+  const name = asTrimmedString(payload.name);
+  const url = asTrimmedString(payload.url);
+  const category =
+    typeof payload.category === "string" && payload.category.trim()
+      ? payload.category.trim()
+      : DEFAULT_CATEGORY_LABEL;
+
+  if (!name || !url) {
+    return jsonError("Both name and url are required", 400);
+  }
+
+  if (
+    name.length > CONFIG.MAX_FEED_NAME_LENGTH ||
+    category.length > CONFIG.MAX_CATEGORY_NAME_LENGTH
+  ) {
+    return jsonError(
+      `name and category must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
+      400,
+    );
+  }
+
+  return { name, url, category };
+}
+
+async function resolveFeedId(
+  tx: FeedTransaction,
+  normalizedUrl: string,
+): Promise<number> {
+  const [existingFeed] = await tx
+    .select({ id: feeds.id })
+    .from(feeds)
+    .where(eq(feeds.url, normalizedUrl))
+    .limit(1);
+
+  if (existingFeed?.id) {
+    return existingFeed.id;
+  }
+
+  const [createdFeed] = await tx
+    .insert(feeds)
+    .values({ url: normalizedUrl })
+    .onConflictDoNothing({ target: feeds.url })
+    .returning({ id: feeds.id });
+
+  if (createdFeed?.id) {
+    return createdFeed.id;
+  }
+
+  const [persistedFeed] = await tx
+    .select({ id: feeds.id })
+    .from(feeds)
+    .where(eq(feeds.url, normalizedUrl))
+    .limit(1);
+
+  if (!persistedFeed?.id) {
+    throw new Error("Unable to resolve feed source id");
+  }
+
+  return persistedFeed.id;
+}
+
+async function upsertCategoryAssignment(
+  tx: FeedTransaction,
+  userId: number,
+  feedId: number,
+  category: string,
+): Promise<void> {
+  await tx
+    .delete(feedCategories)
+    .where(
+      and(eq(feedCategories.userId, userId), eq(feedCategories.feedId, feedId)),
+    );
+
+  await tx.insert(feedCategories).values({
+    userId,
+    feedId,
+    category,
+  });
+}
+
+async function upsertFeedSource(
+  tx: FeedTransaction,
+  userId: number,
+  name: string,
+  normalizedUrl: string,
+): Promise<CreateFeedSourceResult> {
+  const [existingSource] = await tx
+    .select({
+      id: feedSources.id,
+      name: feedSources.name,
+      url: feedSources.url,
+    })
+    .from(feedSources)
+    .where(
+      and(eq(feedSources.userId, userId), eq(feedSources.url, normalizedUrl)),
+    )
+    .limit(1);
+
+  if (existingSource) {
+    const [updatedSource] = await tx
+      .update(feedSources)
+      .set({ name })
+      .where(
+        and(
+          eq(feedSources.id, existingSource.id),
+          eq(feedSources.userId, userId),
+        ),
+      )
+      .returning({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      });
+
+    if (!updatedSource) {
+      throw new Error("Failed to update feed source");
+    }
+
+    return { sourceRecord: updatedSource, isNew: false };
+  }
+
+  const [createdSource] = await tx
+    .insert(feedSources)
+    .values({ userId, name, url: normalizedUrl })
+    .returning({
+      id: feedSources.id,
+      name: feedSources.name,
+      url: feedSources.url,
+    });
+
+  if (!createdSource) {
+    throw new Error("Failed to create feed source");
+  }
+
+  return { sourceRecord: createdSource, isNew: true };
+}
+
+async function createOrUpdateFeedSource(
+  tx: FeedTransaction,
+  userId: number,
+  payload: CreateFeedPayload,
+): Promise<CreateFeedSourceResult> {
+  const normalizedUrl = normalizeFeedUrl(payload.url);
+  const sourceFeedId = await resolveFeedId(tx, normalizedUrl);
+
+  await upsertCategoryAssignment(tx, userId, sourceFeedId, payload.category);
+  return upsertFeedSource(tx, userId, payload.name, normalizedUrl);
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+    const user = authResult;
 
     const requestUrl = new URL(request.url);
     const feedUrl = requestUrl.searchParams.get("url")?.trim();
 
-    if (feedUrl && !(await isAllowedFeedUrl(feedUrl))) {
-      return NextResponse.json(
-        {
-          error: "Feed URL must use http or https and resolve to a public host",
-        },
-        { status: 400 },
-      );
+    if (feedUrl) {
+      const invalidFeedUrlResponse = await assertAllowedFeedUrl(feedUrl);
+      if (invalidFeedUrlResponse) {
+        return invalidFeedUrlResponse;
+      }
     }
 
     const normalizedFeedUrl = feedUrl ? tryNormalizeFeedUrl(feedUrl) : null;
@@ -94,27 +296,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(feedArticles);
   } catch (error) {
     if (error instanceof FeedSourceNotFoundError) {
-      return NextResponse.json(
-        { error: "Feed source not found" },
-        { status: 404 },
-      );
+      return jsonError("Feed source not found", 404);
     }
-
-    logger.error("Error fetching feed", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
 
     if (axios.isAxiosError(error)) {
-      return NextResponse.json(
-        { error: "Unable to fetch upstream feed" },
-        { status: 502 },
-      );
+      return logAndRespondError("Error fetching feed", error, {
+        status: 502,
+        publicMessage: "Unable to fetch upstream feed",
+      });
     }
 
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Error fetching feed", error);
   }
 }
 
@@ -134,186 +326,41 @@ export async function POST(request: NextRequest) {
       return csrfError;
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
+    }
+    const user = authResult;
+
+    const feedManagementDisabledResponse = ensureFeedManagementEnabled();
+    if (feedManagementDisabledResponse) {
+      return feedManagementDisabledResponse;
     }
 
-    if (RUNTIME_FLAGS.usePlaceholderData) {
-      return NextResponse.json(
-        {
-          error:
-            "Feed source management is disabled when DATABASE_URL is not configured",
-        },
-        { status: 503 },
-      );
+    const parsedPayload = await parseCreateFeedPayload(request);
+    if (parsedPayload instanceof Response) {
+      return parsedPayload;
+    }
+
+    const payload = parsedPayload;
+
+    const invalidFeedUrlResponse = await assertAllowedFeedUrl(payload.url);
+    if (invalidFeedUrlResponse) {
+      return invalidFeedUrlResponse;
     }
 
     const db = getDb();
 
-    const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
-    if (!parsedBody.ok) {
-      return parsedBody.response;
-    }
-
-    const payload = parsedBody.data;
-    const name = asTrimmedString(payload.name);
-    const url = asTrimmedString(payload.url);
-    const category =
-      typeof payload.category === "string" && payload.category.trim()
-        ? payload.category.trim()
-        : DEFAULT_CATEGORY_LABEL;
-
-    if (!name || !url) {
-      return NextResponse.json(
-        { error: "Both name and url are required" },
-        { status: 400 },
-      );
-    }
-
-    if (
-      name.length > CONFIG.MAX_FEED_NAME_LENGTH ||
-      category.length > CONFIG.MAX_CATEGORY_NAME_LENGTH
-    ) {
-      return NextResponse.json(
-        {
-          error: `name and category must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
-        },
-        { status: 400 },
-      );
-    }
-
-    if (!(await isAllowedFeedUrl(url))) {
-      return NextResponse.json(
-        {
-          error: "Feed URL must use http or https and resolve to a public host",
-        },
-        { status: 400 },
-      );
-    }
-
-    const normalizedUrl = normalizeFeedUrl(url);
-
-    // All reads and writes are inside one transaction so no concurrent request
-    // can observe partial state (e.g. a Feed row created outside the tx that
-    // a concurrent DELETE races against).
     const { sourceRecord, isNew } = await db.transaction(async (tx) => {
-      // ── Check existing FeedSource ─────────────────────────────────────────
-      const [existingSource] = await tx
-        .select({
-          id: feedSources.id,
-          name: feedSources.name,
-          url: feedSources.url,
-        })
-        .from(feedSources)
-        .where(
-          and(
-            eq(feedSources.userId, user.userId),
-            eq(feedSources.url, normalizedUrl),
-          ),
-        )
-        .limit(1);
-
-      // ── Ensure a Feed row exists ──────────────────────────────────────────
-      const [existingFeed] = await tx
-        .select({ id: feeds.id })
-        .from(feeds)
-        .where(eq(feeds.url, normalizedUrl))
-        .limit(1);
-
-      let sourceFeedId = existingFeed?.id;
-
-      if (!sourceFeedId) {
-        const [createdFeed] = await tx
-          .insert(feeds)
-          .values({ url: normalizedUrl })
-          .onConflictDoNothing({ target: feeds.url })
-          .returning({ id: feeds.id });
-
-        if (createdFeed) {
-          sourceFeedId = createdFeed.id;
-        } else {
-          const [persistedFeed] = await tx
-            .select({ id: feeds.id })
-            .from(feeds)
-            .where(eq(feeds.url, normalizedUrl))
-            .limit(1);
-          sourceFeedId = persistedFeed?.id;
-        }
-      }
-
-      if (!sourceFeedId) {
-        throw new Error("Unable to resolve feed source id");
-      }
-
-      // ── Update category assignment ────────────────────────────────────────
-      await tx
-        .delete(feedCategories)
-        .where(
-          and(
-            eq(feedCategories.userId, user.userId),
-            eq(feedCategories.feedId, sourceFeedId),
-          ),
-        );
-
-      await tx.insert(feedCategories).values({
-        userId: user.userId,
-        feedId: sourceFeedId,
-        category,
-      });
-
-      // ── Update or create the FeedSource row ──────────────────────────────
-      if (existingSource) {
-        const [updatedSource] = await tx
-          .update(feedSources)
-          .set({ name })
-          .where(
-            and(
-              eq(feedSources.id, existingSource.id),
-              eq(feedSources.userId, user.userId),
-            ),
-          )
-          .returning({
-            id: feedSources.id,
-            name: feedSources.name,
-            url: feedSources.url,
-          });
-
-        if (!updatedSource) {
-          throw new Error("Failed to update feed source");
-        }
-
-        return { sourceRecord: updatedSource, isNew: false };
-      }
-
-      const [createdSource] = await tx
-        .insert(feedSources)
-        .values({ userId: user.userId, name, url: normalizedUrl })
-        .returning({
-          id: feedSources.id,
-          name: feedSources.name,
-          url: feedSources.url,
-        });
-
-      if (!createdSource) {
-        throw new Error("Failed to create feed source");
-      }
-
-      return { sourceRecord: createdSource, isNew: true };
+      return createOrUpdateFeedSource(tx, user.userId, payload);
     });
 
     return NextResponse.json(
-      { ...sourceRecord, category },
+      { ...sourceRecord, category: payload.category },
       { status: isNew ? 201 : 200 },
     );
   } catch (error) {
-    logger.error("Error creating feed source", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Error creating feed source", error);
   }
 }
 
@@ -324,19 +371,15 @@ export async function PATCH(request: NextRequest) {
       return csrfError;
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+    const user = authResult;
 
-    if (RUNTIME_FLAGS.usePlaceholderData) {
-      return NextResponse.json(
-        {
-          error:
-            "Feed source management is disabled when DATABASE_URL is not configured",
-        },
-        { status: 503 },
-      );
+    const feedManagementDisabledResponse = ensureFeedManagementEnabled();
+    if (feedManagementDisabledResponse) {
+      return feedManagementDisabledResponse;
     }
 
     const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
@@ -349,14 +392,11 @@ export async function PATCH(request: NextRequest) {
     const name = asTrimmedString(payload.name);
 
     if (!sourceId) {
-      return NextResponse.json(
-        { error: "A valid id is required" },
-        { status: 400 },
-      );
+      return jsonError("A valid id is required", 400);
     }
 
     if (!name) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
+      return jsonError("name is required", 400);
     }
 
     if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
@@ -383,21 +423,12 @@ export async function PATCH(request: NextRequest) {
       });
 
     if (!updatedSource) {
-      return NextResponse.json(
-        { error: "Feed source not found" },
-        { status: 404 },
-      );
+      return jsonError("Feed source not found", 404);
     }
 
     return NextResponse.json(updatedSource);
   } catch (error) {
-    logger.error("Error renaming feed source", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Error renaming feed source", error);
   }
 }
 
@@ -408,19 +439,15 @@ export async function DELETE(request: NextRequest) {
       return csrfError;
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+    const user = authResult;
 
-    if (RUNTIME_FLAGS.usePlaceholderData) {
-      return NextResponse.json(
-        {
-          error:
-            "Feed source management is disabled when DATABASE_URL is not configured",
-        },
-        { status: 503 },
-      );
+    const feedManagementDisabledResponse = ensureFeedManagementEnabled();
+    if (feedManagementDisabledResponse) {
+      return feedManagementDisabledResponse;
     }
 
     const db = getDb();
@@ -429,10 +456,7 @@ export async function DELETE(request: NextRequest) {
     const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
 
     if (!sourceId) {
-      return NextResponse.json(
-        { error: "A valid id query parameter is required" },
-        { status: 400 },
-      );
+      return jsonError("A valid id query parameter is required", 400);
     }
 
     const [sourceToDelete] = await db
@@ -448,10 +472,7 @@ export async function DELETE(request: NextRequest) {
       .limit(1);
 
     if (!sourceToDelete) {
-      return NextResponse.json(
-        { error: "Feed source not found" },
-        { status: 404 },
-      );
+      return jsonError("Feed source not found", 404);
     }
 
     const [feedForSource] = await db
@@ -491,20 +512,11 @@ export async function DELETE(request: NextRequest) {
 
     if (!deletedSource) {
       // Row was deleted by a concurrent request; treat as already gone.
-      return NextResponse.json(
-        { error: "Feed source not found" },
-        { status: 404 },
-      );
+      return jsonError("Feed source not found", 404);
     }
 
     return NextResponse.json(deletedSource);
   } catch (error) {
-    logger.error("Error deleting feed source", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Error deleting feed source", error);
   }
 }

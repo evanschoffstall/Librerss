@@ -4,14 +4,17 @@ import {
   parseJsonBody,
   parsePositiveInt,
 } from "@/lib/api/request";
+import {
+  jsonError,
+  logAndRespondError,
+  requireAuthenticatedUser,
+} from "@/lib/api/route-helpers";
 import { requireSameOrigin } from "@/lib/auth/csrf";
-import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
@@ -23,12 +26,77 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+type CreateArticlePayload = {
+  rawTitle: string;
+  link: string;
+  rawContent: string;
+  feedId: number;
+  publicationDate: Date;
+  lastChecked: Date;
+};
+
+function parseCreateArticleDates(
+  payload: Record<string, unknown>,
+): { publicationDate: Date; lastChecked: Date } | Response {
+  const publicationDate = payload.publication_date
+    ? parseDateInput(payload.publication_date)
+    : new Date();
+  const lastChecked = payload.last_checked
+    ? parseDateInput(payload.last_checked)
+    : new Date();
+
+  if (!publicationDate || !lastChecked) {
+    return jsonError(
+      "publication_date and last_checked must be valid ISO dates",
+      400,
+    );
+  }
+
+  return { publicationDate, lastChecked };
+}
+
+function parseCreateArticlePayload(
+  payload: Record<string, unknown>,
+): CreateArticlePayload | Response {
+  const rawTitle = asTrimmedString(payload.title);
+  const link = asTrimmedString(payload.link);
+  const rawContent = typeof payload.content === "string" ? payload.content : "";
+  const feedId = parsePositiveInt(payload.feed_id);
+
+  if (!rawTitle) {
+    return jsonError("Title is required", 400);
+  }
+
+  if (!link || !isValidUrl(link)) {
+    return jsonError("A valid article link is required", 400);
+  }
+
+  if (!feedId) {
+    return jsonError("A valid feed_id is required", 400);
+  }
+
+  const parsedDates = parseCreateArticleDates(payload);
+  if (parsedDates instanceof Response) {
+    return parsedDates;
+  }
+
+  return {
+    rawTitle,
+    link,
+    rawContent,
+    feedId,
+    publicationDate: parsedDates.publicationDate,
+    lastChecked: parsedDates.lastChecked,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+    const user = authResult;
 
     if (RUNTIME_FLAGS.usePlaceholderData) {
       // In placeholder mode there is no database, so return an empty list
@@ -68,13 +136,7 @@ export async function GET(request: NextRequest) {
       })),
     );
   } catch (error) {
-    logger.error("Articles GET error", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Articles GET error", error);
   }
 }
 
@@ -85,68 +147,33 @@ export async function POST(request: NextRequest) {
       return csrfError;
     }
 
-    const user = await getUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+    const user = authResult;
 
     const parsedBody = await parseJsonBody<Record<string, unknown>>(request);
     if (!parsedBody.ok) {
       return parsedBody.response;
     }
 
-    const payload = parsedBody.data;
-    const rawTitle = asTrimmedString(payload.title);
-    const link = asTrimmedString(payload.link);
-    const rawContent =
-      typeof payload.content === "string" ? payload.content : "";
-    const feedId = parsePositiveInt(payload.feed_id);
-
-    if (!rawTitle) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    const parsedPayload = parseCreateArticlePayload(parsedBody.data);
+    if (parsedPayload instanceof Response) {
+      return parsedPayload;
     }
-
-    if (!link || !isValidUrl(link)) {
-      return NextResponse.json(
-        { error: "A valid article link is required" },
-        { status: 400 },
-      );
-    }
+    const payload = parsedPayload;
 
     // SSRF guard — reject links that resolve to private/internal addresses.
-    if (!(await isAllowedFeedUrl(link))) {
-      return NextResponse.json(
-        { error: "Article link must resolve to a public host" },
-        { status: 400 },
-      );
-    }
-
-    if (!feedId) {
-      return NextResponse.json(
-        { error: "A valid feed_id is required" },
-        { status: 400 },
-      );
-    }
-
-    const publicationDate = payload.publication_date
-      ? parseDateInput(payload.publication_date)
-      : new Date();
-    const lastChecked = payload.last_checked
-      ? parseDateInput(payload.last_checked)
-      : new Date();
-
-    if (!publicationDate || !lastChecked) {
-      return NextResponse.json(
-        { error: "publication_date and last_checked must be valid ISO dates" },
-        { status: 400 },
-      );
+    if (!(await isAllowedFeedUrl(payload.link))) {
+      return jsonError("Article link must resolve to a public host", 400);
     }
 
     // Sanitize at write time — defence in depth against XSS.
     // sanitizeAndTruncateArticleContent strips unsafe HTML, enforces the length
     // cap, then re-sanitizes to close any tags broken by truncation.
-    const title = sanitizeArticleTitle(rawTitle);
-    const content = sanitizeAndTruncateArticleContent(rawContent);
+    const title = sanitizeArticleTitle(payload.rawTitle);
+    const content = sanitizeAndTruncateArticleContent(payload.rawContent);
 
     const db = getDb();
 
@@ -160,36 +187,27 @@ export async function POST(request: NextRequest) {
           eq(feedSources.userId, user.userId),
         ),
       )
-      .where(eq(feeds.id, feedId))
+      .where(eq(feeds.id, payload.feedId))
       .limit(1);
 
     if (!ownedFeed) {
-      return NextResponse.json(
-        { error: "Feed not found for authenticated user" },
-        { status: 403 },
-      );
+      return jsonError("Feed not found for authenticated user", 403);
     }
 
     const [newArticle] = await db
       .insert(articles)
       .values({
         title,
-        link,
-        publicationDate,
+        link: payload.link,
+        publicationDate: payload.publicationDate,
         content,
-        feedId,
-        lastChecked,
+        feedId: payload.feedId,
+        lastChecked: payload.lastChecked,
       })
       .returning();
 
     return NextResponse.json(newArticle);
   } catch (error) {
-    logger.error("Articles POST error", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Articles POST error", error);
   }
 }

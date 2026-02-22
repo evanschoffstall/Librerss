@@ -1,4 +1,5 @@
 import { asTrimmedString, parseJsonBody } from "@/lib/api/request";
+import { jsonError, logAndRespondError } from "@/lib/api/route-helpers";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import {
   createSession,
@@ -14,6 +15,72 @@ import { rateLimiter } from "@/lib/utils/rate-limit";
 import { isValidEmail } from "@/lib/utils/validation";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+
+type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+function parseLoginPayload(
+  payload: Record<string, unknown>,
+): LoginPayload | Response {
+  const email = asTrimmedString(payload.email).toLowerCase();
+  const password = payload.password;
+
+  if (!email || !isValidEmail(email)) {
+    logger.warn("Login attempt with invalid email");
+    return jsonError("A valid email is required", 400);
+  }
+
+  if (typeof password !== "string" || password.length === 0) {
+    return jsonError("Password is required", 400);
+  }
+
+  if (password.length > CONFIG.PASSWORD_MAX_LENGTH) {
+    return jsonError("Invalid email or password", 401);
+  }
+
+  return { email, password };
+}
+
+function respondInvalidCredentials(email?: string): Response {
+  logger.warn("Failed placeholder login attempt", { email });
+  return jsonError("Invalid email or password", 401);
+}
+
+async function handlePlaceholderLogin(
+  email: string,
+  password: string,
+): Promise<Response> {
+  if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
+    logger.warn("Login attempt when placeholder auth is disabled");
+    return jsonError("Authentication is unavailable without a database", 503);
+  }
+
+  const isPlaceholderEmail = email === PLACEHOLDER_ADMIN_USER.email;
+  const isValidPassword = await verifyPassword(
+    password,
+    PLACEHOLDER_ADMIN_USER.passwordHash,
+  );
+
+  if (!isPlaceholderEmail || !isValidPassword) {
+    return respondInvalidCredentials(email);
+  }
+
+  const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
+
+  logger.info("Placeholder user logged in", { email });
+
+  const response = NextResponse.json({
+    user: {
+      id: PLACEHOLDER_ADMIN_USER.id,
+      email: PLACEHOLDER_ADMIN_USER.email,
+    },
+  });
+  setSessionCookie(response, token);
+
+  return response;
+}
 
 export async function POST(request: Request) {
   try {
@@ -37,72 +104,15 @@ export async function POST(request: Request) {
       return parsedBody.response;
     }
 
-    const payload = parsedBody.data;
-    const email = asTrimmedString(payload.email).toLowerCase();
-
-    const password = payload.password;
-
-    // Email validation
-    if (!email || !isValidEmail(email)) {
-      logger.warn("Login attempt with invalid email");
-      return NextResponse.json(
-        { error: "A valid email is required" },
-        { status: 400 },
-      );
+    const parsedPayload = parseLoginPayload(parsedBody.data);
+    if (parsedPayload instanceof Response) {
+      return parsedPayload;
     }
-
-    if (typeof password !== "string" || password.length === 0) {
-      return NextResponse.json(
-        { error: "Password is required" },
-        { status: 400 },
-      );
-    }
-
-    // SECURITY: Reject overlong passwords before hashing to prevent scrypt DoS.
-    if (password.length > CONFIG.PASSWORD_MAX_LENGTH) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 },
-      );
-    }
+    const { email, password } = parsedPayload;
 
     // Placeholder mode (dev/demo only)
     if (RUNTIME_FLAGS.usePlaceholderData) {
-      if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
-        logger.warn("Login attempt when placeholder auth is disabled");
-        return NextResponse.json(
-          { error: "Authentication is unavailable without a database" },
-          { status: 503 },
-        );
-      }
-
-      const isPlaceholderEmail = email === PLACEHOLDER_ADMIN_USER.email;
-      const isValidPassword = await verifyPassword(
-        password,
-        PLACEHOLDER_ADMIN_USER.passwordHash,
-      );
-
-      if (!isPlaceholderEmail || !isValidPassword) {
-        logger.warn("Failed placeholder login attempt", { email });
-        return NextResponse.json(
-          { error: "Invalid email or password" },
-          { status: 401 },
-        );
-      }
-
-      const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
-
-      logger.info("Placeholder user logged in", { email });
-
-      const response = NextResponse.json({
-        user: {
-          id: PLACEHOLDER_ADMIN_USER.id,
-          email: PLACEHOLDER_ADMIN_USER.email,
-        },
-      });
-      setSessionCookie(response, token);
-
-      return response;
+      return handlePlaceholderLogin(email, password);
     }
 
     const db = getDb();
@@ -126,20 +136,14 @@ export async function POST(request: Request) {
     // the client identifier, which is already used for rate-limiting.
     if (!user) {
       logger.warn("Failed login attempt");
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 },
-      );
+      return jsonError("Invalid email or password", 401);
     }
 
     // Verify password
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
       logger.warn("Failed login attempt");
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 },
-      );
+      return jsonError("Invalid email or password", 401);
     }
 
     // Create session
@@ -157,12 +161,6 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    logger.error("Login error", {
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return logAndRespondError("Login error", error);
   }
 }
