@@ -100,6 +100,26 @@ export const SYSTEM_ALL_FEEDS_CATEGORY: CategoryTreeNode = {
 
 // ─── Article dedup & sorting ─────────────────────────────────────────────────
 
+const getArticleContentLength = (article: Article) =>
+  article.content?.length ?? 0;
+
+const getArticleTimestamp = (article: Article) =>
+  new Date(article.publicationDate).getTime();
+
+const shouldReplaceArticle = (candidate: Article, current: Article) => {
+  const candidateContentLength = getArticleContentLength(candidate);
+  const currentContentLength = getArticleContentLength(current);
+
+  if (candidateContentLength !== currentContentLength) {
+    return candidateContentLength > currentContentLength;
+  }
+
+  return getArticleTimestamp(candidate) > getArticleTimestamp(current);
+};
+
+const sortByPublicationDateDesc = (a: Article, b: Article) =>
+  getArticleTimestamp(b) - getArticleTimestamp(a);
+
 export const dedupeAndSortArticles = (articles: Article[]) => {
   const uniqueArticles = new Map<string, Article>();
 
@@ -114,22 +134,12 @@ export const dedupeAndSortArticles = (articles: Article[]) => {
       continue;
     }
 
-    const shouldReplace =
-      (article.content?.length ?? 0) > (existing.content?.length ?? 0) ||
-      (article.content?.length === existing.content?.length &&
-        new Date(article.publicationDate).getTime() >
-          new Date(existing.publicationDate).getTime());
-
-    if (shouldReplace) {
+    if (shouldReplaceArticle(article, existing)) {
       uniqueArticles.set(key, article);
     }
   }
 
-  return [...uniqueArticles.values()].sort(
-    (a, b) =>
-      new Date(b.publicationDate).getTime() -
-      new Date(a.publicationDate).getTime(),
-  );
+  return [...uniqueArticles.values()].sort(sortByPublicationDateDesc);
 };
 
 export const getArticleKey = (article: Article) => article.link.trim();
