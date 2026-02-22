@@ -103,6 +103,30 @@ mock.module("@/lib/core/runtime", () => ({
 const routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
 
 describe("greader route compatibility contracts", () => {
+  test("token endpoint returns plain alphanumeric token", async () => {
+    selectBehaviors.length = 0;
+
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/token",
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "token"],
+      }),
+    });
+
+    const body = await response.text();
+    const token = body.trim();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/plain");
+    expect(token.length).toBeGreaterThanOrEqual(16);
+    expect(token).toMatch(/^[a-z0-9]+$/i);
+  });
+
   test("stream/items/ids returns decimal ids for Reader API clients", async () => {
     selectBehaviors.length = 0;
     selectBehaviors.push(
