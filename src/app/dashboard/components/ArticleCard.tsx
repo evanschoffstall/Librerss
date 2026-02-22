@@ -66,7 +66,9 @@ export const ArticleCard = ({
   const previewRef = useRef<HTMLParagraphElement>(null);
   const fullContentRef = useRef<HTMLDivElement>(null);
 
-  const richContentClassName = "text-xs leading-relaxed text-muted-foreground/75 whitespace-pre-wrap break-words [&_p]:mb-3 [&_p:last-child]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2";
+  const richContentClassName = isExpanded
+    ? "text-sm leading-relaxed text-foreground/70 whitespace-pre-wrap break-words [&_p]:mb-3 [&_p:last-child]:mb-0 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2"
+    : "text-xs leading-relaxed text-muted-foreground/75 whitespace-pre-wrap break-words [&_p]:mb-3 [&_p:last-child]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2";
 
   useEffect(() => {
     setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
@@ -87,7 +89,7 @@ export const ArticleCard = ({
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [content, preview]);
+  }, [content, preview, richContentClassName]);
 
   useEffect(() => {
     if (isExpanded) {
@@ -127,7 +129,7 @@ export const ArticleCard = ({
       aria-expanded={isExpanded}
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
-      className="group relative flex flex-col rounded-xl border bg-card/40 p-3 transition-all duration-300 hover:bg-card/70"
+      className={`group relative flex flex-col rounded-xl border bg-card/40 transition-all duration-300 hover:bg-card/70 ${isExpanded ? "p-4" : "p-3"}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
@@ -136,7 +138,7 @@ export const ArticleCard = ({
       layout
     >
       <div className="space-y-2 pr-7">
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground/60">
+          <div className={`flex items-center gap-2 text-muted-foreground/60 transition-all duration-300 ${isExpanded ? "text-xs" : "text-[11px]"}`}>
           <CalendarDays className="size-3" />
           {new Date(article.publicationDate ?? Date.now()).toLocaleDateString()}
           <span className="text-border">|</span>
@@ -162,7 +164,7 @@ export const ArticleCard = ({
           ) : null}
           <span className="truncate">{getArticleSourceLabel(article)}</span>
         </div>
-        <h3 className="line-clamp-2 text-sm font-medium leading-snug">
+        <h3 className={`font-medium leading-snug transition-all duration-300 ${isExpanded ? "text-base" : "line-clamp-2 text-sm"}`}>
           {article.title}
         </h3>
         {isHydrating ? (
@@ -192,11 +194,11 @@ export const ArticleCard = ({
               </p>
             ) : useRichFormatting ? (
               <div
-                className={richContentClassName}
+                className={`${richContentClassName} transition-[color,font-size] duration-300`}
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground/75">
+              <p className={`leading-relaxed transition-all duration-300 ${isExpanded ? "text-sm text-foreground/70" : "text-xs text-muted-foreground/75"}`}>
                 {content}
               </p>
             )}
