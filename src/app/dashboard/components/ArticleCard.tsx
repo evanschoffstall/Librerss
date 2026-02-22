@@ -1,4 +1,4 @@
-import { type Article } from "@/lib";
+import { type Article, formatRelativeDate } from "@/lib";
 import { motion } from "framer-motion";
 import { ArrowUpRight, CalendarDays, Loader2 } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
@@ -140,7 +140,7 @@ export const ArticleCard = ({
       <div className="space-y-2 pr-7">
           <div className={`flex items-center gap-2 text-muted-foreground/60 transition-all duration-300 ${isExpanded ? "text-xs" : "text-[11px]"}`}>
           <CalendarDays className="size-3" />
-          {new Date(article.publicationDate ?? Date.now()).toLocaleDateString()}
+          {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
           <span className="text-border">|</span>
           {showFavicon && faviconUrl ? (
             <img
