@@ -1,10 +1,12 @@
+import { DEFAULT_CATEGORY_LABEL } from "./categories";
+
+export { DEFAULT_CATEGORY_LABEL };
+
 export interface OpmlFeedImportEntry {
   name: string;
   url: string;
   category: string;
 }
-
-export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
 const getOutlineLabel = (outline: Element): string => {
   const text = outline.getAttribute("text")?.trim();
