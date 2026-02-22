@@ -10,7 +10,7 @@ interface LogContext {
   userId?: number;
   email?: string;
   timestamp?: string;
-  error?: string;
+  error?: Error | string;
   stack?: string;
 }
 
@@ -68,9 +68,9 @@ class Logger {
 
     // Extract error details if error object is provided
     if (context?.error instanceof Error) {
-      sanitized.error = context.error.message;
+      sanitized!.error = context.error.message;
       if (this.isDevelopment) {
-        sanitized.stack = context.error.stack;
+        sanitized!.stack = context.error.stack;
       }
     }
 
