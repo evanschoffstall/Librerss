@@ -263,5 +263,4 @@ export const PLACEHOLDER_ARTICLES: Article[] = Object.values(
 ).flat();
 
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
-  PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ??
-  PLACEHOLDER_ARTICLES;
+  PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ?? [];
