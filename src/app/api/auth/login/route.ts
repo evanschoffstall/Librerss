@@ -1,3 +1,4 @@
+import { requireSameOrigin } from "@/src/lib/auth/csrf";
 import {
   createSession,
   setSessionCookie,
@@ -9,13 +10,33 @@ import { users } from "@/src/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+function isValidEmail(email: string): boolean {
+  return email.includes("@");
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const email = body?.email?.trim()?.toLowerCase();
-    const password = body?.password;
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const email =
+      typeof payload.email === "string"
+        ? payload.email.trim().toLowerCase()
+        : "";
+
+    const password = payload.password;
+
+    if (!email || !isValidEmail(email)) {
       return NextResponse.json(
         { error: "A valid email is required" },
         { status: 400 },
@@ -30,6 +51,13 @@ export async function POST(request: Request) {
     }
 
     if (RUNTIME_FLAGS.usePlaceholderData) {
+      if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
+        return NextResponse.json(
+          { error: "Authentication is unavailable without a database" },
+          { status: 503 },
+        );
+      }
+
       const isPlaceholderEmail = email === PLACEHOLDER_ADMIN_USER.email;
       const isValidPassword = await verifyPassword(
         password,

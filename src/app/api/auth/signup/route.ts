@@ -1,3 +1,4 @@
+import { requireSameOrigin } from "@/src/lib/auth/csrf";
 import {
   createSession,
   hashPassword,
@@ -9,8 +10,17 @@ import { users } from "@/src/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+function isValidEmail(email: string): boolean {
+  return email.includes("@");
+}
+
 export async function POST(request: Request) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     if (!RUNTIME_FLAGS.allowSignup) {
       return NextResponse.json(
         { error: "Signup is disabled by server configuration" },
@@ -26,11 +36,22 @@ export async function POST(request: Request) {
     }
 
     const db = getDb();
-    const body = await request.json();
-    const email = body?.email?.trim()?.toLowerCase();
-    const password = body?.password;
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const email =
+      typeof payload.email === "string"
+        ? payload.email.trim().toLowerCase()
+        : "";
+    const password = payload.password;
+
+    if (!email || !isValidEmail(email)) {
       return NextResponse.json(
         { error: "A valid email is required" },
         { status: 400 },

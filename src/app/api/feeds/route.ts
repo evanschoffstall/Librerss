@@ -1,3 +1,4 @@
+import { requireSameOrigin } from "@/src/lib/auth/csrf";
 import { getUserFromRequest } from "@/src/lib/auth/session";
 import {
   getPlaceholderArticlesForSource,
@@ -276,6 +277,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const user = await getUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -439,6 +445,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const user = await getUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

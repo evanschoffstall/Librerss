@@ -1,7 +1,8 @@
+import { requireSameOrigin } from "@/src/lib/auth/csrf";
 import { getUserFromRequest } from "@/src/lib/auth/session";
 import { getDb } from "@/src/lib/db/db";
 import { articles, feeds, feedSources } from "@/src/lib/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = requireSameOrigin(request);
+    if (csrfError) {
+      return csrfError;
+    }
+
     const user = await getUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -123,6 +129,27 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb();
+
+    const [ownedFeed] = await db
+      .select({ id: feeds.id })
+      .from(feeds)
+      .innerJoin(
+        feedSources,
+        and(
+          eq(feedSources.url, feeds.url),
+          eq(feedSources.userId, user.userId),
+        ),
+      )
+      .where(eq(feeds.id, feedId))
+      .limit(1);
+
+    if (!ownedFeed) {
+      return NextResponse.json(
+        { error: "Feed not found for authenticated user" },
+        { status: 403 },
+      );
+    }
+
     const [newArticle] = await db
       .insert(articles)
       .values({
