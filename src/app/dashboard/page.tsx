@@ -17,12 +17,13 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
 } from "@/lib/core/placeholder";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -168,6 +169,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const [showFavicons, setShowFavicons] = useLocalStorage<boolean>("librerss:showFavicons", true);
   const [visibleCount, setVisibleCount] = useState(pageSize);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
 
   const ensureCategoryLabelExists = (label: string) => {
     const normalized = normalizeLabel(label);
@@ -999,6 +1001,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   useEffect(() => {
     const initializeDashboard = async () => {
       const loadedCategories = await loadFeedSources();
+      setIsCategoriesLoading(false);
       setSelectedCategory(ALL_FEEDS_NODE_KEY);
       await fetchAllFeeds(loadedCategories);
     };
@@ -1153,42 +1156,71 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
             className={`h-full transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
               }`}
           >
-            <div className="space-y-4 pr-3">
-              {sidebarCategories.length === 0 ? (
-                <div className="px-2 py-8 text-xs text-muted-foreground/70">No feed sources yet.</div>
-              ) : (
-                sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
-                  <div
-                    key={categoryNode.key}
-                    className={`space-y-1 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
-                      }`}
-                    style={{ transitionDelay: `${index * 35}ms` }}
-                  >
-                    <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                      <button
-                        type="button"
-                        className={`w-full rounded px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide transition-colors ${selectedCategory === categoryNode.key
-                          ? "bg-muted/60 text-foreground"
-                          : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
-                          }`}
-                        onClick={() => handleCategoryClick(categoryNode)}
-                      >
-                        {categoryNode.label}
-                      </button>
+            <AnimatePresence mode="wait" initial={false}>
+              {isCategoriesLoading ? (
+                <motion.div
+                  key="sidebar-skeleton"
+                  className="space-y-4 pr-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {[3, 2, 4].map((count, groupIndex) => (
+                    <div key={groupIndex} className="space-y-1">
+                      <Skeleton className="mx-2 h-3.5 w-16 rounded" />
+                      {Array.from({ length: count }).map((_, itemIndex) => (
+                        <Skeleton key={itemIndex} className="mx-1 h-9 w-[calc(100%-8px)] rounded-lg" />
+                      ))}
                     </div>
-                    {(categoryNode.children ?? []).map((feedNode: CategoryTreeNode) => (
-                      <FeedCategory
-                        key={feedNode.key}
-                        category={feedNode}
-                        isActive={selectedCategory === feedNode.key}
-                        showFavicon={showFavicons}
-                        onClick={() => handleFeedClick(feedNode)}
-                      />
-                    ))}
-                  </div>
-                ))
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="sidebar-content"
+                  className="space-y-4 pr-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {sidebarCategories.length === 0 ? (
+                    <div className="px-2 py-8 text-xs text-muted-foreground/70">No feed sources yet.</div>
+                  ) : (
+                    sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
+                      <div
+                        key={categoryNode.key}
+                        className={`space-y-1 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                          }`}
+                        style={{ transitionDelay: `${index * 35}ms` }}
+                      >
+                        <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                          <button
+                            type="button"
+                            className={`w-full rounded px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide transition-colors ${selectedCategory === categoryNode.key
+                              ? "bg-muted/60 text-foreground"
+                              : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
+                              }`}
+                            onClick={() => handleCategoryClick(categoryNode)}
+                          >
+                            {categoryNode.label}
+                          </button>
+                        </div>
+                        {(categoryNode.children ?? []).map((feedNode: CategoryTreeNode) => (
+                          <FeedCategory
+                            key={feedNode.key}
+                            category={feedNode}
+                            isActive={selectedCategory === feedNode.key}
+                            showFavicon={showFavicons}
+                            onClick={() => handleFeedClick(feedNode)}
+                          />
+                        ))}
+                      </div>
+                    ))
+                  )}
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </ScrollArea>
         </aside>
 
@@ -1203,74 +1235,102 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
         >
 
           <ScrollArea className="min-h-0 flex-1">
-            {loading ? (
-              <div className="grid grid-cols-1 gap-2 pr-3 py-2">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="rounded-xl border bg-card/40 p-3">
-                    <div className="h-3 w-1/3 rounded bg-muted/60" />
-                    <div className="mt-2 h-4 w-5/6 rounded bg-muted/70" />
-                    <div className="mt-3 space-y-2">
-                      <div className="h-3 w-full rounded bg-muted/50" />
-                      <div className="h-3 w-4/5 rounded bg-muted/50" />
-                      <div className="h-3 w-2/3 rounded bg-muted/50" />
+            <AnimatePresence mode="wait" initial={false}>
+              {loading ? (
+                <motion.div
+                  key="feed-skeleton"
+                  className="grid grid-cols-1 gap-2 pr-3 py-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div key={index} className="rounded-xl border bg-card/40 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-3 w-3 rounded-full" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <div className="space-y-1.5 pt-1">
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-3 w-[92%]" />
+                        <Skeleton className="h-3 w-[78%]" />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredFeed.length === 0 ? (
-              <div className="flex items-center justify-center py-32">
-                <div className="text-center space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    {searchTerm ? "No matches." : "No articles yet."}
-                  </p>
-                  {searchTerm ? (
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                    >
-                      Clear search
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-                          fetchAllFeeds();
-                          return;
-                        }
+                  ))}
+                </motion.div>
+              ) : filteredFeed.length === 0 ? (
+                <motion.div
+                  key="feed-empty"
+                  className="flex items-center justify-center py-32"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {searchTerm ? "No matches." : "No articles yet."}
+                    </p>
+                    {searchTerm ? (
+                      <button
+                        onClick={() => setSearchTerm("")}
+                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                      >
+                        Clear search
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+                            fetchAllFeeds();
+                            return;
+                          }
 
-                        fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL);
-                      }}
-                      className="text-xs text-muted-foreground/60 underline underline-offset-2"
-                    >
-                      Refresh
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 pr-3">
-                {filteredFeed.slice(0, visibleCount).map((article) => {
-                  const cardKey = getArticleKey(article);
-                  return (
-                    <ArticleCard
-                      key={cardKey}
-                      article={article}
-                      isExpanded={expandedArticleKey === cardKey}
-                      useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
-                      isHydrating={Boolean(hydratingArticleLinks[cardKey])}
-                      showFavicon={showFavicons}
-                      onToggle={() => void handleArticleToggle(article)}
-                    />
-                  );
-                })}
-                {/* Sentinel: triggers next page load when scrolled into view */}
-                <div ref={sentinelRef} className="py-1 flex justify-center">
-                  {visibleCount < filteredFeed.length && (
-                    <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
-                  )}
-                </div>
-              </div>
-            )}
+                          fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL);
+                        }}
+                        className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                      >
+                        Refresh
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="feed-list"
+                  className="grid grid-cols-1 gap-2 pr-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {filteredFeed.slice(0, visibleCount).map((article) => {
+                    const cardKey = getArticleKey(article);
+                    return (
+                      <ArticleCard
+                        key={cardKey}
+                        article={article}
+                        isExpanded={expandedArticleKey === cardKey}
+                        useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
+                        isHydrating={Boolean(hydratingArticleLinks[cardKey])}
+                        showFavicon={showFavicons}
+                        onToggle={() => void handleArticleToggle(article)}
+                      />
+                    );
+                  })}
+                  {/* Sentinel: triggers next page load when scrolled into view */}
+                  <div ref={sentinelRef} className="py-1 flex justify-center">
+                    {visibleCount < filteredFeed.length && (
+                      <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </ScrollArea>
         </motion.section>
       </div>
