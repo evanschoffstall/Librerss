@@ -80,14 +80,19 @@ export async function createSession(userId: number): Promise<string> {
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 
-  // Use transaction to ensure session limit is enforced
+  // Use transaction to ensure session limit is enforced.
+  // SELECT FOR UPDATE serializes concurrent logins for the same user so each
+  // transaction sees a consistent session count before inserting a new row.
+  // Without this two simultaneous logins can both read count = N-1, skip
+  // deletion, and insert — leaving N+1 sessions until the next login cleans up.
   await db.transaction(async (tx) => {
-    // Get all sessions for this user, ordered by creation date (oldest first)
+    // Lock all existing sessions for this user before reading their count.
     const userSessions = await tx
       .select({ id: sessions.id })
       .from(sessions)
       .where(eq(sessions.userId, userId))
-      .orderBy(asc(sessions.createdAt));
+      .orderBy(asc(sessions.createdAt))
+      .for("update");
 
     // If user has too many sessions, delete the oldest ones
     if (userSessions.length >= CONFIG.MAX_SESSIONS_PER_USER) {
