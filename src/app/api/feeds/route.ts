@@ -13,6 +13,7 @@ import {
 } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
+import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import { logger } from "@/lib/utils/logger";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
     const category =
       typeof payload.category === "string" && payload.category.trim()
         ? payload.category.trim()
-        : "My Feeds";
+        : DEFAULT_CATEGORY_LABEL;
 
     if (!name || !url) {
       return NextResponse.json(
@@ -486,6 +487,14 @@ export async function DELETE(request: NextRequest) {
           url: feedSources.url,
         });
     });
+
+    if (!deletedSource) {
+      // Row was deleted by a concurrent request; treat as already gone.
+      return NextResponse.json(
+        { error: "Feed source not found" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json(deletedSource);
   } catch (error) {

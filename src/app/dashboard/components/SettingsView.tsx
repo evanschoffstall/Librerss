@@ -2,8 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FeedService, isValidUrl, type CategoryTreeNode } from "@/lib";
+import { DEFAULT_CATEGORY_LABEL, FeedService, isValidUrl, type CategoryTreeNode } from "@/lib";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { INITIAL_CATEGORIES, SAMPLE_FEEDS } from "../constants";
 
 export const SettingsView = () => {
@@ -24,7 +25,7 @@ export const SettingsView = () => {
       setCategories([
         {
           key: "0",
-          label: "My Feeds",
+          label: DEFAULT_CATEGORY_LABEL,
           children: sources.map((source) => ({
             key: `src-${source.id}`,
             label: source.name,
@@ -35,6 +36,7 @@ export const SettingsView = () => {
       ]);
     } catch (error) {
       console.error("Error loading feed sources:", error);
+      toast.error("Unable to load feed sources.");
     }
   };
 
@@ -61,8 +63,10 @@ export const SettingsView = () => {
       await loadSources();
       setNewCategory("");
       setNewFeedUrl("");
+      toast.success("Feed source saved.");
     } catch (error) {
       console.error("Error saving source:", error);
+      toast.error("Unable to save feed source.");
     } finally {
       setLoading(false);
     }
@@ -81,8 +85,10 @@ export const SettingsView = () => {
     try {
       await FeedService.deleteFeedSource(sourceId);
       await loadSources();
+      toast.success("Feed source removed.");
     } catch (error) {
       console.error("Error removing source:", error);
+      toast.error("Unable to remove feed source.");
     } finally {
       setLoading(false);
     }

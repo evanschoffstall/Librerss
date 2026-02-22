@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  DEFAULT_CATEGORY_LABEL,
   parseOpmlFeedImport,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
@@ -114,7 +115,7 @@ export const SettingsModal = ({
   const [newFeedName, setNewFeedName] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [newFeedCategory, setNewFeedCategory] = useState(categoryOptions[0] ?? "My Feeds");
+  const [newFeedCategory, setNewFeedCategory] = useState(categoryOptions[0] ?? DEFAULT_CATEGORY_LABEL);
   const [addingFeedInCategory, setAddingFeedInCategory] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -136,7 +137,7 @@ export const SettingsModal = ({
 
   useEffect(() => {
     if (!categoryOptions.includes(newFeedCategory)) {
-      setNewFeedCategory(categoryOptions[0] ?? "My Feeds");
+      setNewFeedCategory(categoryOptions[0] ?? DEFAULT_CATEGORY_LABEL);
     }
   }, [categoryOptions, newFeedCategory]);
 
