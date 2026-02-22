@@ -20,7 +20,7 @@ import {
   sanitizeArticleTitle,
 } from "@/lib/utils/validation";
 import axios from "axios";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import Parser from "rss-parser";
@@ -236,86 +236,20 @@ export class FeedSourceNotFoundError extends Error {
   }
 }
 
-// ─── Max articles returned per feed ──────────────────────────────────────────
+// ─── Limits ───────────────────────────────────────────────────────────────────
 
 const MAX_ARTICLES_PER_FEED = 200;
 
-// ─── Core: fetch + cache a single feed ───────────────────────────────────────
+// ─── Upstream RSS refresh (shared by single and batch paths) ──────────────────
 
-/**
- * Fetches and caches articles for one feed URL.
- *
- * - Verifies the authenticated user owns the feed source.
- * - Creates the Feed record if it doesn't exist yet.
- * - Refreshes from upstream only when the cached data is stale (TTL).
- * - Returns the latest MAX_ARTICLES_PER_FEED articles ordered by publication date.
- *
- * @throws {FeedSourceNotFoundError} if userId doesn't own the feed.
- * @throws on DB or upstream network errors.
- */
-export async function fetchAndCacheFeedArticles(
+type FeedRecord = { id: number; url: string; lastFetched: Date };
+
+async function refreshFeedFromUpstream(
   db: ReturnType<typeof getDb>,
-  userId: number,
-  feedUrl: string,
-): Promise<ArticleRow[]> {
-  // 1. Verify ownership
-  const [userSource] = await db
-    .select({ id: feedSources.id })
-    .from(feedSources)
-    .where(and(eq(feedSources.userId, userId), eq(feedSources.url, feedUrl)))
-    .limit(1);
-
-  if (!userSource) {
-    throw new FeedSourceNotFoundError(feedUrl);
-  }
-
-  // 2. Get or create the Feed record
-  const [existingFeed] = await db
-    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
-    .from(feeds)
-    .where(eq(feeds.url, feedUrl))
-    .limit(1);
-
-  let currentFeed = existingFeed as typeof existingFeed | undefined;
-  let shouldFetch = true;
-
-  if (currentFeed) {
-    const diffMinutes =
-      (Date.now() - new Date(currentFeed.lastFetched).getTime()) / 60_000;
-    if (diffMinutes < CONFIG.FEED_CACHE_TTL_MINUTES) shouldFetch = false;
-  } else {
-    const [createdFeed] = await db
-      .insert(feeds)
-      .values({ url: feedUrl })
-      .onConflictDoNothing({ target: feeds.url })
-      .returning({
-        id: feeds.id,
-        url: feeds.url,
-        lastFetched: feeds.lastFetched,
-      });
-
-    if (createdFeed) {
-      currentFeed = createdFeed;
-    } else {
-      // Another request inserted it concurrently — re-fetch.
-      const [persistedFeed] = await db
-        .select({
-          id: feeds.id,
-          url: feeds.url,
-          lastFetched: feeds.lastFetched,
-        })
-        .from(feeds)
-        .where(eq(feeds.url, feedUrl))
-        .limit(1);
-      currentFeed = persistedFeed;
-    }
-  }
-
-  if (!currentFeed) throw new Error("Unable to resolve feed record");
-
-  // 3. Fetch upstream if stale
-  if (shouldFetch) {
-    const feedResponse = await axios.get(feedUrl, {
+  feed: FeedRecord,
+): Promise<void> {
+  try {
+    const feedResponse = await axios.get(feed.url, {
       timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
       maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
       maxRedirects: 3,
@@ -333,7 +267,6 @@ export async function fetchAndCacheFeedArticles(
 
     const feedResponseParsed = await parser.parseString(feedResponse.data);
     const now = new Date();
-    const feedId = currentFeed.id;
 
     const validItems = dedupePendingArticles(
       feedResponseParsed.items
@@ -350,7 +283,7 @@ export async function fetchAndCacheFeedArticles(
           content: sanitizeArticleContent(
             sanitizeRssHtml(item.content || item.contentSnippet || ""),
           ),
-          feedId,
+          feedId: feed.id,
           lastChecked: now,
         })),
     );
@@ -373,10 +306,231 @@ export async function fetchAndCacheFeedArticles(
     await db
       .update(feeds)
       .set({ lastFetched: now })
-      .where(eq(feeds.url, feedUrl));
+      .where(eq(feeds.url, feed.url));
+  } catch (err) {
+    // Log and swallow so a single bad feed never blocks the whole batch.
+    logger.warn("Upstream feed refresh failed", {
+      url: feed.url,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+// ─── Ensure a Feed row exists for a URL, returning it ────────────────────────
+
+async function ensureFeedRecord(
+  db: ReturnType<typeof getDb>,
+  feedUrl: string,
+): Promise<FeedRecord> {
+  const [existing] = await db
+    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+    .from(feeds)
+    .where(eq(feeds.url, feedUrl))
+    .limit(1);
+
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(feeds)
+    .values({ url: feedUrl })
+    .onConflictDoNothing({ target: feeds.url })
+    .returning({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched });
+
+  if (created) return created;
+
+  // Concurrent insert — just re-select.
+  const [persisted] = await db
+    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+    .from(feeds)
+    .where(eq(feeds.url, feedUrl))
+    .limit(1);
+
+  if (!persisted) throw new Error("Unable to resolve feed record");
+  return persisted;
+}
+
+// ─── Batch: N feeds → ~3 DB round-trips total ────────────────────────────────
+
+/**
+ * Fetches and caches articles for multiple feed URLs in one shot.
+ *
+ * DB access pattern (regardless of N):
+ *   1. One SELECT to verify ownership of all URLs.
+ *   2. One SELECT to load all Feed records + lastFetched timestamps.
+ *   3. If any Feed records are missing: one INSERT + one SELECT to resolve them.
+ *   4. All stale upstream HTTP refreshes run in parallel (Promise.allSettled).
+ *   5. One window-function SELECT to retrieve top-N articles per feed.
+ *
+ * Returns a Map<normalizedUrl, ArticleRow[]>.
+ * URLs not owned by the user are silently omitted.
+ */
+export async function fetchAndCacheFeedArticlesBatch(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  feedUrls: string[],
+): Promise<Map<string, ArticleRow[]>> {
+  if (feedUrls.length === 0) return new Map();
+
+  // ── 1. Ownership check (1 query) ──────────────────────────────────────────
+  const ownedRows = await db
+    .select({ url: feedSources.url })
+    .from(feedSources)
+    .where(
+      and(
+        eq(feedSources.userId, userId),
+        inArray(feedSources.url, feedUrls),
+      ),
+    );
+
+  const ownedUrlSet = new Set(ownedRows.map((r) => r.url));
+  const allowedUrls = feedUrls.filter((u) => ownedUrlSet.has(u));
+  if (allowedUrls.length === 0) return new Map();
+
+  // ── 2. Load all Feed records (1 query) ────────────────────────────────────
+  const existingFeeds = await db
+    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+    .from(feeds)
+    .where(inArray(feeds.url, allowedUrls));
+
+  const feedByUrl = new Map<string, FeedRecord>(
+    existingFeeds.map((f) => [f.url, f]),
+  );
+
+  // ── 3. Create any missing Feed records ───────────────────────────────────
+  const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
+  if (missingUrls.length > 0) {
+    // Insert all at once; ignore conflicts from concurrent requests.
+    if (missingUrls.length > 0) {
+      await db
+        .insert(feeds)
+        .values(missingUrls.map((url) => ({ url })))
+        .onConflictDoNothing({ target: feeds.url });
+    }
+
+    const resolvedFeeds = await db
+      .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+      .from(feeds)
+      .where(inArray(feeds.url, missingUrls));
+
+    for (const f of resolvedFeeds) feedByUrl.set(f.url, f);
   }
 
-  // 4. Return the cached articles (limited to avoid huge payloads)
+  // ── 4. Refresh stale feeds in parallel ───────────────────────────────────
+  const staleFeeds = allowedUrls
+    .map((u) => feedByUrl.get(u))
+    .filter((f): f is FeedRecord => {
+      if (!f) return false;
+      const ageMinutes =
+        (Date.now() - new Date(f.lastFetched).getTime()) / 60_000;
+      return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
+    });
+
+  // Fire all upstream fetches concurrently; failures are swallowed per-feed.
+  if (staleFeeds.length > 0) {
+    await Promise.allSettled(
+      staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
+    );
+  }
+
+  // ── 5. Read articles for all feeds (1 window-function query) ──────────────
+  const feedIds = allowedUrls
+    .map((u) => feedByUrl.get(u)?.id)
+    .filter((id): id is number => id !== undefined);
+
+  if (feedIds.length === 0) return new Map(allowedUrls.map((u) => [u, []]));
+
+  // Use a ROW_NUMBER() window to get top-N per feed in a single roundtrip.
+  type RankedRow = {
+    id: unknown;
+    title: unknown;
+    link: unknown;
+    content: unknown;
+    publicationDate: unknown;
+    feedId: unknown;
+    lastChecked: unknown;
+  };
+  const queryResult = await db.execute<RankedRow>(sql`
+    SELECT id, title, link, content,
+           publication_date AS "publicationDate",
+           feed_id          AS "feedId",
+           last_checked     AS "lastChecked"
+    FROM (
+      SELECT id, title, link, content, publication_date, feed_id, last_checked,
+             ROW_NUMBER() OVER (
+               PARTITION BY feed_id ORDER BY publication_date DESC
+             ) AS rn
+      FROM "Article"
+      WHERE feed_id = ANY(${feedIds})
+    ) ranked
+    WHERE rn <= ${MAX_ARTICLES_PER_FEED}
+    ORDER BY publication_date DESC
+  `);
+
+  const rows: RankedRow[] = Array.isArray(queryResult)
+    ? queryResult
+    : (queryResult as { rows: RankedRow[] }).rows;
+
+  // Group results by URL.
+  const idToUrl = new Map<number, string>(
+    allowedUrls
+      .map((u): [number, string] | null => {
+        const id = feedByUrl.get(u)?.id;
+        return id !== undefined ? [id, u] : null;
+      })
+      .filter((e): e is [number, string] => e !== null),
+  );
+
+  const result = new Map<string, ArticleRow[]>(
+    allowedUrls.map((u) => [u, []]),
+  );
+
+  for (const row of rows) {
+    const url = idToUrl.get(Number(row.feedId));
+    if (!url) continue;
+    result.get(url)!.push({
+      id: Number(row.id),
+      title: String(row.title),
+      link: String(row.link),
+      content: String(row.content),
+      publicationDate: new Date(row.publicationDate as string | Date),
+      feedId: Number(row.feedId),
+      lastChecked: new Date(row.lastChecked as string | Date),
+    });
+  }
+
+  return result;
+}
+
+// ─── Single-feed wrapper (used by /api/feeds?url=…) ──────────────────────────
+
+/**
+ * Fetches and caches articles for one feed URL.
+ *
+ * @throws {FeedSourceNotFoundError} if userId doesn't own the feed.
+ */
+export async function fetchAndCacheFeedArticles(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  feedUrl: string,
+): Promise<ArticleRow[]> {
+  // Fast path: verify ownership and get-or-create Feed record with minimal
+  // queries, then refresh if stale, then select articles.
+  const [userSource] = await db
+    .select({ id: feedSources.id })
+    .from(feedSources)
+    .where(and(eq(feedSources.userId, userId), eq(feedSources.url, feedUrl)))
+    .limit(1);
+
+  if (!userSource) throw new FeedSourceNotFoundError(feedUrl);
+
+  const feed = await ensureFeedRecord(db, feedUrl);
+
+  const ageMinutes =
+    (Date.now() - new Date(feed.lastFetched).getTime()) / 60_000;
+  if (ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES) {
+    await refreshFeedFromUpstream(db, feed);
+  }
+
   return db
     .select({
       id: articles.id,
@@ -388,7 +542,7 @@ export async function fetchAndCacheFeedArticles(
       lastChecked: articles.lastChecked,
     })
     .from(articles)
-    .where(eq(articles.feedId, currentFeed.id))
+    .where(eq(articles.feedId, feed.id))
     .orderBy(desc(articles.publicationDate))
     .limit(MAX_ARTICLES_PER_FEED);
 }
