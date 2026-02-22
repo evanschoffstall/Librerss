@@ -14,6 +14,29 @@ interface BatchFeedResponseItem {
   ok: boolean;
 }
 
+function ensureArrayResponse<T>(data: unknown): T[] {
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid response format");
+  }
+
+  return data as T[];
+}
+
+function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
+  const candidate =
+    item && typeof item === "object"
+      ? (item as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+
+  return {
+    url: typeof candidate.url === "string" ? candidate.url : "",
+    articles: Array.isArray(candidate.articles)
+      ? (candidate.articles as Article[])
+      : [],
+    ok: Boolean(candidate.ok),
+  };
+}
+
 export class AuthService {
   private static baseUrl = "/api/auth";
 
@@ -50,18 +73,12 @@ export class FeedService {
     const response = await api.get(
       `${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`,
     );
-    if (!Array.isArray(response.data)) {
-      throw new Error("Invalid response format");
-    }
-    return response.data;
+    return ensureArrayResponse<Article>(response.data);
   }
 
   static async getFeedSources(): Promise<FeedSource[]> {
     const response = await api.get(`${this.baseUrl}/feeds`);
-    if (!Array.isArray(response.data)) {
-      throw new Error("Invalid response format");
-    }
-    return response.data;
+    return ensureArrayResponse<FeedSource>(response.data);
   }
 
   static async getFeedsBatch(
@@ -81,15 +98,8 @@ export class FeedService {
       skipRefresh,
     });
 
-    if (!Array.isArray(response.data)) {
-      throw new Error("Invalid response format");
-    }
-
-    return response.data.map((item) => ({
-      url: typeof item?.url === "string" ? item.url : "",
-      articles: Array.isArray(item?.articles) ? item.articles : [],
-      ok: Boolean(item?.ok),
-    }));
+    const batchItems = ensureArrayResponse<unknown>(response.data);
+    return batchItems.map(normalizeBatchItem);
   }
 
   static async createFeedSource(
