@@ -24,10 +24,9 @@ import {
 } from "@/lib/core/placeholder";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } from "./components";
+import { ArticleCard, FeedCategory, LoginView, SettingsModal } from "./components";
 import {
   ALL_FEEDS_LABEL,
   ALL_FEEDS_NODE_KEY,
@@ -701,7 +700,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     return true;
   };
 
-  const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[], { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+  const fetchFeedBatch = useCallback(async (sources: FeedBatchSource[]) => {
     const requestId = latestFeedRequestIdRef.current + 1;
     latestFeedRequestIdRef.current = requestId;
     const normalizedSources = Array.from(
@@ -808,7 +807,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       // Placeholder data never needs an upstream refresh.
       if (!usePlaceholderData) {
         try {
-          const freshBatchResults = await FeedService.getFeedsBatch(urls, { skipRefresh: false, forceRefresh });
+          const freshBatchResults = await FeedService.getFeedsBatch(urls, { skipRefresh: false });
 
           if (latestFeedRequestIdRef.current !== requestId) return;
 
@@ -845,12 +844,12 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     }
   }, [usePlaceholderData]);
 
-  const fetchFeed = useCallback(async (url: string = DEFAULT_FEED_URL, { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+  const fetchFeed = useCallback(async (url: string = DEFAULT_FEED_URL) => {
     const sourceName = flattenCategoryFeeds(categoriesRef.current).find((node) => node.data?.url === url)?.label;
-    await fetchFeedBatch([{ url, name: sourceName }], { forceRefresh });
+    await fetchFeedBatch([{ url, name: sourceName }]);
   }, [fetchFeedBatch]);
 
-  const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode, { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+  const fetchCategoryFeeds = useCallback(async (categoryNode: CategoryTreeNode) => {
     const sources: FeedBatchSource[] = [];
     (categoryNode.children ?? []).forEach((node: CategoryTreeNode) => {
       if (node.data?.url) {
@@ -858,10 +857,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       }
     });
 
-    await fetchFeedBatch(sources, { forceRefresh });
+    await fetchFeedBatch(sources);
   }, [fetchFeedBatch]);
 
-  const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[], { forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+  const fetchAllFeeds = useCallback(async (sourceCategories?: CategoryTreeNode[]) => {
     const resolvedCategories = sourceCategories ?? categoriesRef.current;
     const sources: FeedBatchSource[] = [];
     flattenCategoryFeeds(resolvedCategories).forEach((node: CategoryTreeNode) => {
@@ -870,7 +869,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       }
     });
 
-    await fetchFeedBatch(sources, { forceRefresh });
+    await fetchFeedBatch(sources);
   }, [fetchFeedBatch]);
 
   const handleFeedClick = (feedNode: CategoryTreeNode) => {
@@ -1075,23 +1074,22 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
   useEffect(() => {
     const handleRefresh = () => {
-      // Manual refresh button always bypasses the auto-refresh TTL cap.
       if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-        fetchAllFeeds(undefined, { forceRefresh: true });
+        fetchAllFeeds();
         return;
       }
 
       if (selectedFeedUrl) {
-        fetchFeed(selectedFeedUrl, { forceRefresh: true });
+        fetchFeed(selectedFeedUrl);
         return;
       }
 
       if (selectedCategoryNode) {
-        fetchCategoryFeeds(selectedCategoryNode, { forceRefresh: true });
+        fetchCategoryFeeds(selectedCategoryNode);
         return;
       }
 
-      fetchFeed(DEFAULT_FEED_URL, { forceRefresh: true });
+      fetchFeed(DEFAULT_FEED_URL);
     };
 
     const handleOpenSettings = () => {
@@ -1309,8 +1307,6 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 };
 
 function DashboardRouter() {
-  const searchParams = useSearchParams();
-  const view = searchParams?.get("view") || "dashboard";
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [allowSignup, setAllowSignup] = useState(true);
@@ -1364,11 +1360,7 @@ function DashboardRouter() {
 
   return (
     <main className="h-full overflow-hidden bg-background">
-      {view === "settings" ? (
-        <SettingsView />
-      ) : (
-        <DashboardView usePlaceholderData={isPreviewMode || usePlaceholderData} />
-      )}
+      <DashboardView usePlaceholderData={isPreviewMode || usePlaceholderData} />
     </main>
   );
 }

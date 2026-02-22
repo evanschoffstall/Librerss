@@ -66,10 +66,7 @@ export class FeedService {
 
   static async getFeedsBatch(
     urls: string[],
-    {
-      skipRefresh = false,
-      forceRefresh = false,
-    }: { skipRefresh?: boolean; forceRefresh?: boolean } = {},
+    { skipRefresh = false }: { skipRefresh?: boolean } = {},
   ): Promise<BatchFeedResponseItem[]> {
     const normalizedUrls = Array.from(
       new Set(urls.map((url) => url.trim()).filter(Boolean)),
@@ -82,7 +79,6 @@ export class FeedService {
     const response = await api.post(`${this.baseUrl}/feeds/batch`, {
       urls: normalizedUrls,
       skipRefresh,
-      forceRefresh,
     });
 
     if (!Array.isArray(response.data)) {
