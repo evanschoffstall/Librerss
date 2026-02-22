@@ -1,49 +1,13 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
+import { isAllowedFeedUrl } from "@/lib/core/feedFetcher";
 import { logger } from "@/lib/utils/logger";
-import {
-  isBlockedHost,
-  isBlockedResolvedAddress,
-  normalizeHostname,
-} from "@/lib/utils/ssrf";
 import { extract } from "@extractus/article-extractor";
 import { NextRequest, NextResponse } from "next/server";
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
 import sanitizeHtml from "sanitize-html";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-async function isAllowedPublicHttpUrl(raw: string): Promise<boolean> {
-  try {
-    const parsed = new URL(raw);
-    const supportedProtocol =
-      parsed.protocol === "http:" || parsed.protocol === "https:";
-
-    if (!supportedProtocol || parsed.username || parsed.password) {
-      return false;
-    }
-
-    const normalizedHostname = normalizeHostname(parsed.hostname);
-
-    if (isBlockedHost(normalizedHostname)) {
-      return false;
-    }
-
-    if (isIP(normalizedHostname)) {
-      return !isBlockedResolvedAddress(normalizedHostname);
-    }
-
-    const records = await lookup(normalizedHostname, {
-      all: true,
-      verbatim: true,
-    });
-    return !records.some((record) => isBlockedResolvedAddress(record.address));
-  } catch {
-    return false;
-  }
-}
 
 function toParagraphHtml(raw: string): string {
   return raw
@@ -130,7 +94,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!(await isAllowedPublicHttpUrl(articleUrl))) {
+    if (!(await isAllowedFeedUrl(articleUrl))) {
       return NextResponse.json(
         {
           error:

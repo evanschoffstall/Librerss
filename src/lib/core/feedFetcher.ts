@@ -401,12 +401,10 @@ export async function fetchAndCacheFeedArticlesBatch(
   const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
   if (missingUrls.length > 0) {
     // Insert all at once; ignore conflicts from concurrent requests.
-    if (missingUrls.length > 0) {
-      await db
-        .insert(feeds)
-        .values(missingUrls.map((url) => ({ url })))
-        .onConflictDoNothing({ target: feeds.url });
-    }
+    await db
+      .insert(feeds)
+      .values(missingUrls.map((url) => ({ url })))
+      .onConflictDoNothing({ target: feeds.url });
 
     const resolvedFeeds = await db
       .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })

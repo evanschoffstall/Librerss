@@ -8,6 +8,7 @@ export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 const UNCATEGORIZED_VARIANTS = new Set([
   "uncategorized",
   "uncategorised",
+  "uncategoried", // common typo found in RSS feeds / OPML exports
   "no category",
   "none",
   "",
