@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       logger.warn("Signup attempt with weak password", { email });
       return NextResponse.json(
         {
-          error: `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters and include uppercase, lowercase, and numbers or symbols`,
+          error: `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters and include at least 3 of: uppercase letter, lowercase letter, number, special character`,
         },
         { status: 400 },
       );
