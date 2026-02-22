@@ -16,6 +16,8 @@ interface LogContext {
 
 class Logger {
   private isDevelopment = process.env.NODE_ENV === "development";
+  private readonly sensitiveKeyPattern =
+    /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
 
   private formatMessage(
     level: LogLevel,
@@ -31,32 +33,61 @@ class Logger {
   private sanitizeContext(context?: LogContext): LogContext | undefined {
     if (!context) return undefined;
 
-    const sanitized = { ...context };
-
-    // Remove sensitive fields in production
-    if (!this.isDevelopment) {
-      delete sanitized.password;
-      delete sanitized.passwordHash;
-      delete sanitized.token;
-      delete sanitized.sessionToken;
-
-      // Partially redact email
-      if (sanitized.email && typeof sanitized.email === "string") {
-        const atIdx = sanitized.email.lastIndexOf("@");
-        if (atIdx > 0) {
-          const local = sanitized.email.slice(0, atIdx);
-          const domain = sanitized.email.slice(atIdx + 1);
-          sanitized.email = `${local.substring(0, 2)}***@${domain}`;
-        } else {
-          sanitized.email = "***";
-        }
-      }
-    }
+    const sanitized = this.sanitizeValue(context, 0) as LogContext;
 
     // Always add timestamp
     sanitized.timestamp = new Date().toISOString();
 
     return sanitized;
+  }
+
+  private sanitizeValue(value: unknown, depth: number): unknown {
+    if (depth > 6) {
+      return "[truncated]";
+    }
+
+    if (value instanceof Error) {
+      return this.isDevelopment
+        ? { message: value.message, stack: value.stack }
+        : { message: value.message };
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.sanitizeValue(entry, depth + 1));
+    }
+
+    if (value && typeof value === "object") {
+      const output: Record<string, unknown> = {};
+      for (const [key, nestedValue] of Object.entries(
+        value as Record<string, unknown>,
+      )) {
+        if (this.sensitiveKeyPattern.test(key)) {
+          output[key] = "[redacted]";
+          continue;
+        }
+
+        if (key.toLowerCase() === "email" && typeof nestedValue === "string") {
+          output[key] = this.redactEmail(nestedValue);
+          continue;
+        }
+
+        output[key] = this.sanitizeValue(nestedValue, depth + 1);
+      }
+      return output;
+    }
+
+    return value;
+  }
+
+  private redactEmail(email: string): string {
+    const atIdx = email.lastIndexOf("@");
+    if (atIdx <= 0) {
+      return "***";
+    }
+
+    const local = email.slice(0, atIdx);
+    const domain = email.slice(atIdx + 1);
+    return `${local.slice(0, 2)}***@${domain}`;
   }
 
   info(message: string, context?: LogContext): void {
@@ -71,14 +102,6 @@ class Logger {
 
   error(message: string, context?: LogContext): void {
     const sanitized = this.sanitizeContext(context);
-
-    // Extract error details if error object is provided
-    if (context?.error instanceof Error) {
-      sanitized!.error = context.error.message;
-      if (this.isDevelopment) {
-        sanitized!.stack = context.error.stack;
-      }
-    }
 
     console.error(this.formatMessage("error", message, sanitized));
   }
