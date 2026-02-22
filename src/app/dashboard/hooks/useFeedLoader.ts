@@ -114,15 +114,15 @@ export function useFeedLoader({
 
         const urls = normalizedSources.map((s) => s.url);
 
-        // Phase 1: cached DB articles
-        let cachedBatchResults: Array<{
+        // Single fetch: returns cached articles and refreshes stale feeds in one pass
+        let batchResults: Array<{
           url: string;
           articles: Article[];
           ok: boolean;
         }>;
         try {
-          cachedBatchResults = await FeedService.getFeedsBatch(urls, {
-            skipRefresh: true,
+          batchResults = await FeedService.getFeedsBatch(urls, {
+            skipRefresh: usePlaceholderData,
           });
         } catch (error) {
           if (usePlaceholderData) {
@@ -148,45 +148,18 @@ export function useFeedLoader({
 
         if (latestFeedRequestIdRef.current !== requestId) return;
 
-        const cachedArticles = toBatchArticles(cachedBatchResults);
-        if (cachedArticles.length > 0) {
-          setFeed(cachedArticles);
+        const articles = toBatchArticles(batchResults);
+        if (articles.length > 0) {
+          setFeed(articles);
           setExpandedArticleKey(null);
-        }
-
-        if (latestFeedRequestIdRef.current === requestId) {
-          syncLoading(false);
-        }
-
-        // Phase 2: upstream refresh
-        if (!usePlaceholderData) {
-          try {
-            const freshBatchResults = await FeedService.getFeedsBatch(urls, {
-              skipRefresh: false,
+        } else {
+          const hasConfiguredFeeds =
+            flattenCategoryFeeds(categoriesRef.current).length > 0;
+          if (!hasConfiguredFeeds) {
+            toast.info("No feed sources yet.", {
+              description: "Add your feeds in Settings to start reading.",
             });
-            if (latestFeedRequestIdRef.current !== requestId) return;
-            const freshArticles = toBatchArticles(freshBatchResults);
-            if (freshArticles.length > 0) {
-              setFeed(freshArticles);
-              setExpandedArticleKey(null);
-              return;
-            }
-          } catch {
-            // Background refresh failed — cached articles remain.
-          }
-
-          if (
-            cachedArticles.length === 0 &&
-            latestFeedRequestIdRef.current === requestId
-          ) {
-            const hasConfiguredFeeds =
-              flattenCategoryFeeds(categoriesRef.current).length > 0;
-            if (!hasConfiguredFeeds) {
-              toast.info("No feed sources yet.", {
-                description: "Add your feeds in Settings to start reading.",
-              });
-              return;
-            }
+          } else if (!usePlaceholderData) {
             toast.error("Unable to load this feed right now.", {
               description: "Please try refreshing the selected source again.",
             });
