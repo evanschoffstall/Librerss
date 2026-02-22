@@ -1,6 +1,12 @@
 "use client";
 
 import { DebugBorder, DebugGrid } from "@/components";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -61,6 +67,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const expandedArticleKeyRef = useRef<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
   const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>([]);
   const [pendingCategoryRemovalLabel, setPendingCategoryRemovalLabel] = useState<string | null>(
@@ -723,6 +730,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
   const handleFeedClick = (feedNode: CategoryTreeNode) => {
     setSelectedCategory(feedNode.key);
+    setIsMobileSidebarOpen(false);
     if (feedNode.data?.url) {
       fetchFeed(feedNode.data.url);
     }
@@ -730,6 +738,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
   const handleCategoryClick = (categoryNode: CategoryTreeNode) => {
     setSelectedCategory(categoryNode.key);
+    setIsMobileSidebarOpen(false);
 
     if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
       fetchAllFeeds();
@@ -1114,6 +1123,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       setShowSettingsModal(true);
     };
 
+    const handleOpenFeedsSidebar = () => {
+      setIsMobileSidebarOpen(true);
+    };
+
     const handleSearchChange = (event: Event) => {
       const customEvent = event as CustomEvent<{ term?: string }>;
       setSearchTerm(customEvent.detail?.term ?? "");
@@ -1122,12 +1135,14 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     window.addEventListener("dashboard:refresh", handleRefresh);
     window.addEventListener("dashboard:mark-all-read", handleMarkAllRead);
     window.addEventListener("dashboard:open-settings", handleOpenSettings);
+    window.addEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
     window.addEventListener("dashboard:search-change", handleSearchChange as EventListener);
 
     return () => {
       window.removeEventListener("dashboard:refresh", handleRefresh);
       window.removeEventListener("dashboard:mark-all-read", handleMarkAllRead);
       window.removeEventListener("dashboard:open-settings", handleOpenSettings);
+      window.removeEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
       window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
     };
   }, [
@@ -1164,6 +1179,74 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
+  const renderSidebarContent = () => (
+    <AnimatePresence mode="wait" initial={false}>
+      {isCategoriesLoading ? (
+        <motion.div
+          key="sidebar-skeleton"
+          className="space-y-4 pr-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          {[3, 2, 4].map((count, groupIndex) => (
+            <div key={groupIndex} className="space-y-1">
+              <Skeleton className="mx-2 h-3.5 w-16 rounded" />
+              {Array.from({ length: count }).map((_, itemIndex) => (
+                <Skeleton key={itemIndex} className="mx-1 h-9 w-[calc(100%-8px)] rounded-lg" />
+              ))}
+            </div>
+          ))}
+        </motion.div>
+      ) : (
+        <motion.div
+          key="sidebar-content"
+          className="space-y-4 pr-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {sidebarCategories.length === 0 ? (
+            <div className="px-2 py-8 text-xs text-muted-foreground/70">No feed sources yet.</div>
+          ) : (
+            sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
+              <div
+                key={categoryNode.key}
+                className={`space-y-1 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                  }`}
+                style={{ transitionDelay: `${index * 35}ms` }}
+              >
+                <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                  <button
+                    type="button"
+                    className={`w-full rounded px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide transition-colors ${selectedCategory === categoryNode.key
+                      ? "bg-muted/60 text-foreground"
+                      : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
+                      }`}
+                    onClick={() => handleCategoryClick(categoryNode)}
+                  >
+                    {categoryNode.label}
+                  </button>
+                </div>
+                {(categoryNode.children ?? []).map((feedNode: CategoryTreeNode) => (
+                  <FeedCategory
+                    key={feedNode.key}
+                    category={feedNode}
+                    isActive={selectedCategory === feedNode.key}
+                    showFavicon={showFavicons}
+                    onClick={() => handleFeedClick(feedNode)}
+                  />
+                ))}
+              </div>
+            ))
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <motion.div
       className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-6 pt-20 md:px-6"
@@ -1171,80 +1254,28 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
     >
+      <Drawer open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+        <DrawerContent className="max-h-[85vh] lg:hidden">
+          <DrawerHeader>
+            <DrawerTitle>Feeds</DrawerTitle>
+          </DrawerHeader>
+          <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4">
+            <ScrollArea className="h-[65vh]">
+              {renderSidebarContent()}
+            </ScrollArea>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Main layout */}
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
         {/* Sidebar */}
-        <aside className="min-h-0 overflow-hidden lg:w-[220px] lg:shrink-0">
+        <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <ScrollArea
             className={`h-full transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
               }`}
           >
-            <AnimatePresence mode="wait" initial={false}>
-              {isCategoriesLoading ? (
-                <motion.div
-                  key="sidebar-skeleton"
-                  className="space-y-4 pr-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  {[3, 2, 4].map((count, groupIndex) => (
-                    <div key={groupIndex} className="space-y-1">
-                      <Skeleton className="mx-2 h-3.5 w-16 rounded" />
-                      {Array.from({ length: count }).map((_, itemIndex) => (
-                        <Skeleton key={itemIndex} className="mx-1 h-9 w-[calc(100%-8px)] rounded-lg" />
-                      ))}
-                    </div>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="sidebar-content"
-                  className="space-y-4 pr-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {sidebarCategories.length === 0 ? (
-                    <div className="px-2 py-8 text-xs text-muted-foreground/70">No feed sources yet.</div>
-                  ) : (
-                    sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
-                      <div
-                        key={categoryNode.key}
-                        className={`space-y-1 transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
-                          }`}
-                        style={{ transitionDelay: `${index * 35}ms` }}
-                      >
-                        <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                          <button
-                            type="button"
-                            className={`w-full rounded px-1 py-1 text-left text-[11px] font-medium uppercase tracking-wide transition-colors ${selectedCategory === categoryNode.key
-                              ? "bg-muted/60 text-foreground"
-                              : "text-muted-foreground/60 hover:bg-muted/30 hover:text-foreground"
-                              }`}
-                            onClick={() => handleCategoryClick(categoryNode)}
-                          >
-                            {categoryNode.label}
-                          </button>
-                        </div>
-                        {(categoryNode.children ?? []).map((feedNode: CategoryTreeNode) => (
-                          <FeedCategory
-                            key={feedNode.key}
-                            category={feedNode}
-                            isActive={selectedCategory === feedNode.key}
-                            showFavicon={showFavicons}
-                            onClick={() => handleFeedClick(feedNode)}
-                          />
-                        ))}
-                      </div>
-                    ))
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {renderSidebarContent()}
           </ScrollArea>
         </aside>
 
