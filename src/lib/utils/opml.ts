@@ -59,14 +59,11 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const imported = new Map<string, OpmlFeedImportEntry>();
 
   const walkOutlineTree = (outline: Element, parentCategory: string | null) => {
-    const outlineCategory = getOutlineLabel(outline);
     const xmlUrl = outline.getAttribute("xmlUrl")?.trim();
-    const nextCategory =
-      outlineCategory || parentCategory || DEFAULT_CATEGORY_LABEL;
 
     if (xmlUrl) {
+      // This is a feed outline — inherit the parent category, not its own label.
       const normalizedUrl = normalizeImportUrl(xmlUrl);
-
       if (!normalizedUrl) {
         return;
       }
@@ -74,16 +71,20 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
       imported.set(normalizedUrl, {
         name: getFeedName(outline),
         url: normalizedUrl,
-        category: nextCategory,
+        category: parentCategory ?? DEFAULT_CATEGORY_LABEL,
       });
-    }
+    } else {
+      // This is a category/group outline — its label becomes the category for children.
+      const groupCategory =
+        getOutlineLabel(outline) || parentCategory || DEFAULT_CATEGORY_LABEL;
 
-    const childOutlines = Array.from(outline.children).filter(
-      (child): child is Element => child.tagName.toLowerCase() === "outline",
-    );
+      const childOutlines = Array.from(outline.children).filter(
+        (child): child is Element => child.tagName.toLowerCase() === "outline",
+      );
 
-    for (const childOutline of childOutlines) {
-      walkOutlineTree(childOutline, nextCategory);
+      for (const childOutline of childOutlines) {
+        walkOutlineTree(childOutline, groupCategory);
+      }
     }
   };
 
