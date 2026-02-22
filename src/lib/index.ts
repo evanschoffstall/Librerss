@@ -8,24 +8,16 @@ export type {
   CategoryTreeNode,
   Feed,
   FeedSource,
-  ItemProps,
+  ItemProps
 } from "./core/types";
 
-export { ENV } from "./core/utils";
+export { ENV } from "./config";
 
-export {
-  formatDate,
-  getTimeDifferenceInMinutes,
-  isClient,
-  isValidUrl,
-  truncateText,
-} from "./core/utils";
+export { formatRelativeDate } from "./utils/date-utils";
 
-export {
-  useDebugState,
-  useIsClient,
-  useLocalStorage,
-} from "./core/clientHooks";
+export { isValidUrl } from "./utils/url";
+
+export { useDebugState, useLocalStorage } from "./core/clientHooks";
 
 // API clients
 export { ArticleService, AuthService, FeedService } from "./api/services";
@@ -35,8 +27,8 @@ export {
   cn,
   DEFAULT_CATEGORY_LABEL,
   isDefaultCategory,
-  multiLine,
   normalizeCategory,
-  parseOpmlFeedImport,
+  parseOpmlFeedImport
 } from "./utils";
 export type { OpmlFeedImportEntry } from "./utils";
+

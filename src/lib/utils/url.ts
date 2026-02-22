@@ -4,6 +4,20 @@
  */
 
 /**
+ * Returns true when the URL is a valid http/https URL.
+ * Consolidates the single validation path used across server routes and
+ * client modules; replaces the former isValidUrl in lib/core/utils.
+ */
+export function isValidUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Normalizes a feed URL by stripping hash, credentials, and trailing slashes.
  *
  * @throws {TypeError} if {@link raw} is not a valid URL.
