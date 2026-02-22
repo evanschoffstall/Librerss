@@ -8,7 +8,7 @@ import { CONFIG } from "@/lib/config";
 import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core/feedFetcher";
+} from "@/lib/core/feed-fetcher";
 import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";

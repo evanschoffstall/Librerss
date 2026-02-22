@@ -17,7 +17,7 @@ import {
   fetchAndCacheFeedArticles,
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core/feedFetcher";
+} from "@/lib/core/feed-fetcher";
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_FEED_SOURCES,
@@ -31,7 +31,7 @@ import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 // DNS cache, URL validators, HTML sanitizer, RSS parser, and article-dedupe
-// helpers have all moved to @/lib/core/feedFetcher.ts. This file contains
+// helpers have all moved to @/lib/core/feed-fetcher.ts. This file contains
 // only the Next.js route handlers.
 
 type FeedTransaction = Parameters<

@@ -11,7 +11,7 @@ import {
   getHostnameLabel,
   getMergedFaviconCandidates,
   setCachedFaviconIndex,
-} from "./favicons";
+} from "../utils/favicons";
 
 interface ArticleCardProps {
   articleKey: string;
