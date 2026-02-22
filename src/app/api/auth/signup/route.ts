@@ -11,6 +11,13 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
+    if (!RUNTIME_FLAGS.allowSignup) {
+      return NextResponse.json(
+        { error: "Signup is disabled by server configuration" },
+        { status: 403 },
+      );
+    }
+
     if (RUNTIME_FLAGS.usePlaceholderData) {
       return NextResponse.json(
         { error: "Signup is disabled when DATABASE_URL is not configured" },

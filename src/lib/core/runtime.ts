@@ -7,9 +7,30 @@ export {
 
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
 
+const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "1", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const allowSignup = parseBooleanEnv(process.env.ALLOW_SIGNUP, true);
+
 export const RUNTIME_FLAGS = {
   hasDatabaseUrl,
   usePlaceholderData: !hasDatabaseUrl,
+  allowSignup,
 } as const;
 
 export const PLACEHOLDER_ADMIN_USER = {

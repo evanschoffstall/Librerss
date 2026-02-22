@@ -8,6 +8,7 @@ import {
   ENV,
   FeedService,
   isValidUrl,
+  type OpmlFeedImportEntry,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
@@ -254,6 +255,83 @@ const DashboardView = () => {
       console.error("Move feed category error:", err);
       toast.error("Unable to update feed category.");
     }
+  };
+
+  const importOpmlFeeds = async (entries: OpmlFeedImportEntry[]) => {
+    if (entries.length === 0) {
+      toast.error("No valid feeds found in OPML file.");
+      return;
+    }
+
+    const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
+      (node) => node.key === selectedCategory,
+    )?.data?.url;
+
+    let importedCount = 0;
+    let failedCount = 0;
+    const successfulUrls: string[] = [];
+    const importedCategoryLabels = new Set<string>();
+
+    for (const entry of entries) {
+      try {
+        await FeedService.createFeedSource({
+          name: entry.name.trim(),
+          url: entry.url.trim(),
+          category: entry.category.trim() || DEFAULT_CATEGORY_LABEL,
+        });
+
+        successfulUrls.push(entry.url.trim());
+        importedCategoryLabels.add(entry.category.trim() || DEFAULT_CATEGORY_LABEL);
+        importedCount += 1;
+      } catch (error) {
+        failedCount += 1;
+        console.error("OPML import item failed:", entry, error);
+      }
+    }
+
+    if (importedCount === 0) {
+      toast.error("Unable to import feeds from OPML.");
+      return;
+    }
+
+    if (importedCategoryLabels.size > 0) {
+      setCustomCategoryLabels((current) => {
+        const existing = new Set(current.map((label) => normalizeLabel(label)));
+        const next = [...current];
+
+        for (const label of importedCategoryLabels) {
+          if (!existing.has(normalizeLabel(label))) {
+            next.push(label);
+            existing.add(normalizeLabel(label));
+          }
+        }
+
+        return next;
+      });
+    }
+
+    const nextCategories = await loadFeedSources();
+    const restoredSelection = previousSelectedSourceUrl
+      ? flattenCategoryFeeds(nextCategories).find(
+          (node) => node.data?.url === previousSelectedSourceUrl,
+        )
+      : null;
+    const importedSelection = flattenCategoryFeeds(nextCategories).find((node) =>
+      successfulUrls.includes(node.data?.url ?? ""),
+    );
+    const nextSelection = importedSelection ?? restoredSelection;
+
+    if (nextSelection?.data?.url) {
+      setSelectedCategory(nextSelection.key);
+      await fetchFeed(nextSelection.data.url);
+    }
+
+    if (failedCount > 0) {
+      toast.success(`Imported ${importedCount} feeds (${failedCount} skipped).`);
+      return;
+    }
+
+    toast.success(`Imported ${importedCount} feeds from OPML.`);
   };
 
   const addCategory = (label: string) => {
@@ -704,6 +782,7 @@ const DashboardView = () => {
           categories={displayCategories}
           categoryOptions={categoryOptions}
           selectedCategory={selectedCategory}
+          onImportOpml={importOpmlFeeds}
           onSelectFeed={selectFeedByKey}
           onMoveFeed={moveFeedSource}
           onMoveFeedToCategory={moveFeedToCategory}
@@ -724,13 +803,16 @@ function DashboardRouter() {
   const view = searchParams?.get("view") || "dashboard";
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [allowSignup, setAllowSignup] = useState(true);
 
   useEffect(() => {
     const loadSession = async () => {
       try {
         const session = await AuthService.getSession();
+        setAllowSignup(session.allowSignup);
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
+        setAllowSignup(true);
         setCurrentUser(null);
       } finally {
         setIsSessionLoading(false);
@@ -753,7 +835,7 @@ function DashboardRouter() {
   if (!currentUser) {
     return (
       <main className="h-full overflow-hidden bg-background">
-        <LoginView onAuthenticated={setCurrentUser} />
+        <LoginView onAuthenticated={setCurrentUser} allowSignup={allowSignup} />
       </main>
     );
   }

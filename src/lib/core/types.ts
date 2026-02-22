@@ -14,6 +14,7 @@ export interface AuthUser {
 export interface AuthSession {
   authenticated: boolean;
   user: AuthUser | null;
+  allowSignup: boolean;
 }
 
 export interface Feed {
