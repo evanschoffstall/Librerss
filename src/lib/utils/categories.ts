@@ -34,13 +34,3 @@ export function normalizeCategory(label?: string | null): string {
 
   return trimmed;
 }
-
-/**
- * Checks if a category label represents the default/uncategorized category
- * @param label - Category label to check
- * @returns true if label represents uncategorized
- */
-export function isDefaultCategory(label?: string | null): boolean {
-  const normalized = normalizeCategory(label);
-  return normalized === DEFAULT_CATEGORY_LABEL;
-}
