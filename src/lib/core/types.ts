@@ -1,11 +1,5 @@
 // Type definitions and interfaces for LibreRSS
 
-export interface ItemProps {
-  title?: string;
-  link?: string;
-  content?: string;
-}
-
 export interface AuthUser {
   id: number;
   email: string;

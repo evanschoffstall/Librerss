@@ -8,7 +8,6 @@ export type {
   CategoryTreeNode,
   Feed,
   FeedSource,
-  ItemProps
 } from "./core/types";
 
 export { ENV } from "./config";
@@ -24,11 +23,8 @@ export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
 export {
-  cn,
   DEFAULT_CATEGORY_LABEL,
-  isDefaultCategory,
   normalizeCategory,
-  parseOpmlFeedImport
+  parseOpmlFeedImport,
 } from "./utils";
 export type { OpmlFeedImportEntry } from "./utils";
-
