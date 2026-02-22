@@ -3,7 +3,6 @@
 import { DebugBorder, DebugGrid } from "@/components";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   ArticleService,
   AuthService,
@@ -15,6 +14,7 @@ import {
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
 } from "@/lib";
+import { useLocalStorage } from "@/lib/core/clientHooks";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
