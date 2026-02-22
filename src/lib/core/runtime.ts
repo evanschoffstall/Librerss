@@ -5,8 +5,6 @@ export {
   PLACEHOLDER_FEED_SOURCES,
 } from "./placeholder";
 
-const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
-
 const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
   if (typeof value !== "string") {
     return fallback;
@@ -25,12 +23,22 @@ const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
   return fallback;
 };
 
-const allowSignup = parseBooleanEnv(process.env.ALLOW_SIGNUP, true);
-
 export const RUNTIME_FLAGS = {
-  hasDatabaseUrl,
-  usePlaceholderData: !hasDatabaseUrl,
-  allowSignup,
+  get hasDatabaseUrl() {
+    return Boolean(process.env.DATABASE_URL?.trim());
+  },
+  get usePlaceholderData() {
+    return !this.hasDatabaseUrl;
+  },
+  get allowPlaceholderAuth() {
+    return parseBooleanEnv(
+      process.env.ALLOW_PLACEHOLDER_AUTH,
+      process.env.NODE_ENV !== "production",
+    );
+  },
+  get allowSignup() {
+    return parseBooleanEnv(process.env.ALLOW_SIGNUP, true);
+  },
 } as const;
 
 export const PLACEHOLDER_ADMIN_USER = {

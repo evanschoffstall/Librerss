@@ -8,15 +8,15 @@ import {
   ENV,
   FeedService,
   isValidUrl,
-  type OpmlFeedImportEntry,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
+  type OpmlFeedImportEntry,
 } from "@/src/lib";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArticleCard, FeedCategory, LoginView, SettingsModal, SettingsView } from "./components";
 import {
@@ -66,8 +66,8 @@ const buildCategoriesFromSources = (
   }));
 };
 
-const buildDefaultCategories = (isDevelopment: boolean): CategoryTreeNode[] => {
-  if (!isDevelopment) {
+const buildDefaultCategories = (usePlaceholderData: boolean): CategoryTreeNode[] => {
+  if (!usePlaceholderData) {
     return INITIAL_CATEGORIES;
   }
 
@@ -84,9 +84,8 @@ const buildDefaultCategories = (isDevelopment: boolean): CategoryTreeNode[] => {
   ];
 };
 
-const DashboardView = () => {
+const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) => {
   const [feed, setFeed] = useState<Article[]>([]);
-  const [isUsingDevPlaceholder, setIsUsingDevPlaceholder] = useState(false);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState(
@@ -98,13 +97,14 @@ const DashboardView = () => {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>([]);
   const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>([]);
+  const latestFeedRequestIdRef = useRef(0);
 
   const loadFeedSources = async (): Promise<CategoryTreeNode[]> => {
     try {
       const sources = await FeedService.getFeedSources();
 
       if (sources.length === 0) {
-        const defaults = buildDefaultCategories(ENV.isDevelopment);
+        const defaults = buildDefaultCategories(usePlaceholderData);
         setCategories(defaults);
         return defaults;
       }
@@ -115,7 +115,7 @@ const DashboardView = () => {
       return nextCategories;
     } catch (err) {
       console.error("Feed source fetch error:", err);
-      return buildDefaultCategories(ENV.isDevelopment);
+      return buildDefaultCategories(usePlaceholderData);
     }
   };
 
@@ -313,8 +313,8 @@ const DashboardView = () => {
     const nextCategories = await loadFeedSources();
     const restoredSelection = previousSelectedSourceUrl
       ? flattenCategoryFeeds(nextCategories).find(
-          (node) => node.data?.url === previousSelectedSourceUrl,
-        )
+        (node) => node.data?.url === previousSelectedSourceUrl,
+      )
       : null;
     const importedSelection = flattenCategoryFeeds(nextCategories).find((node) =>
       successfulUrls.includes(node.data?.url ?? ""),
@@ -483,16 +483,20 @@ const DashboardView = () => {
   };
 
   const fetchFeed = async (url: string = DEFAULT_FEED_URL) => {
+    const requestId = latestFeedRequestIdRef.current + 1;
+    latestFeedRequestIdRef.current = requestId;
+
     setLoading(true);
     setFeed([]);
-    setIsUsingDevPlaceholder(false);
 
     try {
       const articles = await FeedService.getFeed(url);
+      if (latestFeedRequestIdRef.current !== requestId) {
+        return;
+      }
 
-      if (ENV.isDevelopment && articles.length === 0) {
+      if (usePlaceholderData && articles.length === 0) {
         setFeed(getDevPlaceholderArticlesForSource(url));
-        setIsUsingDevPlaceholder(true);
         setExpandedArticleKey(null);
         return;
       }
@@ -500,14 +504,21 @@ const DashboardView = () => {
       setFeed(articles);
       setExpandedArticleKey(null);
     } catch (err) {
-      if (ENV.isDevelopment) {
+      if (latestFeedRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (usePlaceholderData) {
         setFeed(getDevPlaceholderArticlesForSource(url));
-        setIsUsingDevPlaceholder(true);
         setExpandedArticleKey(null);
-        toast.info("Showing development placeholder content.", {
-          description: "Feed request failed, so mock articles are displayed.",
+        return;
+      }
+
+      const hasConfiguredFeeds = flattenCategoryFeeds(categories).length > 0;
+      if (!hasConfiguredFeeds) {
+        toast.info("No feed sources yet.", {
+          description: "Add your feeds in Settings to start reading.",
         });
-        console.error("Feed fetch error (using dev placeholders):", err);
         return;
       }
 
@@ -516,7 +527,9 @@ const DashboardView = () => {
       });
       console.error("Feed fetch error:", err);
     } finally {
-      setLoading(false);
+      if (latestFeedRequestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -539,7 +552,6 @@ const DashboardView = () => {
       const nextSelectedKey = firstCategory?.key ?? "";
       const nextFeedUrl = firstCategory?.data?.url ?? DEFAULT_FEED_URL;
 
-      setCategories(loadedCategories);
       setSelectedCategory(nextSelectedKey);
       await fetchFeed(nextFeedUrl);
     };
@@ -804,12 +816,14 @@ function DashboardRouter() {
   const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [allowSignup, setAllowSignup] = useState(true);
+  const [usePlaceholderData, setUsePlaceholderData] = useState(false);
 
   useEffect(() => {
     const loadSession = async () => {
       try {
         const session = await AuthService.getSession();
         setAllowSignup(session.allowSignup);
+        setUsePlaceholderData(session.usePlaceholderData);
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
         setAllowSignup(true);
@@ -845,7 +859,7 @@ function DashboardRouter() {
       {view === "settings" ? (
         <SettingsView />
       ) : (
-        <DashboardView />
+        <DashboardView usePlaceholderData={usePlaceholderData} />
       )}
     </main>
   );

@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
         authenticated: false,
         user: null,
         allowSignup: RUNTIME_FLAGS.allowSignup,
+        usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
       });
     }
 
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
       authenticated: true,
       user: { id: user.userId, email: user.email },
       allowSignup: RUNTIME_FLAGS.allowSignup,
+      usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
     });
   } catch (error) {
     console.error("Session fetch error:", error);

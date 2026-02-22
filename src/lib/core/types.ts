@@ -15,6 +15,7 @@ export interface AuthSession {
   authenticated: boolean;
   user: AuthUser | null;
   allowSignup: boolean;
+  usePlaceholderData: boolean;
 }
 
 export interface Feed {
