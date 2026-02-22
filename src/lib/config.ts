@@ -14,6 +14,7 @@ export const CONFIG = {
   // Content limits
   MAX_ARTICLE_CONTENT_LENGTH: 100000, // 100KB per article
   MAX_ARTICLES_PER_FEED: 200, // max articles returned per feed
+  MAX_ALL_ARTICLES_LIMIT: 500, // max articles returned by the global /api/articles endpoint
   MAX_ARTICLE_TITLE_LENGTH: 500,
   MAX_FEED_NAME_LENGTH: 255,
   MAX_CATEGORY_NAME_LENGTH: 255,

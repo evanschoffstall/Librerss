@@ -1,12 +1,15 @@
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { isValidUrl } from "@/lib/core/utils";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
-import { sanitizeAndTruncateArticleContent } from "@/lib/utils/sanitize";
-import { sanitizeArticleTitle } from "@/lib/utils/validation";
+import {
+  sanitizeAndTruncateArticleContent,
+  sanitizeArticleTitle,
+} from "@/lib/utils/sanitize";
 import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -57,7 +60,7 @@ export async function GET(request: NextRequest) {
         ),
       )
       .orderBy(desc(articles.publicationDate))
-      .limit(500);
+      .limit(CONFIG.MAX_ALL_ARTICLES_LIMIT);
 
     return NextResponse.json(userArticles);
   } catch (error) {
