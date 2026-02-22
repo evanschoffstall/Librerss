@@ -258,9 +258,5 @@ const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = {
     createPlaceholderArticles(3, "science", SCIENCE_SEEDS),
 };
 
-export const PLACEHOLDER_ARTICLES: Article[] = Object.values(
-  PLACEHOLDER_ARTICLES_BY_SOURCE,
-).flat();
-
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
   PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ?? [];

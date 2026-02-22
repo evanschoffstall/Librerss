@@ -1,7 +1,5 @@
 export {
   getPlaceholderArticlesForSource,
-  PLACEHOLDER_ARTICLES,
-  PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
 } from "./placeholder";
 

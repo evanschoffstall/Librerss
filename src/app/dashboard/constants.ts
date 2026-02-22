@@ -11,13 +11,3 @@ export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
     children: [],
   },
 ];
-
-export const SAMPLE_FEEDS = [
-  {
-    name: "BBC World News",
-    url: "https://feeds.bbci.co.uk/news/world/rss.xml",
-  },
-  { name: "Reuters", url: "https://feeds.reuters.com/reuters/topNews" },
-  { name: "TechCrunch", url: "https://techcrunch.com/feed/" },
-  { name: "Hacker News", url: "https://feeds.feedburner.com/ycombinator" },
-];
