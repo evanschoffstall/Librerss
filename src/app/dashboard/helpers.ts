@@ -166,6 +166,18 @@ interface BatchResultItem {
   ok: boolean;
 }
 
+function enrichFeedArticles(
+  articles: Article[],
+  feedUrl: string,
+  feedName: string | undefined,
+): Article[] {
+  return articles.map((article) => ({
+    ...article,
+    feedName,
+    feedUrl,
+  }));
+}
+
 /**
  * Maps raw batch-fetch results into a flat, deduplicated, sorted article list.
  *
@@ -179,22 +191,18 @@ export function mapBatchResultsToArticles(
   getPlaceholderArticles: (url: string) => Article[],
 ): Article[] {
   const perFeedArticles = batchResults.map((result): Article[] | null => {
-    const sourceName = sourceNameByUrl.get(result.url);
+    const feedName = sourceNameByUrl.get(result.url);
 
     if (result.ok && result.articles.length > 0) {
-      return result.articles.map((article) => ({
-        ...article,
-        feedName: sourceName,
-        feedUrl: result.url,
-      }));
+      return enrichFeedArticles(result.articles, result.url, feedName);
     }
 
     if (usePlaceholderData) {
-      return getPlaceholderArticles(result.url).map((article) => ({
-        ...article,
-        feedName: sourceName,
-        feedUrl: result.url,
-      }));
+      return enrichFeedArticles(
+        getPlaceholderArticles(result.url),
+        result.url,
+        feedName,
+      );
     }
 
     return null;
@@ -221,16 +229,21 @@ export function relocateFeedInCategories(
   targetCategoryLabel: string,
   targetIndex: number,
 ): CategoryTreeNode[] {
+  const cloneCategories = (
+    categories: CategoryTreeNode[],
+  ): CategoryTreeNode[] =>
+    categories.map((cat) => ({
+      ...cat,
+      children: [...(cat.children ?? [])],
+    }));
+
   const sourceCategoryIndex = currentCategories.findIndex((cat) =>
     (cat.children ?? []).some((node) => node.key === feedKey),
   );
 
   if (sourceCategoryIndex < 0) return currentCategories;
 
-  const nextCategories = currentCategories.map((cat) => ({
-    ...cat,
-    children: [...(cat.children ?? [])],
-  }));
+  const nextCategories = cloneCategories(currentCategories);
 
   let destinationCategoryIndex = nextCategories.findIndex(
     (cat) => normalizeLabel(cat.label) === normalizeLabel(targetCategoryLabel),
@@ -245,12 +258,14 @@ export function relocateFeedInCategories(
     destinationCategoryIndex = nextCategories.length - 1;
   }
 
-  const sourceFeeds = nextCategories[sourceCategoryIndex].children!;
+  const sourceFeeds = nextCategories[sourceCategoryIndex].children ?? [];
   const sourceFeedIndex = sourceFeeds.findIndex((node) => node.key === feedKey);
   if (sourceFeedIndex < 0) return currentCategories;
 
   const [movedSource] = sourceFeeds.splice(sourceFeedIndex, 1);
-  const destinationFeeds = nextCategories[destinationCategoryIndex].children!;
+  const destinationCategory = nextCategories[destinationCategoryIndex];
+  const destinationFeeds = destinationCategory.children ?? [];
+  destinationCategory.children = destinationFeeds;
 
   const safeTargetIndex = Math.max(
     0,
@@ -266,7 +281,7 @@ export function relocateFeedInCategories(
     ...movedSource,
     data: {
       ...(movedSource.data ?? { url: "" }),
-      category: nextCategories[destinationCategoryIndex].label,
+      category: destinationCategory.label,
     },
   });
 
