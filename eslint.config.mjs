@@ -7,10 +7,11 @@ import tseslint from "typescript-eslint";
 export default [
   {
     ignores: [
-      "**/.next/**",
+      "node_modules",
       "**/node_modules/**",
-      "**/dist/**",
-      "**/build/**",
+      ".next",
+      "dist",
+      "build",
       "src/components/ui/**",
     ],
   },
