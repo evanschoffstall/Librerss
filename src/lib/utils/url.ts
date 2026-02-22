@@ -42,3 +42,36 @@ export function tryNormalizeFeedUrl(raw: string): string {
     return raw.trim().replace(/\/+$/, "");
   }
 }
+
+/**
+ * Best-effort hostname extraction for display/caching.
+ */
+export function tryGetUrlHostname(raw?: string): string | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const hostname = new URL(raw).hostname
+      .trim()
+      .toLowerCase()
+      .replace(/\.$/, "");
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Human-friendly hostname label with fallback for invalid/missing URLs.
+ */
+export function getUrlHostnameLabel(
+  raw?: string,
+  fallback = "No source URL",
+): string {
+  if (!raw) {
+    return fallback;
+  }
+
+  return tryGetUrlHostname(raw) ?? raw;
+}
