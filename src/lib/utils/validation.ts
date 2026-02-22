@@ -1,5 +1,4 @@
 import { CONFIG } from "@/lib/config";
-import { truncateText } from "@/lib/core/utils";
 
 /**
  * Validates email addresses using RFC-compliant regex
@@ -59,25 +58,6 @@ export function isStrongPassword(password: string): boolean {
  */
 export function sanitizeArticleTitle(title: string | null | undefined): string {
   const cleaned = (title || "Untitled").trim();
-  return truncateText(cleaned, CONFIG.MAX_ARTICLE_TITLE_LENGTH);
-}
-
-/**
- * Sanitizes article content to enforce length limits
- * @param content - Raw article content
- * @returns Sanitized content
- */
-export function sanitizeArticleContent(
-  content: string | null | undefined,
-): string {
-  const cleaned = (content || "").trim();
-
-  if (cleaned.length > CONFIG.MAX_ARTICLE_CONTENT_LENGTH) {
-    return (
-      cleaned.substring(0, CONFIG.MAX_ARTICLE_CONTENT_LENGTH) +
-      "\n\n... [content truncated]"
-    );
-  }
-
-  return cleaned;
+  if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
+  return cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH).trim() + "...";
 }

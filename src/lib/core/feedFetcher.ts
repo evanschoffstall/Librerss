@@ -7,24 +7,22 @@
  */
 
 import { CONFIG } from "@/lib/config";
+import { isValidUrl } from "@/lib/core/utils";
 import type { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
+import { sanitizeAndTruncateArticleContent } from "@/lib/utils/sanitize";
 import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
 } from "@/lib/utils/ssrf";
-import {
-  sanitizeArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/utils/validation";
+import { sanitizeArticleTitle } from "@/lib/utils/validation";
 import axios from "axios";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import Parser from "rss-parser";
-import sanitizeHtml from "sanitize-html";
 
 // ─── DNS cache ────────────────────────────────────────────────────────────────
 // Module-level so it persists across requests within the same process.
@@ -100,73 +98,10 @@ export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
   }
 }
 
-export function isAllowedArticleLink(raw: string): boolean {
-  try {
-    const parsed = new URL(raw);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-// ─── Feed URL normalization ───────────────────────────────────────────────────
-
-export function normalizeFeedUrl(raw: string): string {
-  const parsed = new URL(raw.trim());
-  parsed.hash = "";
-  parsed.username = "";
-  parsed.password = "";
-  return parsed.toString().replace(/\/+$/, "");
-}
-
 // ─── HTML sanitization ───────────────────────────────────────────────────────
 
-function sanitizeRssHtml(raw: string): string {
-  if (!raw.trim()) return "";
-  return sanitizeHtml(raw, {
-    allowedTags: [
-      "p",
-      "br",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "ul",
-      "ol",
-      "li",
-      "blockquote",
-      "pre",
-      "code",
-      "strong",
-      "em",
-      "b",
-      "i",
-      "u",
-      "a",
-      "hr",
-      "figure",
-      "figcaption",
-    ],
-    allowedAttributes: {
-      a: ["href", "name", "target", "rel"],
-      code: ["class"],
-      pre: ["class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    transformTags: {
-      a: (tagName: string, attribs: Record<string, string>) => ({
-        tagName,
-        attribs: {
-          ...attribs,
-          rel: "noopener noreferrer nofollow",
-          target: "_blank",
-        },
-      }),
-    },
-  }).trim();
-}
+// Sanitization options and the sanitizeAndTruncateArticleContent helper live
+// in @/lib/utils/sanitize so every write path shares the same tag-allowlist.
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -238,7 +173,7 @@ export class FeedSourceNotFoundError extends Error {
 
 // ─── Limits ───────────────────────────────────────────────────────────────────
 
-const MAX_ARTICLES_PER_FEED = 200;
+const MAX_ARTICLES_PER_FEED = CONFIG.MAX_ARTICLES_PER_FEED;
 
 // ─── Upstream RSS refresh (shared by single and batch paths) ──────────────────
 
@@ -274,14 +209,14 @@ async function refreshFeedFromUpstream(
           (item) =>
             Boolean(item.title) &&
             Boolean(item.link) &&
-            isAllowedArticleLink(item.link ?? ""),
+            isValidUrl(item.link ?? ""),
         )
         .map((item) => ({
           title: sanitizeArticleTitle(item.title),
           link: item.link!,
           publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
-          content: sanitizeArticleContent(
-            sanitizeRssHtml(item.content || item.contentSnippet || ""),
+          content: sanitizeAndTruncateArticleContent(
+            item.content || item.contentSnippet || "",
           ),
           feedId: feed.id,
           lastChecked: now,

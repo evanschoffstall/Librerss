@@ -5,63 +5,10 @@ import { isValidUrl } from "@/lib/core/utils";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
-import {
-  sanitizeArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/utils/validation";
+import { sanitizeAndTruncateArticleContent } from "@/lib/utils/sanitize";
+import { sanitizeArticleTitle } from "@/lib/utils/validation";
 import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import sanitizeHtml from "sanitize-html";
-
-// Allowed HTML for manually submitted article content (matches feedFetcher's
-// sanitizeRssHtml config so the same content rules apply everywhere).
-const ARTICLE_CONTENT_ALLOWED_TAGS = [
-  "p",
-  "br",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "ul",
-  "ol",
-  "li",
-  "blockquote",
-  "pre",
-  "code",
-  "strong",
-  "em",
-  "b",
-  "i",
-  "u",
-  "a",
-  "hr",
-  "figure",
-  "figcaption",
-];
-
-function sanitizePostContent(raw: string): string {
-  return sanitizeHtml(raw.trim(), {
-    allowedTags: ARTICLE_CONTENT_ALLOWED_TAGS,
-    allowedAttributes: {
-      a: ["href", "name", "target", "rel"],
-      code: ["class"],
-      pre: ["class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    transformTags: {
-      a: (tagName: string, attribs: Record<string, string>) => ({
-        tagName,
-        attribs: {
-          ...attribs,
-          rel: "noopener noreferrer nofollow",
-          target: "_blank",
-        },
-      }),
-    },
-  }).trim();
-}
 
 export const dynamic = "force-dynamic";
 
@@ -184,10 +131,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Sanitize at write time — defence in depth against XSS.
-    // sanitizePostContent strips unsafe HTML tags/attributes before storing;
-    // sanitizeArticleContent enforces the length cap after HTML sanitization.
+    // sanitizeAndTruncateArticleContent strips unsafe HTML, enforces the length
+    // cap, then re-sanitizes to close any tags broken by truncation.
     const title = sanitizeArticleTitle(rawTitle);
-    const content = sanitizeArticleContent(sanitizePostContent(rawContent));
+    const content = sanitizeAndTruncateArticleContent(rawContent);
 
     const db = getDb();
 
