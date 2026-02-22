@@ -15,6 +15,7 @@ import { logger } from "@/lib/utils/logger";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
+  stripOrphanedRelatedBlocks,
 } from "@/lib/utils/sanitize";
 import { isValidUrl } from "@/lib/utils/url";
 import { and, desc, eq } from "drizzle-orm";
@@ -60,7 +61,12 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(articles.publicationDate))
       .limit(CONFIG.MAX_ALL_ARTICLES_LIMIT);
 
-    return NextResponse.json(userArticles);
+    return NextResponse.json(
+      userArticles.map((a) => ({
+        ...a,
+        content: a.content ? stripOrphanedRelatedBlocks(a.content) : a.content,
+      })),
+    );
   } catch (error) {
     logger.error("Articles GET error", {
       error: error instanceof Error ? error : new Error(String(error)),
