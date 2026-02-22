@@ -85,7 +85,10 @@ export async function POST(request: NextRequest) {
     const results = normalizedUrls.map((normalizedUrl) => ({
       url: normalizedUrl,
       articles: batchMap.get(normalizedUrl) ?? [],
-      ok: (batchMap.get(normalizedUrl)?.length ?? 0) > 0,
+      // ok=false only when the URL was not found / not owned by the user;
+      // an empty-but-valid feed is still ok=true so clients can distinguish
+      // "fetched successfully but has no articles yet" from "auth/not-found".
+      ok: batchMap.has(normalizedUrl),
     }));
 
     return NextResponse.json(results);
