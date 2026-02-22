@@ -206,6 +206,7 @@ describe("greader route compatibility contracts", () => {
       subscriptions: Array<{
         id: string;
         title: string;
+        iconUrl: string;
         categories: Array<{ id: string; label: string }>;
       }>;
     };
@@ -224,11 +225,17 @@ describe("greader route compatibility contracts", () => {
         label: "Tech",
       },
     ]);
+    expect(payload.subscriptions[0]?.iconUrl).toBe(
+      "https://www.google.com/s2/favicons?domain=one.example&sz=64",
+    );
     expect(payload.subscriptions[1]?.categories).toEqual([
       {
         id: "user/-/label/My Feeds",
         label: "My Feeds",
       },
     ]);
+    expect(payload.subscriptions[1]?.iconUrl).toBe(
+      "https://www.google.com/s2/favicons?domain=two.example&sz=64",
+    );
   });
 });
