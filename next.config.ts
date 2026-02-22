@@ -50,6 +50,13 @@ const nextConfig: NextConfig = {
               "frame-ancestors 'none'",
               "object-src 'none'",
               "base-uri 'self'",
+              // Restrict form submissions to same origin — prevents a
+              // mis-directed form (e.g. from a stored XSS payload) submitting
+              // credentials to an attacker-controlled endpoint.
+              "form-action 'self'",
+              // Disallow service workers from any origin other than self.
+              // A rogue SW can intercept all same-origin requests indefinitely.
+              "worker-src 'self'",
             ].join("; "),
           },
         ],
