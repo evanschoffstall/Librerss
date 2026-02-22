@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
 import { CONFIG } from "@/lib/config";
 import { motion } from "framer-motion";
-import { ArrowUpRight, CalendarDays } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Circle, CircleCheck, Star } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   getCachedFaviconIndex,
@@ -20,6 +20,9 @@ interface ArticleCardProps {
   isHydrating: boolean;
   onToggle: () => void;
   showFavicon: boolean;
+  onToggleRead: () => void;
+  onToggleStarred: () => void;
+  isUpdatingState: boolean;
 }
 
 const toPlainText = (value: string) => {
@@ -60,6 +63,9 @@ export const ArticleCard = ({
   isHydrating,
   onToggle,
   showFavicon,
+  onToggleRead,
+  onToggleStarred,
+  isUpdatingState,
 }: ArticleCardProps) => {
   const content = toPlainText(article.content || "") || "No description available";
   const previewLimit = 170;
@@ -173,7 +179,7 @@ export const ArticleCard = ({
       whileTap={{ scale: 0.995 }}
       layout
     >
-      <div className="space-y-2 pr-7">
+      <div className="space-y-2 pr-16">
         <div className={`flex items-center gap-2 text-muted-foreground/60 transition-all duration-300 ${isExpanded ? "text-xs" : "text-[11px]"}`}>
           <CalendarDays className="size-3" />
           {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
@@ -270,6 +276,34 @@ export const ArticleCard = ({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="absolute right-2 top-2 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleRead();
+          }}
+          disabled={isUpdatingState}
+          aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
+          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors duration-200 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {article.isRead ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleStarred();
+          }}
+          disabled={isUpdatingState}
+          aria-label={article.isStarred ? "Remove star" : "Star article"}
+          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors duration-200 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
+        </button>
       </div>
 
       <motion.a
