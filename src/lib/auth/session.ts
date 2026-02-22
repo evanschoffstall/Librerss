@@ -25,6 +25,13 @@ const scrypt = promisify(scryptCallback) as (
 export const SESSION_COOKIE_NAME = "librerss_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 
+export type SessionUser = {
+  sessionId: number;
+  userId: number;
+  email: string;
+  expiresAt: Date;
+};
+
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
@@ -149,9 +156,12 @@ export async function deleteSessionByToken(token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
-export async function getUserFromRequest(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return null;
+export async function getUserFromSessionToken(
+  token: string,
+): Promise<SessionUser | null> {
+  if (!token) {
+    return null;
+  }
 
   if (RUNTIME_FLAGS.usePlaceholderData) {
     if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
@@ -171,7 +181,6 @@ export async function getUserFromRequest(request: NextRequest) {
   }
 
   const db = getDb();
-
   const tokenHash = hashSessionToken(token);
 
   const [activeSession] = await db
@@ -192,4 +201,13 @@ export async function getUserFromRequest(request: NextRequest) {
     .limit(1);
 
   return activeSession ?? null;
+}
+
+export async function getUserFromRequest(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) {
+    return null;
+  }
+
+  return getUserFromSessionToken(token);
 }

@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { AuthService } from "@/lib";
-import { LogOut, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
+import { CheckCheck, LogOut, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -101,6 +101,15 @@ export function DashboardTopBar() {
             className={toolbarBtnClass}
           >
             <RefreshCw className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("dashboard:mark-all-read"))}
+            aria-label="Mark all read"
+            className={toolbarBtnClass}
+          >
+            <CheckCheck className="h-4 w-4" />
           </button>
 
           <button

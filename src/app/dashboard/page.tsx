@@ -27,7 +27,11 @@ import { ArticleCard } from "./components/ArticleCard";
 import { FeedCategory } from "./components/FeedCategory";
 import { LoginView } from "./components/LoginView";
 import { SettingsModal } from "./components/SettingsModal";
-import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL, INITIAL_CATEGORIES } from "./constants";
+import {
+  ALL_FEEDS_NODE_KEY,
+  DEFAULT_FEED_URL,
+  INITIAL_CATEGORIES,
+} from "./constants";
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
@@ -67,6 +71,8 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const articleHydrationInFlightRef = useRef(new Set<string>());
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<Record<string, boolean>>({});
   const [hydratingArticleLinks, setHydratingArticleLinks] = useState<Record<string, boolean>>({});
+  const [updatingArticleState, setUpdatingArticleState] = useState<Record<string, boolean>>({});
+  const [articleFilter, setArticleFilter] = useState<"all" | "unread" | "starred">("unread");
   const [pageSize, setPageSize] = useLocalStorage<number>("librerss:pageSize", 25);
   const [showFavicons, setShowFavicons] = useLocalStorage<boolean>("librerss:showFavicons", true);
   const [visibleCount, setVisibleCount] = useState(pageSize);
@@ -798,6 +804,49 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     }
   };
 
+  const setArticleReadState = async (
+    article: Article,
+    nextReadState: boolean,
+    options?: { suppressErrorToast?: boolean },
+  ) => {
+    const articleKey = getArticleKey(article);
+
+    setUpdatingArticleState((current) => ({
+      ...current,
+      [articleKey]: true,
+    }));
+
+    setFeed((currentFeed) =>
+      currentFeed.map((currentArticle) =>
+        getArticleKey(currentArticle) === articleKey
+          ? { ...currentArticle, isRead: nextReadState }
+          : currentArticle
+      ),
+    );
+
+    try {
+      await ArticleService.setArticleReadState(article.id, nextReadState);
+    } catch (error) {
+      console.error("Set read state error:", error);
+      setFeed((currentFeed) =>
+        currentFeed.map((currentArticle) =>
+          getArticleKey(currentArticle) === articleKey
+            ? { ...currentArticle, isRead: article.isRead }
+            : currentArticle
+        ),
+      );
+
+      if (!options?.suppressErrorToast) {
+        toast.error("Unable to update read state right now.");
+      }
+    } finally {
+      setUpdatingArticleState((current) => {
+        const { [articleKey]: _, ...rest } = current;
+        return rest;
+      });
+    }
+  };
+
   const handleArticleToggle = async (article: Article) => {
     const nextArticleKey = getArticleKey(article);
     const shouldExpand = expandedArticleKey !== nextArticleKey;
@@ -806,6 +855,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
     if (!shouldExpand) {
       return;
+    }
+
+    if (!article.isRead && !updatingArticleState[nextArticleKey]) {
+      void setArticleReadState(article, true, { suppressErrorToast: true });
     }
 
     requestAnimationFrame(() => {
@@ -821,7 +874,80 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     }
   };
 
-  const filteredFeed = feed.filter(article =>
+  const handleToggleReadState = async (article: Article) => {
+    const nextReadState = !article.isRead;
+    await setArticleReadState(article, nextReadState);
+  };
+
+  const handleToggleStarredState = async (article: Article) => {
+    const articleKey = getArticleKey(article);
+    const nextStarredState = !article.isStarred;
+
+    setUpdatingArticleState((current) => ({
+      ...current,
+      [articleKey]: true,
+    }));
+
+    setFeed((currentFeed) => {
+      const updated = currentFeed.map((currentArticle) =>
+        getArticleKey(currentArticle) === articleKey
+          ? { ...currentArticle, isStarred: nextStarredState }
+          : currentArticle
+      );
+
+      if (articleFilter === "starred" && !nextStarredState) {
+        return updated.filter((currentArticle) => getArticleKey(currentArticle) !== articleKey);
+      }
+
+      return updated;
+    });
+
+    try {
+      await ArticleService.setArticleStarredState(article.id, nextStarredState);
+    } catch (error) {
+      console.error("Toggle starred state error:", error);
+      setFeed((currentFeed) => {
+        const reverted = currentFeed.map((currentArticle) =>
+          getArticleKey(currentArticle) === articleKey
+            ? { ...currentArticle, isStarred: article.isStarred }
+            : currentArticle
+        );
+
+        if (articleFilter === "starred" && article.isStarred) {
+          const alreadyPresent = reverted.some(
+            (currentArticle) => getArticleKey(currentArticle) === articleKey,
+          );
+
+          if (!alreadyPresent) {
+            return [article, ...reverted];
+          }
+        }
+
+        return reverted;
+      });
+      toast.error("Unable to update starred state right now.");
+    } finally {
+      setUpdatingArticleState((current) => {
+        const { [articleKey]: _, ...rest } = current;
+        return rest;
+      });
+    }
+  };
+
+  const feedByState = feed.filter((article) => {
+    if (articleFilter === "unread") {
+      const articleKey = getArticleKey(article);
+      return !article.isRead || expandedArticleKey === articleKey;
+    }
+
+    if (articleFilter === "starred") {
+      return Boolean(article.isStarred);
+    }
+
+    return true;
+  });
+
+  const filteredFeed = feedByState.filter((article) =>
     article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (article.content || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -829,7 +955,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   // Reset visible window whenever the underlying feed or search changes.
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [feed, searchTerm, pageSize]);
+  }, [feed, searchTerm, pageSize, articleFilter]);
 
   // Infinite scroll: load next page when sentinel enters viewport.
   useEffect(() => {
@@ -912,7 +1038,10 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const displayCategories = orderedLabels
     .map((label) => categoryMap.get(normalizeLabel(label)))
     .filter((categoryNode): categoryNode is CategoryTreeNode => Boolean(categoryNode));
-  const sidebarCategories = [SYSTEM_ALL_FEEDS_CATEGORY, ...displayCategories];
+  const sidebarCategories = [
+    SYSTEM_ALL_FEEDS_CATEGORY,
+    ...displayCategories,
+  ];
   const selectedCategoryNode = sidebarCategories.find((categoryNode) => categoryNode.key === selectedCategory);
   const selectedFeedUrl = selectedFeedNode?.data?.url;
   const selectedFeed = selectedFeedNode?.label ?? selectedCategoryNode?.label;
@@ -927,7 +1056,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   }, [selectedFeed]);
 
   useEffect(() => {
-    const handleRefresh = () => {
+    const refreshSelection = () => {
       if (selectedCategory === ALL_FEEDS_NODE_KEY) {
         fetchAllFeeds();
         return;
@@ -946,6 +1075,41 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       fetchFeed(DEFAULT_FEED_URL);
     };
 
+    const handleMarkAllRead = async () => {
+      const streams: string[] = [];
+
+      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+        streams.push("user/-/state/com.google/reading-list");
+      } else if (selectedFeedUrl) {
+        streams.push(`feed/${selectedFeedUrl}`);
+      } else if (selectedCategoryNode?.children?.length) {
+        for (const node of selectedCategoryNode.children) {
+          const url = node.data?.url;
+          if (url) {
+            streams.push(`feed/${url}`);
+          }
+        }
+      }
+
+      if (streams.length === 0) {
+        toast.info("No readable feed selected.");
+        return;
+      }
+
+      try {
+        await Promise.all(Array.from(new Set(streams)).map((stream) => ArticleService.markAllRead(stream)));
+        toast.success("Marked all as read.");
+        refreshSelection();
+      } catch (error) {
+        console.error("Mark all read error:", error);
+        toast.error("Unable to mark all as read right now.");
+      }
+    };
+
+    const handleRefresh = () => {
+      refreshSelection();
+    };
+
     const handleOpenSettings = () => {
       setShowSettingsModal(true);
     };
@@ -956,15 +1120,24 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     };
 
     window.addEventListener("dashboard:refresh", handleRefresh);
+    window.addEventListener("dashboard:mark-all-read", handleMarkAllRead);
     window.addEventListener("dashboard:open-settings", handleOpenSettings);
     window.addEventListener("dashboard:search-change", handleSearchChange as EventListener);
 
     return () => {
       window.removeEventListener("dashboard:refresh", handleRefresh);
+      window.removeEventListener("dashboard:mark-all-read", handleMarkAllRead);
       window.removeEventListener("dashboard:open-settings", handleOpenSettings);
       window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
     };
-  }, [selectedCategory, selectedCategoryNode, selectedFeedUrl, fetchAllFeeds, fetchFeed, fetchCategoryFeeds]);
+  }, [
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    fetchAllFeeds,
+    fetchFeed,
+    fetchCategoryFeeds,
+  ]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("dashboard:search-sync", { detail: { term: searchTerm } }));
@@ -1084,6 +1257,21 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
           animate={panelMotion.animate}
           transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
         >
+          <div className="mb-2 flex items-center gap-2 pr-3">
+            {(["all", "unread", "starred"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setArticleFilter(value)}
+                className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${articleFilter === value
+                  ? "bg-muted/70 text-foreground"
+                  : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
+                  }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
 
           <ScrollArea className="min-h-0 flex-1">
             <AnimatePresence mode="wait" initial={false}>
@@ -1169,8 +1357,11 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
                         isExpanded={expandedArticleKey === cardKey}
                         useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
                         isHydrating={Boolean(hydratingArticleLinks[cardKey])}
+                        isUpdatingState={Boolean(updatingArticleState[cardKey])}
                         showFavicon={showFavicons}
                         onToggle={() => void handleArticleToggle(article)}
+                        onToggleRead={() => void handleToggleReadState(article)}
+                        onToggleStarred={() => void handleToggleStarredState(article)}
                       />
                     );
                   })}

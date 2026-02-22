@@ -14,6 +14,25 @@ interface BatchFeedResponseItem {
   ok: boolean;
 }
 
+type ReaderApiLink = { href?: string };
+type ReaderApiOrigin = { streamId?: string; title?: string; htmlUrl?: string };
+type ReaderApiSummary = { content?: string };
+type ReaderApiItem = {
+  id?: string;
+  title?: string;
+  published?: number;
+  updated?: number;
+  canonical?: ReaderApiLink[];
+  alternate?: ReaderApiLink[];
+  summary?: ReaderApiSummary;
+  origin?: ReaderApiOrigin;
+  categories?: string[];
+};
+
+type ReaderApiStreamResponse = {
+  items?: ReaderApiItem[];
+};
+
 function ensureArrayResponse<T>(data: unknown): T[] {
   if (!Array.isArray(data)) {
     throw new Error("Invalid response format");
@@ -123,6 +142,69 @@ export class FeedService {
 export class ArticleService {
   private static baseUrl = "/api";
 
+  private static greaderBaseUrl = "/api/greader.php/reader/api/0";
+
+  private static toReaderItemId(articleId: number): string {
+    return `tag:google.com,2005:reader/item/${articleId.toString(16)}`;
+  }
+
+  private static parseArticleId(
+    value: string | undefined,
+    fallback: number,
+  ): number {
+    if (!value) {
+      return fallback;
+    }
+
+    const suffix = value.includes("/")
+      ? value.slice(value.lastIndexOf("/") + 1)
+      : value;
+    const parsedHex = Number.parseInt(suffix, 16);
+    if (Number.isInteger(parsedHex) && parsedHex > 0) {
+      return parsedHex;
+    }
+
+    const parsedDecimal = Number.parseInt(suffix, 10);
+    if (Number.isInteger(parsedDecimal) && parsedDecimal > 0) {
+      return parsedDecimal;
+    }
+
+    return fallback;
+  }
+
+  private static toArticle(item: ReaderApiItem, index: number): Article {
+    const publishedMs =
+      typeof item.published === "number"
+        ? item.published * 1000
+        : typeof item.updated === "number"
+          ? item.updated * 1000
+          : Date.now();
+    const publicationDate = new Date(publishedMs);
+    const canonicalLink = item.canonical?.[0]?.href;
+    const alternateLink = item.alternate?.[0]?.href;
+    const link = canonicalLink || alternateLink || `about:reader-item-${index}`;
+    const originFeedUrl =
+      item.origin?.htmlUrl ||
+      (item.origin?.streamId?.startsWith("feed/")
+        ? item.origin.streamId.slice("feed/".length)
+        : undefined);
+    const categories = item.categories ?? [];
+
+    return {
+      id: this.parseArticleId(item.id, index + 1),
+      title: item.title?.trim() || "Untitled",
+      link,
+      content: item.summary?.content || "",
+      publicationDate,
+      lastChecked: new Date(),
+      feedId: 0,
+      feedName: item.origin?.title,
+      feedUrl: originFeedUrl,
+      isRead: categories.includes("user/-/state/com.google/read"),
+      isStarred: categories.includes("user/-/state/com.google/starred"),
+    };
+  }
+
   static async getArticles(): Promise<Article[]> {
     const response = await api.get(`${this.baseUrl}/articles`);
     return response.data;
@@ -135,5 +217,82 @@ export class ArticleService {
     return typeof response.data?.content === "string"
       ? response.data.content
       : "";
+  }
+
+  static async getReaderStream(streamId: string): Promise<Article[]> {
+    const response = await api.get<ReaderApiStreamResponse>(
+      `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`,
+    );
+
+    const items = Array.isArray(response.data?.items)
+      ? response.data.items
+      : [];
+    return items.map((item, index) => this.toArticle(item, index));
+  }
+
+  static async markAllRead(streamId: string): Promise<void> {
+    const body = new URLSearchParams({ s: streamId, ts: String(Date.now()) });
+
+    await api.post(`${this.greaderBaseUrl}/mark-all-as-read`, body.toString(), {
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    });
+  }
+
+  private static async editArticleTags(
+    articleId: number,
+    { addTag, removeTag }: { addTag?: string; removeTag?: string },
+  ): Promise<void> {
+    const body = new URLSearchParams({
+      i: this.toReaderItemId(articleId),
+      async: "true",
+    });
+
+    if (addTag) {
+      body.append("a", addTag);
+    }
+
+    if (removeTag) {
+      body.append("r", removeTag);
+    }
+
+    await api.post(`${this.greaderBaseUrl}/edit-tag`, body.toString(), {
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    });
+  }
+
+  static async setArticleReadState(
+    articleId: number,
+    isRead: boolean,
+  ): Promise<void> {
+    if (isRead) {
+      await this.editArticleTags(articleId, {
+        addTag: "user/-/state/com.google/read",
+      });
+      return;
+    }
+
+    await this.editArticleTags(articleId, {
+      removeTag: "user/-/state/com.google/read",
+    });
+  }
+
+  static async setArticleStarredState(
+    articleId: number,
+    isStarred: boolean,
+  ): Promise<void> {
+    if (isStarred) {
+      await this.editArticleTags(articleId, {
+        addTag: "user/-/state/com.google/starred",
+      });
+      return;
+    }
+
+    await this.editArticleTags(articleId, {
+      removeTag: "user/-/state/com.google/starred",
+    });
   }
 }

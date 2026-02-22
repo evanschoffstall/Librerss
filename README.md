@@ -53,6 +53,32 @@ Free, open-source RSS reader for a calm, ad-free reading flow.
 
 5. Open http://localhost:3000
 
+## NetNewsWire / FreshRSS greader API compatibility
+
+LibreRSS now exposes a FreshRSS-style greader endpoint fully inside Next.js:
+
+- Base URL: `http://localhost:3000/api/greader.php`
+- Login endpoint: `GET/POST /api/greader.php/accounts/ClientLogin`
+- Reader endpoints: `/api/greader.php/reader/api/0/*`
+
+NetNewsWire-compatible endpoints implemented:
+
+- `accounts/ClientLogin`
+- `reader/api/0/user-info`
+- `reader/api/0/token`
+- `reader/api/0/subscription/list`
+- `reader/api/0/stream/contents/user/-/state/com.google/reading-list`
+- `reader/api/0/stream/contents/feed/<feed-url>`
+- `reader/api/0/unread-count`
+- `reader/api/0/tag/list`
+- `reader/api/0/edit-tag` (accepted as a no-op)
+
+Notes:
+
+- Auth works with `Authorization: GoogleLogin auth=<token>` returned by `ClientLogin`.
+- Existing browser session cookies also work.
+- Read/star state mutations are accepted but currently treated as no-ops; unread counts are derived from available articles.
+
 ---
 
 ## Database
