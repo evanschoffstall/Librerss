@@ -174,9 +174,7 @@ function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
 // so the singleton is safe under concurrent requests.
 const parser = new Parser();
 
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-export type ArticleRow = {
+type ArticleRow = {
   id: number;
   title: string;
   link: string;
@@ -347,10 +345,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedUrls: string[],
-  {
-    skipRefresh = false,
-    forceRefresh = false,
-  }: { skipRefresh?: boolean; forceRefresh?: boolean } = {},
+  { skipRefresh = false }: { skipRefresh?: boolean } = {},
 ): Promise<Map<string, ArticleRow[]>> {
   if (feedUrls.length === 0) return new Map();
 
@@ -394,14 +389,12 @@ export async function fetchAndCacheFeedArticlesBatch(
   }
 
   // ── 4. Refresh stale feeds in parallel ───────────────────────────────────
-  // skipRefresh: caller only wants cached articles (e.g. fast initial render).
-  // forceRefresh: manual refresh button — bypass the TTL cap entirely.
+  // Skip when the caller only wants cached articles (e.g. fast initial render).
   if (!skipRefresh) {
     const staleFeeds = allowedUrls
       .map((u) => feedByUrl.get(u))
       .filter((f): f is FeedRecord => {
         if (!f) return false;
-        if (forceRefresh) return true;
         const ageMinutes =
           (Date.now() - new Date(f.lastFetched).getTime()) / 60_000;
         return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
