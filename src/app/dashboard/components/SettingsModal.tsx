@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   DEFAULT_CATEGORY_LABEL,
+  isSameCategoryLabel,
   parseOpmlFeedImport,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
@@ -146,7 +147,7 @@ export const SettingsModal = ({
     if (
       addingFeedInCategory &&
       !categories.some(
-        (categoryNode) => categoryNode.label.trim().toLowerCase() === addingFeedInCategory.trim().toLowerCase(),
+        (categoryNode) => isSameCategoryLabel(categoryNode.label, addingFeedInCategory),
       )
     ) {
       setAddingFeedInCategory(null);
@@ -155,7 +156,7 @@ export const SettingsModal = ({
     if (
       editingCategory &&
       !categories.some(
-        (categoryNode) => categoryNode.label.trim().toLowerCase() === editingCategory.trim().toLowerCase(),
+        (categoryNode) => isSameCategoryLabel(categoryNode.label, editingCategory),
       )
     ) {
       setEditingCategory(null);
@@ -524,8 +525,10 @@ export const SettingsModal = ({
                       const isEditing = editingCategory === categoryNode.label;
                       const isAddingFeed = addingFeedInCategory === categoryNode.label;
                       const isPendingRemoval =
-                        categoryNode.label.trim().toLowerCase() ===
-                        (pendingCategoryRemovalLabel ?? "").trim().toLowerCase();
+                        isSameCategoryLabel(
+                          categoryNode.label,
+                          pendingCategoryRemovalLabel,
+                        );
 
                       return (
                         <motion.div

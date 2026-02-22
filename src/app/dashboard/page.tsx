@@ -10,6 +10,7 @@ import {
   FeedService,
   isValidUrl,
   normalizeCategory,
+  normalizeCategoryLabelKey,
   useLocalStorage,
   type Article,
   type AuthUser,
@@ -27,7 +28,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArticleCard, FeedCategory, LoginView, SettingsModal } from "./components";
+import { ArticleCard } from "./components/ArticleCard";
+import { FeedCategory } from "./components/FeedCategory";
+import { LoginView } from "./components/LoginView";
+import { SettingsModal } from "./components/SettingsModal";
 import {
   ALL_FEEDS_LABEL,
   ALL_FEEDS_NODE_KEY,
@@ -38,7 +42,7 @@ import {
 const toCategoryKey = (label: string) =>
   `cat-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "default"}`;
 
-const normalizeLabel = (label: string) => label.trim().toLowerCase();
+const normalizeLabel = normalizeCategoryLabelKey;
 
 const panelMotion = {
   initial: { opacity: 0, y: 14 },

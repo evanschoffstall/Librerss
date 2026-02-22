@@ -12,13 +12,6 @@ export interface AuthSession {
   usePlaceholderData: boolean;
 }
 
-export interface Feed {
-  id: number;
-  url: string;
-  lastFetched: Date;
-  articles: Article[];
-}
-
 export interface FeedSource {
   id: number;
   name: string;
