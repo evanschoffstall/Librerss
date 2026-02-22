@@ -3,6 +3,12 @@
 import axios from "axios";
 import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
 
+interface BatchFeedResponseItem {
+  url: string;
+  articles: Article[];
+  ok: boolean;
+}
+
 export class AuthService {
   private static baseUrl = "/api/auth";
 
@@ -53,6 +59,30 @@ export class FeedService {
     return response.data;
   }
 
+  static async getFeedsBatch(urls: string[]): Promise<BatchFeedResponseItem[]> {
+    const normalizedUrls = Array.from(
+      new Set(urls.map((url) => url.trim()).filter(Boolean)),
+    );
+
+    if (normalizedUrls.length === 0) {
+      return [];
+    }
+
+    const response = await axios.post(`${this.baseUrl}/feeds/batch`, {
+      urls: normalizedUrls,
+    });
+
+    if (!Array.isArray(response.data)) {
+      throw new Error("Invalid response format");
+    }
+
+    return response.data.map((item) => ({
+      url: typeof item?.url === "string" ? item.url : "",
+      articles: Array.isArray(item?.articles) ? item.articles : [],
+      ok: Boolean(item?.ok),
+    }));
+  }
+
   static async createFeedSource(
     source: Pick<FeedSource, "name" | "url"> & { category?: string },
   ): Promise<FeedSource> {
@@ -64,6 +94,11 @@ export class FeedService {
     const response = await axios.delete(`${this.baseUrl}/feeds?id=${id}`);
     return response.data;
   }
+
+  static async renameFeedSource(id: number, name: string): Promise<FeedSource> {
+    const response = await axios.patch(`${this.baseUrl}/feeds`, { id, name });
+    return response.data;
+  }
 }
 
 export class ArticleService {
@@ -72,5 +107,14 @@ export class ArticleService {
   static async getArticles(): Promise<Article[]> {
     const response = await axios.get(`${this.baseUrl}/articles`);
     return response.data;
+  }
+
+  static async extractArticleContent(url: string): Promise<string> {
+    const response = await axios.post(`${this.baseUrl}/articles/extract`, {
+      url,
+    });
+    return typeof response.data?.content === "string"
+      ? response.data.content
+      : "";
   }
 }
