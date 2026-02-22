@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
             value: "same-origin",
           },
           {
+            // SECURITY: HSTS prevents SSL-stripping and MITM on subsequent
+            // visits.  One-year max-age with includeSubDomains is the
+            // OWASP-recommended baseline.  Remove or shorten during initial
+            // rollout if you have HTTP-only subdomains.
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
             // Mitigates reflected / stored XSS by constraining resource
             // loading origins. 'unsafe-inline' is required for Next.js
             // style injection; adopt nonces for stricter enforcement.
