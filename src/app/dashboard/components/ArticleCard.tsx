@@ -2,11 +2,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
 import { CONFIG } from "@/lib/config";
 import { motion } from "framer-motion";
-import { ArrowUpRight, CalendarDays, Circle, CircleCheck, Star } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Circle, CircleCheck, Globe, Star } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   getCachedFaviconIndex,
   getFaviconCacheKey,
+  getFaviconTintColors,
   getHostnameLabel,
   getMergedFaviconCandidates,
   setCachedFaviconIndex,
@@ -87,6 +88,7 @@ export const ArticleCard = ({
   const faviconCacheKey = getFaviconCacheKey(article.feedUrl, article.link);
   const [faviconIndex, setFaviconIndex] = useState(() => getCachedFaviconIndex(faviconCacheKey));
   const faviconUrl = faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
+  const faviconTint = getFaviconTintColors(article.feedUrl, article.link);
   const previewRef = useRef<HTMLParagraphElement>(null);
   const fullContentRef = useRef<HTMLDivElement>(null);
 
@@ -184,25 +186,35 @@ export const ArticleCard = ({
           <CalendarDays className="size-3" />
           {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
           <span className="text-border">|</span>
-          {showFavicon && faviconUrl ? (
-            <img
-              src={faviconUrl}
-              alt=""
-              className="size-3 rounded-sm"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onLoad={() => {
-                setCachedFaviconIndex(faviconCacheKey, faviconIndex);
-              }}
-              onError={() => {
-                setFaviconIndex((current) => {
-                  const next = current + 1;
-                  const resolved = next < faviconCandidates.length ? next : -1;
-                  setCachedFaviconIndex(faviconCacheKey, resolved);
-                  return resolved;
-                });
-              }}
-            />
+          {showFavicon ? (
+            faviconUrl ? (
+              <img
+                src={faviconUrl}
+                alt=""
+                className="size-3 rounded-sm"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onLoad={() => {
+                  setCachedFaviconIndex(faviconCacheKey, faviconIndex);
+                }}
+                onError={() => {
+                  setFaviconIndex((current) => {
+                    const next = current + 1;
+                    const resolved = next < faviconCandidates.length ? next : -1;
+                    setCachedFaviconIndex(faviconCacheKey, resolved);
+                    return resolved;
+                  });
+                }}
+              />
+            ) : (
+              <span
+                className="inline-flex size-3 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: faviconTint.background }}
+                aria-hidden="true"
+              >
+                <Globe className="size-2" style={{ color: faviconTint.foreground }} />
+              </span>
+            )
           ) : null}
           <span className="truncate">{getArticleSourceLabel(article)}</span>
         </div>
