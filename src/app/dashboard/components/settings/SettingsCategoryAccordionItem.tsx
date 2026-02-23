@@ -27,6 +27,7 @@ interface SettingsCategoryAccordionItemProps {
   // Feed edit/state
   editingFeedKey: string | null;
   editingFeedName: string;
+  editingFeedUrl: string;
   savingFeedKey: string | null;
   deletingKey: string | null;
   movingFeedKey: string | null;
@@ -54,11 +55,11 @@ interface SettingsCategoryAccordionItemProps {
   onFeedDragEnd: () => void;
   onFeedDragOver: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
   onFeedDrop: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
-  onSelectFeed: (key: string) => void;
   onEditingFeedNameChange: (name: string) => void;
+  onEditingFeedUrlChange: (url: string) => void;
   onSaveFeedRename: (key: string) => void;
   onCancelFeedEdit: () => void;
-  onStartFeedEdit: (key: string, currentName: string) => void;
+  onStartFeedEdit: (key: string, currentName: string, currentUrl: string) => void;
   onRemoveFeed: (key: string) => void;
 }
 
@@ -76,6 +77,7 @@ export function SettingsCategoryAccordionItem({
   savingCategoryLabel,
   editingFeedKey,
   editingFeedName,
+  editingFeedUrl,
   savingFeedKey,
   deletingKey,
   movingFeedKey,
@@ -100,8 +102,8 @@ export function SettingsCategoryAccordionItem({
   onFeedDragEnd,
   onFeedDragOver,
   onFeedDrop,
-  onSelectFeed,
   onEditingFeedNameChange,
+  onEditingFeedUrlChange,
   onSaveFeedRename,
   onCancelFeedEdit,
   onStartFeedEdit,
@@ -255,7 +257,7 @@ export function SettingsCategoryAccordionItem({
 
           {categoryFeeds.length === 0 && !isAddingFeed ? (
             <div
-              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs ${feedDropTarget?.categoryLabel === categoryNode.label && feedDropTarget?.index === 0
+              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs transition-colors ${feedDropTarget?.categoryLabel === categoryNode.label && feedDropTarget?.index === 0
                 ? "border-primary bg-primary/5 text-foreground"
                 : "text-muted-foreground"
                 }`}
@@ -265,7 +267,21 @@ export function SettingsCategoryAccordionItem({
               {draggingFeedKey ? "Drop feed here" : "Empty — click + to add a feed."}
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div
+              className="space-y-1.5"
+              onDragOver={(event) => {
+                // Fallback: if no specific row handled the event, treat it
+                // as "drop at end of category" (cursor is in the gap/padding).
+                if (!event.defaultPrevented) {
+                  onFeedDragOver(event, categoryNode.label, categoryFeeds.length);
+                }
+              }}
+              onDrop={(event) => {
+                if (!event.defaultPrevented) {
+                  onFeedDrop(event, categoryNode.label, categoryFeeds.length);
+                }
+              }}
+            >
               {categoryFeeds.map((feedNode: CategoryTreeNode, index: number) => (
                 <SettingsFeedRow
                   key={feedNode.key}
@@ -275,6 +291,7 @@ export function SettingsCategoryAccordionItem({
                   selectedCategory={selectedCategory}
                   editingFeedKey={editingFeedKey}
                   editingFeedName={editingFeedName}
+                  editingFeedUrl={editingFeedUrl}
                   savingFeedKey={savingFeedKey}
                   deletingKey={deletingKey}
                   movingFeedKey={movingFeedKey}
@@ -284,29 +301,14 @@ export function SettingsCategoryAccordionItem({
                   onDragEnd={onFeedDragEnd}
                   onDragOver={onFeedDragOver}
                   onDrop={onFeedDrop}
-                  onSelect={onSelectFeed}
                   onEditingNameChange={onEditingFeedNameChange}
+                  onEditingUrlChange={onEditingFeedUrlChange}
                   onSaveRename={onSaveFeedRename}
                   onCancelRename={onCancelFeedEdit}
                   onStartEditing={onStartFeedEdit}
                   onRemove={onRemoveFeed}
                 />
               ))}
-              {draggingFeedKey && (
-                <div
-                  className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${feedDropTarget?.categoryLabel === categoryNode.label &&
-                    feedDropTarget?.index === categoryFeeds.length
-                    ? "border-primary bg-primary/5 text-foreground"
-                    : "text-muted-foreground"
-                    }`}
-                  onDragOver={(event) =>
-                    onFeedDragOver(event, categoryNode.label, categoryFeeds.length)
-                  }
-                  onDrop={(event) => onFeedDrop(event, categoryNode.label, categoryFeeds.length)}
-                >
-                  Drop here to place at end
-                </div>
-              )}
             </div>
           )}
         </AccordionContent>

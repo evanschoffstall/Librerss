@@ -61,7 +61,9 @@ function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
 
   return {
     url: typeof candidate.url === "string" ? candidate.url : "",
-    articles: Array.isArray(candidate.articles) ? (candidate.articles as Article[]) : [],
+    articles: Array.isArray(candidate.articles)
+      ? (candidate.articles as Article[])
+      : [],
     ok: Boolean(candidate.ok),
   };
 }
@@ -77,12 +79,18 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<AuthUser> {
-    const response = await api.post(`${this.baseUrl}/login`, { email, password });
+    const response = await api.post(`${this.baseUrl}/login`, {
+      email,
+      password,
+    });
     return response.data.user;
   }
 
   static async signup(email: string, password: string): Promise<AuthUser> {
-    const response = await api.post(`${this.baseUrl}/signup`, { email, password });
+    const response = await api.post(`${this.baseUrl}/signup`, {
+      email,
+      password,
+    });
     return response.data.user;
   }
 
@@ -104,19 +112,35 @@ export class FeedService {
   }
 
   static async getFeedSources(): Promise<FeedSource[]> {
-    const response = await withRequestDeadline(api.get(`${this.baseUrl}/feeds`));
+    const response = await withRequestDeadline(
+      api.get(`${this.baseUrl}/feeds`),
+    );
     return ensureArrayResponse<FeedSource>(response.data);
   }
 
   static async getFeedsBatch(
     urls: string[],
-    { skipRefresh = false }: { skipRefresh?: boolean } = {},
+    {
+      skipRefresh = false,
+      forceRefresh = false,
+      requestSource,
+      signal,
+    }: {
+      skipRefresh?: boolean;
+      forceRefresh?: boolean;
+      requestSource?: string;
+      signal?: AbortSignal;
+    } = {},
   ): Promise<BatchFeedResponseItem[]> {
     const normalizedUrls = normalizeDistinctUrlList(urls);
     if (normalizedUrls.length === 0) return [];
 
     const response = await withRequestDeadline(
-      api.post(`${this.baseUrl}/feeds/batch`, { urls: normalizedUrls, skipRefresh }),
+      api.post(
+        `${this.baseUrl}/feeds/batch`,
+        { urls: normalizedUrls, skipRefresh, forceRefresh, requestSource },
+        { signal },
+      ),
     );
 
     const batchItems = ensureArrayResponse<unknown>(response.data);
@@ -135,8 +159,16 @@ export class FeedService {
     return response.data;
   }
 
-  static async renameFeedSource(id: number, name: string): Promise<FeedSource> {
-    const response = await api.patch(`${this.baseUrl}/feeds`, { id, name });
+  static async renameFeedSource(
+    id: number,
+    name: string,
+    url?: string,
+  ): Promise<FeedSource> {
+    const response = await api.patch(`${this.baseUrl}/feeds`, {
+      id,
+      name,
+      url,
+    });
     return response.data;
   }
 }
@@ -166,8 +198,12 @@ export class ArticleService {
   }
 
   static async extractArticleContent(url: string): Promise<string> {
-    const response = await api.post(`${this.baseUrl}/articles/extract`, { url });
-    return typeof response.data?.content === "string" ? response.data.content : "";
+    const response = await api.post(`${this.baseUrl}/articles/extract`, {
+      url,
+    });
+    return typeof response.data?.content === "string"
+      ? response.data.content
+      : "";
   }
 
   static async getReaderStream(streamId: string): Promise<Article[]> {
@@ -195,11 +231,21 @@ export class ArticleService {
     await this.postGreaderForm("/edit-tag", body);
   }
 
-  static async setArticleReadState(articleId: number, isRead: boolean): Promise<void> {
+  static async setArticleReadState(
+    articleId: number,
+    isRead: boolean,
+  ): Promise<void> {
     await this.setArticleTagState(articleId, READER_STATE_TAGS.read, isRead);
   }
 
-  static async setArticleStarredState(articleId: number, isStarred: boolean): Promise<void> {
-    await this.setArticleTagState(articleId, READER_STATE_TAGS.starred, isStarred);
+  static async setArticleStarredState(
+    articleId: number,
+    isStarred: boolean,
+  ): Promise<void> {
+    await this.setArticleTagState(
+      articleId,
+      READER_STATE_TAGS.starred,
+      isStarred,
+    );
   }
 }

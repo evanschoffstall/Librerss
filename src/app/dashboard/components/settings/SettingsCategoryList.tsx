@@ -10,6 +10,7 @@ interface SharedFeedRowProps {
   selectedCategory: string;
   editingFeedKey: string | null;
   editingFeedName: string;
+  editingFeedUrl: string;
   savingFeedKey: string | null;
   deletingKey: string | null;
   movingFeedKey: string | null;
@@ -19,11 +20,11 @@ interface SharedFeedRowProps {
   onFeedDragEnd: UseSettingsDragReturn["onFeedDragEnd"];
   onFeedDragOver: UseSettingsDragReturn["onFeedDragOver"];
   onFeedDrop: UseSettingsDragReturn["onFeedDrop"];
-  onSelectFeed: (key: string) => void;
   onEditingFeedNameChange: (name: string) => void;
+  onEditingFeedUrlChange: (url: string) => void;
   onSaveFeedRename: (key: string) => void;
   onCancelFeedEdit: () => void;
-  onStartFeedEdit: (key: string, name: string) => void;
+  onStartFeedEdit: (key: string, name: string, url: string) => void;
   onRemoveFeed: (key: string) => void;
 }
 
