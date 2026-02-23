@@ -24,7 +24,7 @@ export function DashboardSidebarContent({
   return (
     <>
       {isCategoriesLoading ? (
-        <div className="space-y-4 pr-3">
+        <div key="sidebar-loading" className="space-y-4 pr-3 anim-fade-in-load-slow">
           {[3, 2, 4].map((count, groupIndex) => (
             <div key={groupIndex} className="space-y-1">
               <Skeleton className="mx-2 h-3.5 w-16 rounded" />
@@ -38,7 +38,7 @@ export function DashboardSidebarContent({
           ))}
         </div>
       ) : (
-        <div className="space-y-4 pr-3">
+        <div key="sidebar-content" className="space-y-4 pr-3 anim-fade-in-load-slow">
           {sidebarCategories.length === 0 ? (
             <div className="px-2 py-8 text-xs text-muted-foreground/70">
               No feed sources yet.
@@ -47,9 +47,12 @@ export function DashboardSidebarContent({
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
               <div
                 key={categoryNode.key}
-                className={`space-y-1 transition-opacity duration-150 ease-linear ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                className={`space-y-1 anim-fade-in-load-slow transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
                   }`}
-                style={{ transitionDelay: `${index * 35}ms` }}
+                style={{
+                  animationDelay: `${index * 35}ms`,
+                  transitionDelay: `${index * 35}ms`,
+                }}
               >
                 <div className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/60">
                   <button

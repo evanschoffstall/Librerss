@@ -117,8 +117,8 @@ export function SettingsCategoryAccordionItem({
       key={`${categoryNode.key}-motion`}
       className={
         categoryDropIndex === categoryIndex
-          ? "rounded-md border border-primary bg-primary/5 transition-colors duration-150"
-          : "transition-colors duration-150"
+          ? "rounded-md border border-primary bg-primary/5 transition-colors anim-duration-ui anim-ease-ui"
+          : "transition-colors anim-duration-ui anim-ease-ui"
       }
       onDragOver={(event) => onCategoryDragOver(event, categoryIndex)}
       onDrop={(event) => onCategoryDrop(event, categoryIndex)}
@@ -214,7 +214,7 @@ export function SettingsCategoryAccordionItem({
 
         <AccordionContent className="px-3 pb-3">
           {isAddingFeed && (
-            <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 transition-colors duration-150">
+            <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 transition-colors anim-duration-ui anim-ease-ui">
               <Input
                 value={newFeedName}
                 onChange={(e) => onNewFeedNameChange(e.target.value)}

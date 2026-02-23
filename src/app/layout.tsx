@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-background text-foreground antialiased`}>
+      <body className={`${inter.className} motion-profile-luxurious min-h-screen bg-background text-foreground antialiased`}>
         {ENV.isDevelopment && (
           <>
             <DebugBorder />
