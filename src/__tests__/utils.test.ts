@@ -168,6 +168,9 @@ describe("logger", () => {
   });
 
   test("logger sanitizes sensitive fields and logs all levels", async () => {
+    const previousLogLevel = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = "info";
+
     const { logger } = await import("@/lib/utils/logger");
 
     const originalLog = console.log;
@@ -199,6 +202,11 @@ describe("logger", () => {
       console.log = originalLog;
       console.warn = originalWarn;
       console.error = originalError;
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
     }
 
     const output = seen.join("\n");
@@ -215,6 +223,9 @@ describe("logger", () => {
   });
 
   test("logger truncates deeply nested context values", async () => {
+    const previousLogLevel = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = "info";
+
     const { logger } = await import("@/lib/utils/logger");
 
     const originalLog = console.log;
@@ -241,6 +252,11 @@ describe("logger", () => {
       });
     } finally {
       console.log = originalLog;
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
     }
 
     expect(captured).toContain("[truncated]");

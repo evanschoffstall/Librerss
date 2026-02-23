@@ -5,6 +5,7 @@ import {
 } from "@/lib/core/placeholder";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
+import { logger } from "@/lib/utils/logger";
 import { tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { NextResponse } from "next/server";
 import {
@@ -27,7 +28,11 @@ export async function handleFeedRead(userId: number, feedUrl: string | null) {
 
   if (!normalizedFeedUrl) {
     const sources = await listFeedSourcesForUser(userId);
-    return NextResponse.json(sources.map(toFeedSourceResponse));
+    const sourcesResponse = sources.map(toFeedSourceResponse);
+    logger.info(
+      `📋 Feed list [${sourcesResponse.length} source${sourcesResponse.length !== 1 ? "s" : ""}]: retrieved from database`,
+    );
+    return NextResponse.json(sourcesResponse);
   }
 
   const db = getDb();

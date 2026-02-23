@@ -238,9 +238,9 @@ export async function fetchAndCacheFeedArticles(
     if (!result.ok) {
       throw new UpstreamFeedError(feedUrl, result.error);
     }
-    logger.info(`📡 Single feed: refreshed from upstream`);
+    logger.info(`📡 Single feed: 1 refreshed, 0 cached`);
   } else {
-    logger.info(`💾 Single feed: served from cache`);
+    logger.info(`💾 Single feed: 0 refreshed, 1 cached`);
   }
 
   return db
