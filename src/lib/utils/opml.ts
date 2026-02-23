@@ -51,13 +51,13 @@ const normalizeImportUrl = (rawUrl: string): string | null => {
 export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const parser = new DOMParser();
   const document = parser.parseFromString(opmlXml, "text/xml");
-  const parserError = document.querySelector("parsererror");
+  const parserError = document.getElementsByTagName("parsererror")[0];
 
   if (parserError) {
     throw new Error("Invalid OPML file.");
   }
 
-  const body = document.querySelector("opml > body");
+  const body = document.getElementsByTagName("body")[0];
   if (!body) {
     throw new Error("OPML body is missing.");
   }

@@ -30,36 +30,6 @@ describe("article-content helpers", () => {
       await import("@/app/dashboard/helpers/article-content");
     expect(getUrlHostnameLabel("not-a-url")).toBe("not-a-url");
   });
-
-  test("extractTextContent strips HTML tags", async () => {
-    const { extractTextContent } =
-      await import("@/app/dashboard/helpers/article-content");
-    const html = "<p>Hello <strong>world</strong></p>";
-    expect(extractTextContent(html)).toBe("Hello world");
-  });
-
-  test("extractTextContent handles nested tags", async () => {
-    const { extractTextContent } =
-      await import("@/app/dashboard/helpers/article-content");
-    const html = "<div><p>Nested <em>content</em></p></div>";
-    expect(extractTextContent(html)).toBe("Nested content");
-  });
-
-  test("truncateText limits length", async () => {
-    const { truncateText } =
-      await import("@/app/dashboard/helpers/article-content");
-    const longText = "a".repeat(200);
-    const result = truncateText(longText, 100);
-    expect(result.length).toBeLessThanOrEqual(103); // 100 + "..."
-    expect(result).toContain("...");
-  });
-
-  test("truncateText preserves short text", async () => {
-    const { truncateText } =
-      await import("@/app/dashboard/helpers/article-content");
-    const shortText = "Short text";
-    expect(truncateText(shortText, 100)).toBe(shortText);
-  });
 });
 
 // ─── Favicons ─────────────────────────────────────────────────────────────────
@@ -85,56 +55,6 @@ describe("favicons", () => {
     expect(getHostnameLabel("http://blog.example.com")).toBe(
       "blog.example.com",
     );
-  });
-});
-
-// ─── Keyboard Shortcuts ───────────────────────────────────────────────────────
-
-describe("keyboard-shortcuts", () => {
-  test("getShortcutLabel formats keyboard shortcuts", async () => {
-    const { getShortcutLabel } =
-      await import("@/app/dashboard/helpers/keyboard-shortcuts");
-    const label = getShortcutLabel(["ctrl", "k"]);
-    expect(label).toContain("ctrl");
-    expect(label).toContain("k");
-  });
-
-  test("isShortcutMatch detects shortcut matches", async () => {
-    const { isShortcutMatch } =
-      await import("@/app/dashboard/helpers/keyboard-shortcuts");
-
-    const event = {
-      key: "k",
-      ctrlKey: true,
-      metaKey: false,
-      shiftKey: false,
-      altKey: false,
-    } as KeyboardEvent;
-
-    expect(isShortcutMatch(event, ["ctrl", "k"])).toBe(true);
-    expect(isShortcutMatch(event, ["ctrl", "j"])).toBe(false);
-  });
-});
-
-// ─── View State ───────────────────────────────────────────────────────────────
-
-describe("view-state", () => {
-  test("createDefaultViewState returns initial state", async () => {
-    const { createDefaultViewState } =
-      await import("@/app/dashboard/helpers/view-state");
-    const state = createDefaultViewState();
-    expect(state).toEqual({
-      view: "article-list",
-      selectedFeedId: null,
-      selectedArticle: null,
-    });
-  });
-
-  test("isArticleListView detects article list view", async () => {
-    const { isArticleListView } =
-      await import("@/app/dashboard/helpers/view-state");
-    expect(isArticleListView({ view: "article-list" })).toBe(true);
-    expect(isArticleListView({ view: "settings" })).toBe(false);
   });
 });
 

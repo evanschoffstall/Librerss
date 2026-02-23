@@ -6,7 +6,7 @@
 import { type Article } from "@/lib";
 import { getUrlHostnameLabel } from "@/lib/utils/url";
 
-export function getUrlHostnameLabelForDisplay(raw?: string): string {
+function getUrlHostnameLabelForDisplay(raw?: string): string {
   const label = getUrlHostnameLabel(raw, raw ?? "No source URL");
   return label.replace(/^www\./i, "");
 }
@@ -35,29 +35,6 @@ export function buildPreview(content: string): {
       : content.slice(0, PREVIEW_LIMIT);
 
   return { preview: safeCut.trimEnd(), hasOverflow };
-}
-
-export function extractTextContent(content: string): string {
-  if (!content) {
-    return "";
-  }
-
-  return content
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function truncateText(content: string, maxLength: number): string {
-  if (!Number.isFinite(maxLength) || maxLength <= 0) {
-    return "";
-  }
-
-  if (content.length <= maxLength) {
-    return content;
-  }
-
-  return `${content.slice(0, maxLength)}...`;
 }
 
 // ── Source label ──────────────────────────────────────────────────────────────

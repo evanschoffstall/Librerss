@@ -51,7 +51,7 @@ async function handleUserInfo(user: SessionUser): Promise<Response> {
 }
 
 async function handleToken(): Promise<Response> {
-  logger.debug("[greader] token requested");
+  logger.info("[greader] token requested");
   return textResponse(`${READER_API_EDIT_TOKEN}\n`);
 }
 

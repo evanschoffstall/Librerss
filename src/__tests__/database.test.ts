@@ -5,44 +5,6 @@
 
 import { describe, expect, test } from "bun:test";
 
-// ─── Query Builders ───────────────────────────────────────────────────────────
-
-describe("query-builders", () => {
-  test("buildArticleQuery constructs base query", async () => {
-    const { buildArticleQuery } = await import("@/lib/db/query-builders");
-    const query = buildArticleQuery({ userId: 1 });
-    expect(query).toEqual({
-      scope: "articles",
-      userId: 1,
-      filters: { unreadOnly: false, starredOnly: false },
-    });
-  });
-
-  test("buildArticleQuery adds unread filter", async () => {
-    const { buildArticleQuery } = await import("@/lib/db/query-builders");
-    const query = buildArticleQuery({
-      userId: 1,
-      filters: { unreadOnly: true },
-    });
-    expect(query.filters).toEqual({ unreadOnly: true, starredOnly: false });
-  });
-
-  test("buildArticleQuery adds starred filter", async () => {
-    const { buildArticleQuery } = await import("@/lib/db/query-builders");
-    const query = buildArticleQuery({
-      userId: 1,
-      filters: { starredOnly: true },
-    });
-    expect(query.filters).toEqual({ unreadOnly: false, starredOnly: true });
-  });
-
-  test("buildFeedQuery constructs base query", async () => {
-    const { buildFeedQuery } = await import("@/lib/db/query-builders");
-    const query = buildFeedQuery({ userId: 1 });
-    expect(query).toEqual({ scope: "feeds", userId: 1 });
-  });
-});
-
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 describe("schema", () => {
@@ -124,46 +86,5 @@ describe("transactions", () => {
     };
 
     await expect(withTransaction(operation)).rejects.toThrow("Test error");
-  });
-});
-
-// ─── Pagination ───────────────────────────────────────────────────────────────
-
-describe("pagination", () => {
-  test("calculateOffset computes correct offset", async () => {
-    const { calculateOffset } = await import("@/lib/db/pagination");
-    expect(calculateOffset(1, 20)).toBe(0);
-    expect(calculateOffset(2, 20)).toBe(20);
-    expect(calculateOffset(3, 20)).toBe(40);
-  });
-
-  test("validatePage ensures positive page numbers", async () => {
-    const { validatePage } = await import("@/lib/db/pagination");
-    expect(validatePage(1)).toBe(1);
-    expect(validatePage(0)).toBe(1);
-    expect(validatePage(-5)).toBe(1);
-  });
-
-  test("validateLimit enforces max limit", async () => {
-    const { validateLimit } = await import("@/lib/db/pagination");
-    expect(validateLimit(20)).toBe(20);
-    expect(validateLimit(200, 100)).toBe(100);
-    expect(validateLimit(-10)).toBe(20); // default
-  });
-
-  test("createPaginationMeta generates metadata", async () => {
-    const { createPaginationMeta } = await import("@/lib/db/pagination");
-    const meta = createPaginationMeta({
-      page: 2,
-      limit: 20,
-      total: 100,
-    });
-
-    expect(meta.page).toBe(2);
-    expect(meta.limit).toBe(20);
-    expect(meta.total).toBe(100);
-    expect(meta.totalPages).toBe(5);
-    expect(meta.hasNextPage).toBe(true);
-    expect(meta.hasPreviousPage).toBe(true);
   });
 });

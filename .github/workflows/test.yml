@@ -45,7 +45,7 @@ jobs:
           SESSION_SECRET: test-session-secret-min-32-chars-long-value
           CSRF_SECRET: test-csrf-secret-min-32-chars
           NODE_ENV: test
-        run: bun test:ci
+        run: bun run test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -62,11 +62,3 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 30
-
-      - name: Check coverage threshold
-        run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            echo "Coverage report generated successfully"
-          else
-            echo "Warning: Coverage summary not found"
-          fi

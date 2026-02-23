@@ -27,6 +27,11 @@ export async function handleMarkAllAsRead(
     return params;
   }
   const stream = params.get("s") ?? READING_LIST_STREAM;
+  const ts = Number(params.get("ts"));
+
+  if (!Number.isFinite(ts) || ts <= 0) {
+    return textResponse("Error=MissingTimestamp\n", 400);
+  }
 
   await markStreamAsRead(user.userId, stream);
 
@@ -101,7 +106,7 @@ export async function handleEditTag(
   });
 
   if (articleIds.length === 0) {
-    return textResponse("OK\n");
+    return textResponse("Error=InvalidParameters\n", 400);
   }
 
   const addTags = params.getAll("a");

@@ -4,9 +4,9 @@ import axios from "axios";
 import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
 import { normalizeDistinctUrlList } from "../utils/url";
 import {
-    parseReaderStreamItems,
-    readerItemToArticle,
-    type ReaderApiStreamResponse,
+  parseReaderStreamItems,
+  readerItemToArticle,
+  type ReaderApiStreamResponse,
 } from "./reader-api";
 
 // ── HTTP infrastructure ───────────────────────────────────────────────────────
@@ -17,7 +17,20 @@ const REQUEST_TIMEOUT_MS = 15_000;
 // withRequestDeadline() which provides a hard Promise.race-based deadline.
 // Having both would create a confusing double-timeout with unclear error
 // attribution.
-const api = axios.create();
+type ApiClient = Pick<
+  ReturnType<typeof axios.create>,
+  "get" | "post" | "put" | "patch" | "delete"
+>;
+
+let api: ApiClient = axios.create();
+
+export function __setApiClientForTesting(client: ApiClient): void {
+  api = client;
+}
+
+export function __resetApiClientForTesting(): void {
+  api = axios.create();
+}
 
 async function withRequestDeadline<T>(
   request: Promise<T>,

@@ -3,7 +3,7 @@
  * Tests for src/app/api/feeds/
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { createMockFeed, createMockRequest } from "./helpers/test-utils";
 
 const createSelectChain = () => ({
@@ -13,56 +13,65 @@ const createSelectChain = () => ({
   limit: () => Promise.resolve([createMockFeed()]),
 });
 
-// Mock database and auth
-mock.module("@/lib/db/db", () => ({
-  getDb: () => ({
-    select: () => ({
-      from: () => createSelectChain(),
-    }),
-    insert: () => ({
-      into: () => ({
-        values: () => ({
-          returning: () => Promise.resolve([createMockFeed()]),
+function registerModuleMocks() {
+  mock.module("@/lib/db/db", () => ({
+    getDb: () => ({
+      select: () => ({
+        from: () => createSelectChain(),
+      }),
+      insert: () => ({
+        into: () => ({
+          values: () => ({
+            returning: () => Promise.resolve([createMockFeed()]),
+          }),
+        }),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => Promise.resolve([createMockFeed()]),
+        }),
+      }),
+      delete: () => ({
+        from: () => ({
+          where: () => Promise.resolve({ rowCount: 1 }),
         }),
       }),
     }),
-    update: () => ({
-      set: () => ({
-        where: () => Promise.resolve([createMockFeed()]),
-      }),
-    }),
-    delete: () => ({
-      from: () => ({
-        where: () => Promise.resolve({ rowCount: 1 }),
-      }),
-    }),
-  }),
-}));
+  }));
 
-mock.module("@/app/api/feeds/feed-get", () => ({
-  handleFeedRead: async () => Response.json([]),
-}));
+  mock.module("@/app/api/feeds/feed-get", () => ({
+    handleFeedRead: async () => Response.json([]),
+  }));
 
-mock.module("@/lib/api/route-helpers", () => ({
-  requireAuthenticatedUser: async () => ({
-    userId: 1,
-    email: "test@example.com",
-  }),
-  requireMutableAuthenticatedUser: async () => ({
-    userId: 1,
-    email: "test@example.com",
-  }),
-  requireMutableRequest: () => null,
-  logAndRespondError: (
-    _message: string,
-    _error: unknown,
-    options?: { status?: number; publicMessage?: string },
-  ) =>
-    Response.json(
-      { error: options?.publicMessage ?? "Internal Server Error" },
-      { status: options?.status ?? 500 },
-    ),
-}));
+  mock.module("@/lib/api/route-helpers", () => ({
+    requireAuthenticatedUser: async () => ({
+      userId: 1,
+      email: "test@example.com",
+    }),
+    requireMutableAuthenticatedUser: async () => ({
+      userId: 1,
+      email: "test@example.com",
+    }),
+    requireMutableRequest: () => null,
+    logAndRespondError: (
+      _message: string,
+      _error: unknown,
+      options?: { status?: number; publicMessage?: string },
+    ) =>
+      Response.json(
+        { error: options?.publicMessage ?? "Internal Server Error" },
+        { status: options?.status ?? 500 },
+      ),
+  }));
+}
+
+beforeAll(() => {
+  registerModuleMocks();
+});
+
+afterAll(() => {
+  mock.restore();
+});
 
 describe("Feeds API - List", () => {
   test("GET /api/feeds returns user feeds", async () => {

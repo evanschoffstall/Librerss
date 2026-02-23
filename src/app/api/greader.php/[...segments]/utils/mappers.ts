@@ -22,9 +22,7 @@ export type ListedArticle = {
   isStarred: boolean | null;
 };
 
-export function toReaderCategoryLabel(
-  category: string | null | undefined,
-): string {
+function toReaderCategoryLabel(category: string | null | undefined): string {
   const trimmed = category?.trim();
   return trimmed ? trimmed : DEFAULT_CATEGORY_LABEL;
 }
