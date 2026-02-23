@@ -23,20 +23,41 @@ import { textResponse } from "../utils/responses";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const db = getDb();
-  const labels = await db
-    .select({ category: feedCategories.category })
-    .from(feedCategories)
-    .where(eq(feedCategories.userId, user.userId))
-    .groupBy(feedCategories.category);
 
-  const normalizedLabels = Array.from(
-    new Set([
-      DEFAULT_CATEGORY_LABEL,
-      ...labels
-        .map((label) => label.category?.trim())
+  // Query all FeedSources with their category assignments so we can both
+  // collect the distinct labels AND detect whether any feed is uncategorized.
+  const rows = await db
+    .select({ category: feedCategories.category })
+    .from(feedSources)
+    .leftJoin(feeds, eq(feeds.url, feedSources.url))
+    .leftJoin(
+      feedCategories,
+      and(
+        eq(feedCategories.userId, feedSources.userId),
+        eq(feedCategories.feedId, feeds.id),
+      ),
+    )
+    .where(eq(feedSources.userId, user.userId));
+
+  const hasUncategorized = rows.some((row) => !row.category?.trim());
+
+  const namedLabels = Array.from(
+    new Set(
+      rows
+        .map((row) => row.category?.trim())
         .filter((label): label is string => Boolean(label)),
-    ]),
+    ),
   );
+
+  // Only include "My Feeds" when at least one feed has no category assigned,
+  // or as a last resort when the user has no category labels at all.
+  const normalizedLabels =
+    hasUncategorized || namedLabels.length === 0
+      ? [
+          DEFAULT_CATEGORY_LABEL,
+          ...namedLabels.filter((l) => l !== DEFAULT_CATEGORY_LABEL),
+        ]
+      : namedLabels;
 
   return NextResponse.json({
     tags: [
