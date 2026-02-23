@@ -290,12 +290,7 @@ describe("greader route compatibility contracts", () => {
     expect(payload.subscriptions[0]?.iconUrl).toBe(
       "https://www.google.com/s2/favicons?domain=one.example&sz=64",
     );
-    expect(payload.subscriptions[1]?.categories).toEqual([
-      {
-        id: "user/-/label/My Feeds",
-        label: "My Feeds",
-      },
-    ]);
+    expect(payload.subscriptions[1]?.categories).toEqual([]);
     expect(payload.subscriptions[1]?.iconUrl).toBe(
       "https://www.google.com/s2/favicons?domain=two.example&sz=64",
     );
@@ -391,9 +386,16 @@ describe("greader route compatibility contracts", () => {
 
   test("tag/list includes My Feeds when at least one feed has no category", async () => {
     selectBehaviors.length = 0;
-    selectBehaviors.push({
-      whereResult: [{ category: "World" }, { category: null }],
-    });
+    selectBehaviors.push(
+      // First query: raw JOIN — one feed has no category assignment
+      {
+        whereResult: [{ category: "World" }, { category: null }],
+      },
+      // Second query: loadUserCategoryFallbackByFeedUrl — no URL fallback match
+      {
+        whereResult: [],
+      },
+    );
 
     const { GET } = await routeModulePromise;
 
