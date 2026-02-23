@@ -1,6 +1,5 @@
 "use client";
 
-import { DebugBorder, DebugGrid } from "@/components";
 import {
   Drawer,
   DrawerContent,
@@ -12,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   ArticleService,
   AuthService,
-  ENV,
   normalizeCategoryLabelKey,
   useLocalStorage,
   type Article,
@@ -28,6 +26,7 @@ import { LoginView } from "./components/login/LoginView";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import {
   ALL_FEEDS_NODE_KEY,
+  DASHBOARD_EVENTS,
   DEFAULT_FEED_URL,
   INITIAL_CATEGORIES,
 } from "./constants";
@@ -435,7 +434,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   // Title sync
   useEffect(() => {
     window.dispatchEvent(
-      new CustomEvent("dashboard:title-change", {
+      new CustomEvent(DASHBOARD_EVENTS.TITLE_CHANGE, {
         detail: { title: selectedFeed ?? "LibreRSS" },
       }),
     );
@@ -444,7 +443,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   // Search sync
   useEffect(() => {
     window.dispatchEvent(
-      new CustomEvent("dashboard:search-sync", { detail: { term: searchTerm } }),
+      new CustomEvent(DASHBOARD_EVENTS.SEARCH_SYNC, { detail: { term: searchTerm } }),
     );
   }, [searchTerm]);
 
@@ -488,18 +487,18 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     const handleOpenSettings = () => setShowSettingsModal(true);
     const handleOpenFeedsSidebar = () => setIsMobileSidebarOpen(true);
 
-    window.addEventListener("dashboard:refresh", refreshSelection);
-    window.addEventListener("dashboard:mark-all-read", handleMarkAllRead);
-    window.addEventListener("dashboard:open-settings", handleOpenSettings);
-    window.addEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
-    window.addEventListener("dashboard:search-change", handleSearchChange as EventListener);
+    window.addEventListener(DASHBOARD_EVENTS.REFRESH, refreshSelection);
+    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
+    window.addEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, handleOpenSettings);
+    window.addEventListener(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR, handleOpenFeedsSidebar);
+    window.addEventListener(DASHBOARD_EVENTS.SEARCH_CHANGE, handleSearchChange as EventListener);
 
     return () => {
-      window.removeEventListener("dashboard:refresh", refreshSelection);
-      window.removeEventListener("dashboard:mark-all-read", handleMarkAllRead);
-      window.removeEventListener("dashboard:open-settings", handleOpenSettings);
-      window.removeEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
-      window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
+      window.removeEventListener(DASHBOARD_EVENTS.REFRESH, refreshSelection);
+      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
+      window.removeEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, handleOpenSettings);
+      window.removeEventListener(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR, handleOpenFeedsSidebar);
+      window.removeEventListener(DASHBOARD_EVENTS.SEARCH_CHANGE, handleSearchChange as EventListener);
     };
   }, [selectedCategory, selectedCategoryNode, selectedFeedUrl, fetchAllFeeds, fetchFeed, fetchCategoryFeeds]);
 
@@ -544,7 +543,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <ScrollArea
-            className={`h-full transition-opacity duration-150 ease-linear ${isSidebarVisible ? "opacity-100" : "opacity-0"
+            className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
               }`}
           >
             <DashboardSidebarContent {...sidebarProps} />
@@ -650,7 +649,7 @@ function DashboardRouter() {
 
   const handleEnterPreview = () => {
     setIsPreviewMode(true);
-    window.dispatchEvent(new CustomEvent("dashboard:enter-preview"));
+    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.ENTER_PREVIEW));
   };
 
   if (isSessionLoading) {
@@ -684,24 +683,16 @@ function DashboardRouter() {
 
 export default function Dashboard() {
   return (
-    <>
-      {ENV.isDevelopment && (
-        <>
-          <DebugBorder />
-          <DebugGrid />
-        </>
-      )}
-      <div className="h-screen min-h-[100svh] overflow-hidden md:h-[100dvh]">
-        <Suspense
-          fallback={
-            <div className="flex h-full items-center justify-center overflow-hidden">
-              <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
-            </div>
-          }
-        >
-          <DashboardRouter />
-        </Suspense>
-      </div>
-    </>
+    <div className="h-screen min-h-[100svh] overflow-hidden md:h-[100dvh]">
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center overflow-hidden">
+            <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+          </div>
+        }
+      >
+        <DashboardRouter />
+      </Suspense>
+    </div>
   );
 }
