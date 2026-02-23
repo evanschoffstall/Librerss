@@ -13,9 +13,13 @@ export const ENV = {
 
 export const CONFIG = {
   // Feed settings
-  // Auto-refresh TTL: feeds older than this are refreshed on the next page load.
-  // The manual refresh button bypasses this cap via forceRefresh.
-  FEED_CACHE_TTL_MINUTES: 5,
+  FEED_REFRESH_DIAGNOSTICS_ENABLED: false,
+  // Non-force refresh TTL: feeds older than this are refreshed on the next
+  // background/page-load fetch.
+  FEED_CACHE_TTL_MINUTES: 15,
+  // Force-refresh cooldown: manual refresh requests are capped to at most once
+  // per feed per this many minutes.
+  FEED_FORCE_REFRESH_TTL_MINUTES: 5,
   FEED_BATCH_MAX_URLS: 64,
   FEED_BATCH_CONCURRENCY: 8,
   // Upstream feeds refresh concurrently inside a batch request.  A long

@@ -2,12 +2,23 @@ import type { CategoryTreeNode } from "@/lib";
 import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL } from "../constants";
 import { flattenCategoryFeeds } from "./category-helpers";
 
+type FeedFetchOptions = {
+  forceRefresh?: boolean;
+  requestSource?: string;
+};
+
 type InitializeDashboardSelectionOptions = {
   selectedCategory: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchAllFeeds: (categories?: CategoryTreeNode[]) => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
-  fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  fetchCategoryFeeds: (
+    category: CategoryTreeNode,
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
   setSelectedCategory: (value: string) => void;
   setIsCategoriesLoading: (value: boolean) => void;
 };
@@ -57,10 +68,18 @@ type RefreshCurrentSelectionOptions = {
   selectedCategory: string;
   selectedFeedUrl?: string;
   selectedCategoryNode?: CategoryTreeNode;
-  fetchAllFeeds: () => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
-  fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  fetchCategoryFeeds: (
+    category: CategoryTreeNode,
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
   fallbackFeedUrl?: string;
+  forceRefresh?: boolean;
+  requestSource?: string;
 };
 
 export function refreshCurrentSelection(
@@ -74,22 +93,27 @@ export function refreshCurrentSelection(
     fetchFeed,
     fetchCategoryFeeds,
     fallbackFeedUrl = DEFAULT_FEED_URL,
+    forceRefresh = false,
+    requestSource,
   } = options;
 
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    void fetchAllFeeds();
+    void fetchAllFeeds(undefined, { forceRefresh, requestSource });
     return;
   }
 
   if (selectedFeedUrl) {
-    void fetchFeed(selectedFeedUrl);
+    void fetchFeed(selectedFeedUrl, { forceRefresh, requestSource });
     return;
   }
 
   if (selectedCategoryNode) {
-    void fetchCategoryFeeds(selectedCategoryNode);
+    void fetchCategoryFeeds(selectedCategoryNode, {
+      forceRefresh,
+      requestSource,
+    });
     return;
   }
 
-  void fetchFeed(fallbackFeedUrl);
+  void fetchFeed(fallbackFeedUrl, { forceRefresh, requestSource });
 }
