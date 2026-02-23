@@ -1,3 +1,4 @@
+import { getSearchParams } from "@/lib/api/request";
 import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
@@ -144,7 +145,7 @@ async function dispatch(
         !isReadOnlyResource(resource)
       ) {
         const editToken =
-          new URL(request.url).searchParams.get("T") ??
+          getSearchParams(request).get("T") ??
           (await request
             .clone()
             .formData()

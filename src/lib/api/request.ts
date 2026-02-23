@@ -69,7 +69,7 @@ export async function parseFormOrQueryParams(
   const maxBytes = options?.maxBytes ?? CONFIG.MAX_JSON_BODY_BYTES;
 
   if (request.method === "GET") {
-    return new URL(request.url).searchParams;
+    return getSearchParams(request);
   }
 
   const bodyTooLarge = jsonError("Request body too large", 413);
@@ -88,6 +88,10 @@ export async function parseFormOrQueryParams(
   }
 
   return new URLSearchParams(raw);
+}
+
+export function getSearchParams(request: Request): URLSearchParams {
+  return new URL(request.url).searchParams;
 }
 
 export function asTrimmedString(value: unknown): string {
