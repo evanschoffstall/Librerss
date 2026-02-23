@@ -207,29 +207,33 @@ export async function handleSubscriptionEdit(
       );
   }
 
-  if (addTag.startsWith("user/-/label/")) {
-    const label = addTag.slice("user/-/label/".length);
+  const hasTagChange =
+    addTag.startsWith("user/-/label/") || removeTag.startsWith("user/-/label/");
+
+  if (hasTagChange) {
     const feedId = await findFeedIdByUrl(db, feedUrl);
 
-    if (feedId && label) {
-      await replaceUserFeedCategory(db, {
-        userId: user.userId,
-        feedId,
-        category: label,
-      });
-    }
-  }
+    if (feedId) {
+      const stripLabelPrefix = (tag: string) =>
+        tag.startsWith("user/-/label/") ? tag.slice("user/-/label/".length) : "";
 
-  if (removeTag.startsWith("user/-/label/")) {
-    const label = removeTag.slice("user/-/label/".length);
-    const feedId = await findFeedIdByUrl(db, feedUrl);
+      const addLabel = stripLabelPrefix(addTag);
+      if (addLabel) {
+        await replaceUserFeedCategory(db, {
+          userId: user.userId,
+          feedId,
+          category: addLabel,
+        });
+      }
 
-    if (feedId && label) {
-      await removeUserFeedCategory(db, {
-        userId: user.userId,
-        feedId,
-        category: label,
-      });
+      const removeLabel = stripLabelPrefix(removeTag);
+      if (removeLabel) {
+        await removeUserFeedCategory(db, {
+          userId: user.userId,
+          feedId,
+          category: removeLabel,
+        });
+      }
     }
   }
 
