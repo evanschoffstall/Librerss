@@ -230,7 +230,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+5rem)] md:px-6">
+    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+3.5rem)] md:px-6">
       <Drawer open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <DrawerContent className="max-h-[85vh] lg:hidden">
           <DrawerHeader>
@@ -258,13 +258,13 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
         <Separator orientation="vertical" className="hidden lg:block" />
 
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0">
-          <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 px-1 lg:max-w-none lg:px-0 lg:pr-3">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-1 py-2 lg:max-w-none lg:px-0 lg:pr-3">
             {ARTICLE_FILTER_OPTIONS.map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setArticleFilter(value)}
-                className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${articleFilter === value
+                className={`rounded-md px-2 py-0.5 text-xs capitalize transition-colors ${articleFilter === value
                   ? "bg-muted/70 text-foreground"
                   : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
                   }`}
