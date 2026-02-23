@@ -615,7 +615,7 @@ describe("greader reader-item hardening", () => {
 
   test("buildStreamConditions applies ot as older-than (<), not newer-than", async () => {
     const { buildStreamConditions } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-conditions");
+      await import("@/lib/core/stream-conditions");
 
     const dateFilter = new Date("2024-01-01T00:00:00.000Z");
     const conditions = buildStreamConditions({
