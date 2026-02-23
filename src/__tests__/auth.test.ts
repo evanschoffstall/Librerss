@@ -4,6 +4,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { NextResponse } from "next/server";
+import { createMockRequest } from "./helpers/test-utils";
 
 // ─── Session Management ───────────────────────────────────────────────────────
 
@@ -50,6 +52,107 @@ describe("session", () => {
   test("SESSION_COOKIE_NAME is defined", async () => {
     const { SESSION_COOKIE_NAME } = await import("@/lib/auth/session");
     expect(SESSION_COOKIE_NAME).toBe("librerss_session");
+  });
+
+  test("setSessionCookie and clearSessionCookie set expected cookie metadata", async () => {
+    const { setSessionCookie, clearSessionCookie, SESSION_COOKIE_NAME } =
+      await import("@/lib/auth/session");
+
+    const response = NextResponse.json({ ok: true });
+    setSessionCookie(response, "token-123");
+
+    const setCookie = response.cookies.get(SESSION_COOKIE_NAME);
+    expect(setCookie?.value).toBe("token-123");
+
+    clearSessionCookie(response);
+    const clearedCookie = response.cookies.get(SESSION_COOKIE_NAME);
+    expect(clearedCookie?.value).toBe("");
+  });
+
+  test("createSession placeholder mode returns deterministic placeholder token", async () => {
+    const previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+
+    try {
+      const { createSession } = await import("@/lib/auth/session");
+      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+
+      const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
+      expect(token).toBe(PLACEHOLDER_ADMIN_USER.sessionToken);
+
+      await expect(createSession(999)).rejects.toThrow("Placeholder mode");
+    } finally {
+      process.env.DATABASE_URL = previousDbUrl;
+    }
+  });
+
+  test("placeholder mode session helpers resolve and reject correctly", async () => {
+    const previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+
+    try {
+      const {
+        getUserFromSessionToken,
+        getUserFromRequest,
+        deleteSessionByToken,
+        SESSION_COOKIE_NAME,
+      } = await import("@/lib/auth/session");
+      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+
+      expect(await getUserFromSessionToken("")).toBeNull();
+      expect(await getUserFromSessionToken("wrong-token")).toBeNull();
+
+      const user = await getUserFromSessionToken(
+        PLACEHOLDER_ADMIN_USER.sessionToken,
+      );
+      expect(user?.email).toBe(PLACEHOLDER_ADMIN_USER.email);
+      expect(user?.userId).toBe(PLACEHOLDER_ADMIN_USER.id);
+
+      const requestWithCookie = createMockRequest("https://example.com/api", {
+        cookies: { [SESSION_COOKIE_NAME]: PLACEHOLDER_ADMIN_USER.sessionToken },
+      });
+      const requestWithoutCookie = createMockRequest("https://example.com/api");
+
+      expect((await getUserFromRequest(requestWithCookie as any))?.email).toBe(
+        PLACEHOLDER_ADMIN_USER.email,
+      );
+      expect(await getUserFromRequest(requestWithoutCookie as any)).toBeNull();
+
+      await expect(deleteSessionByToken("any-token")).resolves.toBeUndefined();
+    } finally {
+      process.env.DATABASE_URL = previousDbUrl;
+    }
+  });
+
+  test("authenticateCredentials handles placeholder success and failure", async () => {
+    const previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+
+    try {
+      const { authenticateCredentials } = await import("@/lib/auth/session");
+
+      const unknownEmail = await authenticateCredentials(
+        "nope@example.com",
+        "x",
+      );
+      expect(unknownEmail.ok).toBe(false);
+
+      const wrongPassword = await authenticateCredentials(
+        "admin@admin.com",
+        "wrong-password",
+      );
+      expect(wrongPassword.ok).toBe(false);
+
+      const success = await authenticateCredentials("admin@admin.com", "admin");
+      expect(success.ok).toBe(true);
+      if (success.ok) {
+        expect(success.email).toBe("admin@admin.com");
+        expect(typeof success.token).toBe("string");
+        expect(success.token.length).toBeGreaterThan(10);
+      }
+    } finally {
+      process.env.DATABASE_URL = previousDbUrl;
+    }
   });
 });
 

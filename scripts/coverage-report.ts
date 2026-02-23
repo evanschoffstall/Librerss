@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { LINE_COVERAGE_THRESHOLD } from "./coverage-config";
+import {
+  COVERAGE_EXCLUDED_FILES,
+  LINE_COVERAGE_THRESHOLD,
+} from "./coverage-config";
 
 const LCOV_PATH = join(process.cwd(), "coverage", "lcov.info");
 
@@ -12,17 +15,22 @@ type CoverageTotals = {
 function parseLcovTotals(lcovContent: string): CoverageTotals {
   const fileLineHits = new Map<string, Map<number, number>>();
   let currentFile = "";
+  let includeCurrentFile = false;
 
   for (const line of lcovContent.split(/\r?\n/)) {
     if (line.startsWith("SF:")) {
       currentFile = line.slice(3);
+      includeCurrentFile = !COVERAGE_EXCLUDED_FILES.includes(currentFile);
+      if (!includeCurrentFile) {
+        continue;
+      }
       if (!fileLineHits.has(currentFile)) {
         fileLineHits.set(currentFile, new Map<number, number>());
       }
       continue;
     }
 
-    if (!currentFile) {
+    if (!currentFile || !includeCurrentFile) {
       continue;
     }
 

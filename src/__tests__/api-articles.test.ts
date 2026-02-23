@@ -6,11 +6,16 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { createMockArticle, createMockRequest } from "./helpers/test-utils";
 
+const mockState = {
+  selectResult: [createMockArticle()],
+  insertResult: [createMockArticle()],
+};
+
 const createSelectChain = () => ({
   innerJoin: () => createSelectChain(),
   where: () => createSelectChain(),
   orderBy: () => createSelectChain(),
-  limit: () => Promise.resolve([createMockArticle()]),
+  limit: () => Promise.resolve(mockState.selectResult),
 });
 
 function registerModuleMocks() {
@@ -22,6 +27,11 @@ function registerModuleMocks() {
       update: () => ({
         set: () => ({
           where: () => Promise.resolve([createMockArticle()]),
+        }),
+      }),
+      insert: () => ({
+        values: () => ({
+          returning: () => Promise.resolve(mockState.insertResult),
         }),
       }),
     }),
@@ -120,6 +130,179 @@ describe("Articles API - List", () => {
 
     const response = await GET(request);
     expect(response.status).toBeLessThan(400);
+  });
+
+  test("GET /api/articles returns empty list in placeholder mode", async () => {
+    const previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+
+    try {
+      const { GET } = await import("@/app/api/articles/route");
+      const request = createMockRequest("https://example.com/api/articles", {
+        cookies: { session: "test-session" },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body).toEqual([]);
+    } finally {
+      process.env.DATABASE_URL = previousDbUrl;
+    }
+  });
+});
+
+describe("Articles API - Create", () => {
+  test("POST /api/articles validates title", async () => {
+    const { POST } = await import("@/app/api/articles/route");
+    const request = createMockRequest("https://example.com/api/articles", {
+      method: "POST",
+      body: {
+        title: "",
+        link: "https://example.com/article",
+        feed_id: 1,
+      },
+      headers: { "sec-fetch-site": "same-origin" },
+      cookies: { session: "test-session" },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+  });
+
+  test("POST /api/articles validates link and feed_id", async () => {
+    const { POST } = await import("@/app/api/articles/route");
+
+    const badLinkRequest = createMockRequest(
+      "https://example.com/api/articles",
+      {
+        method: "POST",
+        body: {
+          title: "Title",
+          link: "not-a-url",
+          feed_id: 1,
+        },
+        headers: { "sec-fetch-site": "same-origin" },
+        cookies: { session: "test-session" },
+      },
+    );
+    const badLinkResponse = await POST(badLinkRequest);
+    expect(badLinkResponse.status).toBe(400);
+
+    const badFeedIdRequest = createMockRequest(
+      "https://example.com/api/articles",
+      {
+        method: "POST",
+        body: {
+          title: "Title",
+          link: "https://example.com/article",
+          feed_id: 0,
+        },
+        headers: { "sec-fetch-site": "same-origin" },
+        cookies: { session: "test-session" },
+      },
+    );
+    const badFeedIdResponse = await POST(badFeedIdRequest);
+    expect(badFeedIdResponse.status).toBe(400);
+  });
+
+  test("POST /api/articles validates date inputs", async () => {
+    const { POST } = await import("@/app/api/articles/route");
+    const request = createMockRequest("https://example.com/api/articles", {
+      method: "POST",
+      body: {
+        title: "Title",
+        link: "https://example.com/article",
+        feed_id: 1,
+        publication_date: "not-a-date",
+      },
+      headers: { "sec-fetch-site": "same-origin" },
+      cookies: { session: "test-session" },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+  });
+
+  test("POST /api/articles rejects non-public article links", async () => {
+    const { POST } = await import("@/app/api/articles/route");
+    const request = createMockRequest("https://example.com/api/articles", {
+      method: "POST",
+      body: {
+        title: "Title",
+        link: "http://localhost/internal",
+        feed_id: 1,
+      },
+      headers: { "sec-fetch-site": "same-origin" },
+      cookies: { session: "test-session" },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+  });
+
+  test("POST /api/articles rejects feeds not owned by the authenticated user", async () => {
+    const previousSelect = mockState.selectResult;
+    mockState.selectResult = [];
+
+    try {
+      const { POST } = await import("@/app/api/articles/route");
+      const request = createMockRequest("https://example.com/api/articles", {
+        method: "POST",
+        body: {
+          title: "Title",
+          link: "https://example.com/article",
+          feed_id: 999,
+        },
+        headers: { "sec-fetch-site": "same-origin" },
+        cookies: { session: "test-session" },
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(403);
+    } finally {
+      mockState.selectResult = previousSelect;
+    }
+  });
+
+  test("POST /api/articles creates and returns a sanitized article", async () => {
+    const previousSelect = mockState.selectResult;
+    const previousInsert = mockState.insertResult;
+
+    mockState.selectResult = [{ id: 1 }] as any;
+    mockState.insertResult = [
+      {
+        ...createMockArticle(),
+        title: "Safe Title",
+        content: "<p>safe</p>",
+        link: "https://example.com/article",
+      },
+    ];
+
+    try {
+      const { POST } = await import("@/app/api/articles/route");
+      const request = createMockRequest("https://example.com/api/articles", {
+        method: "POST",
+        body: {
+          title: " <b>Safe Title</b> ",
+          link: "https://example.com/article",
+          content: "<script>alert(1)</script><p>safe</p>",
+          feed_id: 1,
+          publication_date: "2024-01-01T00:00:00.000Z",
+          last_checked: "2024-01-01T01:00:00.000Z",
+        },
+        headers: { "sec-fetch-site": "same-origin" },
+        cookies: { session: "test-session" },
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.link).toBe("https://example.com/article");
+    } finally {
+      mockState.selectResult = previousSelect;
+      mockState.insertResult = previousInsert;
+    }
   });
 });
 
