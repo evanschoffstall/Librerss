@@ -7,6 +7,7 @@ import {
   feedSources,
   feeds,
 } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { canUseArticleStatusesTable } from "../utils/article-status";
@@ -136,7 +137,7 @@ export async function handleStreamContents(
   const nextContinuationId =
     rows.length === limit ? rows.at(-1)?.articleId : null;
 
-  console.info("[greader] stream/contents", {
+  logger.info("[greader] stream/contents", {
     userId: user.userId,
     streamId,
     limit,

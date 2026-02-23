@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 /**
  * Syncs state with localStorage. Safe for SSR — reads initial value lazily.
@@ -49,13 +55,16 @@ export function useLocalStorage<T>(
     }
   }, [key, value]);
 
-  const setStoredValue: Dispatch<SetStateAction<T>> = (nextValue) => {
-    setValue((currentValue) =>
-      typeof nextValue === "function"
-        ? (nextValue as (prevState: T) => T)(currentValue)
-        : nextValue,
-    );
-  };
+  const setStoredValue: Dispatch<SetStateAction<T>> = useCallback(
+    (nextValue) => {
+      setValue((currentValue) =>
+        typeof nextValue === "function"
+          ? (nextValue as (prevState: T) => T)(currentValue)
+          : nextValue,
+      );
+    },
+    [],
+  );
 
   return [value, setStoredValue];
 }

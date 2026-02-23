@@ -1,5 +1,5 @@
+import { parseFormOrQueryParams, parseJsonBody } from "@/lib/api/request";
 import {
-  parseEmailPasswordFromFormData,
   parseEmailPasswordFromRecord,
   parseEmailPasswordFromSearchParams,
 } from "@/lib/auth/credentials";
@@ -12,9 +12,11 @@ import {
   verifyPassword,
   type SessionUser,
 } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
+import { rateLimiter } from "@/lib/utils/rate-limit";
 import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { GOOGLE_LOGIN_PREFIX } from "../constants";
@@ -36,7 +38,7 @@ function parseClientLoginParams(
 
 async function parseClientLoginPayload(
   request: NextRequest,
-): Promise<ClientLoginPayload | null> {
+): Promise<ClientLoginPayload | Response | null> {
   const urlPayload = parseClientLoginParams(new URL(request.url).searchParams);
   if (urlPayload) {
     return urlPayload;
@@ -49,41 +51,73 @@ async function parseClientLoginPayload(
   const contentType = request.headers.get("content-type") ?? "";
 
   if (contentType.includes("application/x-www-form-urlencoded")) {
-    const form = await request.formData();
-    return parseEmailPasswordFromFormData(form, {
+    const params = await parseFormOrQueryParams(request);
+    if (params instanceof Response) {
+      return params;
+    }
+
+    return parseClientLoginParams(params);
+  }
+
+  if (contentType.includes("multipart/form-data")) {
+    const params = await parseFormOrQueryParams(request);
+    if (params instanceof Response) {
+      return params;
+    }
+
+    return parseClientLoginParams(params);
+  }
+
+  if (contentType.includes("application/json")) {
+    const parsed = await parseJsonBody<Record<string, unknown>>(request);
+    if (!parsed.ok) {
+      return parsed.response;
+    }
+
+    return parseEmailPasswordFromRecord(parsed.data, {
       emailKeys: ["Email", "email", "username"],
       passwordKeys: ["Passwd", "password", "passwd"],
     });
   }
 
-  const rawBody = await request.text();
-  if (!rawBody.trim()) {
-    return null;
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
   }
 
-  if (contentType.includes("application/json")) {
-    try {
-      const json = JSON.parse(rawBody) as Record<string, unknown>;
-      return parseEmailPasswordFromRecord(json, {
-        emailKeys: ["Email", "email", "username"],
-        passwordKeys: ["Passwd", "password", "passwd"],
-      });
-    } catch {
-      return null;
-    }
-  }
-
-  const parsed = parseClientLoginParams(new URLSearchParams(rawBody));
-  return parsed ?? null;
+  return parseClientLoginParams(params);
 }
 
 export async function handleClientLogin(
   request: NextRequest,
 ): Promise<Response> {
+  // Rate-limit ClientLogin to prevent credential brute-forcing.
+  const rateLimitError = rateLimiter.check(request, "greader-login", {
+    windowMs: CONFIG.RATE_LIMIT_LOGIN_WINDOW_MS,
+    maxAttempts: CONFIG.RATE_LIMIT_LOGIN_MAX_ATTEMPTS,
+  });
+  if (rateLimitError) {
+    return textResponse("Error=RateLimited\n", 429);
+  }
+
   const payload = await parseClientLoginPayload(request);
+
+  if (payload instanceof Response) {
+    if (payload.status === 413) {
+      return textResponse("Error=RequestTooLarge\n", 413);
+    }
+
+    return textResponse("Error=BadAuthentication\n", 400);
+  }
 
   if (!payload) {
     return textResponse("Error=BadAuthentication\n", 400);
+  }
+
+  // SECURITY: Cap password length to prevent scrypt DoS — matches the
+  // protection applied in the regular /api/auth/login route.
+  if (payload.password.length > CONFIG.PASSWORD_MAX_LENGTH) {
+    return textResponse("Error=BadAuthentication\n", 403);
   }
 
   if (RUNTIME_FLAGS.usePlaceholderData) {

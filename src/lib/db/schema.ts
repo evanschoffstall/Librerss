@@ -47,6 +47,7 @@ export const feeds = pgTable("Feed", {
   lastFetched: timestamp("last_fetched", { mode: "date", withTimezone: true })
     .notNull()
     .default(sql`(now() - interval '1 day')`),
+  lastFetchError: text("last_fetch_error"),
 });
 
 export const articles = pgTable(
@@ -113,6 +114,23 @@ export const feedCategories = pgTable(
       table.userId,
       table.feedId,
     ),
+  }),
+);
+
+export const categoryOrders = pgTable(
+  "CategoryOrder",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    orderedLabels: text("ordered_labels").notNull().default("[]"),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userIdx: uniqueIndex("category_order_user_idx").on(table.userId),
   }),
 );
 

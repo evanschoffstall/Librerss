@@ -1,5 +1,5 @@
 import { articleStatuses, articles, feeds } from "@/lib/db/schema";
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 
 export function buildStreamConditions({
   feedUrl,
@@ -20,12 +20,12 @@ export function buildStreamConditions({
 
   if (feedUrl && dateFilter) {
     conditions.push(
-      and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
+      and(eq(feeds.url, feedUrl), lt(articles.publicationDate, dateFilter)),
     );
   } else if (feedUrl) {
     conditions.push(eq(feeds.url, feedUrl));
   } else if (dateFilter) {
-    conditions.push(gte(articles.publicationDate, dateFilter));
+    conditions.push(lt(articles.publicationDate, dateFilter));
   }
 
   if (starredOnly && useArticleStatuses) {

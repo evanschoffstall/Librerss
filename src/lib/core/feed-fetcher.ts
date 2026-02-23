@@ -17,6 +17,7 @@ import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type FeedRecord,
+  type UpstreamRefreshResult,
   refreshFeedFromUpstream,
   shouldForceRefreshFeed,
   shouldRefreshFeed,
@@ -51,6 +52,11 @@ type ArticleRow = {
 
 // ─── Batch fetch ──────────────────────────────────────────────────────────────
 
+export type BatchFeedResult = {
+  articles: Map<string, ArticleRow[]>;
+  errors: Map<string, string>;
+};
+
 export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<typeof getDb>,
   userId: number,
@@ -64,8 +70,8 @@ export async function fetchAndCacheFeedArticlesBatch(
     forceRefresh?: boolean;
     requestSource?: string;
   } = {},
-): Promise<Map<string, ArticleRow[]>> {
-  if (feedUrls.length === 0) return new Map();
+): Promise<BatchFeedResult> {
+  if (feedUrls.length === 0) return { articles: new Map(), errors: new Map() };
 
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
     logger.info("Batch feed fetch started", {
@@ -94,12 +100,17 @@ export async function fetchAndCacheFeedArticlesBatch(
         requestedUrlCount: feedUrls.length,
       });
     }
-    return new Map();
+    return { articles: new Map(), errors: new Map() };
   }
 
   // 2. Load existing Feed records
   const existingFeeds = await db
-    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+    .select({
+      id: feeds.id,
+      url: feeds.url,
+      lastFetched: feeds.lastFetched,
+      lastFetchError: feeds.lastFetchError,
+    })
     .from(feeds)
     .where(inArray(feeds.url, allowedUrls));
 
@@ -116,7 +127,12 @@ export async function fetchAndCacheFeedArticlesBatch(
       .onConflictDoNothing({ target: feeds.url });
 
     const resolvedFeeds = await db
-      .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+      .select({
+        id: feeds.id,
+        url: feeds.url,
+        lastFetched: feeds.lastFetched,
+        lastFetchError: feeds.lastFetchError,
+      })
       .from(feeds)
       .where(inArray(feeds.url, missingUrls));
 
@@ -167,7 +183,9 @@ export async function fetchAndCacheFeedArticlesBatch(
     });
   }
 
-  // 4. Refresh stale feeds in parallel
+  // 4. Refresh stale feeds in parallel, tracking upstream errors
+  const upstreamErrors = new Map<string, string>();
+
   if (!skipRefresh) {
     const staleFeeds = allowedUrls
       .map((u) => feedByUrl.get(u))
@@ -182,14 +200,38 @@ export async function fetchAndCacheFeedArticlesBatch(
       });
 
     if (staleFeeds.length > 0) {
-      await Promise.allSettled(
-        staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
+      const refreshResults = await Promise.allSettled(
+        staleFeeds.map(
+          async (
+            feed,
+          ): Promise<{ url: string; result: UpstreamRefreshResult }> => {
+            const result = await refreshFeedFromUpstream(db, feed);
+            return { url: feed.url, result };
+          },
+        ),
       );
+
+      for (const settlement of refreshResults) {
+        if (settlement.status === "fulfilled") {
+          const { url, result } = settlement.value;
+          if (!result.ok) {
+            upstreamErrors.set(url, result.error);
+          }
+        } else {
+          // Promise itself rejected (shouldn't happen since refreshFeedFromUpstream catches)
+          logger.warn("Unexpected refresh settlement rejection", {
+            reason: String(settlement.reason),
+          });
+        }
+      }
+
       if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
         logger.info("Batch feed upstream refresh executed", {
           userId,
           requestSource,
           refreshedFeedCount: staleFeeds.length,
+          failedFeedCount: upstreamErrors.size,
+          failedUrls: [...upstreamErrors.keys()],
         });
       }
     } else {
@@ -203,12 +245,26 @@ export async function fetchAndCacheFeedArticlesBatch(
     }
   }
 
+  // 4b. For feeds that weren't refreshed this cycle, surface any persisted
+  // upstream error so the client still sees the failure status.
+  for (const url of allowedUrls) {
+    if (upstreamErrors.has(url)) continue; // already tracked from this refresh
+    const feed = feedByUrl.get(url);
+    if (feed?.lastFetchError) {
+      upstreamErrors.set(url, feed.lastFetchError);
+    }
+  }
+
   // 5. Read articles with ROW_NUMBER() window function (1 query for all feeds)
   const feedIds = allowedUrls
     .map((u) => feedByUrl.get(u)?.id)
     .filter((id): id is number => id !== undefined);
 
-  if (feedIds.length === 0) return new Map(allowedUrls.map((u) => [u, []]));
+  if (feedIds.length === 0)
+    return {
+      articles: new Map(allowedUrls.map((u) => [u, []])),
+      errors: upstreamErrors,
+    };
 
   type RankedRow = {
     id: unknown;
@@ -291,23 +347,34 @@ export async function fetchAndCacheFeedArticlesBatch(
       requestSource,
       feedCount: result.size,
       totalArticles: rows.length,
+      upstreamErrorCount: upstreamErrors.size,
       articlesByUrl: [...result.entries()].map(([url, items]) => ({
         url,
         articleCount: items.length,
         newestReturnedPublicationDate:
           items.length > 0 ? items[0].publicationDate.toISOString() : null,
+        upstreamError: upstreamErrors.get(url) ?? null,
       })),
     });
   }
 
-  return result;
+  return { articles: result, errors: upstreamErrors };
 }
 
 // ─── Single-feed wrapper ──────────────────────────────────────────────────────
 
+/** Thrown when an upstream feed refresh fails so callers can return a proper error. */
+export class UpstreamFeedError extends Error {
+  constructor(feedUrl: string, cause: string) {
+    super(`Upstream feed fetch failed for ${feedUrl}: ${cause}`);
+    this.name = "UpstreamFeedError";
+  }
+}
+
 /**
  * Fetches and caches articles for one feed URL.
  * @throws {FeedSourceNotFoundError} if userId doesn't own the feed.
+ * @throws {UpstreamFeedError} if the upstream feed refresh fails.
  */
 export async function fetchAndCacheFeedArticles(
   db: ReturnType<typeof getDb>,
@@ -325,7 +392,10 @@ export async function fetchAndCacheFeedArticles(
   const feed = (await ensureFeedRecordByUrl(db, feedUrl)) as FeedRecord;
 
   if (shouldRefreshFeed(feed.lastFetched)) {
-    await refreshFeedFromUpstream(db, feed);
+    const result = await refreshFeedFromUpstream(db, feed);
+    if (!result.ok) {
+      throw new UpstreamFeedError(feedUrl, result.error);
+    }
   }
 
   return db

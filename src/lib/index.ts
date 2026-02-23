@@ -7,6 +7,7 @@ export { ENV } from "./config";
 
 export { useDebugState } from "@/hooks/useDebugState";
 export { useLocalStorage } from "@/hooks/useLocalStorage";
+export { useSessionState } from "@/hooks/useSessionState";
 
 // API clients
 export { ArticleService, AuthService, FeedService } from "./api/services";

@@ -1,6 +1,11 @@
 "use client";
 
-import { useLocalStorage, type Article, type CategoryTreeNode } from "@/lib";
+import {
+  useLocalStorage,
+  useSessionState,
+  type Article,
+  type CategoryTreeNode,
+} from "@/lib";
 import { useRef, useState } from "react";
 import { ALL_FEEDS_NODE_KEY, INITIAL_CATEGORIES } from "../constants";
 import { type ArticleFilter } from "../helpers/article-filters";
@@ -17,13 +22,20 @@ export function useDashboardViewState() {
     "librerss:selectedCategory",
     ALL_FEEDS_NODE_KEY,
   );
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(
-    null,
+  const [searchTerm, setSearchTerm] = useSessionState<string>(
+    "librerss:searchTerm",
+    "",
   );
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [expandedArticleKey, setExpandedArticleKey] = useSessionState<
+    string | null
+  >("librerss:expandedArticleKey", null);
+  const [showSettingsModal, setShowSettingsModal] = useSessionState<boolean>(
+    "librerss:showSettingsModal",
+    false,
+  );
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] =
+    useSessionState<boolean>("librerss:isMobileSidebarOpen", false);
 
   const [articleFilter, setArticleFilter] = useLocalStorage<ArticleFilter>(
     "librerss:articleFilter",
@@ -38,7 +50,10 @@ export function useDashboardViewState() {
     true,
   );
 
-  const [visibleCount, setVisibleCount] = useState<number>(pageSize);
+  const [visibleCount, setVisibleCount] = useSessionState<number>(
+    "librerss:visibleCount",
+    pageSize,
+  );
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
   const hasInitializedDashboardRef = useRef(false);

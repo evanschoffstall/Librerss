@@ -10,6 +10,7 @@ type FeedRecordRow = {
   id: number;
   url: string;
   lastFetched: Date;
+  lastFetchError: string | null;
 };
 
 export async function findFeedIdByUrl(
@@ -30,7 +31,12 @@ async function findFeedRecordByUrl(
   feedUrl: string,
 ): Promise<FeedRecordRow | null> {
   const [feed] = await executor
-    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+    .select({
+      id: feeds.id,
+      url: feeds.url,
+      lastFetched: feeds.lastFetched,
+      lastFetchError: feeds.lastFetchError,
+    })
     .from(feeds)
     .where(eq(feeds.url, feedUrl))
     .limit(1);
@@ -55,6 +61,7 @@ export async function ensureFeedRecordByUrl(
       id: feeds.id,
       url: feeds.url,
       lastFetched: feeds.lastFetched,
+      lastFetchError: feeds.lastFetchError,
     });
 
   if (created) {

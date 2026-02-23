@@ -130,6 +130,7 @@ export function useFeedLoader({
       url: string;
       articles: Article[];
       ok: boolean;
+      error?: string;
     }> | null> => {
       const urls = normalizedSources.map((s) => s.url);
       try {
@@ -263,16 +264,44 @@ export function useFeedLoader({
           resultCount: batchResults.length,
           okCount: batchResults.filter((item) => item.ok).length,
           missingCount: batchResults.filter((item) => !item.ok).length,
+          errorCount: batchResults.filter((item) => item.error).length,
           articlesByUrl: batchResults.map((item) => ({
             url: item.url,
             ok: item.ok,
             articleCount: item.articles.length,
+            error: item.error ?? null,
           })),
         });
+
+        // Surface upstream feed errors to the user
+        const failedFeeds = batchResults.filter((item) => item.error);
 
         const sourceNamesByUrl = new Map(
           normalizedSources.map((source) => [source.url, source.name] as const),
         );
+
+        if (failedFeeds.length > 0) {
+          const failedNames = failedFeeds.map((item) => {
+            const name = sourceNamesByUrl.get(item.url);
+            return name || item.url;
+          });
+
+          if (failedFeeds.length === batchResults.length) {
+            toast.error("Unable to fetch feeds from upstream.", {
+              description:
+                "Try another feed or check back after the next refresh.",
+            });
+          } else {
+            const label =
+              failedNames.length <= 3
+                ? failedNames.join(", ")
+                : `${failedNames.slice(0, 3).join(", ")} and ${failedNames.length - 3} more`;
+            toast.warning(`Some feeds failed to update: ${label}`, {
+              description:
+                "Showing cached articles. Check back after the next refresh.",
+            });
+          }
+        }
 
         const articles = mapBatchResultsToArticles(
           batchResults,
@@ -292,7 +321,11 @@ export function useFeedLoader({
           logRefreshDiagnostics("refresh:empty-after-map", {
             requestId,
           });
-          handleEmptyBatchResult();
+          // Only show the generic "no items" toast when we haven't already
+          // surfaced a more specific upstream error toast above.
+          if (failedFeeds.length === 0) {
+            handleEmptyBatchResult();
+          }
         }
       } finally {
         if (currentRequestIdRef.current === requestId) {
