@@ -28,7 +28,7 @@ describe("feed-url-validator", () => {
   test("assertPublicFeedUrl throws for invalid URLs", async () => {
     const { assertPublicFeedUrl } =
       await import("@/lib/core/feed-url-validator");
-    expect(() => assertPublicFeedUrl("not-a-url")).toThrow();
+    await expect(assertPublicFeedUrl("not-a-url")).rejects.toThrow();
   });
 });
 
