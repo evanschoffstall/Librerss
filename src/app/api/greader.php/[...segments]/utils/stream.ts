@@ -75,3 +75,18 @@ export function parseOlderThanDate(searchParams: URLSearchParams): Date | null {
 
   return parsed;
 }
+
+export function shouldExcludeReadFromStream(
+  streamId: string,
+  excludedTags: string[],
+): boolean {
+  const excludeReadRequested = excludedTags.includes(
+    "user/-/state/com.google/read",
+  );
+
+  if (!excludeReadRequested) {
+    return false;
+  }
+
+  return streamId === "user/-/state/com.google/reading-list";
+}

@@ -1,15 +1,19 @@
 import { type SessionUser } from "@/lib/auth/session";
+import {
+  canUseArticleStatusesTable,
+  isSafePositiveItemId,
+} from "@/lib/core/article-status";
+import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  canUseArticleStatusesTable,
-  isSafePositiveItemId,
-} from "@/lib/core/article-status";
-import { parseOlderThanDate, parseStreamPaging } from "../utils/stream";
-import { buildStreamConditions } from "@/lib/core/stream-conditions";
+  parseOlderThanDate,
+  parseStreamPaging,
+  shouldExcludeReadFromStream,
+} from "../utils/stream";
 
 export async function handleStreamItemIds(
   user: SessionUser,
@@ -20,9 +24,10 @@ export async function handleStreamItemIds(
     searchParams.get("s") ?? "user/-/state/com.google/reading-list";
   const isFeed = streamId.startsWith("feed/");
   const feedUrl = isFeed ? streamId.slice("feed/".length) : null;
-  const excludeRead = searchParams
-    .getAll("xt")
-    .some((value) => value === "user/-/state/com.google/read");
+  const excludeRead = shouldExcludeReadFromStream(
+    streamId,
+    searchParams.getAll("xt"),
+  );
 
   const { limit, offset, continuationId, isNetNewsWire } = parseStreamPaging(
     searchParams,
