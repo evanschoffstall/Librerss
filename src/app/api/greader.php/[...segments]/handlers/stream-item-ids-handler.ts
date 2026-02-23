@@ -7,9 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   canUseArticleStatusesTable,
   isSafePositiveItemId,
-} from "../utils/article-status";
+} from "@/lib/core/article-status";
 import { parseOlderThanDate, parseStreamPaging } from "../utils/stream";
-import { buildStreamConditions } from "./stream-conditions";
+import { buildStreamConditions } from "@/lib/core/stream-conditions";
 
 export async function handleStreamItemIds(
   user: SessionUser,

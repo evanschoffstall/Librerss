@@ -10,14 +10,14 @@ import {
 import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { canUseArticleStatusesTable } from "../utils/article-status";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { ListedArticle, mapArticleAsItem } from "../utils/mappers";
 import {
   parseOlderThanDate,
   parseStreamId,
   parseStreamPaging,
 } from "../utils/stream";
-import { buildStreamConditions } from "./stream-conditions";
 
 export async function handleStreamContents(
   user: SessionUser,

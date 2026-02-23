@@ -63,7 +63,7 @@ export const articles = pgTable(
     content: text("content").notNull(),
     feedId: integer("feed_id")
       .notNull()
-      .references(() => feeds.id),
+      .references(() => feeds.id, { onDelete: "cascade" }),
     lastChecked: timestamp("last_checked", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -106,7 +106,7 @@ export const feedCategories = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     feedId: integer("feed_id")
       .notNull()
-      .references(() => feeds.id),
+      .references(() => feeds.id, { onDelete: "cascade" }),
     category: varchar("category", { length: 255 }).notNull(),
   },
   (table) => ({

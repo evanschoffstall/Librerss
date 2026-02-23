@@ -5,19 +5,14 @@ import {
 } from "@/lib/auth/credentials";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import {
-  createSession,
+  authenticateCredentials,
   getUserFromRequest,
   getUserFromSessionToken,
   SESSION_COOKIE_NAME,
-  verifyPassword,
   type SessionUser,
 } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
-import { users } from "@/lib/db/schema";
 import { rateLimiter } from "@/lib/utils/rate-limit";
-import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { GOOGLE_LOGIN_PREFIX } from "../constants";
 import { textResponse } from "../utils/responses";
@@ -120,44 +115,14 @@ export async function handleClientLogin(
     return textResponse("Error=BadAuthentication\n", 403);
   }
 
-  if (RUNTIME_FLAGS.usePlaceholderData) {
-    const isValidEmail = payload.email === PLACEHOLDER_ADMIN_USER.email;
-    const isValidPassword = await verifyPassword(
-      payload.password,
-      PLACEHOLDER_ADMIN_USER.passwordHash,
-    );
-
-    if (!isValidEmail || !isValidPassword) {
-      return textResponse("Error=BadAuthentication\n", 403);
-    }
-
-    const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
-
-    return textResponse(`SID=${token}\nLSID=${token}\nAuth=${token}\n`);
-  }
-
-  const db = getDb();
-
-  const [user] = await db
-    .select({ id: users.id, passwordHash: users.passwordHash })
-    .from(users)
-    .where(eq(users.email, payload.email))
-    .limit(1);
-
-  if (!user) {
+  const result = await authenticateCredentials(payload.email, payload.password);
+  if (!result.ok) {
     return textResponse("Error=BadAuthentication\n", 403);
   }
 
-  const isValidPassword = await verifyPassword(
-    payload.password,
-    user.passwordHash,
+  return textResponse(
+    `SID=${result.token}\nLSID=${result.token}\nAuth=${result.token}\n`,
   );
-  if (!isValidPassword) {
-    return textResponse("Error=BadAuthentication\n", 403);
-  }
-
-  const token = await createSession(user.id);
-  return textResponse(`SID=${token}\nLSID=${token}\nAuth=${token}\n`);
 }
 
 function extractAuthToken(request: NextRequest): string | null {

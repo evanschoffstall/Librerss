@@ -3,6 +3,8 @@ import { articleStatuses } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import { sql } from "drizzle-orm";
 
+// ── ArticleStatus table availability ──────────────────────────────────────────
+
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
 let warnedMissingArticleStatusesTable = false;
 
@@ -36,7 +38,7 @@ function warnMissingArticleStatusesTable(): void {
 
   warnedMissingArticleStatusesTable = true;
   logger.warn(
-    "[greader] ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
+    "ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
   );
 }
 
@@ -65,6 +67,8 @@ export async function canUseArticleStatusesTable(): Promise<boolean> {
   }
 }
 
+// ── Safe item ID validation ───────────────────────────────────────────────────
+
 export function isSafePositiveItemId(value: unknown): value is number {
   return (
     typeof value === "number" &&
@@ -73,6 +77,8 @@ export function isSafePositiveItemId(value: unknown): value is number {
     value <= Number.MAX_SAFE_INTEGER
   );
 }
+
+// ── Batch upsert ──────────────────────────────────────────────────────────────
 
 export async function upsertArticleStatuses(
   userId: number,

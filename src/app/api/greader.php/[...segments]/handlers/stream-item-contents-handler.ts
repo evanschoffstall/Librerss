@@ -12,7 +12,7 @@ import { logger } from "@/lib/utils/logger";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_STREAM_ITEMS } from "../constants";
-import { canUseArticleStatusesTable } from "../utils/article-status";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
 import { mapArticleAsItem } from "../utils/mappers";
 import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
 

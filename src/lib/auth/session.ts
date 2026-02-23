@@ -203,3 +203,64 @@ export async function getUserFromRequest(request: NextRequest) {
 
   return getUserFromSessionToken(token);
 }
+
+// ── Shared credential authentication ─────────────────────────────────────────
+
+/**
+ * Authenticate a user by email and password, returning a fresh session token
+ * on success.  Shared by both the regular `/api/auth/login` route and the
+ * GReader `ClientLogin` endpoint so that security measures (scrypt params,
+ * placeholder-mode checks) stay in a single code path.
+ */
+export async function authenticateCredentials(
+  email: string,
+  password: string,
+): Promise<
+  { ok: true; userId: number; email: string; token: string } | { ok: false }
+> {
+  if (RUNTIME_FLAGS.usePlaceholderData) {
+    if (email !== PLACEHOLDER_ADMIN_USER.email) {
+      return { ok: false };
+    }
+
+    const isValid = await verifyPassword(
+      password,
+      PLACEHOLDER_ADMIN_USER.passwordHash,
+    );
+    if (!isValid) {
+      return { ok: false };
+    }
+
+    const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
+    return {
+      ok: true,
+      userId: PLACEHOLDER_ADMIN_USER.id,
+      email: PLACEHOLDER_ADMIN_USER.email,
+      token,
+    };
+  }
+
+  const db = getDb();
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      passwordHash: users.passwordHash,
+    })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (!user) {
+    return { ok: false };
+  }
+
+  const isValid = await verifyPassword(password, user.passwordHash);
+  if (!isValid) {
+    return { ok: false };
+  }
+
+  const token = await createSession(user.id);
+  return { ok: true, userId: user.id, email: user.email, token };
+}

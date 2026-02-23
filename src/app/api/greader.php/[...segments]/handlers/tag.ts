@@ -1,21 +1,17 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
+import {
+  canUseArticleStatusesTable,
+  upsertArticleStatuses,
+} from "@/lib/core/article-status";
+import { markStreamAsRead } from "@/lib/core/mark-stream-read";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "../constants";
-import {
-  canUseArticleStatusesTable,
-  upsertArticleStatuses,
-} from "../utils/article-status";
 import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
 import { textResponse } from "../utils/responses";
-
-// Upper bound for mark-all-as-read to prevent unbounded queries.
-// This is generous enough for any realistic feed but prevents a single
-// request from scanning millions of rows.
-const MARK_ALL_READ_LIMIT = 10_000;
 
 export async function handleMarkAllAsRead(
   user: SessionUser,
@@ -27,64 +23,7 @@ export async function handleMarkAllAsRead(
   }
   const stream = params.get("s") ?? "user/-/state/com.google/reading-list";
 
-  const db = getDb();
-  const useArticleStatuses = await canUseArticleStatusesTable();
-
-  const rows = stream.startsWith("feed/")
-    ? await db
-        .select({ articleId: articles.id })
-        .from(articles)
-        .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .where(eq(feeds.url, stream.slice("feed/".length)))
-        .limit(MARK_ALL_READ_LIMIT)
-    : stream === "user/-/state/com.google/starred" && useArticleStatuses
-      ? await db
-          .select({ articleId: articles.id })
-          .from(articles)
-          .innerJoin(feeds, eq(feeds.id, articles.feedId))
-          .innerJoin(
-            feedSources,
-            and(
-              eq(feedSources.url, feeds.url),
-              eq(feedSources.userId, user.userId),
-            ),
-          )
-          .innerJoin(
-            articleStatuses,
-            and(
-              eq(articleStatuses.userId, user.userId),
-              eq(articleStatuses.articleId, articles.id),
-            ),
-          )
-          .where(eq(articleStatuses.isStarred, true))
-          .limit(MARK_ALL_READ_LIMIT)
-      : stream === "user/-/state/com.google/starred"
-        ? []
-        : await db
-            .select({ articleId: articles.id })
-            .from(articles)
-            .innerJoin(feeds, eq(feeds.id, articles.feedId))
-            .innerJoin(
-              feedSources,
-              and(
-                eq(feedSources.url, feeds.url),
-                eq(feedSources.userId, user.userId),
-              ),
-            )
-            .limit(MARK_ALL_READ_LIMIT);
-
-  await upsertArticleStatuses(
-    user.userId,
-    rows.map((row) => row.articleId),
-    { isRead: true },
-  );
+  await markStreamAsRead(user.userId, stream);
 
   return textResponse("OK\n");
 }
