@@ -3,7 +3,7 @@ export const MAX_STREAM_ITEMS = 250;
 export const DEFAULT_STREAM_ITEMS = 50;
 export const NETNEWSWIRE_MAX_STREAM_ITEMS = 250;
 
-export type TagMutation = {
+type TagMutation = {
   target: "a" | "r";
   tag: string;
   patch: {

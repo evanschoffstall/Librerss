@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type ExpansionPhase = "collapsed" | "loading" | "ready" | "expanded";
+type ExpansionPhase = "collapsed" | "loading" | "ready" | "expanded";
 
 /**
  * State machine for article card expand/collapse animation.

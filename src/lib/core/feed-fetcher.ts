@@ -13,10 +13,12 @@ import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
 import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type FeedRecord,
   refreshFeedFromUpstream,
+  shouldForceRefreshFeed,
   shouldRefreshFeed,
 } from "./feed-refresh";
 
@@ -53,9 +55,27 @@ export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedUrls: string[],
-  { skipRefresh = false }: { skipRefresh?: boolean } = {},
+  {
+    skipRefresh = false,
+    forceRefresh = false,
+    requestSource = "unspecified",
+  }: {
+    skipRefresh?: boolean;
+    forceRefresh?: boolean;
+    requestSource?: string;
+  } = {},
 ): Promise<Map<string, ArticleRow[]>> {
   if (feedUrls.length === 0) return new Map();
+
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    logger.info("Batch feed fetch started", {
+      userId,
+      requestedUrlCount: feedUrls.length,
+      skipRefresh,
+      forceRefresh,
+      requestSource,
+    });
+  }
 
   // 1. Ownership check
   const ownedRows = await db
@@ -67,7 +87,15 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   const ownedUrlSet = new Set(ownedRows.map((r) => r.url));
   const allowedUrls = feedUrls.filter((u) => ownedUrlSet.has(u));
-  if (allowedUrls.length === 0) return new Map();
+  if (allowedUrls.length === 0) {
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      logger.warn("Batch feed fetch denied: no owned URLs", {
+        userId,
+        requestedUrlCount: feedUrls.length,
+      });
+    }
+    return new Map();
+  }
 
   // 2. Load existing Feed records
   const existingFeeds = await db
@@ -95,18 +123,83 @@ export async function fetchAndCacheFeedArticlesBatch(
     for (const f of resolvedFeeds) feedByUrl.set(f.url, f);
   }
 
+  const refreshPlan = allowedUrls.map((url) => {
+    const feed = feedByUrl.get(url);
+    if (!feed) {
+      return { url, decision: "missing-feed-record" as const };
+    }
+    if (skipRefresh) {
+      return { url, decision: "skip-refresh-flag" as const };
+    }
+
+    const isStale = shouldRefreshFeed(feed.lastFetched);
+    const canForceRefresh = shouldForceRefreshFeed(feed.lastFetched);
+    if (forceRefresh && canForceRefresh) {
+      return {
+        url,
+        decision: "refresh-force" as const,
+        lastFetched: feed.lastFetched,
+      };
+    }
+
+    if (forceRefresh && !canForceRefresh) {
+      return {
+        url,
+        decision: "force-cooldown-use-cache" as const,
+        lastFetched: feed.lastFetched,
+      };
+    }
+
+    return {
+      url,
+      decision: isStale ? ("refresh-stale" as const) : ("use-cache" as const),
+      lastFetched: feed.lastFetched,
+    };
+  });
+
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    logger.info("Batch feed refresh plan", {
+      userId,
+      requestSource,
+      allowedUrlCount: allowedUrls.length,
+      missingFeedRecordCount: missingUrls.length,
+      plan: refreshPlan,
+    });
+  }
+
   // 4. Refresh stale feeds in parallel
   if (!skipRefresh) {
     const staleFeeds = allowedUrls
       .map((u) => feedByUrl.get(u))
-      .filter(
-        (f): f is FeedRecord => Boolean(f) && shouldRefreshFeed(f!.lastFetched),
-      );
+      .filter((f): f is FeedRecord => {
+        if (!f) {
+          return false;
+        }
+
+        return forceRefresh
+          ? shouldForceRefreshFeed(f.lastFetched)
+          : shouldRefreshFeed(f.lastFetched);
+      });
 
     if (staleFeeds.length > 0) {
       await Promise.allSettled(
         staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
       );
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+        logger.info("Batch feed upstream refresh executed", {
+          userId,
+          requestSource,
+          refreshedFeedCount: staleFeeds.length,
+        });
+      }
+    } else {
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+        logger.info("Batch feed refresh skipped: all feeds fresh", {
+          userId,
+          requestSource,
+          allowedUrlCount: allowedUrls.length,
+        });
+      }
     }
   }
 
@@ -189,6 +282,21 @@ export async function fetchAndCacheFeedArticlesBatch(
       lastChecked: new Date(row.lastChecked as string | Date),
       isRead: Boolean(row.isRead),
       isStarred: Boolean(row.isStarred),
+    });
+  }
+
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    logger.info("Batch feed fetch completed", {
+      userId,
+      requestSource,
+      feedCount: result.size,
+      totalArticles: rows.length,
+      articlesByUrl: [...result.entries()].map(([url, items]) => ({
+        url,
+        articleCount: items.length,
+        newestReturnedPublicationDate:
+          items.length > 0 ? items[0].publicationDate.toISOString() : null,
+      })),
     });
   }
 

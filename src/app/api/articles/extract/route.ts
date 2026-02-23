@@ -60,42 +60,26 @@ function sanitizeExtractedContent(rawContent: string): string {
   return sanitizeArticleHtml(htmlCandidate);
 }
 
-async function fetchHtmlWithValidatedRedirects(url: string): Promise<string> {
-  let currentUrl = url;
-
-  for (let redirects = 0; redirects <= 3; redirects += 1) {
-    if (!(await isAllowedFeedUrl(currentUrl))) {
-      throw new Error("Blocked URL");
-    }
-
-    const response = await axios.get(currentUrl, {
-      timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-      maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-      maxRedirects: 0,
-      responseType: "text",
-      validateStatus: (status) => status >= 200 && status < 400,
-      headers: {
-        "user-agent": "librerss/0.1 (+https://github.com)",
-        "accept-language": "en-US,en;q=0.9",
-      },
-    });
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.location;
-      if (typeof location !== "string" || !location.trim()) {
-        throw new Error("Redirect without Location header");
-      }
-
-      currentUrl = new URL(location, currentUrl).toString();
-      continue;
-    }
-
-    return typeof response.data === "string"
-      ? response.data
-      : String(response.data ?? "");
+async function fetchHtml(url: string): Promise<string> {
+  if (!(await isAllowedFeedUrl(url))) {
+    throw new Error("Blocked URL");
   }
 
-  throw new Error("Too many redirects");
+  const response = await axios.get(url, {
+    timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+    maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+    maxRedirects: 0,
+    responseType: "text",
+    validateStatus: (status) => status >= 200 && status < 300,
+    headers: {
+      "user-agent": "librerss/0.1 (+https://github.com)",
+      "accept-language": "en-US,en;q=0.9",
+    },
+  });
+
+  return typeof response.data === "string"
+    ? response.data
+    : String(response.data ?? "");
 }
 
 export async function POST(request: NextRequest) {
@@ -117,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
     const articleUrl = parsedUrl;
 
-    const html = await fetchHtmlWithValidatedRedirects(articleUrl);
+    const html = await fetchHtml(articleUrl);
     const extracted = await extractFromHtml(html, articleUrl, {
       contentLengthThreshold: 120,
     });

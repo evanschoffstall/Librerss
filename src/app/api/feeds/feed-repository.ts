@@ -2,6 +2,8 @@ import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
 import { getDb } from "@/lib/db/db";
 import {
   ensureFeedRecordByUrl,
+  findFeedIdByUrl,
+  removeUserFeedCategory,
   replaceUserFeedCategory,
 } from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
@@ -70,18 +72,70 @@ export async function renameFeedSourceForUser(
   userId: number,
   sourceId: number,
   name: string,
+  url: string,
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
+  const normalizedUrl = normalizeFeedUrl(url);
 
-  const [updatedSource] = await db
-    .update(feedSources)
-    .set({ name })
-    .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-    .returning({
+  const [existingSource] = await db
+    .select({
       id: feedSources.id,
-      name: feedSources.name,
       url: feedSources.url,
-    });
+    })
+    .from(feedSources)
+    .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+    .limit(1);
+
+  if (!existingSource) {
+    return null;
+  }
+
+  const [updatedSource] = await db.transaction(async (tx) => {
+    if (existingSource.url !== normalizedUrl) {
+      const nextFeed = await ensureFeedRecordByUrl(tx, normalizedUrl);
+      const previousFeedId = await findFeedIdByUrl(tx, existingSource.url);
+      let previousCategory = DEFAULT_CATEGORY_LABEL;
+
+      if (previousFeedId) {
+        const [existingCategory] = await tx
+          .select({ category: feedCategories.category })
+          .from(feedCategories)
+          .where(
+            and(
+              eq(feedCategories.userId, userId),
+              eq(feedCategories.feedId, previousFeedId),
+            ),
+          )
+          .limit(1);
+
+        previousCategory =
+          existingCategory?.category?.trim() || DEFAULT_CATEGORY_LABEL;
+      }
+
+      if (previousFeedId) {
+        await removeUserFeedCategory(tx, {
+          userId,
+          feedId: previousFeedId,
+        });
+      }
+
+      await replaceUserFeedCategory(tx, {
+        userId,
+        feedId: nextFeed.id,
+        category: previousCategory,
+      });
+    }
+
+    return tx
+      .update(feedSources)
+      .set({ name, url: normalizedUrl })
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+      .returning({
+        id: feedSources.id,
+        name: feedSources.name,
+        url: feedSources.url,
+      });
+  });
 
   return updatedSource ?? null;
 }

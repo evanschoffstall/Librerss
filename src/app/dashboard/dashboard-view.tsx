@@ -8,38 +8,27 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useLocalStorage, type Article, type CategoryTreeNode } from "@/lib";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import {
-  ALL_FEEDS_NODE_KEY,
-  DASHBOARD_EVENTS,
-  DEFAULT_FEED_URL,
-  INITIAL_CATEGORIES,
-} from "./constants";
-import {
-  ARTICLE_FILTER_OPTIONS,
-  filterArticlesByState,
-  type ArticleFilter,
+  ARTICLE_FILTER_OPTIONS
 } from "./helpers/article-filters";
-import {
-  buildDisplayCategories,
-  computeNextOrderedCategoryLabels,
-} from "./helpers/category-display";
-import {
-  flattenCategoryFeeds,
-  SYSTEM_ALL_FEEDS_CATEGORY,
-} from "./helpers/category-helpers";
-import {
-  initializeDashboardSelection,
-  refreshCurrentSelection,
-} from "./helpers/selection";
+import { computeNextOrderedCategoryLabels } from "./helpers/category-display";
+import { buildDashboardViewModel } from "./helpers/dashboard-view-model";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
+import {
+  useDashboardBroadcasts,
+  useDashboardInitialization,
+  useFeedLoadingTimeout,
+  useLockDocumentScroll,
+  useRevealSidebarOnMount,
+} from "./hooks/useDashboardViewEffects";
+import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
+import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 
 type DashboardViewProps = {
@@ -47,30 +36,39 @@ type DashboardViewProps = {
 };
 
 export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
-  const [feed, setFeed] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
-  const categoriesRef = useRef<CategoryTreeNode[]>(INITIAL_CATEGORIES);
-  categoriesRef.current = categories;
-  const [selectedCategory, setSelectedCategory] = useLocalStorage<string>(
-    "librerss:selectedCategory",
-    ALL_FEEDS_NODE_KEY,
-  );
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [articleFilter, setArticleFilter] = useLocalStorage<ArticleFilter>(
-    "librerss:articleFilter",
-    "unread",
-  );
-  const [pageSize, setPageSize] = useLocalStorage<number>("librerss:pageSize", 25);
-  const [showFavicons, setShowFavicons] = useLocalStorage<boolean>("librerss:showFavicons", true);
-  const [visibleCount, setVisibleCount] = useState<number>(pageSize);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
-  const hasInitializedDashboardRef = useRef(false);
+  const {
+    feed,
+    setFeed,
+    loading,
+    setLoading,
+    categories,
+    setCategories,
+    categoriesRef,
+    selectedCategory,
+    setSelectedCategory,
+    searchTerm,
+    setSearchTerm,
+    expandedArticleKey,
+    setExpandedArticleKey,
+    showSettingsModal,
+    setShowSettingsModal,
+    isSidebarVisible,
+    setIsSidebarVisible,
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
+    articleFilter,
+    setArticleFilter,
+    pageSize,
+    setPageSize,
+    showFavicons,
+    setShowFavicons,
+    visibleCount,
+    setVisibleCount,
+    sentinelRef,
+    isCategoriesLoading,
+    setIsCategoriesLoading,
+    hasInitializedDashboardRef,
+  } = useDashboardViewState();
 
   const feedLoader = useFeedLoader({
     usePlaceholderData,
@@ -81,7 +79,13 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     setLoading,
   });
 
-  const { loadFeedSources, fetchFeed, fetchCategoryFeeds, fetchAllFeeds } = feedLoader;
+  const {
+    loadFeedSources,
+    fetchFeed,
+    fetchCategoryFeeds,
+    fetchAllFeeds,
+    FEED_LOADING_FAILSAFE_MS,
+  } = feedLoader;
 
   const categoryManager = useCategoryManager({
     categories,
@@ -106,68 +110,37 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
   const orderedCategoryLabels = categoryManager.orderedCategoryLabels;
   const setOrderedCategoryLabels = categoryManager.setOrderedCategoryLabels;
 
-  const feedByState = filterArticlesByState(
+  const {
+    filteredFeed,
+    displayCategories,
+    sidebarCategories,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    selectedFeed,
+    categoryOptions,
+  } = buildDashboardViewModel({
     feed,
     articleFilter,
     expandedArticleKey,
-    articleActions.collapsingArticleKey,
-  );
-
-  const filteredFeed = feedByState.filter(
-    (article) =>
-      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (article.content || "").toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  const availableSources = flattenCategoryFeeds(categories);
-  const selectedFeedNode = availableSources.find((source) => source.key === selectedCategory);
-  const displayCategories = buildDisplayCategories(
+    collapsingArticleKey: articleActions.collapsingArticleKey,
+    searchTerm,
     categories,
     customCategoryLabels,
     orderedCategoryLabels,
-  );
+    selectedCategory,
+  });
 
-  const sidebarCategories = [SYSTEM_ALL_FEEDS_CATEGORY, ...displayCategories];
-  const selectedCategoryNode = sidebarCategories.find((node) => node.key === selectedCategory);
-  const selectedFeedUrl = selectedFeedNode?.data?.url;
-  const selectedFeed = selectedFeedNode?.label ?? selectedCategoryNode?.label;
-  const categoryOptions = displayCategories.map((node) => node.label);
-
-  useEffect(() => {
-    if (!loading) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setLoading(false);
-      toast.error("Feed loading timed out.", {
-        description: "Please try refreshing the selected source again.",
-      });
-    }, 20_000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [loading]);
-
-  useEffect(() => {
-    const prevBody = document.body.style.overflow;
-    const prevHtml = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = prevBody;
-      document.documentElement.style.overflow = prevHtml;
-    };
-  }, []);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setIsSidebarVisible(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+  useFeedLoadingTimeout({
+    loading,
+    timeoutMs: FEED_LOADING_FAILSAFE_MS,
+    setLoading,
+  });
+  useLockDocumentScroll();
+  useRevealSidebarOnMount(setIsSidebarVisible);
 
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [feed, searchTerm, pageSize, articleFilter]);
+  }, [feed, searchTerm, pageSize, articleFilter, setVisibleCount]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -188,32 +161,18 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [filteredFeed.length, pageSize]);
+  }, [filteredFeed.length, pageSize, sentinelRef, setVisibleCount]);
 
-  useEffect(() => {
-    if (hasInitializedDashboardRef.current) {
-      return;
-    }
-
-    hasInitializedDashboardRef.current = true;
-
-    void initializeDashboardSelection({
-      selectedCategory,
-      loadFeedSources,
-      fetchAllFeeds,
-      fetchFeed,
-      fetchCategoryFeeds,
-      setSelectedCategory,
-      setIsCategoriesLoading,
-    });
-  }, [
+  useDashboardInitialization({
+    hasInitializedDashboardRef,
     selectedCategory,
     loadFeedSources,
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
     setSelectedCategory,
-  ]);
+    setIsCategoriesLoading,
+  });
 
   useEffect(() => {
     setOrderedCategoryLabels((currentLabels) =>
@@ -225,39 +184,23 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     );
   }, [categories, customCategoryLabels, setOrderedCategoryLabels]);
 
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent(DASHBOARD_EVENTS.TITLE_CHANGE, {
-        detail: { title: selectedFeed ?? "LibreRSS" },
-      }),
-    );
-  }, [selectedFeed]);
+  useDashboardBroadcasts({ selectedFeed, searchTerm });
 
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent(DASHBOARD_EVENTS.SEARCH_SYNC, {
-        detail: { term: searchTerm },
-      }),
-    );
-  }, [searchTerm]);
-
-  const handleRefreshSelection = useCallback(() => {
-    refreshCurrentSelection({
-      selectedCategory,
-      selectedFeedUrl,
-      selectedCategoryNode,
-      fetchAllFeeds,
-      fetchFeed,
-      fetchCategoryFeeds,
-    });
-  }, [
+  const {
+    refreshFeedList,
+    handleRefreshSelection,
+    handleFeedClick,
+    handleCategoryClick,
+  } = useDashboardViewHandlers({
     selectedCategory,
     selectedFeedUrl,
     selectedCategoryNode,
+    setSelectedCategory,
+    setIsMobileSidebarOpen,
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
-  ]);
+  });
 
   useDashboardEvents({
     selectedCategory,
@@ -266,31 +209,11 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
-    onOpenSettings: useCallback(() => setShowSettingsModal(true), []),
-    onOpenFeedsSidebar: useCallback(() => setIsMobileSidebarOpen(true), []),
-    onSearchChange: useCallback((term: string) => setSearchTerm(term), []),
+    onOpenSettings: useCallback(() => setShowSettingsModal(true), [setShowSettingsModal]),
+    onOpenFeedsSidebar: useCallback(() => setIsMobileSidebarOpen(true), [setIsMobileSidebarOpen]),
+    onSearchChange: useCallback((term: string) => setSearchTerm(term), [setSearchTerm]),
     onRefresh: handleRefreshSelection,
   });
-
-  const handleFeedClick = (feedNode: CategoryTreeNode) => {
-    setSelectedCategory(feedNode.key);
-    setIsMobileSidebarOpen(false);
-    if (feedNode.data?.url) {
-      void fetchFeed(feedNode.data.url);
-    }
-  };
-
-  const handleCategoryClick = (categoryNode: CategoryTreeNode) => {
-    setSelectedCategory(categoryNode.key);
-    setIsMobileSidebarOpen(false);
-
-    if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
-      void fetchAllFeeds();
-      return;
-    }
-
-    void fetchCategoryFeeds(categoryNode);
-  };
 
   const sidebarProps = {
     isCategoriesLoading,
@@ -337,8 +260,8 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
                 type="button"
                 onClick={() => setArticleFilter(value)}
                 className={`rounded-md px-2 py-1 text-xs capitalize transition-colors ${articleFilter === value
-                    ? "bg-muted/70 text-foreground"
-                    : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
+                  ? "bg-muted/70 text-foreground"
+                  : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
                   }`}
               >
                 {value}
@@ -364,14 +287,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
               onToggleRead={(article) => void articleActions.handleToggleReadState(article)}
               onToggleStarred={(article) => void articleActions.handleToggleStarredState(article)}
               onClearSearch={() => setSearchTerm("")}
-              onRefresh={() => {
-                if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-                  void fetchAllFeeds();
-                  return;
-                }
-
-                void fetchFeed(selectedFeedUrl ?? DEFAULT_FEED_URL);
-              }}
+              onRefresh={refreshFeedList}
             />
           </ScrollArea>
         </section>
@@ -389,7 +305,6 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
           onPageSizeChange={setPageSize}
           onShowFaviconsChange={setShowFavicons}
           onImportOpml={categoryManager.importOpmlFeeds}
-          onSelectFeed={categoryManager.selectFeedByKey}
           onDropFeed={categoryManager.moveFeedByDrop}
           onAddFeed={categoryManager.addFeedSource}
           onAddCategory={categoryManager.addCategory}

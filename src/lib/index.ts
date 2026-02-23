@@ -21,9 +21,4 @@ export {
 export { formatRelativeDate } from "./utils/date-utils";
 export { parseOpmlFeedImport } from "./utils/opml";
 export type { OpmlFeedImportEntry } from "./utils/opml";
-export {
-  getUrlHostnameLabel,
-  isValidUrl,
-  tryGetUrlHostname,
-  tryNormalizeFeedUrl,
-} from "./utils/url";
+export { isValidUrl } from "./utils/url";

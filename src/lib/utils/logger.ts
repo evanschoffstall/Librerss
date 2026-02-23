@@ -46,6 +46,10 @@ class Logger {
       return "[truncated]";
     }
 
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
     if (value instanceof Error) {
       return this.isDevelopment
         ? { message: value.message, stack: value.stack }

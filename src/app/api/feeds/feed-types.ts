@@ -13,6 +13,7 @@ export type CreateFeedPayload = {
 export type RenameFeedPayload = {
   sourceId: number;
   name: string;
+  url: string;
 };
 
 export type FeedSourceRecord = {

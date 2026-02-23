@@ -6,12 +6,15 @@ import {
 import { CONFIG } from "@/lib/config";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
+import { logger } from "@/lib/utils/logger";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
 type BatchRequestBody = {
   urls?: unknown;
   skipRefresh?: unknown;
+  forceRefresh?: unknown;
+  requestSource?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -37,6 +40,21 @@ export async function POST(request: NextRequest) {
 
     const urls = normalizeDistinctUrlList(body.urls);
     const skipRefresh = body.skipRefresh === true;
+    const forceRefresh = body.forceRefresh === true;
+    const requestSource =
+      typeof body.requestSource === "string"
+        ? body.requestSource
+        : "unspecified";
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      logger.info("Feed batch request received", {
+        userId: user.userId,
+        requestedUrlCount: urls.length,
+        skipRefresh,
+        forceRefresh,
+        requestSource,
+      });
+    }
+
     if (urls.length === 0) {
       return NextResponse.json([]);
     }
@@ -63,6 +81,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (normalizedUrls.length === 0) {
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+        logger.info(
+          "Feed batch request had no valid URLs after normalization",
+          {
+            userId: user.userId,
+          },
+        );
+      }
       return NextResponse.json([]);
     }
 
@@ -71,7 +97,7 @@ export async function POST(request: NextRequest) {
       db,
       user.userId,
       normalizedUrls,
-      { skipRefresh },
+      { skipRefresh, forceRefresh, requestSource },
     );
 
     const results = normalizedUrls.map((normalizedUrl) => ({
@@ -82,6 +108,22 @@ export async function POST(request: NextRequest) {
       // "fetched successfully but has no articles yet" from "auth/not-found".
       ok: batchMap.has(normalizedUrl),
     }));
+
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      logger.info("Feed batch request completed", {
+        userId: user.userId,
+        normalizedUrlCount: normalizedUrls.length,
+        okCount: results.filter((item) => item.ok).length,
+        missingCount: results.filter((item) => !item.ok).length,
+        totalArticles: results.reduce(
+          (sum, item) => sum + item.articles.length,
+          0,
+        ),
+        skipRefresh,
+        forceRefresh,
+        requestSource,
+      });
+    }
 
     return NextResponse.json(results);
   } catch (error) {

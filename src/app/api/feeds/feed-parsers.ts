@@ -69,6 +69,7 @@ export async function parseRenameFeedPayload(
   const payload = payloadOrResponse;
   const sourceId = parsePositiveInt(payload.id);
   const name = asTrimmedString(payload.name);
+  const url = asTrimmedString(payload.url);
 
   if (!sourceId) {
     return jsonError("A valid id is required", 400);
@@ -78,6 +79,10 @@ export async function parseRenameFeedPayload(
     return jsonError("name is required", 400);
   }
 
+  if (!url) {
+    return jsonError("url is required", 400);
+  }
+
   if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
     return jsonError(
       `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
@@ -85,7 +90,7 @@ export async function parseRenameFeedPayload(
     );
   }
 
-  return { sourceId, name };
+  return { sourceId, name, url };
 }
 
 export function parseDeleteSourceId(request: NextRequest): number | Response {

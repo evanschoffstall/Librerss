@@ -34,7 +34,6 @@ interface SettingsModalProps {
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
-  onSelectFeed: (key: string) => void;
   onDropFeed: (key: string, targetCategory: string, targetIndex: number) => Promise<void>;
   onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
   onAddCategory: (name: string) => boolean;
@@ -42,7 +41,7 @@ interface SettingsModalProps {
   onDropCategory: (label: string, targetIndex: number) => Promise<void>;
   onRemoveCategory: (label: string) => Promise<boolean>;
   onRemoveFeed: (key: string) => Promise<void>;
-  onRenameFeed: (key: string, name: string) => Promise<boolean>;
+  onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
 }
 
 export const SettingsModal = ({
@@ -56,7 +55,6 @@ export const SettingsModal = ({
   onPageSizeChange,
   onShowFaviconsChange,
   onImportOpml,
-  onSelectFeed,
   onDropFeed,
   onAddFeed,
   onAddCategory,
@@ -84,6 +82,7 @@ export const SettingsModal = ({
   // ── Feed edit state ───────────────────────────────────────────────────────
   const [editingFeedKey, setEditingFeedKey] = useState<string | null>(null);
   const [editingFeedName, setEditingFeedName] = useState("");
+  const [editingFeedUrl, setEditingFeedUrl] = useState("");
   const [savingFeedKey, setSavingFeedKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
@@ -124,6 +123,7 @@ export const SettingsModal = ({
     ) {
       setEditingFeedKey(null);
       setEditingFeedName("");
+      setEditingFeedUrl("");
     }
   }, [categories, addingFeedInCategory, editingCategory, editingFeedKey]);
 
@@ -154,10 +154,15 @@ export const SettingsModal = ({
   const handleSaveFeedRename = async (feedKey: string) => {
     setSavingFeedKey(feedKey);
     try {
-      const didSave = await onRenameFeed(feedKey, editingFeedName.trim());
+      const didSave = await onRenameFeed(
+        feedKey,
+        editingFeedName.trim(),
+        editingFeedUrl.trim(),
+      );
       if (!didSave) return;
       setEditingFeedKey(null);
       setEditingFeedName("");
+      setEditingFeedUrl("");
     } finally {
       setSavingFeedKey(null);
     }
@@ -213,6 +218,7 @@ export const SettingsModal = ({
     selectedCategory,
     editingFeedKey,
     editingFeedName,
+    editingFeedUrl,
     savingFeedKey,
     deletingKey,
     movingFeedKey: drag.movingFeedKey,
@@ -222,16 +228,18 @@ export const SettingsModal = ({
     onFeedDragEnd: drag.onFeedDragEnd,
     onFeedDragOver: drag.onFeedDragOver,
     onFeedDrop: drag.onFeedDrop,
-    onSelectFeed,
     onEditingFeedNameChange: setEditingFeedName,
+    onEditingFeedUrlChange: setEditingFeedUrl,
     onSaveFeedRename: (key: string) => void handleSaveFeedRename(key),
     onCancelFeedEdit: () => {
       setEditingFeedKey(null);
       setEditingFeedName("");
+      setEditingFeedUrl("");
     },
-    onStartFeedEdit: (key: string, name: string) => {
+    onStartFeedEdit: (key: string, name: string, url: string) => {
       setEditingFeedKey(key);
       setEditingFeedName(name);
+      setEditingFeedUrl(url);
     },
     onRemoveFeed: (key: string) => void handleRemoveFeed(key),
   };

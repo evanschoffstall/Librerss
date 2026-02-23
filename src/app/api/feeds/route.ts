@@ -107,12 +107,18 @@ export async function PATCH(request: NextRequest) {
       return parsedPayload;
     }
 
-    const { sourceId, name } = parsedPayload;
+    const { sourceId, name, url } = parsedPayload;
+
+    const invalidFeedUrlResponse = await assertAllowedFeedUrl(url);
+    if (invalidFeedUrlResponse) {
+      return invalidFeedUrlResponse;
+    }
 
     const updatedSource = await renameFeedSourceForUser(
       user.userId,
       sourceId,
       name,
+      url,
     );
 
     if (!updatedSource) {
