@@ -243,14 +243,86 @@ export async function handleSubscriptionEdit(
   return textResponse("OK\n");
 }
 
-export async function handleDisableTag(): Promise<Response> {
-  // TODO: Implement tag deletion (remove feed category for user)
-  logger.warn("[greader] disable-tag called but not implemented");
+export async function handleDisableTag(
+  user: SessionUser,
+  request: NextRequest,
+): Promise<Response> {
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
+
+  const tagId = params.get("s")?.trim() ?? "";
+  if (!tagId.startsWith("user/-/label/")) {
+    // Not a user label — nothing to disable (system tags like reading-list
+    // are not deletable).
+    return textResponse("OK\n");
+  }
+
+  const label = tagId.slice("user/-/label/".length);
+  if (!label) {
+    return textResponse("OK\n");
+  }
+
+  const db = getDb();
+  await db
+    .delete(feedCategories)
+    .where(
+      and(
+        eq(feedCategories.userId, user.userId),
+        eq(feedCategories.category, label),
+      ),
+    );
+
+  logger.info("[greader] disable-tag", {
+    userId: user.userId,
+    label,
+  });
+
   return textResponse("OK\n");
 }
 
-export async function handleRenameTag(): Promise<Response> {
-  // TODO: Implement tag renaming (update feed category name for user)
-  logger.warn("[greader] rename-tag called but not implemented");
+export async function handleRenameTag(
+  user: SessionUser,
+  request: NextRequest,
+): Promise<Response> {
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
+
+  const sourceTag = params.get("s")?.trim() ?? "";
+  const destTag = params.get("dest")?.trim() ?? "";
+
+  if (
+    !sourceTag.startsWith("user/-/label/") ||
+    !destTag.startsWith("user/-/label/")
+  ) {
+    return textResponse("OK\n");
+  }
+
+  const oldLabel = sourceTag.slice("user/-/label/".length);
+  const newLabel = destTag.slice("user/-/label/".length);
+  if (!oldLabel || !newLabel || oldLabel === newLabel) {
+    return textResponse("OK\n");
+  }
+
+  const db = getDb();
+  await db
+    .update(feedCategories)
+    .set({ category: newLabel })
+    .where(
+      and(
+        eq(feedCategories.userId, user.userId),
+        eq(feedCategories.category, oldLabel),
+      ),
+    );
+
+  logger.info("[greader] rename-tag", {
+    userId: user.userId,
+    oldLabel,
+    newLabel,
+  });
+
   return textResponse("OK\n");
 }

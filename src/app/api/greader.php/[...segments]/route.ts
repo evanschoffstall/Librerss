@@ -1,4 +1,4 @@
-import { type SessionUser } from "@/lib/auth/session";
+import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
@@ -60,8 +60,8 @@ function createReaderResourceHandlers(
     "user-info": () => handleUserInfo(user),
     token: () => handleToken(),
     "tag/list": () => handleTagList(user),
-    "disable-tag": () => handleDisableTag(),
-    "rename-tag": () => handleRenameTag(),
+    "disable-tag": () => handleDisableTag(user, request),
+    "rename-tag": () => handleRenameTag(user, request),
     "subscription/list": () => handleSubscriptionList(user),
     "subscription/quickadd": () => handleSubscriptionQuickAdd(user, request),
     "subscription/edit": () => handleSubscriptionEdit(user, request),
@@ -100,6 +100,18 @@ async function handleReaderRequest(
   return notFoundResponse();
 }
 
+// Endpoints that are read-only despite being POST (no edit-token required).
+const READ_ONLY_RESOURCES = new Set([
+  "stream/items/ids",
+  "stream/items/contents",
+]);
+
+function isReadOnlyResource(resource: string): boolean {
+  return (
+    READ_ONLY_RESOURCES.has(resource) || resource.startsWith("stream/contents/")
+  );
+}
+
 async function dispatch(
   request: NextRequest,
   segments: string[],
@@ -109,11 +121,40 @@ async function dispatch(
   }
 
   if (isReaderApiRoute(segments)) {
-    const authResult =
-      request.method.toUpperCase() === "POST"
-        ? await requireGReaderMutableUser(request)
-        : await requireGReaderUser(request);
+    const isPost = request.method.toUpperCase() === "POST";
+    const authResult = isPost
+      ? await requireGReaderMutableUser(request)
+      : await requireGReaderUser(request);
     if (authResult instanceof Response) return authResult;
+
+    // Validate the edit token (T parameter) for mutating POST requests
+    // authenticated via bearer token (external RSS reader clients).
+    // Cookie-authenticated browser requests are already protected by
+    // requireSameOrigin CSRF checks and don't use the T-token flow.
+    if (isPost) {
+      const resource = segments.slice(3).join("/");
+      const isCookieAuth = Boolean(
+        request.cookies.get(SESSION_COOKIE_NAME)?.value,
+      );
+      if (
+        !isCookieAuth &&
+        resource !== "token" &&
+        !isReadOnlyResource(resource)
+      ) {
+        const editToken =
+          new URL(request.url).searchParams.get("T") ??
+          (await request
+            .clone()
+            .formData()
+            .then((fd) => fd.get("T") as string | null)
+            .catch(() => null));
+
+        if (editToken !== READER_API_EDIT_TOKEN) {
+          return textResponse("Error=InvalidToken\n", 403);
+        }
+      }
+    }
+
     return handleReaderRequest(request, authResult, segments);
   }
 
