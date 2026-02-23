@@ -1,4 +1,4 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import { asTrimmedString, parseJsonBodyOrResponse } from "@/lib/api/request";
 import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
@@ -18,8 +18,7 @@ export async function POST(request: NextRequest) {
       await parseJsonBodyOrResponse<Record<string, unknown>>(request);
     if (body instanceof Response) return body;
 
-    const streamId =
-      typeof body.streamId === "string" ? body.streamId.trim() : "";
+    const streamId = asTrimmedString(body.streamId);
     if (!streamId) {
       return jsonError("streamId is required", 400);
     }
