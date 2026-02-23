@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const toolbarBtnClass =
-  "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
+  "transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
 
 /**
  * Fixed top bar shown on the dashboard route.

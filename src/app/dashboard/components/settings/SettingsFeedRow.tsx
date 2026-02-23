@@ -1,11 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
-import { motion } from "framer-motion";
 import { GripVertical, Loader2, Trash2 } from "lucide-react";
-import { IconBtn } from "./SettingsIconBtn";
+import { SettingsIconBtn } from "./SettingsIconBtn";
 
-interface FeedRowProps {
+interface SettingsFeedRowProps {
   feedNode: CategoryTreeNode;
   index: number;
   categoryLabel: string;
@@ -29,7 +28,7 @@ interface FeedRowProps {
   onRemove: (key: string) => void;
 }
 
-export function FeedRow({
+export function SettingsFeedRow({
   feedNode,
   index,
   categoryLabel,
@@ -51,19 +50,15 @@ export function FeedRow({
   onCancelRename,
   onStartEditing,
   onRemove,
-}: FeedRowProps) {
+}: SettingsFeedRowProps) {
   const isEditing = editingFeedKey === feedNode.key;
   const isDropTarget =
     feedDropTarget?.categoryLabel === categoryLabel && feedDropTarget?.index === index;
 
   return (
-    <motion.div
+    <div
       key={feedNode.key}
-      className={`flex items-center gap-2 rounded-md border px-3 py-2 ${isDropTarget ? "border-primary bg-primary/5" : ""}`}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: "easeOut", delay: index * 0.015 }}
-      whileHover={{ y: -1 }}
+      className={`flex items-center gap-2 rounded-md border px-3 py-2 transition-colors duration-150 ${isDropTarget ? "border-primary bg-primary/5" : ""}`}
       onDragOver={(event) => onDragOver(event, categoryLabel, index)}
       onDrop={(event) => onDrop(event, categoryLabel, index)}
     >
@@ -128,7 +123,7 @@ export function FeedRow({
       )}
 
       <div className="flex shrink-0 items-center gap-1">
-        <IconBtn
+        <SettingsIconBtn
           tip="Remove feed"
           onClick={() => onRemove(feedNode.key)}
           disabled={deletingKey === feedNode.key || draggingFeedKey === feedNode.key}
@@ -139,8 +134,8 @@ export function FeedRow({
           ) : (
             <Trash2 className="size-3.5" />
           )}
-        </IconBtn>
+        </SettingsIconBtn>
       </div>
-    </motion.div>
+    </div>
   );
 }

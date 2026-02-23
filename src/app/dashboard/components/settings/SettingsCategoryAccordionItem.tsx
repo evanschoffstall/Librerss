@@ -6,12 +6,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
-import { AnimatePresence, motion } from "framer-motion";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
-import { FeedRow } from "./SettingsFeedRow";
-import { IconBtn } from "./SettingsIconBtn";
+import { SettingsFeedRow } from "./SettingsFeedRow";
+import { SettingsIconBtn } from "./SettingsIconBtn";
 
-interface CategoryAccordionItemProps {
+interface SettingsCategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
   categoryIndex: number;
   selectedCategory: string;
@@ -63,7 +62,7 @@ interface CategoryAccordionItemProps {
   onRemoveFeed: (key: string) => void;
 }
 
-export function CategoryAccordionItem({
+export function SettingsCategoryAccordionItem({
   categoryNode,
   categoryIndex,
   selectedCategory,
@@ -107,22 +106,19 @@ export function CategoryAccordionItem({
   onCancelFeedEdit,
   onStartFeedEdit,
   onRemoveFeed,
-}: CategoryAccordionItemProps) {
+}: SettingsCategoryAccordionItemProps) {
   const categoryFeeds = categoryNode.children ?? [];
   const isEditing = editingCategory === categoryNode.label;
   const isAddingFeed = addingFeedInCategory === categoryNode.label;
   const isPendingRemoval = isSameCategoryLabel(categoryNode.label, pendingCategoryRemovalLabel);
 
   return (
-    <motion.div
+    <div
       key={`${categoryNode.key}-motion`}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: "easeOut", delay: categoryIndex * 0.02 }}
       className={
         categoryDropIndex === categoryIndex
-          ? "rounded-md border border-primary bg-primary/5"
-          : ""
+          ? "rounded-md border border-primary bg-primary/5 transition-colors duration-150"
+          : "transition-colors duration-150"
       }
       onDragOver={(event) => onCategoryDragOver(event, categoryIndex)}
       onDrop={(event) => onCategoryDrop(event, categoryIndex)}
@@ -194,14 +190,14 @@ export function CategoryAccordionItem({
 
           {!isEditing && (
             <div className="flex shrink-0 items-center gap-0.5">
-              <IconBtn
+              <SettingsIconBtn
                 tip="Add feed"
                 onClick={() => onToggleAddFeed(categoryNode.label)}
                 className={isAddingFeed ? "bg-accent" : ""}
               >
                 <Plus className="size-3.5" />
-              </IconBtn>
-              <IconBtn
+              </SettingsIconBtn>
+              <SettingsIconBtn
                 tip={isPendingRemoval ? "Click again to confirm" : "Delete category"}
                 onClick={() => onRemoveCategory(categoryNode.label)}
                 className={
@@ -211,65 +207,57 @@ export function CategoryAccordionItem({
                 }
               >
                 <Trash2 className="size-3.5" />
-              </IconBtn>
+              </SettingsIconBtn>
             </div>
           )}
         </div>
 
         <AccordionContent className="px-3 pb-3">
-          <AnimatePresence initial={false}>
-            {isAddingFeed && (
-              <motion.div
-                className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
+          {isAddingFeed && (
+            <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 transition-colors duration-150">
+              <Input
+                value={newFeedName}
+                onChange={(e) => onNewFeedNameChange(e.target.value)}
+                placeholder="Feed name"
+                className="h-8 text-sm"
+                autoFocus
+              />
+              <Input
+                value={newFeedUrl}
+                onChange={(e) => onNewFeedUrlChange(e.target.value)}
+                placeholder="https://example.com/feed.xml"
+                className="h-8 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
+                    onAddFeed(categoryNode.label);
+                  }
+                  if (e.key === "Escape") onCancelAddFeed();
+                }}
+              />
+              <Button
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={() => onAddFeed(categoryNode.label)}
+                disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
               >
-                <Input
-                  value={newFeedName}
-                  onChange={(e) => onNewFeedNameChange(e.target.value)}
-                  placeholder="Feed name"
-                  className="h-8 text-sm"
-                  autoFocus
-                />
-                <Input
-                  value={newFeedUrl}
-                  onChange={(e) => onNewFeedUrlChange(e.target.value)}
-                  placeholder="https://example.com/feed.xml"
-                  className="h-8 text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
-                      onAddFeed(categoryNode.label);
-                    }
-                    if (e.key === "Escape") onCancelAddFeed();
-                  }}
-                />
-                <Button
-                  size="sm"
-                  className="h-8 shrink-0"
-                  onClick={() => onAddFeed(categoryNode.label)}
-                  disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
-                >
-                  {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 shrink-0 px-2"
-                  onClick={onCancelAddFeed}
-                >
-                  Cancel
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 shrink-0 px-2"
+                onClick={onCancelAddFeed}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
 
           {categoryFeeds.length === 0 && !isAddingFeed ? (
             <div
               className={`rounded-md border border-dashed px-3 py-4 text-center text-xs ${feedDropTarget?.categoryLabel === categoryNode.label && feedDropTarget?.index === 0
-                  ? "border-primary bg-primary/5 text-foreground"
-                  : "text-muted-foreground"
+                ? "border-primary bg-primary/5 text-foreground"
+                : "text-muted-foreground"
                 }`}
               onDragOver={(event) => onFeedDragOver(event, categoryNode.label, 0)}
               onDrop={(event) => onFeedDrop(event, categoryNode.label, 0)}
@@ -279,7 +267,7 @@ export function CategoryAccordionItem({
           ) : (
             <div className="space-y-1.5">
               {categoryFeeds.map((feedNode: CategoryTreeNode, index: number) => (
-                <FeedRow
+                <SettingsFeedRow
                   key={feedNode.key}
                   feedNode={feedNode}
                   index={index}
@@ -307,9 +295,9 @@ export function CategoryAccordionItem({
               {draggingFeedKey && (
                 <div
                   className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${feedDropTarget?.categoryLabel === categoryNode.label &&
-                      feedDropTarget?.index === categoryFeeds.length
-                      ? "border-primary bg-primary/5 text-foreground"
-                      : "text-muted-foreground"
+                    feedDropTarget?.index === categoryFeeds.length
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "text-muted-foreground"
                     }`}
                   onDragOver={(event) =>
                     onFeedDragOver(event, categoryNode.label, categoryFeeds.length)
@@ -323,6 +311,6 @@ export function CategoryAccordionItem({
           )}
         </AccordionContent>
       </AccordionItem>
-    </motion.div>
+    </div>
   );
 }
