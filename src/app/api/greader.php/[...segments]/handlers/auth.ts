@@ -61,20 +61,20 @@ async function parseClientLoginPayload(
     return null;
   }
 
-  const parsed = parseClientLoginParams(new URLSearchParams(rawBody));
-  if (parsed) {
-    return parsed;
+  if (contentType.includes("application/json")) {
+    try {
+      const json = JSON.parse(rawBody) as Record<string, unknown>;
+      return parseEmailPasswordFromRecord(json, {
+        emailKeys: ["Email", "email", "username"],
+        passwordKeys: ["Passwd", "password", "passwd"],
+      });
+    } catch {
+      return null;
+    }
   }
 
-  try {
-    const json = JSON.parse(rawBody) as Record<string, unknown>;
-    return parseEmailPasswordFromRecord(json, {
-      emailKeys: ["Email", "email", "username"],
-      passwordKeys: ["Passwd", "password", "passwd"],
-    });
-  } catch {
-    return null;
-  }
+  const parsed = parseClientLoginParams(new URLSearchParams(rawBody));
+  return parsed ?? null;
 }
 
 export async function handleClientLogin(
@@ -126,7 +126,7 @@ export async function handleClientLogin(
   return textResponse(`SID=${token}\nLSID=${token}\nAuth=${token}\n`);
 }
 
-export function extractAuthToken(request: NextRequest): string | null {
+function extractAuthToken(request: NextRequest): string | null {
   const authorization = request.headers.get("authorization")?.trim();
 
   if (authorization) {

@@ -1,4 +1,4 @@
-export type EmailPasswordCredentials = {
+type EmailPasswordCredentials = {
   email: string;
   password: string;
 };
@@ -25,46 +25,48 @@ function resolveKeys(options?: EmailPasswordFieldOptions): {
   };
 }
 
-function firstValueFromObject(
-  payload: Record<string, unknown>,
-  keys: readonly string[],
-): string {
+type DataSource =
+  | { type: "object"; data: Record<string, unknown> }
+  | { type: "params"; data: URLSearchParams }
+  | { type: "form"; data: FormData };
+
+function firstValue(source: DataSource, keys: readonly string[]): string {
   for (const key of keys) {
-    const value = payload[key];
+    let value: unknown;
+
+    if (source.type === "object") {
+      value = source.data[key];
+    } else {
+      value = source.data.get(key);
+    }
+
     if (typeof value === "string") {
       return value;
     }
   }
 
   return "";
+}
+
+function firstValueFromObject(
+  payload: Record<string, unknown>,
+  keys: readonly string[],
+): string {
+  return firstValue({ type: "object", data: payload }, keys);
 }
 
 function firstValueFromSearchParams(
   searchParams: URLSearchParams,
   keys: readonly string[],
 ): string {
-  for (const key of keys) {
-    const value = searchParams.get(key);
-    if (typeof value === "string") {
-      return value;
-    }
-  }
-
-  return "";
+  return firstValue({ type: "params", data: searchParams }, keys);
 }
 
 function firstValueFromFormData(
   formData: FormData,
   keys: readonly string[],
 ): string {
-  for (const key of keys) {
-    const value = formData.get(key);
-    if (typeof value === "string") {
-      return value;
-    }
-  }
-
-  return "";
+  return firstValue({ type: "form", data: formData }, keys);
 }
 
 function finalizeCredentials(
