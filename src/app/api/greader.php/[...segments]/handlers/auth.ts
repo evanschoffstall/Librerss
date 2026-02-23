@@ -7,9 +7,11 @@ import {
   createSession,
   getUserFromRequest,
   getUserFromSessionToken,
+  SESSION_COOKIE_NAME,
   verifyPassword,
   type SessionUser,
 } from "@/lib/auth/session";
+import { requireSameOrigin } from "@/lib/auth/csrf";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
@@ -172,4 +174,26 @@ export async function requireGReaderUser(
   }
 
   return tokenUser;
+}
+
+export async function requireGReaderMutableUser(
+  request: NextRequest,
+): Promise<SessionUser | Response> {
+  const hasExplicitToken = Boolean(extractAuthToken(request));
+  const hasSessionCookie = Boolean(
+    request.cookies.get(SESSION_COOKIE_NAME)?.value,
+  );
+
+  // CSRF protection for cookie-authenticated mutations:
+  // - Browser cross-site requests automatically include cookies.
+  // - They cannot add Authorization headers.
+  // - Therefore require same-origin when no explicit token is supplied.
+  if (hasSessionCookie && !hasExplicitToken) {
+    const sameOriginError = requireSameOrigin(request);
+    if (sameOriginError) {
+      return sameOriginError;
+    }
+  }
+
+  return requireGReaderUser(request);
 }
