@@ -230,7 +230,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-20 md:px-6">
+    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+5rem)] md:px-6">
       <Drawer open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <DrawerContent className="max-h-[85vh] lg:hidden">
           <DrawerHeader>
@@ -258,7 +258,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
         <Separator orientation="vertical" className="hidden lg:block" />
 
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0">
-          <div className="mb-2 flex items-center gap-2 pr-3">
+          <div className="mx-auto mb-2 flex w-full max-w-3xl items-center gap-2 px-1 lg:max-w-none lg:px-0 lg:pr-3">
             {ARTICLE_FILTER_OPTIONS.map((value) => (
               <button
                 key={value}
