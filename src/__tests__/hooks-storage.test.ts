@@ -1,7 +1,8 @@
+import { useDebugState } from "@/hooks/useDebugState";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useSessionState } from "@/hooks/useSessionState";
 import { useWebStorage } from "@/hooks/useWebStorage";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 const originalLocalStorage = globalThis.localStorage;
@@ -57,6 +58,71 @@ describe("hooks/useWebStorage", () => {
 
     expect(result.current[0]).toEqual({ fallback: "used" });
   });
+
+  test("useWebStorage writes updates and supports updater functions", () => {
+    const mockStorage = createMockStorage(JSON.stringify(1));
+    const getStorage = () => mockStorage;
+
+    const { result } = renderHook(() => useWebStorage(getStorage, "n", 0));
+
+    act(() => {
+      const [, setValue] = result.current;
+      setValue((prev) => prev + 1);
+    });
+
+    expect(result.current[0]).toBe(2);
+    expect(mockStorage.setItem).toHaveBeenCalledWith("n", JSON.stringify(2));
+  });
+
+  test("useWebStorage rehydrates when key changes", () => {
+    const storageMap = new Map<string, string>([
+      ["a", JSON.stringify("A")],
+      ["b", JSON.stringify("B")],
+    ]);
+    const mockStorage = {
+      getItem: mock((key: string) => storageMap.get(key) ?? null),
+      setItem: mock(() => {}),
+      removeItem: mock(() => {}),
+      clear: mock(() => {}),
+      key: mock(() => null),
+      length: 0,
+    } as unknown as Storage;
+
+    const getStorage = () => mockStorage;
+
+    const { result, rerender } = renderHook(
+      ({ keyName }) => useWebStorage(getStorage, keyName, "default"),
+      { initialProps: { keyName: "a" } },
+    );
+
+    expect(result.current[0]).toBe("A");
+
+    rerender({ keyName: "b" });
+    expect(result.current[0]).toBe("B");
+  });
+
+  test("useWebStorage tolerates storage write failures", () => {
+    const mockStorage = {
+      getItem: mock(() => JSON.stringify("x")),
+      setItem: mock(() => {
+        throw new Error("quota");
+      }),
+      removeItem: mock(() => {}),
+      clear: mock(() => {}),
+      key: mock(() => null),
+      length: 0,
+    } as unknown as Storage;
+
+    const getStorage = () => mockStorage;
+    const { result } = renderHook(() => useWebStorage(getStorage, "k", "d"));
+
+    act(() => {
+      const [, setValue] = result.current;
+      setValue("next");
+    });
+
+    expect(result.current[0]).toBe("next");
+  });
 });
 
 describe("hooks/useLocalStorage", () => {
@@ -74,5 +140,26 @@ describe("hooks/useSessionState", () => {
 
     const { result } = renderHook(() => useSessionState("sessionKey", 0));
     expect(result.current[0]).toBe(42);
+  });
+});
+
+describe("hooks/useDebugState", () => {
+  test("useDebugState initializes and toggles debug flag", () => {
+    const { result } = renderHook(() => useDebugState(true));
+
+    expect(result.current.debug).toBe(true);
+
+    act(() => {
+      result.current.toggleDebug();
+    });
+
+    expect(result.current.debug).toBe(false);
+  });
+
+  test("useDebugState sets isClient after effect", async () => {
+    const { result } = renderHook(() => useDebugState(false));
+
+    expect(typeof result.current.isClient).toBe("boolean");
+    expect(result.current.isClient).toBe(true);
   });
 });
