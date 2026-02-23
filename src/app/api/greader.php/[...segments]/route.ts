@@ -13,18 +13,20 @@ import {
   handleStreamItemIds,
 } from "./handlers/stream";
 import {
-  handleDisableTag,
-  handleRenameTag,
   handleSubscriptionEdit,
   handleSubscriptionList,
   handleSubscriptionQuickAdd,
-  handleTagList,
 } from "./handlers/subscription";
 import {
   handleEditTag,
   handleMarkAllAsRead,
   handleUnreadCount,
 } from "./handlers/tag";
+import {
+  handleDisableTag,
+  handleRenameTag,
+  handleTagList,
+} from "./handlers/tag-labels";
 import { notFoundResponse, textResponse } from "./utils/responses";
 
 export const dynamic = "force-dynamic";
@@ -161,12 +163,16 @@ async function dispatch(
   return notFoundResponse();
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function handleRequest(
+  request: NextRequest,
+  context: RouteContext,
+  method: string,
+): Promise<Response> {
   try {
     const { segments } = await context.params;
     return dispatch(request, segments);
   } catch (error) {
-    logger.error("[greader] Unhandled GET error", {
+    logger.error(`[greader] Unhandled ${method} error`, {
       error: error instanceof Error ? error : undefined,
     });
     return NextResponse.json(
@@ -176,17 +182,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
+export async function GET(request: NextRequest, context: RouteContext) {
+  return handleRequest(request, context, "GET");
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
-  try {
-    const { segments } = await context.params;
-    return dispatch(request, segments);
-  } catch (error) {
-    logger.error("[greader] Unhandled POST error", {
-      error: error instanceof Error ? error : undefined,
-    });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  return handleRequest(request, context, "POST");
 }

@@ -10,6 +10,11 @@ import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  FEED_STREAM_PREFIX,
+  READING_LIST_STREAM,
+  STARRED_STATE,
+} from "../constants";
+import {
   parseOlderThanDate,
   parseStreamPaging,
   shouldExcludeReadFromStream,
@@ -20,10 +25,9 @@ export async function handleStreamItemIds(
   request: NextRequest,
 ): Promise<Response> {
   const searchParams = new URL(request.url).searchParams;
-  const streamId =
-    searchParams.get("s") ?? "user/-/state/com.google/reading-list";
-  const isFeed = streamId.startsWith("feed/");
-  const feedUrl = isFeed ? streamId.slice("feed/".length) : null;
+  const streamId = searchParams.get("s") ?? READING_LIST_STREAM;
+  const isFeed = streamId.startsWith(FEED_STREAM_PREFIX);
+  const feedUrl = isFeed ? streamId.slice(FEED_STREAM_PREFIX.length) : null;
   const excludeRead = shouldExcludeReadFromStream(
     streamId,
     searchParams.getAll("xt"),
@@ -38,7 +42,7 @@ export async function handleStreamItemIds(
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
 
-  if (streamId === "user/-/state/com.google/starred" && !useArticleStatuses) {
+  if (streamId === STARRED_STATE && !useArticleStatuses) {
     return NextResponse.json({ itemRefs: [], continuation: undefined });
   }
 
@@ -53,7 +57,7 @@ export async function handleStreamItemIds(
       feedUrl,
       dateFilter,
       continuationId,
-      starredOnly: streamId === "user/-/state/com.google/starred",
+      starredOnly: streamId === STARRED_STATE,
       excludeRead,
       useArticleStatuses,
     });

@@ -1,10 +1,11 @@
+import { getDb } from "@/lib/db/db";
+import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
 } from "./article-status";
-import { getDb } from "@/lib/db/db";
-import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { FEED_STREAM_PREFIX, STARRED_STATE } from "./stream-ids";
 
 // Upper bound for mark-all-as-read to prevent unbounded queries.
 const MARK_ALL_READ_LIMIT = 10_000;
@@ -22,7 +23,7 @@ export async function markStreamAsRead(
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
 
-  const rows = stream.startsWith("feed/")
+  const rows = stream.startsWith(FEED_STREAM_PREFIX)
     ? await db
         .select({ articleId: articles.id })
         .from(articles)
@@ -31,9 +32,9 @@ export async function markStreamAsRead(
           feedSources,
           and(eq(feedSources.url, feeds.url), eq(feedSources.userId, userId)),
         )
-        .where(eq(feeds.url, stream.slice("feed/".length)))
+        .where(eq(feeds.url, stream.slice(FEED_STREAM_PREFIX.length)))
         .limit(MARK_ALL_READ_LIMIT)
-    : stream === "user/-/state/com.google/starred" && useArticleStatuses
+    : stream === STARRED_STATE && useArticleStatuses
       ? await db
           .select({ articleId: articles.id })
           .from(articles)
@@ -51,7 +52,7 @@ export async function markStreamAsRead(
           )
           .where(eq(articleStatuses.isStarred, true))
           .limit(MARK_ALL_READ_LIMIT)
-      : stream === "user/-/state/com.google/starred"
+      : stream === STARRED_STATE
         ? []
         : await db
             .select({ articleId: articles.id })

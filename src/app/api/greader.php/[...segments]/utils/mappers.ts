@@ -1,6 +1,13 @@
 import { toReaderItemId } from "@/lib/core/reader-item-id";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import { tryGetUrlHostname } from "@/lib/utils/url";
+import {
+  FEED_STREAM_PREFIX,
+  READ_STATE,
+  READING_LIST_STREAM,
+  STARRED_STATE,
+  USER_LABEL_PREFIX,
+} from "../constants";
 
 export type ListedArticle = {
   articleId: number;
@@ -33,17 +40,17 @@ export function toReaderIconUrl(feedUrl: string): string {
 
 export function mapArticleAsItem(row: ListedArticle) {
   const publishedSec = Math.floor(row.publicationDate.getTime() / 1000);
-  const categories = ["user/-/state/com.google/reading-list"];
+  const categories = [READING_LIST_STREAM];
   const categoryLabel = toReaderCategoryLabel(row.category);
 
-  categories.push(`user/-/label/${categoryLabel}`);
+  categories.push(`${USER_LABEL_PREFIX}${categoryLabel}`);
 
   if (row.isRead) {
-    categories.push("user/-/state/com.google/read");
+    categories.push(READ_STATE);
   }
 
   if (row.isStarred) {
-    categories.push("user/-/state/com.google/starred");
+    categories.push(STARRED_STATE);
   }
 
   return {
@@ -59,7 +66,7 @@ export function mapArticleAsItem(row: ListedArticle) {
     summary: { direction: "ltr", content: row.content },
     content: [{ direction: "ltr", content: row.content }],
     origin: {
-      streamId: `feed/${row.sourceUrl}`,
+      streamId: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
       title: row.sourceName,
       htmlUrl: row.sourceUrl,
     },

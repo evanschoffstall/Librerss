@@ -9,81 +9,21 @@ import {
   replaceUserFeedCategory,
 } from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
-import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import { logger } from "@/lib/utils/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  loadUserCategoryFallbackByFeedUrl,
+  FEED_STREAM_PREFIX,
+  parseUserLabel,
+  USER_LABEL_PREFIX,
+} from "../constants";
+import {
+  maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
 } from "../utils/categories";
 import { toReaderIconUrl } from "../utils/mappers";
 import { textResponse } from "../utils/responses";
-
-export async function handleTagList(user: SessionUser): Promise<Response> {
-  const db = getDb();
-
-  // Query all FeedSources with their category assignments so we can both
-  // collect the distinct labels AND detect whether any feed is uncategorized.
-  // Include the URL so we can apply the same category fallback used by
-  // subscription/list — ensuring both responses agree on which categories exist.
-  const rows = await db
-    .select({ category: feedCategories.category, url: feedSources.url })
-    .from(feedSources)
-    .leftJoin(feeds, eq(feeds.url, feedSources.url))
-    .leftJoin(
-      feedCategories,
-      and(
-        eq(feedCategories.userId, feedSources.userId),
-        eq(feedCategories.feedId, feeds.id),
-      ),
-    )
-    .where(eq(feedSources.userId, user.userId));
-
-  // Apply the same URL-normalisation fallback as subscription/list so that
-  // the category IDs in tag/list always match what subscription/list emits.
-  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
-  const categoryFallbackByUrl = needsCategoryFallback
-    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
-    : new Map<string, string>();
-
-  const resolvedCategories = rows.map((row) =>
-    resolveCategoryWithFallback(row.category, row.url, categoryFallbackByUrl),
-  );
-
-  const hasUncategorized = resolvedCategories.some((cat) => !cat?.trim());
-
-  const namedLabels = Array.from(
-    new Set(
-      resolvedCategories
-        .map((cat) => cat?.trim())
-        .filter((label): label is string => Boolean(label)),
-    ),
-  );
-
-  // Only include "My Feeds" when at least one feed has no category assigned,
-  // or as a last resort when the user has no category labels at all.
-  const normalizedLabels =
-    hasUncategorized || namedLabels.length === 0
-      ? [
-          DEFAULT_CATEGORY_LABEL,
-          ...namedLabels.filter((l) => l !== DEFAULT_CATEGORY_LABEL),
-        ]
-      : namedLabels;
-
-  return NextResponse.json({
-    tags: [
-      { id: "user/-/state/com.google/reading-list", sortid: "0" },
-      { id: "user/-/state/com.google/read", sortid: "1" },
-      { id: "user/-/state/com.google/starred", sortid: "2" },
-      ...normalizedLabels.map((label, index) => ({
-        id: `user/-/label/${label}`,
-        sortid: String(index + 10),
-      })),
-    ],
-  });
-}
 
 export async function handleSubscriptionList(
   user: SessionUser,
@@ -109,10 +49,10 @@ export async function handleSubscriptionList(
     )
     .where(eq(feedSources.userId, user.userId));
 
-  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
-  const categoryFallbackByUrl = needsCategoryFallback
-    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
-    : new Map<string, string>();
+  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+    user.userId,
+    rows,
+  );
 
   logger.info("[greader] subscription/list", {
     userId: user.userId,
@@ -128,7 +68,7 @@ export async function handleSubscriptionList(
       );
       const categoryLabel = resolvedCategory?.trim() || null;
       return {
-        id: `feed/${row.url}`,
+        id: `${FEED_STREAM_PREFIX}${row.url}`,
         title: row.title,
         url: row.url,
         htmlUrl: row.url,
@@ -139,7 +79,12 @@ export async function handleSubscriptionList(
         // as belonging to "My Feeds" — which would cause an early return in
         // syncFeedFolderRelationship when "My Feeds" is absent from tag/list.
         categories: categoryLabel
-          ? [{ id: `user/-/label/${categoryLabel}`, label: categoryLabel }]
+          ? [
+              {
+                id: `${USER_LABEL_PREFIX}${categoryLabel}`,
+                label: categoryLabel,
+              },
+            ]
           : [],
       };
     }),
@@ -181,7 +126,7 @@ export async function handleSubscriptionQuickAdd(
     return NextResponse.json({
       numResults: 0,
       error: `Already subscribed! ${normalizedUrl}`,
-      streamId: `feed/${normalizedUrl}`,
+      streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
     });
   }
 
@@ -204,7 +149,7 @@ export async function handleSubscriptionQuickAdd(
 
   return NextResponse.json({
     numResults: 1,
-    streamId: `feed/${normalizedUrl}`,
+    streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
   });
 }
 
@@ -222,11 +167,11 @@ export async function handleSubscriptionEdit(
   const addTag = params.get("a")?.trim() ?? "";
   const removeTag = params.get("r")?.trim() ?? "";
 
-  if (!subscriptionId.startsWith("feed/")) {
+  if (!subscriptionId.startsWith(FEED_STREAM_PREFIX)) {
     return textResponse("OK\n");
   }
 
-  const feedUrl = subscriptionId.slice("feed/".length);
+  const feedUrl = subscriptionId.slice(FEED_STREAM_PREFIX.length);
   const db = getDb();
 
   if (action === "unsubscribe") {
@@ -258,18 +203,14 @@ export async function handleSubscriptionEdit(
   }
 
   const hasTagChange =
-    addTag.startsWith("user/-/label/") || removeTag.startsWith("user/-/label/");
+    addTag.startsWith(USER_LABEL_PREFIX) ||
+    removeTag.startsWith(USER_LABEL_PREFIX);
 
   if (hasTagChange) {
     const feedId = await findFeedIdByUrl(db, feedUrl);
 
     if (feedId) {
-      const stripLabelPrefix = (tag: string) =>
-        tag.startsWith("user/-/label/")
-          ? tag.slice("user/-/label/".length)
-          : "";
-
-      const addLabel = stripLabelPrefix(addTag);
+      const addLabel = parseUserLabel(addTag);
       if (addLabel) {
         await replaceUserFeedCategory(db, {
           userId: user.userId,
@@ -278,7 +219,7 @@ export async function handleSubscriptionEdit(
         });
       }
 
-      const removeLabel = stripLabelPrefix(removeTag);
+      const removeLabel = parseUserLabel(removeTag);
       if (removeLabel) {
         await removeUserFeedCategory(db, {
           userId: user.userId,
@@ -288,90 +229,6 @@ export async function handleSubscriptionEdit(
       }
     }
   }
-
-  return textResponse("OK\n");
-}
-
-export async function handleDisableTag(
-  user: SessionUser,
-  request: NextRequest,
-): Promise<Response> {
-  const params = await parseFormOrQueryParams(request);
-  if (params instanceof Response) {
-    return params;
-  }
-
-  const tagId = params.get("s")?.trim() ?? "";
-  if (!tagId.startsWith("user/-/label/")) {
-    // Not a user label — nothing to disable (system tags like reading-list
-    // are not deletable).
-    return textResponse("OK\n");
-  }
-
-  const label = tagId.slice("user/-/label/".length);
-  if (!label) {
-    return textResponse("OK\n");
-  }
-
-  const db = getDb();
-  await db
-    .delete(feedCategories)
-    .where(
-      and(
-        eq(feedCategories.userId, user.userId),
-        eq(feedCategories.category, label),
-      ),
-    );
-
-  logger.info("[greader] disable-tag", {
-    userId: user.userId,
-    label,
-  });
-
-  return textResponse("OK\n");
-}
-
-export async function handleRenameTag(
-  user: SessionUser,
-  request: NextRequest,
-): Promise<Response> {
-  const params = await parseFormOrQueryParams(request);
-  if (params instanceof Response) {
-    return params;
-  }
-
-  const sourceTag = params.get("s")?.trim() ?? "";
-  const destTag = params.get("dest")?.trim() ?? "";
-
-  if (
-    !sourceTag.startsWith("user/-/label/") ||
-    !destTag.startsWith("user/-/label/")
-  ) {
-    return textResponse("OK\n");
-  }
-
-  const oldLabel = sourceTag.slice("user/-/label/".length);
-  const newLabel = destTag.slice("user/-/label/".length);
-  if (!oldLabel || !newLabel || oldLabel === newLabel) {
-    return textResponse("OK\n");
-  }
-
-  const db = getDb();
-  await db
-    .update(feedCategories)
-    .set({ category: newLabel })
-    .where(
-      and(
-        eq(feedCategories.userId, user.userId),
-        eq(feedCategories.category, oldLabel),
-      ),
-    );
-
-  logger.info("[greader] rename-tag", {
-    userId: user.userId,
-    oldLabel,
-    newLabel,
-  });
 
   return textResponse("OK\n");
 }

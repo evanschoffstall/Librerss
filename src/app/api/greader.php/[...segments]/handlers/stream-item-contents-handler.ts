@@ -12,9 +12,9 @@ import {
 import { logger } from "@/lib/utils/logger";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { MAX_STREAM_ITEMS } from "../constants";
+import { MAX_STREAM_ITEMS, READING_LIST_STREAM } from "../constants";
 import {
-  loadUserCategoryFallbackByFeedUrl,
+  maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
 } from "../utils/categories";
 import { mapArticleAsItem } from "../utils/mappers";
@@ -41,7 +41,7 @@ export async function handleStreamItemContents(
     });
 
     return NextResponse.json({
-      id: "user/-/state/com.google/reading-list",
+      id: READING_LIST_STREAM,
       updated: Math.floor(Date.now() / 1000),
       items: [],
     });
@@ -134,10 +134,10 @@ export async function handleStreamItemContents(
     returnedItemCount: rows.length,
   });
 
-  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
-  const categoryFallbackByUrl = needsCategoryFallback
-    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
-    : new Map<string, string>();
+  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+    user.userId,
+    rows,
+  );
 
   const normalizedRows = rows.map((row) => ({
     ...row,
@@ -149,7 +149,7 @@ export async function handleStreamItemContents(
   }));
 
   return NextResponse.json({
-    id: "user/-/state/com.google/reading-list",
+    id: READING_LIST_STREAM,
     updated: Math.floor(Date.now() / 1000),
     items: normalizedRows.map(mapArticleAsItem),
   });

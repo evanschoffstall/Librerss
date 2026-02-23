@@ -13,7 +13,12 @@ import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  loadUserCategoryFallbackByFeedUrl,
+  FEED_STREAM_PREFIX,
+  READING_LIST_STREAM,
+  STARRED_STATE,
+} from "../constants";
+import {
+  maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
 } from "../utils/categories";
 import { ListedArticle, mapArticleAsItem } from "../utils/mappers";
@@ -29,15 +34,15 @@ export async function handleStreamContents(
   resource: string,
 ): Promise<Response> {
   const streamId = parseStreamId(resource);
-  const isReadingList = streamId === "user/-/state/com.google/reading-list";
-  const isStarredStream = streamId === "user/-/state/com.google/starred";
-  const isFeed = streamId.startsWith("feed/");
+  const isReadingList = streamId === READING_LIST_STREAM;
+  const isStarredStream = streamId === STARRED_STATE;
+  const isFeed = streamId.startsWith(FEED_STREAM_PREFIX);
 
   if (!isReadingList && !isFeed && !isStarredStream) {
     return NextResponse.json({ id: streamId, items: [] });
   }
 
-  const feedUrl = isFeed ? streamId.slice("feed/".length) : null;
+  const feedUrl = isFeed ? streamId.slice(FEED_STREAM_PREFIX.length) : null;
   const searchParams = new URL(request.url).searchParams;
   const { limit, offset, continuationId, isNetNewsWire } = parseStreamPaging(
     searchParams,
@@ -154,10 +159,10 @@ export async function handleStreamContents(
     continuation: nextContinuationId ? String(nextContinuationId) : null,
   });
 
-  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
-  const categoryFallbackByUrl = needsCategoryFallback
-    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
-    : new Map<string, string>();
+  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+    user.userId,
+    rows,
+  );
 
   const normalizedRows = rows.map((row) => ({
     ...row,

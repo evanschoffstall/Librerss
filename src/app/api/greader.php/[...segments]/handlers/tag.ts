@@ -9,7 +9,12 @@ import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "../constants";
+import {
+  FEED_STREAM_PREFIX,
+  MAX_STREAM_ITEMS,
+  READING_LIST_STREAM,
+  TAG_MUTATIONS,
+} from "../constants";
 import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
 import { textResponse } from "../utils/responses";
 
@@ -21,7 +26,7 @@ export async function handleMarkAllAsRead(
   if (params instanceof Response) {
     return params;
   }
-  const stream = params.get("s") ?? "user/-/state/com.google/reading-list";
+  const stream = params.get("s") ?? READING_LIST_STREAM;
 
   await markStreamAsRead(user.userId, stream);
 
@@ -70,12 +75,12 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
     max: MAX_STREAM_ITEMS,
     unreadcounts: [
       {
-        id: "user/-/state/com.google/reading-list",
+        id: READING_LIST_STREAM,
         count: totalUnread,
         newestItemTimestampUsec: "0",
       },
       ...rows.map((row) => ({
-        id: `feed/${row.sourceUrl}`,
+        id: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
         count: Number(row.unreadCount ?? 0),
         newestItemTimestampUsec: "0",
       })),
