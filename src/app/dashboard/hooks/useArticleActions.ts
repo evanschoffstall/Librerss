@@ -59,22 +59,18 @@ export function useArticleActions({
     [],
   );
 
-  const scrollNextArticleIntoView = useCallback((collapsingKey: string) => {
-    const collapsingEl = document.querySelector<HTMLElement>(
-      `[data-article-key="${escapeArticleKey(collapsingKey)}"]`,
-    );
-    if (!collapsingEl) return;
+  const scrollCollapsedArticleIntoView = useCallback(
+    (collapsingKey: string) => {
+      const collapsingEl = document.querySelector<HTMLElement>(
+        `[data-article-key="${escapeArticleKey(collapsingKey)}"]`,
+      );
+      if (!collapsingEl) return;
 
-    // Walk forward through sibling elements to find the next article card
-    let sibling = collapsingEl.nextElementSibling as HTMLElement | null;
-    while (sibling && !sibling.dataset.articleKey) {
-      sibling = sibling.nextElementSibling as HTMLElement | null;
-    }
-
-    if (sibling?.dataset.articleKey) {
-      sibling.scrollIntoView({ block: "start", behavior: "smooth" });
-    }
-  }, []);
+      // Scroll the collapsed article itself back into view so user can see where they were
+      collapsingEl.scrollIntoView({ block: "start", behavior: "smooth" });
+    },
+    [],
+  );
 
   const handleArticleToggle = useCallback(
     async (article: Article) => {
@@ -86,9 +82,9 @@ export function useArticleActions({
       );
 
       if (isCollapsing) {
-        // After the collapse CSS transition (~150–240ms), scroll the next article to the top
+        // After the collapse CSS transition (~150–240ms), scroll the collapsed article back into view
         window.setTimeout(() => {
-          scrollNextArticleIntoView(nextArticleKey);
+          scrollCollapsedArticleIntoView(nextArticleKey);
         }, 250);
 
         // Schedule animated removal from the unread filter for read articles
@@ -134,7 +130,7 @@ export function useArticleActions({
       setArticleReadState,
       hydrateArticleContent,
       scrollArticleIntoView,
-      scrollNextArticleIntoView,
+      scrollCollapsedArticleIntoView,
     ],
   );
 
