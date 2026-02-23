@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_STREAM_ITEMS } from "../constants";
 import {
   canUseArticleStatusesTable,
   isSafePositiveItemId,
@@ -340,7 +341,12 @@ export async function handleStreamItemContents(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
-  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"));
+  if (params instanceof Response) {
+    return params;
+  }
+  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"), {
+    maxItems: MAX_STREAM_ITEMS,
+  });
 
   if (articleIds.length === 0) {
     console.info("[greader] stream/items/contents", {
@@ -424,10 +430,17 @@ export async function handleStreamItemContents(
         )
         .where(inArray(articles.id, articleIds)));
 
-  rows.sort(
-    (left, right) =>
-      articleIds.indexOf(left.articleId) - articleIds.indexOf(right.articleId),
+  const articleIndex = new Map<number, number>(
+    articleIds.map((id, index) => [id, index]),
   );
+
+  rows.sort((left, right) => {
+    const leftOrder =
+      articleIndex.get(left.articleId) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder =
+      articleIndex.get(right.articleId) ?? Number.MAX_SAFE_INTEGER;
+    return leftOrder - rightOrder;
+  });
 
   console.info("[greader] stream/items/contents", {
     userId: user.userId,

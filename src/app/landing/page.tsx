@@ -1,8 +1,6 @@
 "use client";
 
-import { DebugBorder, DebugGrid } from "@/components";
 import { Button } from "@/components/ui/button";
-import { ENV } from "@/lib";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -36,7 +34,7 @@ const LandingView = () => {
         {/* Headline */}
         <h1
           className="landing-reveal mt-10 mb-6 text-5xl font-bold tracking-tight sm:text-7xl lg:text-8xl"
-          style={{ animationDelay: "0ms" }}
+          style={{ animationDelay: "var(--motion-delay-0)" }}
         >
           <span className="block">Your reading,</span>
           <span className="block text-muted-foreground/70">without the noise.</span>
@@ -45,7 +43,7 @@ const LandingView = () => {
         {/* Subtitle */}
         <p
           className="landing-reveal mx-auto mb-10 max-w-lg text-lg text-muted-foreground sm:text-xl"
-          style={{ animationDelay: "120ms" }}
+          style={{ animationDelay: "var(--motion-delay-1)" }}
         >
           A free, open-source cloud reader for RSS.
           All your sources in one calm, focused inbox.
@@ -54,13 +52,13 @@ const LandingView = () => {
         {/* Single CTA */}
         <div
           className="landing-reveal mb-16"
-          style={{ animationDelay: "240ms" }}
+          style={{ animationDelay: "var(--motion-delay-2)" }}
         >
-          <div className="transition-transform duration-150 hover:-translate-y-0.5">
+          <div className="transition-transform anim-duration-ui anim-ease-ui hover:-translate-y-0.5">
             <Button size="lg" className="h-12 px-8 text-base shadow-sm" asChild>
               <Link href="/dashboard" className="group inline-flex items-center">
                 Start Reading
-                <span className="landing-arrow-bob ml-2 inline-flex transition-transform duration-150 group-hover:translate-x-1">
+                <span className="landing-arrow-bob ml-2 inline-flex transition-transform anim-duration-ui anim-ease-ui group-hover:translate-x-1">
                   <ArrowRight className="h-4 w-4" />
                 </span>
               </Link>
@@ -89,8 +87,10 @@ const LandingView = () => {
           ].map(({ icon: Icon, label, desc }, index) => (
             <div
               key={label}
-              className="landing-reveal landing-feature group flex flex-col items-center gap-2 rounded-xl border border-transparent p-5 transition-[transform,border-color,background-color] duration-150 hover:-translate-y-1 hover:border-border/40 hover:bg-card/40"
-              style={{ animationDelay: `${360 + index * 120}ms` }}
+              className="landing-reveal landing-feature group flex flex-col items-center gap-2 rounded-xl border border-transparent p-5 transition-[transform,border-color,background-color] anim-duration-ui anim-ease-ui hover:-translate-y-1 hover:border-border/40 hover:bg-card/40"
+              style={{
+                animationDelay: `calc(var(--motion-delay-3) + (${index} * var(--motion-delay-step)))`,
+              }}
             >
               <div className="landing-feature-icon flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
                 <Icon className="h-5 w-5 text-muted-foreground" />
@@ -112,16 +112,8 @@ const LandingView = () => {
 
 export default function Landing() {
   return (
-    <>
-      {ENV.isDevelopment && (
-        <>
-          <DebugBorder />
-          <DebugGrid />
-        </>
-      )}
-      <main>
-        <LandingView />
-      </main>
-    </>
+    <main>
+      <LandingView />
+    </main>
   );
 }

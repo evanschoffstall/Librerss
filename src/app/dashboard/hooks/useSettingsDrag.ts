@@ -12,6 +12,8 @@ interface UseSettingsDragOptions {
   onDropCategory: (label: string, targetIndex: number) => Promise<void>;
 }
 
+export type UseSettingsDragReturn = ReturnType<typeof useSettingsDrag>;
+
 export function useSettingsDrag({ onDropFeed, onDropCategory }: UseSettingsDragOptions) {
   // ── Feed drag ─────────────────────────────────────────────────────────────
 

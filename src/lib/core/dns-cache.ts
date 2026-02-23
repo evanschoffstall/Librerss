@@ -38,20 +38,29 @@ function setCacheSafe(key: string, value: DnsCacheEntry): void {
   DNS_CACHE.set(key, value);
 }
 
-export async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
+export async function resolvesToBlockedAddress(
+  hostname: string,
+): Promise<boolean> {
   const cached = DNS_CACHE.get(hostname);
   if (cached && cached.expiresAt > Date.now()) return cached.blocked;
 
   try {
     const lookupPromise = lookup(hostname, { all: true, verbatim: true });
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(
         () => reject(new Error("DNS lookup timeout")),
         CONFIG.DNS_LOOKUP_TIMEOUT_MS,
-      ),
-    );
+      );
+    });
 
-    const records = await Promise.race([lookupPromise, timeoutPromise]);
+    const records = await Promise.race([lookupPromise, timeoutPromise]).finally(
+      () => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+      },
+    );
     const isBlocked = records.some((r) => isBlockedResolvedAddress(r.address));
 
     setCacheSafe(hostname, {

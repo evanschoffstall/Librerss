@@ -1,14 +1,25 @@
 // API service classes for LibreRSS
 
 import axios from "axios";
-import { parseReaderItemId, toReaderItemId } from "../core/reader-item-id";
 import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
 import { normalizeDistinctUrlList } from "../utils/url";
+import {
+  buildEditTagBody,
+  parseReaderStreamItems,
+  READER_STATE_TAGS,
+  readerItemToArticle,
+  type ReaderApiStreamResponse,
+} from "./reader-api";
 
-/** Default timeout for all API calls (ms). Prevents indefinite hangs. */
+// ── HTTP infrastructure ───────────────────────────────────────────────────────
+
 const REQUEST_TIMEOUT_MS = 15_000;
 
 const api = axios.create({ timeout: REQUEST_TIMEOUT_MS });
+
+const FORM_URLENCODED_HEADERS = {
+  "content-type": "application/x-www-form-urlencoded",
+} as const;
 
 async function withRequestDeadline<T>(
   request: Promise<T>,
@@ -25,64 +36,21 @@ async function withRequestDeadline<T>(
   try {
     return await Promise.race([request, timeoutPromise]);
   } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
+}
+
+// ── Shared response normalizers ───────────────────────────────────────────────
+
+function ensureArrayResponse<T>(data: unknown): T[] {
+  if (!Array.isArray(data)) throw new Error("Invalid response format");
+  return data as T[];
 }
 
 interface BatchFeedResponseItem {
   url: string;
   articles: Article[];
   ok: boolean;
-}
-
-type ReaderApiLink = { href?: string };
-type ReaderApiOrigin = { streamId?: string; title?: string; htmlUrl?: string };
-type ReaderApiSummary = { content?: string };
-type ReaderApiItem = {
-  id?: string;
-  title?: string;
-  published?: number;
-  updated?: number;
-  canonical?: ReaderApiLink[];
-  alternate?: ReaderApiLink[];
-  summary?: ReaderApiSummary;
-  origin?: ReaderApiOrigin;
-  categories?: string[];
-};
-
-type ReaderApiStreamResponse = {
-  items?: ReaderApiItem[];
-};
-
-const READER_STATE_TAGS = {
-  read: "user/-/state/com.google/read",
-  starred: "user/-/state/com.google/starred",
-} as const;
-
-const FORM_URLENCODED_HEADERS = {
-  "content-type": "application/x-www-form-urlencoded",
-} as const;
-
-function resolvePublishedTimestamp(item: ReaderApiItem): number {
-  if (typeof item.published === "number") {
-    return item.published * 1000;
-  }
-
-  if (typeof item.updated === "number") {
-    return item.updated * 1000;
-  }
-
-  return Date.now();
-}
-
-function ensureArrayResponse<T>(data: unknown): T[] {
-  if (!Array.isArray(data)) {
-    throw new Error("Invalid response format");
-  }
-
-  return data as T[];
 }
 
 function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
@@ -93,18 +61,12 @@ function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
 
   return {
     url: typeof candidate.url === "string" ? candidate.url : "",
-    articles: Array.isArray(candidate.articles)
-      ? (candidate.articles as Article[])
-      : [],
+    articles: Array.isArray(candidate.articles) ? (candidate.articles as Article[]) : [],
     ok: Boolean(candidate.ok),
   };
 }
 
-function parseReaderStreamItems(
-  data: ReaderApiStreamResponse | undefined,
-): ReaderApiItem[] {
-  return Array.isArray(data?.items) ? data.items : [];
-}
+// ── AuthService ───────────────────────────────────────────────────────────────
 
 export class AuthService {
   private static baseUrl = "/api/auth";
@@ -115,18 +77,12 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<AuthUser> {
-    const response = await api.post(`${this.baseUrl}/login`, {
-      email,
-      password,
-    });
+    const response = await api.post(`${this.baseUrl}/login`, { email, password });
     return response.data.user;
   }
 
   static async signup(email: string, password: string): Promise<AuthUser> {
-    const response = await api.post(`${this.baseUrl}/signup`, {
-      email,
-      password,
-    });
+    const response = await api.post(`${this.baseUrl}/signup`, { email, password });
     return response.data.user;
   }
 
@@ -134,6 +90,8 @@ export class AuthService {
     await api.post(`${this.baseUrl}/logout`);
   }
 }
+
+// ── FeedService ───────────────────────────────────────────────────────────────
 
 export class FeedService {
   private static baseUrl = "/api";
@@ -146,9 +104,7 @@ export class FeedService {
   }
 
   static async getFeedSources(): Promise<FeedSource[]> {
-    const response = await withRequestDeadline(
-      api.get(`${this.baseUrl}/feeds`),
-    );
+    const response = await withRequestDeadline(api.get(`${this.baseUrl}/feeds`));
     return ensureArrayResponse<FeedSource>(response.data);
   }
 
@@ -157,16 +113,10 @@ export class FeedService {
     { skipRefresh = false }: { skipRefresh?: boolean } = {},
   ): Promise<BatchFeedResponseItem[]> {
     const normalizedUrls = normalizeDistinctUrlList(urls);
-
-    if (normalizedUrls.length === 0) {
-      return [];
-    }
+    if (normalizedUrls.length === 0) return [];
 
     const response = await withRequestDeadline(
-      api.post(`${this.baseUrl}/feeds/batch`, {
-        urls: normalizedUrls,
-        skipRefresh,
-      }),
+      api.post(`${this.baseUrl}/feeds/batch`, { urls: normalizedUrls, skipRefresh }),
     );
 
     const batchItems = ensureArrayResponse<unknown>(response.data);
@@ -191,14 +141,14 @@ export class FeedService {
   }
 }
 
+// ── ArticleService ────────────────────────────────────────────────────────────
+
 export class ArticleService {
   private static baseUrl = "/api";
-
   private static greaderBaseUrl = "/api/greader.php/reader/api/0";
 
   private static streamContentsUrl(streamId: string): string {
-    const encodedStreamId = encodeURIComponent(streamId);
-    return `${this.greaderBaseUrl}/stream/contents/${encodedStreamId}?output=json&n=250`;
+    return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
   }
 
   private static async postGreaderForm(
@@ -210,54 +160,22 @@ export class ArticleService {
     });
   }
 
-  private static toArticle(item: ReaderApiItem, index: number): Article {
-    const publicationDate = new Date(resolvePublishedTimestamp(item));
-    const canonicalLink = item.canonical?.[0]?.href;
-    const alternateLink = item.alternate?.[0]?.href;
-    const link = canonicalLink || alternateLink || `about:reader-item-${index}`;
-    const originFeedUrl =
-      item.origin?.htmlUrl ||
-      (item.origin?.streamId?.startsWith("feed/")
-        ? item.origin.streamId.slice("feed/".length)
-        : undefined);
-    const categories = item.categories ?? [];
-
-    return {
-      id: (item.id ? parseReaderItemId(item.id) : null) ?? index + 1,
-      title: item.title?.trim() || "Untitled",
-      link,
-      content: item.summary?.content || "",
-      publicationDate,
-      lastChecked: new Date(),
-      feedId: 0,
-      feedName: item.origin?.title,
-      feedUrl: originFeedUrl,
-      isRead: categories.includes(READER_STATE_TAGS.read),
-      isStarred: categories.includes(READER_STATE_TAGS.starred),
-    };
-  }
-
   static async getArticles(): Promise<Article[]> {
     const response = await api.get(`${this.baseUrl}/articles`);
     return response.data;
   }
 
   static async extractArticleContent(url: string): Promise<string> {
-    const response = await api.post(`${this.baseUrl}/articles/extract`, {
-      url,
-    });
-    return typeof response.data?.content === "string"
-      ? response.data.content
-      : "";
+    const response = await api.post(`${this.baseUrl}/articles/extract`, { url });
+    return typeof response.data?.content === "string" ? response.data.content : "";
   }
 
   static async getReaderStream(streamId: string): Promise<Article[]> {
     const response = await api.get<ReaderApiStreamResponse>(
       this.streamContentsUrl(streamId),
     );
-
     const items = parseReaderStreamItems(response.data);
-    return items.map((item, index) => this.toArticle(item, index));
+    return items.map((item, index) => readerItemToArticle(item, index));
   }
 
   static async markAllRead(streamId: string): Promise<void> {
@@ -265,52 +183,23 @@ export class ArticleService {
     await this.postGreaderForm("/mark-all-as-read", body);
   }
 
-  private static async editArticleTags(
-    articleId: number,
-    { addTag, removeTag }: { addTag?: string; removeTag?: string },
-  ): Promise<void> {
-    const body = new URLSearchParams({
-      i: toReaderItemId(articleId),
-      async: "true",
-    });
-
-    if (addTag) {
-      body.append("a", addTag);
-    }
-
-    if (removeTag) {
-      body.append("r", removeTag);
-    }
-
-    await this.postGreaderForm("/edit-tag", body);
-  }
-
   private static async setArticleTagState(
     articleId: number,
     tag: string,
     enabled: boolean,
   ): Promise<void> {
-    await this.editArticleTags(articleId, {
+    const body = buildEditTagBody(articleId, {
       addTag: enabled ? tag : undefined,
       removeTag: enabled ? undefined : tag,
     });
+    await this.postGreaderForm("/edit-tag", body);
   }
 
-  static async setArticleReadState(
-    articleId: number,
-    isRead: boolean,
-  ): Promise<void> {
+  static async setArticleReadState(articleId: number, isRead: boolean): Promise<void> {
     await this.setArticleTagState(articleId, READER_STATE_TAGS.read, isRead);
   }
 
-  static async setArticleStarredState(
-    articleId: number,
-    isStarred: boolean,
-  ): Promise<void> {
-    await this.setArticleTagState(
-      articleId,
-      READER_STATE_TAGS.starred,
-      isStarred,
-    );
+  static async setArticleStarredState(articleId: number, isStarred: boolean): Promise<void> {
+    await this.setArticleTagState(articleId, READER_STATE_TAGS.starred, isStarred);
   }
 }

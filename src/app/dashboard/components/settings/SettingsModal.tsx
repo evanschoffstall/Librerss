@@ -1,4 +1,3 @@
-import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -7,9 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   DEFAULT_CATEGORY_LABEL,
@@ -22,8 +19,9 @@ import { Loader2, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSettingsDrag } from "../../hooks/useSettingsDrag";
-import { SettingsCategoryAccordionItem } from "./SettingsCategoryAccordionItem";
+import { SettingsCategoryList } from "./SettingsCategoryList";
 import { SettingsDisplaySection } from "./SettingsDisplaySection";
+import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -185,7 +183,7 @@ export const SettingsModal = ({
     }
   };
 
-  // ── OPML handlers ─────────────────────────────────────────────────────────
+  // ── OPML handler ──────────────────────────────────────────────────────────
 
   const handleOpmlFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -209,7 +207,7 @@ export const SettingsModal = ({
     }
   };
 
-  // ── Shared accordion item props ───────────────────────────────────────────
+  // ── Shared feed-row props ─────────────────────────────────────────────────
 
   const sharedFeedRowProps = {
     selectedCategory,
@@ -227,8 +225,14 @@ export const SettingsModal = ({
     onSelectFeed,
     onEditingFeedNameChange: setEditingFeedName,
     onSaveFeedRename: (key: string) => void handleSaveFeedRename(key),
-    onCancelFeedEdit: () => { setEditingFeedKey(null); setEditingFeedName(""); },
-    onStartFeedEdit: (key: string, name: string) => { setEditingFeedKey(key); setEditingFeedName(name); },
+    onCancelFeedEdit: () => {
+      setEditingFeedKey(null);
+      setEditingFeedName("");
+    },
+    onStartFeedEdit: (key: string, name: string) => {
+      setEditingFeedKey(key);
+      setEditingFeedName(name);
+    },
     onRemoveFeed: (key: string) => void handleRemoveFeed(key),
   };
 
@@ -287,147 +291,46 @@ export const SettingsModal = ({
 
               <TooltipProvider delayDuration={300}>
                 {isImportingOpml ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="rounded-md border px-3 py-2.5 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Skeleton className="h-3 w-20" />
-                          <div className="flex gap-1">
-                            <Skeleton className="size-7 rounded-md" />
-                            <Skeleton className="size-7 rounded-md" />
-                          </div>
-                        </div>
-                        {i < 3 && (
-                          <div className="space-y-1.5 pt-0.5">
-                            {Array.from({ length: 2 + (i % 2) }).map((_, j) => (
-                              <div key={j} className="flex items-center gap-2 rounded-md border px-3 py-2">
-                                <Skeleton className="size-4" />
-                                <div className="flex-1 space-y-1">
-                                  <Skeleton className="h-3 w-32" />
-                                  <Skeleton className="h-2.5 w-40" />
-                                </div>
-                                <Skeleton className="size-7 rounded-md" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <p className="text-center text-xs text-muted-foreground pt-1">
-                      Importing feeds…
-                    </p>
-                  </div>
-                ) : categories.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <p className="text-sm text-muted-foreground">No categories yet.</p>
-                    <div className="mt-3 flex items-center justify-center gap-2">
-                      <Input
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        placeholder="Category name..."
-                        className="max-w-[200px]"
-                        onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-                      />
-                      <Button
-                        size="sm"
-                        onClick={handleAddCategory}
-                        disabled={!newCategoryName.trim()}
-                      >
-                        <Plus className="mr-1.5 size-3.5" />
-                        Add
-                      </Button>
-                    </div>
-                  </div>
+                  <SettingsImportSkeleton />
                 ) : (
-                  <div>
-                    <Accordion
-                      key={categories
-                        .map((n) => `${n.key}:${(n.children ?? []).length}`)
-                        .join("|")}
-                      type="multiple"
-                      defaultValue={categories.map((c) => c.key)}
-                      className="space-y-2"
-                    >
-                      {categories.map((categoryNode, categoryIndex) => (
-                        <SettingsCategoryAccordionItem
-                          key={categoryNode.key}
-                          categoryNode={categoryNode}
-                          categoryIndex={categoryIndex}
-                          pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
-                          addingFeedInCategory={addingFeedInCategory}
-                          newFeedName={newFeedName}
-                          newFeedUrl={newFeedUrl}
-                          isSavingFeed={isSavingFeed}
-                          editingCategory={editingCategory}
-                          editingCategoryName={editingCategoryName}
-                          savingCategoryLabel={savingCategoryLabel}
-                          categoryDropIndex={drag.categoryDropIndex}
-                          onCategoryDragStart={drag.onCategoryDragStart}
-                          onCategoryDragEnd={drag.onCategoryDragEnd}
-                          onCategoryDragOver={drag.onCategoryDragOver}
-                          onCategoryDrop={drag.onCategoryDrop}
-                          onEditingCategoryNameChange={setEditingCategoryName}
-                          onSaveCategoryRename={(label) => void handleSaveCategoryRename(label)}
-                          onCancelCategoryEdit={() => {
-                            setEditingCategory(null);
-                            setEditingCategoryName("");
-                          }}
-                          onStartCategoryEdit={(label) => {
-                            setEditingCategory(label);
-                            setEditingCategoryName(label);
-                          }}
-                          onToggleAddFeed={(label) => {
-                            setAddingFeedInCategory(
-                              addingFeedInCategory === label ? null : label,
-                            );
-                            setNewFeedName("");
-                            setNewFeedUrl("");
-                          }}
-                          onRemoveCategory={(label) => void onRemoveCategory(label)}
-                          onNewFeedNameChange={setNewFeedName}
-                          onNewFeedUrlChange={setNewFeedUrl}
-                          onAddFeed={(label) => void handleAddFeed(label)}
-                          onCancelAddFeed={() => setAddingFeedInCategory(null)}
-                          {...sharedFeedRowProps}
-                        />
-                      ))}
-
-                      {drag.draggingCategoryLabel && (
-                        <div
-                          className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${drag.categoryDropIndex === categories.length
-                            ? "border-primary bg-primary/5 text-foreground"
-                            : "text-muted-foreground"
-                            }`}
-                          onDragOver={(event) =>
-                            drag.onCategoryDragOver(event, categories.length)
-                          }
-                          onDrop={(event) => drag.onCategoryDrop(event, categories.length)}
-                        >
-                          Drop category here
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 rounded-md border border-dashed p-2.5">
-                        <Input
-                          value={newCategoryName}
-                          onChange={(e) => setNewCategoryName(e.target.value)}
-                          placeholder="New category name..."
-                          className="h-8 text-sm"
-                          onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 shrink-0"
-                          onClick={handleAddCategory}
-                          disabled={!newCategoryName.trim()}
-                        >
-                          <Plus className="mr-1.5 size-3.5" />
-                          Add Category
-                        </Button>
-                      </div>
-                    </Accordion>
-                  </div>
+                  <SettingsCategoryList
+                    categories={categories}
+                    pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
+                    newCategoryName={newCategoryName}
+                    addingFeedInCategory={addingFeedInCategory}
+                    newFeedName={newFeedName}
+                    newFeedUrl={newFeedUrl}
+                    isSavingFeed={isSavingFeed}
+                    editingCategory={editingCategory}
+                    editingCategoryName={editingCategoryName}
+                    savingCategoryLabel={savingCategoryLabel}
+                    drag={drag}
+                    onNewCategoryNameChange={setNewCategoryName}
+                    onAddCategory={handleAddCategory}
+                    onEditingCategoryNameChange={setEditingCategoryName}
+                    onSaveCategoryRename={(label) => void handleSaveCategoryRename(label)}
+                    onCancelCategoryEdit={() => {
+                      setEditingCategory(null);
+                      setEditingCategoryName("");
+                    }}
+                    onStartCategoryEdit={(label) => {
+                      setEditingCategory(label);
+                      setEditingCategoryName(label);
+                    }}
+                    onToggleAddFeed={(label) => {
+                      setAddingFeedInCategory(
+                        addingFeedInCategory === label ? null : label,
+                      );
+                      setNewFeedName("");
+                      setNewFeedUrl("");
+                    }}
+                    onRemoveCategory={(label) => void onRemoveCategory(label)}
+                    onNewFeedNameChange={setNewFeedName}
+                    onNewFeedUrlChange={setNewFeedUrl}
+                    onAddFeed={(label) => void handleAddFeed(label)}
+                    onCancelAddFeed={() => setAddingFeedInCategory(null)}
+                    sharedFeedRowProps={sharedFeedRowProps}
+                  />
                 )}
               </TooltipProvider>
             </section>

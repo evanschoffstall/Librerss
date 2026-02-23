@@ -58,7 +58,7 @@ export function SettingsFeedRow({
   return (
     <div
       key={feedNode.key}
-      className={`flex items-center gap-2 rounded-md border px-3 py-2 transition-colors duration-150 ${isDropTarget ? "border-primary bg-primary/5" : ""}`}
+      className={`flex items-center gap-2 rounded-md border px-3 py-2 transition-colors anim-duration-ui anim-ease-ui ${isDropTarget ? "border-primary bg-primary/5" : ""}`}
       onDragOver={(event) => onDragOver(event, categoryLabel, index)}
       onDrop={(event) => onDrop(event, categoryLabel, index)}
     >

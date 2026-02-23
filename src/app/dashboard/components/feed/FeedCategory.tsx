@@ -1,14 +1,7 @@
 import { type CategoryTreeNode } from "@/lib";
 import { Globe } from "lucide-react";
-import { useEffect, useState } from "react";
-import {
-  getCachedFaviconIndex,
-  getFaviconCacheKey,
-  getFaviconCandidates,
-  getFaviconTintColors,
-  getHostnameLabel,
-  setCachedFaviconIndex,
-} from "../../helpers/favicons";
+import { getHostnameLabel, setCachedFaviconIndex } from "../../helpers/favicons";
+import { useFavicon } from "../../hooks/useFavicon";
 
 interface FeedCategoryProps {
   category: CategoryTreeNode;
@@ -18,15 +11,14 @@ interface FeedCategoryProps {
 }
 
 export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedCategoryProps) => {
-  const faviconCandidates = getFaviconCandidates(category.data?.url);
-  const faviconCacheKey = getFaviconCacheKey(category.data?.url);
-  const [faviconIndex, setFaviconIndex] = useState(() => getCachedFaviconIndex(faviconCacheKey));
-  const faviconUrl = faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
-  const faviconTint = getFaviconTintColors(category.data?.url);
-
-  useEffect(() => {
-    setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
-  }, [faviconCacheKey]);
+  const {
+    faviconUrl,
+    faviconTint,
+    faviconCacheKey,
+    faviconIndex,
+    faviconCandidates,
+    setFaviconIndex,
+  } = useFavicon({ primaryUrl: category.data?.url });
 
   const shouldShowFavicon = showFavicon && Boolean(faviconUrl);
 

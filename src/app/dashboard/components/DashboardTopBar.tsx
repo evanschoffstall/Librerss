@@ -6,9 +6,10 @@ import { CheckCheck, LogOut, Menu, Moon, RefreshCw, Search, Settings2, Sun } fro
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { DASHBOARD_EVENTS } from "../constants";
 
 const toolbarBtnClass =
-  "transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
+  "transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
 
 /**
  * Fixed top bar shown on the dashboard route.
@@ -42,13 +43,13 @@ export function DashboardTopBar() {
 
     const handleEnterPreview = () => setIsPreviewMode(true);
 
-    window.addEventListener("dashboard:title-change", handleTitleChange as EventListener);
-    window.addEventListener("dashboard:search-sync", handleSearchSync as EventListener);
-    window.addEventListener("dashboard:enter-preview", handleEnterPreview);
+    window.addEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
+    window.addEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
+    window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
     return () => {
-      window.removeEventListener("dashboard:title-change", handleTitleChange as EventListener);
-      window.removeEventListener("dashboard:search-sync", handleSearchSync as EventListener);
-      window.removeEventListener("dashboard:enter-preview", handleEnterPreview);
+      window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
+      window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
+      window.removeEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
     };
   }, []);
 
@@ -57,7 +58,7 @@ export function DashboardTopBar() {
 
   const handleSearchChange = (term: string) => {
     setSearch(term);
-    window.dispatchEvent(new CustomEvent("dashboard:search-change", { detail: { term } }));
+    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { detail: { term } }));
   };
 
   const handleSignOut = async () => {
@@ -83,7 +84,7 @@ export function DashboardTopBar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-6">
         <button
           type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent("dashboard:open-feeds-sidebar"))}
+          onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR))}
           aria-label="Open feeds"
           className={`${toolbarBtnClass} lg:hidden`}
         >
@@ -105,7 +106,7 @@ export function DashboardTopBar() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("dashboard:refresh"))}
+            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))}
             aria-label="Refresh selected feed"
             className={toolbarBtnClass}
           >
@@ -114,7 +115,7 @@ export function DashboardTopBar() {
 
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("dashboard:mark-all-read"))}
+            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))}
             aria-label="Mark all read"
             className={toolbarBtnClass}
           >
@@ -123,7 +124,7 @@ export function DashboardTopBar() {
 
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("dashboard:open-settings"))}
+            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))}
             aria-label="Open dashboard settings"
             className={toolbarBtnClass}
           >

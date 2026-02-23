@@ -544,6 +544,76 @@ describe("parseJsonBody", () => {
   });
 });
 
+describe("parseFormOrQueryParams", () => {
+  test("returns 413 when content-length exceeds configured max", async () => {
+    const { parseFormOrQueryParams } = await import("@/lib/api/request");
+    const request = new Request("https://app.example.test/api/greader.php", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "content-length": "2048",
+      },
+      body: "s=user/-/state/com.google/reading-list",
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
+    expect(result instanceof Response).toBe(true);
+    if (result instanceof Response) {
+      expect(result.status).toBe(413);
+    }
+  });
+
+  test("returns 413 when UTF-8 body bytes exceed max", async () => {
+    const { parseFormOrQueryParams } = await import("@/lib/api/request");
+    const body = `q=${"x".repeat(2048)}`;
+    const request = new Request("https://app.example.test/api/greader.php", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body,
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
+    expect(result instanceof Response).toBe(true);
+    if (result instanceof Response) {
+      expect(result.status).toBe(413);
+    }
+  });
+});
+
+describe("greader reader-item hardening", () => {
+  test("parseDistinctReaderArticleIds dedupes and caps item IDs", async () => {
+    const { parseDistinctReaderArticleIds } =
+      await import("@/app/api/greader.php/[...segments]/utils/reader-item-params");
+
+    const ids = parseDistinctReaderArticleIds(
+      [
+        "tag:google.com,2005:reader/item/1",
+        "tag:google.com,2005:reader/item/1",
+        "tag:google.com,2005:reader/item/2",
+        "tag:google.com,2005:reader/item/3",
+      ],
+      { maxItems: 2 },
+    );
+
+    expect(ids).toEqual([1, 2]);
+  });
+
+  test("parseOlderThanDate ignores non-positive and invalid values", async () => {
+    const { parseOlderThanDate } =
+      await import("@/app/api/greader.php/[...segments]/utils/stream");
+
+    expect(parseOlderThanDate(new URLSearchParams("ot=0"))).toBeNull();
+    expect(parseOlderThanDate(new URLSearchParams("ot=-1"))).toBeNull();
+    expect(parseOlderThanDate(new URLSearchParams("ot=NaN"))).toBeNull();
+
+    const parsed = parseOlderThanDate(new URLSearchParams("ot=1700000000"));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.getTime()).toBe(1700000000 * 1000);
+  });
+});
+
 describe("logger redaction", () => {
   test("redacts sensitive keys recursively", async () => {
     const logs: string[] = [];

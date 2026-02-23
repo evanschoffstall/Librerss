@@ -17,6 +17,9 @@ export async function handleMarkAllAsRead(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
   const stream = params.get("s") ?? "user/-/state/com.google/reading-list";
 
   const db = getDb();
@@ -138,7 +141,12 @@ export async function handleEditTag(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
-  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"));
+  if (params instanceof Response) {
+    return params;
+  }
+  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"), {
+    maxItems: MAX_STREAM_ITEMS,
+  });
 
   if (articleIds.length === 0) {
     return textResponse("OK\n");

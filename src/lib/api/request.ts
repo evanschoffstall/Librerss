@@ -66,26 +66,27 @@ export async function parseJsonBodyOrResponse<T>(
 
 export async function parseFormOrQueryParams(
   request: Request,
-): Promise<URLSearchParams> {
+  options?: { maxBytes?: number },
+): Promise<URLSearchParams | Response> {
+  const maxBytes = options?.maxBytes ?? CONFIG.MAX_JSON_BODY_BYTES;
+
   if (request.method === "GET") {
     return new URL(request.url).searchParams;
   }
 
-  const contentType = request.headers.get("content-type") ?? "";
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const form = await request.formData();
-    const params = new URLSearchParams();
-
-    for (const [key, value] of form.entries()) {
-      if (typeof value === "string") {
-        params.append(key, value);
-      }
+  const contentLengthHeader = request.headers.get("content-length");
+  if (contentLengthHeader) {
+    const contentLength = Number(contentLengthHeader);
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+      return jsonError("Request body too large", 413);
     }
-
-    return params;
   }
 
   const raw = await request.text();
+  if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+    return jsonError("Request body too large", 413);
+  }
+
   return new URLSearchParams(raw);
 }
 

@@ -101,6 +101,9 @@ export async function handleSubscriptionQuickAdd(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
   const quickAdd = params.get("quickadd")?.trim() ?? "";
 
   const normalizedUrl = tryNormalizeFeedUrl(quickAdd);
@@ -160,6 +163,9 @@ export async function handleSubscriptionEdit(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
   const subscriptionId = params.get("s")?.trim() ?? "";
   const action = params.get("ac")?.trim() ?? "";
   const title = params.get("t")?.trim() ?? "";

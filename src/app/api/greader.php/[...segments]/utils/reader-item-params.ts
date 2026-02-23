@@ -1,11 +1,26 @@
 import { parseReaderItemId } from "@/lib/core/reader-item-id";
 
-export function parseDistinctReaderArticleIds(values: string[]): number[] {
-  return Array.from(
-    new Set(
-      values
-        .map((value) => parseReaderItemId(value))
-        .filter((value): value is number => value !== null),
-    ),
-  );
+export function parseDistinctReaderArticleIds(
+  values: string[],
+  options?: { maxItems?: number },
+): number[] {
+  const maxItems = options?.maxItems ?? 250;
+  const ids: number[] = [];
+  const seen = new Set<number>();
+
+  for (const value of values) {
+    const parsed = parseReaderItemId(value);
+    if (parsed === null || seen.has(parsed)) {
+      continue;
+    }
+
+    ids.push(parsed);
+    seen.add(parsed);
+
+    if (ids.length >= maxItems) {
+      break;
+    }
+  }
+
+  return ids;
 }
