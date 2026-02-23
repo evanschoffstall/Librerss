@@ -22,35 +22,39 @@ export function SettingsDisplaySection({
   onShowFaviconsChange,
 }: SettingsDisplaySectionProps) {
   return (
-    <section className="space-y-3">
+    <section className="rounded-lg border bg-card p-4 space-y-4">
       <div>
-        <h3 className="text-sm font-medium">Display</h3>
-        <p className="text-xs text-muted-foreground">Adjust reader presentation preferences.</p>
+        <h3 className="font-semibold">Display</h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Customize how articles are displayed in the list.
+        </p>
       </div>
-      <div className="flex items-center justify-between">
-        <Label htmlFor="auto-refresh">Auto-refresh</Label>
-        <Switch id="auto-refresh" defaultChecked />
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <Label>Items per page</Label>
-        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select amount" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="10">10 articles</SelectItem>
-            <SelectItem value="25">25 articles</SelectItem>
-            <SelectItem value="50">50 articles</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex items-center justify-between">
-        <Label htmlFor="show-favicons">Show favicons</Label>
-        <Switch
-          id="show-favicons"
-          checked={showFavicons}
-          onCheckedChange={onShowFaviconsChange}
-        />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="auto-refresh">Auto-refresh</Label>
+          <Switch id="auto-refresh" defaultChecked />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <Label>Items per page</Label>
+          <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select amount" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10 articles</SelectItem>
+              <SelectItem value="25">25 articles</SelectItem>
+              <SelectItem value="50">50 articles</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-favicons">Show favicons</Label>
+          <Switch
+            id="show-favicons"
+            checked={showFavicons}
+            onCheckedChange={onShowFaviconsChange}
+          />
+        </div>
       </div>
     </section>
   );
