@@ -18,7 +18,7 @@ import {
   loadUserCategoryFallbackByFeedUrl,
   resolveCategoryWithFallback,
 } from "../utils/categories";
-import { toReaderCategoryLabel, toReaderIconUrl } from "../utils/mappers";
+import { toReaderIconUrl } from "../utils/mappers";
 import { textResponse } from "../utils/responses";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
@@ -26,8 +26,10 @@ export async function handleTagList(user: SessionUser): Promise<Response> {
 
   // Query all FeedSources with their category assignments so we can both
   // collect the distinct labels AND detect whether any feed is uncategorized.
+  // Include the URL so we can apply the same category fallback used by
+  // subscription/list — ensuring both responses agree on which categories exist.
   const rows = await db
-    .select({ category: feedCategories.category })
+    .select({ category: feedCategories.category, url: feedSources.url })
     .from(feedSources)
     .leftJoin(feeds, eq(feeds.url, feedSources.url))
     .leftJoin(
@@ -39,12 +41,23 @@ export async function handleTagList(user: SessionUser): Promise<Response> {
     )
     .where(eq(feedSources.userId, user.userId));
 
-  const hasUncategorized = rows.some((row) => !row.category?.trim());
+  // Apply the same URL-normalisation fallback as subscription/list so that
+  // the category IDs in tag/list always match what subscription/list emits.
+  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
+  const categoryFallbackByUrl = needsCategoryFallback
+    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
+    : new Map<string, string>();
+
+  const resolvedCategories = rows.map((row) =>
+    resolveCategoryWithFallback(row.category, row.url, categoryFallbackByUrl),
+  );
+
+  const hasUncategorized = resolvedCategories.some((cat) => !cat?.trim());
 
   const namedLabels = Array.from(
     new Set(
-      rows
-        .map((row) => row.category?.trim())
+      resolvedCategories
+        .map((cat) => cat?.trim())
         .filter((label): label is string => Boolean(label)),
     ),
   );
@@ -108,13 +121,12 @@ export async function handleSubscriptionList(
 
   return NextResponse.json({
     subscriptions: rows.map((row) => {
-      const categoryLabel = toReaderCategoryLabel(
-        resolveCategoryWithFallback(
-          row.category,
-          row.url,
-          categoryFallbackByUrl,
-        ),
+      const resolvedCategory = resolveCategoryWithFallback(
+        row.category,
+        row.url,
+        categoryFallbackByUrl,
       );
+      const categoryLabel = resolvedCategory?.trim() || null;
       return {
         id: `feed/${row.url}`,
         title: row.title,
@@ -122,12 +134,13 @@ export async function handleSubscriptionList(
         htmlUrl: row.url,
         iconUrl: toReaderIconUrl(row.url),
         sortid: String(row.sourceId),
-        categories: [
-          {
-            id: `user/-/label/${categoryLabel}`,
-            label: categoryLabel,
-          },
-        ],
+        // Return an empty categories array for feeds with no resolved category
+        // so NNW leaves them at the account top level rather than treating them
+        // as belonging to "My Feeds" — which would cause an early return in
+        // syncFeedFolderRelationship when "My Feeds" is absent from tag/list.
+        categories: categoryLabel
+          ? [{ id: `user/-/label/${categoryLabel}`, label: categoryLabel }]
+          : [],
       };
     }),
   });

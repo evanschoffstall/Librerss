@@ -29,7 +29,7 @@ export function toCategoryLookupKey(feedUrl: string): string {
 
 export function resolveCategoryWithFallback(
   category: string | null | undefined,
-  feedUrl: string,
+  feedUrl: string | null | undefined,
   fallbackByUrlKey: Map<string, string>,
 ): string | null {
   const normalizedCategory = category?.trim();
@@ -37,6 +37,7 @@ export function resolveCategoryWithFallback(
     return normalizedCategory;
   }
 
+  if (!feedUrl) return null;
   const lookupKey = toCategoryLookupKey(feedUrl);
   return lookupKey ? (fallbackByUrlKey.get(lookupKey) ?? null) : null;
 }
