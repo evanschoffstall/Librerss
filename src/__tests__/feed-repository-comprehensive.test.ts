@@ -3,19 +3,54 @@
  * Tests for src/app/api/feeds/feed-repository.ts
  */
 
-import {
-  createOrUpdateFeedSource,
-  deleteFeedSourceForUser,
-  listFeedSourcesForUser,
-  renameFeedSourceForUser,
-  toFeedSourceResponse,
-} from "@/app/api/feeds/feed-repository";
 import type { FeedTransaction } from "@/app/api/feeds/feed-types";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import * as realUrlModule from "@/lib/utils/url";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
+
+const getFeedRepository = async () => import("@/app/api/feeds/feed-repository");
+
+const toFeedSourceResponse = async (row: {
+  id: number;
+  name: string;
+  url: string;
+  category: string | null;
+}) => (await getFeedRepository()).toFeedSourceResponse(row);
+
+const listFeedSourcesForUser = async (userId: number) =>
+  (await getFeedRepository()).listFeedSourcesForUser(userId);
+
+const createOrUpdateFeedSource = async (
+  tx: FeedTransaction,
+  userId: number,
+  payload: { name: string; url: string; category: string },
+) => (await getFeedRepository()).createOrUpdateFeedSource(tx, userId, payload);
+
+const renameFeedSourceForUser = async (
+  userId: number,
+  sourceId: number,
+  name: string,
+  url: string,
+) =>
+  (await getFeedRepository()).renameFeedSourceForUser(
+    userId,
+    sourceId,
+    name,
+    url,
+  );
+
+const deleteFeedSourceForUser = async (userId: number, sourceId: number) =>
+  (await getFeedRepository()).deleteFeedSourceForUser(userId, sourceId);
 
 afterAll(() => {
   mock.module("@/lib/db/db", () => realDbModule);
@@ -91,8 +126,13 @@ beforeAll(() => {
   registerModuleMocks();
 });
 
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
+
 describe("Feed Repository - Response Transformers", () => {
-  test("toFeedSourceResponse normalizes empty category", () => {
+  test("toFeedSourceResponse normalizes empty category", async () => {
     const row = {
       id: 1,
       name: "Test Feed",
@@ -100,12 +140,12 @@ describe("Feed Repository - Response Transformers", () => {
       category: null,
     };
 
-    const result = toFeedSourceResponse(row);
+    const result = await toFeedSourceResponse(row);
 
     expect(result.category).toBe(DEFAULT_CATEGORY_LABEL);
   });
 
-  test("toFeedSourceResponse trims whitespace from category", () => {
+  test("toFeedSourceResponse trims whitespace from category", async () => {
     const row = {
       id: 1,
       name: "Test Feed",
@@ -113,12 +153,12 @@ describe("Feed Repository - Response Transformers", () => {
       category: "  Tech  ",
     };
 
-    const result = toFeedSourceResponse(row);
+    const result = await toFeedSourceResponse(row);
 
     expect(result.category).toBe("Tech");
   });
 
-  test("toFeedSourceResponse preserves valid category", () => {
+  test("toFeedSourceResponse preserves valid category", async () => {
     const row = {
       id: 1,
       name: "Test Feed",
@@ -126,12 +166,12 @@ describe("Feed Repository - Response Transformers", () => {
       category: "Technology",
     };
 
-    const result = toFeedSourceResponse(row);
+    const result = await toFeedSourceResponse(row);
 
     expect(result.category).toBe("Technology");
   });
 
-  test("toFeedSourceResponse handles empty string category", () => {
+  test("toFeedSourceResponse handles empty string category", async () => {
     const row = {
       id: 1,
       name: "Test Feed",
@@ -139,7 +179,7 @@ describe("Feed Repository - Response Transformers", () => {
       category: "",
     };
 
-    const result = toFeedSourceResponse(row);
+    const result = await toFeedSourceResponse(row);
 
     expect(result.category).toBe(DEFAULT_CATEGORY_LABEL);
   });
