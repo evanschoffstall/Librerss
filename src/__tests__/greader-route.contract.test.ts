@@ -85,6 +85,7 @@ mock.module("@/lib/auth/session", () => ({
     email: "test@example.com",
   }),
   getUserFromSessionToken: async () => null,
+  SESSION_COOKIE_NAME: "librerss_session",
   verifyPassword: async () => false,
 }));
 
@@ -96,7 +97,6 @@ mock.module("@/lib/core/runtime", () => ({
   },
   RUNTIME_FLAGS: {
     usePlaceholderData: false,
-    allowPlaceholderAuth: false,
   },
 }));
 

@@ -25,24 +25,6 @@ export const RUNTIME_FLAGS = {
   get usePlaceholderData() {
     return !this.hasDatabaseUrl;
   },
-  get allowPlaceholderAuth() {
-    const enabled = parseBooleanEnv(
-      process.env.ALLOW_PLACEHOLDER_AUTH,
-      process.env.NODE_ENV !== "production",
-    );
-    // SECURITY: Emit a loud warning when placeholder auth is active in
-    // production.  The placeholder session token is process-scoped and
-    // randomly generated (see below), but it still bypasses the database and
-    // provides admin access with a well-known credential set.
-    if (enabled && process.env.NODE_ENV === "production") {
-      console.warn(
-        "[security] ALLOW_PLACEHOLDER_AUTH is enabled in production. " +
-          "This grants admin access without a database. " +
-          "Set DATABASE_URL and disable ALLOW_PLACEHOLDER_AUTH for production deployments.",
-      );
-    }
-    return enabled;
-  },
   get allowSignup() {
     return parseBooleanEnv(process.env.ALLOW_SIGNUP, true);
   },
