@@ -8,15 +8,13 @@
 import {
   FeedService,
   normalizeCategory,
+  normalizeCategoryLabelKey,
   type Article,
   type CategoryTreeNode,
 } from "@/lib";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import {
-  flattenCategoryFeeds,
-  normalizeLabel,
-} from "../helpers/category-helpers";
+import { flattenCategoryFeeds } from "../helpers/category-helpers";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
 interface UseCategoryManagerOptions {
@@ -51,20 +49,22 @@ export function useCategoryManager({
 
   const ensureCategoryLabelExists = useCallback(
     (label: string) => {
-      const normalized = normalizeLabel(label);
+      const normalized = normalizeCategoryLabelKey(label);
 
       setCustomCategoryLabels((current) => {
-        if (current.some((l) => normalizeLabel(l) === normalized))
+        if (current.some((l) => normalizeCategoryLabelKey(l) === normalized))
           return current;
         if (
-          categories.some((node) => normalizeLabel(node.label) === normalized)
+          categories.some(
+            (node) => normalizeCategoryLabelKey(node.label) === normalized,
+          )
         )
           return current;
         return [...current, label];
       });
 
       setOrderedCategoryLabels((current) => {
-        if (current.some((l) => normalizeLabel(l) === normalized))
+        if (current.some((l) => normalizeCategoryLabelKey(l) === normalized))
           return current;
         return [...current, label];
       });
@@ -93,11 +93,11 @@ export function useCategoryManager({
       }
 
       const existing = new Set([
-        ...categories.map((node) => normalizeLabel(node.label)),
-        ...customCategoryLabels.map((node) => normalizeLabel(node)),
+        ...categories.map((node) => normalizeCategoryLabelKey(node.label)),
+        ...customCategoryLabels.map((node) => normalizeCategoryLabelKey(node)),
       ]);
 
-      if (existing.has(normalizeLabel(normalized))) {
+      if (existing.has(normalizeCategoryLabelKey(normalized))) {
         toast.error("Category already exists.");
         return false;
       }
@@ -139,22 +139,26 @@ export function useCategoryManager({
         return false;
       }
 
-      if (normalizeLabel(normalizedCurrent) === normalizeLabel(normalizedNext))
+      if (
+        normalizeCategoryLabelKey(normalizedCurrent) ===
+        normalizeCategoryLabelKey(normalizedNext)
+      )
         return false;
 
       const allLabels = new Set([
-        ...categories.map((node) => normalizeLabel(node.label)),
-        ...customCategoryLabels.map((node) => normalizeLabel(node)),
+        ...categories.map((node) => normalizeCategoryLabelKey(node.label)),
+        ...customCategoryLabels.map((node) => normalizeCategoryLabelKey(node)),
       ]);
 
-      if (allLabels.has(normalizeLabel(normalizedNext))) {
+      if (allLabels.has(normalizeCategoryLabelKey(normalizedNext))) {
         toast.error("Category already exists.");
         return false;
       }
 
       const categoryNode = categories.find(
         (node) =>
-          normalizeLabel(node.label) === normalizeLabel(normalizedCurrent),
+          normalizeCategoryLabelKey(node.label) ===
+          normalizeCategoryLabelKey(normalizedCurrent),
       );
       const feedsInCategory = categoryNode?.children ?? [];
       const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
@@ -171,14 +175,16 @@ export function useCategoryManager({
 
         setCustomCategoryLabels((current) =>
           current.map((label) =>
-            normalizeLabel(label) === normalizeLabel(normalizedCurrent)
+            normalizeCategoryLabelKey(label) ===
+            normalizeCategoryLabelKey(normalizedCurrent)
               ? normalizedNext
               : label,
           ),
         );
         setOrderedCategoryLabels((current) =>
           current.map((label) =>
-            normalizeLabel(label) === normalizeLabel(normalizedCurrent)
+            normalizeCategoryLabelKey(label) ===
+            normalizeCategoryLabelKey(normalizedCurrent)
               ? normalizedNext
               : label,
           ),
@@ -215,7 +221,8 @@ export function useCategoryManager({
     async (label: string, targetIndex: number) => {
       setOrderedCategoryLabels((current) => {
         const currentIndex = current.findIndex(
-          (l) => normalizeLabel(l) === normalizeLabel(label),
+          (l) =>
+            normalizeCategoryLabelKey(l) === normalizeCategoryLabelKey(label),
         );
         if (currentIndex < 0) return current;
         const next = [...current];
@@ -235,14 +242,16 @@ export function useCategoryManager({
   const removeCategory = useCallback(
     async (label: string) => {
       const categoryNode = categories.find(
-        (node) => normalizeLabel(node.label) === normalizeLabel(label),
+        (node) =>
+          normalizeCategoryLabelKey(node.label) ===
+          normalizeCategoryLabelKey(label),
       );
       const feedsInCategory = categoryNode?.children ?? [];
 
       if (feedsInCategory.length > 0) {
         if (
-          normalizeLabel(pendingCategoryRemovalLabel ?? "") !==
-          normalizeLabel(label)
+          normalizeCategoryLabelKey(pendingCategoryRemovalLabel ?? "") !==
+          normalizeCategoryLabelKey(label)
         ) {
           setPendingCategoryRemovalLabel(label);
           return false;
@@ -253,7 +262,10 @@ export function useCategoryManager({
           ...customCategoryLabels,
         ]
           .map((l) => normalizeCategory(l))
-          .find((l) => normalizeLabel(l) !== normalizeLabel(label));
+          .find(
+            (l) =>
+              normalizeCategoryLabelKey(l) !== normalizeCategoryLabelKey(label),
+          );
 
         if (!targetCategory) {
           setPendingCategoryRemovalLabel(null);
@@ -292,10 +304,16 @@ export function useCategoryManager({
 
       setPendingCategoryRemovalLabel(null);
       setCustomCategoryLabels((current) =>
-        current.filter((l) => normalizeLabel(l) !== normalizeLabel(label)),
+        current.filter(
+          (l) =>
+            normalizeCategoryLabelKey(l) !== normalizeCategoryLabelKey(label),
+        ),
       );
       setOrderedCategoryLabels((current) =>
-        current.filter((l) => normalizeLabel(l) !== normalizeLabel(label)),
+        current.filter(
+          (l) =>
+            normalizeCategoryLabelKey(l) !== normalizeCategoryLabelKey(label),
+        ),
       );
       toast.success("Category removed.");
       return true;

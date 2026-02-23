@@ -13,13 +13,12 @@ import {
   ArticleService,
   AuthService,
   ENV,
+  normalizeCategoryLabelKey,
   useLocalStorage,
   type Article,
   type AuthUser,
   type CategoryTreeNode,
 } from "@/lib";
-
-import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -35,14 +34,231 @@ import {
 import { getArticleKey } from "./helpers/article-helpers";
 import {
   flattenCategoryFeeds,
-  normalizeLabel,
-  panelMotion,
   SYSTEM_ALL_FEEDS_CATEGORY,
   toCategoryKey,
 } from "./helpers/category-helpers";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useFeedLoader } from "./hooks/useFeedLoader";
+
+const ARTICLE_FILTER_OPTIONS = ["all", "unread", "read", "starred"] as const;
+type ArticleFilter = (typeof ARTICLE_FILTER_OPTIONS)[number];
+
+function filterArticlesByState(
+  articles: Article[],
+  articleFilter: ArticleFilter,
+  expandedArticleKey: string | null,
+  collapsingArticleKey: string | null,
+): Article[] {
+  return articles.filter((article) => {
+    if (articleFilter === "all") {
+      return true;
+    }
+
+    if (articleFilter === "read") {
+      return Boolean(article.isRead);
+    }
+
+    if (articleFilter === "starred") {
+      return Boolean(article.isStarred);
+    }
+
+    const articleKey = getArticleKey(article);
+    return (
+      !article.isRead ||
+      expandedArticleKey === articleKey ||
+      collapsingArticleKey === articleKey
+    );
+  });
+}
+
+function buildDisplayCategories(
+  categories: CategoryTreeNode[],
+  customCategoryLabels: string[],
+  orderedCategoryLabels: string[],
+): CategoryTreeNode[] {
+  const categoryMap = new Map<string, CategoryTreeNode>();
+
+  categories.forEach((node) => {
+    categoryMap.set(normalizeCategoryLabelKey(node.label), node);
+  });
+
+  customCategoryLabels
+    .filter(
+      (label) =>
+        !categories.some(
+          (existing) =>
+            normalizeCategoryLabelKey(existing.label) ===
+            normalizeCategoryLabelKey(label),
+        ),
+    )
+    .forEach((label) => {
+      categoryMap.set(normalizeCategoryLabelKey(label), {
+        key: toCategoryKey(label),
+        label,
+        children: [] as CategoryTreeNode[],
+      });
+    });
+
+  const labelsToDisplay =
+    orderedCategoryLabels.length > 0
+      ? orderedCategoryLabels
+      : [...categoryMap.values()].map((node) => node.label);
+
+  return labelsToDisplay
+    .map((label) => categoryMap.get(normalizeCategoryLabelKey(label)))
+    .filter((node): node is CategoryTreeNode => Boolean(node));
+}
+
+function computeNextOrderedCategoryLabels(
+  categories: CategoryTreeNode[],
+  customCategoryLabels: string[],
+  currentLabels: string[],
+): string[] {
+  const uniqueLabels = [
+    ...categories.map((node) => node.label),
+    ...customCategoryLabels.filter(
+      (label) =>
+        !categories.some(
+          (existing) =>
+            normalizeCategoryLabelKey(existing.label) ===
+            normalizeCategoryLabelKey(label),
+        ),
+    ),
+  ].filter(
+    (label, index, allLabels) =>
+      allLabels.findIndex(
+        (candidate) =>
+          normalizeCategoryLabelKey(candidate) ===
+          normalizeCategoryLabelKey(label),
+      ) === index,
+  );
+
+  const preservedLabels = currentLabels.filter((label) =>
+    uniqueLabels.some(
+      (candidate) =>
+        normalizeCategoryLabelKey(candidate) ===
+        normalizeCategoryLabelKey(label),
+    ),
+  );
+  const appendedLabels = uniqueLabels.filter(
+    (label) =>
+      !preservedLabels.some(
+        (candidate) =>
+          normalizeCategoryLabelKey(candidate) ===
+          normalizeCategoryLabelKey(label),
+      ),
+  );
+
+  return [...preservedLabels, ...appendedLabels];
+}
+
+async function initializeDashboardSelection(options: {
+  selectedCategory: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  fetchAllFeeds: (categories?: CategoryTreeNode[]) => Promise<void>;
+  fetchFeed: (url: string) => Promise<void>;
+  fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
+  setSelectedCategory: (value: string) => void;
+  setIsCategoriesLoading: (value: boolean) => void;
+}): Promise<void> {
+  const {
+    selectedCategory,
+    loadFeedSources,
+    fetchAllFeeds,
+    fetchFeed,
+    fetchCategoryFeeds,
+    setSelectedCategory,
+    setIsCategoriesLoading,
+  } = options;
+
+  const loadedCategories = await loadFeedSources();
+  setIsCategoriesLoading(false);
+
+  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+    await fetchAllFeeds(loadedCategories);
+    return;
+  }
+
+  const selectedFeedNode = flattenCategoryFeeds(loadedCategories).find(
+    (node) => node.key === selectedCategory,
+  );
+  if (selectedFeedNode?.data?.url) {
+    await fetchFeed(selectedFeedNode.data.url);
+    return;
+  }
+
+  const selectedCategoryNode = loadedCategories.find(
+    (node) => node.key === selectedCategory,
+  );
+  if (selectedCategoryNode) {
+    await fetchCategoryFeeds(selectedCategoryNode);
+    return;
+  }
+
+  setSelectedCategory(ALL_FEEDS_NODE_KEY);
+  await fetchAllFeeds(loadedCategories);
+}
+
+function refreshCurrentSelection(options: {
+  selectedCategory: string;
+  selectedFeedUrl?: string;
+  selectedCategoryNode?: CategoryTreeNode;
+  fetchAllFeeds: () => Promise<void>;
+  fetchFeed: (url: string) => Promise<void>;
+  fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
+  fallbackFeedUrl?: string;
+}): void {
+  const {
+    selectedCategory,
+    selectedFeedUrl,
+    selectedCategoryNode,
+    fetchAllFeeds,
+    fetchFeed,
+    fetchCategoryFeeds,
+    fallbackFeedUrl = DEFAULT_FEED_URL,
+  } = options;
+
+  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+    void fetchAllFeeds();
+    return;
+  }
+
+  if (selectedFeedUrl) {
+    void fetchFeed(selectedFeedUrl);
+    return;
+  }
+
+  if (selectedCategoryNode) {
+    void fetchCategoryFeeds(selectedCategoryNode);
+    return;
+  }
+
+  void fetchFeed(fallbackFeedUrl);
+}
+
+function collectMarkAllReadStreams(
+  selectedCategory: string,
+  selectedFeedUrl: string | undefined,
+  selectedCategoryNode: CategoryTreeNode | undefined,
+): string[] {
+  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+    return ["user/-/state/com.google/reading-list"];
+  }
+
+  if (selectedFeedUrl) {
+    return [`feed/${selectedFeedUrl}`];
+  }
+
+  if (!selectedCategoryNode?.children?.length) {
+    return [];
+  }
+
+  return selectedCategoryNode.children
+    .map((node) => node.data?.url)
+    .filter((url): url is string => Boolean(url))
+    .map((url) => `feed/${url}`);
+}
 
 const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) => {
   const [feed, setFeed] = useState<Article[]>([]);
@@ -59,13 +275,13 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [articleFilter, setArticleFilter] = useLocalStorage<"all" | "unread" | "read" | "starred">(
+  const [articleFilter, setArticleFilter] = useLocalStorage<ArticleFilter>(
     "librerss:articleFilter",
     "unread",
   );
   const [pageSize, setPageSize] = useLocalStorage<number>("librerss:pageSize", 25);
   const [showFavicons, setShowFavicons] = useLocalStorage<boolean>("librerss:showFavicons", true);
-  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const [visibleCount, setVisibleCount] = useState<number>(pageSize);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
   const hasInitializedDashboardRef = useRef(false);
@@ -102,20 +318,17 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
   // ── Derived data (computed before effects that depend on them) ────────────
 
+  const customCategoryLabels = categoryManager.customCategoryLabels;
+  const orderedCategoryLabels = categoryManager.orderedCategoryLabels;
+  const setOrderedCategoryLabels = categoryManager.setOrderedCategoryLabels;
+
   // Article filter + search
-  const feedByState = feed.filter((article) => {
-    if (articleFilter === "unread") {
-      const articleKey = getArticleKey(article);
-      return (
-        !article.isRead ||
-        expandedArticleKey === articleKey ||
-        articleActions.collapsingArticleKey === articleKey
-      );
-    }
-    if (articleFilter === "read") return Boolean(article.isRead);
-    if (articleFilter === "starred") return Boolean(article.isStarred);
-    return true;
-  });
+  const feedByState = filterArticlesByState(
+    feed,
+    articleFilter,
+    expandedArticleKey,
+    articleActions.collapsingArticleKey,
+  );
 
   const filteredFeed = feedByState.filter(
     (article) =>
@@ -126,26 +339,11 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   // Sidebar data
   const availableSources = flattenCategoryFeeds(categories);
   const selectedFeedNode = availableSources.find((c) => c.key === selectedCategory);
-  const categoryMap = new Map<string, CategoryTreeNode>();
-  categories.forEach((node) => categoryMap.set(normalizeLabel(node.label), node));
-  categoryManager.customCategoryLabels
-    .filter((label) => !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)))
-    .forEach((label) => {
-      categoryMap.set(normalizeLabel(label), {
-        key: toCategoryKey(label),
-        label,
-        children: [] as CategoryTreeNode[],
-      });
-    });
-
-  const orderedLabels =
-    categoryManager.orderedCategoryLabels.length > 0
-      ? categoryManager.orderedCategoryLabels
-      : [...categoryMap.values()].map((node) => node.label);
-
-  const displayCategories = orderedLabels
-    .map((label) => categoryMap.get(normalizeLabel(label)))
-    .filter((node): node is CategoryTreeNode => Boolean(node));
+  const displayCategories = buildDisplayCategories(
+    categories,
+    customCategoryLabels,
+    orderedCategoryLabels,
+  );
 
   const sidebarCategories = [SYSTEM_ALL_FEEDS_CATEGORY, ...displayCategories];
   const selectedCategoryNode = sidebarCategories.find((node) => node.key === selectedCategory);
@@ -211,66 +409,28 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     if (hasInitializedDashboardRef.current) return;
     hasInitializedDashboardRef.current = true;
 
-    const init = async () => {
-      const loadedCategories = await loadFeedSources();
-      setIsCategoriesLoading(false);
-
-      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-        await fetchAllFeeds(loadedCategories);
-        return;
-      }
-
-      const selectedFeedNode = flattenCategoryFeeds(loadedCategories).find(
-        (node) => node.key === selectedCategory,
-      );
-
-      if (selectedFeedNode?.data?.url) {
-        await fetchFeed(selectedFeedNode.data.url);
-        return;
-      }
-
-      const selectedCategoryNode = loadedCategories.find(
-        (node) => node.key === selectedCategory,
-      );
-
-      if (selectedCategoryNode) {
-        await fetchCategoryFeeds(selectedCategoryNode);
-        return;
-      }
-
-      setSelectedCategory(ALL_FEEDS_NODE_KEY);
-      await fetchAllFeeds(loadedCategories);
-    };
-
-    init();
+    void initializeDashboardSelection({
+      selectedCategory,
+      loadFeedSources,
+      fetchAllFeeds,
+      fetchFeed,
+      fetchCategoryFeeds,
+      setSelectedCategory,
+      setIsCategoriesLoading,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync ordered category labels when categories/custom labels change
   useEffect(() => {
-    const uniqueLabels = [
-      ...categories.map((node) => node.label),
-      ...categoryManager.customCategoryLabels.filter(
-        (label) =>
-          !categories.some((existing) => normalizeLabel(existing.label) === normalizeLabel(label)),
+    setOrderedCategoryLabels((current) =>
+      computeNextOrderedCategoryLabels(
+        categories,
+        customCategoryLabels,
+        current,
       ),
-    ].filter(
-      (label, index, allLabels) =>
-        allLabels.findIndex((candidate) => normalizeLabel(candidate) === normalizeLabel(label)) ===
-        index,
     );
-
-    categoryManager.setOrderedCategoryLabels((current) => {
-      const preserved = current.filter((label) =>
-        uniqueLabels.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
-      );
-      const additions = uniqueLabels.filter(
-        (label) =>
-          !preserved.some((candidate) => normalizeLabel(candidate) === normalizeLabel(label)),
-      );
-      return [...preserved, ...additions];
-    });
-  }, [categories, categoryManager.customCategoryLabels]);
+  }, [categories, customCategoryLabels, setOrderedCategoryLabels]);
 
   // Title sync
   useEffect(() => {
@@ -291,24 +451,22 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   // Dashboard event bus
   useEffect(() => {
     const refreshSelection = () => {
-      if (selectedCategory === ALL_FEEDS_NODE_KEY) { fetchAllFeeds(); return; }
-      if (selectedFeedUrl) { fetchFeed(selectedFeedUrl); return; }
-      if (selectedCategoryNode) { fetchCategoryFeeds(selectedCategoryNode); return; }
-      fetchFeed(DEFAULT_FEED_URL);
+      refreshCurrentSelection({
+        selectedCategory,
+        selectedFeedUrl,
+        selectedCategoryNode,
+        fetchAllFeeds,
+        fetchFeed,
+        fetchCategoryFeeds,
+      });
     };
 
     const handleMarkAllRead = async () => {
-      const streams: string[] = [];
-      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-        streams.push("user/-/state/com.google/reading-list");
-      } else if (selectedFeedUrl) {
-        streams.push(`feed/${selectedFeedUrl}`);
-      } else if (selectedCategoryNode?.children?.length) {
-        for (const node of selectedCategoryNode.children) {
-          const url = node.data?.url;
-          if (url) streams.push(`feed/${url}`);
-        }
-      }
+      const streams = collectMarkAllReadStreams(
+        selectedCategory,
+        selectedFeedUrl,
+        selectedCategoryNode,
+      );
 
       if (streams.length === 0) { toast.info("No readable feed selected."); return; }
 
@@ -327,17 +485,20 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       setSearchTerm(customEvent.detail?.term ?? "");
     };
 
+    const handleOpenSettings = () => setShowSettingsModal(true);
+    const handleOpenFeedsSidebar = () => setIsMobileSidebarOpen(true);
+
     window.addEventListener("dashboard:refresh", refreshSelection);
     window.addEventListener("dashboard:mark-all-read", handleMarkAllRead);
-    window.addEventListener("dashboard:open-settings", () => setShowSettingsModal(true));
-    window.addEventListener("dashboard:open-feeds-sidebar", () => setIsMobileSidebarOpen(true));
+    window.addEventListener("dashboard:open-settings", handleOpenSettings);
+    window.addEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
     window.addEventListener("dashboard:search-change", handleSearchChange as EventListener);
 
     return () => {
       window.removeEventListener("dashboard:refresh", refreshSelection);
       window.removeEventListener("dashboard:mark-all-read", handleMarkAllRead);
-      window.removeEventListener("dashboard:open-settings", () => setShowSettingsModal(true));
-      window.removeEventListener("dashboard:open-feeds-sidebar", () => setIsMobileSidebarOpen(true));
+      window.removeEventListener("dashboard:open-settings", handleOpenSettings);
+      window.removeEventListener("dashboard:open-feeds-sidebar", handleOpenFeedsSidebar);
       window.removeEventListener("dashboard:search-change", handleSearchChange as EventListener);
     };
   }, [selectedCategory, selectedCategoryNode, selectedFeedUrl, fetchAllFeeds, fetchFeed, fetchCategoryFeeds]);
@@ -366,12 +527,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   };
 
   return (
-    <motion.div
-      className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-20 md:px-6"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: "easeOut" }}
-    >
+    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-20 md:px-6">
       <Drawer open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <DrawerContent className="max-h-[85vh] lg:hidden">
           <DrawerHeader>
@@ -388,7 +544,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <ScrollArea
-            className={`h-full transition-opacity duration-300 ease-out ${isSidebarVisible ? "opacity-100" : "opacity-0"
+            className={`h-full transition-opacity duration-150 ease-linear ${isSidebarVisible ? "opacity-100" : "opacity-0"
               }`}
           >
             <DashboardSidebarContent {...sidebarProps} />
@@ -397,14 +553,9 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
 
         <Separator orientation="vertical" className="hidden lg:block" />
 
-        <motion.section
-          className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0"
-          initial={panelMotion.initial}
-          animate={panelMotion.animate}
-          transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
-        >
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0">
           <div className="mb-2 flex items-center gap-2 pr-3">
-            {(["all", "unread", "read", "starred"] as const).map((value) => (
+            {ARTICLE_FILTER_OPTIONS.map((value) => (
               <button
                 key={value}
                 type="button"
@@ -443,7 +594,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
               }}
             />
           </ScrollArea>
-        </motion.section>
+        </section>
       </div>
 
       {showSettingsModal && (
@@ -469,7 +620,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
           onRenameFeed={categoryManager.renameFeedSource}
         />
       )}
-    </motion.div>
+    </div>
   );
 };
 
@@ -543,19 +694,9 @@ export default function Dashboard() {
       <div className="h-screen min-h-[100svh] overflow-hidden md:h-[100dvh]">
         <Suspense
           fallback={
-            <motion.div
-              className="flex h-full items-center justify-center overflow-hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
-              >
-                <Loader2 className="size-4 text-muted-foreground/40" />
-              </motion.div>
-            </motion.div>
+            <div className="flex h-full items-center justify-center overflow-hidden">
+              <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+            </div>
           }
         >
           <DashboardRouter />

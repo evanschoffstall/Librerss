@@ -26,10 +26,6 @@ export const toCategoryKey = (label: string) =>
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "default"
   }`;
-
-/** Alias for normalized category-label comparison. */
-export const normalizeLabel = normalizeCategoryLabelKey;
-
 // ─── Tree traversal ───────────────────────────────────────────────────────────
 
 export const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
@@ -125,7 +121,9 @@ export function relocateFeedInCategories(
   const nextCategories = cloneCategories(currentCategories);
 
   let destinationCategoryIndex = nextCategories.findIndex(
-    (cat) => normalizeLabel(cat.label) === normalizeLabel(targetCategoryLabel),
+    (cat) =>
+      normalizeCategoryLabelKey(cat.label) ===
+      normalizeCategoryLabelKey(targetCategoryLabel),
   );
 
   if (destinationCategoryIndex < 0) {
@@ -166,10 +164,3 @@ export function relocateFeedInCategories(
 
   return nextCategories;
 }
-
-// ─── Motion presets ───────────────────────────────────────────────────────────
-
-export const panelMotion = {
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-};
