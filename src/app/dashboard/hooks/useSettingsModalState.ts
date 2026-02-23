@@ -29,7 +29,7 @@ interface UseSettingsModalStateOptions {
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
 }
 
-export interface SharedFeedRowProps {
+interface SharedFeedRowProps {
   selectedCategory: string;
   editingFeedKey: string | null;
   editingFeedName: string;

@@ -32,7 +32,7 @@ export async function maybeLoadCategoryFallback(
     : new Map<string, string>();
 }
 
-export async function loadUserCategoryFallbackByFeedUrl(
+async function loadUserCategoryFallbackByFeedUrl(
   userId: number,
 ): Promise<Map<string, string>> {
   const db = getDb();

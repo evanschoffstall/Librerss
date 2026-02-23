@@ -3,7 +3,7 @@
  * consumed by ArticleService.
  */
 
-import { parseReaderItemId, toReaderItemId } from "../core/reader-item-id";
+import { parseReaderItemId } from "../core/reader-item-id";
 import { READ_STATE, STARRED_STATE } from "../core/stream-ids";
 import type { Article } from "../core/types";
 
@@ -71,19 +71,4 @@ export function readerItemToArticle(
     isRead: categories.includes(READ_STATE),
     isStarred: categories.includes(STARRED_STATE),
   };
-}
-
-// ── Tag editing helpers ───────────────────────────────────────────────────────
-
-export function buildEditTagBody(
-  articleId: number,
-  { addTag, removeTag }: { addTag?: string; removeTag?: string },
-): URLSearchParams {
-  const body = new URLSearchParams({
-    i: toReaderItemId(articleId),
-    async: "true",
-  });
-  if (addTag) body.append("a", addTag);
-  if (removeTag) body.append("r", removeTag);
-  return body;
 }

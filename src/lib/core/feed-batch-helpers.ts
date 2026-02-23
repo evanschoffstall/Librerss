@@ -43,7 +43,7 @@ type RankedRow = {
   isStarred: unknown;
 };
 
-export type RefreshDecision = {
+type RefreshDecision = {
   url: string;
   decision:
     | "missing-feed-record"

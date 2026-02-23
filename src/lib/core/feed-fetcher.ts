@@ -31,14 +31,13 @@ import {
 
 // Re-export for callers that still reference these from here.
 export { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "./feed-url-validator";
-export type { ArticleRow };
 
 const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
 
 // ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Returned when the authenticated user doesn't own the requested feed source. */
-export class FeedSourceNotFoundError extends Error {
+class FeedSourceNotFoundError extends Error {
   constructor(feedUrl: string) {
     super(`Feed source not found for URL: ${feedUrl}`);
     this.name = "FeedSourceNotFoundError";
@@ -53,7 +52,7 @@ export function isFeedSourceNotFoundError(
 
 // ─── Batch fetch ──────────────────────────────────────────────────────────────
 
-export type BatchFeedResult = {
+type BatchFeedResult = {
   articles: Map<string, ArticleRow[]>;
   errors: Map<string, string>;
   refreshedCount: number;
@@ -199,7 +198,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 // ─── Single-feed wrapper ──────────────────────────────────────────────────────
 
 /** Thrown when an upstream feed refresh fails so callers can return a proper error. */
-export class UpstreamFeedError extends Error {
+class UpstreamFeedError extends Error {
   constructor(feedUrl: string, cause: string) {
     super(`Upstream feed fetch failed for ${feedUrl}: ${cause}`);
     this.name = "UpstreamFeedError";

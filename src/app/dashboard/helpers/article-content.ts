@@ -6,7 +6,7 @@
 import { type Article } from "@/lib";
 import { getUrlHostnameLabel } from "@/lib/utils/url";
 
-export function getUrlHostnameLabelForDisplay(raw?: string): string {
+function getUrlHostnameLabelForDisplay(raw?: string): string {
   const label = getUrlHostnameLabel(raw, raw ?? "No source URL");
   return label.replace(/^www\./i, "");
 }

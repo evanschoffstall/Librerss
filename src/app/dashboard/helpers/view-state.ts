@@ -1,4 +1,4 @@
-export type DashboardView = "article-list" | "settings";
+type DashboardView = "article-list" | "settings";
 
 export function createDefaultViewState() {
   return {
