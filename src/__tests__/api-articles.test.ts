@@ -3,7 +3,7 @@
  * Tests for src/app/api/articles/
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { createMockArticle, createMockRequest } from "./helpers/test-utils";
 
 const createSelectChain = () => ({
@@ -13,40 +13,49 @@ const createSelectChain = () => ({
   limit: () => Promise.resolve([createMockArticle()]),
 });
 
-// Mock database and auth
-mock.module("@/lib/db/db", () => ({
-  getDb: () => ({
-    select: () => ({
-      from: () => createSelectChain(),
-    }),
-    update: () => ({
-      set: () => ({
-        where: () => Promise.resolve([createMockArticle()]),
+function registerModuleMocks() {
+  mock.module("@/lib/db/db", () => ({
+    getDb: () => ({
+      select: () => ({
+        from: () => createSelectChain(),
+      }),
+      update: () => ({
+        set: () => ({
+          where: () => Promise.resolve([createMockArticle()]),
+        }),
       }),
     }),
-  }),
-}));
+  }));
 
-mock.module("@/lib/api/route-helpers", () => ({
-  requireAuthenticatedUser: async () => ({
-    userId: 1,
-    email: "test@example.com",
-  }),
-  requireMutableAuthenticatedUser: async () => ({
-    userId: 1,
-    email: "test@example.com",
-  }),
-  requireMutableRequest: () => null,
-  logAndRespondError: (
-    _message: string,
-    _error: unknown,
-    options?: { status?: number; publicMessage?: string },
-  ) =>
-    Response.json(
-      { error: options?.publicMessage ?? "Internal Server Error" },
-      { status: options?.status ?? 500 },
-    ),
-}));
+  mock.module("@/lib/api/route-helpers", () => ({
+    requireAuthenticatedUser: async () => ({
+      userId: 1,
+      email: "test@example.com",
+    }),
+    requireMutableAuthenticatedUser: async () => ({
+      userId: 1,
+      email: "test@example.com",
+    }),
+    requireMutableRequest: () => null,
+    logAndRespondError: (
+      _message: string,
+      _error: unknown,
+      options?: { status?: number; publicMessage?: string },
+    ) =>
+      Response.json(
+        { error: options?.publicMessage ?? "Internal Server Error" },
+        { status: options?.status ?? 500 },
+      ),
+  }));
+}
+
+beforeAll(() => {
+  registerModuleMocks();
+});
+
+afterAll(() => {
+  mock.restore();
+});
 
 describe("Articles API - List", () => {
   test("GET /api/articles returns articles", async () => {
