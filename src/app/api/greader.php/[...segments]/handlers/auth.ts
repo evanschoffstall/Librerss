@@ -1,4 +1,8 @@
-import { parseFormOrQueryParams, parseJsonBody } from "@/lib/api/request";
+import {
+  getSearchParams,
+  parseFormOrQueryParams,
+  parseJsonBody,
+} from "@/lib/api/request";
 import {
   parseEmailPasswordFromRecord,
   parseEmailPasswordFromSearchParams,
@@ -39,7 +43,7 @@ function parseClientLoginParams(
 async function parseClientLoginPayload(
   request: NextRequest,
 ): Promise<ClientLoginPayload | Response | null> {
-  const urlPayload = parseClientLoginParams(new URL(request.url).searchParams);
+  const urlPayload = parseClientLoginParams(getSearchParams(request));
   if (urlPayload) {
     return urlPayload;
   }
@@ -139,7 +143,7 @@ function extractAuthToken(request: NextRequest): string | null {
     }
   }
 
-  const searchParams = new URL(request.url).searchParams;
+  const searchParams = getSearchParams(request);
 
   return (
     searchParams.get("auth") ??

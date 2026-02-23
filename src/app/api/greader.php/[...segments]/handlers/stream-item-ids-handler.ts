@@ -1,3 +1,4 @@
+import { getSearchParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
 import {
   canUseArticleStatusesTable,
@@ -24,7 +25,7 @@ export async function handleStreamItemIds(
   user: SessionUser,
   request: NextRequest,
 ): Promise<Response> {
-  const searchParams = new URL(request.url).searchParams;
+  const searchParams = getSearchParams(request);
   const streamId = searchParams.get("s") ?? READING_LIST_STREAM;
   const isFeed = streamId.startsWith(FEED_STREAM_PREFIX);
   const feedUrl = isFeed ? streamId.slice(FEED_STREAM_PREFIX.length) : null;

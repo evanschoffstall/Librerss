@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Trash2 } from "lucide-react";
+import { ANIM_TRANSITION_COLORS } from "../styles";
 import { SettingsIconBtn, settingsDragHandleCls } from "./SettingsIconBtn";
 
 interface SettingsFeedRowProps {
@@ -70,7 +71,7 @@ export function SettingsFeedRow({
   return (
     <div
       key={feedNode.key}
-      className="relative flex items-center gap-2 rounded-md border px-3 py-2 transition-colors anim-duration-ui anim-ease-ui"
+      className={`relative flex items-center gap-2 rounded-md border px-3 py-2 ${ANIM_TRANSITION_COLORS}`}
       onDragOver={(event) => {
         const targetIndex = resolveTargetIndexFromPointer(event);
         onDragOver(event, categoryLabel, targetIndex);

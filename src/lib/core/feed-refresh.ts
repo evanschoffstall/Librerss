@@ -41,13 +41,17 @@ export type FeedRecord = {
 
 // ─── Upstream refresh ─────────────────────────────────────────────────────────
 
+function getAgeInMinutes(date: Date): number {
+  return (Date.now() - date.getTime()) / 60_000;
+}
+
 export function shouldRefreshFeed(lastFetched: Date): boolean {
-  const ageMinutes = (Date.now() - new Date(lastFetched).getTime()) / 60_000;
+  const ageMinutes = getAgeInMinutes(lastFetched);
   return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
 }
 
 export function shouldForceRefreshFeed(lastFetched: Date): boolean {
-  const ageMinutes = (Date.now() - new Date(lastFetched).getTime()) / 60_000;
+  const ageMinutes = getAgeInMinutes(lastFetched);
   return ageMinutes >= CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES;
 }
 

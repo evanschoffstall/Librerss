@@ -257,8 +257,8 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
 
         <Separator orientation="vertical" className="hidden lg:block" />
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-w-0">
-          <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-1 py-2 lg:max-w-none lg:px-0 lg:pr-3">
+        <section className="flex min-h-0 flex-1 flex-col lg:min-w-0">
+          <div className="mx-auto flex w-full max-w-3xl flex-shrink-0 items-center gap-2 px-1 py-2 lg:max-w-none lg:px-0 lg:pr-3">
             {ARTICLE_FILTER_OPTIONS.map((value) => (
               <button
                 key={value}
@@ -274,7 +274,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
             ))}
           </div>
 
-          <ScrollArea ref={feedScrollRef} className="min-h-0 flex-1">
+          <ScrollArea ref={feedScrollRef} className="min-h-0 flex-1 overflow-auto">
             <FeedList
               loading={loading}
               filteredFeed={filteredFeed}

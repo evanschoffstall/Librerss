@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
+import { ANIM_TRANSITION_COLORS } from "../styles";
 import { SettingsFeedRow } from "./SettingsFeedRow";
 import { SettingsIconBtn, settingsDragHandleCls } from "./SettingsIconBtn";
 
@@ -119,8 +120,8 @@ export function SettingsCategoryAccordionItem({
       key={`${categoryNode.key}-motion`}
       className={
         categoryDropIndex === categoryIndex
-          ? "rounded-md border border-primary bg-primary/5 transition-colors anim-duration-ui anim-ease-ui"
-          : "transition-colors anim-duration-ui anim-ease-ui"
+          ? `rounded-md border border-primary bg-primary/5 ${ANIM_TRANSITION_COLORS}`
+          : ANIM_TRANSITION_COLORS
       }
       onDragOver={(event) => onCategoryDragOver(event, categoryIndex)}
       onDrop={(event) => onCategoryDrop(event, categoryIndex)}
@@ -216,7 +217,7 @@ export function SettingsCategoryAccordionItem({
 
         <AccordionContent className="px-3 pb-3">
           {isAddingFeed && (
-            <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 transition-colors anim-duration-ui anim-ease-ui">
+            <div className={`mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 ${ANIM_TRANSITION_COLORS}`}>
               <Input
                 value={newFeedName}
                 onChange={(e) => onNewFeedNameChange(e.target.value)}

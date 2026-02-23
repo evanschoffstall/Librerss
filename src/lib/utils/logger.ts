@@ -3,6 +3,8 @@
  * Prevents sensitive data leakage and provides better debugging
  */
 
+import { CONFIG } from "../config";
+
 type LogLevel = "info" | "warn" | "error" | "debug";
 
 interface LogContext {
@@ -18,6 +20,21 @@ class Logger {
   private isDevelopment = process.env.NODE_ENV === "development";
   private readonly sensitiveKeyPattern =
     /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
+
+  private getCurrentLogLevel(): "none" | "error" | "warn" | "info" | "verbose" {
+    const level = process.env.LOG_LEVEL?.toLowerCase();
+    if (
+      level === "none" ||
+      level === "error" ||
+      level === "warn" ||
+      level === "info" ||
+      level === "verbose"
+    ) {
+      return level;
+    }
+
+    return CONFIG.LOG_LEVEL;
+  }
 
   private formatMessage(
     level: LogLevel,
@@ -95,11 +112,15 @@ class Logger {
   }
 
   info(message: string, context?: LogContext): void {
+    const logLevel = this.getCurrentLogLevel();
+    if (logLevel === "none" || logLevel === "error") return;
     const sanitized = this.sanitizeContext(context);
     console.log(this.formatMessage("info", message, sanitized));
   }
 
   warn(message: string, context?: LogContext): void {
+    const logLevel = this.getCurrentLogLevel();
+    if (logLevel === "none" || logLevel === "error") return;
     const sanitized = this.sanitizeContext(context);
     console.warn(this.formatMessage("warn", message, sanitized));
   }

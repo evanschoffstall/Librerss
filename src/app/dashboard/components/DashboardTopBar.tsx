@@ -7,9 +7,10 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DASHBOARD_EVENTS } from "../constants";
+import { ANIM_TRANSITION_COLORS } from "./styles";
 
 const toolbarBtnClass =
-  "transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
+  `${ANIM_TRANSITION_COLORS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300`;
 
 /**
  * Fixed top bar shown on the dashboard route.

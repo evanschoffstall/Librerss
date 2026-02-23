@@ -12,7 +12,7 @@ import { type ArticleFilter } from "../helpers/article-filters";
 
 export function useDashboardViewState() {
   const [feed, setFeed] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [categories, setCategories] =
     useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
   const categoriesRef = useRef<CategoryTreeNode[]>(INITIAL_CATEGORIES);

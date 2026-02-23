@@ -667,6 +667,9 @@ describe("greader reader-item hardening", () => {
 
 describe("logger redaction", () => {
   test("redacts sensitive keys recursively", async () => {
+    const previousLogLevel = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = "info";
+
     const logs: string[] = [];
     const originalInfo = console.log;
     console.log = (message?: unknown) => {
@@ -681,6 +684,11 @@ describe("logger redaction", () => {
       });
     } finally {
       console.log = originalInfo;
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
     }
 
     const merged = logs.join("\n");

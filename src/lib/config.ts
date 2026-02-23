@@ -12,6 +12,14 @@ export const ENV = {
 } as const;
 
 export const CONFIG = {
+  // Logging
+  LOG_LEVEL: (process.env.LOG_LEVEL ?? "info") as
+    | "none"
+    | "error"
+    | "warn"
+    | "info"
+    | "verbose",
+
   // Feed settings
   FEED_REFRESH_DIAGNOSTICS_ENABLED: false,
   // Non-force refresh TTL: feeds older than this are refreshed on the next

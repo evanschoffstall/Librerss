@@ -1,3 +1,4 @@
+import { getSearchParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
 import { canUseArticleStatusesTable } from "@/lib/core/article-status";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
@@ -43,7 +44,7 @@ export async function handleStreamContents(
   }
 
   const feedUrl = isFeed ? streamId.slice(FEED_STREAM_PREFIX.length) : null;
-  const searchParams = new URL(request.url).searchParams;
+  const searchParams = getSearchParams(request);
   const { limit, offset, continuationId, isNetNewsWire } = parseStreamPaging(
     searchParams,
     request.headers.get("user-agent") ?? "",
