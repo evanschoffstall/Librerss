@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Trash2 } from "lucide-react";
-import { SettingsIconBtn } from "./SettingsIconBtn";
+import { SettingsIconBtn, settingsDragHandleCls } from "./SettingsIconBtn";
 
 interface SettingsFeedRowProps {
   feedNode: CategoryTreeNode;
@@ -97,7 +97,7 @@ export function SettingsFeedRow({
         draggable
         onDragStart={(event) => onDragStart(event, feedNode.key)}
         onDragEnd={onDragEnd}
-        className="shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing"
+        className={settingsDragHandleCls}
         aria-label={`Drag ${feedNode.label}`}
       >
         <GripVertical className="size-4" />

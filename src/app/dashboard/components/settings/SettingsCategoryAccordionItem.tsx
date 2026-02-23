@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
 import { SettingsFeedRow } from "./SettingsFeedRow";
-import { SettingsIconBtn } from "./SettingsIconBtn";
+import { SettingsIconBtn, settingsDragHandleCls } from "./SettingsIconBtn";
 
 interface SettingsCategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
@@ -136,7 +136,7 @@ export function SettingsCategoryAccordionItem({
               draggable
               onDragStart={(event) => onCategoryDragStart(event, categoryNode.label)}
               onDragEnd={onCategoryDragEnd}
-              className="shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing"
+              className={settingsDragHandleCls}
               aria-label={`Drag category ${categoryNode.label}`}
             >
               <GripVertical className="size-4" />

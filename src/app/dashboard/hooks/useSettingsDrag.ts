@@ -28,6 +28,16 @@ export function useSettingsDrag({
   onDropFeed,
   onDropCategory,
 }: UseSettingsDragOptions) {
+  // ── Payload guards ────────────────────────────────────────────────────────
+
+  const hasFeedPayload = (event: React.DragEvent<HTMLElement>) =>
+    Boolean(draggingFeedKeyRef.current) ||
+    hasDragType(event, FEED_DRAG_DATA_KEY);
+
+  const hasCategoryPayload = (event: React.DragEvent<HTMLElement>) =>
+    Boolean(draggingCategoryLabelRef.current) ||
+    hasDragType(event, CATEGORY_DRAG_DATA_KEY);
+
   // ── Feed drag ─────────────────────────────────────────────────────────────
 
   const [draggingFeedKey, setDraggingFeedKey] = useState<string | null>(null);
@@ -66,10 +76,7 @@ export function useSettingsDrag({
       categoryLabel: string,
       index: number,
     ) => {
-      const hasFeedDragPayload =
-        Boolean(draggingFeedKeyRef.current) ||
-        hasDragType(event, FEED_DRAG_DATA_KEY);
-      if (!hasFeedDragPayload) return;
+      if (!hasFeedPayload(event)) return;
 
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
@@ -84,10 +91,7 @@ export function useSettingsDrag({
       categoryLabel: string,
       index: number,
     ) => {
-      const hasFeedDragPayload =
-        Boolean(draggingFeedKeyRef.current) ||
-        hasDragType(event, FEED_DRAG_DATA_KEY);
-      if (!hasFeedDragPayload) return;
+      if (!hasFeedPayload(event)) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -140,10 +144,7 @@ export function useSettingsDrag({
 
   const handleCategoryDragOver = useCallback(
     (event: React.DragEvent<HTMLElement>, index: number) => {
-      const hasCategoryDragPayload =
-        Boolean(draggingCategoryLabelRef.current) ||
-        hasDragType(event, CATEGORY_DRAG_DATA_KEY);
-      if (!hasCategoryDragPayload) return;
+      if (!hasCategoryPayload(event)) return;
 
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
@@ -154,10 +155,7 @@ export function useSettingsDrag({
 
   const handleCategoryDrop = useCallback(
     async (event: React.DragEvent<HTMLElement>, index: number) => {
-      const hasCategoryDragPayload =
-        Boolean(draggingCategoryLabelRef.current) ||
-        hasDragType(event, CATEGORY_DRAG_DATA_KEY);
-      if (!hasCategoryDragPayload) return;
+      if (!hasCategoryPayload(event)) return;
 
       event.preventDefault();
       const droppedLabel =
