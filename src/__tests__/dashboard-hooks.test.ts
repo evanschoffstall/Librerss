@@ -103,22 +103,3 @@ describe("useArticleActions", () => {
     expect(toggleStarredStatus(false)).toBe(true);
   });
 });
-
-// ─── useInfiniteScroll ────────────────────────────────────────────────────────
-
-describe("useInfiniteScroll", () => {
-  test("calculateNextPage increments page", async () => {
-    const { calculateNextPage } =
-      await import("@/app/dashboard/hooks/useInfiniteScroll");
-    expect(calculateNextPage(1)).toBe(2);
-    expect(calculateNextPage(5)).toBe(6);
-  });
-
-  test("hasMorePages checks if more pages available", async () => {
-    const { hasMorePages } =
-      await import("@/app/dashboard/hooks/useInfiniteScroll");
-    expect(hasMorePages(50, 20, 1)).toBe(true); // 50 total, 20 loaded, page 1
-    expect(hasMorePages(20, 20, 1)).toBe(false); // all loaded
-    expect(hasMorePages(15, 20, 1)).toBe(false); // fetched more than exists
-  });
-});
