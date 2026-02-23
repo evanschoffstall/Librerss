@@ -1,16 +1,18 @@
 "use client";
 
 import { ArticleService, isValidUrl, type Article } from "@/lib";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getArticleKey } from "../helpers/article-helpers";
+
+const ARTICLE_REMOVAL_ANIMATION_MS = 320;
 
 interface UseArticleActionsOptions {
   feed: Article[];
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   expandedArticleKey: string | null;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
-  articleFilter: "all" | "unread" | "starred";
+  articleFilter: "all" | "unread" | "read" | "starred";
 }
 
 export function useArticleActions({
@@ -32,9 +34,22 @@ export function useArticleActions({
   const hydratedArticleLinksRef = useRef(new Set<string>());
   const articleHydrationInFlightRef = useRef(new Set<string>());
   const expandedArticleKeyRef = useRef<string | null>(null);
+  const collapseRemovalTimeoutRef = useRef<number | null>(null);
+  const [collapsingArticleKey, setCollapsingArticleKey] = useState<
+    string | null
+  >(null);
 
   // Keep ref in sync with state for use inside callbacks
   expandedArticleKeyRef.current = expandedArticleKey;
+
+  useEffect(
+    () => () => {
+      if (collapseRemovalTimeoutRef.current !== null) {
+        window.clearTimeout(collapseRemovalTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   const scrollArticleIntoView = useCallback((articleKey: string) => {
     const escapedKey =
@@ -150,7 +165,29 @@ export function useArticleActions({
         current === nextArticleKey ? null : nextArticleKey,
       );
 
-      if (!shouldExpand) return;
+      if (shouldExpand) {
+        if (collapseRemovalTimeoutRef.current !== null) {
+          window.clearTimeout(collapseRemovalTimeoutRef.current);
+          collapseRemovalTimeoutRef.current = null;
+        }
+        setCollapsingArticleKey(null);
+      }
+
+      if (!shouldExpand) {
+        if (articleFilter === "unread" && article.isRead) {
+          if (collapseRemovalTimeoutRef.current !== null) {
+            window.clearTimeout(collapseRemovalTimeoutRef.current);
+          }
+          setCollapsingArticleKey(nextArticleKey);
+          collapseRemovalTimeoutRef.current = window.setTimeout(() => {
+            setCollapsingArticleKey((current) =>
+              current === nextArticleKey ? null : current,
+            );
+            collapseRemovalTimeoutRef.current = null;
+          }, ARTICLE_REMOVAL_ANIMATION_MS);
+        }
+        return;
+      }
 
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
@@ -164,6 +201,7 @@ export function useArticleActions({
       }
     },
     [
+      articleFilter,
       expandedArticleKey,
       updatingArticleState,
       setExpandedArticleKey,
@@ -240,6 +278,7 @@ export function useArticleActions({
     updatingArticleState,
     hydratedArticleLinks,
     hydratingArticleLinks,
+    collapsingArticleKey,
     handleArticleToggle,
     handleToggleReadState,
     handleToggleStarredState,
