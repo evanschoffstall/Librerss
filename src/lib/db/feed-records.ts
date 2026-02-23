@@ -89,16 +89,16 @@ export async function replaceUserFeedCategory(
   },
 ): Promise<void> {
   await executor
-    .delete(feedCategories)
-    .where(
-      and(eq(feedCategories.userId, userId), eq(feedCategories.feedId, feedId)),
-    );
-
-  await executor.insert(feedCategories).values({
-    userId,
-    feedId,
-    category,
-  });
+    .insert(feedCategories)
+    .values({
+      userId,
+      feedId,
+      category,
+    })
+    .onConflictDoUpdate({
+      target: [feedCategories.userId, feedCategories.feedId],
+      set: { category },
+    });
 }
 
 export async function removeUserFeedCategory(

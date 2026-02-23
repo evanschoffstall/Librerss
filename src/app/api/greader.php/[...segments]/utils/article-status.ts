@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { articleStatuses } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
 import { sql } from "drizzle-orm";
 
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
