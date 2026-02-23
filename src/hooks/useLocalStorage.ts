@@ -2,21 +2,6 @@
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
-// =============================================================================
-// CLIENT-ONLY CUSTOM HOOKS
-// =============================================================================
-
-export const useDebugState = (initialValue: boolean = false) => {
-  const [debugState, setDebugState] = useState(initialValue);
-  const [isClientState, setIsClientState] = useState(false);
-
-  useEffect(() => setIsClientState(true), []);
-
-  const toggleDebug = () => setDebugState((prev) => !prev);
-
-  return { debug: debugState, toggleDebug, isClient: isClientState };
-};
-
 /**
  * Syncs state with localStorage. Safe for SSR — reads initial value lazily.
  *
@@ -40,16 +25,10 @@ export function useLocalStorage<T>(
     }
   });
 
-  // When the key changes (dynamic key usage) re-read the value stored under
-  // the new key rather than keeping the value from the previous key.
-  // The initializer only runs on mount, so without this effect a dynamic key
-  // would silently keep stale state.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem(key);
-      // Intentionally use the functional updater to avoid a stale closure
-      // on defaultValue — we rely on the effect dep array for key changes.
       setValue(stored ? (JSON.parse(stored) as T) : defaultValue);
     } catch {
       setValue(defaultValue);
