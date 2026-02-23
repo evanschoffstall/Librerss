@@ -10,13 +10,20 @@ let hasHydratedFaviconIndexCache = false;
 const canUseStorage = () => typeof window !== "undefined";
 
 const trimFaviconIndexCache = () => {
-  while (faviconIndexCache.size > MAX_FAVICON_CACHE_ENTRIES) {
+  let iterations = 0;
+  const maxIterations = MAX_FAVICON_CACHE_ENTRIES;
+
+  while (
+    faviconIndexCache.size > MAX_FAVICON_CACHE_ENTRIES &&
+    iterations < maxIterations
+  ) {
     const oldestKey = faviconIndexCache.keys().next().value;
     if (typeof oldestKey !== "string") {
       break;
     }
 
     faviconIndexCache.delete(oldestKey);
+    iterations++;
   }
 };
 
@@ -26,7 +33,9 @@ const persistFaviconIndexCache = () => {
   }
 
   try {
-    const payload = JSON.stringify(Object.fromEntries(faviconIndexCache.entries()));
+    const payload = JSON.stringify(
+      Object.fromEntries(faviconIndexCache.entries()),
+    );
     window.localStorage.setItem(FAVICON_CACHE_STORAGE_KEY, payload);
   } catch {
     // Ignore storage write failures (private mode / quota / denied access).
@@ -53,7 +62,8 @@ const hydrateFaviconIndexCache = () => {
 
     for (const [key, value] of Object.entries(parsed)) {
       const isValidKey = typeof key === "string" && key.length > 0;
-      const isValidValue = typeof value === "number" && Number.isInteger(value) && value >= -1;
+      const isValidValue =
+        typeof value === "number" && Number.isInteger(value) && value >= -1;
 
       if (isValidKey && isValidValue) {
         faviconIndexCache.set(key, value);
@@ -164,7 +174,7 @@ const getProviderCandidates = (hostname: string) => [
   `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
 ];
 
-export const getFaviconCandidates = (url?: string) => {
+const getFaviconCandidates = (url?: string) => {
   const hostname = tryGetUrlHostname(url);
   if (!hostname) {
     return [];
@@ -195,12 +205,16 @@ export const getMergedFaviconCandidates = (
   return [...new Set(candidates)];
 };
 
+// FNV-1a hash constants
+const FNV_OFFSET_BASIS = 2166136261;
+const FNV_PRIME = 16777619;
+
 const hashStringToUint32 = (value: string) => {
-  let hash = 2166136261;
+  let hash = FNV_OFFSET_BASIS;
 
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+    hash = Math.imul(hash, FNV_PRIME);
   }
 
   return hash >>> 0;
