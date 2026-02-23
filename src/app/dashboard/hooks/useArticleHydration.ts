@@ -25,9 +25,27 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
   const articleHydrationInFlightRef = useRef(new Set<string>());
 
   const scrollArticleIntoView = useCallback((articleKey: string) => {
-    const el = document.querySelector<HTMLElement>(
-      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
-    );
+    let el: HTMLElement | null = null;
+    try {
+      el = document.querySelector<HTMLElement>(
+        `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+      );
+    } catch {
+      el = null;
+    }
+
+    if (!el) {
+      for (const candidate of Array.from(document.getElementsByTagName("*"))) {
+        if (
+          candidate instanceof HTMLElement &&
+          candidate.getAttribute("data-article-key") === articleKey
+        ) {
+          el = candidate;
+          break;
+        }
+      }
+    }
+
     el?.scrollIntoView({
       block: "nearest",
       inline: "nearest",
@@ -63,6 +81,7 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
 
         if (!extractedContent) {
           hydratedArticleLinksRef.current.add(link);
+          setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
           return;
         }
 

@@ -61,9 +61,29 @@ export function useArticleActions({
 
   const scrollCollapsedArticleIntoView = useCallback(
     (collapsingKey: string) => {
-      const collapsingEl = document.querySelector<HTMLElement>(
-        `[data-article-key="${escapeArticleKey(collapsingKey)}"]`,
-      );
+      let collapsingEl: HTMLElement | null = null;
+      try {
+        collapsingEl = document.querySelector<HTMLElement>(
+          `[data-article-key="${escapeArticleKey(collapsingKey)}"]`,
+        );
+      } catch {
+        collapsingEl = null;
+      }
+
+      if (!collapsingEl) {
+        for (const candidate of Array.from(
+          document.getElementsByTagName("*"),
+        )) {
+          if (
+            candidate instanceof HTMLElement &&
+            candidate.getAttribute("data-article-key") === collapsingKey
+          ) {
+            collapsingEl = candidate;
+            break;
+          }
+        }
+      }
+
       if (!collapsingEl) return;
 
       // Scroll the collapsed article itself back into view so user can see where they were

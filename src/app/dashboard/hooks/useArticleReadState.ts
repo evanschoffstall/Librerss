@@ -31,6 +31,7 @@ export function useArticleReadState({ setFeed }: UseArticleReadStateOptions) {
           getArticleKey(a) === articleKey ? { ...a, isRead: nextReadState } : a,
         ),
       );
+      await Promise.resolve();
 
       try {
         await ArticleService.updateArticleStatus(article.id, {
