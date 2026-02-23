@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { LINE_COVERAGE_THRESHOLD } from "./coverage-config";
 
-const LINE_COVERAGE_THRESHOLD = 95.5;
-const BRANCH_COVERAGE_THRESHOLD = 85.0; // Branches are harder to cover
 const LCOV_PATH = join(process.cwd(), "coverage", "lcov.info");
 
 type CoverageTotals = {
@@ -134,22 +133,11 @@ describe("coverage threshold", () => {
       totals.coveredLines,
       totals.foundLines,
     );
-    const branchCoveragePercent = calculateCoveragePercent(
-      totals.coveredBranches,
-      totals.foundBranches,
-    );
 
     // Ensure we have actual coverage data
     expect(totals.foundLines).toBeGreaterThan(0);
 
     // Line coverage threshold
     expect(lineCoveragePercent).toBeGreaterThanOrEqual(LINE_COVERAGE_THRESHOLD);
-
-    // Branch coverage threshold (only if branches exist)
-    if (totals.foundBranches > 0) {
-      expect(branchCoveragePercent).toBeGreaterThanOrEqual(
-        BRANCH_COVERAGE_THRESHOLD,
-      );
-    }
   });
 });

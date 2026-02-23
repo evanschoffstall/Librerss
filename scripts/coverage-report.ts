@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { LINE_COVERAGE_THRESHOLD } from "./coverage-config";
 
-const LINE_COVERAGE_THRESHOLD = 95.5;
 const LCOV_PATH = join(process.cwd(), "coverage", "lcov.info");
 
 type CoverageTotals = {
