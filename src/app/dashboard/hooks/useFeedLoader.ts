@@ -35,8 +35,8 @@ export function useFeedLoader({
   setExpandedArticleKey,
   setLoading,
 }: UseFeedLoaderOptions) {
-  const latestFeedRequestIdRef = useRef(0);
-  const activeFeedRequestSignatureRef = useRef<string | null>(null);
+  const currentRequestIdRef = useRef(0);
+  const activeRequestSignatureRef = useRef<string | null>(null);
   const [loading, setLocalLoading] = useState(false);
 
   const syncLoading = useCallback(
@@ -68,10 +68,61 @@ export function useFeedLoader({
     }
   }, [usePlaceholderData, setCategories]);
 
+  // Fetches the batch, falling back to placeholder data on error in dev mode.
+  // Returns null when the caller should abort (error already handled).
+  const fetchBatchOrPlaceholder = useCallback(
+    async (
+      normalizedSources: FeedBatchSource[],
+    ): Promise<Array<{ url: string; articles: Article[]; ok: boolean }> | null> => {
+      const urls = normalizedSources.map((s) => s.url);
+      try {
+        // Single fetch: returns cached articles and refreshes stale feeds in one pass
+        return await FeedService.getFeedsBatch(urls, {
+          skipRefresh: usePlaceholderData,
+        });
+      } catch (error) {
+        if (usePlaceholderData) {
+          const fallbackArticles = dedupeAndSortArticles(
+            normalizedSources.flatMap((source) =>
+              getPlaceholderArticlesForSource(source.url).map((article) => ({
+                ...article,
+                feedName: source.name,
+                feedUrl: source.url,
+              })),
+            ),
+          );
+          setFeed(fallbackArticles);
+          setExpandedArticleKey(null);
+        } else {
+          console.error("Batch feed fetch error:", error);
+          toast.error("Unable to load this feed right now.", {
+            description: "Please try refreshing the selected source again.",
+          });
+        }
+        return null;
+      }
+    },
+    [usePlaceholderData, setFeed, setExpandedArticleKey],
+  );
+
+  const handleEmptyBatchResult = useCallback(() => {
+    const hasConfiguredFeeds =
+      flattenCategoryFeeds(categoriesRef.current).length > 0;
+    if (!hasConfiguredFeeds) {
+      toast.info("No feed sources yet.", {
+        description: "Add your feeds in Settings to start reading.",
+      });
+    } else if (!usePlaceholderData) {
+      toast.error("Unable to load this feed right now.", {
+        description: "Please try refreshing the selected source again.",
+      });
+    }
+  }, [usePlaceholderData, categoriesRef]);
+
   const fetchFeedBatch = useCallback(
     async (sources: FeedBatchSource[]) => {
-      const requestId = latestFeedRequestIdRef.current + 1;
-      latestFeedRequestIdRef.current = requestId;
+      const requestId = currentRequestIdRef.current + 1;
+      currentRequestIdRef.current = requestId;
 
       const seen = new Set<string>();
       const normalizedSources = sources.filter((s) => {
@@ -85,26 +136,13 @@ export function useFeedLoader({
         .sort()
         .join("|");
 
-      if (
-        loading &&
-        activeFeedRequestSignatureRef.current === requestSignature
-      ) {
+      if (loading && activeRequestSignatureRef.current === requestSignature) {
         return;
       }
 
-      activeFeedRequestSignatureRef.current = requestSignature;
+      activeRequestSignatureRef.current = requestSignature;
       syncLoading(true);
       setFeed([]);
-
-      const toBatchArticles = (
-        batchResults: Array<{ url: string; articles: Article[]; ok: boolean }>,
-      ) =>
-        mapBatchResultsToArticles(
-          batchResults,
-          new Map(normalizedSources.map((s) => [s.url, s.name] as const)),
-          usePlaceholderData,
-          getPlaceholderArticlesForSource,
-        );
 
       try {
         if (normalizedSources.length === 0) {
@@ -112,62 +150,26 @@ export function useFeedLoader({
           return;
         }
 
-        const urls = normalizedSources.map((s) => s.url);
+        const batchResults = await fetchBatchOrPlaceholder(normalizedSources);
+        if (batchResults === null) return;
+        if (currentRequestIdRef.current !== requestId) return;
 
-        // Single fetch: returns cached articles and refreshes stale feeds in one pass
-        let batchResults: Array<{
-          url: string;
-          articles: Article[];
-          ok: boolean;
-        }>;
-        try {
-          batchResults = await FeedService.getFeedsBatch(urls, {
-            skipRefresh: usePlaceholderData,
-          });
-        } catch (error) {
-          if (usePlaceholderData) {
-            const fallbackArticles = dedupeAndSortArticles(
-              normalizedSources.flatMap((source) =>
-                getPlaceholderArticlesForSource(source.url).map((article) => ({
-                  ...article,
-                  feedName: source.name,
-                  feedUrl: source.url,
-                })),
-              ),
-            );
-            setFeed(fallbackArticles);
-            setExpandedArticleKey(null);
-            return;
-          }
-          console.error("Batch feed fetch error:", error);
-          toast.error("Unable to load this feed right now.", {
-            description: "Please try refreshing the selected source again.",
-          });
-          return;
-        }
+        const articles = mapBatchResultsToArticles(
+          batchResults,
+          new Map(normalizedSources.map((s) => [s.url, s.name] as const)),
+          usePlaceholderData,
+          getPlaceholderArticlesForSource,
+        );
 
-        if (latestFeedRequestIdRef.current !== requestId) return;
-
-        const articles = toBatchArticles(batchResults);
         if (articles.length > 0) {
           setFeed(articles);
           setExpandedArticleKey(null);
         } else {
-          const hasConfiguredFeeds =
-            flattenCategoryFeeds(categoriesRef.current).length > 0;
-          if (!hasConfiguredFeeds) {
-            toast.info("No feed sources yet.", {
-              description: "Add your feeds in Settings to start reading.",
-            });
-          } else if (!usePlaceholderData) {
-            toast.error("Unable to load this feed right now.", {
-              description: "Please try refreshing the selected source again.",
-            });
-          }
+          handleEmptyBatchResult();
         }
       } finally {
-        if (latestFeedRequestIdRef.current === requestId) {
-          activeFeedRequestSignatureRef.current = null;
+        if (currentRequestIdRef.current === requestId) {
+          activeRequestSignatureRef.current = null;
           syncLoading(false);
         }
       }
@@ -175,10 +177,11 @@ export function useFeedLoader({
     [
       loading,
       usePlaceholderData,
-      categoriesRef,
       setFeed,
       setExpandedArticleKey,
       syncLoading,
+      fetchBatchOrPlaceholder,
+      handleEmptyBatchResult,
     ],
   );
 

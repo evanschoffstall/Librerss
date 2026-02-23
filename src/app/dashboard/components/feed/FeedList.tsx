@@ -70,7 +70,7 @@ export function FeedList({
         <div key="feed-empty" className="flex items-center justify-center py-32 anim-fade-in-load-slow">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">
-              {searchTerm ? "No matches." : "No articles yet."}
+              {searchTerm ? "No matches." : "You're all caught up!"}
             </p>
             {searchTerm ? (
               <button
