@@ -2,11 +2,11 @@ import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
-export type FeedDbExecutor =
+type FeedDbExecutor =
   | ReturnType<typeof getDb>
   | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
-export type FeedRecordRow = {
+type FeedRecordRow = {
   id: number;
   url: string;
   lastFetched: Date;
@@ -25,7 +25,7 @@ export async function findFeedIdByUrl(
   return feed?.id ?? null;
 }
 
-export async function findFeedRecordByUrl(
+async function findFeedRecordByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
 ): Promise<FeedRecordRow | null> {
@@ -51,7 +51,11 @@ export async function ensureFeedRecordByUrl(
     .insert(feeds)
     .values({ url: feedUrl })
     .onConflictDoNothing({ target: feeds.url })
-    .returning({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched });
+    .returning({
+      id: feeds.id,
+      url: feeds.url,
+      lastFetched: feeds.lastFetched,
+    });
 
   if (created) {
     return created;
@@ -102,20 +106,18 @@ export async function removeUserFeedCategory(
     category?: string;
   },
 ): Promise<void> {
-  const baseCondition = and(
-    eq(feedCategories.userId, userId),
-    eq(feedCategories.feedId, feedId),
-  );
-
-  if (!baseCondition) {
-    return;
-  }
-
   await executor
     .delete(feedCategories)
     .where(
       category
-        ? and(baseCondition, eq(feedCategories.category, category))
-        : baseCondition,
+        ? and(
+            eq(feedCategories.userId, userId),
+            eq(feedCategories.feedId, feedId),
+            eq(feedCategories.category, category),
+          )
+        : and(
+            eq(feedCategories.userId, userId),
+            eq(feedCategories.feedId, feedId),
+          ),
     );
 }
