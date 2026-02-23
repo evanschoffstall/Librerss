@@ -1,4 +1,6 @@
 import { type SessionUser } from "@/lib/auth/session";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { getDb } from "@/lib/db/db";
 import {
   articleStatuses,
@@ -10,8 +12,10 @@ import {
 import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { canUseArticleStatusesTable } from "@/lib/core/article-status";
-import { buildStreamConditions } from "@/lib/core/stream-conditions";
+import {
+  loadUserCategoryFallbackByFeedUrl,
+  resolveCategoryWithFallback,
+} from "../utils/categories";
 import { ListedArticle, mapArticleAsItem } from "../utils/mappers";
 import {
   parseOlderThanDate,
@@ -150,11 +154,25 @@ export async function handleStreamContents(
     continuation: nextContinuationId ? String(nextContinuationId) : null,
   });
 
+  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
+  const categoryFallbackByUrl = needsCategoryFallback
+    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
+    : new Map<string, string>();
+
+  const normalizedRows = rows.map((row) => ({
+    ...row,
+    category: resolveCategoryWithFallback(
+      row.category,
+      row.sourceUrl,
+      categoryFallbackByUrl,
+    ),
+  }));
+
   return NextResponse.json({
     id: streamId,
     direction: "ltr",
     updated: Math.floor(Date.now() / 1000),
     continuation: nextContinuationId ? String(nextContinuationId) : undefined,
-    items: rows.map(mapArticleAsItem),
+    items: normalizedRows.map(mapArticleAsItem),
   });
 }

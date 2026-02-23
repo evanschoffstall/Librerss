@@ -14,6 +14,10 @@ import { logger } from "@/lib/utils/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  loadUserCategoryFallbackByFeedUrl,
+  resolveCategoryWithFallback,
+} from "../utils/categories";
 import { toReaderCategoryLabel, toReaderIconUrl } from "../utils/mappers";
 import { textResponse } from "../utils/responses";
 
@@ -71,6 +75,11 @@ export async function handleSubscriptionList(
     )
     .where(eq(feedSources.userId, user.userId));
 
+  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
+  const categoryFallbackByUrl = needsCategoryFallback
+    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
+    : new Map<string, string>();
+
   logger.info("[greader] subscription/list", {
     userId: user.userId,
     subscriptionCount: rows.length,
@@ -78,7 +87,13 @@ export async function handleSubscriptionList(
 
   return NextResponse.json({
     subscriptions: rows.map((row) => {
-      const categoryLabel = toReaderCategoryLabel(row.category);
+      const categoryLabel = toReaderCategoryLabel(
+        resolveCategoryWithFallback(
+          row.category,
+          row.url,
+          categoryFallbackByUrl,
+        ),
+      );
       return {
         id: `feed/${row.url}`,
         title: row.title,

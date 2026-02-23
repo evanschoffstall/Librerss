@@ -292,4 +292,56 @@ describe("greader route compatibility contracts", () => {
       "https://www.google.com/s2/favicons?domain=two.example&sz=64",
     );
   });
+
+  test("subscription/list falls back to canonical URL category mapping", async () => {
+    selectBehaviors.length = 0;
+    selectBehaviors.push(
+      {
+        whereResult: [
+          {
+            sourceId: 3,
+            title: "BBC World",
+            url: "https://feeds.bbci.co.uk/news/world/rss.xml",
+            feedId: 30,
+            category: null,
+          },
+        ],
+      },
+      {
+        whereResult: [
+          {
+            category: "World",
+            feedUrl: "http://feeds.bbci.co.uk/news/world/rss.xml",
+          },
+        ],
+      },
+    );
+
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/subscription/list?output=json",
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "subscription", "list"],
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      subscriptions: Array<{
+        categories: Array<{ id: string; label: string }>;
+      }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.subscriptions).toHaveLength(1);
+    expect(payload.subscriptions[0]?.categories).toEqual([
+      {
+        id: "user/-/label/World",
+        label: "World",
+      },
+    ]);
+  });
 });
