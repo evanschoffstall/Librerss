@@ -1,5 +1,6 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
 import { getDb } from "@/lib/db/db";
 import {
   articleStatuses,
@@ -12,7 +13,10 @@ import { logger } from "@/lib/utils/logger";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_STREAM_ITEMS } from "../constants";
-import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import {
+  loadUserCategoryFallbackByFeedUrl,
+  resolveCategoryWithFallback,
+} from "../utils/categories";
 import { mapArticleAsItem } from "../utils/mappers";
 import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
 
@@ -130,9 +134,23 @@ export async function handleStreamItemContents(
     returnedItemCount: rows.length,
   });
 
+  const needsCategoryFallback = rows.some((row) => !row.category?.trim());
+  const categoryFallbackByUrl = needsCategoryFallback
+    ? await loadUserCategoryFallbackByFeedUrl(user.userId)
+    : new Map<string, string>();
+
+  const normalizedRows = rows.map((row) => ({
+    ...row,
+    category: resolveCategoryWithFallback(
+      row.category,
+      row.sourceUrl,
+      categoryFallbackByUrl,
+    ),
+  }));
+
   return NextResponse.json({
     id: "user/-/state/com.google/reading-list",
     updated: Math.floor(Date.now() / 1000),
-    items: rows.map(mapArticleAsItem),
+    items: normalizedRows.map(mapArticleAsItem),
   });
 }
