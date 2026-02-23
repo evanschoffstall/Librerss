@@ -1,7 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { articleStatuses } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
 let warnedMissingArticleStatusesTable = false;
@@ -35,7 +34,7 @@ function warnMissingArticleStatusesTable(): void {
   }
 
   warnedMissingArticleStatusesTable = true;
-  console.warn(
+  logger.warn(
     "[greader] ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
   );
 }
