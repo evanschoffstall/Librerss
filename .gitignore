@@ -58,12 +58,6 @@ bun-debug.log*
 *.sqlite
 *.sqlite3
 
-# drizzle
-/drizzle
-
-# prisma
-/prisma/migrations
-
 # IDE
 .vscode/
 .lh/
