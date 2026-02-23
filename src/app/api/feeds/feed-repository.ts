@@ -17,6 +17,12 @@ import type {
   FeedTransaction,
 } from "./feed-types";
 
+const feedSourceFields = {
+  id: feedSources.id,
+  name: feedSources.name,
+  url: feedSources.url,
+};
+
 export function toFeedSourceResponse(
   row: FeedSourceListRow,
 ): FeedSourceListRow {
@@ -130,11 +136,7 @@ export async function renameFeedSourceForUser(
       .update(feedSources)
       .set({ name, url: normalizedUrl })
       .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-      .returning({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
-      });
+      .returning(feedSourceFields);
   });
 
   return updatedSource ?? null;
@@ -147,11 +149,7 @@ export async function deleteFeedSourceForUser(
   const db = getDb();
 
   const [sourceToDelete] = await db
-    .select({
-      id: feedSources.id,
-      name: feedSources.name,
-      url: feedSources.url,
-    })
+    .select(feedSourceFields)
     .from(feedSources)
     .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
     .limit(1);
@@ -181,11 +179,7 @@ export async function deleteFeedSourceForUser(
     return tx
       .delete(feedSources)
       .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-      .returning({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
-      });
+      .returning(feedSourceFields);
   });
 
   return deletedSource ?? null;
@@ -198,11 +192,7 @@ async function upsertFeedSource(
   normalizedUrl: string,
 ): Promise<CreateFeedSourceResult> {
   const [existingSource] = await tx
-    .select({
-      id: feedSources.id,
-      name: feedSources.name,
-      url: feedSources.url,
-    })
+    .select(feedSourceFields)
     .from(feedSources)
     .where(
       and(eq(feedSources.userId, userId), eq(feedSources.url, normalizedUrl)),
@@ -219,11 +209,7 @@ async function upsertFeedSource(
           eq(feedSources.userId, userId),
         ),
       )
-      .returning({
-        id: feedSources.id,
-        name: feedSources.name,
-        url: feedSources.url,
-      });
+      .returning(feedSourceFields);
 
     if (!updatedSource) {
       throw new Error("Failed to update feed source");
@@ -235,11 +221,7 @@ async function upsertFeedSource(
   const [createdSource] = await tx
     .insert(feedSources)
     .values({ userId, name, url: normalizedUrl })
-    .returning({
-      id: feedSources.id,
-      name: feedSources.name,
-      url: feedSources.url,
-    });
+    .returning(feedSourceFields);
 
   if (!createdSource) {
     throw new Error("Failed to create feed source");

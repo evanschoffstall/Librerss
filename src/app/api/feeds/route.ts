@@ -4,15 +4,17 @@ import {
   requireAuthenticatedUser,
 } from "@/lib/api/route-helpers";
 import { CONFIG } from "@/lib/config";
+import {
+  isFeedSourceNotFoundError,
+  isUpstreamFeedError,
+} from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
+import { toErrorMessage } from "@/lib/utils/errors";
+import { logger } from "@/lib/utils/logger";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import { requireMutableFeedAccess } from "./feed-access";
-import {
-  handleFeedRead,
-  isFeedSourceNotFoundError,
-  isUpstreamFeedError,
-} from "./feed-get";
+import { handleFeedRead } from "./feed-get";
 import {
   assertAllowedFeedUrl,
   getRequestedFeedUrl,
@@ -44,23 +46,33 @@ export async function GET(request: NextRequest) {
 
     return handleFeedRead(user.userId, feedUrl);
   } catch (error) {
+    const requestedFeedUrl = getRequestedFeedUrl(request);
+
     if (isFeedSourceNotFoundError(error)) {
       return jsonError("Feed source not found", 404);
     }
 
     if (isUpstreamFeedError(error)) {
-      return logAndRespondError("Upstream feed fetch failed", error, {
-        status: 502,
-        publicMessage:
-          "Unable to fetch upstream feed. Try another feed or check back after the next refresh.",
-      });
+      const detail = toErrorMessage(error);
+      logger.warn(
+        `Returning 502 Bad Gateway — upstream feed fetch failed${requestedFeedUrl ? ` for ${requestedFeedUrl}` : ""}: ${detail}`,
+      );
+      return jsonError(detail, 502);
     }
 
     if (axios.isAxiosError(error)) {
-      return logAndRespondError("Error fetching feed", error, {
-        status: 502,
-        publicMessage: "Unable to fetch upstream feed",
-      });
+      const upstreamStatus = error.response?.status;
+      const detail = toErrorMessage(error);
+      const status =
+        typeof upstreamStatus === "number" && upstreamStatus >= 400
+          ? upstreamStatus
+          : 502;
+
+      logger.warn(
+        `Returning ${status} ${status === 502 ? "Bad Gateway" : "Upstream Error"} — upstream feed request failed${requestedFeedUrl ? ` for ${requestedFeedUrl}` : ""}: ${detail}`,
+      );
+
+      return jsonError(detail, status);
     }
 
     return logAndRespondError("Error fetching feed", error);

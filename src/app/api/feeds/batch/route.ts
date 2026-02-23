@@ -10,6 +10,8 @@ import { logger } from "@/lib/utils/logger";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
+const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+
 type BatchRequestBody = {
   urls?: unknown;
   skipRefresh?: unknown;
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
       typeof body.requestSource === "string"
         ? body.requestSource
         : "unspecified";
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    if (DIAG) {
       logger.info("Feed batch request received", {
         userId: user.userId,
         requestedUrlCount: urls.length,
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (normalizedUrls.length === 0) {
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      if (DIAG) {
         logger.info(
           "Feed batch request had no valid URLs after normalization",
           {
@@ -93,12 +95,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Single batch call: ~3 DB round-trips regardless of how many feeds.
-    const { articles: batchMap, errors: upstreamErrors } =
-      await fetchAndCacheFeedArticlesBatch(db, user.userId, normalizedUrls, {
-        skipRefresh,
-        forceRefresh,
-        requestSource,
-      });
+    const {
+      articles: batchMap,
+      errors: upstreamErrors,
+      refreshedCount,
+      cachedCount,
+    } = await fetchAndCacheFeedArticlesBatch(db, user.userId, normalizedUrls, {
+      skipRefresh,
+      forceRefresh,
+      requestSource,
+    });
 
     const results = normalizedUrls.map((normalizedUrl) => ({
       url: normalizedUrl,
@@ -115,6 +121,16 @@ export async function POST(request: NextRequest) {
 
     const hasUpstreamErrors = upstreamErrors.size > 0;
 
+    // Always log cache/refresh breakdown for feed batch requests
+    const flags = [];
+    if (forceRefresh) flags.push("force");
+    if (skipRefresh) flags.push("skip refresh");
+    const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
+
+    logger.info(
+      `📦 Batch [${normalizedUrls.length} feed${normalizedUrls.length !== 1 ? "s" : ""}]: ${refreshedCount} refreshed, ${cachedCount} cached${flagStr}`,
+    );
+
     // Always log 207 reasons so they appear in the server console alongside
     // the Next.js request line, regardless of diagnostics toggle.
     if (hasUpstreamErrors) {
@@ -126,7 +142,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    if (DIAG) {
       logger.info("Feed batch request completed", {
         userId: user.userId,
         normalizedUrlCount: normalizedUrls.length,

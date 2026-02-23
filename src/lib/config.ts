@@ -24,10 +24,15 @@ export const CONFIG = {
   FEED_BATCH_CONCURRENCY: 8,
   // Upstream feeds refresh concurrently inside a batch request.  A long
   // timeout makes the HTTP response wait for the slowest upstream feed.
-  // 7 s is a reasonable ceiling: legitimately slow feeds will usually respond
+  // 14 s is a reasonable ceiling: legitimately slow feeds will usually respond
   // by then; truly unresponsive ones stop blocking the batch sooner.
-  FEED_REQUEST_TIMEOUT_MS: 7000,
+  FEED_REQUEST_TIMEOUT_MS: 14_000,
   MAX_FEED_RESPONSE_SIZE_BYTES: 5 * 1024 * 1024, // 5MB
+  FEED_REQUEST_USER_AGENT:
+    process.env.FEED_REQUEST_USER_AGENT ??
+    "Mozilla/5.0 (compatible; Librerss/1.0; +https://github.com/evanschoffstall/librerss)",
+  FEED_REQUEST_ACCEPT:
+    "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
 
   // Content limits
   MAX_ARTICLE_CONTENT_LENGTH: 100000, // 100KB per article
@@ -71,4 +76,17 @@ export const CONFIG = {
 
   // Request parsing
   MAX_JSON_BODY_BYTES: 64 * 1024, // 64KB
+
+  // GReader API
+  GREADER_MAX_STREAM_ITEMS: 250,
+  GREADER_DEFAULT_STREAM_ITEMS: 50,
+  GREADER_NETNEWSWIRE_MAX_ITEMS: 250,
+
+  // Batch operations
+  MARK_ALL_READ_LIMIT: 10_000,
+
+  // Caching limits
+  DNS_CACHE_MAX_ENTRIES: 10_000,
+  MAX_FAVICON_CACHE_ENTRIES: 400,
+  FEED_LOADING_FAILSAFE_MS: 20_000,
 } as const;

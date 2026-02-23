@@ -13,6 +13,13 @@ type FeedRecordRow = {
   lastFetchError: string | null;
 };
 
+export const feedRecordFields = {
+  id: feeds.id,
+  url: feeds.url,
+  lastFetched: feeds.lastFetched,
+  lastFetchError: feeds.lastFetchError,
+};
+
 export async function findFeedIdByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
@@ -31,12 +38,7 @@ async function findFeedRecordByUrl(
   feedUrl: string,
 ): Promise<FeedRecordRow | null> {
   const [feed] = await executor
-    .select({
-      id: feeds.id,
-      url: feeds.url,
-      lastFetched: feeds.lastFetched,
-      lastFetchError: feeds.lastFetchError,
-    })
+    .select(feedRecordFields)
     .from(feeds)
     .where(eq(feeds.url, feedUrl))
     .limit(1);
@@ -57,12 +59,7 @@ export async function ensureFeedRecordByUrl(
     .insert(feeds)
     .values({ url: feedUrl })
     .onConflictDoNothing({ target: feeds.url })
-    .returning({
-      id: feeds.id,
-      url: feeds.url,
-      lastFetched: feeds.lastFetched,
-      lastFetchError: feeds.lastFetchError,
-    });
+    .returning(feedRecordFields);
 
   if (created) {
     return created;
