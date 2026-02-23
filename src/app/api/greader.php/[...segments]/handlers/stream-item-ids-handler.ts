@@ -21,6 +21,16 @@ import {
   shouldExcludeReadFromStream,
 } from "../utils/stream";
 
+function isMissingRelationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { code?: string; message?: string };
+  const message = String(candidate.message ?? "").toLowerCase();
+  return candidate.code === "42P01" || message.includes("does not exist");
+}
+
 export async function handleStreamItemIds(
   user: SessionUser,
   request: NextRequest,
@@ -41,7 +51,7 @@ export async function handleStreamItemIds(
   const sinceDate = parseOlderThanDate(searchParams);
 
   const db = getDb();
-  const useArticleStatuses = await canUseArticleStatusesTable();
+  let useArticleStatuses = await canUseArticleStatusesTable();
 
   if (streamId === STARRED_STATE && !useArticleStatuses) {
     return NextResponse.json({ itemRefs: [], continuation: undefined });
@@ -113,7 +123,22 @@ export async function handleStreamItemIds(
       .offset(offset);
   }
 
-  let rows = await queryRows(sinceDate);
+  let rows: Array<{
+    articleId: number;
+    isRead: boolean | null;
+    isStarred: boolean | null;
+  }>;
+
+  try {
+    rows = await queryRows(sinceDate);
+  } catch (error) {
+    if (!useArticleStatuses || !isMissingRelationError(error)) {
+      throw error;
+    }
+
+    useArticleStatuses = false;
+    rows = await queryRows(sinceDate);
+  }
   let usedOtFallback = false;
 
   if (rows.length === 0 && sinceDate) {
