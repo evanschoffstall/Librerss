@@ -4,8 +4,8 @@ import {
   parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/request";
+import { jsonError } from "@/lib/api/responses";
 import {
-  jsonError,
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,

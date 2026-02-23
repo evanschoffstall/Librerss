@@ -1,6 +1,6 @@
 import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import { jsonError } from "@/lib/api/responses";
 import {
-  jsonError,
   logAndRespondError,
   requireMutableRequest,
 } from "@/lib/api/route-helpers";
@@ -23,6 +23,15 @@ type SignupPayload = {
   email: string;
   password: string;
 };
+
+function isUniqueConstraintViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeCode = (error as { code?: unknown }).code;
+  return maybeCode === "23505";
+}
 
 function parseSignupPayload(
   payload: Record<string, unknown>,
@@ -130,6 +139,14 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
+    if (isUniqueConstraintViolation(error)) {
+      logger.warn("Signup attempt with existing email");
+      return jsonError(
+        "Unable to create account. Please try a different email or contact support.",
+        400,
+      );
+    }
+
     return logAndRespondError("Signup error", error);
   }
 }
