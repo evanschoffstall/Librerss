@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 // =============================================================================
 // CLIENT-ONLY CUSTOM HOOKS
@@ -27,7 +27,7 @@ export const useDebugState = (initialValue: boolean = false) => {
 export function useLocalStorage<T>(
   key: string,
   defaultValue: T,
-): [T, (value: T) => void] {
+): [T, Dispatch<SetStateAction<T>>] {
   const [value, setValue] = useState<T>(() => {
     if (typeof window === "undefined") {
       return defaultValue;
@@ -70,5 +70,13 @@ export function useLocalStorage<T>(
     }
   }, [key, value]);
 
-  return [value, setValue];
+  const setStoredValue: Dispatch<SetStateAction<T>> = (nextValue) => {
+    setValue((currentValue) =>
+      typeof nextValue === "function"
+        ? (nextValue as (prevState: T) => T)(currentValue)
+        : nextValue,
+    );
+  };
+
+  return [value, setStoredValue];
 }
