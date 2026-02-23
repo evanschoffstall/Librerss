@@ -61,7 +61,9 @@ export function useDashboardEvents({
 }: UseDashboardEventsOptions) {
   useEffect(() => {
     const handleMarkAllRead = async () => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START));
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
+      );
 
       const streams = collectMarkAllReadStreams(
         selectedCategory,
@@ -71,7 +73,9 @@ export function useDashboardEvents({
 
       if (streams.length === 0) {
         toast.info("No readable feed selected.");
-        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END));
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        );
         return;
       }
 
@@ -87,7 +91,9 @@ export function useDashboardEvents({
         console.error("Mark all read error:", error);
         toast.error("Unable to mark all as read right now.");
       } finally {
-        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END));
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        );
       }
     };
 
@@ -96,21 +102,36 @@ export function useDashboardEvents({
       onSearchChange(term);
     };
 
-    const handleOpenSettings = () => onOpenSettings();
-    const handleOpenFeedsSidebar = () => onOpenFeedsSidebar();
-
     window.addEventListener(DASHBOARD_EVENTS.REFRESH, onRefresh);
     window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
-    window.addEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, handleOpenSettings);
-    window.addEventListener(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR, handleOpenFeedsSidebar);
-    window.addEventListener(DASHBOARD_EVENTS.SEARCH_CHANGE, handleSearchChange as EventListener);
+    window.addEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, onOpenSettings);
+    window.addEventListener(
+      DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR,
+      onOpenFeedsSidebar,
+    );
+    window.addEventListener(
+      DASHBOARD_EVENTS.SEARCH_CHANGE,
+      handleSearchChange as EventListener,
+    );
 
     return () => {
       window.removeEventListener(DASHBOARD_EVENTS.REFRESH, onRefresh);
-      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
-      window.removeEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, handleOpenSettings);
-      window.removeEventListener(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR, handleOpenFeedsSidebar);
-      window.removeEventListener(DASHBOARD_EVENTS.SEARCH_CHANGE, handleSearchChange as EventListener);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_ALL_READ,
+        handleMarkAllRead,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.OPEN_SETTINGS,
+        onOpenSettings,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR,
+        onOpenFeedsSidebar,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SEARCH_CHANGE,
+        handleSearchChange as EventListener,
+      );
     };
   }, [
     selectedCategory,

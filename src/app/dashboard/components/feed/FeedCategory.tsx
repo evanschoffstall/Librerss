@@ -1,6 +1,7 @@
 import { type CategoryTreeNode } from "@/lib";
+import { getUrlHostnameLabel } from "@/lib/utils/url";
 import { Globe } from "lucide-react";
-import { getHostnameLabel, setCachedFaviconIndex } from "../../helpers/favicons";
+import { setCachedFaviconIndex } from "../../helpers/favicons";
 import { useFavicon } from "../../hooks/useFavicon";
 
 interface FeedCategoryProps {
@@ -33,7 +34,7 @@ export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedC
       <div className="min-w-0">
         <p className="text-sm font-medium leading-5">{category.label}</p>
         <p className="truncate text-[11px] text-muted-foreground/60">
-          {getHostnameLabel(category.data?.url)}
+          {getUrlHostnameLabel(category.data?.url)}
         </p>
       </div>
       {shouldShowFavicon ? (

@@ -6,6 +6,9 @@ import { Loader2 } from "lucide-react";
 import { getArticleKey } from "../../helpers/article-helpers";
 import { ArticleCard } from "../ArticleCard";
 
+const emptyActionBtnCls =
+  "text-xs text-muted-foreground/60 underline underline-offset-2";
+
 interface FeedListProps {
   loading: boolean;
   filteredFeed: Article[];
@@ -75,14 +78,14 @@ export function FeedList({
             {searchTerm ? (
               <button
                 onClick={onClearSearch}
-                className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                className={emptyActionBtnCls}
               >
                 Clear search
               </button>
             ) : (
               <button
                 onClick={onRefresh}
-                className="text-xs text-muted-foreground/60 underline underline-offset-2"
+                className={emptyActionBtnCls}
               >
                 Refresh
               </button>
