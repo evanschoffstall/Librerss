@@ -113,24 +113,34 @@ export function FeedList({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {filteredFeed.slice(0, visibleCount).map((article) => {
-            const cardKey = getArticleKey(article);
-            return (
-              <ArticleCard
-                key={cardKey}
-                articleKey={cardKey}
-                article={article}
-                isExpanded={expandedArticleKey === cardKey}
-                useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
-                isHydrating={Boolean(hydratingArticleLinks[cardKey])}
-                isUpdatingState={Boolean(updatingArticleState[cardKey])}
-                showFavicon={showFavicons}
-                onToggle={() => onToggle(article)}
-                onToggleRead={() => onToggleRead(article)}
-                onToggleStarred={() => onToggleStarred(article)}
-              />
-            );
-          })}
+          <AnimatePresence initial={false}>
+            {filteredFeed.slice(0, visibleCount).map((article) => {
+              const cardKey = getArticleKey(article);
+              return (
+                <motion.div
+                  key={cardKey}
+                  layout
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                >
+                  <ArticleCard
+                    articleKey={cardKey}
+                    article={article}
+                    isExpanded={expandedArticleKey === cardKey}
+                    useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
+                    isHydrating={Boolean(hydratingArticleLinks[cardKey])}
+                    isUpdatingState={Boolean(updatingArticleState[cardKey])}
+                    showFavicon={showFavicons}
+                    onToggle={() => onToggle(article)}
+                    onToggleRead={() => onToggleRead(article)}
+                    onToggleStarred={() => onToggleStarred(article)}
+                  />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
           <div ref={sentinelRef} className="py-1 flex justify-center">
             {visibleCount < filteredFeed.length && (
               <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
