@@ -8,6 +8,8 @@ export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
 export const DASHBOARD_EVENTS = {
   REFRESH: "dashboard:refresh",
   MARK_ALL_READ: "dashboard:mark-all-read",
+  MARK_ALL_READ_START: "dashboard:mark-all-read-start",
+  MARK_ALL_READ_END: "dashboard:mark-all-read-end",
   OPEN_SETTINGS: "dashboard:open-settings",
   OPEN_FEEDS_SIDEBAR: "dashboard:open-feeds-sidebar",
   SEARCH_CHANGE: "dashboard:search-change",

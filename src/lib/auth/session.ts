@@ -100,10 +100,6 @@ export function clearSessionCookie(response: NextResponse): void {
 
 export async function createSession(userId: number): Promise<string> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
-      throw new Error("Placeholder authentication is disabled");
-    }
-
     if (userId !== PLACEHOLDER_ADMIN_USER.id) {
       throw new Error("Placeholder mode only supports the admin account");
     }
@@ -164,10 +160,6 @@ export async function getUserFromSessionToken(
   }
 
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
-      return null;
-    }
-
     if (token !== PLACEHOLDER_ADMIN_USER.sessionToken) {
       return null;
     }

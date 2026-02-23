@@ -55,11 +55,6 @@ async function handlePlaceholderLogin(
   email: string,
   password: string,
 ): Promise<Response> {
-  if (!RUNTIME_FLAGS.allowPlaceholderAuth) {
-    logger.warn("Login attempt when placeholder auth is disabled");
-    return jsonError("Authentication is unavailable without a database", 503);
-  }
-
   const isPlaceholderEmail = email === PLACEHOLDER_ADMIN_USER.email;
   const isValidPassword = await verifyPassword(
     password,

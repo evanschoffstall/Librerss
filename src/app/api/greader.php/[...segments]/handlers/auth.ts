@@ -3,6 +3,7 @@ import {
   parseEmailPasswordFromRecord,
   parseEmailPasswordFromSearchParams,
 } from "@/lib/auth/credentials";
+import { requireSameOrigin } from "@/lib/auth/csrf";
 import {
   createSession,
   getUserFromRequest,
@@ -11,7 +12,6 @@ import {
   verifyPassword,
   type SessionUser,
 } from "@/lib/auth/session";
-import { requireSameOrigin } from "@/lib/auth/csrf";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
@@ -93,11 +93,7 @@ export async function handleClientLogin(
       PLACEHOLDER_ADMIN_USER.passwordHash,
     );
 
-    if (
-      !RUNTIME_FLAGS.allowPlaceholderAuth ||
-      !isValidEmail ||
-      !isValidPassword
-    ) {
+    if (!isValidEmail || !isValidPassword) {
       return textResponse("Error=BadAuthentication\n", 403);
     }
 

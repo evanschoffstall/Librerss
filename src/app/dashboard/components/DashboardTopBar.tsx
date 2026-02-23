@@ -25,6 +25,7 @@ export function DashboardTopBar() {
   const [search, setSearch] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -42,14 +43,20 @@ export function DashboardTopBar() {
     };
 
     const handleEnterPreview = () => setIsPreviewMode(true);
+    const handleMarkAllReadStart = () => setIsMarkingAllRead(true);
+    const handleMarkAllReadEnd = () => setIsMarkingAllRead(false);
 
     window.addEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
     window.addEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
+    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, handleMarkAllReadStart);
+    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
     return () => {
       window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
       window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
       window.removeEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
+      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, handleMarkAllReadStart);
+      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
     };
   }, []);
 
@@ -115,9 +122,10 @@ export function DashboardTopBar() {
 
           <button
             type="button"
+            disabled={isMarkingAllRead}
             onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))}
             aria-label="Mark all read"
-            className={toolbarBtnClass}
+            className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70 ${isMarkingAllRead ? "animate-pulse" : ""}`}
           >
             <CheckCheck className="h-4 w-4" />
           </button>

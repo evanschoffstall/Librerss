@@ -159,21 +159,14 @@ export function useArticleActions({
   const handleArticleToggle = useCallback(
     async (article: Article) => {
       const nextArticleKey = getArticleKey(article);
-      const shouldExpand = expandedArticleKey !== nextArticleKey;
+      const isCollapsing = expandedArticleKey === nextArticleKey;
 
       setExpandedArticleKey((current) =>
         current === nextArticleKey ? null : nextArticleKey,
       );
 
-      if (shouldExpand) {
-        if (collapseRemovalTimeoutRef.current !== null) {
-          window.clearTimeout(collapseRemovalTimeoutRef.current);
-          collapseRemovalTimeoutRef.current = null;
-        }
-        setCollapsingArticleKey(null);
-      }
-
-      if (!shouldExpand) {
+      if (isCollapsing) {
+        // Schedule animated removal from the unread filter for read articles
         if (articleFilter === "unread" && article.isRead) {
           if (collapseRemovalTimeoutRef.current !== null) {
             window.clearTimeout(collapseRemovalTimeoutRef.current);
@@ -189,6 +182,13 @@ export function useArticleActions({
         return;
       }
 
+      // Expanding: cancel any in-progress collapse animation first
+      if (collapseRemovalTimeoutRef.current !== null) {
+        window.clearTimeout(collapseRemovalTimeoutRef.current);
+        collapseRemovalTimeoutRef.current = null;
+      }
+      setCollapsingArticleKey(null);
+
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
@@ -196,6 +196,7 @@ export function useArticleActions({
       requestAnimationFrame(() => scrollArticleIntoView(nextArticleKey));
       await hydrateArticleContent(article);
 
+      // Scroll again after hydration in case the card grew
       if (expandedArticleKeyRef.current === nextArticleKey) {
         requestAnimationFrame(() => scrollArticleIntoView(nextArticleKey));
       }
