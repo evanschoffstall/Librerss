@@ -61,6 +61,10 @@ const READER_STATE_TAGS = {
   starred: "user/-/state/com.google/starred",
 } as const;
 
+const FORM_URLENCODED_HEADERS = {
+  "content-type": "application/x-www-form-urlencoded",
+} as const;
+
 function resolvePublishedTimestamp(item: ReaderApiItem): number {
   if (typeof item.published === "number") {
     return item.published * 1000;
@@ -94,6 +98,12 @@ function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
       : [],
     ok: Boolean(candidate.ok),
   };
+}
+
+function parseReaderStreamItems(
+  data: ReaderApiStreamResponse | undefined,
+): ReaderApiItem[] {
+  return Array.isArray(data?.items) ? data.items : [];
 }
 
 export class AuthService {
@@ -186,6 +196,20 @@ export class ArticleService {
 
   private static greaderBaseUrl = "/api/greader.php/reader/api/0";
 
+  private static streamContentsUrl(streamId: string): string {
+    const encodedStreamId = encodeURIComponent(streamId);
+    return `${this.greaderBaseUrl}/stream/contents/${encodedStreamId}?output=json&n=250`;
+  }
+
+  private static async postGreaderForm(
+    path: string,
+    body: URLSearchParams,
+  ): Promise<void> {
+    await api.post(`${this.greaderBaseUrl}${path}`, body.toString(), {
+      headers: FORM_URLENCODED_HEADERS,
+    });
+  }
+
   private static toArticle(item: ReaderApiItem, index: number): Article {
     const publicationDate = new Date(resolvePublishedTimestamp(item));
     const canonicalLink = item.canonical?.[0]?.href;
@@ -229,23 +253,16 @@ export class ArticleService {
 
   static async getReaderStream(streamId: string): Promise<Article[]> {
     const response = await api.get<ReaderApiStreamResponse>(
-      `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`,
+      this.streamContentsUrl(streamId),
     );
 
-    const items = Array.isArray(response.data?.items)
-      ? response.data.items
-      : [];
+    const items = parseReaderStreamItems(response.data);
     return items.map((item, index) => this.toArticle(item, index));
   }
 
   static async markAllRead(streamId: string): Promise<void> {
     const body = new URLSearchParams({ s: streamId, ts: String(Date.now()) });
-
-    await api.post(`${this.greaderBaseUrl}/mark-all-as-read`, body.toString(), {
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-      },
-    });
+    await this.postGreaderForm("/mark-all-as-read", body);
   }
 
   private static async editArticleTags(
@@ -265,11 +282,7 @@ export class ArticleService {
       body.append("r", removeTag);
     }
 
-    await api.post(`${this.greaderBaseUrl}/edit-tag`, body.toString(), {
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-      },
-    });
+    await this.postGreaderForm("/edit-tag", body);
   }
 
   private static async setArticleTagState(

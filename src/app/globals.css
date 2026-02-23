@@ -96,6 +96,139 @@
 }
 
 @layer utilities {
+  @keyframes landing-glow-main {
+
+    0%,
+    100% {
+      opacity: 0.42;
+      transform: scale(0.96);
+    }
+
+    50% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes landing-glow-left {
+
+    0%,
+    100% {
+      opacity: 0.24;
+      transform: translate(0, 0);
+    }
+
+    50% {
+      opacity: 0.42;
+      transform: translate(14px, -10px);
+    }
+  }
+
+  @keyframes landing-glow-right {
+
+    0%,
+    100% {
+      opacity: 0.2;
+      transform: translate(0, 0);
+    }
+
+    50% {
+      opacity: 0.36;
+      transform: translate(-10px, 12px);
+    }
+  }
+
+  @keyframes landing-reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes landing-tagline-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes landing-arrow-bob {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    50% {
+      transform: translateX(4px);
+    }
+  }
+
+  @keyframes landing-icon-wiggle {
+    0% {
+      transform: rotate(0deg) scale(1);
+    }
+
+    25% {
+      transform: rotate(-8deg) scale(1.04);
+    }
+
+    75% {
+      transform: rotate(8deg) scale(1.04);
+    }
+
+    100% {
+      transform: rotate(0deg) scale(1);
+    }
+  }
+
+  .landing-glow-main {
+    animation: landing-glow-main 9s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .landing-glow-left {
+    animation: landing-glow-left 11s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .landing-glow-right {
+    animation: landing-glow-right 12s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .landing-reveal {
+    opacity: 0;
+    animation: landing-reveal-up 0.8s ease-out both;
+  }
+
+  .landing-tagline {
+    opacity: 0;
+    animation: landing-tagline-reveal 0.8s ease-out 0.5s both;
+  }
+
+  .landing-arrow-bob {
+    animation: landing-arrow-bob 1.8s ease-in-out infinite;
+  }
+
+  .landing-icon-wiggle {
+    animation: landing-icon-wiggle 0.5s ease-in-out;
+  }
+
+  .landing-feature:hover .landing-feature-icon {
+    animation: landing-icon-wiggle 0.5s ease-in-out;
+  }
+
   .text-balance {
     text-wrap: balance;
   }

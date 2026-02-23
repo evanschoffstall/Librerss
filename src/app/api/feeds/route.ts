@@ -4,9 +4,9 @@ import {
   parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/request";
+import { jsonError } from "@/lib/api/responses";
 import {
   type AuthenticatedUser,
-  jsonError,
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
@@ -24,6 +24,10 @@ import {
 } from "@/lib/core/placeholder";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
+import {
+  ensureFeedRecordByUrl,
+  replaceUserFeedCategory,
+} from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import axios from "axios";
@@ -48,6 +52,10 @@ type FeedSourceRecord = {
   id: number;
   name: string;
   url: string;
+};
+
+type FeedSourceListRow = FeedSourceRecord & {
+  category: string | null;
 };
 
 type CreateFeedSourceResult = {
@@ -180,62 +188,43 @@ function parseDeleteSourceId(request: NextRequest): number | Response {
   return sourceId;
 }
 
-async function resolveFeedId(
-  tx: FeedTransaction,
-  normalizedUrl: string,
-): Promise<number> {
-  const [existingFeed] = await tx
-    .select({ id: feeds.id })
-    .from(feeds)
-    .where(eq(feeds.url, normalizedUrl))
-    .limit(1);
-
-  if (existingFeed?.id) {
-    return existingFeed.id;
-  }
-
-  const [createdFeed] = await tx
-    .insert(feeds)
-    .values({ url: normalizedUrl })
-    .onConflictDoNothing({ target: feeds.url })
-    .returning({ id: feeds.id });
-
-  if (createdFeed?.id) {
-    return createdFeed.id;
-  }
-
-  const [persistedFeed] = await tx
-    .select({ id: feeds.id })
-    .from(feeds)
-    .where(eq(feeds.url, normalizedUrl))
-    .limit(1);
-
-  if (!persistedFeed?.id) {
-    throw new Error("Unable to resolve feed source id");
-  }
-
-  return persistedFeed.id;
+function getRequestedFeedUrl(request: NextRequest): string | null {
+  const requestUrl = new URL(request.url);
+  return requestUrl.searchParams.get("url")?.trim() || null;
 }
 
-async function upsertCategoryAssignment(
-  tx: FeedTransaction,
+function toFeedSourceResponse(row: FeedSourceListRow): FeedSourceListRow {
+  return {
+    ...row,
+    category: row.category?.trim() || DEFAULT_CATEGORY_LABEL,
+  };
+}
+
+async function listFeedSourcesForUser(
   userId: number,
-  feedId: number,
-  category: string,
-): Promise<void> {
-  const normalizedCategory = normalizeCategory(category);
+): Promise<FeedSourceListRow[]> {
+  const db = getDb();
 
-  await tx
-    .delete(feedCategories)
-    .where(
-      and(eq(feedCategories.userId, userId), eq(feedCategories.feedId, feedId)),
-    );
+  const rows = await db
+    .select({
+      id: feedSources.id,
+      name: feedSources.name,
+      url: feedSources.url,
+      category: feedCategories.category,
+    })
+    .from(feedSources)
+    .leftJoin(feeds, eq(feeds.url, feedSources.url))
+    .leftJoin(
+      feedCategories,
+      and(
+        eq(feedCategories.feedId, feeds.id),
+        eq(feedCategories.userId, userId),
+      ),
+    )
+    .where(eq(feedSources.userId, userId))
+    .orderBy(feedSources.name);
 
-  await tx.insert(feedCategories).values({
-    userId,
-    feedId,
-    category: normalizedCategory,
-  });
+  return rows;
 }
 
 async function upsertFeedSource(
@@ -301,9 +290,13 @@ async function createOrUpdateFeedSource(
   payload: CreateFeedPayload,
 ): Promise<CreateFeedSourceResult> {
   const normalizedUrl = normalizeFeedUrl(payload.url);
-  const sourceFeedId = await resolveFeedId(tx, normalizedUrl);
+  const feed = await ensureFeedRecordByUrl(tx, normalizedUrl);
 
-  await upsertCategoryAssignment(tx, userId, sourceFeedId, payload.category);
+  await replaceUserFeedCategory(tx, {
+    userId,
+    feedId: feed.id,
+    category: normalizeCategory(payload.category),
+  });
   return upsertFeedSource(tx, userId, payload.name, normalizedUrl);
 }
 
@@ -314,8 +307,7 @@ export async function GET(request: NextRequest) {
       return user;
     }
 
-    const requestUrl = new URL(request.url);
-    const feedUrl = requestUrl.searchParams.get("url")?.trim();
+    const feedUrl = getRequestedFeedUrl(request);
 
     if (feedUrl) {
       const invalidFeedUrlResponse = await assertAllowedFeedUrl(feedUrl);
@@ -336,36 +328,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const db = getDb();
-
     if (!normalizedFeedUrl) {
-      const sources = await db
-        .select({
-          id: feedSources.id,
-          name: feedSources.name,
-          url: feedSources.url,
-          category: feedCategories.category,
-        })
-        .from(feedSources)
-        .leftJoin(feeds, eq(feeds.url, feedSources.url))
-        .leftJoin(
-          feedCategories,
-          and(
-            eq(feedCategories.feedId, feeds.id),
-            eq(feedCategories.userId, user.userId),
-          ),
-        )
-        .where(eq(feedSources.userId, user.userId))
-        .orderBy(feedSources.name);
-
-      return NextResponse.json(
-        sources.map((source) => ({
-          ...source,
-          category: source.category?.trim() || DEFAULT_CATEGORY_LABEL,
-        })),
-      );
+      const sources = await listFeedSourcesForUser(user.userId);
+      return NextResponse.json(sources.map(toFeedSourceResponse));
     }
 
+    const db = getDb();
     const feedArticles = await fetchAndCacheFeedArticles(
       db,
       user.userId,

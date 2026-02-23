@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export const IconBtn = ({
+export const SettingsIconBtn = ({
   tip,
   onClick,
   disabled,

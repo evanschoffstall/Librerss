@@ -1,6 +1,6 @@
 import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import { jsonError } from "@/lib/api/responses";
 import {
-  jsonError,
   logAndRespondError,
   requireMutableAuthenticatedUser,
 } from "@/lib/api/route-helpers";

@@ -2,7 +2,6 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
-import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { getArticleKey } from "../../helpers/article-helpers";
 import { ArticleCard } from "../ArticleCard";
@@ -47,16 +46,9 @@ export function FeedList({
   onRefresh,
 }: FeedListProps) {
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <>
       {loading ? (
-        <motion.div
-          key="feed-skeleton"
-          className="grid grid-cols-1 gap-2 pr-3 py-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
-        >
+        <div className="grid grid-cols-1 gap-2 pr-3 py-2">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="rounded-xl border bg-card/40 p-3 space-y-2">
               <div className="flex items-center gap-2">
@@ -73,16 +65,9 @@ export function FeedList({
               </div>
             </div>
           ))}
-        </motion.div>
+        </div>
       ) : filteredFeed.length === 0 ? (
-        <motion.div
-          key="feed-empty"
-          className="flex items-center justify-center py-32"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
+        <div className="flex items-center justify-center py-32">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">
               {searchTerm ? "No matches." : "No articles yet."}
@@ -103,51 +88,35 @@ export function FeedList({
               </button>
             )}
           </div>
-        </motion.div>
+        </div>
       ) : (
-        <motion.div
-          key="feed-list"
-          className="grid grid-cols-1 gap-2 pr-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <AnimatePresence initial={false}>
-            {filteredFeed.slice(0, visibleCount).map((article) => {
-              const cardKey = getArticleKey(article);
-              return (
-                <motion.div
-                  key={cardKey}
-                  layout
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                  transition={{ duration: 0.22, ease: "easeOut" }}
-                >
-                  <ArticleCard
-                    articleKey={cardKey}
-                    article={article}
-                    isExpanded={expandedArticleKey === cardKey}
-                    useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
-                    isHydrating={Boolean(hydratingArticleLinks[cardKey])}
-                    isUpdatingState={Boolean(updatingArticleState[cardKey])}
-                    showFavicon={showFavicons}
-                    onToggle={() => onToggle(article)}
-                    onToggleRead={() => onToggleRead(article)}
-                    onToggleStarred={() => onToggleStarred(article)}
-                  />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+        <div className="grid grid-cols-1 gap-2 pr-3">
+          {filteredFeed.slice(0, visibleCount).map((article) => {
+            const cardKey = getArticleKey(article);
+            return (
+              <div key={cardKey}>
+                <ArticleCard
+                  articleKey={cardKey}
+                  article={article}
+                  isExpanded={expandedArticleKey === cardKey}
+                  useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
+                  isHydrating={Boolean(hydratingArticleLinks[cardKey])}
+                  isUpdatingState={Boolean(updatingArticleState[cardKey])}
+                  showFavicon={showFavicons}
+                  onToggle={() => onToggle(article)}
+                  onToggleRead={() => onToggleRead(article)}
+                  onToggleStarred={() => onToggleStarred(article)}
+                />
+              </div>
+            );
+          })}
           <div ref={sentinelRef} className="py-1 flex justify-center">
             {visibleCount < filteredFeed.length && (
               <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
             )}
           </div>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }

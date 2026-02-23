@@ -1,7 +1,11 @@
 import { type SessionUser } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { handleClientLogin, requireGReaderUser } from "./handlers/auth";
+import {
+  handleClientLogin,
+  requireGReaderMutableUser,
+  requireGReaderUser,
+} from "./handlers/auth";
 import {
   handleStreamContents,
   handleStreamItemContents,
@@ -107,7 +111,10 @@ async function dispatch(
   }
 
   if (isReaderApiRoute(segments)) {
-    const authResult = await requireGReaderUser(request);
+    const authResult =
+      request.method.toUpperCase() === "POST"
+        ? await requireGReaderMutableUser(request)
+        : await requireGReaderUser(request);
     if (authResult instanceof Response) return authResult;
     return handleReaderRequest(request, authResult, segments);
   }

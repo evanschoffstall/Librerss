@@ -103,6 +103,33 @@ mock.module("@/lib/core/runtime", () => ({
 const routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
 
 describe("greader route compatibility contracts", () => {
+  test("rejects cross-site cookie-authenticated mutation requests", async () => {
+    selectBehaviors.length = 0;
+
+    const { POST } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/subscription/edit",
+      {
+        method: "POST",
+        headers: {
+          cookie: "librerss_session=session-token",
+          "sec-fetch-site": "cross-site",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: "ac=unsubscribe&s=feed/https%3A%2F%2Fone.example%2Frss.xml",
+      },
+    );
+
+    const response = await POST(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "subscription", "edit"],
+      }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
   test("token endpoint returns plain alphanumeric token", async () => {
     selectBehaviors.length = 0;
 

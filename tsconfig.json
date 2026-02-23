@@ -23,6 +23,7 @@
       "@/components": ["./src/components/index.ts"],
       "@/components/*": ["./src/components/*"],
       "@/lib": ["./src/lib/index.ts"],
+      "@/lib/utils": ["./src/lib/utils/index.ts"],
       "@/lib/*": ["./src/lib/*"],
       "@/*": ["./src/*"]
     }

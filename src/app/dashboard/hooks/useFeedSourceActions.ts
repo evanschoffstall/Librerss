@@ -9,6 +9,7 @@ import {
   FeedService,
   isValidUrl,
   normalizeCategory,
+  normalizeCategoryLabelKey,
   type Article,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
@@ -17,7 +18,6 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import {
   flattenCategoryFeeds,
-  normalizeLabel,
   relocateFeedInCategories,
 } from "../helpers/category-helpers";
 
@@ -205,8 +205,8 @@ export function useFeedSourceActions({
       );
 
       if (
-        normalizeLabel(sourceCategoryNode.label) ===
-        normalizeLabel(normalizedTargetCategory)
+        normalizeCategoryLabelKey(sourceCategoryNode.label) ===
+        normalizeCategoryLabelKey(normalizedTargetCategory)
       ) {
         return;
       }
@@ -282,12 +282,14 @@ export function useFeedSourceActions({
 
       if (importedCategoryLabels.size > 0) {
         setCustomCategoryLabels((current) => {
-          const existing = new Set(current.map((l) => normalizeLabel(l)));
+          const existing = new Set(
+            current.map((label) => normalizeCategoryLabelKey(label)),
+          );
           const next = [...current];
           for (const label of importedCategoryLabels) {
-            if (!existing.has(normalizeLabel(label))) {
+            if (!existing.has(normalizeCategoryLabelKey(label))) {
               next.push(label);
-              existing.add(normalizeLabel(label));
+              existing.add(normalizeCategoryLabelKey(label));
             }
           }
           return next;
