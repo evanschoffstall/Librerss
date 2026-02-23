@@ -1,0 +1,13 @@
+# Bun Test Configuration
+# https://bun.sh/docs/test/coverage
+
+[test]
+preload = ["./src/__tests__/setup.ts"]
+coverage = true
+coverageThreshold = 0.955
+coverageReporter = ["text", "lcov"]
+coverageSkipTestFiles = true
+
+# Coverage directories
+coverageDir = "./coverage"
+
