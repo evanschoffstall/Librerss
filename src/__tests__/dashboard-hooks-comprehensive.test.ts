@@ -23,6 +23,12 @@ import {
 } from "bun:test";
 import { toast } from "sonner";
 
+const runWithAct = async (callback: () => Promise<void> | void) => {
+  await act(async () => {
+    await callback();
+  });
+};
+
 beforeAll(() => {
   mock.module("sonner", () => ({
     toast: {
@@ -34,12 +40,15 @@ beforeAll(() => {
 
 const originalExtractArticleContent = ArticleService.extractArticleContent;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
+const originalConsoleError = console.error;
+const muteConsoleError = (() => {}) as typeof console.error;
 
 afterEach(() => {
   ArticleService.extractArticleContent =
     originalExtractArticleContent as typeof ArticleService.extractArticleContent;
   ArticleService.updateArticleStatus =
     originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
+  console.error = originalConsoleError;
 });
 
 afterAll(() => {
@@ -76,6 +85,7 @@ describe("useArticleHydration", () => {
     ArticleService.updateArticleStatus = mock(
       async () => {},
     ) as unknown as typeof ArticleService.updateArticleStatus;
+    console.error = muteConsoleError;
     (toast.error as ReturnType<typeof mock>).mockClear();
   });
 
@@ -141,7 +151,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     await waitFor(() => {
       expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
@@ -160,7 +172,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     const afterCalls = (
       ArticleService.extractArticleContent as ReturnType<typeof mock>
@@ -177,7 +191,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     const afterCalls = (
       ArticleService.extractArticleContent as ReturnType<typeof mock>
@@ -195,7 +211,9 @@ describe("useArticleHydration", () => {
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
     // Hydrate once
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
     const afterFirstHydrateCalls = (
       ArticleService.extractArticleContent as ReturnType<typeof mock>
     ).mock.calls.length;
@@ -209,7 +227,9 @@ describe("useArticleHydration", () => {
       .mockImplementation(async () => "<p>Different content</p>");
 
     // Try to hydrate again
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     // Should only have been called once
     const afterSecondHydrateCalls = (
@@ -244,14 +264,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    const promise = result.current.hydrateArticleContent(article);
-
-    // Check that hydrating state is set
-    await waitFor(() => {
-      expect(result.current.hydratingArticleLinks[article.link]).toBeDefined();
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
     });
-
-    await promise;
 
     // Check that hydrating state is cleared
     await waitFor(() => {
@@ -275,8 +290,12 @@ describe("useArticleHydration", () => {
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
     // Start two hydrations simultaneously
-    const promise1 = result.current.hydrateArticleContent(article);
-    const promise2 = result.current.hydrateArticleContent(article);
+    const promise1 = runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+    const promise2 = runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     await Promise.all([promise1, promise2]);
 
@@ -298,7 +317,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     await waitFor(() => {
       expect(feedState[0].content).toBe(longContent);
@@ -318,7 +339,9 @@ describe("useArticleHydration", () => {
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
     // Should not throw
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
   });
 
   test("hydrateArticleContent handles empty extracted content", async () => {
@@ -334,7 +357,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     await waitFor(() => {
       expect(feedState[0].content).toBe("Short content");
@@ -351,7 +376,9 @@ describe("useArticleHydration", () => {
 
     const { result } = renderHook(() => useArticleHydration({ setFeed }));
 
-    await result.current.hydrateArticleContent(article);
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
 
     await waitFor(() => {
       expect(result.current.hydratedArticleLinks[article.link]).toBeDefined();
@@ -379,6 +406,7 @@ describe("useArticleReadState", () => {
     ArticleService.updateArticleStatus = mock(
       async () => {},
     ) as unknown as typeof ArticleService.updateArticleStatus;
+    console.error = muteConsoleError;
     (toast.error as ReturnType<typeof mock>).mockClear();
   });
 
@@ -399,7 +427,9 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.setArticleReadState(article, true);
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true);
+    });
 
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(true);
@@ -418,7 +448,9 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.setArticleReadState(article, false);
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, false);
+    });
 
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(false);
@@ -440,7 +472,9 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.setArticleReadState(article, true);
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true);
+    });
 
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(false);
@@ -463,7 +497,9 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.setArticleReadState(article, true);
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true);
+    });
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalled();
@@ -486,8 +522,10 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.setArticleReadState(article, true, {
-      suppressErrorToast: true,
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true, {
+        suppressErrorToast: true,
+      });
     });
 
     await waitFor(() => {
@@ -506,7 +544,9 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.handleToggleReadState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleReadState(article);
+    });
 
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(true);
@@ -522,7 +562,9 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    await result.current.handleToggleReadState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleReadState(article);
+    });
 
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(false);

@@ -10,7 +10,7 @@ import {
 } from "@/app/dashboard/hooks/useArticleActions";
 import type { Article } from "@/lib";
 import { ArticleService } from "@/lib";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   afterAll,
   afterEach,
@@ -23,6 +23,12 @@ import {
 } from "bun:test";
 import { createMockArticle } from "./helpers/test-utils";
 
+const runWithAct = async (callback: () => Promise<void> | void) => {
+  await act(async () => {
+    await callback();
+  });
+};
+
 beforeAll(() => {
   mock.module("sonner", () => ({
     toast: {
@@ -34,8 +40,15 @@ beforeAll(() => {
 
 const originalExtractArticleContent = ArticleService.extractArticleContent;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
+const originalConsoleError = console.error;
+const muteConsoleError = (() => {}) as typeof console.error;
 
 afterAll(() => {
+  ArticleService.updateArticleStatus =
+    originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
+  ArticleService.extractArticleContent =
+    originalExtractArticleContent as typeof ArticleService.extractArticleContent;
+  console.error = originalConsoleError;
   mock.restore();
 });
 
@@ -51,15 +64,12 @@ describe("useArticleActions - State Management", () => {
     ArticleService.extractArticleContent = mock(
       async () => "<p>Extracted content</p>",
     ) as unknown as typeof ArticleService.extractArticleContent;
+    console.error = muteConsoleError;
   });
 
   afterEach(() => {
     document.body.innerHTML = "";
     global.setTimeout = nativeSetTimeout;
-    ArticleService.updateArticleStatus =
-      originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
-    ArticleService.extractArticleContent =
-      originalExtractArticleContent as typeof ArticleService.extractArticleContent;
   });
 
   const createMockArticle = (overrides?: Partial<Article>): Article => ({
@@ -123,7 +133,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleToggleStarredState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleStarredState(article);
+    });
 
     expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(1, {
       isStarred: true,
@@ -149,7 +161,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleToggleStarredState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleStarredState(article);
+    });
 
     expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(2, {
       isStarred: false,
@@ -174,7 +188,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleToggleStarredState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleStarredState(article);
+    });
 
     await waitFor(() => {
       expect(feedState.length).toBe(0);
@@ -206,7 +222,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleToggleStarredState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleStarredState(article);
+    });
 
     await waitFor(() => {
       expect(feedState[0].isStarred).toBe(false);
@@ -238,7 +256,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleToggleStarredState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleStarredState(article);
+    });
 
     await waitFor(() => {
       expect(feedState.some((a) => a.id === 5)).toBe(true);
@@ -262,7 +282,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleArticleToggle(article);
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
@@ -285,7 +307,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleArticleToggle(article);
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
@@ -308,7 +332,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleArticleToggle(article);
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
 
     expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(1, {
       isRead: true,
@@ -339,7 +365,9 @@ describe("useArticleActions - State Management", () => {
     );
 
     try {
-      await result.current.handleArticleToggle(article);
+      await runWithAct(async () => {
+        await result.current.handleArticleToggle(article);
+      });
       expect(timeoutMock).toHaveBeenCalled();
     } finally {
       global.setTimeout = originalSetTimeout;
@@ -364,7 +392,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.handleToggleReadState(article);
+    await runWithAct(async () => {
+      await result.current.handleToggleReadState(article);
+    });
 
     expect(feedState[0].isRead).toBe(true);
   });
@@ -387,7 +417,9 @@ describe("useArticleActions - State Management", () => {
       }),
     );
 
-    await result.current.setArticleReadState(article, true);
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true);
+    });
 
     expect(feedState[0].isRead).toBe(true);
   });
@@ -428,8 +460,12 @@ describe("useArticleActions - State Management", () => {
     );
 
     // This should trigger the collapse animation cancellation logic
-    await result.current.handleArticleToggle(article1);
-    await result.current.handleArticleToggle(article2);
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article1);
+    });
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article2);
+    });
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
@@ -510,7 +546,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       }),
     );
 
-    await result.current.handleArticleToggle(article);
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
 
     // Wait for the scrollIntoView timeout
     await new Promise((resolve) => setTimeout(resolve, 300));
