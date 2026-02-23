@@ -1,0 +1,121 @@
+import { getDb } from "@/lib/db/db";
+import { feedCategories, feeds } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+
+export type FeedDbExecutor =
+  | ReturnType<typeof getDb>
+  | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+export type FeedRecordRow = {
+  id: number;
+  url: string;
+  lastFetched: Date;
+};
+
+export async function findFeedIdByUrl(
+  executor: FeedDbExecutor,
+  feedUrl: string,
+): Promise<number | null> {
+  const [feed] = await executor
+    .select({ id: feeds.id })
+    .from(feeds)
+    .where(eq(feeds.url, feedUrl))
+    .limit(1);
+
+  return feed?.id ?? null;
+}
+
+export async function findFeedRecordByUrl(
+  executor: FeedDbExecutor,
+  feedUrl: string,
+): Promise<FeedRecordRow | null> {
+  const [feed] = await executor
+    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
+    .from(feeds)
+    .where(eq(feeds.url, feedUrl))
+    .limit(1);
+
+  return feed ?? null;
+}
+
+export async function ensureFeedRecordByUrl(
+  executor: FeedDbExecutor,
+  feedUrl: string,
+): Promise<FeedRecordRow> {
+  const existing = await findFeedRecordByUrl(executor, feedUrl);
+  if (existing) {
+    return existing;
+  }
+
+  const [created] = await executor
+    .insert(feeds)
+    .values({ url: feedUrl })
+    .onConflictDoNothing({ target: feeds.url })
+    .returning({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched });
+
+  if (created) {
+    return created;
+  }
+
+  const persisted = await findFeedRecordByUrl(executor, feedUrl);
+  if (!persisted) {
+    throw new Error("Unable to resolve feed record");
+  }
+
+  return persisted;
+}
+
+export async function replaceUserFeedCategory(
+  executor: FeedDbExecutor,
+  {
+    userId,
+    feedId,
+    category,
+  }: {
+    userId: number;
+    feedId: number;
+    category: string;
+  },
+): Promise<void> {
+  await executor
+    .delete(feedCategories)
+    .where(
+      and(eq(feedCategories.userId, userId), eq(feedCategories.feedId, feedId)),
+    );
+
+  await executor.insert(feedCategories).values({
+    userId,
+    feedId,
+    category,
+  });
+}
+
+export async function removeUserFeedCategory(
+  executor: FeedDbExecutor,
+  {
+    userId,
+    feedId,
+    category,
+  }: {
+    userId: number;
+    feedId: number;
+    category?: string;
+  },
+): Promise<void> {
+  const baseCondition = and(
+    eq(feedCategories.userId, userId),
+    eq(feedCategories.feedId, feedId),
+  );
+
+  if (!baseCondition) {
+    return;
+  }
+
+  await executor
+    .delete(feedCategories)
+    .where(
+      category
+        ? and(baseCondition, eq(feedCategories.category, category))
+        : baseCondition,
+    );
+}

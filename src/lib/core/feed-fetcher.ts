@@ -11,9 +11,14 @@
 
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
-import { articleStatuses, articles, feeds, feedSources } from "@/lib/db/schema";
+import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
+import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { type FeedRecord, refreshFeedFromUpstream, shouldRefreshFeed } from "./feed-refresh";
+import {
+  type FeedRecord,
+  refreshFeedFromUpstream,
+  shouldRefreshFeed,
+} from "./feed-refresh";
 
 // Re-export for callers that still reference these from here.
 export { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "./feed-url-validator";
@@ -42,37 +47,6 @@ type ArticleRow = {
   isStarred: boolean;
 };
 
-async function ensureFeedRecord(
-  db: ReturnType<typeof getDb>,
-  feedUrl: string,
-): Promise<FeedRecord> {
-  const [existing] = await db
-    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
-    .from(feeds)
-    .where(eq(feeds.url, feedUrl))
-    .limit(1);
-
-  if (existing) return existing;
-
-  const [created] = await db
-    .insert(feeds)
-    .values({ url: feedUrl })
-    .onConflictDoNothing({ target: feeds.url })
-    .returning({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched });
-
-  if (created) return created;
-
-  // Concurrent insert — re-select.
-  const [persisted] = await db
-    .select({ id: feeds.id, url: feeds.url, lastFetched: feeds.lastFetched })
-    .from(feeds)
-    .where(eq(feeds.url, feedUrl))
-    .limit(1);
-
-  if (!persisted) throw new Error("Unable to resolve feed record");
-  return persisted;
-}
-
 // ─── Batch fetch ──────────────────────────────────────────────────────────────
 
 export async function fetchAndCacheFeedArticlesBatch(
@@ -87,7 +61,9 @@ export async function fetchAndCacheFeedArticlesBatch(
   const ownedRows = await db
     .select({ url: feedSources.url })
     .from(feedSources)
-    .where(and(eq(feedSources.userId, userId), inArray(feedSources.url, feedUrls)));
+    .where(
+      and(eq(feedSources.userId, userId), inArray(feedSources.url, feedUrls)),
+    );
 
   const ownedUrlSet = new Set(ownedRows.map((r) => r.url));
   const allowedUrls = feedUrls.filter((u) => ownedUrlSet.has(u));
@@ -123,7 +99,9 @@ export async function fetchAndCacheFeedArticlesBatch(
   if (!skipRefresh) {
     const staleFeeds = allowedUrls
       .map((u) => feedByUrl.get(u))
-      .filter((f): f is FeedRecord => Boolean(f) && shouldRefreshFeed(f!.lastFetched));
+      .filter(
+        (f): f is FeedRecord => Boolean(f) && shouldRefreshFeed(f!.lastFetched),
+      );
 
     if (staleFeeds.length > 0) {
       await Promise.allSettled(
@@ -236,7 +214,7 @@ export async function fetchAndCacheFeedArticles(
 
   if (!userSource) throw new FeedSourceNotFoundError(feedUrl);
 
-  const feed = await ensureFeedRecord(db, feedUrl);
+  const feed = (await ensureFeedRecordByUrl(db, feedUrl)) as FeedRecord;
 
   if (shouldRefreshFeed(feed.lastFetched)) {
     await refreshFeedFromUpstream(db, feed);

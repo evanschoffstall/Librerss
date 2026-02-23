@@ -1,13 +1,20 @@
+import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
+import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
+import {
+  ensureFeedRecordByUrl,
+  findFeedIdByUrl,
+  removeUserFeedCategory,
+  replaceUserFeedCategory,
+} from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
-import { isValidUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
+import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { parseFormOrQueryParams } from "@/lib/api/request";
-import { textResponse } from "../utils/responses";
 import { toReaderCategoryLabel, toReaderIconUrl } from "../utils/mappers";
+import { textResponse } from "../utils/responses";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const db = getDb();
@@ -39,7 +46,9 @@ export async function handleTagList(user: SessionUser): Promise<Response> {
   });
 }
 
-export async function handleSubscriptionList(user: SessionUser): Promise<Response> {
+export async function handleSubscriptionList(
+  user: SessionUser,
+): Promise<Response> {
   const db = getDb();
 
   const rows = await db
@@ -95,7 +104,7 @@ export async function handleSubscriptionQuickAdd(
   const quickAdd = params.get("quickadd")?.trim() ?? "";
 
   const normalizedUrl = tryNormalizeFeedUrl(quickAdd);
-  if (!normalizedUrl || !isValidUrl(normalizedUrl)) {
+  if (!normalizedUrl || !(await isAllowedFeedUrl(normalizedUrl))) {
     return NextResponse.json(
       { numResults: 0, error: "Invalid feed URL" },
       { status: 400 },
@@ -123,21 +132,7 @@ export async function handleSubscriptionQuickAdd(
     });
   }
 
-  const [createdFeed] = await db
-    .insert(feeds)
-    .values({ url: normalizedUrl })
-    .onConflictDoNothing({ target: feeds.url })
-    .returning({ id: feeds.id });
-
-  const feedId = createdFeed?.id
-    ? createdFeed.id
-    : (
-        await db
-          .select({ id: feeds.id })
-          .from(feeds)
-          .where(eq(feeds.url, normalizedUrl))
-          .limit(1)
-      )[0]?.id;
+  const feedId = (await ensureFeedRecordByUrl(db, normalizedUrl)).id;
 
   if (!feedId) {
     return NextResponse.json(
@@ -146,13 +141,7 @@ export async function handleSubscriptionQuickAdd(
     );
   }
 
-  const fallbackName = (() => {
-    try {
-      return new URL(normalizedUrl).hostname || normalizedUrl;
-    } catch {
-      return normalizedUrl;
-    }
-  })();
+  const fallbackName = getUrlHostnameLabel(normalizedUrl, normalizedUrl);
 
   await db.insert(feedSources).values({
     userId: user.userId,
@@ -187,23 +176,17 @@ export async function handleSubscriptionEdit(
   if (action === "unsubscribe") {
     await db
       .delete(feedSources)
-      .where(and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)));
+      .where(
+        and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)),
+      );
 
-    const [feed] = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(eq(feeds.url, feedUrl))
-      .limit(1);
+    const feedId = await findFeedIdByUrl(db, feedUrl);
 
-    if (feed) {
-      await db
-        .delete(feedCategories)
-        .where(
-          and(
-            eq(feedCategories.userId, user.userId),
-            eq(feedCategories.feedId, feed.id),
-          ),
-        );
+    if (feedId) {
+      await removeUserFeedCategory(db, {
+        userId: user.userId,
+        feedId,
+      });
     }
 
     return textResponse("OK\n");
@@ -213,29 +196,19 @@ export async function handleSubscriptionEdit(
     await db
       .update(feedSources)
       .set({ name: title })
-      .where(and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)));
+      .where(
+        and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)),
+      );
   }
 
   if (addTag.startsWith("user/-/label/")) {
     const label = addTag.slice("user/-/label/".length);
-    const [feed] = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(eq(feeds.url, feedUrl))
-      .limit(1);
+    const feedId = await findFeedIdByUrl(db, feedUrl);
 
-    if (feed && label) {
-      await db
-        .delete(feedCategories)
-        .where(
-          and(
-            eq(feedCategories.userId, user.userId),
-            eq(feedCategories.feedId, feed.id),
-          ),
-        );
-      await db.insert(feedCategories).values({
+    if (feedId && label) {
+      await replaceUserFeedCategory(db, {
         userId: user.userId,
-        feedId: feed.id,
+        feedId,
         category: label,
       });
     }
@@ -243,22 +216,14 @@ export async function handleSubscriptionEdit(
 
   if (removeTag.startsWith("user/-/label/")) {
     const label = removeTag.slice("user/-/label/".length);
-    const [feed] = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(eq(feeds.url, feedUrl))
-      .limit(1);
+    const feedId = await findFeedIdByUrl(db, feedUrl);
 
-    if (feed && label) {
-      await db
-        .delete(feedCategories)
-        .where(
-          and(
-            eq(feedCategories.userId, user.userId),
-            eq(feedCategories.feedId, feed.id),
-            eq(feedCategories.category, label),
-          ),
-        );
+    if (feedId && label) {
+      await removeUserFeedCategory(db, {
+        userId: user.userId,
+        feedId,
+        category: label,
+      });
     }
   }
 
