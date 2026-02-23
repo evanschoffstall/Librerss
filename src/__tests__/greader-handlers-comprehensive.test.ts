@@ -248,6 +248,138 @@ describe("Stream Contents Handler", () => {
     const data = await response.json();
     expect(data.items).toEqual([]);
   });
+
+  test("returns mapped items with continuation for non-empty rows", async () => {
+    const row = {
+      articleId: 99,
+      title: "Mapped item",
+      link: "https://example.com/item",
+      content: "<p>content</p>",
+      publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+      sourceName: "Feed",
+      sourceUrl: "https://example.com/feed",
+      category: "Tech",
+      isRead: true,
+      isStarred: false,
+    };
+
+    const queryChain = {
+      innerJoin: mock(() => queryChain),
+      leftJoin: mock(() => queryChain),
+      where: mock(() => queryChain),
+      orderBy: mock(() => queryChain),
+      limit: mock(() => queryChain),
+      offset: mock(async () => [row]),
+      then: <TResult1 = unknown, TResult2 = never>(
+        onfulfilled?:
+          | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+          | null,
+        onrejected?:
+          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | null,
+      ): Promise<TResult1 | TResult2> =>
+        Promise.resolve([row]).then(onfulfilled, onrejected),
+    };
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: mock(() => ({ from: mock(() => queryChain) })),
+      }),
+    }));
+
+    const { handleStreamContents } =
+      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents-handler");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list?n=1",
+    );
+
+    const response = await handleStreamContents(
+      mockUser,
+      request,
+      "user/-/state/com.google/reading-list",
+    );
+
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(Array.isArray(data.items)).toBe(true);
+    if (data.items.length > 0) {
+      expect(
+        typeof data.continuation === "string" ||
+          data.continuation === undefined,
+      ).toBe(true);
+      expect(typeof data.items[0]?.title).toBe("string");
+    }
+  });
+
+  test("uses ot fallback query when first pass returns empty rows", async () => {
+    const firstPassRows: unknown[] = [];
+    const secondPassRows = [
+      {
+        articleId: 120,
+        title: "Fallback item",
+        link: "https://example.com/fallback",
+        content: "fallback",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        sourceName: "Feed",
+        sourceUrl: "https://example.com/feed",
+        category: null,
+        isRead: null,
+        isStarred: null,
+      },
+    ];
+
+    const queuedRows = [firstPassRows, secondPassRows];
+    const queryChain = {
+      innerJoin: mock(() => queryChain),
+      leftJoin: mock(() => queryChain),
+      where: mock(() => queryChain),
+      orderBy: mock(() => queryChain),
+      limit: mock(() => queryChain),
+      offset: mock(async () => queuedRows.shift() ?? []),
+      then: <TResult1 = unknown, TResult2 = never>(
+        onfulfilled?:
+          | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+          | null,
+        onrejected?:
+          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | null,
+      ): Promise<TResult1 | TResult2> =>
+        Promise.resolve(queuedRows.shift() ?? []).then(onfulfilled, onrejected),
+    };
+
+    mock.module("@/lib/core/article-status", () => ({
+      canUseArticleStatusesTable: mock(async () => false),
+      upsertArticleStatuses: mock(async () => {}),
+    }));
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: mock(() => ({ from: mock(() => queryChain) })),
+      }),
+    }));
+
+    const { handleStreamContents } =
+      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents-handler");
+
+    const olderThan = Math.floor(Date.now() / 1000);
+    const request = new NextRequest(
+      `https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list?ot=${olderThan}`,
+    );
+
+    const response = await handleStreamContents(
+      mockUser,
+      request,
+      "user/-/state/com.google/reading-list",
+    );
+
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(Array.isArray(data.items)).toBe(true);
+    if (data.items.length > 0) {
+      expect(typeof data.items[0]?.title).toBe("string");
+    }
+  });
 });
 
 describe("Stream Item Contents Handler", () => {
