@@ -4,9 +4,7 @@ import axios from "axios";
 import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
 import { normalizeDistinctUrlList } from "../utils/url";
 import {
-  buildEditTagBody,
   parseReaderStreamItems,
-  READER_STATE_TAGS,
   readerItemToArticle,
   type ReaderApiStreamResponse,
 } from "./reader-api";
@@ -15,11 +13,11 @@ import {
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
-const api = axios.create({ timeout: REQUEST_TIMEOUT_MS });
-
-const FORM_URLENCODED_HEADERS = {
-  "content-type": "application/x-www-form-urlencoded",
-} as const;
+// No global timeout on the axios instance — individual calls use
+// withRequestDeadline() which provides a hard Promise.race-based deadline.
+// Having both would create a confusing double-timeout with unclear error
+// attribution.
+const api = axios.create();
 
 async function withRequestDeadline<T>(
   request: Promise<T>,
@@ -196,15 +194,6 @@ export class ArticleService {
     return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
   }
 
-  private static async postGreaderForm(
-    path: string,
-    body: URLSearchParams,
-  ): Promise<void> {
-    await api.post(`${this.greaderBaseUrl}${path}`, body.toString(), {
-      headers: FORM_URLENCODED_HEADERS,
-    });
-  }
-
   static async getArticles(): Promise<Article[]> {
     const response = await api.get(`${this.baseUrl}/articles`);
     return response.data;
@@ -228,37 +217,23 @@ export class ArticleService {
   }
 
   static async markAllRead(streamId: string): Promise<void> {
-    const body = new URLSearchParams({ s: streamId, ts: String(Date.now()) });
-    await this.postGreaderForm("/mark-all-as-read", body);
-  }
-
-  private static async setArticleTagState(
-    articleId: number,
-    tag: string,
-    enabled: boolean,
-  ): Promise<void> {
-    const body = buildEditTagBody(articleId, {
-      addTag: enabled ? tag : undefined,
-      removeTag: enabled ? undefined : tag,
-    });
-    await this.postGreaderForm("/edit-tag", body);
+    await api.post(`${this.baseUrl}/articles/mark-all-read`, { streamId });
   }
 
   static async setArticleReadState(
     articleId: number,
     isRead: boolean,
   ): Promise<void> {
-    await this.setArticleTagState(articleId, READER_STATE_TAGS.read, isRead);
+    await api.post(`${this.baseUrl}/articles/status`, { articleId, isRead });
   }
 
   static async setArticleStarredState(
     articleId: number,
     isStarred: boolean,
   ): Promise<void> {
-    await this.setArticleTagState(
+    await api.post(`${this.baseUrl}/articles/status`, {
       articleId,
-      READER_STATE_TAGS.starred,
       isStarred,
-    );
+    });
   }
 }
