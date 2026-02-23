@@ -5,8 +5,8 @@
  * Feed-source CRUD lives in useFeedSourceActions.
  */
 
-import { type Article, type CategoryTreeNode } from "@/lib";
-import { useCallback, useState } from "react";
+import { FeedService, type Article, type CategoryTreeNode } from "@/lib";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   includesCategoryLabel,
   sameCategoryLabel,
@@ -48,6 +48,49 @@ export function useCategoryManager({
   );
   const [pendingCategoryRemovalLabel, setPendingCategoryRemovalLabel] =
     useState<string | null>(null);
+  const hasLoadedOrderRef = useRef(false);
+  const savePendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load category order from DB on mount
+  useEffect(() => {
+    if (hasLoadedOrderRef.current) return;
+    hasLoadedOrderRef.current = true;
+    void FeedService.getCategoryOrder()
+      .then((labels) => {
+        if (labels.length > 0) {
+          setOrderedCategoryLabels(labels);
+        }
+      })
+      .catch(() => {
+        // Silently ignore — will fall back to default ordering
+      });
+  }, []);
+
+  // Debounced save to DB whenever order changes
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    // Skip the initial render and the initial DB load
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    if (orderedCategoryLabels.length === 0) return;
+
+    if (savePendingRef.current) {
+      clearTimeout(savePendingRef.current);
+    }
+    savePendingRef.current = setTimeout(() => {
+      void FeedService.saveCategoryOrder(orderedCategoryLabels).catch(() => {
+        // Silently ignore save errors
+      });
+    }, 500);
+
+    return () => {
+      if (savePendingRef.current) {
+        clearTimeout(savePendingRef.current);
+      }
+    };
+  }, [orderedCategoryLabels]);
 
   const ensureCategoryLabelExists = useCallback(
     (label: string) => {

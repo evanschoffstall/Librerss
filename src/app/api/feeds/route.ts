@@ -8,7 +8,11 @@ import { getDb } from "@/lib/db/db";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 import { requireMutableFeedAccess } from "./feed-access";
-import { handleFeedRead, isFeedSourceNotFoundError } from "./feed-get";
+import {
+  handleFeedRead,
+  isFeedSourceNotFoundError,
+  isUpstreamFeedError,
+} from "./feed-get";
 import {
   assertAllowedFeedUrl,
   getRequestedFeedUrl,
@@ -42,6 +46,14 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     if (isFeedSourceNotFoundError(error)) {
       return jsonError("Feed source not found", 404);
+    }
+
+    if (isUpstreamFeedError(error)) {
+      return logAndRespondError("Upstream feed fetch failed", error, {
+        status: 502,
+        publicMessage:
+          "Unable to fetch upstream feed. Try another feed or check back after the next refresh.",
+      });
     }
 
     if (axios.isAxiosError(error)) {

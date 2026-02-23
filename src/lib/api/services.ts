@@ -51,6 +51,7 @@ interface BatchFeedResponseItem {
   url: string;
   articles: Article[];
   ok: boolean;
+  error?: string;
 }
 
 function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
@@ -65,6 +66,7 @@ function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
       ? (candidate.articles as Article[])
       : [],
     ok: Boolean(candidate.ok),
+    ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),
   };
 }
 
@@ -170,6 +172,17 @@ export class FeedService {
       url,
     });
     return response.data;
+  }
+
+  static async getCategoryOrder(): Promise<string[]> {
+    const response = await api.get(`${this.baseUrl}/feeds/category-order`);
+    return Array.isArray(response.data?.orderedLabels)
+      ? response.data.orderedLabels
+      : [];
+  }
+
+  static async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
+    await api.put(`${this.baseUrl}/feeds/category-order`, { orderedLabels });
   }
 }
 

@@ -1,4 +1,5 @@
 import { type SessionUser } from "@/lib/auth/session";
+import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import {
@@ -47,10 +48,7 @@ async function handleUserInfo(user: SessionUser): Promise<Response> {
 }
 
 async function handleToken(): Promise<Response> {
-  console.info("[greader] token", {
-    tokenLength: READER_API_EDIT_TOKEN.length,
-    isAlphanumeric: /^[a-z0-9]+$/i.test(READER_API_EDIT_TOKEN),
-  });
+  logger.debug("[greader] token requested");
   return textResponse(`${READER_API_EDIT_TOKEN}\n`);
 }
 
@@ -127,7 +125,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { segments } = await context.params;
     return dispatch(request, segments);
   } catch (error) {
-    console.error("[greader] Unhandled GET error", error);
+    logger.error("[greader] Unhandled GET error", {
+      error: error instanceof Error ? error : undefined,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -140,7 +140,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { segments } = await context.params;
     return dispatch(request, segments);
   } catch (error) {
-    console.error("[greader] Unhandled POST error", error);
+    logger.error("[greader] Unhandled POST error", {
+      error: error instanceof Error ? error : undefined,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

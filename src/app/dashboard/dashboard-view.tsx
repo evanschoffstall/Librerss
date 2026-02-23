@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useCallback, useEffect } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { FeedList } from "./components/feed/FeedList";
@@ -186,6 +187,9 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
 
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
+  const feedScrollRef = useScrollRestore("librerss:scroll:feed");
+  const sidebarScrollRef = useScrollRestore("librerss:scroll:sidebar");
+
   const {
     refreshFeedList,
     handleRefreshSelection,
@@ -243,6 +247,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <ScrollArea
+            ref={sidebarScrollRef}
             className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
               }`}
           >
@@ -269,7 +274,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
             ))}
           </div>
 
-          <ScrollArea className="min-h-0 flex-1">
+          <ScrollArea ref={feedScrollRef} className="min-h-0 flex-1">
             <FeedList
               loading={loading}
               filteredFeed={filteredFeed}

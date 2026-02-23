@@ -1,6 +1,7 @@
 import {
   FeedSourceNotFoundError,
   fetchAndCacheFeedArticles,
+  UpstreamFeedError,
 } from "@/lib/core/feed-fetcher";
 import {
   getPlaceholderArticlesForSource,
@@ -44,4 +45,8 @@ export async function handleFeedRead(userId: number, feedUrl: string | null) {
 
 export function isFeedSourceNotFoundError(error: unknown): boolean {
   return error instanceof FeedSourceNotFoundError;
+}
+
+export function isUpstreamFeedError(error: unknown): boolean {
+  return error instanceof UpstreamFeedError;
 }

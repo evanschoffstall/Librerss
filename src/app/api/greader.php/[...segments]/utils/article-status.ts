@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { articleStatuses } from "@/lib/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
 let warnedMissingArticleStatusesTable = false;
@@ -34,7 +34,7 @@ function warnMissingArticleStatusesTable(): void {
   }
 
   warnedMissingArticleStatusesTable = true;
-  console.warn(
+  logger.warn(
     "[greader] ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
   );
 }
@@ -87,43 +87,40 @@ export async function upsertArticleStatuses(
   }
 
   const db = getDb();
+  const now = new Date();
 
-  const existingRows = await db
-    .select({
-      articleId: articleStatuses.articleId,
-      isRead: articleStatuses.isRead,
-      isStarred: articleStatuses.isStarred,
-    })
-    .from(articleStatuses)
-    .where(
-      and(
-        eq(articleStatuses.userId, userId),
-        inArray(articleStatuses.articleId, articleIds),
-      ),
-    );
+  // Batch upsert: build a single INSERT ... ON CONFLICT DO UPDATE for all
+  // article IDs instead of N individual queries.  For fields not specified in
+  // `changes`, preserve the existing value via COALESCE on the excluded row
+  // and the current DB row (defaulting to false for new rows).
+  const values = articleIds.map((articleId) => ({
+    userId,
+    articleId,
+    isRead: changes.isRead ?? false,
+    isStarred: changes.isStarred ?? false,
+    updatedAt: now,
+  }));
 
-  const existingByArticleId = new Map(
-    existingRows.map((row) => [row.articleId, row]),
-  );
-
-  for (const articleId of articleIds) {
-    const existing = existingByArticleId.get(articleId);
+  // Process in chunks of 500 to stay within PG parameter limits.
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < values.length; i += CHUNK_SIZE) {
+    const chunk = values.slice(i, i + CHUNK_SIZE);
 
     await db
       .insert(articleStatuses)
-      .values({
-        userId,
-        articleId,
-        isRead: changes.isRead ?? existing?.isRead ?? false,
-        isStarred: changes.isStarred ?? existing?.isStarred ?? false,
-        updatedAt: new Date(),
-      })
+      .values(chunk)
       .onConflictDoUpdate({
         target: [articleStatuses.userId, articleStatuses.articleId],
         set: {
-          isRead: changes.isRead ?? existing?.isRead ?? false,
-          isStarred: changes.isStarred ?? existing?.isStarred ?? false,
-          updatedAt: new Date(),
+          isRead:
+            changes.isRead !== undefined
+              ? changes.isRead
+              : sql`${articleStatuses.isRead}`,
+          isStarred:
+            changes.isStarred !== undefined
+              ? changes.isStarred
+              : sql`${articleStatuses.isStarred}`,
+          updatedAt: now,
         },
       });
   }

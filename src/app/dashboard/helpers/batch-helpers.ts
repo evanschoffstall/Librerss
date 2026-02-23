@@ -14,6 +14,7 @@ interface BatchResultItem {
   url: string;
   articles: Article[];
   ok: boolean;
+  error?: string;
 }
 
 function enrichFeedArticles(

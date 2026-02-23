@@ -1,6 +1,7 @@
 import { type SessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -117,7 +118,7 @@ export async function handleStreamItemIds(
       ? (safeRows.at(-1)?.articleId?.toString() ?? undefined)
       : undefined;
 
-  console.info("[greader] stream/items/ids", {
+  logger.info("[greader] stream/items/ids", {
     userId: user.userId,
     streamId,
     limit,

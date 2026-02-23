@@ -612,6 +612,35 @@ describe("greader reader-item hardening", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.getTime()).toBe(1700000000 * 1000);
   });
+
+  test("buildStreamConditions applies ot as older-than (<), not newer-than", async () => {
+    const { buildStreamConditions } =
+      await import("@/app/api/greader.php/[...segments]/handlers/stream-conditions");
+
+    const dateFilter = new Date("2024-01-01T00:00:00.000Z");
+    const conditions = buildStreamConditions({
+      feedUrl: null,
+      dateFilter,
+      continuationId: null,
+      starredOnly: false,
+      useArticleStatuses: false,
+    });
+
+    expect(conditions.length).toBe(1);
+
+    const queryChunks = (
+      conditions[0] as unknown as { queryChunks?: Array<{ value?: string[] }> }
+    ).queryChunks;
+
+    const operators = (queryChunks ?? [])
+      .flatMap((chunk) => chunk.value ?? [])
+      .filter((token): token is string => typeof token === "string")
+      .map((token) => token.trim())
+      .filter(Boolean);
+
+    expect(operators).toContain("<");
+    expect(operators).not.toContain(">=");
+  });
 });
 
 describe("logger redaction", () => {

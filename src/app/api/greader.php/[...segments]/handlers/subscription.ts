@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
+import { logger } from "@/lib/utils/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -70,7 +71,7 @@ export async function handleSubscriptionList(
     )
     .where(eq(feedSources.userId, user.userId));
 
-  console.info("[greader] subscription/list", {
+  logger.info("[greader] subscription/list", {
     userId: user.userId,
     subscriptionCount: rows.length,
   });
@@ -215,7 +216,9 @@ export async function handleSubscriptionEdit(
 
     if (feedId) {
       const stripLabelPrefix = (tag: string) =>
-        tag.startsWith("user/-/label/") ? tag.slice("user/-/label/".length) : "";
+        tag.startsWith("user/-/label/")
+          ? tag.slice("user/-/label/".length)
+          : "";
 
       const addLabel = stripLabelPrefix(addTag);
       if (addLabel) {

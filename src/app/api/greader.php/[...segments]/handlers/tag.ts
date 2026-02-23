@@ -12,6 +12,11 @@ import {
 import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
 import { textResponse } from "../utils/responses";
 
+// Upper bound for mark-all-as-read to prevent unbounded queries.
+// This is generous enough for any realistic feed but prevents a single
+// request from scanning millions of rows.
+const MARK_ALL_READ_LIMIT = 10_000;
+
 export async function handleMarkAllAsRead(
   user: SessionUser,
   request: NextRequest,
@@ -38,6 +43,7 @@ export async function handleMarkAllAsRead(
           ),
         )
         .where(eq(feeds.url, stream.slice("feed/".length)))
+        .limit(MARK_ALL_READ_LIMIT)
     : stream === "user/-/state/com.google/starred" && useArticleStatuses
       ? await db
           .select({ articleId: articles.id })
@@ -58,6 +64,7 @@ export async function handleMarkAllAsRead(
             ),
           )
           .where(eq(articleStatuses.isStarred, true))
+          .limit(MARK_ALL_READ_LIMIT)
       : stream === "user/-/state/com.google/starred"
         ? []
         : await db
@@ -70,7 +77,8 @@ export async function handleMarkAllAsRead(
                 eq(feedSources.url, feeds.url),
                 eq(feedSources.userId, user.userId),
               ),
-            );
+            )
+            .limit(MARK_ALL_READ_LIMIT);
 
   await upsertArticleStatuses(
     user.userId,

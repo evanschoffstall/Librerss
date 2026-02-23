@@ -93,12 +93,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Single batch call: ~3 DB round-trips regardless of how many feeds.
-    const batchMap = await fetchAndCacheFeedArticlesBatch(
-      db,
-      user.userId,
-      normalizedUrls,
-      { skipRefresh, forceRefresh, requestSource },
-    );
+    const { articles: batchMap, errors: upstreamErrors } =
+      await fetchAndCacheFeedArticlesBatch(db, user.userId, normalizedUrls, {
+        skipRefresh,
+        forceRefresh,
+        requestSource,
+      });
 
     const results = normalizedUrls.map((normalizedUrl) => ({
       url: normalizedUrl,
@@ -107,7 +107,24 @@ export async function POST(request: NextRequest) {
       // an empty-but-valid feed is still ok=true so clients can distinguish
       // "fetched successfully but has no articles yet" from "auth/not-found".
       ok: batchMap.has(normalizedUrl),
+      // Surface upstream fetch errors so the client can inform the user.
+      ...(upstreamErrors.has(normalizedUrl)
+        ? { error: upstreamErrors.get(normalizedUrl) }
+        : {}),
     }));
+
+    const hasUpstreamErrors = upstreamErrors.size > 0;
+
+    // Always log 207 reasons so they appear in the server console alongside
+    // the Next.js request line, regardless of diagnostics toggle.
+    if (hasUpstreamErrors) {
+      const failures = [...upstreamErrors.entries()].map(
+        ([url, err]) => `  • ${url}: ${err}`,
+      );
+      logger.warn(
+        `Returning 207 Multi-Status — ${upstreamErrors.size} feed(s) have upstream errors:\n${failures.join("\n")}`,
+      );
+    }
 
     if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.info("Feed batch request completed", {
@@ -115,6 +132,7 @@ export async function POST(request: NextRequest) {
         normalizedUrlCount: normalizedUrls.length,
         okCount: results.filter((item) => item.ok).length,
         missingCount: results.filter((item) => !item.ok).length,
+        upstreamErrorCount: upstreamErrors.size,
         totalArticles: results.reduce(
           (sum, item) => sum + item.articles.length,
           0,
@@ -125,7 +143,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(results);
+    // Return 207 Multi-Status when some feeds had upstream errors so
+    // clients can distinguish partial failures from full success.
+    return NextResponse.json(results, {
+      status: hasUpstreamErrors ? 207 : 200,
+    });
   } catch (error) {
     return logAndRespondError("Feed batch fetch error", error);
   }

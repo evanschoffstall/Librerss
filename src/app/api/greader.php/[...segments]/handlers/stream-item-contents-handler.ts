@@ -8,6 +8,7 @@ import {
   feedSources,
   feeds,
 } from "@/lib/db/schema";
+import { logger } from "@/lib/utils/logger";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_STREAM_ITEMS } from "../constants";
@@ -29,7 +30,7 @@ export async function handleStreamItemContents(
   });
 
   if (articleIds.length === 0) {
-    console.info("[greader] stream/items/contents", {
+    logger.info("[greader] stream/items/contents", {
       userId: user.userId,
       requestedItemCount: 0,
       returnedItemCount: 0,
@@ -123,7 +124,7 @@ export async function handleStreamItemContents(
     return leftOrder - rightOrder;
   });
 
-  console.info("[greader] stream/items/contents", {
+  logger.info("[greader] stream/items/contents", {
     userId: user.userId,
     requestedItemCount: articleIds.length,
     returnedItemCount: rows.length,

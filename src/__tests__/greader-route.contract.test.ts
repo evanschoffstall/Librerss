@@ -154,6 +154,33 @@ describe("greader route compatibility contracts", () => {
     expect(token).toMatch(/^[a-z0-9]+$/i);
   });
 
+  test("ClientLogin rejects oversized request bodies", async () => {
+    selectBehaviors.length = 0;
+
+    const { POST } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/accounts/ClientLogin",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "content-length": "70000",
+        },
+        body: "Email=test@example.com&Passwd=password",
+      },
+    );
+
+    const response = await POST(request, {
+      params: Promise.resolve({
+        segments: ["accounts", "ClientLogin"],
+      }),
+    });
+
+    expect(response.status).toBe(413);
+    expect(await response.text()).toBe("Error=RequestTooLarge\n");
+  });
+
   test("stream/items/ids returns decimal ids for Reader API clients", async () => {
     selectBehaviors.length = 0;
     selectBehaviors.push(

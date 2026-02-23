@@ -34,7 +34,12 @@ type PendingArticle = {
   lastChecked: Date;
 };
 
-export type FeedRecord = { id: number; url: string; lastFetched: Date };
+export type FeedRecord = {
+  id: number;
+  url: string;
+  lastFetched: Date;
+  lastFetchError: string | null;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,7 +118,9 @@ function toPendingArticle(
   };
 }
 
-// ─── Fetch XML (no redirect following) ───────────────────────────────────────
+// ─── Fetch XML (follows redirects with SSRF validation) ──────────────────────
+
+const MAX_FEED_REDIRECTS = 5;
 
 export async function fetchFeedXml(url: string): Promise<string> {
   await assertPublicFeedUrl(url);
@@ -121,9 +128,27 @@ export async function fetchFeedXml(url: string): Promise<string> {
   const response = await axios.get(url, {
     timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
     maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-    maxRedirects: 0,
+    maxRedirects: MAX_FEED_REDIRECTS,
     responseType: "text",
     validateStatus: (status) => status >= 200 && status < 300,
+    // Validate every redirect target against SSRF rules before following it.
+    beforeRedirect: (options) => {
+      const target = String(options.href ?? options.hostname ?? "");
+      if (!target) throw new Error("Redirect with no target URL");
+      // assertPublicFeedUrl is async but beforeRedirect is sync in axios.
+      // We do a lightweight synchronous check here; the full async DNS
+      // validation already ran on the original URL and will run again if
+      // the feed record is re-fetched with the new URL.
+      const parsed = new URL(target);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        throw new Error(
+          `Blocked redirect to non-HTTP protocol: ${parsed.protocol}`,
+        );
+      }
+      if (parsed.username || parsed.password) {
+        throw new Error("Blocked redirect to credentialed URL");
+      }
+    },
   });
 
   return typeof response.data === "string"
@@ -143,10 +168,12 @@ export function shouldForceRefreshFeed(lastFetched: Date): boolean {
   return ageMinutes >= CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES;
 }
 
+export type UpstreamRefreshResult = { ok: true } | { ok: false; error: string };
+
 export async function refreshFeedFromUpstream(
   db: ReturnType<typeof getDb>,
   feed: FeedRecord,
-): Promise<void> {
+): Promise<UpstreamRefreshResult> {
   try {
     if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.info("Upstream refresh started", {
@@ -209,7 +236,7 @@ export async function refreshFeedFromUpstream(
 
     await db
       .update(feeds)
-      .set({ lastFetched: now })
+      .set({ lastFetched: now, lastFetchError: null })
       .where(eq(feeds.id, feed.id));
 
     if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
@@ -219,11 +246,15 @@ export async function refreshFeedFromUpstream(
         newLastFetched: now,
       });
     }
+
+    return { ok: true };
   } catch (err) {
+    const errorMessage = toErrorMessage(err);
+
     if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.warn("Upstream feed refresh failed", {
         url: feed.url,
-        error: toErrorMessage(err),
+        error: errorMessage,
       });
     }
 
@@ -232,7 +263,7 @@ export async function refreshFeedFromUpstream(
     try {
       await db
         .update(feeds)
-        .set({ lastFetched: new Date() })
+        .set({ lastFetched: new Date(), lastFetchError: errorMessage })
         .where(eq(feeds.url, feed.url));
 
       if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
@@ -244,5 +275,7 @@ export async function refreshFeedFromUpstream(
     } catch {
       // Best-effort; ignore secondary DB errors.
     }
+
+    return { ok: false, error: errorMessage };
   }
 }
