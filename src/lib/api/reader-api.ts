@@ -4,6 +4,7 @@
  */
 
 import { parseReaderItemId, toReaderItemId } from "../core/reader-item-id";
+import { READ_STATE, STARRED_STATE } from "../core/stream-ids";
 import type { Article } from "../core/types";
 
 // ── Wire types ────────────────────────────────────────────────────────────────
@@ -28,13 +29,6 @@ export type ReaderApiStreamResponse = {
   items?: ReaderApiItem[];
 };
 
-// ── State tag constants ───────────────────────────────────────────────────────
-
-export const READER_STATE_TAGS = {
-  read: "user/-/state/com.google/read",
-  starred: "user/-/state/com.google/starred",
-} as const;
-
 // ── Parsing helpers ───────────────────────────────────────────────────────────
 
 export function parseReaderStreamItems(
@@ -49,7 +43,10 @@ function resolvePublishedTimestamp(item: ReaderApiItem): number {
   return Date.now();
 }
 
-export function readerItemToArticle(item: ReaderApiItem, index: number): Article {
+export function readerItemToArticle(
+  item: ReaderApiItem,
+  index: number,
+): Article {
   const publicationDate = new Date(resolvePublishedTimestamp(item));
   const canonicalLink = item.canonical?.[0]?.href;
   const alternateLink = item.alternate?.[0]?.href;
@@ -71,8 +68,8 @@ export function readerItemToArticle(item: ReaderApiItem, index: number): Article
     feedId: 0,
     feedName: item.origin?.title,
     feedUrl: originFeedUrl,
-    isRead: categories.includes(READER_STATE_TAGS.read),
-    isStarred: categories.includes(READER_STATE_TAGS.starred),
+    isRead: categories.includes(READ_STATE),
+    isStarred: categories.includes(STARRED_STATE),
   };
 }
 
