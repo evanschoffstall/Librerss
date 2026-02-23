@@ -1,6 +1,5 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
-import { CONFIG } from "@/lib/config";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
