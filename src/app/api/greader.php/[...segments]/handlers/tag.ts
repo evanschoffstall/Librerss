@@ -1,6 +1,5 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
-import { parseReaderItemId } from "@/lib/core/reader-item-id";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
@@ -10,6 +9,7 @@ import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
 } from "../utils/article-status";
+import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
 import { textResponse } from "../utils/responses";
 
 export async function handleMarkAllAsRead(
@@ -138,14 +138,7 @@ export async function handleEditTag(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
-  const articleIds = Array.from(
-    new Set(
-      params
-        .getAll("i")
-        .map((value) => parseReaderItemId(value))
-        .filter((value): value is number => value !== null),
-    ),
-  );
+  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"));
 
   if (articleIds.length === 0) {
     return textResponse("OK\n");

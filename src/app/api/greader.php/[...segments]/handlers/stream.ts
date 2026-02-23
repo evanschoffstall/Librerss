@@ -1,6 +1,5 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
-import { parseReaderItemId } from "@/lib/core/reader-item-id";
 import { getDb } from "@/lib/db/db";
 import {
   articleStatuses,
@@ -16,7 +15,54 @@ import {
   isSafePositiveItemId,
 } from "../utils/article-status";
 import { ListedArticle, mapArticleAsItem } from "../utils/mappers";
-import { parseStreamId, parseStreamPaging } from "../utils/stream";
+import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
+import {
+  parseOlderThanDate,
+  parseStreamId,
+  parseStreamPaging,
+} from "../utils/stream";
+
+function buildStreamConditions({
+  feedUrl,
+  dateFilter,
+  continuationId,
+  starredOnly,
+  excludeRead,
+  useArticleStatuses,
+}: {
+  feedUrl: string | null;
+  dateFilter: Date | null;
+  continuationId: number | null;
+  starredOnly: boolean;
+  excludeRead?: boolean;
+  useArticleStatuses: boolean;
+}): Parameters<typeof and> {
+  const conditions: Parameters<typeof and> = [];
+
+  if (feedUrl && dateFilter) {
+    conditions.push(
+      and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
+    );
+  } else if (feedUrl) {
+    conditions.push(eq(feeds.url, feedUrl));
+  } else if (dateFilter) {
+    conditions.push(gte(articles.publicationDate, dateFilter));
+  }
+
+  if (starredOnly && useArticleStatuses) {
+    conditions.push(eq(articleStatuses.isStarred, true));
+  }
+
+  if (excludeRead && useArticleStatuses) {
+    conditions.push(sql`coalesce(${articleStatuses.isRead}, false) = false`);
+  }
+
+  if (continuationId) {
+    conditions.push(lt(articles.id, continuationId));
+  }
+
+  return conditions;
+}
 
 export async function handleStreamContents(
   user: SessionUser,
@@ -38,10 +84,7 @@ export async function handleStreamContents(
     searchParams,
     request.headers.get("user-agent") ?? "",
   );
-  const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
-  const sinceDate = Number.isInteger(olderThanSec)
-    ? new Date(olderThanSec * 1000)
-    : null;
+  const sinceDate = parseOlderThanDate(searchParams);
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
@@ -56,25 +99,13 @@ export async function handleStreamContents(
   }
 
   async function queryRows(dateFilter: Date | null): Promise<ListedArticle[]> {
-    const conditions: Parameters<typeof and> = [];
-
-    if (feedUrl && dateFilter) {
-      conditions.push(
-        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
-      );
-    } else if (feedUrl) {
-      conditions.push(eq(feeds.url, feedUrl));
-    } else if (dateFilter) {
-      conditions.push(gte(articles.publicationDate, dateFilter));
-    }
-
-    if (isStarredStream && useArticleStatuses) {
-      conditions.push(eq(articleStatuses.isStarred, true));
-    }
-
-    if (continuationId) {
-      conditions.push(lt(articles.id, continuationId));
-    }
+    const conditions = buildStreamConditions({
+      feedUrl,
+      dateFilter,
+      continuationId,
+      starredOnly: isStarredStream,
+      useArticleStatuses,
+    });
 
     const baseSelect = {
       articleId: articles.id,
@@ -190,10 +221,7 @@ export async function handleStreamItemIds(
     searchParams,
     request.headers.get("user-agent") ?? "",
   );
-  const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
-  const sinceDate = Number.isInteger(olderThanSec)
-    ? new Date(olderThanSec * 1000)
-    : null;
+  const sinceDate = parseOlderThanDate(searchParams);
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
@@ -209,29 +237,14 @@ export async function handleStreamItemIds(
       isStarred: boolean | null;
     }>
   > {
-    const conditions: Parameters<typeof and> = [];
-
-    if (feedUrl && dateFilter) {
-      conditions.push(
-        and(eq(feeds.url, feedUrl), gte(articles.publicationDate, dateFilter)),
-      );
-    } else if (feedUrl) {
-      conditions.push(eq(feeds.url, feedUrl));
-    } else if (dateFilter) {
-      conditions.push(gte(articles.publicationDate, dateFilter));
-    }
-
-    if (streamId === "user/-/state/com.google/starred" && useArticleStatuses) {
-      conditions.push(eq(articleStatuses.isStarred, true));
-    }
-
-    if (excludeRead && useArticleStatuses) {
-      conditions.push(sql`coalesce(${articleStatuses.isRead}, false) = false`);
-    }
-
-    if (continuationId) {
-      conditions.push(lt(articles.id, continuationId));
-    }
+    const conditions = buildStreamConditions({
+      feedUrl,
+      dateFilter,
+      continuationId,
+      starredOnly: streamId === "user/-/state/com.google/starred",
+      excludeRead,
+      useArticleStatuses,
+    });
 
     if (useArticleStatuses) {
       return db
@@ -327,14 +340,7 @@ export async function handleStreamItemContents(
   request: NextRequest,
 ): Promise<Response> {
   const params = await parseFormOrQueryParams(request);
-  const itemRefs = params.getAll("i");
-  const articleIds = Array.from(
-    new Set(
-      itemRefs
-        .map((value) => parseReaderItemId(value))
-        .filter((value): value is number => value !== null),
-    ),
-  );
+  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"));
 
   if (articleIds.length === 0) {
     console.info("[greader] stream/items/contents", {

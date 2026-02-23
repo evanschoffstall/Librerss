@@ -60,3 +60,13 @@ export function parseStreamId(resource: string): string {
   const raw = resource.slice("stream/contents/".length);
   return decodeURIComponent(raw);
 }
+
+export function parseOlderThanDate(searchParams: URLSearchParams): Date | null {
+  const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
+
+  if (!Number.isInteger(olderThanSec)) {
+    return null;
+  }
+
+  return new Date(olderThanSec * 1000);
+}
