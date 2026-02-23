@@ -4,35 +4,14 @@
  */
 
 import { type Article } from "@/lib";
-import { CONFIG } from "@/lib/config";
-import { getHostnameLabel } from "./favicons";
+import { getUrlHostnameLabel } from "@/lib/utils/url";
 
-// ── Plain-text conversion ─────────────────────────────────────────────────────
-
-export function toPlainText(value: string): string {
-  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
-  const minOverflowRun = maxConsecutiveBlankLines + 1;
-
-  return value
-    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
-    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(
-      /<\/(?:p|div|section|article|blockquote|li|h[1-6]|ul|ol|pre)>/gi,
-      "\n",
-    )
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/[ \t]*\n[ \t]*/g, "\n")
-    .replace(
-      new RegExp(`(?:\\n){${minOverflowRun},}`, "g"),
-      "\n".repeat(maxConsecutiveBlankLines),
-    )
-    .trim();
+export function getUrlHostnameLabelForDisplay(raw?: string): string {
+  const label = getUrlHostnameLabel(raw, raw ?? "No source URL");
+  return label.replace(/^www\./i, "");
 }
+
+export { getUrlHostnameLabelForDisplay as getUrlHostnameLabel };
 
 // ── Preview truncation ────────────────────────────────────────────────────────
 
@@ -58,19 +37,42 @@ export function buildPreview(content: string): {
   return { preview: safeCut.trimEnd(), hasOverflow };
 }
 
+export function extractTextContent(content: string): string {
+  if (!content) {
+    return "";
+  }
+
+  return content
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function truncateText(content: string, maxLength: number): string {
+  if (!Number.isFinite(maxLength) || maxLength <= 0) {
+    return "";
+  }
+
+  if (content.length <= maxLength) {
+    return content;
+  }
+
+  return `${content.slice(0, maxLength)}...`;
+}
+
 // ── Source label ──────────────────────────────────────────────────────────────
 
 export function getArticleSourceLabel(article: Article): string {
   if (article.feedName?.trim()) {
     return article.feedName;
   }
-  return getHostnameLabel(article.feedUrl ?? article.link);
+  return getUrlHostnameLabelForDisplay(article.feedUrl ?? article.link);
 }
 
 // ── Rich-text CSS classes ─────────────────────────────────────────────────────
 
 const RICH_CONTENT_SHARED =
-  "leading-relaxed break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden";
+  "leading-relaxed break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_img]:my-3 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_figure]:my-3 [&_figure]:max-w-full [&_figcaption]:mt-2 [&_figcaption]:text-xs [&_figcaption]:text-muted-foreground [&_figcaption]:italic";
 
 export function getRichContentClass(expanded: boolean): string {
   return expanded

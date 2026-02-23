@@ -79,6 +79,35 @@ function stripOrphanedRelatedBlocks(html: string): string {
 }
 
 /**
+ * Converts HTML to plain text by stripping tags and normalizing whitespace.
+ * Used for article preview generation.
+ */
+export function toPlainText(value: string): string {
+  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+  const minOverflowRun = maxConsecutiveBlankLines + 1;
+
+  return value
+    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
+    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(
+      /<\/(?:p|div|section|article|blockquote|li|h[1-6]|ul|ol|pre)>/gi,
+      "\n",
+    )
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(
+      new RegExp(`(?:\\n){${minOverflowRun},}`, "g"),
+      "\n".repeat(maxConsecutiveBlankLines),
+    )
+    .trim();
+}
+
+/**
  * Collapses runs of more than
  * {@link CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES} consecutive blank lines
  * in sanitized HTML.
@@ -180,6 +209,16 @@ const ARTICLE_SANITIZE_OPTIONS = {
         ...attribs,
         rel: "noopener noreferrer nofollow",
         target: "_blank",
+      },
+    }),
+    img: (tagName: string, attribs: Record<string, string>) => ({
+      tagName,
+      attribs: {
+        ...attribs,
+        // Enforce no-referrer for privacy (don't leak reader's page to image host)
+        referrerpolicy: attribs.referrerpolicy || "no-referrer",
+        // Enforce lazy loading for performance
+        loading: attribs.loading || "lazy",
       },
     }),
   },
