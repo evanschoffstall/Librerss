@@ -1,4 +1,3 @@
-import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
 import { CONFIG } from "@/lib/config";
 import { motion } from "framer-motion";
@@ -82,6 +81,10 @@ export const ArticleCard = ({
   // showFullContent leads isExpanded so the text swap happens before the
   // height animation finishes (expand) and after it finishes (collapse).
   const [showFullContent, setShowFullContent] = useState(isExpanded);
+  const [deferredExpand, setDeferredExpand] = useState(false);
+  const [isCollapsing, setIsCollapsing] = useState(false);
+  const [showPulse, setShowPulse] = useState(false);
+  const pulseTimerRef = useRef<number | null>(null);
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [expandedHeight, setExpandedHeight] = useState(0);
   const faviconCandidates = getMergedFaviconCandidates(article.feedUrl, article.link);
@@ -92,9 +95,20 @@ export const ArticleCard = ({
   const previewRef = useRef<HTMLParagraphElement>(null);
   const fullContentRef = useRef<HTMLDivElement>(null);
 
-  const richContentClassName = isExpanded
-    ? "text-sm leading-relaxed text-foreground/70 break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden"
-    : "text-xs leading-relaxed text-muted-foreground/75 break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden";
+  const expandedRichClass = "text-sm leading-relaxed text-foreground/70 break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden";
+  const collapsedRichClass = "text-xs leading-relaxed text-muted-foreground/75 break-words [&_p]:m-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_p:empty]:h-[1em] [&_p:empty]:mb-0 [&_h1]:mb-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted [&_blockquote]:pl-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/35 [&_pre]:p-2 [&_code]:rounded [&_code]:bg-muted/35 [&_code]:px-1 [&_code]:py-0.5 [&_a]:underline [&_a]:underline-offset-2 [&_figure]:hidden [&_figcaption]:hidden";
+  // Used for the hidden measurement div – toggles on isExpanded (immediate)
+  // so we get correct expandedHeight before the visible animation starts.
+  const richContentClassName = isExpanded ? expandedRichClass : collapsedRichClass;
+  // Visual state: looks expanded while either fully expanded OR mid-collapse.
+  const visuallyExpanded = deferredExpand || isCollapsing;
+  // Collapse: snappy 200ms. Expand: luxurious 300ms.
+  const isAnimatingExpand = deferredExpand && !isCollapsing;
+  const transitionDuration = "duration-200";
+  const transitionEase = isAnimatingExpand ? "ease-out" : "ease-in";
+  // Used for the visible content – toggles on visuallyExpanded so everything
+  // animates together in one pass once content is ready.
+  const visibleRichContentClassName = visuallyExpanded ? expandedRichClass : collapsedRichClass;
 
   useEffect(() => {
     setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
@@ -117,15 +131,62 @@ export const ArticleCard = ({
     return () => window.removeEventListener("resize", measure);
   }, [content, preview, richContentClassName]);
 
+  // Track whether the minimum pulse duration has elapsed.
+  const pulseMinElapsedRef = useRef(true);
+
+  // Start / stop pulse when expanding while hydration is pending.
   useEffect(() => {
-    if (isExpanded) {
-      // Show full content immediately when expanding so it's visible during the animation.
-      setShowFullContent(true);
+    if (isExpanded && isHydrating && !showPulse) {
+      setShowPulse(true);
+      pulseMinElapsedRef.current = false;
+      pulseTimerRef.current = window.setTimeout(() => {
+        pulseTimerRef.current = null;
+        pulseMinElapsedRef.current = true;
+        setShowPulse(false);
+      }, 1000);
     }
-    // When collapsing, keep showFullContent=true until the transition ends
-    // (handled in handleContentTransitionEnd) so the text doesn't flash
-    // before the height animation closes.
-  }, [isExpanded]);
+    // Don't clear the timer here – it must survive isHydrating changing.
+  }, [isExpanded, isHydrating, showPulse]);
+
+  // Expand once both hydration is done AND pulse minimum has elapsed.
+  useEffect(() => {
+    if (isExpanded && !isHydrating && !showPulse) {
+      setShowFullContent(true);
+      setIsCollapsing(false);
+      const frame = requestAnimationFrame(() => {
+        setDeferredExpand(true);
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+
+    if (!isExpanded && deferredExpand) {
+      // Start collapse: keep visual state expanded for one frame so the
+      // browser registers the starting point, then flip to collapsed.
+      setIsCollapsing(true);
+      const frame = requestAnimationFrame(() => {
+        setDeferredExpand(false);
+        setIsCollapsing(false);
+      });
+      setShowPulse(false);
+      pulseMinElapsedRef.current = true;
+      if (pulseTimerRef.current !== null) {
+        window.clearTimeout(pulseTimerRef.current);
+        pulseTimerRef.current = null;
+      }
+      return () => cancelAnimationFrame(frame);
+    }
+
+    if (!isExpanded) {
+      setDeferredExpand(false);
+      setIsCollapsing(false);
+      setShowPulse(false);
+      pulseMinElapsedRef.current = true;
+      if (pulseTimerRef.current !== null) {
+        window.clearTimeout(pulseTimerRef.current);
+        pulseTimerRef.current = null;
+      }
+    }
+  }, [isExpanded, isHydrating, showPulse, deferredExpand]);
 
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
 
@@ -173,16 +234,15 @@ export const ArticleCard = ({
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
-      className={`group relative flex flex-col rounded-xl border bg-card/40 transition-all duration-300 hover:bg-card/70 ${isExpanded ? "p-4" : "p-3"}`}
+      className={`group relative flex flex-col rounded-xl border bg-card/40 transition-all ${transitionDuration} ${transitionEase} hover:bg-card/70 ${visuallyExpanded ? "p-4" : "p-3"}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
       whileHover={{ y: -2, scale: 1.005 }}
       whileTap={{ scale: 0.995 }}
-      layout
     >
       <div className="space-y-2 pr-16">
-        <div className={`flex items-center gap-2 text-muted-foreground/60 transition-all duration-300 ${isExpanded ? "text-xs" : "text-[11px]"}`}>
+        <div className={`flex items-center gap-2 text-muted-foreground/60 transition-all ${transitionDuration} ${transitionEase} ${visuallyExpanded ? "text-xs" : "text-[11px]"}`}>
           <CalendarDays className="size-3" />
           {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
           <span className="text-border">|</span>
@@ -218,41 +278,34 @@ export const ArticleCard = ({
           ) : null}
           <span className="truncate">{getArticleSourceLabel(article)}</span>
         </div>
-        <h3 className={`font-medium leading-snug transition-all duration-300 ${isExpanded ? "text-base" : "line-clamp-2 text-sm"}`}>
+        <h3 className={`font-medium leading-snug transition-all ${transitionDuration} ${transitionEase} ${visuallyExpanded ? "text-base" : "line-clamp-2 text-sm"}`}>
           {article.title}
         </h3>
         <div>
           <div
-            className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+            className={`overflow-hidden transition-[max-height] ${transitionDuration} ${transitionEase}`}
             onTransitionEnd={handleContentTransitionEnd}
             style={{
               maxHeight: hasOverflow
-                ? `${isExpanded ? expandedHeight : collapsedHeight}px`
+                ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                 : "none",
               // If heights are equal the browser won't fire transitionend; hide directly.
-              ...(hasOverflow && collapsedHeight === expandedHeight && !isExpanded
+              ...(hasOverflow && collapsedHeight === expandedHeight && !visuallyExpanded
                 ? { maxHeight: `${collapsedHeight}px` }
                 : {}),
             }}
           >
-            {isHydrating && isExpanded ? (
-              <div className="space-y-2 py-1" aria-live="polite" aria-busy="true">
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-[94%]" />
-                <Skeleton className="h-3 w-[88%]" />
-                <Skeleton className="h-3 w-[76%]" />
-              </div>
-            ) : hasOverflow && !showFullContent ? (
-              <p className="text-xs leading-relaxed text-muted-foreground/75">
+            {hasOverflow && !showFullContent ? (
+              <p className={`text-xs leading-relaxed text-muted-foreground/75 transition-opacity duration-200 ${showPulse ? "animate-pulse opacity-40" : ""}`}>
                 {`${preview}…`}
               </p>
             ) : useRichFormatting ? (
               <div
-                className={`${richContentClassName} transition-[color,font-size] duration-300`}
+                className={`${visibleRichContentClassName} transition-[color,font-size] ${transitionDuration}`}
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className={`leading-relaxed whitespace-pre-line break-words transition-all duration-300 ${isExpanded ? "text-sm text-foreground/70" : "text-xs text-muted-foreground/75"}`}>
+              <p className={`leading-relaxed whitespace-pre-line break-words transition-all ${transitionDuration} ${transitionEase} ${visuallyExpanded ? "text-sm text-foreground/70" : "text-xs text-muted-foreground/75"}`}>
                 {content}
               </p>
             )}
@@ -269,14 +322,7 @@ export const ArticleCard = ({
             aria-hidden="true"
             className="pointer-events-none h-0 overflow-hidden opacity-0"
           >
-            {isHydrating && isExpanded ? (
-              <div className="space-y-2 py-1">
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-[94%]" />
-                <Skeleton className="h-3 w-[88%]" />
-                <Skeleton className="h-3 w-[76%]" />
-              </div>
-            ) : useRichFormatting ? (
+            {useRichFormatting ? (
               <div
                 className={richContentClassName}
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}

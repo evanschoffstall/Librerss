@@ -50,13 +50,19 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   const [categories, setCategories] = useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
   const categoriesRef = useRef<CategoryTreeNode[]>(INITIAL_CATEGORIES);
   categoriesRef.current = categories;
-  const [selectedCategory, setSelectedCategory] = useState(ALL_FEEDS_NODE_KEY);
+  const [selectedCategory, setSelectedCategory] = useLocalStorage<string>(
+    "librerss:selectedCategory",
+    ALL_FEEDS_NODE_KEY,
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedArticleKey, setExpandedArticleKey] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [articleFilter, setArticleFilter] = useState<"all" | "unread" | "starred">("unread");
+  const [articleFilter, setArticleFilter] = useLocalStorage<"all" | "unread" | "read" | "starred">(
+    "librerss:articleFilter",
+    "unread",
+  );
   const [pageSize, setPageSize] = useLocalStorage<number>("librerss:pageSize", 25);
   const [showFavicons, setShowFavicons] = useLocalStorage<boolean>("librerss:showFavicons", true);
   const [visibleCount, setVisibleCount] = useState(pageSize);
@@ -99,8 +105,14 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
   // Article filter + search
   const feedByState = feed.filter((article) => {
     if (articleFilter === "unread") {
-      return !article.isRead || expandedArticleKey === getArticleKey(article);
+      const articleKey = getArticleKey(article);
+      return (
+        !article.isRead ||
+        expandedArticleKey === articleKey ||
+        articleActions.collapsingArticleKey === articleKey
+      );
     }
+    if (articleFilter === "read") return Boolean(article.isRead);
     if (articleFilter === "starred") return Boolean(article.isStarred);
     return true;
   });
@@ -202,6 +214,30 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
     const init = async () => {
       const loadedCategories = await loadFeedSources();
       setIsCategoriesLoading(false);
+
+      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+        await fetchAllFeeds(loadedCategories);
+        return;
+      }
+
+      const selectedFeedNode = flattenCategoryFeeds(loadedCategories).find(
+        (node) => node.key === selectedCategory,
+      );
+
+      if (selectedFeedNode?.data?.url) {
+        await fetchFeed(selectedFeedNode.data.url);
+        return;
+      }
+
+      const selectedCategoryNode = loadedCategories.find(
+        (node) => node.key === selectedCategory,
+      );
+
+      if (selectedCategoryNode) {
+        await fetchCategoryFeeds(selectedCategoryNode);
+        return;
+      }
+
       setSelectedCategory(ALL_FEEDS_NODE_KEY);
       await fetchAllFeeds(loadedCategories);
     };
@@ -368,7 +404,7 @@ const DashboardView = ({ usePlaceholderData }: { usePlaceholderData: boolean }) 
           transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
         >
           <div className="mb-2 flex items-center gap-2 pr-3">
-            {(["all", "unread", "starred"] as const).map((value) => (
+            {(["all", "unread", "read", "starred"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
