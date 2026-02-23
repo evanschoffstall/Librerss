@@ -73,12 +73,30 @@ export async function parseFormOrQueryParams(
   }
 
   const bodyTooLarge = jsonError("Request body too large", 413);
+  const contentType = request.headers.get("content-type") ?? "";
 
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader) {
     const contentLength = Number(contentLengthHeader);
     if (Number.isFinite(contentLength) && contentLength > maxBytes) {
       return bodyTooLarge;
+    }
+  }
+
+  if (contentType.toLowerCase().includes("multipart/form-data")) {
+    try {
+      const formData = await request.formData();
+      const params = new URLSearchParams();
+
+      for (const [key, value] of Array.from(formData.entries())) {
+        if (typeof value === "string") {
+          params.append(key, value);
+        }
+      }
+
+      return params;
+    } catch {
+      return jsonError("Invalid form body", 400);
     }
   }
 
