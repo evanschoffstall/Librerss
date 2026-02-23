@@ -1,9 +1,21 @@
 import { CONFIG } from "@/lib/config";
 
 /**
- * Validates email addresses using RFC-compliant regex
- * @param email - Email address to validate
- * @returns true if email is valid
+ * Type guard: returns true if value is a safe positive integer suitable as a
+ * database row id. Shared by server-side article-status logic and client-side
+ * feed management helpers.
+ */
+export function isSafePositiveItemId(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= Number.MAX_SAFE_INTEGER
+  );
+}
+
+/**
+ * Validates email addresses using a simplified RFC 5322 regex.
  */
 export function isValidEmail(email: string): boolean {
   if (!email || typeof email !== "string") {

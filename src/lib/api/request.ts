@@ -19,25 +19,23 @@ export async function parseJsonBody<T>(
   options?: { maxBytes?: number },
 ): Promise<ParsedJsonResult<T>> {
   const maxBytes = options?.maxBytes ?? CONFIG.MAX_JSON_BODY_BYTES;
+  const bodyTooLarge: ParsedJsonFailure = {
+    ok: false,
+    response: jsonError("Request body too large", 413),
+  };
 
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader) {
     const contentLength = Number(contentLengthHeader);
     if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-      return {
-        ok: false,
-        response: jsonError("Request body too large", 413),
-      };
+      return bodyTooLarge;
     }
   }
 
   try {
     const raw = await request.text();
     if (Buffer.byteLength(raw, "utf8") > maxBytes) {
-      return {
-        ok: false,
-        response: jsonError("Request body too large", 413),
-      };
+      return bodyTooLarge;
     }
 
     return {
@@ -74,17 +72,19 @@ export async function parseFormOrQueryParams(
     return new URL(request.url).searchParams;
   }
 
+  const bodyTooLarge = jsonError("Request body too large", 413);
+
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader) {
     const contentLength = Number(contentLengthHeader);
     if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-      return jsonError("Request body too large", 413);
+      return bodyTooLarge;
     }
   }
 
   const raw = await request.text();
   if (Buffer.byteLength(raw, "utf8") > maxBytes) {
-    return jsonError("Request body too large", 413);
+    return bodyTooLarge;
   }
 
   return new URLSearchParams(raw);

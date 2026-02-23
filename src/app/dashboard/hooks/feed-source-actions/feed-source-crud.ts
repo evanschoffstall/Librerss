@@ -1,5 +1,7 @@
 import {
   FeedService,
+  isSafePositiveItemId,
+  isSameCategoryLabel,
   isValidUrl,
   normalizeCategory,
   type Article,
@@ -10,7 +12,6 @@ import {
   flattenCategoryFeeds,
   relocateFeedInCategories,
 } from "../../helpers/category-helpers";
-import { sameCategoryLabel } from "../../helpers/category-labels";
 
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],
@@ -101,12 +102,7 @@ export async function removeFeedSourceAndRefresh({
   );
   const sourceId = selectedNode?.data?.sourceId;
 
-  if (
-    typeof sourceId !== "number" ||
-    !Number.isInteger(sourceId) ||
-    sourceId <= 0
-  )
-    return;
+  if (!isSafePositiveItemId(sourceId)) return;
 
   try {
     await FeedService.deleteFeedSource(sourceId);
@@ -173,11 +169,7 @@ export async function renameFeedSourceAndRefresh({
     return false;
   }
 
-  if (
-    typeof sourceId !== "number" ||
-    !Number.isInteger(sourceId) ||
-    sourceId <= 0
-  ) {
+  if (!isSafePositiveItemId(sourceId)) {
     toast.error("Unable to rename this feed.");
     return false;
   }
@@ -227,7 +219,7 @@ export async function moveFeedByDropAndPersist({
     relocateFeedInCategories(prev, key, normalizedTargetCategory, targetIndex),
   );
 
-  if (sameCategoryLabel(sourceCategoryNode.label, normalizedTargetCategory)) {
+  if (isSameCategoryLabel(sourceCategoryNode.label, normalizedTargetCategory)) {
     return;
   }
 

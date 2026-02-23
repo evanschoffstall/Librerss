@@ -68,17 +68,18 @@ export async function PUT(request: NextRequest) {
     );
 
     const db = getDb();
+    const serializedLabels = JSON.stringify(labels);
     await db
       .insert(categoryOrders)
       .values({
         userId: user.userId,
-        orderedLabels: JSON.stringify(labels),
+        orderedLabels: serializedLabels,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: categoryOrders.userId,
         set: {
-          orderedLabels: JSON.stringify(labels),
+          orderedLabels: serializedLabels,
           updatedAt: new Date(),
         },
       });

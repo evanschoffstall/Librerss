@@ -165,3 +165,6 @@ export const articleStatuses = pgTable(
     ),
   }),
 );
+
+export const articleStatus = articleStatuses;
+export const categories = feedCategories;
