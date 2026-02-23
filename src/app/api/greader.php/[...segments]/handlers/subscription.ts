@@ -216,7 +216,9 @@ export async function handleSubscriptionEdit(
 
     if (feedId) {
       const stripLabelPrefix = (tag: string) =>
-        tag.startsWith("user/-/label/") ? tag.slice("user/-/label/".length) : "";
+        tag.startsWith("user/-/label/")
+          ? tag.slice("user/-/label/".length)
+          : "";
 
       const addLabel = stripLabelPrefix(addTag);
       if (addLabel) {

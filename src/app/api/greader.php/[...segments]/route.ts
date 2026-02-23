@@ -125,7 +125,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { segments } = await context.params;
     return dispatch(request, segments);
   } catch (error) {
-    logger.error("[greader] Unhandled GET error", { error: error instanceof Error ? error : undefined });
+    logger.error("[greader] Unhandled GET error", {
+      error: error instanceof Error ? error : undefined,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -138,7 +140,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { segments } = await context.params;
     return dispatch(request, segments);
   } catch (error) {
-    logger.error("[greader] Unhandled POST error", { error: error instanceof Error ? error : undefined });
+    logger.error("[greader] Unhandled POST error", {
+      error: error instanceof Error ? error : undefined,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
