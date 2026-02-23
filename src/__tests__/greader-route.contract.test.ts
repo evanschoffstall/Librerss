@@ -85,6 +85,8 @@ mock.module("@/lib/auth/session", () => ({
     email: "test@example.com",
   }),
   getUserFromSessionToken: async () => null,
+  authenticateCredentials: async () => null,
+  setSessionCookie: () => {},
   SESSION_COOKIE_NAME: "librerss_session",
   verifyPassword: async () => false,
 }));
@@ -225,24 +227,30 @@ describe("greader route compatibility contracts", () => {
 
   test("subscription/list returns all user subscriptions even if feed join is missing", async () => {
     selectBehaviors.length = 0;
-    selectBehaviors.push({
-      whereResult: [
-        {
-          sourceId: 1,
-          title: "Feed One",
-          url: "https://one.example/rss.xml",
-          feedId: 10,
-          category: "Tech",
-        },
-        {
-          sourceId: 2,
-          title: "Feed Two",
-          url: "https://two.example/rss.xml",
-          feedId: null,
-          category: null,
-        },
-      ],
-    });
+    selectBehaviors.push(
+      {
+        whereResult: [
+          {
+            sourceId: 1,
+            title: "Feed One",
+            url: "https://one.example/rss.xml",
+            feedId: 10,
+            category: "Tech",
+          },
+          {
+            sourceId: 2,
+            title: "Feed Two",
+            url: "https://two.example/rss.xml",
+            feedId: null,
+            category: null,
+          },
+        ],
+      },
+      // Second query: loadUserCategoryFallbackByFeedUrl — no URL match for Feed Two
+      {
+        whereResult: [],
+      },
+    );
 
     const { GET } = await routeModulePromise;
 
@@ -343,5 +351,70 @@ describe("greader route compatibility contracts", () => {
         label: "World",
       },
     ]);
+  });
+
+  test("tag/list omits My Feeds when all feeds have explicit categories", async () => {
+    selectBehaviors.length = 0;
+    selectBehaviors.push({
+      whereResult: [
+        { category: "World" },
+        { category: "World" },
+        { category: "US" },
+        { category: "Science" },
+      ],
+    });
+
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/tag/list?output=json",
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "tag", "list"],
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      tags: Array<{ id: string }>;
+    };
+
+    expect(response.status).toBe(200);
+
+    const labelIds = payload.tags.map((t) => t.id);
+    expect(labelIds).toContain("user/-/label/World");
+    expect(labelIds).toContain("user/-/label/US");
+    expect(labelIds).toContain("user/-/label/Science");
+    expect(labelIds).not.toContain("user/-/label/My Feeds");
+  });
+
+  test("tag/list includes My Feeds when at least one feed has no category", async () => {
+    selectBehaviors.length = 0;
+    selectBehaviors.push({
+      whereResult: [{ category: "World" }, { category: null }],
+    });
+
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/tag/list?output=json",
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "tag", "list"],
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      tags: Array<{ id: string }>;
+    };
+
+    expect(response.status).toBe(200);
+
+    const labelIds = payload.tags.map((t) => t.id);
+    expect(labelIds).toContain("user/-/label/My Feeds");
+    expect(labelIds).toContain("user/-/label/World");
   });
 });
