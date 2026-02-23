@@ -10,8 +10,6 @@ export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>
 >;
 
-export { jsonError };
-
 export async function requireAuthenticatedUser(
   request: NextRequest,
 ): Promise<AuthenticatedUser | Response> {
@@ -23,7 +21,7 @@ export async function requireAuthenticatedUser(
   return user;
 }
 
-export type MutationRequestOptions = {
+type MutationRequestOptions = {
   rateLimit?: {
     key: string;
     windowMs: number;
