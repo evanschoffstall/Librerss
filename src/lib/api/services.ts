@@ -4,9 +4,9 @@ import axios from "axios";
 import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
 import { normalizeDistinctUrlList } from "../utils/url";
 import {
-  parseReaderStreamItems,
-  readerItemToArticle,
-  type ReaderApiStreamResponse,
+    parseReaderStreamItems,
+    readerItemToArticle,
+    type ReaderApiStreamResponse,
 } from "./reader-api";
 
 // ── HTTP infrastructure ───────────────────────────────────────────────────────
@@ -220,20 +220,13 @@ export class ArticleService {
     await api.post(`${this.baseUrl}/articles/mark-all-read`, { streamId });
   }
 
-  static async setArticleReadState(
+  static async updateArticleStatus(
     articleId: number,
-    isRead: boolean,
-  ): Promise<void> {
-    await api.post(`${this.baseUrl}/articles/status`, { articleId, isRead });
-  }
-
-  static async setArticleStarredState(
-    articleId: number,
-    isStarred: boolean,
+    updates: { isRead?: boolean; isStarred?: boolean },
   ): Promise<void> {
     await api.post(`${this.baseUrl}/articles/status`, {
       articleId,
-      isStarred,
+      ...updates,
     });
   }
 }

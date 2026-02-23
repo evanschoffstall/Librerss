@@ -3,6 +3,8 @@ import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,
   NETNEWSWIRE_MAX_STREAM_ITEMS,
+  READ_STATE,
+  READING_LIST_STREAM,
 } from "../constants";
 
 export function parseStreamPaging(
@@ -80,13 +82,11 @@ export function shouldExcludeReadFromStream(
   streamId: string,
   excludedTags: string[],
 ): boolean {
-  const excludeReadRequested = excludedTags.includes(
-    "user/-/state/com.google/read",
-  );
+  const excludeReadRequested = excludedTags.includes(READ_STATE);
 
   if (!excludeReadRequested) {
     return false;
   }
 
-  return streamId === "user/-/state/com.google/reading-list";
+  return streamId === READING_LIST_STREAM;
 }

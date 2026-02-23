@@ -8,49 +8,19 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { dedupeAndSortArticles } from "../helpers/article-helpers";
 import {
+  FEED_LOADING_FAILSAFE_MS,
   type FeedBatchSource,
+  buildBatchRequestSignature,
   mapBatchResultsToArticles,
+  mapFeedNodesToBatchSources,
+  normalizeFeedBatchSources,
 } from "../helpers/batch-helpers";
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
   flattenCategoryFeeds,
 } from "../helpers/category-helpers";
-
-const FEED_LOADING_FAILSAFE_MS = 20_000;
-
-const normalizeFeedBatchSources = (
-  sources: FeedBatchSource[],
-): FeedBatchSource[] => {
-  const seen = new Set<string>();
-
-  return sources.filter((source) => {
-    if (!source.url || seen.has(source.url)) {
-      return false;
-    }
-
-    seen.add(source.url);
-    return true;
-  });
-};
-
-const buildBatchRequestSignature = (sources: FeedBatchSource[]): string =>
-  sources
-    .map((source) => source.url)
-    .sort()
-    .join("|");
-
-const mapFeedNodesToBatchSources = (
-  nodes: CategoryTreeNode[],
-): FeedBatchSource[] =>
-  nodes
-    .filter((node): node is CategoryTreeNode & { data: { url: string } } =>
-      Boolean(node.data?.url),
-    )
-    .map((node) => ({
-      url: node.data.url,
-      name: node.label,
-    }));
+import type { FeedFetchOptions } from "../helpers/selection";
 
 interface UseFeedLoaderOptions {
   usePlaceholderData: boolean;
@@ -60,11 +30,6 @@ interface UseFeedLoaderOptions {
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
-
-type FeedFetchOptions = {
-  forceRefresh?: boolean;
-  requestSource?: string;
-};
 
 export function useFeedLoader({
   usePlaceholderData,

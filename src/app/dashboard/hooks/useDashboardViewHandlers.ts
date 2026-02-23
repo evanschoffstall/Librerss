@@ -3,11 +3,10 @@
 import { type CategoryTreeNode } from "@/lib";
 import { useCallback } from "react";
 import { ALL_FEEDS_NODE_KEY } from "../constants";
-import { refreshCurrentSelection } from "../helpers/selection";
-
-type FeedFetchOptions = {
-  forceRefresh?: boolean;
-};
+import {
+  type FeedFetchOptions,
+  refreshCurrentSelection,
+} from "../helpers/selection";
 
 type UseDashboardViewHandlersOptions = {
   selectedCategory: string;
@@ -56,10 +55,6 @@ export function useDashboardViewHandlers({
     fetchCategoryFeeds,
   ]);
 
-  const refreshFeedList = useCallback(() => {
-    handleRefreshSelection();
-  }, [handleRefreshSelection]);
-
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
       setSelectedCategory(feedNode.key);
@@ -92,7 +87,7 @@ export function useDashboardViewHandlers({
   );
 
   return {
-    refreshFeedList,
+    refreshFeedList: handleRefreshSelection,
     handleRefreshSelection,
     handleFeedClick,
     handleCategoryClick,

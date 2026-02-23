@@ -5,12 +5,8 @@
  * Feed-source CRUD lives in useFeedSourceActions.
  */
 
-import { FeedService, type Article, type CategoryTreeNode } from "@/lib";
+import { FeedService, includesCategoryLabel, isSameCategoryLabel, type Article, type CategoryTreeNode } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  includesCategoryLabel,
-  sameCategoryLabel,
-} from "../helpers/category-labels";
 import {
   addCategoryLabel,
   moveCategoryByDropInOrder,
@@ -98,7 +94,7 @@ export function useCategoryManager({
         if (includesCategoryLabel(current, label)) return current;
         if (
           categories.some((category) =>
-            sameCategoryLabel(category.label, label),
+            isSameCategoryLabel(category.label, label),
           )
         ) {
           return current;

@@ -9,30 +9,28 @@ import type { getDb } from "@/lib/db/db";
 import { articles, feeds } from "@/lib/db/schema";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
-import {
-  sanitizeAndTruncateArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/utils/sanitize";
-import { isValidUrl } from "@/lib/utils/url";
-import axios from "axios";
 import { eq, sql } from "drizzle-orm";
 import Parser from "rss-parser";
-import { assertPublicFeedUrl } from "./feed-url-validator";
+import { fetchFeedXml } from "./feed-http";
+import {
+  type PendingArticle,
+  dedupePendingArticles,
+  getPublicationDateRange,
+  toPendingArticle,
+} from "./feed-parser";
+
+const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
 
 // ─── RSS parser singleton ─────────────────────────────────────────────────────
 // parseString() creates a fresh readable stream per call — no shared state.
-const parser = new Parser();
+// Configure to parse content:encoded (used by many feeds for full article content)
+const parser = new Parser({
+  customFields: {
+    item: [["content:encoded", "contentEncoded", { keepArray: false }]],
+  },
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type PendingArticle = {
-  title: string;
-  link: string;
-  publicationDate: Date;
-  content: string;
-  feedId: number;
-  lastChecked: Date;
-};
 
 export type FeedRecord = {
   id: number;
@@ -40,121 +38,6 @@ export type FeedRecord = {
   lastFetched: Date;
   lastFetchError: string | null;
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseFeedItemDate(value: string | undefined, fallback: Date): Date {
-  if (!value) return fallback;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
-}
-
-function dedupePendingArticles(items: PendingArticle[]): PendingArticle[] {
-  const byLink = new Map<string, PendingArticle>();
-
-  for (const item of items) {
-    const normalizedLink = item.link.trim();
-    if (!normalizedLink) continue;
-
-    const current = byLink.get(normalizedLink);
-    if (!current) {
-      byLink.set(normalizedLink, { ...item, link: normalizedLink });
-      continue;
-    }
-
-    const itemDate = new Date(item.publicationDate).getTime();
-    const currentDate = new Date(current.publicationDate).getTime();
-    // Prefer newer; use content length as tiebreaker for identical timestamps
-    // so a newer-but-empty item never displaces a complete article body.
-    const shouldReplace =
-      itemDate > currentDate ||
-      (itemDate === currentDate &&
-        item.content.length > current.content.length);
-
-    if (shouldReplace)
-      byLink.set(normalizedLink, { ...item, link: normalizedLink });
-  }
-
-  return [...byLink.values()];
-}
-
-function getPublicationDateRange(items: PendingArticle[]): {
-  newestPublicationDate: string | null;
-  oldestPublicationDate: string | null;
-} {
-  if (items.length === 0) {
-    return {
-      newestPublicationDate: null,
-      oldestPublicationDate: null,
-    };
-  }
-
-  const timestamps = items.map((item) => item.publicationDate.getTime());
-  const newestTimestamp = Math.max(...timestamps);
-  const oldestTimestamp = Math.min(...timestamps);
-
-  return {
-    newestPublicationDate: new Date(newestTimestamp).toISOString(),
-    oldestPublicationDate: new Date(oldestTimestamp).toISOString(),
-  };
-}
-
-function toPendingArticle(
-  item: Parser.Item,
-  feedId: number,
-  now: Date,
-): PendingArticle | null {
-  if (!item.title || !item.link || !isValidUrl(item.link)) return null;
-
-  return {
-    title: sanitizeArticleTitle(item.title),
-    link: item.link,
-    publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
-    content: sanitizeAndTruncateArticleContent(
-      item.content || item.contentSnippet || "",
-    ),
-    feedId,
-    lastChecked: now,
-  };
-}
-
-// ─── Fetch XML (follows redirects with SSRF validation) ──────────────────────
-
-const MAX_FEED_REDIRECTS = 5;
-
-export async function fetchFeedXml(url: string): Promise<string> {
-  await assertPublicFeedUrl(url);
-
-  const response = await axios.get(url, {
-    timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-    maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-    maxRedirects: MAX_FEED_REDIRECTS,
-    responseType: "text",
-    validateStatus: (status) => status >= 200 && status < 300,
-    // Validate every redirect target against SSRF rules before following it.
-    beforeRedirect: (options) => {
-      const target = String(options.href ?? options.hostname ?? "");
-      if (!target) throw new Error("Redirect with no target URL");
-      // assertPublicFeedUrl is async but beforeRedirect is sync in axios.
-      // We do a lightweight synchronous check here; the full async DNS
-      // validation already ran on the original URL and will run again if
-      // the feed record is re-fetched with the new URL.
-      const parsed = new URL(target);
-      if (!["http:", "https:"].includes(parsed.protocol)) {
-        throw new Error(
-          `Blocked redirect to non-HTTP protocol: ${parsed.protocol}`,
-        );
-      }
-      if (parsed.username || parsed.password) {
-        throw new Error("Blocked redirect to credentialed URL");
-      }
-    },
-  });
-
-  return typeof response.data === "string"
-    ? response.data
-    : String(response.data ?? "");
-}
 
 // ─── Upstream refresh ─────────────────────────────────────────────────────────
 
@@ -175,7 +58,7 @@ export async function refreshFeedFromUpstream(
   feed: FeedRecord,
 ): Promise<UpstreamRefreshResult> {
   try {
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    if (DIAG) {
       logger.info("Upstream refresh started", {
         feedId: feed.id,
         url: feed.url,
@@ -193,7 +76,7 @@ export async function refreshFeedFromUpstream(
     const validItems = dedupePendingArticles(mappedItems);
     const publicationDateRange = getPublicationDateRange(validItems);
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    if (DIAG) {
       logger.info("Upstream refresh parsed feed", {
         feedId: feed.id,
         url: feed.url,
@@ -218,7 +101,7 @@ export async function refreshFeedFromUpstream(
           },
         });
 
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      if (DIAG) {
         logger.info("Upstream refresh upserted articles", {
           feedId: feed.id,
           url: feed.url,
@@ -226,7 +109,7 @@ export async function refreshFeedFromUpstream(
         });
       }
     } else {
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      if (DIAG) {
         logger.info("Upstream refresh found no valid new items", {
           feedId: feed.id,
           url: feed.url,
@@ -239,7 +122,7 @@ export async function refreshFeedFromUpstream(
       .set({ lastFetched: now, lastFetchError: null })
       .where(eq(feeds.id, feed.id));
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    if (DIAG) {
       logger.info("Upstream refresh completed", {
         feedId: feed.id,
         url: feed.url,
@@ -251,7 +134,7 @@ export async function refreshFeedFromUpstream(
   } catch (err) {
     const errorMessage = toErrorMessage(err);
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+    if (DIAG) {
       logger.warn("Upstream feed refresh failed", {
         url: feed.url,
         error: errorMessage,
@@ -266,7 +149,7 @@ export async function refreshFeedFromUpstream(
         .set({ lastFetched: new Date(), lastFetchError: errorMessage })
         .where(eq(feeds.url, feed.url));
 
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      if (DIAG) {
         logger.info("Upstream refresh failure cooldown applied", {
           feedId: feed.id,
           url: feed.url,

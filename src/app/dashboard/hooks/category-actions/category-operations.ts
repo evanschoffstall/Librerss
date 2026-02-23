@@ -1,16 +1,18 @@
-import { FeedService, normalizeCategory, type CategoryTreeNode } from "@/lib";
+import {
+  FeedService,
+  findCategoryByLabel,
+  includesCategoryLabel,
+  isSameCategoryLabel,
+  normalizeCategory,
+  removeCategoryLabel,
+  replaceCategoryLabel,
+  type CategoryTreeNode,
+} from "@/lib";
 import { toast } from "sonner";
 import {
   flattenCategoryFeeds,
   toCategoryKey,
 } from "../../helpers/category-helpers";
-import {
-  findCategoryByLabel,
-  includesCategoryLabel,
-  removeCategoryLabel,
-  replaceCategoryLabel,
-  sameCategoryLabel,
-} from "../../helpers/category-labels";
 
 export function addCategoryLabel({
   label,
@@ -68,14 +70,14 @@ function removeCategoryFromLocalState(
   targetCategory?: string,
 ): CategoryTreeNode[] {
   const sourceIndex = currentCategories.findIndex((category) =>
-    sameCategoryLabel(category.label, labelToRemove),
+    isSameCategoryLabel(category.label, labelToRemove),
   );
   if (sourceIndex < 0) return currentCategories;
 
   const sourceCategory = currentCategories[sourceIndex];
   const sourceFeeds = sourceCategory.children ?? [];
   const nextCategories = currentCategories
-    .filter((category) => !sameCategoryLabel(category.label, labelToRemove))
+    .filter((category) => !isSameCategoryLabel(category.label, labelToRemove))
     .map((category) => ({
       ...category,
       children: [...(category.children ?? [])],
@@ -86,7 +88,7 @@ function removeCategoryFromLocalState(
   }
 
   let targetIndex = nextCategories.findIndex((category) =>
-    sameCategoryLabel(category.label, targetCategory),
+    isSameCategoryLabel(category.label, targetCategory),
   );
 
   if (targetIndex < 0) {
@@ -142,7 +144,7 @@ export async function renameCategoryAndRefresh({
     return false;
   }
 
-  if (sameCategoryLabel(normalizedCurrent, normalizedNext)) return false;
+  if (isSameCategoryLabel(normalizedCurrent, normalizedNext)) return false;
 
   const allLabels = new Set([
     ...categories.map((node) => node.label),
@@ -198,7 +200,7 @@ export function moveCategoryByDropInOrder(
   targetIndex: number,
 ) {
   const currentIndex = current.findIndex((currentLabel) =>
-    sameCategoryLabel(currentLabel, label),
+    isSameCategoryLabel(currentLabel, label),
   );
   if (currentIndex < 0) return current;
 
@@ -243,8 +245,13 @@ export async function removeCategoryAndRefresh({
   const categoryNode = findCategoryByLabel(categories, label);
   const feedsInCategory = categoryNode?.children ?? [];
 
+  const removeBothLabels = (lbl: string) => {
+    setCustomCategoryLabels((current) => removeCategoryLabel(current, lbl));
+    setOrderedCategoryLabels((current) => removeCategoryLabel(current, lbl));
+  };
+
   if (feedsInCategory.length > 0) {
-    if (!sameCategoryLabel(pendingCategoryRemovalLabel ?? "", label)) {
+    if (!isSameCategoryLabel(pendingCategoryRemovalLabel ?? "", label)) {
       setPendingCategoryRemovalLabel(label);
       return false;
     }
@@ -254,7 +261,7 @@ export async function removeCategoryAndRefresh({
       ...customCategoryLabels,
     ]
       .map((l) => normalizeCategory(l))
-      .find((candidate) => !sameCategoryLabel(candidate, label));
+      .find((candidate) => !isSameCategoryLabel(candidate, label));
 
     if (!targetCategory) {
       setPendingCategoryRemovalLabel(null);
@@ -267,8 +274,7 @@ export async function removeCategoryAndRefresh({
     setCategories((current) =>
       removeCategoryFromLocalState(current, label, targetCategory),
     );
-    setCustomCategoryLabels((current) => removeCategoryLabel(current, label));
-    setOrderedCategoryLabels((current) => removeCategoryLabel(current, label));
+    removeBothLabels(label);
 
     try {
       await assignFeedsToCategory(feedsInCategory, targetCategory);
@@ -297,8 +303,7 @@ export async function removeCategoryAndRefresh({
 
   setPendingCategoryRemovalLabel(null);
   setCategories((current) => removeCategoryFromLocalState(current, label));
-  setCustomCategoryLabels((current) => removeCategoryLabel(current, label));
-  setOrderedCategoryLabels((current) => removeCategoryLabel(current, label));
+  removeBothLabels(label);
   toast.success("Category removed.");
   return true;
 }

@@ -1,31 +1,12 @@
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds } from "@/lib/db/schema";
+import { toCategoryLookupKey } from "@/lib/utils/url";
 import { eq } from "drizzle-orm";
 
 type CategoryRow = {
   category: string;
   feedUrl: string;
 };
-
-export function toCategoryLookupKey(feedUrl: string): string {
-  const trimmed = feedUrl.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    const host = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
-    const search = parsed.search;
-    return `${host}${pathname}${search}`;
-  } catch {
-    return trimmed
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/\/+$/, "");
-  }
-}
 
 export function resolveCategoryWithFallback(
   category: string | null | undefined,
@@ -40,6 +21,15 @@ export function resolveCategoryWithFallback(
   if (!feedUrl) return null;
   const lookupKey = toCategoryLookupKey(feedUrl);
   return lookupKey ? (fallbackByUrlKey.get(lookupKey) ?? null) : null;
+}
+
+export async function maybeLoadCategoryFallback(
+  userId: number,
+  rows: Array<{ category?: string | null }>,
+): Promise<Map<string, string>> {
+  return rows.some((row) => !row.category?.trim())
+    ? loadUserCategoryFallbackByFeedUrl(userId)
+    : new Map<string, string>();
 }
 
 export async function loadUserCategoryFallbackByFeedUrl(

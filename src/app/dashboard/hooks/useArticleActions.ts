@@ -1,11 +1,16 @@
 "use client";
 
-import { ArticleService, isValidUrl, type Article } from "@/lib";
+import { ArticleService, type Article } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getArticleKey } from "../helpers/article-helpers";
+import { escapeArticleKey, useArticleHydration } from "./useArticleHydration";
+import { useArticleReadState } from "./useArticleReadState";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
+
+export const toggleReadStatus = (isRead: boolean) => !isRead;
+export const toggleStarredStatus = (isStarred: boolean) => !isStarred;
 
 interface UseArticleActionsOptions {
   feed: Article[];
@@ -16,23 +21,26 @@ interface UseArticleActionsOptions {
 }
 
 export function useArticleActions({
-  feed,
+  feed: _feed,
   setFeed,
   expandedArticleKey,
   setExpandedArticleKey,
   articleFilter,
 }: UseArticleActionsOptions) {
-  const [updatingArticleState, setUpdatingArticleState] = useState<
-    Record<string, boolean>
-  >({});
-  const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
-    Record<string, boolean>
-  >({});
-  const [hydratingArticleLinks, setHydratingArticleLinks] = useState<
-    Record<string, boolean>
-  >({});
-  const hydratedArticleLinksRef = useRef(new Set<string>());
-  const articleHydrationInFlightRef = useRef(new Set<string>());
+  const {
+    updatingArticleState,
+    setUpdatingArticleState,
+    setArticleReadState,
+    handleToggleReadState,
+  } = useArticleReadState({ setFeed });
+
+  const {
+    hydratedArticleLinks,
+    hydratingArticleLinks,
+    scrollArticleIntoView,
+    hydrateArticleContent,
+  } = useArticleHydration({ setFeed });
+
   const expandedArticleKeyRef = useRef<string | null>(null);
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
@@ -51,110 +59,22 @@ export function useArticleActions({
     [],
   );
 
-  const scrollArticleIntoView = useCallback((articleKey: string) => {
-    const escapedKey =
-      typeof CSS !== "undefined" && typeof CSS.escape === "function"
-        ? CSS.escape(articleKey)
-        : articleKey.replace(/[\\"]/g, "\\$&");
-
-    const el = document.querySelector<HTMLElement>(
-      `[data-article-key="${escapedKey}"]`,
+  const scrollNextArticleIntoView = useCallback((collapsingKey: string) => {
+    const collapsingEl = document.querySelector<HTMLElement>(
+      `[data-article-key="${escapeArticleKey(collapsingKey)}"]`,
     );
-    el?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: "auto",
-    });
+    if (!collapsingEl) return;
+
+    // Walk forward through sibling elements to find the next article card
+    let sibling = collapsingEl.nextElementSibling as HTMLElement | null;
+    while (sibling && !sibling.dataset.articleKey) {
+      sibling = sibling.nextElementSibling as HTMLElement | null;
+    }
+
+    if (sibling?.dataset.articleKey) {
+      sibling.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
   }, []);
-
-  const setArticleReadState = useCallback(
-    async (
-      article: Article,
-      nextReadState: boolean,
-      options?: { suppressErrorToast?: boolean },
-    ) => {
-      const articleKey = getArticleKey(article);
-
-      setUpdatingArticleState((current) => ({
-        ...current,
-        [articleKey]: true,
-      }));
-      setFeed((currentFeed) =>
-        currentFeed.map((a) =>
-          getArticleKey(a) === articleKey ? { ...a, isRead: nextReadState } : a,
-        ),
-      );
-
-      try {
-        await ArticleService.setArticleReadState(article.id, nextReadState);
-      } catch (error) {
-        console.error("Set read state error:", error);
-        setFeed((currentFeed) =>
-          currentFeed.map((a) =>
-            getArticleKey(a) === articleKey
-              ? { ...a, isRead: article.isRead }
-              : a,
-          ),
-        );
-        if (!options?.suppressErrorToast) {
-          toast.error("Unable to update read state right now.");
-        }
-      } finally {
-        setUpdatingArticleState((current) => {
-          const { [articleKey]: _, ...rest } = current;
-          return rest;
-        });
-      }
-    },
-    [setFeed],
-  );
-
-  const hydrateArticleContent = useCallback(
-    async (article: Article) => {
-      const link = article.link?.trim();
-      if (!link || !isValidUrl(link)) return;
-      if (
-        hydratedArticleLinksRef.current.has(link) ||
-        articleHydrationInFlightRef.current.has(link)
-      )
-        return;
-
-      articleHydrationInFlightRef.current.add(link);
-      setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
-
-      try {
-        const extractedContent =
-          await ArticleService.extractArticleContent(link);
-
-        if (!extractedContent) {
-          hydratedArticleLinksRef.current.add(link);
-          return;
-        }
-
-        setFeed((currentFeed) =>
-          currentFeed.map((a) => {
-            if (a.link.trim() !== link) return a;
-            if ((extractedContent.length ?? 0) <= (a.content?.length ?? 0))
-              return a;
-            return { ...a, content: extractedContent };
-          }),
-        );
-
-        hydratedArticleLinksRef.current.add(link);
-        setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
-      } catch (error) {
-        console.error("Article hydration error:", error);
-      } finally {
-        articleHydrationInFlightRef.current.delete(link);
-        setHydratingArticleLinks((current) => {
-          if (!current[link]) return current;
-          const { [link]: _, ...rest } = current;
-          return rest;
-        });
-      }
-    },
-    [setFeed],
-  );
 
   const handleArticleToggle = useCallback(
     async (article: Article) => {
@@ -166,6 +86,11 @@ export function useArticleActions({
       );
 
       if (isCollapsing) {
+        // After the collapse CSS transition (~150–240ms), scroll the next article to the top
+        window.setTimeout(() => {
+          scrollNextArticleIntoView(nextArticleKey);
+        }, 250);
+
         // Schedule animated removal from the unread filter for read articles
         if (articleFilter === "unread" && article.isRead) {
           if (collapseRemovalTimeoutRef.current !== null) {
@@ -209,14 +134,8 @@ export function useArticleActions({
       setArticleReadState,
       hydrateArticleContent,
       scrollArticleIntoView,
+      scrollNextArticleIntoView,
     ],
-  );
-
-  const handleToggleReadState = useCallback(
-    async (article: Article) => {
-      await setArticleReadState(article, !article.isRead);
-    },
-    [setArticleReadState],
   );
 
   const handleToggleStarredState = useCallback(
@@ -242,10 +161,9 @@ export function useArticleActions({
       });
 
       try {
-        await ArticleService.setArticleStarredState(
-          article.id,
-          nextStarredState,
-        );
+        await ArticleService.updateArticleStatus(article.id, {
+          isStarred: nextStarredState,
+        });
       } catch (error) {
         console.error("Toggle starred state error:", error);
         setFeed((currentFeed) => {
@@ -266,13 +184,10 @@ export function useArticleActions({
         });
         toast.error("Unable to update starred state right now.");
       } finally {
-        setUpdatingArticleState((current) => {
-          const { [articleKey]: _, ...rest } = current;
-          return rest;
-        });
+        setUpdatingArticleState(({ [articleKey]: _, ...rest }) => rest);
       }
     },
-    [articleFilter, setFeed],
+    [articleFilter, setFeed, setUpdatingArticleState],
   );
 
   return {

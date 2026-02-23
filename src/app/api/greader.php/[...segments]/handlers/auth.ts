@@ -22,13 +22,18 @@ type ClientLoginPayload = {
   password: string;
 };
 
+const CLIENT_LOGIN_FIELD_OPTIONS = {
+  emailKeys: ["Email", "email", "username"] as const,
+  passwordKeys: ["Passwd", "password", "passwd"] as const,
+};
+
 function parseClientLoginParams(
   searchParams: URLSearchParams,
 ): ClientLoginPayload | null {
-  return parseEmailPasswordFromSearchParams(searchParams, {
-    emailKeys: ["Email", "email", "username"],
-    passwordKeys: ["Passwd", "password", "passwd"],
-  });
+  return parseEmailPasswordFromSearchParams(
+    searchParams,
+    CLIENT_LOGIN_FIELD_OPTIONS,
+  );
 }
 
 async function parseClientLoginPayload(
@@ -45,16 +50,10 @@ async function parseClientLoginPayload(
 
   const contentType = request.headers.get("content-type") ?? "";
 
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const params = await parseFormOrQueryParams(request);
-    if (params instanceof Response) {
-      return params;
-    }
-
-    return parseClientLoginParams(params);
-  }
-
-  if (contentType.includes("multipart/form-data")) {
+  if (
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data")
+  ) {
     const params = await parseFormOrQueryParams(request);
     if (params instanceof Response) {
       return params;
@@ -69,10 +68,10 @@ async function parseClientLoginPayload(
       return parsed.response;
     }
 
-    return parseEmailPasswordFromRecord(parsed.data, {
-      emailKeys: ["Email", "email", "username"],
-      passwordKeys: ["Passwd", "password", "passwd"],
-    });
+    return parseEmailPasswordFromRecord(
+      parsed.data,
+      CLIENT_LOGIN_FIELD_OPTIONS,
+    );
   }
 
   const params = await parseFormOrQueryParams(request);

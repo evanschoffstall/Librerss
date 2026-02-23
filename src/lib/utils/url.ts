@@ -94,3 +94,27 @@ export function getUrlHostnameLabel(
 
   return tryGetUrlHostname(raw) ?? raw;
 }
+
+/**
+ * Creates a stable lookup key for feed URLs, preserving path and query params.
+ * Used for category resolution and feed matching across the GReader API.
+ */
+export function toCategoryLookupKey(feedUrl: string): string {
+  const trimmed = feedUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    const search = parsed.search;
+    return `${host}${pathname}${search}`;
+  } catch {
+    return trimmed
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/+$/, "");
+  }
+}

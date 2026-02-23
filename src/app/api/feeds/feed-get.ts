@@ -1,8 +1,4 @@
-import {
-  FeedSourceNotFoundError,
-  fetchAndCacheFeedArticles,
-  UpstreamFeedError,
-} from "@/lib/core/feed-fetcher";
+import { fetchAndCacheFeedArticles } from "@/lib/core/feed-fetcher";
 import {
   getPlaceholderArticlesForSource,
   PLACEHOLDER_FEED_SOURCES,
@@ -41,12 +37,4 @@ export async function handleFeedRead(userId: number, feedUrl: string | null) {
     normalizedFeedUrl,
   );
   return NextResponse.json(feedArticles);
-}
-
-export function isFeedSourceNotFoundError(error: unknown): boolean {
-  return error instanceof FeedSourceNotFoundError;
-}
-
-export function isUpstreamFeedError(error: unknown): boolean {
-  return error instanceof UpstreamFeedError;
 }

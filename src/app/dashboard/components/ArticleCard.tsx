@@ -1,12 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
+import { toPlainText } from "@/lib/utils/sanitize";
 import { ArrowUpRight, CalendarDays, Circle, CircleCheck, Globe, Star } from "lucide-react";
 import { type KeyboardEvent, useRef } from "react";
 import {
   buildPreview,
   getArticleSourceLabel,
   getRichContentClass,
-  toPlainText,
 } from "../helpers/article-content";
 import { setCachedFaviconIndex } from "../helpers/favicons";
 import { useArticleExpansion, useArticleHeights } from "../hooks/useArticleExpansion";
@@ -24,6 +24,12 @@ interface ArticleCardProps {
   onToggleStarred: () => void;
   isUpdatingState: boolean;
 }
+
+const iconBtnCls =
+  "inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
+
+const iconLinkCls =
+  "inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground";
 
 export const ArticleCard = ({
   articleKey,
@@ -145,7 +151,7 @@ export const ArticleCard = ({
               }}
               disabled={isUpdatingState}
               aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
-              className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className={iconBtnCls}
             >
               {article.isRead ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
             </button>
@@ -158,7 +164,7 @@ export const ArticleCard = ({
               }}
               disabled={isUpdatingState}
               aria-label={article.isStarred ? "Remove star" : "Star article"}
-              className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className={iconBtnCls}
             >
               <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
             </button>
@@ -169,14 +175,16 @@ export const ArticleCard = ({
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               aria-label="Open article"
-              className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground"
+              className={iconLinkCls}
             >
               <ArrowUpRight className="size-3.5" />
             </a>
           </div>
         </div>
 
-        <h3 className={`text-sm font-medium leading-snug ${visuallyExpanded ? "" : "line-clamp-2"}`}>
+        <h3
+          className={`font-medium leading-snug ${visuallyExpanded ? "text-base" : "text-sm line-clamp-2"}`}
+        >
           {article.title}
         </h3>
 

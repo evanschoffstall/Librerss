@@ -1,12 +1,12 @@
 import {
   FeedService,
+  includesCategoryLabel,
   normalizeCategory,
   type CategoryTreeNode,
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { toast } from "sonner";
 import { flattenCategoryFeeds } from "../../helpers/category-helpers";
-import { includesCategoryLabel } from "../../helpers/category-labels";
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 

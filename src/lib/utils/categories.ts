@@ -3,6 +3,8 @@
  * Centralizes category handling logic
  */
 
+import type { CategoryTreeNode } from "@/lib/core/types";
+
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
 /**
@@ -51,3 +53,30 @@ export function normalizeCategory(label?: string | null): string {
 
   return trimmed;
 }
+
+// ── Array helper methods for category operations ────────────────────────────
+
+export const includesCategoryLabel = (
+  labels: readonly string[],
+  target: string,
+): boolean => labels.some((label) => isSameCategoryLabel(label, target));
+
+export const replaceCategoryLabel = (
+  labels: readonly string[],
+  currentLabel: string,
+  nextLabel: string,
+): string[] =>
+  labels.map((label) =>
+    isSameCategoryLabel(label, currentLabel) ? nextLabel : label,
+  );
+
+export const removeCategoryLabel = (
+  labels: readonly string[],
+  target: string,
+): string[] => labels.filter((label) => !isSameCategoryLabel(label, target));
+
+export const findCategoryByLabel = (
+  categories: readonly CategoryTreeNode[],
+  label: string,
+): CategoryTreeNode | undefined =>
+  categories.find((category) => isSameCategoryLabel(category.label, label));

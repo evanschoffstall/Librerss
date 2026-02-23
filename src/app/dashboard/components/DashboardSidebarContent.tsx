@@ -2,6 +2,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
 import { FeedCategory } from "./feed/FeedCategory";
 
+const sidebarPanelCls = "space-y-4 pr-3 anim-fade-in-load-slow";
+
 type DashboardSidebarContentProps = {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
@@ -24,7 +26,7 @@ export function DashboardSidebarContent({
   return (
     <>
       {isCategoriesLoading ? (
-        <div key="sidebar-loading" className="space-y-4 pr-3 anim-fade-in-load-slow">
+        <div key="sidebar-loading" className={sidebarPanelCls}>
           {[3, 2, 4].map((count, groupIndex) => (
             <div key={groupIndex} className="space-y-1">
               <Skeleton className="mx-2 h-3.5 w-16 rounded" />
@@ -38,7 +40,7 @@ export function DashboardSidebarContent({
           ))}
         </div>
       ) : (
-        <div key="sidebar-content" className="space-y-4 pr-3 anim-fade-in-load-slow">
+        <div key="sidebar-content" className={sidebarPanelCls}>
           {sidebarCategories.length === 0 ? (
             <div className="px-2 py-8 text-xs text-muted-foreground/70">
               No feed sources yet.

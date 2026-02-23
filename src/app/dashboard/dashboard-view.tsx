@@ -215,7 +215,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     fetchCategoryFeeds,
     onOpenSettings: useCallback(() => setShowSettingsModal(true), [setShowSettingsModal]),
     onOpenFeedsSidebar: useCallback(() => setIsMobileSidebarOpen(true), [setIsMobileSidebarOpen]),
-    onSearchChange: useCallback((term: string) => setSearchTerm(term), [setSearchTerm]),
+    onSearchChange: setSearchTerm,
     onRefresh: handleRefreshSelection,
   });
 

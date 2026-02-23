@@ -1,6 +1,7 @@
-import { getUrlHostnameLabel, tryGetUrlHostname } from "@/lib/utils/url";
+import { tryGetUrlHostname } from "@/lib/utils/url";
 
-export const getHostnameLabel = (url?: string) => getUrlHostnameLabel(url);
+export const getHostnameLabel = (url: string) =>
+  (tryGetUrlHostname(url) ?? url).replace(/^www\./i, "");
 
 type FaviconCacheEntry = { index: number; failedAt?: number };
 const faviconIndexCache = new Map<string, FaviconCacheEntry>();
@@ -289,4 +290,9 @@ export const getFaviconTintColors = (...urls: Array<string | undefined>) => {
     foreground: `hsl(${hue} ${saturation}% ${foregroundLightness}%)`,
     background: `hsl(${hue} ${Math.max(42, saturation - 18)}% ${backgroundLightness}% / 0.35)`,
   };
+};
+
+export const getFaviconUrl = (url: string) => {
+  const candidates = getMergedFaviconCandidates(url);
+  return candidates[0] ?? "";
 };

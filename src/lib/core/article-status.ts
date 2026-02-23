@@ -68,15 +68,8 @@ export async function canUseArticleStatusesTable(): Promise<boolean> {
 }
 
 // ── Safe item ID validation ───────────────────────────────────────────────────
-
-export function isSafePositiveItemId(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    value > 0 &&
-    value <= Number.MAX_SAFE_INTEGER
-  );
-}
+// Canonical definition lives in @/lib/utils/validation (pure, no DB deps).
+export { isSafePositiveItemId } from "@/lib/utils/validation";
 
 // ── Batch upsert ──────────────────────────────────────────────────────────────
 

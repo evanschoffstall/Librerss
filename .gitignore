@@ -66,6 +66,7 @@ bun-debug.log*
 .DS_Store
 Thumbs.db
 *.pem
+.tsc-out/
 
 # Affinity
 *.ignored
