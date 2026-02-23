@@ -244,9 +244,13 @@ export async function handleSubscriptionEdit(
 }
 
 export async function handleDisableTag(): Promise<Response> {
+  // TODO: Implement tag deletion (remove feed category for user)
+  logger.warn("[greader] disable-tag called but not implemented");
   return textResponse("OK\n");
 }
 
 export async function handleRenameTag(): Promise<Response> {
+  // TODO: Implement tag renaming (update feed category name for user)
+  logger.warn("[greader] rename-tag called but not implemented");
   return textResponse("OK\n");
 }
