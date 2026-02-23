@@ -37,29 +37,6 @@ export function buildPreview(content: string): {
   return { preview: safeCut.trimEnd(), hasOverflow };
 }
 
-export function extractTextContent(content: string): string {
-  if (!content) {
-    return "";
-  }
-
-  return content
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function truncateText(content: string, maxLength: number): string {
-  if (!Number.isFinite(maxLength) || maxLength <= 0) {
-    return "";
-  }
-
-  if (content.length <= maxLength) {
-    return content;
-  }
-
-  return `${content.slice(0, maxLength)}...`;
-}
-
 // ── Source label ──────────────────────────────────────────────────────────────
 
 export function getArticleSourceLabel(article: Article): string {

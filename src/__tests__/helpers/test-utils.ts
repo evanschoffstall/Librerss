@@ -78,6 +78,8 @@ export function createMockArticle(overrides: Partial<any> = {}) {
     title: "Test Article",
     content: "<p>Test article content</p>",
     link: "https://example.com/article",
+    publicationDate: new Date(),
+    lastChecked: new Date(),
     publishedAt: new Date(),
     author: "Test Author",
     userId: 1,

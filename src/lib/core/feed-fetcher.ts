@@ -47,7 +47,10 @@ class FeedSourceNotFoundError extends Error {
 export function isFeedSourceNotFoundError(
   error: unknown,
 ): error is FeedSourceNotFoundError {
-  return error instanceof FeedSourceNotFoundError;
+  return (
+    error instanceof FeedSourceNotFoundError ||
+    (error instanceof Error && error.name === "FeedSourceNotFoundError")
+  );
 }
 
 // ─── Batch fetch ──────────────────────────────────────────────────────────────
@@ -208,7 +211,10 @@ class UpstreamFeedError extends Error {
 export function isUpstreamFeedError(
   error: unknown,
 ): error is UpstreamFeedError {
-  return error instanceof UpstreamFeedError;
+  return (
+    error instanceof UpstreamFeedError ||
+    (error instanceof Error && error.name === "UpstreamFeedError")
+  );
 }
 
 /**
