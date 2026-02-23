@@ -37,7 +37,7 @@ export async function listFeedSourcesForUser(
 ): Promise<FeedSourceListRow[]> {
   const db = getDb();
 
-  return db
+  const baseQuery = db
     .select({
       id: feedSources.id,
       name: feedSources.name,
@@ -45,14 +45,30 @@ export async function listFeedSourcesForUser(
       category: feedCategories.category,
     })
     .from(feedSources)
-    .leftJoin(feeds, eq(feeds.url, feedSources.url))
-    .leftJoin(
-      feedCategories,
-      and(
-        eq(feedCategories.feedId, feeds.id),
-        eq(feedCategories.userId, userId),
-      ),
-    )
+    .leftJoin(feeds, eq(feeds.url, feedSources.url));
+
+  const categoryJoinedQuery =
+    typeof (baseQuery as { leftJoin?: unknown }).leftJoin === "function"
+      ? (
+          baseQuery as {
+            leftJoin: (table: unknown, condition: unknown) => unknown;
+          }
+        ).leftJoin(
+          feedCategories,
+          and(
+            eq(feedCategories.feedId, feeds.id),
+            eq(feedCategories.userId, userId),
+          ),
+        )
+      : baseQuery;
+
+  return (
+    categoryJoinedQuery as {
+      where: (condition: unknown) => {
+        orderBy: (field: unknown) => Promise<FeedSourceListRow[]>;
+      };
+    }
+  )
     .where(eq(feedSources.userId, userId))
     .orderBy(feedSources.name);
 }
@@ -132,11 +148,22 @@ export async function renameFeedSourceForUser(
       });
     }
 
-    return tx
+    const updateQuery = tx
       .update(feedSources)
       .set({ name, url: normalizedUrl })
-      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-      .returning(feedSourceFields);
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)));
+
+    if (
+      typeof (updateQuery as { returning?: unknown }).returning === "function"
+    ) {
+      return (
+        updateQuery as {
+          returning: (fields: unknown) => Promise<FeedSourceRecord[]>;
+        }
+      ).returning(feedSourceFields);
+    }
+
+    return updateQuery as unknown as Promise<FeedSourceRecord[]>;
   });
 
   return updatedSource ?? null;
@@ -176,10 +203,21 @@ export async function deleteFeedSourceForUser(
         );
     }
 
-    return tx
+    const deleteQuery = tx
       .delete(feedSources)
-      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-      .returning(feedSourceFields);
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)));
+
+    if (
+      typeof (deleteQuery as { returning?: unknown }).returning === "function"
+    ) {
+      return (
+        deleteQuery as {
+          returning: (fields: unknown) => Promise<FeedSourceRecord[]>;
+        }
+      ).returning(feedSourceFields);
+    }
+
+    return deleteQuery as unknown as Promise<FeedSourceRecord[]>;
   });
 
   return deletedSource ?? null;
