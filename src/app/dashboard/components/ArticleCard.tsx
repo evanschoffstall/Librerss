@@ -290,29 +290,25 @@ export const ArticleCard = ({
               </button>
 
               {supportsNativeShare ? (
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon-sm"
                   onClick={handleShare}
                   aria-label="Share article"
-                  className="size-6 text-muted-foreground/50 hover:text-foreground"
+                  className={iconBtnCls}
                 >
                   <Share2 className="size-3.5" />
-                </Button>
+                </button>
               ) : (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon-sm"
                       onClick={(event) => event.stopPropagation()}
                       aria-label="Share article options"
-                      className="size-6 text-muted-foreground/50 hover:text-foreground"
+                      className={iconBtnCls}
                     >
                       <Share2 className="size-3.5" />
-                    </Button>
+                    </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
@@ -544,14 +540,25 @@ export const ArticleCard = ({
             className="max-h-[45dvh]"
             onClick={(event) => event.stopPropagation()}
           >
-            <DrawerHeader className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <DrawerTitle>Copy Link</DrawerTitle>
-                  <DrawerDescription>
-                    Link is selected automatically for direct copying.
-                  </DrawerDescription>
-                </div>
+            <DrawerHeader>
+              <DrawerTitle>Copy Link</DrawerTitle>
+              <DrawerDescription>
+                Link is selected automatically for direct copying.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="space-y-3 px-4 pb-6">
+              <div className="rounded-md border bg-muted/30 p-2">
+                <Input
+                  ref={copyLinkInputRef}
+                  value={shareUrl || ""}
+                  readOnly
+                  className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+                  aria-label="Article link"
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </div>
+              <div className="flex justify-end">
                 <Button
                   type="button"
                   size="sm"
@@ -561,33 +568,34 @@ export const ArticleCard = ({
                   Select
                 </Button>
               </div>
-            </DrawerHeader>
-            <div className="px-4 pb-6">
-              <Input
-                ref={copyLinkInputRef}
-                value={shareUrl || ""}
-                readOnly
-                aria-label="Article link"
-                onClick={(event) => event.stopPropagation()}
-                onFocus={(event) => event.currentTarget.select()}
-              />
             </div>
           </DrawerContent>
         </Drawer>
       ) : (
         <Dialog open={isCopyLinkOpen} onOpenChange={setIsCopyLinkOpen}>
           <DialogContent
-            className="max-w-sm"
+            className="max-w-md"
             onClick={(event) => event.stopPropagation()}
           >
-            <DialogHeader className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <DialogTitle>Copy Link</DialogTitle>
-                  <DialogDescription>
-                    Link is selected automatically for direct copying.
-                  </DialogDescription>
-                </div>
+            <DialogHeader>
+              <DialogTitle>Copy Link</DialogTitle>
+              <DialogDescription>
+                Link is selected automatically for direct copying.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/30 p-2">
+                <Input
+                  ref={copyLinkInputRef}
+                  value={shareUrl || ""}
+                  readOnly
+                  className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+                  aria-label="Article link"
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </div>
+              <div className="flex justify-end">
                 <Button
                   type="button"
                   size="sm"
@@ -597,15 +605,7 @@ export const ArticleCard = ({
                   Select
                 </Button>
               </div>
-            </DialogHeader>
-            <Input
-              ref={copyLinkInputRef}
-              value={shareUrl || ""}
-              readOnly
-              aria-label="Article link"
-              onClick={(event) => event.stopPropagation()}
-              onFocus={(event) => event.currentTarget.select()}
-            />
+            </div>
           </DialogContent>
         </Dialog>
       )}
