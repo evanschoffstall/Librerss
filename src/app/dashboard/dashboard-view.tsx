@@ -7,7 +7,6 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useCallback, useEffect } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
@@ -233,32 +232,36 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+3.5rem)] md:px-6">
       <Drawer open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <DrawerContent className="max-h-[85vh] lg:hidden">
-          <DrawerHeader>
-            <DrawerTitle>Feeds</DrawerTitle>
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-sm font-semibold tracking-tight text-foreground/90">
+              Feeds
+            </DrawerTitle>
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4">
-            <ScrollArea className="h-[65vh]">
-              <DashboardSidebarContent {...sidebarProps} />
-            </ScrollArea>
+            <div className="h-[65vh] rounded-xl bg-card/35 px-2 py-2">
+              <ScrollArea className="h-full">
+                <DashboardSidebarContent {...sidebarProps} />
+              </ScrollArea>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch lg:gap-0">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
-          <ScrollArea
-            ref={sidebarScrollRef}
-            className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
-              }`}
-          >
-            <DashboardSidebarContent {...sidebarProps} />
-          </ScrollArea>
+          <div className="h-full rounded-xl bg-card/35 px-2 py-2">
+            <ScrollArea
+              ref={sidebarScrollRef}
+              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                }`}
+            >
+              <DashboardSidebarContent {...sidebarProps} />
+            </ScrollArea>
+          </div>
         </aside>
 
-        <Separator orientation="vertical" className="hidden lg:block" />
-
         <section className="flex min-h-0 flex-1 flex-col lg:min-w-0">
-          <div className="mx-auto flex w-full max-w-3xl flex-shrink-0 items-center gap-2 px-1 py-2 lg:max-w-none lg:px-0 lg:pr-3">
+          <div className="mx-auto flex w-full max-w-3xl flex-shrink-0 items-center gap-2 px-1 py-2 lg:max-w-none lg:px-3">
             {ARTICLE_FILTER_OPTIONS.map((value) => (
               <button
                 key={value}
@@ -285,8 +288,6 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
               updatingArticleState={articleActions.updatingArticleState}
               showFavicons={showFavicons}
               searchTerm={searchTerm}
-              selectedCategory={selectedCategory}
-              selectedFeedUrl={selectedFeedUrl}
               sentinelRef={sentinelRef}
               onToggle={(article) => void articleActions.handleArticleToggle(article)}
               onToggleRead={(article) => void articleActions.handleToggleReadState(article)}

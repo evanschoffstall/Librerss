@@ -11,7 +11,6 @@ import {
   getFaviconCacheKey,
   getMergedFaviconCandidates,
   getFaviconTintColors,
-  setCachedFaviconIndex,
 } from "../helpers/favicons";
 
 interface UseFaviconOptions {

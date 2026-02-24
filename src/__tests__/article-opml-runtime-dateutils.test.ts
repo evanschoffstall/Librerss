@@ -291,15 +291,15 @@ describe("article-content – getRichContentClass", () => {
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
     expect(expanded).not.toBe(collapsed);
-    expect(expanded).toContain("text-sm");
-    expect(collapsed).toContain("text-xs");
+    expect(expanded).toContain("text-[1rem]");
+    expect(collapsed).toContain("text-[0.92rem]");
   });
 
   test("both include shared CSS classes", async () => {
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
-    expect(expanded).toContain("leading-relaxed");
-    expect(collapsed).toContain("leading-relaxed");
+    expect(expanded).toContain("break-words");
+    expect(collapsed).toContain("break-words");
   });
 });
 
