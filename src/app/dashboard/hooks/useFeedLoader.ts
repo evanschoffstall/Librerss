@@ -6,7 +6,10 @@ import { CONFIG } from "@/lib/config";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { dedupeAndSortArticles } from "../helpers/article-helpers";
+import {
+  dedupeAndSortArticles,
+  getArticleKey,
+} from "../helpers/article-helpers";
 import {
   FEED_LOADING_FAILSAFE_MS,
   type FeedBatchSource,
@@ -126,7 +129,6 @@ export function useFeedLoader({
             ),
           );
           setFeed(fallbackArticles);
-          setExpandedArticleKey(null);
         } else {
           console.error("Batch feed fetch error:", error);
           toast.error("Unable to load this feed right now.", {
@@ -277,7 +279,17 @@ export function useFeedLoader({
 
         if (articles.length > 0) {
           setFeed(articles);
-          setExpandedArticleKey(null);
+          setExpandedArticleKey((currentKey) => {
+            if (!currentKey) {
+              return null;
+            }
+
+            const hasExpandedArticle = articles.some(
+              (article) => getArticleKey(article) === currentKey,
+            );
+
+            return hasExpandedArticle ? currentKey : null;
+          });
           logRefreshDiagnostics("refresh:applied", {
             requestId,
             articleCount: articles.length,
