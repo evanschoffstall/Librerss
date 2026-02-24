@@ -103,9 +103,9 @@ export const ArticleCard = ({
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
-      className={`group rounded-xl border bg-card/40 transition-[padding,background-color,max-height] anim-duration-ui anim-ease-ui hover:bg-card/70 ${visuallyExpanded ? "p-4.5" : "p-3.5"}`}
+      className={`group rounded-xl border bg-card/40 transition-[padding,background-color,max-height] anim-duration-ui anim-ease-ui hover:bg-card/70 ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
-      <div className={`space-y-2.5 ${visuallyExpanded ? "lg:space-y-3" : ""}`}>
+      <div className={`space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
         <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
           <div className="flex min-w-0 items-center gap-2">
             <CalendarDays className="size-3" />
@@ -185,12 +185,12 @@ export const ArticleCard = ({
         </div>
 
         <h3
-          className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.06rem] leading-7" : "text-[0.98rem] leading-6 line-clamp-2"}`}
+          className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.03rem] leading-6" : "text-[0.96rem] leading-6 line-clamp-2"}`}
         >
           {article.title}
         </h3>
 
-        <Separator className="my-2" />
+        <Separator className="my-1.5" />
 
         <div>
           <div
@@ -215,7 +215,7 @@ export const ArticleCard = ({
                 <Skeleton className="h-3 w-[76%]" />
               </div>
             ) : hasOverflow && !showFullContent ? (
-              <p className="font-sans antialiased tracking-[-0.01em] text-[0.95rem] leading-7 text-muted-foreground/85">
+              <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/85">
                 {`${preview}…`}
               </p>
             ) : useRichFormatting ? (
@@ -224,7 +224,7 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.99rem] leading-8 text-foreground/85" : "text-[0.95rem] leading-7 text-muted-foreground/85"}`}>
+              <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}>
                 {content}
               </p>
             )}
@@ -234,7 +234,7 @@ export const ArticleCard = ({
           <p
             ref={previewRef}
             aria-hidden="true"
-            className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.01em] text-[0.95rem] leading-7"
+            className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6"
           >
             {`${preview}…`}
           </p>
@@ -249,7 +249,7 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className="font-sans antialiased tracking-[-0.01em] text-[0.99rem] leading-8 whitespace-pre-line break-words text-foreground/85">
+              <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
                 {content}
               </p>
             )}
