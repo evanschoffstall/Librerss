@@ -12,9 +12,9 @@
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
-import { articles, articleStatuses, feedSources } from "@/lib/db/schema";
+import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type ArticleRow,
   buildRefreshPlan,
@@ -60,6 +60,7 @@ type BatchFeedResult = {
   errors: Map<string, string>;
   refreshedCount: number;
   cachedCount: number;
+  lastFetchedByUrl: Map<string, Date>;
 };
 
 export async function fetchAndCacheFeedArticlesBatch(
@@ -82,6 +83,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       errors: new Map(),
       refreshedCount: 0,
       cachedCount: 0,
+      lastFetchedByUrl: new Map(),
     };
 
   if (DIAG) {
@@ -107,6 +109,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       errors: new Map(),
       refreshedCount: 0,
       cachedCount: 0,
+      lastFetchedByUrl: new Map(),
     };
   }
 
@@ -166,8 +169,18 @@ export async function fetchAndCacheFeedArticlesBatch(
       errors: upstreamErrors,
       refreshedCount,
       cachedCount: allowedUrls.length - refreshedCount,
+      lastFetchedByUrl: new Map(),
     };
   }
+
+  const currentLastFetchedRows = await db
+    .select({ url: feeds.url, lastFetched: feeds.lastFetched })
+    .from(feeds)
+    .where(inArray(feeds.url, allowedUrls));
+
+  const lastFetchedByUrl = new Map<string, Date>(
+    currentLastFetchedRows.map((row) => [row.url, row.lastFetched]),
+  );
 
   const rows = await queryTopArticlesPerFeed(db, userId, feedIds);
   const result = mapRowsToArticleMap(rows, feedByUrl, allowedUrls);
@@ -195,6 +208,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     errors: upstreamErrors,
     refreshedCount,
     cachedCount,
+    lastFetchedByUrl,
   };
 }
 

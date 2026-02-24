@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
       errors: upstreamErrors,
       refreshedCount,
       cachedCount,
+      lastFetchedByUrl,
     } = await fetchAndCacheFeedArticlesBatch(db, user.userId, normalizedUrls, {
       skipRefresh,
       forceRefresh,
@@ -113,6 +114,11 @@ export async function POST(request: NextRequest) {
       // an empty-but-valid feed is still ok=true so clients can distinguish
       // "fetched successfully but has no articles yet" from "auth/not-found".
       ok: batchMap.has(normalizedUrl),
+      ...(lastFetchedByUrl.has(normalizedUrl)
+        ? {
+            lastFetchedAt: lastFetchedByUrl.get(normalizedUrl)?.toISOString(),
+          }
+        : {}),
       // Surface upstream fetch errors so the client can inform the user.
       ...(upstreamErrors.has(normalizedUrl)
         ? { error: upstreamErrors.get(normalizedUrl) }

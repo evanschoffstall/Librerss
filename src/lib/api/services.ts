@@ -35,11 +35,13 @@ export function __resetApiClientForTesting(): void {
 async function withRequestDeadline<T>(
   request: Promise<T>,
   timeoutMs = REQUEST_TIMEOUT_MS,
+  onTimeout?: () => void,
 ): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {
+      onTimeout?.();
       reject(new Error("Request timeout"));
     }, timeoutMs);
   });
@@ -49,6 +51,38 @@ async function withRequestDeadline<T>(
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);
   }
+}
+
+function createLinkedAbortController(signal?: AbortSignal): {
+  controller: AbortController;
+  dispose: () => void;
+} {
+  const controller = new AbortController();
+
+  if (!signal) {
+    return {
+      controller,
+      dispose: () => {},
+    };
+  }
+
+  if (signal.aborted) {
+    controller.abort();
+    return {
+      controller,
+      dispose: () => {},
+    };
+  }
+
+  const handleAbort = () => controller.abort();
+  signal.addEventListener("abort", handleAbort, { once: true });
+
+  return {
+    controller,
+    dispose: () => {
+      signal.removeEventListener("abort", handleAbort);
+    },
+  };
 }
 
 // ── Shared response normalizers ───────────────────────────────────────────────
@@ -63,6 +97,7 @@ interface BatchFeedResponseItem {
   articles: Article[];
   ok: boolean;
   error?: string;
+  lastFetchedAt?: Date;
 }
 
 function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
@@ -71,6 +106,15 @@ function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
       ? (item as Record<string, unknown>)
       : ({} as Record<string, unknown>);
 
+  const rawLastFetchedAt = candidate.lastFetchedAt;
+  const parsedLastFetchedAt =
+    typeof rawLastFetchedAt === "string" || rawLastFetchedAt instanceof Date
+      ? new Date(rawLastFetchedAt)
+      : null;
+  const hasValidLastFetchedAt =
+    parsedLastFetchedAt instanceof Date &&
+    !Number.isNaN(parsedLastFetchedAt.getTime());
+
   return {
     url: typeof candidate.url === "string" ? candidate.url : "",
     articles: Array.isArray(candidate.articles)
@@ -78,6 +122,7 @@ function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
       : [],
     ok: Boolean(candidate.ok),
     ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),
+    ...(hasValidLastFetchedAt ? { lastFetchedAt: parsedLastFetchedAt } : {}),
   };
 }
 
@@ -148,16 +193,24 @@ export class FeedService {
     const normalizedUrls = normalizeDistinctUrlList(urls);
     if (normalizedUrls.length === 0) return [];
 
-    const response = await withRequestDeadline(
-      api.post(
-        `${this.baseUrl}/feeds/batch`,
-        { urls: normalizedUrls, skipRefresh, forceRefresh, requestSource },
-        { signal },
-      ),
-    );
+    const { controller, dispose } = createLinkedAbortController(signal);
 
-    const batchItems = ensureArrayResponse<unknown>(response.data);
-    return batchItems.map(normalizeBatchItem);
+    try {
+      const response = await withRequestDeadline(
+        api.post(
+          `${this.baseUrl}/feeds/batch`,
+          { urls: normalizedUrls, skipRefresh, forceRefresh, requestSource },
+          { signal: controller.signal },
+        ),
+        REQUEST_TIMEOUT_MS,
+        () => controller.abort(),
+      );
+
+      const batchItems = ensureArrayResponse<unknown>(response.data);
+      return batchItems.map(normalizeBatchItem);
+    } finally {
+      dispose();
+    }
   }
 
   static async createFeedSource(
