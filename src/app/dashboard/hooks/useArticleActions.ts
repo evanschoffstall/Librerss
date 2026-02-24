@@ -43,10 +43,22 @@ export function useArticleActions({
   useEffect(() => {
     if (!expandedArticleKey || feed.length === 0) return;
     const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
-    if (article) {
+    const link = article?.link?.trim() ?? "";
+    if (
+      article &&
+      link &&
+      !hydratedArticleLinks[link] &&
+      !hydratingArticleLinks[link]
+    ) {
       void hydrateArticleContent(article);
     }
-  }, [feed, expandedArticleKey, hydrateArticleContent]);
+  }, [
+    feed,
+    expandedArticleKey,
+    hydratedArticleLinks,
+    hydratingArticleLinks,
+    hydrateArticleContent,
+  ]);
 
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
   const collapseScrollTimeoutRef = useRef<number | null>(null);
