@@ -36,12 +36,23 @@ export function useArticleActions({
 
   const { hydratedArticleLinks, hydratingArticleLinks, hydrateArticleContent } =
     useArticleHydration({ setFeed });
+  const autoHydratedExpandedKeyRef = useRef<string | null>(null);
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
   // is restored from sessionStorage but hydratedArticleLinks is in-memory only.
   // Re-trigger hydration so the article gets its rich content back automatically.
   useEffect(() => {
-    if (!expandedArticleKey || feed.length === 0) return;
+    if (!expandedArticleKey) {
+      autoHydratedExpandedKeyRef.current = null;
+      return;
+    }
+
+    if (autoHydratedExpandedKeyRef.current === expandedArticleKey) {
+      return;
+    }
+
+    if (feed.length === 0) return;
+
     const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
     const link = article?.link?.trim() ?? "";
     if (
@@ -50,6 +61,7 @@ export function useArticleActions({
       !hydratedArticleLinks[link] &&
       !hydratingArticleLinks[link]
     ) {
+      autoHydratedExpandedKeyRef.current = expandedArticleKey;
       void hydrateArticleContent(article);
     }
   }, [

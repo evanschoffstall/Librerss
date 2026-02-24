@@ -548,4 +548,48 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     document.body.removeChild(mockElement);
   });
+
+  test("auto-hydration runs once per expanded key even if feed updates", async () => {
+    const article = createMockArticle({
+      id: 1,
+      link: "https://example.com/article",
+    });
+
+    (ArticleService.extractArticleContent as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(async () => "");
+
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock(() => {});
+
+    const { rerender } = renderHook(
+      ({ feed, expandedArticleKey }) =>
+        useArticleActions({
+          feed,
+          setFeed,
+          expandedArticleKey,
+          setExpandedArticleKey,
+          articleFilter: "all",
+        }),
+      {
+        initialProps: {
+          feed: [article],
+          expandedArticleKey: article.link,
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+    });
+
+    rerender({
+      feed: [{ ...article, content: "new feed content snapshot" }],
+      expandedArticleKey: article.link,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+  });
 });

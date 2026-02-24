@@ -24,7 +24,6 @@ import {
   Circle,
   CircleCheck,
   Code,
-  Copy,
   Globe,
   Share2,
   Star,
@@ -107,6 +106,7 @@ export const ArticleCard = ({
   } = useFavicon({ primaryUrl: article.feedUrl, fallbackUrl: article.link });
 
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const rawHtmlPreRef = useRef<HTMLPreElement | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
@@ -130,80 +130,41 @@ export const ArticleCard = ({
     onToggle();
   };
 
-  const copyTextWithFallbacks = async (value: string) => {
-    const tryClipboardWrite = async () => {
-      if (!navigator.clipboard?.writeText) return false;
-
-      try {
-        await navigator.clipboard.writeText(value);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    const tryExecCommandCopy = () => {
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = value;
-        textArea.setAttribute("readonly", "");
-        textArea.style.position = "fixed";
-        textArea.style.top = "-9999px";
-        textArea.style.left = "-9999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const copied = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        return copied;
-      } catch {
-        return false;
-      }
-    };
-
-    const copiedViaClipboardApi = await tryClipboardWrite();
-    if (copiedViaClipboardApi) return true;
-
-    const copiedViaExecCommand = tryExecCommandCopy();
-    return copiedViaExecCommand;
-  };
-
   const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
 
     const shareUrl = article.link;
     if (!shareUrl) return;
 
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: article.title,
-          text: article.title,
-          url: shareUrl,
-        });
-        return;
-      }
-    } catch {
-    }
-
-    const copied = await copyTextWithFallbacks(shareUrl);
-    if (copied) {
-      toast.success("Link copied");
+    if (!navigator.share) {
+      toast.error("Native share is not supported on this browser");
       return;
     }
 
-    toast.error("Could not copy link");
+    try {
+      await navigator.share({
+        title: article.title,
+        text: article.title,
+        url: shareUrl,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error("Could not open share dialog");
+    }
   };
 
-  const handleCopyRawHtml = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSelectRawHtml = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    const copied = await copyTextWithFallbacks(rawHtml);
-    if (copied) {
-      toast.success("HTML copied");
-      return;
-    }
+    const preElement = rawHtmlPreRef.current;
+    if (!preElement) return;
 
-    toast.error("Could not copy HTML");
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    const range = document.createRange();
+    range.selectNodeContents(preElement);
+    selection.removeAllRanges();
+    selection.addRange(range);
   };
 
   return (
@@ -424,16 +385,18 @@ export const ArticleCard = ({
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={handleCopyRawHtml}
+                    onClick={handleSelectRawHtml}
                   >
-                    <Copy className="size-3.5" />
-                    Copy
+                    Select
                   </Button>
                 </div>
               </DrawerHeader>
               <div className="px-4 pb-6">
                 <div className="max-h-[60dvh] overflow-auto rounded-md border bg-muted/40 p-3">
-                  <pre className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90">
+                  <pre
+                    ref={rawHtmlPreRef}
+                    className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
+                  >
                     {rawHtml}
                   </pre>
                 </div>
@@ -458,15 +421,17 @@ export const ArticleCard = ({
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={handleCopyRawHtml}
+                    onClick={handleSelectRawHtml}
                   >
-                    <Copy className="size-3.5" />
-                    Copy
+                    Select
                   </Button>
                 </div>
               </DialogHeader>
               <div className="max-h-[65vh] overflow-auto rounded-md border bg-muted/40 p-3">
-                <pre className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90">
+                <pre
+                  ref={rawHtmlPreRef}
+                  className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
+                >
                   {rawHtml}
                 </pre>
               </div>
