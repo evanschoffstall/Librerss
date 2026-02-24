@@ -20,6 +20,7 @@ import {
   parseStreamPaging,
   shouldExcludeReadFromStream,
 } from "../utils/stream";
+import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 
 function isMissingRelationError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -49,6 +50,12 @@ export async function handleStreamItemIds(
     request.headers.get("user-agent") ?? "",
   );
   const sinceDate = parseOlderThanDate(searchParams);
+
+  await maybeRefreshGReaderStreamFeeds(
+    user.userId,
+    streamId,
+    "greader.stream.item-ids",
+  );
 
   const db = getDb();
   let useArticleStatuses = await canUseArticleStatusesTable();

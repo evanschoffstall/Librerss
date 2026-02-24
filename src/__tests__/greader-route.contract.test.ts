@@ -110,6 +110,17 @@ function registerModuleMocks() {
       allowSignup: true,
     },
   }));
+
+  mock.module("@/lib/core/feed-fetcher", () => ({
+    isAllowedFeedUrl: () => true,
+    PUBLIC_FEED_URL_ERROR: "Invalid feed URL",
+    fetchAndCacheFeedArticlesBatch: async () => ({
+      articles: new Map(),
+      errors: new Map(),
+      refreshedCount: 0,
+      cachedCount: 0,
+    }),
+  }));
 }
 
 let routeModulePromise: Promise<
@@ -207,6 +218,9 @@ describe("greader route compatibility contracts", () => {
   test("stream/items/ids returns decimal ids for Reader API clients", async () => {
     selectBehaviors.length = 0;
     selectBehaviors.push(
+      {
+        whereResult: [{ url: "https://one.example/rss.xml" }],
+      },
       {
         limitError: {
           code: "42P01",
