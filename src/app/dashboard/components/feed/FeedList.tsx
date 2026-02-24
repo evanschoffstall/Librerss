@@ -89,11 +89,11 @@ export function FeedList({
           </div>
         </div>
       ) : (
-        <div key="feed-list" className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3 anim-fade-in-load-slow">
+        <div key="feed-list" className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3">
           {filteredFeed.slice(0, visibleCount).map((article) => {
             const cardKey = getArticleKey(article);
             return (
-              <div key={cardKey} className="anim-fade-in-load-slow" style={{ animationDelay: "120ms" }}>
+              <div key={cardKey}>
                 <ArticleCard
                   articleKey={cardKey}
                   article={article}
