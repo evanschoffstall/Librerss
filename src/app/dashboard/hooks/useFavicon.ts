@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 import {
   getCachedFaviconIndex,
   getFaviconCacheKey,
-  getMergedFaviconCandidates,
   getFaviconTintColors,
+  getMergedFaviconCandidates,
 } from "../helpers/favicons";
 
 interface UseFaviconOptions {
@@ -29,11 +29,17 @@ interface UseFaviconResult {
   setFaviconIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
-export function useFavicon({ primaryUrl, fallbackUrl }: UseFaviconOptions): UseFaviconResult {
+export function useFavicon({
+  primaryUrl,
+  fallbackUrl,
+}: UseFaviconOptions): UseFaviconResult {
   const faviconCandidates = getMergedFaviconCandidates(primaryUrl, fallbackUrl);
   const faviconCacheKey = getFaviconCacheKey(primaryUrl, fallbackUrl);
-  const [faviconIndex, setFaviconIndex] = useState(() => getCachedFaviconIndex(faviconCacheKey));
-  const faviconUrl = faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
+  const [faviconIndex, setFaviconIndex] = useState(() =>
+    getCachedFaviconIndex(faviconCacheKey),
+  );
+  const faviconUrl =
+    faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
   const faviconTint = getFaviconTintColors(primaryUrl, fallbackUrl);
 
   useEffect(() => {
