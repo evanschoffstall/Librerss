@@ -291,8 +291,8 @@ describe("article-content – getRichContentClass", () => {
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
     expect(expanded).not.toBe(collapsed);
-    expect(expanded).toContain("text-[1rem]");
-    expect(collapsed).toContain("text-[0.92rem]");
+    expect(expanded).toContain("text-[0.97rem]");
+    expect(collapsed).toContain("text-[0.91rem]");
   });
 
   test("both include shared CSS classes", async () => {

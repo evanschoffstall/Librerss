@@ -144,9 +144,9 @@ describe("dashboard article helpers comprehensive", () => {
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
 
-    expect(expanded).toContain("text-[1rem]");
+    expect(expanded).toContain("text-[0.97rem]");
     expect(expanded).toContain("[&_img]:max-w-full");
-    expect(collapsed).toContain("text-[0.92rem]");
+    expect(collapsed).toContain("text-[0.91rem]");
     expect(collapsed).toContain("[&_code]:rounded");
   });
 });
