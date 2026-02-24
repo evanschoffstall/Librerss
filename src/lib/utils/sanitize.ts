@@ -251,6 +251,40 @@ const ARTICLE_SANITIZE_OPTIONS = {
  */
 export { stripOrphanedRelatedBlocks };
 
+function decodeHtmlEntities(value: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  };
+
+  const decoded = value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
+    (match, rawEntity: string) => {
+      const entity = rawEntity.toLowerCase();
+
+      if (entity.startsWith("#x")) {
+        const codePoint = Number.parseInt(entity.slice(2), 16);
+        if (Number.isNaN(codePoint)) return "";
+        return String.fromCodePoint(codePoint);
+      }
+
+      if (entity.startsWith("#")) {
+        const codePoint = Number.parseInt(entity.slice(1), 10);
+        if (Number.isNaN(codePoint)) return "";
+        return String.fromCodePoint(codePoint);
+      }
+
+      return namedEntities[entity] ?? "";
+    },
+  );
+
+  return decoded.replace(/&[a-z0-9#]+;/gi, "");
+}
+
 /**
  * Strips all HTML tags that are not in the allowed set and forces links to
  * open safely (`rel="noopener noreferrer nofollow"`, `target="_blank"`).
@@ -279,7 +313,8 @@ export function sanitizeArticleTitle(title: string | null | undefined): string {
     allowedTags: [],
     allowedAttributes: {},
   }).trim();
-  const cleaned = stripped || "Untitled";
+  const cleaned =
+    decodeHtmlEntities(stripped).replace(/\s+/g, " ").trim() || "Untitled";
   if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
   return cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH).trim() + "...";
 }

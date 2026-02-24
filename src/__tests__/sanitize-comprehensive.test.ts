@@ -86,6 +86,25 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).not.toContain("<b>");
   });
 
+  test("sanitizeArticleTitle decodes named entities", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+
+    const title = "Cartoon: Stocks &amp; Bondis";
+    const result = sanitizeArticleTitle(title);
+
+    expect(result).toBe("Cartoon: Stocks & Bondis");
+    expect(result).not.toContain("&amp;");
+  });
+
+  test("sanitizeArticleTitle decodes numeric entities", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+
+    const title = "Cartoon &#38; Politics &#x26; Markets";
+    const result = sanitizeArticleTitle(title);
+
+    expect(result).toBe("Cartoon & Politics & Markets");
+  });
+
   test("sanitizeArticleTitle handles empty input with fallback", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
 
