@@ -1,9 +1,36 @@
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { type Article, formatRelativeDate } from "@/lib";
 import { toPlainText } from "@/lib/utils/sanitize";
-import { ArrowUpRight, CalendarDays, Circle, CircleCheck, Globe, Star } from "lucide-react";
-import { type KeyboardEvent, useRef } from "react";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Circle,
+  CircleCheck,
+  Code,
+  Copy,
+  Globe,
+  Share2,
+  Star,
+} from "lucide-react";
+import { type KeyboardEvent, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   buildPreview,
   getArticleSourceLabel,
@@ -47,7 +74,12 @@ export const ArticleCard = ({
   onToggleStarred,
   isUpdatingState,
 }: ArticleCardProps) => {
-  const plainContent = toPlainText(article.content || "").trim();
+  const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const isMobile = useIsMobile();
+
+  const rawHtml = article.content || "";
+  const plainContent = toPlainText(rawHtml).trim();
   const hasReadableContent = plainContent.length > 0;
   const content = plainContent || "No description available";
   const { preview, hasOverflow } = buildPreview(content);
@@ -96,6 +128,82 @@ export const ArticleCard = ({
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     onToggle();
+  };
+
+  const copyTextWithFallbacks = async (value: string) => {
+    const tryClipboardWrite = async () => {
+      if (!navigator.clipboard?.writeText) return false;
+
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const tryExecCommandCopy = () => {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
+        textArea.setAttribute("readonly", "");
+        textArea.style.position = "fixed";
+        textArea.style.top = "-9999px";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        return copied;
+      } catch {
+        return false;
+      }
+    };
+
+    const copiedViaClipboardApi = await tryClipboardWrite();
+    if (copiedViaClipboardApi) return true;
+
+    const copiedViaExecCommand = tryExecCommandCopy();
+    return copiedViaExecCommand;
+  };
+
+  const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+
+    const shareUrl = article.link;
+    if (!shareUrl) return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: article.title,
+          text: article.title,
+          url: shareUrl,
+        });
+        return;
+      }
+    } catch {
+    }
+
+    const copied = await copyTextWithFallbacks(shareUrl);
+    if (copied) {
+      toast.success("Link copied");
+      return;
+    }
+
+    toast.error("Could not copy link");
+  };
+
+  const handleCopyRawHtml = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const copied = await copyTextWithFallbacks(rawHtml);
+    if (copied) {
+      toast.success("HTML copied");
+      return;
+    }
+
+    toast.error("Could not copy HTML");
   };
 
   return (
@@ -180,6 +288,31 @@ export const ArticleCard = ({
               >
                 <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
               </button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleShare}
+                aria-label="Share article"
+                className="size-6 text-muted-foreground/50 hover:text-foreground"
+              >
+                <Share2 className="size-3.5" />
+              </Button>
+
+              {isDevelopment ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsRawHtmlOpen(true);
+                  }}
+                  aria-label="View raw article HTML"
+                  className={iconBtnCls}
+                >
+                  <Code className="size-3.5" />
+                </button>
+              ) : null}
 
               <a
                 href={article.link}
@@ -271,6 +404,76 @@ export const ArticleCard = ({
           </div>
         </div>
       </div>
+
+      {isDevelopment ? (
+        isMobile ? (
+          <Drawer open={isRawHtmlOpen} onOpenChange={setIsRawHtmlOpen}>
+            <DrawerContent
+              className="max-h-[85dvh]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <DrawerHeader className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <DrawerTitle>Raw Article HTML</DrawerTitle>
+                    <DrawerDescription>
+                      Development-only view of the current article content payload.
+                    </DrawerDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopyRawHtml}
+                  >
+                    <Copy className="size-3.5" />
+                    Copy
+                  </Button>
+                </div>
+              </DrawerHeader>
+              <div className="px-4 pb-6">
+                <div className="max-h-[60dvh] overflow-auto rounded-md border bg-muted/40 p-3">
+                  <pre className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90">
+                    {rawHtml}
+                  </pre>
+                </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog open={isRawHtmlOpen} onOpenChange={setIsRawHtmlOpen}>
+            <DialogContent
+              className="max-w-3xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <DialogHeader className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <DialogTitle>Raw Article HTML</DialogTitle>
+                    <DialogDescription>
+                      Development-only view of the current article content payload.
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopyRawHtml}
+                  >
+                    <Copy className="size-3.5" />
+                    Copy
+                  </Button>
+                </div>
+              </DialogHeader>
+              <div className="max-h-[65vh] overflow-auto rounded-md border bg-muted/40 p-3">
+                <pre className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90">
+                  {rawHtml}
+                </pre>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )
+      ) : null}
     </article>
   );
 };
