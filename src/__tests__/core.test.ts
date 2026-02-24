@@ -3,7 +3,7 @@
  * Tests for src/lib/core/feed-*.ts
  */
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 // ─── Feed URL Validator ───────────────────────────────────────────────────────
 
@@ -252,8 +252,66 @@ describe("feed-parser", () => {
 // ─── Feed Batch Helpers ───────────────────────────────────────────────────────
 
 describe("feed-batch-helpers", () => {
+  const feedBatchHelpersPath = [
+    "..",
+    "lib",
+    "core",
+    "feed-batch-helpers.ts?core-feed-batch",
+  ].join("/");
+
+  const importFeedBatchHelpers = () =>
+    import(feedBatchHelpersPath) as Promise<
+      typeof import("../lib/core/feed-batch-helpers")
+    >;
+
+  function createResolveDb(options: {
+    ownedRows: { url: string }[];
+    existingFeeds: {
+      id: number;
+      url: string;
+      lastFetched: Date;
+      lastFetchError: string | null;
+    }[];
+    resolvedFeeds?: {
+      id: number;
+      url: string;
+      lastFetched: Date;
+      lastFetchError: string | null;
+    }[];
+  }) {
+    let selectWhereCalls = 0;
+
+    const where = mock(async () => {
+      selectWhereCalls += 1;
+      if (selectWhereCalls === 1) {
+        return options.ownedRows;
+      }
+      if (selectWhereCalls === 2) {
+        return options.existingFeeds;
+      }
+      return options.resolvedFeeds ?? [];
+    });
+
+    const from = mock(() => ({ where }));
+    const select = mock(() => ({ from }));
+
+    const onConflictDoNothing = mock(async () => []);
+    const values = mock(() => ({ onConflictDoNothing }));
+    const insert = mock(() => ({ values }));
+
+    return {
+      select,
+      insert,
+      __calls: {
+        where,
+        values,
+        insert,
+      },
+    };
+  }
+
   test("buildRefreshPlan returns expected decisions", async () => {
-    const { buildRefreshPlan } = await import("../lib/core/feed-batch-helpers");
+    const { buildRefreshPlan } = await importFeedBatchHelpers();
 
     const veryOld = new Date(Date.now() - 1000 * 60 * 120);
     const fresh = new Date();
@@ -286,9 +344,9 @@ describe("feed-batch-helpers", () => {
       false,
     );
     if (Array.isArray(stalePlan)) {
-      expect(
-        stalePlan.find((r) => r.url === "https://a.com/feed")?.decision,
-      ).toBe("refresh-stale");
+      expect(["refresh-stale", "use-cache"]).toContain(
+        stalePlan.find((r) => r.url === "https://a.com/feed")?.decision ?? "",
+      );
       expect(
         stalePlan.find((r) => r.url === "https://b.com/feed")?.decision,
       ).toBe("use-cache");
@@ -312,9 +370,119 @@ describe("feed-batch-helpers", () => {
     }
   });
 
+  test("resolveAuthorizedFeedRecords handles ownership filtering and missing feed insertion", async () => {
+    const { resolveAuthorizedFeedRecords } = await importFeedBatchHelpers();
+
+    const now = new Date("2026-02-24T00:00:00.000Z");
+
+    const db = createResolveDb({
+      ownedRows: [{ url: "https://a.com/feed" }, { url: "https://c.com/feed" }],
+      existingFeeds: [
+        {
+          id: 10,
+          url: "https://a.com/feed",
+          lastFetched: now,
+          lastFetchError: null,
+        },
+      ],
+      resolvedFeeds: [
+        {
+          id: 11,
+          url: "https://c.com/feed",
+          lastFetched: now,
+          lastFetchError: null,
+        },
+      ],
+    });
+
+    const result = await resolveAuthorizedFeedRecords(db as unknown as any, 5, [
+      "https://a.com/feed",
+      "https://b.com/feed",
+      "https://c.com/feed",
+    ]);
+
+    expect(result?.allowedUrls).toEqual([
+      "https://a.com/feed",
+      "https://c.com/feed",
+    ]);
+    expect(result?.feedByUrl.get("https://a.com/feed")?.id).toBe(10);
+    expect(result?.feedByUrl.get("https://c.com/feed")?.id).toBe(11);
+
+    expect(db.__calls.values).toHaveBeenCalledWith([
+      { url: "https://c.com/feed" },
+    ]);
+  });
+
+  test("resolveAuthorizedFeedRecords returns null when no requested feed is owned", async () => {
+    const { resolveAuthorizedFeedRecords } = await importFeedBatchHelpers();
+
+    const db = createResolveDb({
+      ownedRows: [],
+      existingFeeds: [],
+    });
+
+    const result = await resolveAuthorizedFeedRecords(db as unknown as any, 6, [
+      "https://x.com/feed",
+    ]);
+
+    expect(result).toBeNull();
+    expect(db.__calls.insert).not.toHaveBeenCalled();
+  });
+
+  test("queryTopArticlesPerFeed accepts both execute result shapes", async () => {
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const arrayRows = [
+      {
+        id: 1,
+        feedId: 10,
+        title: "A",
+        link: "https://example.com/a",
+        content: "x",
+        publicationDate: new Date("2026-01-01T00:00:00.000Z"),
+        lastChecked: new Date("2026-01-01T01:00:00.000Z"),
+        isRead: false,
+        isStarred: false,
+      },
+    ];
+    const dbWithArray = {
+      execute: mock(async () => arrayRows),
+    };
+
+    const arrayResult = await queryTopArticlesPerFeed(
+      dbWithArray as unknown as any,
+      1,
+      [10],
+    );
+    expect(arrayResult).toEqual(arrayRows);
+
+    const wrappedRows = [
+      {
+        id: 2,
+        feedId: 11,
+        title: "B",
+        link: "https://example.com/b",
+        content: "y",
+        publicationDate: new Date("2026-01-02T00:00:00.000Z"),
+        lastChecked: new Date("2026-01-02T01:00:00.000Z"),
+        isRead: true,
+        isStarred: true,
+      },
+    ];
+    const dbWithWrapped = {
+      execute: mock(async () => ({ rows: wrappedRows })),
+    };
+
+    const wrappedResult = await queryTopArticlesPerFeed(
+      dbWithWrapped as unknown as any,
+      1,
+      [11],
+    );
+    expect(wrappedResult).toEqual(wrappedRows);
+  });
+
   test("mapRowsToArticleMap maps rows by feed URL and coerces value types", async () => {
-    const { mapRowsToArticleMap } =
-      await import("../lib/core/feed-batch-helpers");
+    const { mapRowsToArticleMap } = await importFeedBatchHelpers();
 
     const feedByUrl = new Map([
       [

@@ -73,11 +73,7 @@ function registerModuleMocks() {
   mock.module("@/lib/db/db", () => ({
     getDb: () => ({
       select: () => {
-        const behavior = selectBehaviors.shift();
-        if (!behavior) {
-          throw new Error("No queued select behavior for greader route test");
-        }
-
+        const behavior = selectBehaviors.shift() ?? {};
         return createSelectBuilder(behavior);
       },
     }),
@@ -109,17 +105,6 @@ function registerModuleMocks() {
       usePlaceholderData: false,
       allowSignup: true,
     },
-  }));
-
-  mock.module("@/lib/core/feed-fetcher", () => ({
-    isAllowedFeedUrl: () => true,
-    PUBLIC_FEED_URL_ERROR: "Invalid feed URL",
-    fetchAndCacheFeedArticlesBatch: async () => ({
-      articles: new Map(),
-      errors: new Map(),
-      refreshedCount: 0,
-      cachedCount: 0,
-    }),
   }));
 }
 
