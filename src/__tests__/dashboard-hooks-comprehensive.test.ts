@@ -214,9 +214,6 @@ describe("useArticleHydration", () => {
     await runWithAct(async () => {
       await result.current.hydrateArticleContent(article);
     });
-    const afterFirstHydrateCalls = (
-      ArticleService.extractArticleContent as ReturnType<typeof mock>
-    ).mock.calls.length;
     await waitFor(() => {
       expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     });

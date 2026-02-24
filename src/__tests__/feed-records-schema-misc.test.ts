@@ -50,7 +50,7 @@ function createChainMock(terminalValue: any) {
   const handler: ProxyHandler<any> = {
     get(_target, prop) {
       if (prop === "then") return undefined; // not a thenable
-      return (...args: any[]) => {
+      return () => {
         // Terminal methods that return the final result
         if (prop === "limit" || prop === "execute" || prop === "returning") {
           return Promise.resolve(terminalValue);

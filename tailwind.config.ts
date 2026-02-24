@@ -61,6 +61,14 @@ const config: Config = {
         "19xl": "19rem",
         "20xl": "20rem",
       },
+      fontFamily: {
+        sans: [
+          "var(--font-geist-sans)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

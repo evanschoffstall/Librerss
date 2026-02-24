@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import React from "react";
 import { AppThemeProvider, DebugBorder, DebugGrid } from "../components";
 import { ENV } from "../lib";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+});
 
 export const metadata: Metadata = {
   title: "LibreRSS",
@@ -25,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} motion-profile-luxurious min-h-screen bg-background text-foreground antialiased`}>
+      <body className={`${geist.variable} font-sans motion-profile-luxurious min-h-screen bg-background text-foreground antialiased`}>
         {ENV.isDevelopment && (
           <>
             <DebugBorder />
