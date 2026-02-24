@@ -8,10 +8,23 @@ import { assertPublicFeedUrl } from "./feed-url-validator";
 
 const MAX_FEED_REDIRECTS = 5;
 
-export async function fetchFeedXml(url: string): Promise<string> {
-  await assertPublicFeedUrl(url);
+type FeedHttpDeps = {
+  assertPublicFeedUrlFn?: (url: string) => Promise<void>;
+  axiosGetFn?: typeof axios.get;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
+};
+
+export async function fetchFeedXml(
+  url: string,
+  deps?: FeedHttpDeps,
+): Promise<string> {
+  const assertUrl = deps?.assertPublicFeedUrlFn ?? assertPublicFeedUrl;
+  const get = deps?.axiosGetFn ?? axios.get;
+  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+
+  await assertUrl(url);
   try {
-    const response = await axios.get(url, {
+    const response = await get(url, {
       timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
       maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
       maxRedirects: MAX_FEED_REDIRECTS,
@@ -46,7 +59,7 @@ export async function fetchFeedXml(url: string): Promise<string> {
       ? response.data
       : String(response.data ?? "");
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       const status = error.response?.status;
       const dataDomeHeader = String(
         error.response?.headers?.["x-datadome"] ?? "",
