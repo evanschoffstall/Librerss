@@ -55,6 +55,27 @@ export function useDashboardViewHandlers({
     fetchCategoryFeeds,
   ]);
 
+  const handleAutoRefreshSelection = useCallback(() => {
+    refreshCurrentSelection({
+      selectedCategory,
+      selectedFeedUrl,
+      selectedCategoryNode,
+      fetchAllFeeds,
+      fetchFeed,
+      fetchCategoryFeeds,
+      forceRefresh: false,
+      requestSource: "auto-refresh",
+      keepExistingFeed: true,
+    });
+  }, [
+    selectedCategory,
+    selectedFeedUrl,
+    selectedCategoryNode,
+    fetchAllFeeds,
+    fetchFeed,
+    fetchCategoryFeeds,
+  ]);
+
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
       setSelectedCategory(feedNode.key);
@@ -88,6 +109,7 @@ export function useDashboardViewHandlers({
 
   return {
     refreshFeedList: handleRefreshSelection,
+    autoRefreshFeedList: handleAutoRefreshSelection,
     handleRefreshSelection,
     handleFeedClick,
     handleCategoryClick,

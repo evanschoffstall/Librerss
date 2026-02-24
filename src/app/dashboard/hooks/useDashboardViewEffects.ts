@@ -4,6 +4,7 @@ import type { CategoryTreeNode } from "@/lib";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { DASHBOARD_EVENTS } from "../constants";
+import type { FeedFetchOptions } from "../helpers/selection";
 import { initializeDashboardSelection } from "../helpers/selection";
 
 type UseFeedLoadingTimeoutOptions = {
@@ -61,9 +62,15 @@ type UseDashboardInitializationOptions = {
   hasInitializedDashboardRef: React.MutableRefObject<boolean>;
   selectedCategory: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchAllFeeds: (sourceCategories?: CategoryTreeNode[]) => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
-  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+  fetchAllFeeds: (
+    sourceCategories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  fetchCategoryFeeds: (
+    categoryNode: CategoryTreeNode,
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setIsCategoriesLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };

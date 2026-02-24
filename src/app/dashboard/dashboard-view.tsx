@@ -8,13 +8,12 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
-import { useCallback, useEffect } from "react";
+import { CONFIG } from "@/lib/config";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
-import {
-  ARTICLE_FILTER_OPTIONS
-} from "./helpers/article-filters";
+import { ARTICLE_FILTER_OPTIONS } from "./helpers/article-filters";
 import { computeNextOrderedCategoryLabels } from "./helpers/category-display";
 import { buildDashboardViewModel } from "./helpers/dashboard-view-model";
 import { useArticleActions } from "./hooks/useArticleActions";
@@ -36,6 +35,9 @@ type DashboardViewProps = {
 };
 
 export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  const [relativeRefreshTick, setRelativeRefreshTick] = useState(0);
+
   const {
     feed,
     setFeed,
@@ -77,6 +79,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     setCategories,
     setExpandedArticleKey,
     setLoading,
+    onFeedBatchLoaded: setLastRefreshedAt,
   });
 
   const {
@@ -191,6 +194,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
 
   const {
     refreshFeedList,
+    autoRefreshFeedList,
     handleRefreshSelection,
     handleFeedClick,
     handleCategoryClick,
@@ -204,6 +208,60 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     fetchFeed,
     fetchCategoryFeeds,
   });
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setRelativeRefreshTick((current) => current + 1);
+    }, 30_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const autoRefreshIntervalMs =
+      Math.max(CONFIG.FEED_CACHE_TTL_MINUTES, 1) * 60_000;
+
+    const intervalId = window.setInterval(() => {
+      if (document.hidden) {
+        return;
+      }
+      autoRefreshFeedList();
+    }, autoRefreshIntervalMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [autoRefreshFeedList]);
+
+  const formatLastRefreshLabel = useCallback(
+    (timestamp: Date | null, _tick: number) => {
+      if (!timestamp) {
+        return "never";
+      }
+
+      const elapsedMs = Date.now() - timestamp.getTime();
+      if (elapsedMs < 60_000) {
+        return "just now";
+      }
+
+      const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+      if (elapsedMinutes < 60) {
+        return `${elapsedMinutes}m ago`;
+      }
+
+      const elapsedHours = Math.floor(elapsedMinutes / 60);
+      if (elapsedHours < 24) {
+        return `${elapsedHours}h ago`;
+      }
+
+      const elapsedDays = Math.floor(elapsedHours / 24);
+      return `${elapsedDays}d ago`;
+    },
+    [],
+  );
+
+  const lastRefreshLabel = formatLastRefreshLabel(
+    lastRefreshedAt,
+    relativeRefreshTick,
+  );
 
   useDashboardEvents({
     selectedCategory,
@@ -275,6 +333,13 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
                 {value}
               </button>
             ))}
+
+            <span
+              className="ml-auto whitespace-nowrap text-right text-[11px] text-muted-foreground/70"
+              aria-live="polite"
+            >
+              Last refreshed: {lastRefreshLabel}
+            </span>
           </div>
 
           <ScrollArea ref={feedScrollRef} className="min-h-0 flex-1 overflow-auto">

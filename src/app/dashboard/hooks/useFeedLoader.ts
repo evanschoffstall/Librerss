@@ -32,6 +32,7 @@ interface UseFeedLoaderOptions {
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  onFeedBatchLoaded?: (timestamp: Date) => void;
 }
 
 export function useFeedLoader({
@@ -41,6 +42,7 @@ export function useFeedLoader({
   setCategories,
   setExpandedArticleKey,
   setLoading,
+  onFeedBatchLoaded,
 }: UseFeedLoaderOptions) {
   const currentRequestIdRef = useRef(0);
   const activeRequestSignatureRef = useRef<string | null>(null);
@@ -99,12 +101,13 @@ export function useFeedLoader({
       articles: Article[];
       ok: boolean;
       error?: string;
+      lastFetchedAt?: Date;
     }> | null> => {
       const urls = normalizedSources.map((s) => s.url);
       try {
         // Single fetch: returns cached articles and refreshes stale feeds in one pass
         return await FeedService.getFeedsBatch(urls, {
-          skipRefresh: usePlaceholderData,
+          skipRefresh: options?.skipRefresh ?? usePlaceholderData,
           forceRefresh: options?.forceRefresh === true,
           requestSource: options?.requestSource,
           signal,
@@ -165,7 +168,7 @@ export function useFeedLoader({
         sourceCount: sources.length,
         forceRefresh: options?.forceRefresh === true,
         requestSource: options?.requestSource ?? "unspecified",
-        skipRefresh: usePlaceholderData,
+        skipRefresh: options?.skipRefresh ?? usePlaceholderData,
       });
 
       // Cancel any previous request
@@ -190,7 +193,9 @@ export function useFeedLoader({
 
       activeRequestSignatureRef.current = requestSignature;
       syncLoading(true);
-      setFeed([]);
+      if (!options?.keepExistingFeed) {
+        setFeed([]);
+      }
 
       try {
         if (normalizedSources.length === 0) {
@@ -239,6 +244,25 @@ export function useFeedLoader({
             error: item.error ?? null,
           })),
         });
+
+        const newestLastFetchedAt = batchResults.reduce<Date | null>(
+          (latest, item) => {
+            if (!item.lastFetchedAt) {
+              return latest;
+            }
+
+            if (!latest || item.lastFetchedAt > latest) {
+              return item.lastFetchedAt;
+            }
+
+            return latest;
+          },
+          null,
+        );
+
+        if (newestLastFetchedAt) {
+          onFeedBatchLoaded?.(newestLastFetchedAt);
+        }
 
         // Surface upstream feed errors to the user
         const failedFeeds = batchResults.filter((item) => item.error);
@@ -323,6 +347,7 @@ export function useFeedLoader({
       logRefreshDiagnostics,
       fetchBatchOrPlaceholder,
       handleEmptyBatchResult,
+      onFeedBatchLoaded,
     ],
   );
 

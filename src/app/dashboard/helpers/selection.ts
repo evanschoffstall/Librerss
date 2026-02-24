@@ -5,6 +5,8 @@ import { flattenCategoryFeeds } from "./category-helpers";
 export type FeedFetchOptions = {
   forceRefresh?: boolean;
   requestSource?: string;
+  skipRefresh?: boolean;
+  keepExistingFeed?: boolean;
 };
 
 type InitializeDashboardSelectionOptions = {
@@ -38,9 +40,13 @@ export async function initializeDashboardSelection(
 
   const loadedCategories = await loadFeedSources();
   setIsCategoriesLoading(false);
+  const initialFetchOptions: FeedFetchOptions = {
+    skipRefresh: true,
+    requestSource: "dashboard-initial-cache",
+  };
 
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    await fetchAllFeeds(loadedCategories);
+    await fetchAllFeeds(loadedCategories, initialFetchOptions);
     return;
   }
 
@@ -48,7 +54,7 @@ export async function initializeDashboardSelection(
     (node) => node.key === selectedCategory,
   );
   if (selectedFeedNode?.data?.url) {
-    await fetchFeed(selectedFeedNode.data.url);
+    await fetchFeed(selectedFeedNode.data.url, initialFetchOptions);
     return;
   }
 
@@ -56,12 +62,12 @@ export async function initializeDashboardSelection(
     (node) => node.key === selectedCategory,
   );
   if (selectedCategoryNode) {
-    await fetchCategoryFeeds(selectedCategoryNode);
+    await fetchCategoryFeeds(selectedCategoryNode, initialFetchOptions);
     return;
   }
 
   setSelectedCategory(ALL_FEEDS_NODE_KEY);
-  await fetchAllFeeds(loadedCategories);
+  await fetchAllFeeds(loadedCategories, initialFetchOptions);
 }
 
 type RefreshCurrentSelectionOptions = {
@@ -80,6 +86,8 @@ type RefreshCurrentSelectionOptions = {
   fallbackFeedUrl?: string;
   forceRefresh?: boolean;
   requestSource?: string;
+  skipRefresh?: boolean;
+  keepExistingFeed?: boolean;
 };
 
 export function refreshCurrentSelection(
@@ -95,25 +103,31 @@ export function refreshCurrentSelection(
     fallbackFeedUrl = DEFAULT_FEED_URL,
     forceRefresh = false,
     requestSource,
+    skipRefresh,
+    keepExistingFeed,
   } = options;
 
+  const fetchOptions: FeedFetchOptions = {
+    forceRefresh,
+    requestSource,
+    skipRefresh,
+    keepExistingFeed,
+  };
+
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    void fetchAllFeeds(undefined, { forceRefresh, requestSource });
+    void fetchAllFeeds(undefined, fetchOptions);
     return;
   }
 
   if (selectedFeedUrl) {
-    void fetchFeed(selectedFeedUrl, { forceRefresh, requestSource });
+    void fetchFeed(selectedFeedUrl, fetchOptions);
     return;
   }
 
   if (selectedCategoryNode) {
-    void fetchCategoryFeeds(selectedCategoryNode, {
-      forceRefresh,
-      requestSource,
-    });
+    void fetchCategoryFeeds(selectedCategoryNode, fetchOptions);
     return;
   }
 
-  void fetchFeed(fallbackFeedUrl, { forceRefresh, requestSource });
+  void fetchFeed(fallbackFeedUrl, fetchOptions);
 }
