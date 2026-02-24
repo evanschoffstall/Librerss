@@ -43,7 +43,7 @@ export function DashboardSidebarContent({
       ) : (
         <div key="sidebar-content" className={sidebarPanelCls}>
           {sidebarCategories.length === 0 ? (
-            <div className="px-2 py-8 text-sm text-muted-foreground/75">
+            <div className="px-2 py-8 font-sans text-sm leading-6 text-muted-foreground/75">
               No feed sources yet.
             </div>
           ) : (
@@ -57,10 +57,10 @@ export function DashboardSidebarContent({
                   transitionDelay: `${index * 35}ms`,
                 }}
               >
-                <div className="px-1.5 text-[0.72rem] font-semibold tracking-[0.08em] text-muted-foreground/65">
+                <div className="px-1.5 font-sans text-[0.74rem] font-semibold tracking-[0.02em] text-muted-foreground/70">
                   <button
                     type="button"
-                    className={`w-full rounded px-1.5 py-1 text-left text-[0.74rem] font-semibold tracking-[0.08em] transition-colors ${selectedCategory === categoryNode.key
+                    className={`w-full rounded px-1.5 py-1 text-left font-sans text-[0.76rem] font-semibold tracking-[0.01em] transition-colors ${selectedCategory === categoryNode.key
                       ? "bg-muted/60 text-foreground"
                       : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
                       }`}
