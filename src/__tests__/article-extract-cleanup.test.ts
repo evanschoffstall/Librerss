@@ -1,4 +1,7 @@
-import { cleanExtractedArticleHtml } from "@/app/api/articles/extract/route";
+import {
+  cleanExtractedArticleHtml,
+  extractDailyKosStoryFallbackHtml,
+} from "@/app/api/articles/extract/route";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {
@@ -80,5 +83,28 @@ describe("article extract cleanup", () => {
 
     expect(cleaned).toContain("Normal content");
     expect(cleaned).toContain("<p>About</p>");
+  });
+
+  test("extractDailyKosStoryFallbackHtml pulls story figure image and text", () => {
+    const rawHtml = `
+      <div class="story__image">
+        <figure>
+          <img src="https://cdn.prod.dailykos.com/images/1528012/story_image/20260217edcbc-a.jpg?1771360334" alt="Cartoon" />
+          <figcaption></figcaption>
+        </figure>
+      </div>
+      <div class="story__text">
+        <p>A cartoon by Mike Luckovich.</p>
+        <hr>
+        <p><strong>Related | <a href="https://www.dailykos.com/stories/2026/2/6/2367483">Example related</a></strong></p>
+      </div>
+    `;
+
+    const fallback = extractDailyKosStoryFallbackHtml(rawHtml);
+
+    expect(fallback).toContain("<figure>");
+    expect(fallback).toContain("story_image");
+    expect(fallback).toContain("A cartoon by Mike Luckovich");
+    expect(fallback).not.toContain("Related |");
   });
 });

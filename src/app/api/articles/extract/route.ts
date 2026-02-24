@@ -74,8 +74,10 @@ function stripKnownDailyKosBoilerplate(content: string): string {
   let cleaned = content;
 
   cleaned = cleaned
+    .replace(/<section>[\s\S]*?©\s*Kos\s+Media[\s\S]*?<\/section>/gi, "")
     .replace(/<p>\s*Daily\s+Kos\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
     .replace(/<p>\s*About\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
+    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
     .replace(
       /<p>\s*<a[^>]*href="https?:\/\/(?:www\.)?dailykos\.com\/blacklivesmatter\/?"[^>]*>\s*<img[\s\S]*?<\/a>\s*<\/p>[\s\S]*?Learn\s+More[\s\S]*?<\/a>/gi,
       "",
@@ -87,6 +89,7 @@ function stripKnownDailyKosBoilerplate(content: string): string {
 function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
   const markerHits = [
+    "© kos media",
     "front page",
     "comics",
     "subscribe",
@@ -100,6 +103,28 @@ function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
   const listItemCount = (content.match(/<li\b/gi) ?? []).length;
 
   return markerHits >= 3 && linkCount >= 6 && listItemCount >= 4;
+}
+
+function hasDailyKosStoryImage(content: string): boolean {
+  return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(
+    content,
+  );
+}
+
+export function extractDailyKosStoryFallbackHtml(rawHtml: string): string {
+  const figureMatch = rawHtml.match(
+    /<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i,
+  );
+  const textBlockMatch = rawHtml.match(
+    /<div\s+class="story__text">([\s\S]*?)<\/div>/i,
+  );
+
+  const figureHtml = figureMatch?.[0] ?? "";
+  const storyTextHtml = (textBlockMatch?.[1] ?? "")
+    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
+    .replace(/<hr\b[^>]*>/gi, "");
+
+  return [figureHtml, storyTextHtml].filter(Boolean).join("\n").trim();
 }
 
 export function cleanExtractedArticleHtml(
@@ -190,7 +215,22 @@ export async function POST(request: NextRequest) {
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
     const sanitizedContent = sanitizeExtractedContent(rawContent);
-    const content = cleanExtractedArticleHtml(sanitizedContent, articleUrl);
+    let content = cleanExtractedArticleHtml(sanitizedContent, articleUrl);
+
+    if (
+      getHostname(articleUrl).endsWith("dailykos.com") &&
+      !hasDailyKosStoryImage(content)
+    ) {
+      const fallbackRaw = extractDailyKosStoryFallbackHtml(html);
+      const fallbackContent = cleanExtractedArticleHtml(
+        sanitizeExtractedContent(fallbackRaw),
+        articleUrl,
+      );
+
+      if (hasDailyKosStoryImage(fallbackContent)) {
+        content = fallbackContent;
+      }
+    }
 
     return NextResponse.json({
       content,
