@@ -177,4 +177,274 @@ describe("useScrollRestore", () => {
 
     expect(viewport!.scrollTop).toBe(510);
   });
+
+  test("restores legacy numeric saved scroll state", async () => {
+    delete globalAny.ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness() {
+      const attachRef = useScrollRestore("librerss:test:legacy");
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        attachRef(root);
+        if (!root) return;
+
+        const viewport = root.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        if (!viewport) return;
+
+        let internalScrollTop = 0;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get() {
+            return internalScrollTop;
+          },
+          set(value: number) {
+            internalScrollTop = value;
+            viewport.dispatchEvent(new Event("scroll"));
+          },
+        });
+
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get() {
+            return 1500;
+          },
+        });
+
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get() {
+            return 500;
+          },
+        });
+
+        viewport.getBoundingClientRect = (() => ({
+          top: 0,
+          bottom: 500,
+          left: 0,
+          right: 300,
+          width: 300,
+          height: 500,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        })) as typeof viewport.getBoundingClientRect;
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement("div", { "data-radix-scroll-area-viewport": "" }),
+      );
+    }
+
+    window.sessionStorage.setItem("librerss:test:legacy", "000250");
+
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    await waitForRaf();
+    expect(viewport?.scrollTop).toBe(250);
+  });
+
+  test("clamps restored fallback scroll to max scrollTop", async () => {
+    delete globalAny.ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness() {
+      const attachRef = useScrollRestore("librerss:test:clamp");
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        attachRef(root);
+        if (!root) return;
+
+        const viewport = root.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        if (!viewport) return;
+
+        let internalScrollTop = 0;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get() {
+            return internalScrollTop;
+          },
+          set(value: number) {
+            internalScrollTop = value;
+            viewport.dispatchEvent(new Event("scroll"));
+          },
+        });
+
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get() {
+            return 600;
+          },
+        });
+
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get() {
+            return 500;
+          },
+        });
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement("div", { "data-radix-scroll-area-viewport": "" }),
+      );
+    }
+
+    window.sessionStorage.setItem(
+      "librerss:test:clamp",
+      JSON.stringify({ t: 5000, ai: -1, ao: 0 }),
+    );
+
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    await waitForRaf();
+    expect(viewport?.scrollTop).toBe(100);
+  });
+
+  test("ignores malformed saved state without throwing", async () => {
+    delete globalAny.ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness() {
+      const attachRef = useScrollRestore("librerss:test:malformed");
+      return createElement(
+        "div",
+        { ref: attachRef as RefCallback<HTMLDivElement> },
+        createElement("div", { "data-radix-scroll-area-viewport": "" }),
+      );
+    }
+
+    window.sessionStorage.setItem("librerss:test:malformed", "{bad json");
+    expect(() => render(createElement(Harness))).not.toThrow();
+  });
+
+  test("persists state on scroll and removes when scrolled back to top", async () => {
+    delete globalAny.ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness() {
+      const attachRef = useScrollRestore("librerss:test:persist");
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        attachRef(root);
+        if (!root) return;
+
+        const viewport = root.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        const children = root.querySelectorAll<HTMLElement>("[data-item]");
+        if (!viewport || children.length < 2) return;
+
+        let internalScrollTop = 0;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get() {
+            return internalScrollTop;
+          },
+          set(value: number) {
+            internalScrollTop = value;
+          },
+        });
+
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get() {
+            return 1200;
+          },
+        });
+
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get() {
+            return 500;
+          },
+        });
+
+        viewport.getBoundingClientRect = (() => ({
+          top: 100,
+          bottom: 600,
+          left: 0,
+          right: 400,
+          width: 400,
+          height: 500,
+          x: 0,
+          y: 100,
+          toJSON: () => ({}),
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[0] as any).getBoundingClientRect = (() => ({
+          top: 60,
+          bottom: 90,
+          left: 0,
+          right: 400,
+          width: 400,
+          height: 30,
+          x: 0,
+          y: 60,
+          toJSON: () => ({}),
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[1] as any).getBoundingClientRect = (() => ({
+          top: 120,
+          bottom: 150,
+          left: 0,
+          right: 400,
+          width: 400,
+          height: 30,
+          x: 0,
+          y: 120,
+          toJSON: () => ({}),
+        })) as typeof viewport.getBoundingClientRect;
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement(
+          "div",
+          { "data-radix-scroll-area-viewport": "" },
+          createElement(
+            "div",
+            null,
+            createElement("div", { "data-item": "0" }),
+            createElement("div", { "data-item": "1" }),
+          ),
+        ),
+      );
+    }
+
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    expect(viewport).toBeDefined();
+
+    viewport!.scrollTop = 180;
+    viewport!.dispatchEvent(new Event("scroll"));
+    await waitForRaf();
+
+    const saved = window.sessionStorage.getItem("librerss:test:persist");
+    expect(saved).toBeTruthy();
+
+    viewport!.scrollTop = 0;
+    viewport!.dispatchEvent(new Event("scroll"));
+    await waitForRaf();
+
+    expect(window.sessionStorage.getItem("librerss:test:persist")).toBeNull();
+  });
 });
