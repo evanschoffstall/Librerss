@@ -121,6 +121,14 @@ describe("greader utils/mappers", () => {
     expect(fullItem.id).toContain("reader/item/");
     expect(fullItem.title).toBe("Item title");
     expect(fullItem.canonical[0]?.href).toBe("https://example.com/item");
+    expect(fullItem.content).toEqual({
+      content: "<p>body</p>",
+      direction: "ltr",
+    });
+    expect(fullItem.summary).toEqual({
+      content: "<p>body</p>",
+      direction: "ltr",
+    });
     expect(fullItem.origin.streamId).toContain("feed/");
     expect(fullItem.categories).toContain(READING_LIST_STREAM);
     expect(fullItem.categories).toContain(`${USER_LABEL_PREFIX}Tech`);
@@ -129,6 +137,7 @@ describe("greader utils/mappers", () => {
 
     const fallbackRow = {
       ...fullRow,
+      content: "   ",
       category: "   ",
       isRead: false,
       isStarred: false,
@@ -139,6 +148,10 @@ describe("greader utils/mappers", () => {
         entry.startsWith(USER_LABEL_PREFIX),
       ),
     ).toBe(true);
+    expect(fallbackItem.summary).toEqual({
+      content: "Item title",
+      direction: "ltr",
+    });
     expect(fallbackItem.categories.includes(READ_STATE)).toBe(false);
     expect(fallbackItem.categories.includes(STARRED_STATE)).toBe(false);
   });
