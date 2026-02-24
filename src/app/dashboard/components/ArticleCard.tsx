@@ -185,7 +185,7 @@ export const ArticleCard = ({
         </div>
 
         <h3
-          className={`font-semibold tracking-[-0.01em] text-foreground ${visuallyExpanded ? "text-[1.08rem] leading-7" : "text-[0.98rem] leading-6 line-clamp-2"}`}
+          className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.06rem] leading-7" : "text-[0.98rem] leading-6 line-clamp-2"}`}
         >
           {article.title}
         </h3>
@@ -215,7 +215,7 @@ export const ArticleCard = ({
                 <Skeleton className="h-3 w-[76%]" />
               </div>
             ) : hasOverflow && !showFullContent ? (
-              <p className="font-sans antialiased tracking-[-0.015em] text-[0.94rem] leading-7 text-muted-foreground/85">
+              <p className="font-sans antialiased tracking-[-0.01em] text-[0.95rem] leading-7 text-muted-foreground/85">
                 {`${preview}…`}
               </p>
             ) : useRichFormatting ? (
@@ -224,7 +224,7 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.015em] ${visuallyExpanded ? "text-[0.98rem] leading-8 text-foreground/85" : "text-[0.94rem] leading-7 text-muted-foreground/85"}`}>
+              <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.99rem] leading-8 text-foreground/85" : "text-[0.95rem] leading-7 text-muted-foreground/85"}`}>
                 {content}
               </p>
             )}
@@ -234,7 +234,7 @@ export const ArticleCard = ({
           <p
             ref={previewRef}
             aria-hidden="true"
-            className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.015em] text-[0.94rem] leading-7"
+            className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.01em] text-[0.95rem] leading-7"
           >
             {`${preview}…`}
           </p>
@@ -249,7 +249,7 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: article.content || "" }}
               />
             ) : (
-              <p className="font-sans antialiased tracking-[-0.015em] text-[0.98rem] leading-8 whitespace-pre-line break-words text-foreground/85">
+              <p className="font-sans antialiased tracking-[-0.01em] text-[0.99rem] leading-8 whitespace-pre-line break-words text-foreground/85">
                 {content}
               </p>
             )}
