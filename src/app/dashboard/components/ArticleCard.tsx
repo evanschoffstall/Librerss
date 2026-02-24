@@ -19,6 +19,7 @@ interface ArticleCardProps {
   article: Article;
   isExpanded: boolean;
   useRichFormatting: boolean;
+  hasScrapedContent: boolean;
   isHydrating: boolean;
   onToggle: () => void;
   showFavicon: boolean;
@@ -38,6 +39,7 @@ export const ArticleCard = ({
   article,
   isExpanded,
   useRichFormatting,
+  hasScrapedContent,
   isHydrating,
   onToggle,
   showFavicon,
@@ -45,7 +47,9 @@ export const ArticleCard = ({
   onToggleStarred,
   isUpdatingState,
 }: ArticleCardProps) => {
-  const content = toPlainText(article.content || "") || "No description available";
+  const plainContent = toPlainText(article.content || "").trim();
+  const hasReadableContent = plainContent.length > 0;
+  const content = plainContent || "No description available";
   const { preview, hasOverflow } = buildPreview(content);
 
   const { phase, isCollapsing, expandTransitionDone, onContentTransitionEnd } =
@@ -106,91 +110,98 @@ export const ArticleCard = ({
       className={`group rounded-xl border bg-card/40 transition-[padding,background-color,max-height] anim-duration-ui anim-ease-ui hover:bg-card/70 ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
       <div className={`space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
-        <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
-          <div className="flex min-w-0 items-center gap-2">
-            <CalendarDays className="size-3" />
-            {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
-            <span className="text-border">|</span>
-            {showFavicon ? (
-              faviconUrl ? (
-                <img
-                  src={faviconUrl}
-                  alt=""
-                  className="size-3 rounded-sm"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  onLoad={() => {
-                    setCachedFaviconIndex(faviconCacheKey, faviconIndex);
-                  }}
-                  onError={() => {
-                    setFaviconIndex((current) => {
-                      const next = current + 1;
-                      const resolved = next < faviconCandidates.length ? next : -1;
-                      setCachedFaviconIndex(faviconCacheKey, resolved);
-                      return resolved;
-                    });
-                  }}
-                />
-              ) : (
-                <span
-                  className="inline-flex size-3 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: faviconTint.background }}
-                  aria-hidden="true"
-                >
-                  <Globe className="size-2" style={{ color: faviconTint.foreground }} />
-                </span>
-              )
-            ) : null}
-            <span className="truncate">{getArticleSourceLabel(article)}</span>
-          </div>
-
-          <div className="-mr-1 ml-auto flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleRead();
-              }}
-              disabled={isUpdatingState}
-              aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
-              className={iconBtnCls}
-            >
-              {article.isRead ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleStarred();
-              }}
-              disabled={isUpdatingState}
-              aria-label={article.isStarred ? "Remove star" : "Star article"}
-              className={iconBtnCls}
-            >
-              <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
-            </button>
-
-            <a
-              href={article.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Open article"
-              className={iconLinkCls}
-            >
-              <ArrowUpRight className="size-3.5" />
-            </a>
-          </div>
-        </div>
-
-        <h3
-          className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.03rem] leading-6" : "text-[0.96rem] leading-6 line-clamp-2"}`}
+        <div
+          className={visuallyExpanded
+            ? "sticky top-0 z-20 space-y-2 bg-card/95 pb-1 backdrop-blur-sm"
+            : "space-y-2"
+          }
         >
-          {article.title}
-        </h3>
+          <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
+            <div className="flex min-w-0 items-center gap-2">
+              <CalendarDays className="size-3" />
+              {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
+              <span className="text-border">|</span>
+              {showFavicon ? (
+                faviconUrl ? (
+                  <img
+                    src={faviconUrl}
+                    alt=""
+                    className="size-3 rounded-sm"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onLoad={() => {
+                      setCachedFaviconIndex(faviconCacheKey, faviconIndex);
+                    }}
+                    onError={() => {
+                      setFaviconIndex((current) => {
+                        const next = current + 1;
+                        const resolved = next < faviconCandidates.length ? next : -1;
+                        setCachedFaviconIndex(faviconCacheKey, resolved);
+                        return resolved;
+                      });
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="inline-flex size-3 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: faviconTint.background }}
+                    aria-hidden="true"
+                  >
+                    <Globe className="size-2" style={{ color: faviconTint.foreground }} />
+                  </span>
+                )
+              ) : null}
+              <span className="truncate">{getArticleSourceLabel(article)}</span>
+            </div>
 
-        <Separator className="my-1.5" />
+            <div className="-mr-1 ml-auto flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleRead();
+                }}
+                disabled={isUpdatingState}
+                aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
+                className={iconBtnCls}
+              >
+                {article.isRead ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleStarred();
+                }}
+                disabled={isUpdatingState}
+                aria-label={article.isStarred ? "Remove star" : "Star article"}
+                className={iconBtnCls}
+              >
+                <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
+              </button>
+
+              <a
+                href={article.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Open article"
+                className={iconLinkCls}
+              >
+                <ArrowUpRight className="size-3.5" />
+              </a>
+            </div>
+          </div>
+
+          <h3
+            className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.03rem] leading-6" : "text-[0.96rem] leading-6 line-clamp-2"}`}
+          >
+            {article.title}
+          </h3>
+
+          <Separator className="my-1.5" />
+        </div>
 
         <div>
           <div
@@ -217,6 +228,10 @@ export const ArticleCard = ({
             ) : hasOverflow && !showFullContent ? (
               <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/85">
                 {`${preview}…`}
+              </p>
+            ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
+              <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75">
+                Full article content unavailable. Open the original article to read more.
               </p>
             ) : useRichFormatting ? (
               <div

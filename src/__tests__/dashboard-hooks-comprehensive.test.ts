@@ -201,7 +201,7 @@ describe("useArticleHydration", () => {
     expect(afterCalls).toBe(beforeCalls);
   });
 
-  test("hydrateArticleContent skips already hydrated articles", async () => {
+  test("hydrateArticleContent skips re-fetch on repeated calls", async () => {
     const article = createMockArticle();
     let feedState = [article];
     const setFeed = mock((updater: any) => {
@@ -218,7 +218,7 @@ describe("useArticleHydration", () => {
       expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     });
 
-    // Reset mock
+    // Reset mock and change returned content for second hydration attempt
     (ArticleService.extractArticleContent as ReturnType<typeof mock>)
       .mockClear()
       .mockImplementation(async () => "<p>Different content</p>");
@@ -228,15 +228,16 @@ describe("useArticleHydration", () => {
       await result.current.hydrateArticleContent(article);
     });
 
-    // Should only have been called once
+    // Should skip extraction because this link is already hydrated
     const afterSecondHydrateCalls = (
       ArticleService.extractArticleContent as ReturnType<typeof mock>
     ).mock.calls.length;
     expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
-    expect(afterSecondHydrateCalls).toBeGreaterThanOrEqual(0);
+    expect(afterSecondHydrateCalls).toBe(0);
+    expect(feedState[0].content).toContain("Extracted content");
   });
 
-  test("hydrateArticleContent skips articles with substantial content", async () => {
+  test("hydrateArticleContent does not skip articles with substantial content", async () => {
     const longContent = "x".repeat(2000);
     const article = createMockArticle({ content: longContent });
     const setFeed = mock(() => {});
@@ -245,7 +246,9 @@ describe("useArticleHydration", () => {
 
     await result.current.hydrateArticleContent(article);
 
-    expect(ArticleService.extractArticleContent).not.toHaveBeenCalled();
+    expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
+      article.link,
+    );
   });
 
   test("hydrateArticleContent updates hydrating state", async () => {
@@ -300,7 +303,7 @@ describe("useArticleHydration", () => {
     expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
   });
 
-  test("hydrateArticleContent skips shorter extracted content", async () => {
+  test("hydrateArticleContent replaces content even when extracted content is shorter", async () => {
     const longContent = "x".repeat(500);
     const article = createMockArticle({ content: longContent });
     let feedState = [article];
@@ -319,7 +322,7 @@ describe("useArticleHydration", () => {
     });
 
     await waitFor(() => {
-      expect(feedState[0].content).toBe(longContent);
+      expect(feedState[0].content).toBe("Short");
     });
   });
 
@@ -363,7 +366,7 @@ describe("useArticleHydration", () => {
     });
   });
 
-  test("hydrateArticleContent marks article as hydrated even on empty content", async () => {
+  test("hydrateArticleContent does not mark article as hydrated on empty content", async () => {
     const article = createMockArticle();
     const setFeed = mock(() => {});
 
@@ -378,7 +381,7 @@ describe("useArticleHydration", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.hydratedArticleLinks[article.link]).toBeDefined();
+      expect(result.current.hydratedArticleLinks[article.link]).toBeUndefined();
     });
   });
 });

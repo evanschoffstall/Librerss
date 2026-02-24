@@ -28,6 +28,7 @@ import {
   parseStreamId,
   parseStreamPaging,
 } from "../utils/stream";
+import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 
 export async function handleStreamContents(
   user: SessionUser,
@@ -50,6 +51,12 @@ export async function handleStreamContents(
     request.headers.get("user-agent") ?? "",
   );
   const sinceDate = parseOlderThanDate(searchParams);
+
+  await maybeRefreshGReaderStreamFeeds(
+    user.userId,
+    streamId,
+    "greader.stream.contents",
+  );
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();

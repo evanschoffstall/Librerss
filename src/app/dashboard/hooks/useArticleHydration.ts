@@ -21,7 +21,6 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
   const [hydratingArticleLinks, setHydratingArticleLinks] = useState<
     Record<string, boolean>
   >({});
-  const hydratedArticleLinksRef = useRef(new Set<string>());
   const articleHydrationInFlightRef = useRef(new Set<string>());
 
   const scrollArticleIntoView = useCallback((articleKey: string) => {
@@ -57,20 +56,8 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
     async (article: Article) => {
       const link = article.link?.trim();
       if (!link || !isValidUrl(link)) return;
-      if (
-        hydratedArticleLinksRef.current.has(link) ||
-        articleHydrationInFlightRef.current.has(link)
-      )
-        return;
-
-      // Skip hydration if article already has substantial content (>= 2000 chars).
-      // This prevents overwriting full RSS content (e.g., content:encoded from
-      // Mother Jones, Ars Technica) with potentially worse extracted content.
-      const currentContentLength = article.content?.length ?? 0;
-      if (currentContentLength >= 2000) {
-        hydratedArticleLinksRef.current.add(link);
-        return;
-      }
+      if (hydratedArticleLinks[link]) return;
+      if (articleHydrationInFlightRef.current.has(link)) return;
 
       articleHydrationInFlightRef.current.add(link);
       setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
@@ -80,24 +67,29 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
           await ArticleService.extractArticleContent(link);
 
         if (!extractedContent) {
-          hydratedArticleLinksRef.current.add(link);
-          setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
+          setHydratedArticleLinks((current) => {
+            if (!current[link]) return current;
+            const { [link]: _, ...rest } = current;
+            return rest;
+          });
           return;
         }
 
         setFeed((currentFeed) =>
           currentFeed.map((a) => {
             if (a.link.trim() !== link) return a;
-            if ((extractedContent.length ?? 0) <= (a.content?.length ?? 0))
-              return a;
             return { ...a, content: extractedContent };
           }),
         );
 
-        hydratedArticleLinksRef.current.add(link);
         setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
       } catch (error) {
         console.error("Article hydration error:", error);
+        setHydratedArticleLinks((current) => {
+          if (!current[link]) return current;
+          const { [link]: _, ...rest } = current;
+          return rest;
+        });
       } finally {
         articleHydrationInFlightRef.current.delete(link);
         setHydratingArticleLinks((current) => {
@@ -107,7 +99,7 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
         });
       }
     },
-    [setFeed],
+    [hydratedArticleLinks, setFeed],
   );
 
   return {

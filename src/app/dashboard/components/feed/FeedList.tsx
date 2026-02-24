@@ -92,14 +92,16 @@ export function FeedList({
         <div key="feed-list" className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3">
           {filteredFeed.slice(0, visibleCount).map((article) => {
             const cardKey = getArticleKey(article);
+            const articleLink = article.link?.trim() ?? "";
             return (
               <div key={cardKey}>
                 <ArticleCard
                   articleKey={cardKey}
                   article={article}
                   isExpanded={expandedArticleKey === cardKey}
-                  useRichFormatting={Boolean(hydratedArticleLinks[cardKey])}
-                  isHydrating={Boolean(hydratingArticleLinks[cardKey])}
+                  useRichFormatting={Boolean(hydratedArticleLinks[articleLink])}
+                  hasScrapedContent={Boolean(hydratedArticleLinks[articleLink])}
+                  isHydrating={Boolean(hydratingArticleLinks[articleLink])}
                   isUpdatingState={Boolean(updatingArticleState[cardKey])}
                   showFavicon={showFavicons}
                   onToggle={() => onToggle(article)}

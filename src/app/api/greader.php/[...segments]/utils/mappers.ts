@@ -38,6 +38,8 @@ export function toReaderIconUrl(feedUrl: string): string {
 
 export function mapArticleAsItem(row: ListedArticle) {
   const publishedSec = Math.floor(row.publicationDate.getTime() / 1000);
+  const bodyContent = row.content.trim();
+  const previewContent = bodyContent.length > 0 ? bodyContent : row.title;
   const categories = [READING_LIST_STREAM];
   const categoryLabel = toReaderCategoryLabel(row.category);
 
@@ -61,8 +63,8 @@ export function mapArticleAsItem(row: ListedArticle) {
     categories,
     canonical: [{ href: row.link }],
     alternate: [{ href: row.link, type: "text/html" }],
-    summary: { direction: "ltr", content: row.content },
-    content: [{ direction: "ltr", content: row.content }],
+    summary: { direction: "ltr", content: previewContent },
+    content: { direction: "ltr", content: previewContent },
     origin: {
       streamId: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
       title: row.sourceName,
