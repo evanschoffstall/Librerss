@@ -1,6 +1,12 @@
 import {
   cleanExtractedArticleHtml,
   extractDailyKosStoryFallbackHtml,
+  getHostname,
+  hasDailyKosStoryImage,
+  isLikelyDailyKosFooterBoilerplate,
+  sanitizeExtractedContent,
+  stripKnownDailyKosBoilerplate,
+  toParagraphHtml,
 } from "@/app/api/articles/extract/route";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
@@ -106,5 +112,81 @@ describe("article extract cleanup", () => {
     expect(fallback).toContain("story_image");
     expect(fallback).toContain("A cartoon by Mike Luckovich");
     expect(fallback).not.toContain("Related |");
+  });
+
+  test("toParagraphHtml creates paragraph blocks from plain text", () => {
+    const html = toParagraphHtml("One\nline\n\nTwo");
+    expect(html).toContain("<p>One<br />line</p>");
+    expect(html).toContain("<p>Two</p>");
+  });
+
+  test("sanitizeExtractedContent returns empty for blank content", () => {
+    expect(sanitizeExtractedContent("   ")).toBe("");
+  });
+
+  test("sanitizeExtractedContent wraps plain text and keeps safe markup", () => {
+    const cleaned = sanitizeExtractedContent("Headline\n\nSecond paragraph");
+    expect(cleaned).toContain("<p>");
+    expect(cleaned).toContain("Headline");
+    expect(cleaned).toContain("Second paragraph");
+  });
+
+  test("sanitizeExtractedContent sanitizes existing html input", () => {
+    const cleaned = sanitizeExtractedContent(
+      "<p>Safe</p><script>alert(1)</script>",
+    );
+    expect(cleaned).toContain("Safe");
+    expect(cleaned).not.toContain("<script>");
+  });
+
+  test("getHostname normalizes valid hostnames and handles invalid urls", () => {
+    expect(getHostname("https://WWW.DailyKos.com/story")).toBe(
+      "www.dailykos.com",
+    );
+    expect(getHostname("not a url")).toBe("");
+  });
+
+  test("stripKnownDailyKosBoilerplate removes known footer sections", () => {
+    const input = `
+      <section>© Kos Media Footer</section>
+      <p>Daily Kos</p><ul><li><a href="https://www.dailykos.com/">Front Page</a></li></ul>
+      <p>About</p><ul><li><a href="https://www.dailykos.com/privacy">Privacy</a></li></ul>
+      <p><strong>Related | <a href="https://www.dailykos.com/stories/x">Thing</a></strong></p>
+      <p>Real content remains</p>
+    `;
+
+    const stripped = stripKnownDailyKosBoilerplate(input);
+    expect(stripped).toContain("Real content remains");
+    expect(stripped.toLowerCase()).not.toContain("front page");
+    expect(stripped.toLowerCase()).not.toContain("related |");
+    expect(stripped.toLowerCase()).not.toContain("© kos media");
+  });
+
+  test("isLikelyDailyKosFooterBoilerplate detects dense footer markers", () => {
+    const footer = `
+      <p>Front Page Comics Subscribe Gift subscriptions Privacy Masthead Rules of the Road</p>
+      <ul>
+        <li><a href="#">a</a></li><li><a href="#">b</a></li><li><a href="#">c</a></li>
+        <li><a href="#">d</a></li><li><a href="#">e</a></li><li><a href="#">f</a></li>
+      </ul>
+    `;
+
+    expect(isLikelyDailyKosFooterBoilerplate(footer)).toBe(true);
+    expect(isLikelyDailyKosFooterBoilerplate("<p>Normal story body</p>")).toBe(
+      false,
+    );
+  });
+
+  test("hasDailyKosStoryImage identifies expected CDN image host", () => {
+    expect(
+      hasDailyKosStoryImage(
+        '<img src="https://cdn.prod.dailykos.com/images/abc/story.jpg" />',
+      ),
+    ).toBe(true);
+    expect(
+      hasDailyKosStoryImage(
+        '<img src="https://example.com/images/story.jpg" />',
+      ),
+    ).toBe(false);
   });
 });

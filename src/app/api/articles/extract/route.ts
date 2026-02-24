@@ -41,7 +41,7 @@ async function parseAndValidateArticleUrl(
   return articleUrl;
 }
 
-function toParagraphHtml(raw: string): string {
+export function toParagraphHtml(raw: string): string {
   return raw
     .split(/\n{2,}/)
     .map((segment) => segment.trim())
@@ -50,7 +50,7 @@ function toParagraphHtml(raw: string): string {
     .join("\n");
 }
 
-function sanitizeExtractedContent(rawContent: string): string {
+export function sanitizeExtractedContent(rawContent: string): string {
   const normalized = rawContent.trim();
   if (!normalized) {
     return "";
@@ -62,7 +62,7 @@ function sanitizeExtractedContent(rawContent: string): string {
   return sanitizeArticleHtml(htmlCandidate);
 }
 
-function getHostname(url: string): string {
+export function getHostname(url: string): string {
   try {
     return new URL(url).hostname.toLowerCase();
   } catch {
@@ -70,7 +70,7 @@ function getHostname(url: string): string {
   }
 }
 
-function stripKnownDailyKosBoilerplate(content: string): string {
+export function stripKnownDailyKosBoilerplate(content: string): string {
   let cleaned = content;
 
   cleaned = cleaned
@@ -86,7 +86,7 @@ function stripKnownDailyKosBoilerplate(content: string): string {
   return cleaned.trim();
 }
 
-function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
+export function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
   const markerHits = [
     "© kos media",
@@ -105,7 +105,7 @@ function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
   return markerHits >= 3 && linkCount >= 6 && listItemCount >= 4;
 }
 
-function hasDailyKosStoryImage(content: string): boolean {
+export function hasDailyKosStoryImage(content: string): boolean {
   return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(
     content,
   );
