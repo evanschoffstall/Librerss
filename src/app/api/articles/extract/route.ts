@@ -62,6 +62,67 @@ function sanitizeExtractedContent(rawContent: string): string {
   return sanitizeArticleHtml(htmlCandidate);
 }
 
+function getHostname(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function stripKnownDailyKosBoilerplate(content: string): string {
+  let cleaned = content;
+
+  cleaned = cleaned
+    .replace(/<p>\s*Daily\s+Kos\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
+    .replace(/<p>\s*About\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
+    .replace(
+      /<p>\s*<a[^>]*href="https?:\/\/(?:www\.)?dailykos\.com\/blacklivesmatter\/?"[^>]*>\s*<img[\s\S]*?<\/a>\s*<\/p>[\s\S]*?Learn\s+More[\s\S]*?<\/a>/gi,
+      "",
+    );
+
+  return cleaned.trim();
+}
+
+function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
+  const lower = content.toLowerCase();
+  const markerHits = [
+    "front page",
+    "comics",
+    "subscribe",
+    "gift subscriptions",
+    "privacy",
+    "masthead",
+    "rules of the road",
+  ].filter((marker) => lower.includes(marker)).length;
+
+  const linkCount = (content.match(/<a\b/gi) ?? []).length;
+  const listItemCount = (content.match(/<li\b/gi) ?? []).length;
+
+  return markerHits >= 3 && linkCount >= 6 && listItemCount >= 4;
+}
+
+export function cleanExtractedArticleHtml(
+  sanitizedContent: string,
+  articleUrl: string,
+): string {
+  if (!sanitizedContent.trim()) {
+    return "";
+  }
+
+  const hostname = getHostname(articleUrl);
+  if (!hostname.endsWith("dailykos.com")) {
+    return sanitizedContent;
+  }
+
+  const stripped = stripKnownDailyKosBoilerplate(sanitizedContent);
+  if (!stripped) {
+    return "";
+  }
+
+  return isLikelyDailyKosFooterBoilerplate(stripped) ? "" : stripped;
+}
+
 async function fetchHtml(url: string): Promise<string> {
   let currentUrl = url;
 
@@ -128,7 +189,8 @@ export async function POST(request: NextRequest) {
 
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
-    const content = sanitizeExtractedContent(rawContent);
+    const sanitizedContent = sanitizeExtractedContent(rawContent);
+    const content = cleanExtractedArticleHtml(sanitizedContent, articleUrl);
 
     return NextResponse.json({
       content,
