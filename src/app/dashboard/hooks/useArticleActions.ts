@@ -21,7 +21,7 @@ interface UseArticleActionsOptions {
 }
 
 export function useArticleActions({
-  feed: _feed,
+  feed,
   setFeed,
   expandedArticleKey,
   setExpandedArticleKey,
@@ -34,26 +34,33 @@ export function useArticleActions({
     handleToggleReadState,
   } = useArticleReadState({ setFeed });
 
-  const {
-    hydratedArticleLinks,
-    hydratingArticleLinks,
-    scrollArticleIntoView,
-    hydrateArticleContent,
-  } = useArticleHydration({ setFeed });
+  const { hydratedArticleLinks, hydratingArticleLinks, hydrateArticleContent } =
+    useArticleHydration({ setFeed });
 
-  const expandedArticleKeyRef = useRef<string | null>(null);
+  // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
+  // is restored from sessionStorage but hydratedArticleLinks is in-memory only.
+  // Re-trigger hydration so the article gets its rich content back automatically.
+  useEffect(() => {
+    if (!expandedArticleKey || feed.length === 0) return;
+    const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
+    if (article) {
+      void hydrateArticleContent(article);
+    }
+  }, [feed, expandedArticleKey, hydrateArticleContent]);
+
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
+  const collapseScrollTimeoutRef = useRef<number | null>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
     string | null
   >(null);
-
-  // Keep ref in sync with state for use inside callbacks
-  expandedArticleKeyRef.current = expandedArticleKey;
 
   useEffect(
     () => () => {
       if (collapseRemovalTimeoutRef.current !== null) {
         window.clearTimeout(collapseRemovalTimeoutRef.current);
+      }
+      if (collapseScrollTimeoutRef.current !== null) {
+        window.clearTimeout(collapseScrollTimeoutRef.current);
       }
     },
     [],
@@ -102,9 +109,13 @@ export function useArticleActions({
       );
 
       if (isCollapsing) {
+        if (collapseScrollTimeoutRef.current !== null) {
+          window.clearTimeout(collapseScrollTimeoutRef.current);
+        }
         // After the collapse CSS transition (~150–240ms), scroll the collapsed article back into view
-        window.setTimeout(() => {
+        collapseScrollTimeoutRef.current = window.setTimeout(() => {
           scrollCollapsedArticleIntoView(nextArticleKey);
+          collapseScrollTimeoutRef.current = null;
         }, 250);
 
         // Schedule animated removal from the unread filter for read articles
@@ -128,19 +139,16 @@ export function useArticleActions({
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
       }
+      if (collapseScrollTimeoutRef.current !== null) {
+        window.clearTimeout(collapseScrollTimeoutRef.current);
+        collapseScrollTimeoutRef.current = null;
+      }
       setCollapsingArticleKey(null);
 
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
-
-      requestAnimationFrame(() => scrollArticleIntoView(nextArticleKey));
       await hydrateArticleContent(article);
-
-      // Scroll again after hydration in case the card grew
-      if (expandedArticleKeyRef.current === nextArticleKey) {
-        requestAnimationFrame(() => scrollArticleIntoView(nextArticleKey));
-      }
     },
     [
       articleFilter,
@@ -149,7 +157,6 @@ export function useArticleActions({
       setExpandedArticleKey,
       setArticleReadState,
       hydrateArticleContent,
-      scrollArticleIntoView,
       scrollCollapsedArticleIntoView,
     ],
   );

@@ -79,6 +79,19 @@ function stripOrphanedRelatedBlocks(html: string): string {
 }
 
 /**
+ * Removes embedded media elements and their fallback text content.
+ *
+ * Many feeds include placeholders such as "YouTube Video" inside
+ * `<iframe>...</iframe>` or `<video>...</video>` tags. If we only strip the
+ * element shell, the placeholder text can leak into rendered/preview text.
+ */
+function stripEmbeddedMediaBlocks(html: string): string {
+  return html
+    .replace(/<(iframe|video|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, "\n")
+    .replace(/<(iframe|video|object|embed)\b[^>]*\/?>/gi, "\n");
+}
+
+/**
  * Converts HTML to plain text by stripping tags and normalizing whitespace.
  * Used for article preview generation.
  */
@@ -86,7 +99,7 @@ export function toPlainText(value: string): string {
   const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
   const minOverflowRun = maxConsecutiveBlankLines + 1;
 
-  return value
+  return stripEmbeddedMediaBlocks(value)
     .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
     .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -180,7 +193,15 @@ const ARTICLE_SANITIZE_OPTIONS = {
   ],
   // aside/nav/section are discarded along with their text so that sidebars
   // and related-article blocks don't appear in place of article body text.
-  nonTextTags: ["style", "script", "textarea", "aside", "nav", "section"],
+  nonTextTags: [
+    "style",
+    "script",
+    "textarea",
+    "aside",
+    "nav",
+    "section",
+    "iframe",
+  ],
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
     img: [
@@ -239,7 +260,7 @@ export { stripOrphanedRelatedBlocks };
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
   const sanitized = sanitizeHtml(
-    stripApJunkBlocks(raw),
+    stripEmbeddedMediaBlocks(stripApJunkBlocks(raw)),
     ARTICLE_SANITIZE_OPTIONS,
   );
   return stripOrphanedRelatedBlocks(sanitized).trim();

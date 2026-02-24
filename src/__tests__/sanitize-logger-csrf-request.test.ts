@@ -82,6 +82,15 @@ describe("sanitize – toPlainText", () => {
   test("collapses multiple spaces", () => {
     expect(toPlainText("A    B")).toBe("A B");
   });
+
+  test("removes embedded media fallback placeholder text", () => {
+    const html =
+      '<p>Before</p><iframe src="https://www.youtube.com/embed/abc">YouTube Video</iframe><p>After</p>';
+    const result = toPlainText(html);
+    expect(result).toContain("Before");
+    expect(result).toContain("After");
+    expect(result).not.toContain("YouTube Video");
+  });
 });
 
 describe("sanitize – sanitizeArticleHtml", () => {
@@ -115,6 +124,16 @@ describe("sanitize – sanitizeArticleHtml", () => {
     );
     expect(result).toContain("Main");
     expect(result).not.toContain("Sidebar content");
+  });
+
+  test("strips iframe fallback placeholder text", () => {
+    const result = sanitizeArticleHtml(
+      '<p>Main</p><iframe src="https://www.youtube.com/embed/abc">YouTube Video</iframe><p>After</p>',
+    );
+    expect(result).toContain("Main");
+    expect(result).toContain("After");
+    expect(result).not.toContain("YouTube Video");
+    expect(result).not.toContain("<iframe");
   });
 
   test("strips AP junk blocks with hub-peek class", () => {
