@@ -32,10 +32,10 @@ export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedC
         }`}
     >
       <div className="min-w-0">
-        <p className="text-[0.93rem] font-medium leading-[1.3] tracking-[0.005em]">
+        <p className="font-sans text-[0.93rem] font-medium leading-[1.35] tracking-[-0.005em]">
           {category.label}
         </p>
-        <p className="truncate text-xs leading-4 text-muted-foreground/65">
+        <p className="truncate font-sans text-xs leading-5 tracking-[-0.004em] text-muted-foreground/65">
           {getUrlHostnameLabel(category.data?.url)}
         </p>
       </div>
