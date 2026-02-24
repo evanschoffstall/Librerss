@@ -99,7 +99,10 @@ export function DashboardTopBar() {
           <Menu className="h-4 w-4" />
         </button>
 
-        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <img src="/favicon.svg" alt="LibreRSS logo" className="h-5 w-5" />
+          <span>{title}</span>
+        </h1>
 
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
