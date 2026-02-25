@@ -10,6 +10,9 @@ const globalForDb = globalThis as unknown as {
   hasRunInitialDbConnectivityCheck?: boolean;
 };
 
+const DEFAULT_DB_MAX_CONNECTIONS = 1;
+const DEFAULT_DB_IDLE_TIMEOUT_MS = 1_000;
+
 function runInitialDbConnectivityCheck(pool: Pool) {
   if (globalForDb.hasRunInitialDbConnectivityCheck) {
     return;
@@ -30,6 +33,38 @@ function runInitialDbConnectivityCheck(pool: Pool) {
         "The app will continue running, but database-backed features may fail until the connection is restored.",
     );
   });
+}
+
+function shouldRunInitialDbConnectivityCheck(): boolean {
+  return process.env.DB_EAGER_CONNECT_CHECK === "true";
+}
+
+function getDbMaxConnections(): number {
+  const rawValue = process.env.DB_MAX_CONNECTIONS;
+  if (!rawValue) {
+    return DEFAULT_DB_MAX_CONNECTIONS;
+  }
+
+  const parsedValue = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsedValue) || parsedValue < 1) {
+    return DEFAULT_DB_MAX_CONNECTIONS;
+  }
+
+  return parsedValue;
+}
+
+function getDbIdleTimeoutMs(): number {
+  const rawValue = process.env.DB_IDLE_TIMEOUT_MS;
+  if (!rawValue) {
+    return DEFAULT_DB_IDLE_TIMEOUT_MS;
+  }
+
+  const parsedValue = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return DEFAULT_DB_IDLE_TIMEOUT_MS;
+  }
+
+  return parsedValue;
 }
 
 function getConnectionString(): string {
@@ -54,13 +89,16 @@ export function getDb() {
     new Pool({
       connectionString: getConnectionString(),
       // Keep the pool minimal so endpoints can suspend when idle.
-      // max=1 means at most one connection is held; idleTimeoutMillis=0
-      // releases it immediately after use rather than keeping it warm.
-      max: 1,
-      idleTimeoutMillis: 0,
+      // max defaults to 1 and idleTimeoutMillis defaults to 1000ms,
+      // which allows pg to close idle clients quickly.
+      max: getDbMaxConnections(),
+      idleTimeoutMillis: getDbIdleTimeoutMs(),
+      allowExitOnIdle: true,
     });
 
-  runInitialDbConnectivityCheck(pool);
+  if (shouldRunInitialDbConnectivityCheck()) {
+    runInitialDbConnectivityCheck(pool);
+  }
   const db = drizzle(pool, { schema });
 
   globalForDb.pool = pool;
