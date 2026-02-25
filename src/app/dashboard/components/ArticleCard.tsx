@@ -270,8 +270,8 @@ export const ArticleCard = ({
         boxShadow: isDark ? undefined : 'none',
       }}
       className={`group relative overflow-hidden rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
-        ? "border-zinc-600 bg-card/70 shadow-2xl shadow-zinc-900/50"
-        : "border-zinc-400 bg-white/70"
+        ? "border-border bg-card/70 shadow-2xl shadow-zinc-900/50"
+        : "border-border bg-white/70"
         } ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
       <div className="pointer-events-none absolute inset-0">
