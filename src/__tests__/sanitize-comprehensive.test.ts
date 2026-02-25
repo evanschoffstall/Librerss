@@ -62,6 +62,27 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).toContain("Article");
   });
 
+  test("normalizeArticleHtmlSpacing removes blank paragraphs and tag-gap blank lines", async () => {
+    const { normalizeArticleHtmlSpacing } =
+      await import("@/lib/utils/sanitize");
+
+    const input = "<p></p>\n\n<p>A</p>\n\n\n<p>B</p>\n\n<p>\u00a0</p>";
+    const result = normalizeArticleHtmlSpacing(input);
+
+    expect(result).toBe("<p>A</p>\n<p>B</p>");
+  });
+
+  test("normalizeArticleHtmlSpacing removes formatting-only empty paragraphs", async () => {
+    const { normalizeArticleHtmlSpacing } =
+      await import("@/lib/utils/sanitize");
+
+    const input =
+      "<p>One</p>\n\n<p><strong> </strong></p>\n\n<p><em>\u00a0</em></p>\n\n<p>Two</p>";
+    const result = normalizeArticleHtmlSpacing(input);
+
+    expect(result).toBe("<p>One</p>\n<p>Two</p>");
+  });
+
   test("sanitizeArticleTitle strips HTML from titles", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
 

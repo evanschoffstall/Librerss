@@ -161,6 +161,18 @@ function collapseExcessNewlines(html: string): string {
   );
 }
 
+export function normalizeArticleHtmlSpacing(html: string): string {
+  return html
+    .replace(/\r\n?/g, "\n")
+    .replace(
+      /<p>(?:\s|&nbsp;|&#160;|<br\s*\/?>|<\/?(?:strong|em|b|i|u|span)\b[^>]*>)*<\/p>\s*/gi,
+      "",
+    )
+    .replace(/<p>(?:\s|&nbsp;|&#160;|<br\s*\/?>)*<\/p>\s*/gi, "")
+    .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
+    .trim();
+}
+
 /**
  * Shared sanitize-html options for all article / RSS content.
  * Used by the RSS feed fetcher, manual article POST endpoint, and article
@@ -297,7 +309,7 @@ export function sanitizeArticleHtml(raw: string): string {
     stripEmbeddedMediaBlocks(stripApJunkBlocks(raw)),
     ARTICLE_SANITIZE_OPTIONS,
   );
-  return stripOrphanedRelatedBlocks(sanitized).trim();
+  return normalizeArticleHtmlSpacing(stripOrphanedRelatedBlocks(sanitized));
 }
 
 /**
