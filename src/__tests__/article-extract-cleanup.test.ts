@@ -361,7 +361,7 @@ describe("article extract cleanup", () => {
     });
 
     expect(axiosResult.status).toBe(429);
-    expect(jsonErrorFn).toHaveBeenCalledWith("upstream-throttled", 429);
+    expect(jsonErrorFn).toHaveBeenCalledWith("Upstream request failed", 429);
 
     const logAndRespondErrorFn = mock(
       (
@@ -389,5 +389,13 @@ describe("article extract cleanup", () => {
 
     expect(genericResult.status).toBe(502);
     expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
+    expect(logAndRespondErrorFn).toHaveBeenCalledWith(
+      "Article extract error",
+      expect.any(Error),
+      expect.objectContaining({
+        status: 502,
+        publicMessage: "Failed to extract article content",
+      }),
+    );
   });
 });

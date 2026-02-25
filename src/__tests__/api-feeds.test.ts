@@ -187,7 +187,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     const request = createMockRequest("https://example.com/api/feeds");
 
     const sourceNotFound = await GET(request as any, {
-      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireAuthenticatedUserFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
       handleFeedReadFn: async () => {
         throw new Error("missing");
@@ -199,7 +200,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     expect(sourceNotFound.status).toBe(404);
 
     const upstream = await GET(request as any, {
-      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireAuthenticatedUserFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
       handleFeedReadFn: async () => {
         throw new Error("upstream");
@@ -211,6 +213,9 @@ describe("Feeds API - Route branches with injected deps", () => {
         Response.json({ error: message }, { status })) as any,
     });
     expect(upstream.status).toBe(502);
+    await expect(upstream.json()).resolves.toEqual({
+      error: "Failed to fetch feed from upstream",
+    });
 
     const axiosError = new Error("axios") as Error & {
       response?: { status?: number };
@@ -218,7 +223,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     axiosError.response = { status: 429 };
 
     const axiosResponse = await GET(request as any, {
-      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireAuthenticatedUserFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
       handleFeedReadFn: async () => {
         throw axiosError;
@@ -230,9 +236,13 @@ describe("Feeds API - Route branches with injected deps", () => {
         Response.json({ error: message }, { status })) as any,
     });
     expect(axiosResponse.status).toBe(429);
+    await expect(axiosResponse.json()).resolves.toEqual({
+      error: "Upstream request failed",
+    });
 
     const generic = await GET(request as any, {
-      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireAuthenticatedUserFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       handleFeedReadFn: async () => {
         throw new Error("generic");
       },
@@ -254,7 +264,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     });
 
     const postCreated = await POST(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseCreateFeedPayloadFn: async () => ({
         name: "Feed",
         url: "https://example.com/feed.xml",
@@ -262,17 +273,23 @@ describe("Feeds API - Route branches with injected deps", () => {
       }),
       assertAllowedFeedUrlFn: async () => null,
       getDbFn: (() => ({
-        transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({}),
+        transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({}),
       })) as any,
       createOrUpdateFeedSourceFn: async () => ({
-        sourceRecord: { id: 1, name: "Feed", url: "https://example.com/feed.xml" },
+        sourceRecord: {
+          id: 1,
+          name: "Feed",
+          url: "https://example.com/feed.xml",
+        },
         isNew: true,
       }),
     });
     expect(postCreated.status).toBe(201);
 
     const postUpdated = await POST(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseCreateFeedPayloadFn: async () => ({
         name: "Feed",
         url: "https://example.com/feed.xml",
@@ -280,17 +297,23 @@ describe("Feeds API - Route branches with injected deps", () => {
       }),
       assertAllowedFeedUrlFn: async () => null,
       getDbFn: (() => ({
-        transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({}),
+        transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({}),
       })) as any,
       createOrUpdateFeedSourceFn: async () => ({
-        sourceRecord: { id: 1, name: "Feed", url: "https://example.com/feed.xml" },
+        sourceRecord: {
+          id: 1,
+          name: "Feed",
+          url: "https://example.com/feed.xml",
+        },
         isNew: false,
       }),
     });
     expect(postUpdated.status).toBe(200);
 
     const patchNotFound = await PATCH(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseRenameFeedPayloadFn: async () => ({
         sourceId: 1,
         name: "Renamed",
@@ -304,7 +327,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     expect(patchNotFound.status).toBe(404);
 
     const deleteNotFound = await DELETE(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseDeleteSourceIdFn: () => 1,
       deleteFeedSourceForUserFn: async () => null,
       jsonErrorFn: ((message: string, status: number) =>
@@ -321,12 +345,12 @@ describe("Feeds API - Route branches with injected deps", () => {
       headers: { "sec-fetch-site": "same-origin" },
     });
 
-    const respondError =
-      ((_message: string, _error: unknown) =>
-        Response.json({ error: "caught" }, { status: 500 })) as any;
+    const respondError = ((_message: string, _error: unknown) =>
+      Response.json({ error: "caught" }, { status: 500 })) as any;
 
     const postCaught = await POST(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseCreateFeedPayloadFn: async () => {
         throw new Error("create payload failed");
       },
@@ -335,7 +359,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     expect(postCaught.status).toBe(500);
 
     const patchCaught = await PATCH(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseRenameFeedPayloadFn: async () => {
         throw new Error("rename payload failed");
       },
@@ -344,7 +369,8 @@ describe("Feeds API - Route branches with injected deps", () => {
     expect(patchCaught.status).toBe(500);
 
     const deleteCaught = await DELETE(request as any, {
-      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "x@y.com" }) as any,
       parseDeleteSourceIdFn: () => {
         throw new Error("delete id failed");
       },

@@ -22,6 +22,11 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE =
+  "Failed to fetch article content from upstream";
+const ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
+const ARTICLE_EXTRACTION_ERROR_MESSAGE = "Failed to extract article content";
+
 type ParseArticleUrlDeps = {
   parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
@@ -312,7 +317,12 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         `Returning ${status} ${status === 502 ? "Bad Gateway" : "Upstream Error"} — article extract upstream request failed${articleUrl ? ` for ${articleUrl}` : ""}: ${detail}`,
       );
 
-      return toJsonError(detail, status);
+      return toJsonError(
+        status === 502
+          ? ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE
+          : ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+        status,
+      );
     }
 
     const detail = toMessage(error);
@@ -322,7 +332,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     return respondError("Article extract error", error, {
       status: 502,
-      publicMessage: detail,
+      publicMessage: ARTICLE_EXTRACTION_ERROR_MESSAGE,
     });
   }
 }

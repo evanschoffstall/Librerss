@@ -30,6 +30,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const UPSTREAM_FEED_ERROR_MESSAGE = "Failed to fetch feed from upstream";
+const UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
+
 type FeedRouteDeps = {
   requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
   requireMutableFeedAccessFn?: typeof requireMutableFeedAccess;
@@ -53,7 +56,8 @@ type FeedRouteDeps = {
 };
 
 export async function GET(request: NextRequest, deps?: FeedRouteDeps) {
-  const requireAuth = deps?.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
+  const requireAuth =
+    deps?.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
   const requestedFeedUrl = deps?.getRequestedFeedUrlFn ?? getRequestedFeedUrl;
   const assertAllowedUrl = deps?.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
   const readFeed = deps?.handleFeedReadFn ?? handleFeedRead;
@@ -94,7 +98,7 @@ export async function GET(request: NextRequest, deps?: FeedRouteDeps) {
       warn(
         `Returning 502 Bad Gateway — upstream feed fetch failed${requestedUrl ? ` for ${requestedUrl}` : ""}: ${detail}`,
       );
-      return toJsonError(detail, 502);
+      return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
     }
 
     if (isAxiosError(error)) {
@@ -109,7 +113,12 @@ export async function GET(request: NextRequest, deps?: FeedRouteDeps) {
         `Returning ${status} ${status === 502 ? "Bad Gateway" : "Upstream Error"} — upstream feed request failed${requestedUrl ? ` for ${requestedUrl}` : ""}: ${detail}`,
       );
 
-      return toJsonError(detail, status);
+      return toJsonError(
+        status === 502
+          ? UPSTREAM_FEED_ERROR_MESSAGE
+          : UPSTREAM_REQUEST_ERROR_MESSAGE,
+        status,
+      );
     }
 
     return respondError("Error fetching feed", error);
@@ -117,7 +126,8 @@ export async function GET(request: NextRequest, deps?: FeedRouteDeps) {
 }
 
 export async function POST(request: NextRequest, deps?: FeedRouteDeps) {
-  const requireMutable = deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const requireMutable =
+    deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseCreatePayload =
     deps?.parseCreateFeedPayloadFn ?? parseCreateFeedPayload;
   const assertAllowedUrl = deps?.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
@@ -166,7 +176,8 @@ export async function POST(request: NextRequest, deps?: FeedRouteDeps) {
 }
 
 export async function PATCH(request: NextRequest, deps?: FeedRouteDeps) {
-  const requireMutable = deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const requireMutable =
+    deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseRenamePayload =
     deps?.parseRenameFeedPayloadFn ?? parseRenameFeedPayload;
   const assertAllowedUrl = deps?.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
@@ -193,12 +204,7 @@ export async function PATCH(request: NextRequest, deps?: FeedRouteDeps) {
       return invalidFeedUrlResponse;
     }
 
-    const updatedSource = await renameSource(
-      user.userId,
-      sourceId,
-      name,
-      url,
-    );
+    const updatedSource = await renameSource(user.userId, sourceId, name, url);
 
     if (!updatedSource) {
       return toJsonError("Feed source not found", 404);
@@ -211,9 +217,11 @@ export async function PATCH(request: NextRequest, deps?: FeedRouteDeps) {
 }
 
 export async function DELETE(request: NextRequest, deps?: FeedRouteDeps) {
-  const requireMutable = deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const requireMutable =
+    deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseDeleteId = deps?.parseDeleteSourceIdFn ?? parseDeleteSourceId;
-  const deleteSource = deps?.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
+  const deleteSource =
+    deps?.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
   const toJsonError = deps?.jsonErrorFn ?? jsonError;
   const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
 
