@@ -172,10 +172,6 @@ export const ArticleCard = ({
       updateHoverState();
     };
 
-    const handleScroll = () => {
-      updateHoverState();
-    };
-
     const handleWindowMouseLeave = (event: MouseEvent) => {
       if (event.relatedTarget !== null) return;
       setIsCardHovered(false);
@@ -183,14 +179,10 @@ export const ArticleCard = ({
     };
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
-    window.addEventListener("wheel", handleScroll, { passive: true });
     window.addEventListener("mouseleave", handleWindowMouseLeave);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("scroll", handleScroll, true);
-      window.removeEventListener("wheel", handleScroll);
       window.removeEventListener("mouseleave", handleWindowMouseLeave);
     };
   }, []);
@@ -285,15 +277,17 @@ export const ArticleCard = ({
       <div className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
         <div
           className={visuallyExpanded
-            ? "sticky top-0 z-20 space-y-2 bg-card/95 pb-1 backdrop-blur-sm"
+            ? "sticky top-0 z-20 space-y-2 pb-1"
             : "space-y-2"
           }
         >
           <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <CalendarDays className="size-3" />
               {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
               <span className="text-border">|</span>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
               {showFavicon ? (
                 faviconUrl ? (
                   <img
