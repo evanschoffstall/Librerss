@@ -59,8 +59,25 @@ function elementOffsetInContent(el: Element, viewport: HTMLElement): number {
 export function useScrollRestore(sessionKey: string) {
   const viewportRef = useRef<HTMLElement | null>(null);
   const rafId = useRef<number>(0);
+  const restoreScrollEventRafId = useRef<number>(0);
   const savedStateRef = useRef<SavedState | null>(null);
   const restoreDeadlineRef = useRef<number>(0);
+  const isApplyingRestoreScrollRef = useRef(false);
+
+  const applyRestoredScrollTop = useCallback(
+    (viewport: HTMLElement, targetScrollTop: number) => {
+      if (Math.abs(viewport.scrollTop - targetScrollTop) <= 1) return;
+
+      isApplyingRestoreScrollRef.current = true;
+      viewport.scrollTop = targetScrollTop;
+
+      cancelAnimationFrame(restoreScrollEventRafId.current);
+      restoreScrollEventRafId.current = requestAnimationFrame(() => {
+        isApplyingRestoreScrollRef.current = false;
+      });
+    },
+    [],
+  );
 
   // ── anchor-aware restore ───────────────────────────────────────────────────
   const restoreScrollIfNeeded = useCallback(() => {
@@ -84,11 +101,8 @@ export function useScrollRestore(sessionKey: string) {
         const anchor = children[saved.ai];
         const targetScrollTop =
           elementOffsetInContent(anchor, viewport) - saved.ao;
-        if (
-          targetScrollTop >= 0 &&
-          Math.abs(viewport.scrollTop - targetScrollTop) > 1
-        ) {
-          viewport.scrollTop = targetScrollTop;
+        if (targetScrollTop >= 0) {
+          applyRestoredScrollTop(viewport, targetScrollTop);
         }
         return;
       }
@@ -100,8 +114,8 @@ export function useScrollRestore(sessionKey: string) {
       viewport.scrollHeight - viewport.clientHeight,
     );
     if (maxScrollTop === 0) return;
-    viewport.scrollTop = Math.min(saved.t, maxScrollTop);
-  }, []);
+    applyRestoredScrollTop(viewport, Math.min(saved.t, maxScrollTop));
+  }, [applyRestoredScrollTop]);
 
   // ── restore once the viewport mounts ──────────────────────────────────────
   const attachRef = useCallback(
@@ -170,6 +184,10 @@ export function useScrollRestore(sessionKey: string) {
 
     // ── save anchor-state on scroll ──────────────────────────────────────────
     const handleScroll = () => {
+      if (isApplyingRestoreScrollRef.current) {
+        return;
+      }
+
       // A real user scroll cancels any pending restore.
       if (savedStateRef.current !== null) {
         savedStateRef.current = null;
@@ -228,6 +246,8 @@ export function useScrollRestore(sessionKey: string) {
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
       cancelAnimationFrame(rafId.current);
+      cancelAnimationFrame(restoreScrollEventRafId.current);
+      isApplyingRestoreScrollRef.current = false;
     };
   }, [restoreScrollIfNeeded, sessionKey]);
 

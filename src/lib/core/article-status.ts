@@ -42,7 +42,19 @@ function warnMissingArticleStatusesTable(): void {
   );
 }
 
-export async function canUseArticleStatusesTable(): Promise<boolean> {
+export function __resetArticleStatusesTableStateForTests(): void {
+  articleStatusesTableState = "unknown";
+  warnedMissingArticleStatusesTable = false;
+}
+
+type ArticleStatusDeps = {
+  db?: ReturnType<typeof getDb>;
+  warn?: (message: string) => void;
+};
+
+export async function canUseArticleStatusesTable(
+  deps?: ArticleStatusDeps,
+): Promise<boolean> {
   if (articleStatusesTableState === "available") {
     return true;
   }
@@ -52,14 +64,23 @@ export async function canUseArticleStatusesTable(): Promise<boolean> {
   }
 
   try {
-    const db = getDb();
+    const db = deps?.db ?? getDb();
     await db.select({ id: articleStatuses.id }).from(articleStatuses).limit(1);
     articleStatusesTableState = "available";
     return true;
   } catch (error) {
     if (isMissingArticleStatusesTableError(error)) {
       articleStatusesTableState = "missing";
-      warnMissingArticleStatusesTable();
+      if (deps?.warn) {
+        if (!warnedMissingArticleStatusesTable) {
+          warnedMissingArticleStatusesTable = true;
+          deps.warn(
+            "ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
+          );
+        }
+      } else {
+        warnMissingArticleStatusesTable();
+      }
       return false;
     }
 
@@ -77,16 +98,17 @@ export async function upsertArticleStatuses(
   userId: number,
   articleIds: number[],
   changes: { isRead?: boolean; isStarred?: boolean },
+  deps?: ArticleStatusDeps,
 ): Promise<void> {
   if (articleIds.length === 0) {
     return;
   }
 
-  if (!(await canUseArticleStatusesTable())) {
+  if (!(await canUseArticleStatusesTable(deps))) {
     return;
   }
 
-  const db = getDb();
+  const db = deps?.db ?? getDb();
   const now = new Date();
 
   // Batch upsert: build a single INSERT ... ON CONFLICT DO UPDATE for all

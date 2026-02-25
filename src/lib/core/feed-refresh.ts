@@ -19,8 +19,6 @@ import {
   toPendingArticle,
 } from "./feed-parser";
 
-const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
-
 // ─── RSS parser singleton ─────────────────────────────────────────────────────
 // parseString() creates a fresh readable stream per call — no shared state.
 // Configure to parse content:encoded (used by many feeds for full article content)
@@ -57,12 +55,23 @@ export function shouldForceRefreshFeed(lastFetched: Date): boolean {
 
 export type UpstreamRefreshResult = { ok: true } | { ok: false; error: string };
 
+type RefreshDeps = {
+  fetchFeedXmlFn?: (url: string) => Promise<string>;
+  parseFeedXmlFn?: (xml: string) => Promise<{ items: unknown[] }>;
+  toPendingArticleFn?: typeof toPendingArticle;
+  dedupePendingArticlesFn?: typeof dedupePendingArticles;
+  getPublicationDateRangeFn?: typeof getPublicationDateRange;
+  toErrorMessageFn?: typeof toErrorMessage;
+  nowFn?: () => Date;
+};
+
 export async function refreshFeedFromUpstream(
   db: ReturnType<typeof getDb>,
   feed: FeedRecord,
+  deps?: RefreshDeps,
 ): Promise<UpstreamRefreshResult> {
   try {
-    if (DIAG) {
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.info("Upstream refresh started", {
         feedId: feed.id,
         url: feed.url,
@@ -70,17 +79,24 @@ export async function refreshFeedFromUpstream(
       });
     }
 
-    const feedXml = await fetchFeedXml(feed.url);
-    const parsed = await parser.parseString(feedXml);
-    const now = new Date();
+    const fetchXml = deps?.fetchFeedXmlFn ?? fetchFeedXml;
+    const parseFeedXml =
+      deps?.parseFeedXmlFn ?? ((xml: string) => parser.parseString(xml));
+    const toPending = deps?.toPendingArticleFn ?? toPendingArticle;
+    const dedupe = deps?.dedupePendingArticlesFn ?? dedupePendingArticles;
+    const getRange = deps?.getPublicationDateRangeFn ?? getPublicationDateRange;
+    const now = deps?.nowFn?.() ?? new Date();
 
-    const mappedItems = parsed.items
-      .map((item) => toPendingArticle(item, feed.id, now))
+    const feedXml = await fetchXml(feed.url);
+    const parsed = await parseFeedXml(feedXml);
+
+    const mappedItems = (parsed.items as Array<any>)
+      .map((item) => toPending(item, feed.id, now))
       .filter((item): item is PendingArticle => item !== null);
-    const validItems = dedupePendingArticles(mappedItems);
-    const publicationDateRange = getPublicationDateRange(validItems);
+    const validItems = dedupe(mappedItems);
+    const publicationDateRange = getRange(validItems);
 
-    if (DIAG) {
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.info("Upstream refresh parsed feed", {
         feedId: feed.id,
         url: feed.url,
@@ -105,7 +121,7 @@ export async function refreshFeedFromUpstream(
           },
         });
 
-      if (DIAG) {
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
         logger.info("Upstream refresh upserted articles", {
           feedId: feed.id,
           url: feed.url,
@@ -113,7 +129,7 @@ export async function refreshFeedFromUpstream(
         });
       }
     } else {
-      if (DIAG) {
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
         logger.info("Upstream refresh found no valid new items", {
           feedId: feed.id,
           url: feed.url,
@@ -126,7 +142,7 @@ export async function refreshFeedFromUpstream(
       .set({ lastFetched: now, lastFetchError: null })
       .where(eq(feeds.id, feed.id));
 
-    if (DIAG) {
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.info("Upstream refresh completed", {
         feedId: feed.id,
         url: feed.url,
@@ -136,9 +152,10 @@ export async function refreshFeedFromUpstream(
 
     return { ok: true };
   } catch (err) {
-    const errorMessage = toErrorMessage(err);
+    const toError = deps?.toErrorMessageFn ?? toErrorMessage;
+    const errorMessage = toError(err);
 
-    if (DIAG) {
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.warn("Upstream feed refresh failed", {
         url: feed.url,
         error: errorMessage,
@@ -153,7 +170,7 @@ export async function refreshFeedFromUpstream(
         .set({ lastFetched: new Date(), lastFetchError: errorMessage })
         .where(eq(feeds.url, feed.url));
 
-      if (DIAG) {
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
         logger.info("Upstream refresh failure cooldown applied", {
           feedId: feed.id,
           url: feed.url,

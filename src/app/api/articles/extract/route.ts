@@ -11,7 +11,10 @@ import {
 } from "@/lib/core/feed-fetcher";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
-import { sanitizeArticleHtml } from "@/lib/utils/sanitize";
+import {
+  normalizeArticleHtmlSpacing,
+  sanitizeArticleHtml,
+} from "@/lib/utils/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
@@ -19,29 +22,43 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-async function parseAndValidateArticleUrl(
+const ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE =
+  "Failed to fetch article content from upstream";
+const ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
+const ARTICLE_EXTRACTION_ERROR_MESSAGE = "Failed to extract article content";
+
+type ParseArticleUrlDeps = {
+  parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  jsonErrorFn?: typeof jsonError;
+};
+
+export async function parseAndValidateArticleUrl(
   request: NextRequest,
+  deps?: ParseArticleUrlDeps,
 ): Promise<string | Response> {
-  const payloadOrResponse = await parseJsonBodyOrResponse<{ url?: string }>(
-    request,
-  );
+  const parseJson = deps?.parseJsonBodyOrResponseFn ?? parseJsonBodyOrResponse;
+  const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
+  const toJsonError = deps?.jsonErrorFn ?? jsonError;
+
+  const payloadOrResponse = await parseJson<{ url?: string }>(request);
   if (payloadOrResponse instanceof Response) {
     return payloadOrResponse;
   }
 
   const articleUrl = payloadOrResponse.url?.trim() ?? "";
   if (!articleUrl) {
-    return jsonError("Article URL is required", 400);
+    return toJsonError("Article URL is required", 400);
   }
 
-  if (!(await isAllowedFeedUrl(articleUrl))) {
-    return jsonError(PUBLIC_FEED_URL_ERROR, 400);
+  if (!(await isAllowedUrl(articleUrl))) {
+    return toJsonError(PUBLIC_FEED_URL_ERROR, 400);
   }
 
   return articleUrl;
 }
 
-function toParagraphHtml(raw: string): string {
+export function toParagraphHtml(raw: string): string {
   return raw
     .split(/\n{2,}/)
     .map((segment) => segment.trim())
@@ -50,7 +67,9 @@ function toParagraphHtml(raw: string): string {
     .join("\n");
 }
 
-function sanitizeExtractedContent(rawContent: string): string {
+export const normalizeExtractedHtmlSpacing = normalizeArticleHtmlSpacing;
+
+export function sanitizeExtractedContent(rawContent: string): string {
   const normalized = rawContent.trim();
   if (!normalized) {
     return "";
@@ -62,7 +81,7 @@ function sanitizeExtractedContent(rawContent: string): string {
   return sanitizeArticleHtml(htmlCandidate);
 }
 
-function getHostname(url: string): string {
+export function getHostname(url: string): string {
   try {
     return new URL(url).hostname.toLowerCase();
   } catch {
@@ -70,12 +89,14 @@ function getHostname(url: string): string {
   }
 }
 
-function stripKnownDailyKosBoilerplate(content: string): string {
+export function stripKnownDailyKosBoilerplate(content: string): string {
   let cleaned = content;
 
   cleaned = cleaned
+    .replace(/<section>[\s\S]*?©\s*Kos\s+Media[\s\S]*?<\/section>/gi, "")
     .replace(/<p>\s*Daily\s+Kos\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
     .replace(/<p>\s*About\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
+    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
     .replace(
       /<p>\s*<a[^>]*href="https?:\/\/(?:www\.)?dailykos\.com\/blacklivesmatter\/?"[^>]*>\s*<img[\s\S]*?<\/a>\s*<\/p>[\s\S]*?Learn\s+More[\s\S]*?<\/a>/gi,
       "",
@@ -84,9 +105,10 @@ function stripKnownDailyKosBoilerplate(content: string): string {
   return cleaned.trim();
 }
 
-function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
+export function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
   const markerHits = [
+    "© kos media",
     "front page",
     "comics",
     "subscribe",
@@ -100,6 +122,28 @@ function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
   const listItemCount = (content.match(/<li\b/gi) ?? []).length;
 
   return markerHits >= 3 && linkCount >= 6 && listItemCount >= 4;
+}
+
+export function hasDailyKosStoryImage(content: string): boolean {
+  return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(
+    content,
+  );
+}
+
+export function extractDailyKosStoryFallbackHtml(rawHtml: string): string {
+  const figureMatch = rawHtml.match(
+    /<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i,
+  );
+  const textBlockMatch = rawHtml.match(
+    /<div\s+class="story__text">([\s\S]*?)<\/div>/i,
+  );
+
+  const figureHtml = figureMatch?.[0] ?? "";
+  const storyTextHtml = (textBlockMatch?.[1] ?? "")
+    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
+    .replace(/<hr\b[^>]*>/gi, "");
+
+  return [figureHtml, storyTextHtml].filter(Boolean).join("\n").trim();
 }
 
 export function cleanExtractedArticleHtml(
@@ -123,15 +167,25 @@ export function cleanExtractedArticleHtml(
   return isLikelyDailyKosFooterBoilerplate(stripped) ? "" : stripped;
 }
 
-async function fetchHtml(url: string): Promise<string> {
+type FetchHtmlDeps = {
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  axiosGetFn?: typeof axios.get;
+};
+
+export async function fetchHtml(
+  url: string,
+  deps?: FetchHtmlDeps,
+): Promise<string> {
+  const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
+  const axiosGet = deps?.axiosGetFn ?? axios.get;
   let currentUrl = url;
 
   for (let redirects = 0; redirects <= 3; redirects += 1) {
-    if (!(await isAllowedFeedUrl(currentUrl))) {
+    if (!(await isAllowedUrl(currentUrl))) {
       throw new Error("Blocked URL");
     }
 
-    const response = await axios.get(currentUrl, {
+    const response = await axiosGet(currentUrl, {
       timeout: CONFIG.FEED_REQUEST_TIMEOUT_MS,
       maxContentLength: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
       maxRedirects: 0,
@@ -161,11 +215,49 @@ async function fetchHtml(url: string): Promise<string> {
   throw new Error("Too many redirects");
 }
 
-export async function POST(request: NextRequest) {
+type ExtractPostDeps = {
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
+  fetchHtmlFn?: typeof fetchHtml;
+  extractFromHtmlFn?: typeof extractFromHtml;
+  sanitizeExtractedContentFn?: typeof sanitizeExtractedContent;
+  cleanExtractedArticleHtmlFn?: typeof cleanExtractedArticleHtml;
+  getHostnameFn?: typeof getHostname;
+  hasDailyKosStoryImageFn?: typeof hasDailyKosStoryImage;
+  extractDailyKosStoryFallbackHtmlFn?: typeof extractDailyKosStoryFallbackHtml;
+  jsonErrorFn?: typeof jsonError;
+  toErrorMessageFn?: typeof toErrorMessage;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
+  warnFn?: typeof logger.warn;
+};
+
+export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
+  const requireAuth =
+    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+  const parseArticleUrl =
+    deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
+  const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
+  const extractArticle = deps?.extractFromHtmlFn ?? extractFromHtml;
+  const sanitizeContent =
+    deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
+  const cleanContent =
+    deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
+  const hostnameOf = deps?.getHostnameFn ?? getHostname;
+  const hasStoryImage = deps?.hasDailyKosStoryImageFn ?? hasDailyKosStoryImage;
+  const extractFallback =
+    deps?.extractDailyKosStoryFallbackHtmlFn ??
+    extractDailyKosStoryFallbackHtml;
+  const toJsonError = deps?.jsonErrorFn ?? jsonError;
+  const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
+  const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+  const warn = deps?.warnFn ?? logger.warn;
+
   let articleUrl: string | null = null;
 
   try {
-    const authResult = await requireMutableAuthenticatedUser(request, {
+    const authResult = await requireAuth(request, {
       rateLimit: {
         key: "article-extract",
         windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
@@ -176,21 +268,36 @@ export async function POST(request: NextRequest) {
       return authResult;
     }
 
-    const parsedUrl = await parseAndValidateArticleUrl(request);
+    const parsedUrl = await parseArticleUrl(request);
     if (parsedUrl instanceof Response) {
       return parsedUrl;
     }
     articleUrl = parsedUrl;
 
-    const html = await fetchHtml(articleUrl);
-    const extracted = await extractFromHtml(html, articleUrl, {
+    const html = await fetchArticleHtml(articleUrl);
+    const extracted = await extractArticle(html, articleUrl, {
       contentLengthThreshold: 120,
     });
 
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
-    const sanitizedContent = sanitizeExtractedContent(rawContent);
-    const content = cleanExtractedArticleHtml(sanitizedContent, articleUrl);
+    const sanitizedContent = sanitizeContent(rawContent);
+    let content = cleanContent(sanitizedContent, articleUrl);
+
+    if (
+      hostnameOf(articleUrl).endsWith("dailykos.com") &&
+      !hasStoryImage(content)
+    ) {
+      const fallbackRaw = extractFallback(html);
+      const fallbackContent = cleanContent(
+        sanitizeContent(fallbackRaw),
+        articleUrl,
+      );
+
+      if (hasStoryImage(fallbackContent)) {
+        content = fallbackContent;
+      }
+    }
 
     return NextResponse.json({
       content,
@@ -198,29 +305,34 @@ export async function POST(request: NextRequest) {
       source: extracted?.source ?? null,
     });
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       const upstreamStatus = error.response?.status;
-      const detail = toErrorMessage(error);
+      const detail = toMessage(error);
       const status =
         typeof upstreamStatus === "number" && upstreamStatus >= 400
           ? upstreamStatus
           : 502;
 
-      logger.warn(
+      warn(
         `Returning ${status} ${status === 502 ? "Bad Gateway" : "Upstream Error"} — article extract upstream request failed${articleUrl ? ` for ${articleUrl}` : ""}: ${detail}`,
       );
 
-      return jsonError(detail, status);
+      return toJsonError(
+        status === 502
+          ? ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE
+          : ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+        status,
+      );
     }
 
-    const detail = toErrorMessage(error);
-    logger.warn(
+    const detail = toMessage(error);
+    warn(
       `Returning 502 Bad Gateway — article extract upstream processing failed${articleUrl ? ` for ${articleUrl}` : ""}: ${detail}`,
     );
 
-    return logAndRespondError("Article extract error", error, {
+    return respondError("Article extract error", error, {
       status: 502,
-      publicMessage: detail,
+      publicMessage: ARTICLE_EXTRACTION_ERROR_MESSAGE,
     });
   }
 }

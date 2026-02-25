@@ -24,7 +24,7 @@ function enrichFeedArticles(
 ): Article[] {
   return articles.map((article) => ({
     ...article,
-    feedName,
+    feedName: feedName ?? article.feedName,
     feedUrl,
   }));
 }

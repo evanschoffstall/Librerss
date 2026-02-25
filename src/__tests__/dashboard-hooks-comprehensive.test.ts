@@ -76,7 +76,7 @@ describe("useArticleHydration", () => {
     // Reset CSS global
     global.CSS = {
       escape: (str: string) =>
-        str.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~]/g, "\\$&"),
+        str.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, "\\$&"),
     } as any;
 
     ArticleService.extractArticleContent = mock(
@@ -235,6 +235,33 @@ describe("useArticleHydration", () => {
     expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     expect(afterSecondHydrateCalls).toBe(0);
     expect(feedState[0].content).toContain("Extracted content");
+  });
+
+  test("hydrateArticleContent re-fetches on repeated calls when forced", async () => {
+    const article = createMockArticle();
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() => useArticleHydration({ setFeed }));
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    (ArticleService.extractArticleContent as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(async () => "<p>Fresh forced content</p>");
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article, { force: true });
+    });
+
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+      expect(feedState[0].content).toContain("Fresh forced content");
+    });
   });
 
   test("hydrateArticleContent does not skip articles with substantial content", async () => {

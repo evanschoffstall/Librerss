@@ -13,11 +13,18 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { type Article, formatRelativeDate } from "@/lib";
-import { toPlainText } from "@/lib/utils/sanitize";
+import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/utils/sanitize";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -25,10 +32,11 @@ import {
   CircleCheck,
   Code,
   Globe,
+  Mail,
   Share2,
   Star,
 } from "lucide-react";
-import { type KeyboardEvent, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   buildPreview,
@@ -74,14 +82,18 @@ export const ArticleCard = ({
   isUpdatingState,
 }: ArticleCardProps) => {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
+  const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
+  const [supportsNativeShare, setSupportsNativeShare] = useState(false);
   const isDevelopment = process.env.NODE_ENV === "development";
   const isMobile = useIsMobile();
 
   const rawHtml = article.content || "";
-  const plainContent = toPlainText(rawHtml).trim();
+  const normalizedHtml = normalizeArticleHtmlSpacing(rawHtml);
+  const plainContent = toPlainText(normalizedHtml).trim();
   const hasReadableContent = plainContent.length > 0;
   const content = plainContent || "No description available";
   const { preview, hasOverflow } = buildPreview(content);
+  const collapsedPreview = hasOverflow ? `${preview}…` : preview;
 
   const { phase, isCollapsing, expandTransitionDone, onContentTransitionEnd } =
     useArticleExpansion(isExpanded, isHydrating);
@@ -107,6 +119,7 @@ export const ArticleCard = ({
 
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const rawHtmlPreRef = useRef<HTMLPreElement | null>(null);
+  const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
@@ -130,16 +143,15 @@ export const ArticleCard = ({
     onToggle();
   };
 
+  useEffect(() => {
+    setSupportsNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+
   const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
 
     const shareUrl = article.link;
     if (!shareUrl) return;
-
-    if (!navigator.share) {
-      toast.error("Native share is not supported on this browser");
-      return;
-    }
 
     try {
       await navigator.share({
@@ -166,6 +178,34 @@ export const ArticleCard = ({
     selection.removeAllRanges();
     selection.addRange(range);
   };
+
+  const shareUrl = article.link;
+  const encodedShareUrl = encodeURIComponent(shareUrl || "");
+  const encodedShareTitle = encodeURIComponent(article.title || "");
+
+  const selectShareLink = () => {
+    const input = copyLinkInputRef.current;
+    if (!input) return;
+
+    input.focus();
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+  };
+
+  const handleSelectShareLink = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    selectShareLink();
+  };
+
+  useEffect(() => {
+    if (!isCopyLinkOpen) return;
+
+    const timer = window.setTimeout(() => {
+      selectShareLink();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [isCopyLinkOpen]);
 
   return (
     <article
@@ -250,16 +290,71 @@ export const ArticleCard = ({
                 <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
               </button>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleShare}
-                aria-label="Share article"
-                className="size-6 text-muted-foreground/50 hover:text-foreground"
-              >
-                <Share2 className="size-3.5" />
-              </Button>
+              {supportsNativeShare ? (
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  aria-label="Share article"
+                  className={iconBtnCls}
+                >
+                  <Share2 className="size-3.5" />
+                </button>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label="Share article options"
+                      className={iconBtnCls}
+                    >
+                      <Share2 className="size-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                  >
+                    <DropdownMenuItem
+                      disabled={!shareUrl}
+                      onSelect={(event: Event) => {
+                        event.preventDefault();
+                        setIsCopyLinkOpen(true);
+                      }}
+                    >
+                      Copy link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={`mailto:?subject=${encodedShareTitle}&body=${encodedShareUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Mail className="size-3.5" />
+                        Email
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={`https://www.reddit.com/submit?url=${encodedShareUrl}&title=${encodedShareTitle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Share to Reddit
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a
+                        href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${article.title} ${shareUrl || ""}`.trim())}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Share to Bluesky
+                      </a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {isDevelopment ? (
                 <button
@@ -319,9 +414,9 @@ export const ArticleCard = ({
                 <Skeleton className="h-3 w-[88%]" />
                 <Skeleton className="h-3 w-[76%]" />
               </div>
-            ) : hasOverflow && !showFullContent ? (
-              <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/85">
-                {`${preview}…`}
+            ) : !showFullContent ? (
+              <p className="line-clamp-1 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/85">
+                {collapsedPreview}
               </p>
             ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
               <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75">
@@ -330,7 +425,7 @@ export const ArticleCard = ({
             ) : useRichFormatting ? (
               <div
                 className={visibleRichContentClassName}
-                dangerouslySetInnerHTML={{ __html: article.content || "" }}
+                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
               />
             ) : (
               <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}>
@@ -355,7 +450,7 @@ export const ArticleCard = ({
             {useRichFormatting ? (
               <div
                 className={richContentClassName}
-                dangerouslySetInnerHTML={{ __html: article.content || "" }}
+                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
               />
             ) : (
               <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
@@ -397,7 +492,7 @@ export const ArticleCard = ({
                     ref={rawHtmlPreRef}
                     className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
                   >
-                    {rawHtml}
+                    {normalizedHtml}
                   </pre>
                 </div>
               </div>
@@ -432,13 +527,89 @@ export const ArticleCard = ({
                   ref={rawHtmlPreRef}
                   className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
                 >
-                  {rawHtml}
+                  {normalizedHtml}
                 </pre>
               </div>
             </DialogContent>
           </Dialog>
         )
       ) : null}
+
+      {isMobile ? (
+        <Drawer open={isCopyLinkOpen} onOpenChange={setIsCopyLinkOpen}>
+          <DrawerContent
+            className="max-h-[45dvh]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <DrawerHeader>
+              <DrawerTitle>Copy Link</DrawerTitle>
+              <DrawerDescription>
+                Link is selected automatically for direct copying.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="space-y-3 px-4 pb-6">
+              <div className="rounded-md border bg-muted/30 p-2">
+                <Input
+                  ref={copyLinkInputRef}
+                  value={shareUrl || ""}
+                  readOnly
+                  className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+                  aria-label="Article link"
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSelectShareLink}
+                >
+                  Select
+                </Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isCopyLinkOpen} onOpenChange={setIsCopyLinkOpen}>
+          <DialogContent
+            className="max-w-md"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <DialogHeader>
+              <DialogTitle>Copy Link</DialogTitle>
+              <DialogDescription>
+                Link is selected automatically for direct copying.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded-md border bg-muted/30 p-2">
+                <Input
+                  ref={copyLinkInputRef}
+                  value={shareUrl || ""}
+                  readOnly
+                  className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+                  aria-label="Article link"
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSelectShareLink}
+                >
+                  Select
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </article>
   );
 };

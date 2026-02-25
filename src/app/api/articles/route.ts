@@ -16,6 +16,7 @@ import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import {
+  normalizeArticleHtmlSpacing,
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
   stripOrphanedRelatedBlocks,
@@ -132,7 +133,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       userArticles.map((a) => ({
         ...a,
-        content: a.content ? stripOrphanedRelatedBlocks(a.content) : a.content,
+        content: a.content
+          ? normalizeArticleHtmlSpacing(stripOrphanedRelatedBlocks(a.content))
+          : a.content,
       })),
     );
   } catch (error) {

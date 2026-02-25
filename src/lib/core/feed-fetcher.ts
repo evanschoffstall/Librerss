@@ -178,8 +178,21 @@ export async function fetchAndCacheFeedArticlesBatch(
     .from(feeds)
     .where(inArray(feeds.url, allowedUrls));
 
+  const normalizedLastFetchedRows = Array.isArray(currentLastFetchedRows)
+    ? currentLastFetchedRows
+    : currentLastFetchedRows &&
+        typeof currentLastFetchedRows === "object" &&
+        "rows" in currentLastFetchedRows &&
+        Array.isArray((currentLastFetchedRows as { rows?: unknown }).rows)
+      ? ((
+          currentLastFetchedRows as {
+            rows: Array<{ url: string; lastFetched: Date }>;
+          }
+        ).rows ?? [])
+      : [];
+
   const lastFetchedByUrl = new Map<string, Date>(
-    currentLastFetchedRows.map((row) => [row.url, row.lastFetched]),
+    normalizedLastFetchedRows.map((row) => [row.url, row.lastFetched]),
   );
 
   const rows = await queryTopArticlesPerFeed(db, userId, feedIds);

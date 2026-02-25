@@ -277,7 +277,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
     const html = "<p>First</p>\r\n\r\n  \r\n\r\n\r\n<p>Second</p>";
     const result = sanitizeArticleHtml(html);
 
-    expect(result).toBe("<p>First</p>\n\n\n<p>Second</p>");
+    expect(result).toBe("<p>First</p>\n<p>Second</p>");
   });
 
   test("collapses excessive nbsp-only blank paragraphs", async () => {
@@ -286,7 +286,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
       "<p>First</p><p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p><p>Second</p>";
     const result = sanitizeArticleHtml(html);
 
-    expect(result).toBe("<p>First</p><p></p><p></p><p></p><p>Second</p>");
+    expect(result).toBe("<p>First</p><p>Second</p>");
   });
 
   test("collapses excessive br-only blank paragraphs", async () => {
@@ -295,7 +295,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
       "<p>First</p><p><br></p><p><br /></p><p><br></p><p><br></p><p>Second</p>";
     const result = sanitizeArticleHtml(html);
 
-    expect(result).toBe("<p>First</p><p></p><p></p><p></p><p>Second</p>");
+    expect(result).toBe("<p>First</p><p>Second</p>");
   });
 });
 

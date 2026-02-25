@@ -35,6 +35,72 @@ interface UseFeedLoaderOptions {
   onFeedBatchLoaded?: (timestamp: Date) => void;
 }
 
+type FeedBatchResult = {
+  url: string;
+  articles: Article[];
+  ok: boolean;
+  error?: string;
+  lastFetchedAt?: Date;
+};
+
+function isCanceledBatchRequest(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "CanceledError")
+  );
+}
+
+function getNewestLastFetchedAt(batchResults: FeedBatchResult[]): Date | null {
+  return batchResults.reduce<Date | null>((latest, item) => {
+    if (!item.lastFetchedAt) {
+      return latest;
+    }
+
+    if (!latest || item.lastFetchedAt > latest) {
+      return item.lastFetchedAt;
+    }
+
+    return latest;
+  }, null);
+}
+
+function getSourceNamesByUrl(
+  sources: FeedBatchSource[],
+): Map<string, string | undefined> {
+  return new Map(sources.map((source) => [source.url, source.name] as const));
+}
+
+function notifyFeedFailures(
+  failedFeeds: FeedBatchResult[],
+  totalFeedCount: number,
+  sourceNamesByUrl: Map<string, string | undefined>,
+) {
+  if (failedFeeds.length === 0) {
+    return;
+  }
+
+  const failedNames = failedFeeds.map((item) => {
+    const sourceName = sourceNamesByUrl.get(item.url);
+    return sourceName || item.url;
+  });
+
+  if (failedFeeds.length === totalFeedCount) {
+    toast.error("Unable to fetch feeds from upstream.", {
+      description: "Try another feed or check back after the next refresh.",
+    });
+    return;
+  }
+
+  const failureLabel =
+    failedNames.length <= 3
+      ? failedNames.join(", ")
+      : `${failedNames.slice(0, 3).join(", ")} and ${failedNames.length - 3} more`;
+
+  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
+    description: "Showing cached articles. Check back after the next refresh.",
+  });
+}
+
 export function useFeedLoader({
   usePlaceholderData,
   categoriesRef,
@@ -96,13 +162,7 @@ export function useFeedLoader({
       normalizedSources: FeedBatchSource[],
       options?: FeedFetchOptions,
       signal?: AbortSignal,
-    ): Promise<Array<{
-      url: string;
-      articles: Article[];
-      ok: boolean;
-      error?: string;
-      lastFetchedAt?: Date;
-    }> | null> => {
+    ): Promise<FeedBatchResult[] | null> => {
       const urls = normalizedSources.map((s) => s.url);
       try {
         // Single fetch: returns cached articles and refreshes stale feeds in one pass
@@ -113,11 +173,7 @@ export function useFeedLoader({
           signal,
         });
       } catch (error) {
-        // Don't show errors for aborted requests
-        if (error instanceof Error && error.name === "AbortError") {
-          return null;
-        }
-        if (error instanceof Error && error.name === "CanceledError") {
+        if (isCanceledBatchRequest(error)) {
           return null;
         }
 
@@ -141,7 +197,7 @@ export function useFeedLoader({
         return null;
       }
     },
-    [usePlaceholderData, setFeed, setExpandedArticleKey],
+    [usePlaceholderData, setFeed],
   );
 
   const handleEmptyBatchResult = useCallback(() => {
@@ -245,54 +301,16 @@ export function useFeedLoader({
           })),
         });
 
-        const newestLastFetchedAt = batchResults.reduce<Date | null>(
-          (latest, item) => {
-            if (!item.lastFetchedAt) {
-              return latest;
-            }
-
-            if (!latest || item.lastFetchedAt > latest) {
-              return item.lastFetchedAt;
-            }
-
-            return latest;
-          },
-          null,
-        );
+        const newestLastFetchedAt = getNewestLastFetchedAt(batchResults);
 
         if (newestLastFetchedAt) {
           onFeedBatchLoaded?.(newestLastFetchedAt);
         }
 
-        // Surface upstream feed errors to the user
         const failedFeeds = batchResults.filter((item) => item.error);
+        const sourceNamesByUrl = getSourceNamesByUrl(normalizedSources);
 
-        const sourceNamesByUrl = new Map(
-          normalizedSources.map((source) => [source.url, source.name] as const),
-        );
-
-        if (failedFeeds.length > 0) {
-          const failedNames = failedFeeds.map((item) => {
-            const name = sourceNamesByUrl.get(item.url);
-            return name || item.url;
-          });
-
-          if (failedFeeds.length === batchResults.length) {
-            toast.error("Unable to fetch feeds from upstream.", {
-              description:
-                "Try another feed or check back after the next refresh.",
-            });
-          } else {
-            const label =
-              failedNames.length <= 3
-                ? failedNames.join(", ")
-                : `${failedNames.slice(0, 3).join(", ")} and ${failedNames.length - 3} more`;
-            toast.warning(`Some feeds failed to update: ${label}`, {
-              description:
-                "Showing cached articles. Check back after the next refresh.",
-            });
-          }
-        }
+        notifyFeedFailures(failedFeeds, batchResults.length, sourceNamesByUrl);
 
         const articles = mapBatchResultsToArticles(
           batchResults,

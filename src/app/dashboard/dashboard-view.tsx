@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
-import { CONFIG } from "@/lib/config";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { FeedList } from "./components/feed/FeedList";
@@ -16,9 +15,11 @@ import { SettingsModal } from "./components/settings/SettingsModal";
 import { ARTICLE_FILTER_OPTIONS } from "./helpers/article-filters";
 import { computeNextOrderedCategoryLabels } from "./helpers/category-display";
 import { buildDashboardViewModel } from "./helpers/dashboard-view-model";
+import { formatLastRefreshLabel } from "./helpers/refresh-time";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
+import { useDashboardIntervals } from "./hooks/useDashboardIntervals";
 import {
   useDashboardBroadcasts,
   useDashboardInitialization,
@@ -29,6 +30,7 @@ import {
 import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
 import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
+import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
 
 type DashboardViewProps = {
   usePlaceholderData: boolean;
@@ -36,7 +38,7 @@ type DashboardViewProps = {
 
 export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-  const [relativeRefreshTick, setRelativeRefreshTick] = useState(0);
+  const [, setRelativeRefreshTick] = useState(0);
 
   const {
     feed,
@@ -145,26 +147,12 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     setVisibleCount(pageSize);
   }, [feed, searchTerm, pageSize, articleFilter, setVisibleCount]);
 
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((previousCount) =>
-            Math.min(previousCount + pageSize, filteredFeed.length),
-          );
-        }
-      },
-      { threshold: 0 },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [filteredFeed.length, pageSize, sentinelRef, setVisibleCount]);
+  useFeedVisibilityObserver({
+    sentinelRef,
+    pageSize,
+    totalFeedItems: filteredFeed.length,
+    setVisibleCount,
+  });
 
   useDashboardInitialization({
     hasInitializedDashboardRef,
@@ -209,59 +197,9 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     fetchCategoryFeeds,
   });
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setRelativeRefreshTick((current) => current + 1);
-    }, 30_000);
+  useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
 
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    const autoRefreshIntervalMs =
-      Math.max(CONFIG.FEED_CACHE_TTL_MINUTES, 1) * 60_000;
-
-    const intervalId = window.setInterval(() => {
-      if (document.hidden) {
-        return;
-      }
-      autoRefreshFeedList();
-    }, autoRefreshIntervalMs);
-
-    return () => window.clearInterval(intervalId);
-  }, [autoRefreshFeedList]);
-
-  const formatLastRefreshLabel = useCallback(
-    (timestamp: Date | null, _tick: number) => {
-      if (!timestamp) {
-        return "never";
-      }
-
-      const elapsedMs = Date.now() - timestamp.getTime();
-      if (elapsedMs < 60_000) {
-        return "just now";
-      }
-
-      const elapsedMinutes = Math.floor(elapsedMs / 60_000);
-      if (elapsedMinutes < 60) {
-        return `${elapsedMinutes}m ago`;
-      }
-
-      const elapsedHours = Math.floor(elapsedMinutes / 60);
-      if (elapsedHours < 24) {
-        return `${elapsedHours}h ago`;
-      }
-
-      const elapsedDays = Math.floor(elapsedHours / 24);
-      return `${elapsedDays}d ago`;
-    },
-    [],
-  );
-
-  const lastRefreshLabel = formatLastRefreshLabel(
-    lastRefreshedAt,
-    relativeRefreshTick,
-  );
+  const lastRefreshLabel = formatLastRefreshLabel(lastRefreshedAt);
 
   useDashboardEvents({
     selectedCategory,
@@ -270,8 +208,14 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
-    onOpenSettings: useCallback(() => setShowSettingsModal(true), [setShowSettingsModal]),
-    onOpenFeedsSidebar: useCallback(() => setIsMobileSidebarOpen(true), [setIsMobileSidebarOpen]),
+    onOpenSettings: useCallback(
+      () => setShowSettingsModal(true),
+      [setShowSettingsModal],
+    ),
+    onOpenFeedsSidebar: useCallback(
+      () => setIsMobileSidebarOpen(true),
+      [setIsMobileSidebarOpen],
+    ),
     onSearchChange: setSearchTerm,
     onRefresh: handleRefreshSelection,
   });

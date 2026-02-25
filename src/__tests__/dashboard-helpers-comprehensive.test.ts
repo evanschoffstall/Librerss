@@ -149,6 +149,59 @@ describe("dashboard article helpers comprehensive", () => {
     expect(collapsed).toContain("text-[0.91rem]");
     expect(collapsed).toContain("[&_code]:rounded");
   });
+
+  test("mapBatchResultsToArticles keeps article feedName when source name missing", async () => {
+    const { mapBatchResultsToArticles } =
+      await import("@/app/dashboard/helpers/batch-helpers");
+
+    const result = mapBatchResultsToArticles(
+      [
+        {
+          url: "https://feeds.example.com/rss",
+          ok: true,
+          articles: [
+            makeArticle({
+              feedName: "Example Feed",
+              feedUrl: "https://feeds.example.com/rss",
+            }),
+          ],
+        },
+      ],
+      new Map([["https://feeds.example.com/rss", undefined]]),
+      false,
+      () => [],
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.feedName).toBe("Example Feed");
+  });
+
+  test("mapBatchResultsToArticles does not set feedName to feed URL", async () => {
+    const { mapBatchResultsToArticles } =
+      await import("@/app/dashboard/helpers/batch-helpers");
+
+    const result = mapBatchResultsToArticles(
+      [
+        {
+          url: "https://feeds.example.com/rss",
+          ok: true,
+          articles: [
+            makeArticle({
+              feedName: undefined,
+              feedUrl: "https://feeds.example.com/rss",
+              link: "https://news.example.com/post",
+            }),
+          ],
+        },
+      ],
+      new Map([["https://feeds.example.com/rss", undefined]]),
+      false,
+      () => [],
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.feedName).toBeUndefined();
+  });
 });
 
 describe("dashboard favicons comprehensive", () => {

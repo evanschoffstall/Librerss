@@ -17,6 +17,10 @@ interface DnsCacheEntry {
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 const DNS_CACHE_MAX_ENTRIES = 10_000;
 
+export function __resetDnsCacheForTests(): void {
+  DNS_CACHE.clear();
+}
+
 function setCacheSafe(key: string, value: DnsCacheEntry): void {
   if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
     const now = Date.now();
@@ -40,15 +44,31 @@ function setCacheSafe(key: string, value: DnsCacheEntry): void {
 
 export async function resolvesToBlockedAddress(
   hostname: string,
+  deps?: {
+    lookupFn?: typeof lookup;
+    isBlockedResolvedAddressFn?: typeof isBlockedResolvedAddress;
+    warnFn?: typeof logger.warn;
+    nowFn?: () => number;
+    setTimeoutFn?: typeof setTimeout;
+    clearTimeoutFn?: typeof clearTimeout;
+  },
 ): Promise<boolean> {
+  const now = deps?.nowFn ?? Date.now;
+  const lookupFn = deps?.lookupFn ?? lookup;
+  const isBlockedAddress =
+    deps?.isBlockedResolvedAddressFn ?? isBlockedResolvedAddress;
+  const warn = deps?.warnFn ?? logger.warn;
+  const setTimeoutFn = deps?.setTimeoutFn ?? setTimeout;
+  const clearTimeoutFn = deps?.clearTimeoutFn ?? clearTimeout;
+
   const cached = DNS_CACHE.get(hostname);
-  if (cached && cached.expiresAt > Date.now()) return cached.blocked;
+  if (cached && cached.expiresAt > now()) return cached.blocked;
 
   try {
-    const lookupPromise = lookup(hostname, { all: true, verbatim: true });
+    const lookupPromise = lookupFn(hostname, { all: true, verbatim: true });
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(
+      timeoutHandle = setTimeoutFn(
         () => reject(new Error("DNS lookup timeout")),
         CONFIG.DNS_LOOKUP_TIMEOUT_MS,
       );
@@ -57,20 +77,20 @@ export async function resolvesToBlockedAddress(
     const records = await Promise.race([lookupPromise, timeoutPromise]).finally(
       () => {
         if (timeoutHandle) {
-          clearTimeout(timeoutHandle);
+          clearTimeoutFn(timeoutHandle);
         }
       },
     );
-    const isBlocked = records.some((r) => isBlockedResolvedAddress(r.address));
+    const isBlocked = records.some((r) => isBlockedAddress(r.address));
 
     setCacheSafe(hostname, {
       blocked: isBlocked,
-      expiresAt: Date.now() + CONFIG.DNS_CACHE_TTL_MS,
+      expiresAt: now() + CONFIG.DNS_CACHE_TTL_MS,
     });
 
     return isBlocked;
   } catch (error) {
-    logger.warn("DNS lookup failed for feed validation", {
+    warn("DNS lookup failed for feed validation", {
       hostname,
       error: toErrorMessage(error),
     });
@@ -79,7 +99,7 @@ export async function resolvesToBlockedAddress(
     // Short TTL (60 s) to avoid prolonged false-positives from transient failures.
     setCacheSafe(hostname, {
       blocked: true,
-      expiresAt: Date.now() + 60_000,
+      expiresAt: now() + 60_000,
     });
 
     return true;

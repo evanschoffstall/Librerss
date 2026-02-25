@@ -12,6 +12,30 @@ type CoverageTotals = {
   foundLines: number;
 };
 
+const ANSI = {
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+  green: "\x1b[32m",
+  red: "\x1b[31m",
+  cyan: "\x1b[36m",
+  gray: "\x1b[90m",
+} as const;
+
+const colorize = (text: string, ...codes: string[]) =>
+  `${codes.join("")}${text}${ANSI.reset}`;
+
+const divider = () => colorize("────────────────────────────────", ANSI.gray);
+
+const formatStatus = (
+  label: string,
+  passing: boolean,
+  color: string,
+  details: string,
+) => {
+  const status = passing ? "PASS" : "FAIL";
+  return `${colorize(status, ANSI.bold, color)} ${colorize(label, ANSI.bold)} ${details}`;
+};
+
 function parseLcovTotals(lcovContent: string): CoverageTotals {
   const fileLineHits = new Map<string, Map<number, number>>();
   let currentFile = "";
@@ -81,12 +105,10 @@ function coveragePercent(covered: number, found: number): number {
   return (covered / found) * 100;
 }
 
-function thresholdEmoji(value: number, threshold: number): string {
-  return value >= threshold ? "✅" : "❌";
-}
-
 if (!existsSync(LCOV_PATH)) {
-  console.error("❌ Coverage report not found at coverage/lcov.info");
+  console.error(
+    `${colorize("FAIL", ANSI.bold, ANSI.red)} Coverage report not found at coverage/lcov.info`,
+  );
   process.exit(1);
 }
 
@@ -94,25 +116,27 @@ const lcovContent = readFileSync(LCOV_PATH, "utf8");
 const totals = parseLcovTotals(lcovContent);
 
 if (totals.foundLines === 0) {
-  console.error("❌ No executable lines found in coverage report");
+  console.error(
+    `${colorize("FAIL", ANSI.bold, ANSI.red)} No executable lines found in coverage report`,
+  );
   process.exit(1);
 }
 
 const lineCoverage = coveragePercent(totals.coveredLines, totals.foundLines);
 
-console.log("\n📊 Coverage Summary");
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log(`\n${colorize("Coverage Summary", ANSI.bold, ANSI.cyan)}`);
+console.log(divider());
 console.log(
-  `${thresholdEmoji(lineCoverage, LINE_COVERAGE_THRESHOLD)} Lines:    ${lineCoverage.toFixed(2)}% (${totals.coveredLines}/${totals.foundLines}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
+  formatStatus(
+    "Lines",
+    lineCoverage >= LINE_COVERAGE_THRESHOLD,
+    lineCoverage >= LINE_COVERAGE_THRESHOLD ? ANSI.green : ANSI.red,
+    `${lineCoverage.toFixed(2)}% (${totals.coveredLines}/${totals.foundLines}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
+  ),
 );
 const allPassing = lineCoverage >= LINE_COVERAGE_THRESHOLD;
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-console.log(
-  allPassing
-    ? "🎉 Coverage thresholds look great"
-    : "⚠️ Coverage is below threshold",
-);
+console.log(divider());
 
 if (!allPassing) {
   process.exit(1);

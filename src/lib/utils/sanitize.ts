@@ -1,95 +1,12 @@
 import { CONFIG } from "@/lib/config";
 import sanitizeHtml from "sanitize-html";
-
-/**
- * Class-name fragments used by AP News (and similar wire-service feeds) to
- * wrap "related articles" / "hub-peek" sections.  These blocks survive generic
- * sanitization because their inner content uses otherwise-allowed tags
- * (h2, ul, li, a).  We strip the entire element – including its subtree –
- * before running sanitize-html so no stray headings or link lists appear in
- * the rendered article body.
- *
- * Patterns are matched against the element's `class` attribute (case-insensitive).
- */
-const AP_JUNK_CLASS_PATTERN =
-  /(?:hub[\s_-]?peek|related[\s_-]?stories|related[\s_-]?content|related[\s_-]?links|more[\s_-]?on|tag[\s_-]?page|inline[\s_-]?module)/i;
-
-/**
- * Strips AP-style related-article / sidebar blocks from raw HTML before the
- * main sanitizer runs.  Removes block-level elements whose `class` attribute
- * matches {@link AP_JUNK_CLASS_PATTERN} plus all of their inner HTML.
- */
-function stripApJunkBlocks(html: string): string {
-  // Match common block wrappers: div, section, aside, nav, ul, figure.
-  return html
-    .replace(
-      /<(div|section|aside|nav|ul|figure)(\s[^>]*)?>/gi,
-      (openTag, tagName: string, attrs: string = "") => {
-        if (AP_JUNK_CLASS_PATTERN.test(attrs)) {
-          // Replace the opening tag with a sentinel comment so we can slice out
-          // everything up to (and including) the matching closing tag.
-          return `<!--STRIP_${tagName.toUpperCase()}-->`;
-        }
-        return openTag;
-      },
-    )
-    .replace(
-      /<!--STRIP_(DIV|SECTION|ASIDE|NAV|UL|FIGURE)-->(?:[\s\S]*?)<\/\1>/gi,
-      "",
-    );
-}
-
-/**
- * Heading text patterns that indicate a related-articles / widget section
- * injected by wire services (AP, Reuters, etc.) into article bodies.
- */
-const RELATED_HEADING_PATTERN =
-  /^\s*(?:more\s+on|related(?:\s+(?:stories|articles|content|links|news))?|see\s+also|also\s+(?:of\s+interest|read)|you\s+may\s+(?:also\s+)?like|trending\s+now|popular\s+now|from\s+our\s+partners)\b/i;
-
-/**
- * Post-sanitize pass that removes orphaned related-article sections from
- * already-sanitized HTML.
- *
- * When content was stored before {@link stripApJunkBlocks} was introduced the
- * sanitizer stripped the wrapper `<div class="hub-peek">` but kept its inner
- * `<h2>`, `<ul>/<li>/<a>` children because those are all in the tag allowlist.
- * This function detects the resulting pattern – a heading whose text matches
- * {@link RELATED_HEADING_PATTERN} followed (optionally with whitespace) by a
- * `<ul>` or `<ol>` – and removes both the heading and the list.
- */
-function stripOrphanedRelatedBlocks(html: string): string {
-  // Step 1 – heading + immediately following list.
-  // The \s* between the closing heading tag and <ul>/<ol> handles cases where
-  // the sanitizer left a newline or space between them.
-  let result = html.replace(
-    /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
-    (match, headingText: string) =>
-      RELATED_HEADING_PATTERN.test(headingText) ? "" : match,
-  );
-
-  // Step 2 – stray heading with no following list (can be left behind if the
-  // list was already removed or appears at the very end of the content).
-  result = result.replace(
-    /<h[1-6]>([^<]*)<\/h[1-6]>/gi,
-    (match, headingText: string) =>
-      RELATED_HEADING_PATTERN.test(headingText) ? "" : match,
-  );
-
-  return collapseExcessNewlines(result);
-}
-
-/**
- * Removes embedded media elements and their fallback text content.
- *
- * Many feeds include placeholders such as "YouTube Video" inside
- * `<iframe>...</iframe>` or `<video>...</video>` tags. If we only strip the
- * element shell, the placeholder text can leak into rendered/preview text.
- */
-function stripEmbeddedMediaBlocks(html: string): string {
-  return html
-    .replace(/<(iframe|video|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, "\n")
-    .replace(/<(iframe|video|object|embed)\b[^>]*\/?>/gi, "\n");
-}
+import {
+  normalizeArticleHtmlSpacing,
+  stripApJunkBlocks,
+  stripEmbeddedMediaBlocks,
+  stripOrphanedRelatedBlocks,
+} from "./sanitize-cleaners";
+import { ARTICLE_SANITIZE_OPTIONS } from "./sanitize-patterns";
 
 /**
  * Converts HTML to plain text by stripping tags and normalizing whitespace.
@@ -120,136 +37,50 @@ export function toPlainText(value: string): string {
     .trim();
 }
 
-/**
- * Collapses runs of more than
- * {@link CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES} consecutive blank lines
- * in sanitized HTML.
- * Handles raw `\n` sequences, consecutive `<br>` tags, and consecutive
- * empty `<p>` elements so the rendered article never has large vertical gaps.
- */
-function collapseExcessNewlines(html: string): string {
-  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
-  const minOverflowRun = maxConsecutiveBlankLines + 1;
+export { normalizeArticleHtmlSpacing, stripOrphanedRelatedBlocks };
 
-  return (
-    html
-      // Normalize CRLF/CR to LF so newline collapsing is deterministic.
-      .replace(/\r\n?/g, "\n")
-      // N+1 consecutive <br> tags (with optional whitespace between) → N.
-      .replace(
-        new RegExp(`((?:<br\\s*\\/?>[\\s\\n]*){${minOverflowRun},})`, "gi"),
-        "<br>".repeat(maxConsecutiveBlankLines),
-      )
-      // N+1 consecutive blank paragraphs (empty, nbsp, or <br>-only) → N.
-      .replace(
-        new RegExp(
-          `((?:<p>(?:\\s|&nbsp;|&#160;|<br\\s*\\/?>)*<\\/p>\\s*){${minOverflowRun},})`,
-          "gi",
-        ),
-        "<p></p>".repeat(maxConsecutiveBlankLines),
-      )
-      // N+1 raw newlines (optionally separated by spaces/tabs) → N.
-      .replace(
-        new RegExp(`(?:\\n[ \\t]*){${minOverflowRun},}`, "g"),
-        "\n".repeat(maxConsecutiveBlankLines),
-      )
-      // N+1 whitespace-only lines (spaces/tabs before newline) → N.
-      .replace(
-        new RegExp(`(?:[ \\t]*\\n){${minOverflowRun},}`, "g"),
-        "\n".repeat(maxConsecutiveBlankLines),
-      )
+function decodeHtmlEntities(value: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  };
+
+  const decodeNumericEntity = (
+    rawCodePoint: string,
+    radix: 10 | 16,
+  ): string => {
+    try {
+      return String.fromCodePoint(Number.parseInt(rawCodePoint, radix));
+    } catch {
+      return "";
+    }
+  };
+
+  const decoded = value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
+    (match, rawEntity: string) => {
+      const entity = rawEntity.toLowerCase();
+
+      if (entity.startsWith("#x")) {
+        return decodeNumericEntity(entity.slice(2), 16);
+      }
+
+      if (entity.startsWith("#")) {
+        return decodeNumericEntity(entity.slice(1), 10);
+      }
+
+      return namedEntities[entity] ?? "";
+    },
   );
+
+  return decoded.replace(/&[a-z0-9#]+;/gi, "");
 }
 
-/**
- * Shared sanitize-html options for all article / RSS content.
- * Used by the RSS feed fetcher, manual article POST endpoint, and article
- * extractor so every write path enforces the same tag-allowlist.
- */
-const ARTICLE_SANITIZE_OPTIONS = {
-  allowedTags: [
-    "p",
-    "br",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "ul",
-    "ol",
-    "li",
-    "blockquote",
-    "pre",
-    "code",
-    "strong",
-    "em",
-    "b",
-    "i",
-    "u",
-    "a",
-    "img",
-    "hr",
-  ],
-  // aside/nav/section are discarded along with their text so that sidebars
-  // and related-article blocks don't appear in place of article body text.
-  nonTextTags: [
-    "style",
-    "script",
-    "textarea",
-    "aside",
-    "nav",
-    "section",
-    "iframe",
-  ],
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: [
-      "src",
-      "srcset",
-      "sizes",
-      "alt",
-      "title",
-      "width",
-      "height",
-      "loading",
-      "decoding",
-      "referrerpolicy",
-    ],
-    code: ["class"],
-    pre: ["class"],
-  },
-  allowedSchemes: ["http", "https", "mailto"],
-  allowedSchemesByTag: {
-    img: ["http", "https"],
-  },
-  transformTags: {
-    a: (tagName: string, attribs: Record<string, string>) => ({
-      tagName,
-      attribs: {
-        ...attribs,
-        rel: "noopener noreferrer nofollow",
-        target: "_blank",
-      },
-    }),
-    img: (tagName: string, attribs: Record<string, string>) => ({
-      tagName,
-      attribs: {
-        ...attribs,
-        // Enforce no-referrer for privacy (don't leak reader's page to image host)
-        referrerpolicy: attribs.referrerpolicy || "no-referrer",
-        // Enforce lazy loading for performance
-        loading: attribs.loading || "lazy",
-      },
-    }),
-  },
-};
-
-/**
- * Exported for use when serving already-stored article content that may have
- * been saved before the pre-sanitize AP-block stripping was introduced.
- */
-export { stripOrphanedRelatedBlocks };
+export const __decodeHtmlEntitiesForTests = decodeHtmlEntities;
 
 /**
  * Strips all HTML tags that are not in the allowed set and forces links to
@@ -263,7 +94,7 @@ export function sanitizeArticleHtml(raw: string): string {
     stripEmbeddedMediaBlocks(stripApJunkBlocks(raw)),
     ARTICLE_SANITIZE_OPTIONS,
   );
-  return stripOrphanedRelatedBlocks(sanitized).trim();
+  return normalizeArticleHtmlSpacing(stripOrphanedRelatedBlocks(sanitized));
 }
 
 /**
@@ -279,7 +110,8 @@ export function sanitizeArticleTitle(title: string | null | undefined): string {
     allowedTags: [],
     allowedAttributes: {},
   }).trim();
-  const cleaned = stripped || "Untitled";
+  const cleaned =
+    decodeHtmlEntities(stripped).replace(/\s+/g, " ").trim() || "Untitled";
   if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
   return cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH).trim() + "...";
 }
