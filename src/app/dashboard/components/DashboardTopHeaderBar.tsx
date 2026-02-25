@@ -1,9 +1,17 @@
 "use client";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AuthService } from "@/lib";
 import {
   CheckCheck,
+  EllipsisVertical,
   LogOut,
   Menu,
   Moon,
@@ -133,7 +141,7 @@ export function DashboardTopHeaderBar() {
           <span>{title}</span>
         </h1>
 
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
           <Input
             value={search}
@@ -143,7 +151,62 @@ export function DashboardTopHeaderBar() {
           />
         </div>
 
-        <div className="flex items-center gap-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open actions menu"
+              className={`${toolbarBtnClass} md:hidden`}
+            >
+              <EllipsisVertical className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={8} className="md:hidden">
+            <DropdownMenuItem
+              onSelect={() =>
+                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
+              }
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh selected feed
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isMarkingAllRead}
+              onSelect={() =>
+                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))
+              }
+            >
+              <CheckCheck className="h-4 w-4" />
+              Mark all read
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))
+              }
+            >
+              <Settings2 className="h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setTheme(nextTheme)}>
+              {mounted && isDark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+              {themeToggleLabel}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isSigningOut}
+              onSelect={() => void handleSignOut()}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="hidden items-center gap-4 md:flex">
           <button
             type="button"
             onClick={() =>
