@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { type Article, formatRelativeDate } from "@/lib";
-import { toPlainText } from "@/lib/utils/sanitize";
+import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/utils/sanitize";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -88,7 +88,8 @@ export const ArticleCard = ({
   const isMobile = useIsMobile();
 
   const rawHtml = article.content || "";
-  const plainContent = toPlainText(rawHtml).trim();
+  const normalizedHtml = normalizeArticleHtmlSpacing(rawHtml);
+  const plainContent = toPlainText(normalizedHtml).trim();
   const hasReadableContent = plainContent.length > 0;
   const content = plainContent || "No description available";
   const { preview, hasOverflow } = buildPreview(content);
@@ -424,7 +425,7 @@ export const ArticleCard = ({
             ) : useRichFormatting ? (
               <div
                 className={visibleRichContentClassName}
-                dangerouslySetInnerHTML={{ __html: article.content || "" }}
+                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
               />
             ) : (
               <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}>
@@ -449,7 +450,7 @@ export const ArticleCard = ({
             {useRichFormatting ? (
               <div
                 className={richContentClassName}
-                dangerouslySetInnerHTML={{ __html: article.content || "" }}
+                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
               />
             ) : (
               <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
@@ -491,7 +492,7 @@ export const ArticleCard = ({
                     ref={rawHtmlPreRef}
                     className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
                   >
-                    {rawHtml}
+                    {normalizedHtml}
                   </pre>
                 </div>
               </div>
@@ -526,7 +527,7 @@ export const ArticleCard = ({
                   ref={rawHtmlPreRef}
                   className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
                 >
-                  {rawHtml}
+                  {normalizedHtml}
                 </pre>
               </div>
             </DialogContent>

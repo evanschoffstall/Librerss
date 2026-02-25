@@ -8,6 +8,7 @@ import type { getDb } from "@/lib/db/db";
 import { feedRecordFields } from "@/lib/db/feed-records";
 import { feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
+import { normalizeArticleHtmlSpacing } from "@/lib/utils/sanitize";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   type FeedRecord,
@@ -281,7 +282,7 @@ export function mapRowsToArticleMap(
       id: Number(row.id),
       title: String(row.title),
       link: String(row.link),
-      content: String(row.content),
+      content: normalizeArticleHtmlSpacing(String(row.content)),
       publicationDate: new Date(row.publicationDate as string | Date),
       feedId: Number(row.feedId),
       lastChecked: new Date(row.lastChecked as string | Date),

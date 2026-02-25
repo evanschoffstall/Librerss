@@ -1,5 +1,6 @@
 import { toReaderItemId } from "@/lib/core/reader-item-id";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
+import { normalizeArticleHtmlSpacing } from "@/lib/utils/sanitize";
 import { tryGetUrlHostname } from "@/lib/utils/url";
 import {
   FEED_STREAM_PREFIX,
@@ -38,7 +39,7 @@ export function toReaderIconUrl(feedUrl: string): string {
 
 export function mapArticleAsItem(row: ListedArticle) {
   const publishedSec = Math.floor(row.publicationDate.getTime() / 1000);
-  const bodyContent = row.content.trim();
+  const bodyContent = normalizeArticleHtmlSpacing(row.content).trim();
   const previewContent = bodyContent.length > 0 ? bodyContent : row.title;
   const categories = [READING_LIST_STREAM];
   const categoryLabel = toReaderCategoryLabel(row.category);
