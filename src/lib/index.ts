@@ -10,7 +10,7 @@ export { useLocalStorage } from "@/hooks/useLocalStorage";
 export { useSessionState } from "@/hooks/useSessionState";
 
 // API clients
-export { ArticleService, AuthService, FeedService } from "./api/service";
+export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
 export {
