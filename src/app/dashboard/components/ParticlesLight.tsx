@@ -67,7 +67,7 @@ export default function ParticlesLight({
       translateY: 0,
       size: Math.floor(Math.random() * 2) + 0.1,
       alpha: 0,
-      targetAlpha: parseFloat((Math.random() * 0.4 + 0.2).toFixed(2)),
+      targetAlpha: parseFloat((Math.random() * 0.6 + 0.1).toFixed(1)),
       dx: (Math.random() - 0.5) * 0.2,
       dy: (Math.random() - 0.5) * 0.2,
       magnetism: 0.1 + Math.random() * 4,
@@ -86,7 +86,7 @@ export default function ParticlesLight({
     context.current.beginPath();
     context.current.arc(x, y, size, 0, 2 * Math.PI);
     // Dark particles for light background
-    context.current.fillStyle = `rgba(40, 40, 48, ${alpha})`;
+    context.current.fillStyle = `rgba(0, 0, 0, ${alpha})`;
     context.current.fill();
     context.current.setTransform(dpr, 0, 0, dpr, 0, 0);
 
