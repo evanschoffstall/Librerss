@@ -2,24 +2,25 @@
 
 import { Input } from "@/components/ui/input";
 import { AuthService } from "@/lib";
-import { CheckCheck, LogOut, Menu, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
+import {
+  CheckCheck,
+  LogOut,
+  Menu,
+  Moon,
+  RefreshCw,
+  Search,
+  Settings2,
+  Sun,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DASHBOARD_EVENTS } from "../constants";
 import { ANIM_TRANSITION_COLORS } from "./styles";
 
-const toolbarBtnClass =
-  `${ANIM_TRANSITION_COLORS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300`;
+const toolbarBtnClass = `${ANIM_TRANSITION_COLORS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300`;
 
-/**
- * Fixed top bar shown on the dashboard route.
- *
- * Communicates with the dashboard page via custom window events:
- * - Listens: `dashboard:title-change`, `dashboard:search-sync`, `dashboard:enter-preview`
- * - Dispatches: `dashboard:refresh`, `dashboard:open-settings`, `dashboard:search-change`
- */
-export function DashboardTopBar() {
+export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("LibreRSS");
@@ -47,17 +48,38 @@ export function DashboardTopBar() {
     const handleMarkAllReadStart = () => setIsMarkingAllRead(true);
     const handleMarkAllReadEnd = () => setIsMarkingAllRead(false);
 
-    window.addEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
-    window.addEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
+    window.addEventListener(
+      DASHBOARD_EVENTS.TITLE_CHANGE,
+      handleTitleChange as EventListener,
+    );
+    window.addEventListener(
+      DASHBOARD_EVENTS.SEARCH_SYNC,
+      handleSearchSync as EventListener,
+    );
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
-    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, handleMarkAllReadStart);
+    window.addEventListener(
+      DASHBOARD_EVENTS.MARK_ALL_READ_START,
+      handleMarkAllReadStart,
+    );
     window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
     return () => {
-      window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
-      window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.TITLE_CHANGE,
+        handleTitleChange as EventListener,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SEARCH_SYNC,
+        handleSearchSync as EventListener,
+      );
       window.removeEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
-      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, handleMarkAllReadStart);
-      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_ALL_READ_START,
+        handleMarkAllReadStart,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_ALL_READ_END,
+        handleMarkAllReadEnd,
+      );
     };
   }, []);
 
@@ -69,7 +91,9 @@ export function DashboardTopBar() {
 
   const handleSearchChange = (term: string) => {
     setSearch(term);
-    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { detail: { term } }));
+    window.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { detail: { term } }),
+    );
   };
 
   const handleSignOut = async () => {
@@ -95,7 +119,9 @@ export function DashboardTopBar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-6">
         <button
           type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR))}
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR))
+          }
           aria-label="Open feeds"
           className={`${toolbarBtnClass} lg:hidden`}
         >
@@ -120,7 +146,9 @@ export function DashboardTopBar() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
+            }
             aria-label="Refresh selected feed"
             className={toolbarBtnClass}
           >
@@ -130,7 +158,9 @@ export function DashboardTopBar() {
           <button
             type="button"
             disabled={isMarkingAllRead}
-            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))
+            }
             aria-label="Mark all read"
             className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70 ${isMarkingAllRead ? "animate-pulse" : ""}`}
           >
@@ -139,7 +169,9 @@ export function DashboardTopBar() {
 
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))
+            }
             aria-label="Open dashboard settings"
             className={toolbarBtnClass}
           >
@@ -164,10 +196,15 @@ export function DashboardTopBar() {
             aria-label={themeToggleLabel}
             className={toolbarBtnClass}
           >
-            {mounted && isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {mounted && isDark ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
