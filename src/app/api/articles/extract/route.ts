@@ -1,9 +1,9 @@
 import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
 } from "@/lib/api/request-guards";
+import { jsonError } from "@/lib/api/responses";
 import { CONFIG } from "@/lib/config";
 import {
   isAllowedFeedUrl,
@@ -192,7 +192,8 @@ export async function fetchHtml(
       responseType: "text",
       validateStatus: (status) => status >= 200 && status < 400,
       headers: {
-        "user-agent": "librerss/0.1 (+https://github.com)",
+        "user-agent":
+          "librerss/0.1 (+https://github.com/evanschoffstall/librerss)",
         "accept-language": "en-US,en;q=0.9",
       },
     });
