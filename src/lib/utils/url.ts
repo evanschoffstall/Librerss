@@ -136,3 +136,24 @@ export function toCategoryLookupKey(feedUrl: string): string {
       .replace(/\/+$/, "");
   }
 }
+
+/**
+ * Redacts sensitive URL components (credentials, query, hash) for logs.
+ */
+export function redactUrlForLogs(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return "[empty-url]";
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return "[invalid-url]";
+  }
+}
