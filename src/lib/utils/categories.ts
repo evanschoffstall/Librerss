@@ -8,6 +8,21 @@ import type { CategoryTreeNode } from "@/lib/core/types";
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
 /**
+ * Trims category labels and returns null when empty/missing.
+ */
+export function toOptionalCategoryLabel(label?: string | null): string | null {
+  const trimmed = label?.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Returns a non-empty category label, defaulting to the canonical label.
+ */
+export function toCategoryLabelOrDefault(label?: string | null): string {
+  return toOptionalCategoryLabel(label) ?? DEFAULT_CATEGORY_LABEL;
+}
+
+/**
  * Stable key used for case-insensitive category label comparisons.
  */
 export function normalizeCategoryLabelKey(label?: string | null): string {
@@ -39,7 +54,7 @@ const UNCATEGORIZED_VARIANTS = new Set([
  * @returns Normalized category label
  */
 export function normalizeCategory(label?: string | null): string {
-  const trimmed = label?.trim();
+  const trimmed = toOptionalCategoryLabel(label);
 
   if (!trimmed) {
     return DEFAULT_CATEGORY_LABEL;

@@ -1,4 +1,8 @@
-import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
+import {
+  DEFAULT_CATEGORY_LABEL,
+  normalizeCategory,
+  toCategoryLabelOrDefault,
+} from "@/lib";
 import { getDb } from "@/lib/db/db";
 import {
   ensureFeedRecordByUrl,
@@ -28,7 +32,7 @@ export function toFeedSourceResponse(
 ): FeedSourceListRow {
   return {
     ...row,
-    category: row.category?.trim() || DEFAULT_CATEGORY_LABEL,
+    category: toCategoryLabelOrDefault(row.category),
   };
 }
 
@@ -130,8 +134,7 @@ export async function renameFeedSourceForUser(
           )
           .limit(1);
 
-        previousCategory =
-          existingCategory?.category?.trim() || DEFAULT_CATEGORY_LABEL;
+        previousCategory = toCategoryLabelOrDefault(existingCategory?.category);
       }
 
       if (previousFeedId) {

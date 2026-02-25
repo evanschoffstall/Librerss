@@ -1,5 +1,5 @@
 import { toReaderItemId } from "@/lib/core/reader-item-id";
-import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
+import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
 import { normalizeArticleHtmlSpacing } from "@/lib/utils/sanitize";
 import { tryGetUrlHostname } from "@/lib/utils/url";
 import {
@@ -23,11 +23,6 @@ export type ListedArticle = {
   isStarred: boolean | null;
 };
 
-function toReaderCategoryLabel(category: string | null | undefined): string {
-  const trimmed = category?.trim();
-  return trimmed ? trimmed : DEFAULT_CATEGORY_LABEL;
-}
-
 export function toReaderIconUrl(feedUrl: string): string | null {
   const hostname = tryGetUrlHostname(feedUrl);
   if (!hostname) {
@@ -42,7 +37,7 @@ export function mapArticleAsItem(row: ListedArticle) {
   const bodyContent = normalizeArticleHtmlSpacing(row.content).trim();
   const previewContent = bodyContent.length > 0 ? bodyContent : row.title;
   const categories = [READING_LIST_STREAM];
-  const categoryLabel = toReaderCategoryLabel(row.category);
+  const categoryLabel = toCategoryLabelOrDefault(row.category);
 
   categories.push(`${USER_LABEL_PREFIX}${categoryLabel}`);
 

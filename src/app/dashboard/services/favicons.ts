@@ -1,7 +1,7 @@
-import { tryGetUrlHostname } from "@/lib/utils/url";
+import { getUrlHostnameDisplayLabel, tryGetUrlHostname } from "@/lib/utils/url";
 
 export const getHostnameLabel = (url: string) =>
-  (tryGetUrlHostname(url) ?? url).replace(/^www\./i, "");
+  getUrlHostnameDisplayLabel(url, { fallback: url });
 
 type FaviconCacheEntry = { index: number; failedAt?: number };
 const faviconIndexCache = new Map<string, FaviconCacheEntry>();

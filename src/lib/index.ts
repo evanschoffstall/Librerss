@@ -20,6 +20,8 @@ export {
   isSameCategoryLabel,
   normalizeCategory,
   normalizeCategoryLabelKey,
+  toCategoryLabelOrDefault,
+  toOptionalCategoryLabel,
   removeCategoryLabel,
   replaceCategoryLabel
 } from "./utils/categories";

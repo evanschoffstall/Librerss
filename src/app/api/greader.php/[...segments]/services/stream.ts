@@ -1,4 +1,8 @@
-import { parsePositiveInt } from "@/lib/api/request";
+import {
+  parseNonNegativeInt,
+  parsePositiveInt,
+  parseUnixTimestampSeconds,
+} from "@/lib/api/request";
 import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,
@@ -29,12 +33,11 @@ export function parseStreamPaging(
   }
 
   if (continuation.startsWith("offset:")) {
-    const continuationOffset = Number.parseInt(
+    const continuationOffset = parseNonNegativeInt(
       continuation.slice("offset:".length),
-      10,
     );
 
-    if (Number.isInteger(continuationOffset) && continuationOffset >= 0) {
+    if (continuationOffset !== null) {
       return {
         limit,
         offset: continuationOffset,
@@ -44,9 +47,9 @@ export function parseStreamPaging(
     }
   }
 
-  const parsedContinuationId = Number.parseInt(continuation, 10);
+  const parsedContinuationId = parsePositiveInt(continuation);
 
-  if (Number.isInteger(parsedContinuationId) && parsedContinuationId > 0) {
+  if (parsedContinuationId !== null) {
     return {
       limit,
       offset: 0,
@@ -64,18 +67,7 @@ export function parseStreamId(resource: string): string {
 }
 
 export function parseOlderThanDate(searchParams: URLSearchParams): Date | null {
-  const olderThanSec = Number.parseInt(searchParams.get("ot") ?? "", 10);
-
-  if (!Number.isInteger(olderThanSec) || olderThanSec <= 0) {
-    return null;
-  }
-
-  const parsed = new Date(olderThanSec * 1000);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed;
+  return parseUnixTimestampSeconds(searchParams.get("ot"));
 }
 
 export function shouldExcludeReadFromStream(
