@@ -1,14 +1,20 @@
 import {
+  POST,
   cleanExtractedArticleHtml,
   extractDailyKosStoryFallbackHtml,
+  fetchHtml,
   getHostname,
   hasDailyKosStoryImage,
   isLikelyDailyKosFooterBoilerplate,
+  normalizeExtractedHtmlSpacing,
+  parseAndValidateArticleUrl,
   sanitizeExtractedContent,
   stripKnownDailyKosBoilerplate,
   toParagraphHtml,
 } from "@/app/api/articles/extract/route";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 beforeEach(() => {
   mock.restore();
@@ -139,6 +145,32 @@ describe("article extract cleanup", () => {
     expect(cleaned).not.toContain("<script>");
   });
 
+  test("normalizeExtractedHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
+    const cleaned = normalizeExtractedHtmlSpacing(
+      "<p></p>\n\n<p>One</p>\n\n<p>Two</p>",
+    );
+
+    expect(cleaned).toBe("<p>One</p>\n<p>Two</p>");
+  });
+
+  test("sanitizeExtractedContent normalizes NO-style extracted snapshot spacing", () => {
+    const noSnapshot = readFileSync(
+      join(process.cwd(), "src/__tests__/snapshots/article-NO-1.html"),
+      "utf8",
+    );
+    const standardSnapshot = readFileSync(
+      join(process.cwd(), "src/__tests__/snapshots/article-standard-1.html"),
+      "utf8",
+    );
+
+    const normalizedNo = sanitizeExtractedContent(noSnapshot);
+    const normalizedStandard = sanitizeExtractedContent(standardSnapshot);
+
+    expect(normalizedNo).not.toContain("<p></p>");
+    expect(normalizedNo).not.toMatch(/>\s*\n\s*\n\s*</);
+    expect(normalizedStandard).not.toMatch(/>\s*\n\s*\n\s*</);
+  });
+
   test("getHostname normalizes valid hostnames and handles invalid urls", () => {
     expect(getHostname("https://WWW.DailyKos.com/story")).toBe(
       "www.dailykos.com",
@@ -188,5 +220,174 @@ describe("article extract cleanup", () => {
         '<img src="https://example.com/images/story.jpg" />',
       ),
     ).toBe(false);
+  });
+
+  test("parseAndValidateArticleUrl handles parser response, missing URL, blocked URL, and valid URL", async () => {
+    const parserResponse = new Response("bad request", { status: 400 });
+    const fromParser = await parseAndValidateArticleUrl({} as any, {
+      parseJsonBodyOrResponseFn: async () => parserResponse,
+    });
+    expect(fromParser).toBe(parserResponse);
+
+    const missingUrl = await parseAndValidateArticleUrl({} as any, {
+      parseJsonBodyOrResponseFn: (async () => ({ url: "  " })) as any,
+    });
+    expect(missingUrl).toBeInstanceOf(Response);
+    expect((missingUrl as Response).status).toBe(400);
+
+    const blocked = await parseAndValidateArticleUrl({} as any, {
+      parseJsonBodyOrResponseFn: (async () => ({
+        url: "https://blocked.example",
+      })) as any,
+      isAllowedFeedUrlFn: async () => false,
+    });
+    expect(blocked).toBeInstanceOf(Response);
+    expect((blocked as Response).status).toBe(400);
+
+    const allowed = await parseAndValidateArticleUrl({} as any, {
+      parseJsonBodyOrResponseFn: (async () => ({
+        url: "  https://example.com/article  ",
+      })) as any,
+      isAllowedFeedUrlFn: async () => true,
+    });
+    expect(allowed).toBe("https://example.com/article");
+  });
+
+  test("fetchHtml blocks disallowed URLs and supports redirects", async () => {
+    await expect(
+      fetchHtml("https://example.com/a", {
+        isAllowedFeedUrlFn: async () => false,
+      }),
+    ).rejects.toThrow("Blocked URL");
+
+    const axiosGetFn = mock(async (url: string) => {
+      if (url === "https://example.com/a") {
+        return { status: 302, headers: { location: "/b" }, data: "" } as any;
+      }
+      return { status: 200, headers: {}, data: 1234 } as any;
+    });
+
+    const html = await fetchHtml("https://example.com/a", {
+      isAllowedFeedUrlFn: async () => true,
+      axiosGetFn: axiosGetFn as any,
+    });
+    expect(html).toBe("1234");
+    expect(axiosGetFn).toHaveBeenCalledTimes(2);
+  });
+
+  test("fetchHtml rejects redirects without location and redirect loops", async () => {
+    const noLocation = mock(async () => ({
+      status: 302,
+      headers: {},
+      data: "",
+    }));
+    await expect(
+      fetchHtml("https://example.com/a", {
+        isAllowedFeedUrlFn: async () => true,
+        axiosGetFn: noLocation as any,
+      }),
+    ).rejects.toThrow("Redirect without Location header");
+
+    const loop = mock(async () => ({
+      status: 302,
+      headers: { location: "/loop" },
+      data: "",
+    }));
+    await expect(
+      fetchHtml("https://example.com/loop", {
+        isAllowedFeedUrlFn: async () => true,
+        axiosGetFn: loop as any,
+      }),
+    ).rejects.toThrow("Too many redirects");
+  });
+
+  test("POST returns early auth/parse responses", async () => {
+    const authResponse = new Response("unauthorized", { status: 401 });
+    const fromAuth = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => authResponse,
+    });
+    expect(fromAuth).toBe(authResponse);
+
+    const parseResponse = new Response("bad payload", { status: 400 });
+    const fromParse = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => parseResponse,
+    });
+    expect(fromParse).toBe(parseResponse);
+  });
+
+  test("POST can replace content with DailyKos fallback story image", async () => {
+    const response = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.dailykos.com/story",
+      fetchHtmlFn: async () => "<html />",
+      extractFromHtmlFn: async () => ({
+        title: "Title",
+        source: "Source",
+        content: "primary-content",
+      }),
+      sanitizeExtractedContentFn: (content) => content,
+      cleanExtractedArticleHtmlFn: (content) => content,
+      getHostnameFn: () => "www.dailykos.com",
+      hasDailyKosStoryImageFn: (content) => content.includes("fallback-image"),
+      extractDailyKosStoryFallbackHtmlFn: () => "fallback-image",
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.content).toBe("fallback-image");
+    expect(body.title).toBe("Title");
+    expect(body.source).toBe("Source");
+  });
+
+  test("POST maps axios and generic failures to expected error handlers", async () => {
+    const jsonErrorFn = mock((message: string, status: number) =>
+      Response.json({ error: message }, { status }),
+    );
+    const warnFn = mock(() => {});
+
+    const axiosError = { response: { status: 429 } };
+    const axiosResult = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: async () => {
+        throw axiosError;
+      },
+      isAxiosErrorFn: (() => true) as any,
+      toErrorMessageFn: () => "upstream-throttled",
+      jsonErrorFn: jsonErrorFn as any,
+      warnFn: warnFn as any,
+    });
+
+    expect(axiosResult.status).toBe(429);
+    expect(jsonErrorFn).toHaveBeenCalledWith("upstream-throttled", 429);
+
+    const logAndRespondErrorFn = mock(
+      (
+        _message: string,
+        _error: unknown,
+        options?: { status?: number; publicMessage?: string },
+      ) =>
+        Response.json(
+          { error: options?.publicMessage ?? "unknown" },
+          { status: options?.status ?? 500 },
+        ),
+    );
+
+    const genericResult = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: async () => {
+        throw new Error("boom");
+      },
+      isAxiosErrorFn: (() => false) as any,
+      toErrorMessageFn: () => "normalized-boom",
+      logAndRespondErrorFn: logAndRespondErrorFn as any,
+      warnFn: warnFn as any,
+    });
+
+    expect(genericResult.status).toBe(502);
+    expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
   });
 });
