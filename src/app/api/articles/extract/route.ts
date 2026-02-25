@@ -192,9 +192,8 @@ export async function fetchHtml(
       responseType: "text",
       validateStatus: (status) => status >= 200 && status < 400,
       headers: {
-        "user-agent":
-          "librerss/0.1 (+https://github.com/evanschoffstall/librerss)",
-        "accept-language": "en-US,en;q=0.9",
+        "User-Agent": CONFIG.FEED_REQUEST_USER_AGENT,
+        "Accept-Language": "en-US,en;q=0.9",
       },
     });
 
@@ -204,7 +203,16 @@ export async function fetchHtml(
         throw new Error("Redirect without Location header");
       }
 
-      currentUrl = new URL(location, currentUrl).toString();
+      // Resolve the redirect target against the current URL FIRST, then
+      // validate the fully-resolved absolute URL before following it.  This
+      // prevents a server from returning a relative Location (e.g. "/latest/…")
+      // that resolves to a path on a different internal host.
+      const resolvedUrl = new URL(location, currentUrl).toString();
+      if (!(await isAllowedUrl(resolvedUrl))) {
+        throw new Error("Blocked redirect target");
+      }
+
+      currentUrl = resolvedUrl;
       continue;
     }
 

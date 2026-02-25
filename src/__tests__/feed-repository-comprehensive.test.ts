@@ -104,9 +104,11 @@ const createMockDb = () => ({
   }),
 });
 
-const mockDb = createMockDb();
+let mockDb = createMockDb();
 
 function registerModuleMocks() {
+  mockDb = createMockDb();
+
   mock.module("@/lib/db/db", () => ({
     getDb: () => mockDb,
   }));
@@ -127,7 +129,6 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  mock.restore();
   registerModuleMocks();
 });
 
@@ -185,20 +186,25 @@ describe("Feed Repository - Response Transformers", () => {
   });
 });
 
+// Helper to build a two-level leftJoin chain mock used by listFeedSourcesForUser
+const makeTwoJoinSelectMock = (resolvedRows: unknown[]) => ({
+  select: mock(() => ({
+    from: mock(() => ({
+      leftJoin: mock(() => ({
+        leftJoin: mock(() => ({
+          where: mock(() => ({
+            orderBy: mock(() => Promise.resolve(resolvedRows)),
+          })),
+        })),
+      })),
+    })),
+  })),
+});
+
 describe("Feed Repository - List Operations", () => {
   test("listFeedSourcesForUser returns empty array for no feeds", async () => {
     mock.module("@/lib/db/db", () => ({
-      getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            leftJoin: mock(() => ({
-              where: mock(() => ({
-                orderBy: mock(() => Promise.resolve([])),
-              })),
-            })),
-          })),
-        })),
-      }),
+      getDb: () => makeTwoJoinSelectMock([]),
     }));
 
     const feeds = await listFeedSourcesForUser(1);
@@ -224,17 +230,7 @@ describe("Feed Repository - List Operations", () => {
     ];
 
     mock.module("@/lib/db/db", () => ({
-      getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            leftJoin: mock(() => ({
-              where: mock(() => ({
-                orderBy: mock(() => Promise.resolve(mockFeeds)),
-              })),
-            })),
-          })),
-        })),
-      }),
+      getDb: () => makeTwoJoinSelectMock(mockFeeds),
     }));
 
     const feeds = await listFeedSourcesForUser(1);
@@ -260,17 +256,7 @@ describe("Feed Repository - List Operations", () => {
     ];
 
     mock.module("@/lib/db/db", () => ({
-      getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            leftJoin: mock(() => ({
-              where: mock(() => ({
-                orderBy: mock(() => Promise.resolve(mockFeeds)),
-              })),
-            })),
-          })),
-        })),
-      }),
+      getDb: () => makeTwoJoinSelectMock(mockFeeds),
     }));
 
     const feeds = await listFeedSourcesForUser(1);
@@ -475,15 +461,17 @@ describe("Feed Repository - Rename Operations", () => {
             })),
             update: mock(() => ({
               set: mock(() => ({
-                where: mock(() =>
-                  Promise.resolve([
-                    {
-                      id: 1,
-                      name: "Renamed Feed",
-                      url: "https://example.com/feed",
-                    },
-                  ]),
-                ),
+                where: mock(() => ({
+                  returning: mock(() =>
+                    Promise.resolve([
+                      {
+                        id: 1,
+                        name: "Renamed Feed",
+                        url: "https://example.com/feed",
+                      },
+                    ]),
+                  ),
+                })),
               })),
             })),
           };
@@ -551,15 +539,17 @@ describe("Feed Repository - Rename Operations", () => {
             })),
             update: mock(() => ({
               set: mock(() => ({
-                where: mock(() =>
-                  Promise.resolve([
-                    {
-                      id: 1,
-                      name: "Feed",
-                      url: "https://example.com/new-feed",
-                    },
-                  ]),
-                ),
+                where: mock(() => ({
+                  returning: mock(() =>
+                    Promise.resolve([
+                      {
+                        id: 1,
+                        name: "Feed",
+                        url: "https://example.com/new-feed",
+                      },
+                    ]),
+                  ),
+                })),
               })),
             })),
           };
@@ -605,15 +595,17 @@ describe("Feed Repository - Rename Operations", () => {
             })),
             update: mock(() => ({
               set: mock(() => ({
-                where: mock(() =>
-                  Promise.resolve([
-                    {
-                      id: 1,
-                      name: "Feed",
-                      url: "https://example.com/new-feed",
-                    },
-                  ]),
-                ),
+                where: mock(() => ({
+                  returning: mock(() =>
+                    Promise.resolve([
+                      {
+                        id: 1,
+                        name: "Feed",
+                        url: "https://example.com/new-feed",
+                      },
+                    ]),
+                  ),
+                })),
               })),
             })),
           };
@@ -662,15 +654,17 @@ describe("Feed Repository - Delete Operations", () => {
               })),
             })),
             delete: mock(() => ({
-              where: mock(() =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    name: "Feed",
-                    url: "https://example.com/feed",
-                  },
-                ]),
-              ),
+              where: mock(() => ({
+                returning: mock(() =>
+                  Promise.resolve([
+                    {
+                      id: 1,
+                      name: "Feed",
+                      url: "https://example.com/feed",
+                    },
+                  ]),
+                ),
+              })),
             })),
           };
           return callback(mockTx);
@@ -730,15 +724,17 @@ describe("Feed Repository - Delete Operations", () => {
               })),
             })),
             delete: mock(() => ({
-              where: mock(() =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    name: "Feed",
-                    url: "https://example.com/feed",
-                  },
-                ]),
-              ),
+              where: mock(() => ({
+                returning: mock(() =>
+                  Promise.resolve([
+                    {
+                      id: 1,
+                      name: "Feed",
+                      url: "https://example.com/feed",
+                    },
+                  ]),
+                ),
+              })),
             })),
           };
           return callback(mockTx);
@@ -777,15 +773,17 @@ describe("Feed Repository - Delete Operations", () => {
         transaction: mock(async (callback: any) => {
           const mockTx = {
             delete: mock(() => ({
-              where: mock(() =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    name: "Feed",
-                    url: "https://example.com/feed",
-                  },
-                ]),
-              ),
+              where: mock(() => ({
+                returning: mock(() =>
+                  Promise.resolve([
+                    {
+                      id: 1,
+                      name: "Feed",
+                      url: "https://example.com/feed",
+                    },
+                  ]),
+                ),
+              })),
             })),
           };
           return callback(mockTx);
