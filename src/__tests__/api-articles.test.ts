@@ -36,28 +36,23 @@ function registerModuleMocks() {
       }),
     }),
   }));
-
-  mock.module("@/lib/api/request-guards", () => ({
-    requireAuthenticatedUser: async () => ({
-      userId: 1,
-      email: "test@example.com",
-    }),
-    requireMutableAuthenticatedUser: async () => ({
-      userId: 1,
-      email: "test@example.com",
-    }),
-    requireMutableRequest: () => null,
-    logAndRespondError: (
-      _message: string,
-      _error: unknown,
-      options?: { status?: number; publicMessage?: string },
-    ) =>
-      Response.json(
-        { error: options?.publicMessage ?? "Internal Server Error" },
-        { status: options?.status ?? 500 },
-      ),
-  }));
 }
+
+const authenticatedUser = {
+  sessionId: 1,
+  userId: 1,
+  email: "test@example.com",
+  expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+};
+
+const articleRouteDeps = {
+  requireAuthenticatedUserFn: async () => authenticatedUser,
+  requireMutableAuthenticatedUserFn: async () => authenticatedUser,
+};
+
+const articleByIdRouteDeps = {
+  requireAuthenticatedUserFn: async () => authenticatedUser,
+};
 
 beforeAll(() => {
   registerModuleMocks();
@@ -74,7 +69,7 @@ describe("Articles API - List", () => {
       cookies: { session: "test-session" },
     });
 
-    const response = await GET(request);
+    const response = await GET(request, articleRouteDeps);
     expect(response.status).toBeLessThan(400);
     const body = await response.json();
     expect(Array.isArray(body.articles || body)).toBe(true);
@@ -89,7 +84,7 @@ describe("Articles API - List", () => {
       },
     );
 
-    const response = await GET(request);
+    const response = await GET(request, articleRouteDeps);
     expect(response.status).toBeLessThan(400);
   });
 
@@ -102,7 +97,7 @@ describe("Articles API - List", () => {
       },
     );
 
-    const response = await GET(request);
+    const response = await GET(request, articleRouteDeps);
     expect(response.status).toBeLessThan(400);
   });
 
@@ -115,7 +110,7 @@ describe("Articles API - List", () => {
       },
     );
 
-    const response = await GET(request);
+    const response = await GET(request, articleRouteDeps);
     expect(response.status).toBeLessThan(400);
   });
 
@@ -128,7 +123,7 @@ describe("Articles API - List", () => {
       },
     );
 
-    const response = await GET(request);
+    const response = await GET(request, articleRouteDeps);
     expect(response.status).toBeLessThan(400);
   });
 
@@ -142,7 +137,7 @@ describe("Articles API - List", () => {
         cookies: { session: "test-session" },
       });
 
-      const response = await GET(request);
+      const response = await GET(request, articleRouteDeps);
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toEqual([]);
@@ -166,7 +161,7 @@ describe("Articles API - Create", () => {
       cookies: { session: "test-session" },
     });
 
-    const response = await POST(request);
+    const response = await POST(request, articleRouteDeps);
     expect(response.status).toBe(400);
   });
 
@@ -186,7 +181,7 @@ describe("Articles API - Create", () => {
         cookies: { session: "test-session" },
       },
     );
-    const badLinkResponse = await POST(badLinkRequest);
+    const badLinkResponse = await POST(badLinkRequest, articleRouteDeps);
     expect(badLinkResponse.status).toBe(400);
 
     const badFeedIdRequest = createMockRequest(
@@ -202,7 +197,7 @@ describe("Articles API - Create", () => {
         cookies: { session: "test-session" },
       },
     );
-    const badFeedIdResponse = await POST(badFeedIdRequest);
+    const badFeedIdResponse = await POST(badFeedIdRequest, articleRouteDeps);
     expect(badFeedIdResponse.status).toBe(400);
   });
 
@@ -220,7 +215,7 @@ describe("Articles API - Create", () => {
       cookies: { session: "test-session" },
     });
 
-    const response = await POST(request);
+    const response = await POST(request, articleRouteDeps);
     expect(response.status).toBe(400);
   });
 
@@ -237,7 +232,7 @@ describe("Articles API - Create", () => {
       cookies: { session: "test-session" },
     });
 
-    const response = await POST(request);
+    const response = await POST(request, articleRouteDeps);
     expect(response.status).toBe(400);
   });
 
@@ -258,7 +253,7 @@ describe("Articles API - Create", () => {
         cookies: { session: "test-session" },
       });
 
-      const response = await POST(request);
+      const response = await POST(request, articleRouteDeps);
       expect(response.status).toBe(403);
     } finally {
       mockState.selectResult = previousSelect;
@@ -295,7 +290,7 @@ describe("Articles API - Create", () => {
         cookies: { session: "test-session" },
       });
 
-      const response = await POST(request);
+      const response = await POST(request, articleRouteDeps);
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.link).toBe("https://example.com/article");
@@ -313,9 +308,13 @@ describe("Articles API - Get Single", () => {
       cookies: { session: "test-session" },
     });
 
-    const response = await GET(request, {
-      params: Promise.resolve({ id: "1" }),
-    });
+    const response = await GET(
+      request,
+      {
+        params: Promise.resolve({ id: "1" }),
+      },
+      articleByIdRouteDeps,
+    );
     expect(response.status).toBeLessThan(500);
   });
 
@@ -328,9 +327,13 @@ describe("Articles API - Get Single", () => {
       },
     );
 
-    const response = await GET(request, {
-      params: Promise.resolve({ id: "invalid" }),
-    });
+    const response = await GET(
+      request,
+      {
+        params: Promise.resolve({ id: "invalid" }),
+      },
+      articleByIdRouteDeps,
+    );
     expect(response.status).toBeGreaterThanOrEqual(400);
   });
 });

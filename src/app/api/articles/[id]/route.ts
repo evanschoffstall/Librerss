@@ -6,21 +6,36 @@ import {
 import { jsonError } from "@/lib/api/responses";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
+import { articles, feeds, feedSources } from "@/lib/db/schema";
 import {
   normalizeArticleHtmlSpacing,
   stripOrphanedRelatedBlocks,
 } from "@/lib/utils/sanitize";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { articles, feeds, feedSources } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(request: NextRequest, context: RouteContext) {
+type ArticleByIdRouteDeps = {
+  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+  getDbFn?: typeof getDb;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+};
+
+export async function GET(
+  request: NextRequest,
+  context: RouteContext,
+  deps: ArticleByIdRouteDeps = {},
+) {
+  const requireAuth =
+    deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
+  const getDbForRoute = deps.getDbFn ?? getDb;
+  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+
   try {
-    const authResult = await requireAuthenticatedUser(request);
+    const authResult = await requireAuth(request);
     if (authResult instanceof Response) {
       return authResult;
     }
@@ -37,7 +52,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return jsonError("Article not found", 404);
     }
 
-    const db = getDb();
+    const db = getDbForRoute();
 
     // Join through feeds → feedSources to verify the requesting user owns
     // a subscription to the feed this article belongs to.
@@ -70,10 +85,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       ...article,
       content: article.content
-        ? normalizeArticleHtmlSpacing(stripOrphanedRelatedBlocks(article.content))
+        ? normalizeArticleHtmlSpacing(
+            stripOrphanedRelatedBlocks(article.content),
+          )
         : article.content,
     });
   } catch (error) {
-    return logAndRespondError("Article GET error", error);
+    return respondError("Article GET error", error);
   }
 }

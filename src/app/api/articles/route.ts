@@ -4,12 +4,12 @@ import {
   parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/api/request-guards";
+import { jsonError } from "@/lib/api/responses";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
@@ -26,6 +26,14 @@ import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+
+type ArticlesRouteDeps = {
+  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  getDbFn?: typeof getDb;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+};
 
 type CreateArticlePayload = {
   rawTitle: string;
@@ -91,9 +99,14 @@ function parseCreateArticlePayload(
   };
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
+  const requireAuth =
+    deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
+  const getDbForRoute = deps.getDbFn ?? getDb;
+  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+
   try {
-    const authResult = await requireAuthenticatedUser(request);
+    const authResult = await requireAuth(request);
     if (authResult instanceof Response) {
       return authResult;
     }
@@ -105,7 +118,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([]);
     }
 
-    const db = getDb();
+    const db = getDbForRoute();
 
     // Single JOIN replaces the previous 3 sequential queries.
     const userArticles = await db
@@ -139,13 +152,19 @@ export async function GET(request: NextRequest) {
       })),
     );
   } catch (error) {
-    return logAndRespondError("Articles GET error", error);
+    return respondError("Articles GET error", error);
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
+  const requireMutableAuth =
+    deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+  const isAllowedFeedUrlForRoute = deps.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
+  const getDbForRoute = deps.getDbFn ?? getDb;
+  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+
   try {
-    const user = await requireMutableAuthenticatedUser(request);
+    const user = await requireMutableAuth(request);
     if (user instanceof Response) {
       return user;
     }
@@ -163,7 +182,7 @@ export async function POST(request: NextRequest) {
     const payload = parsedPayload;
 
     // SSRF guard — reject links that resolve to private/internal addresses.
-    if (!(await isAllowedFeedUrl(payload.link))) {
+    if (!(await isAllowedFeedUrlForRoute(payload.link))) {
       return jsonError("Article link must resolve to a public host", 400);
     }
 
@@ -173,7 +192,7 @@ export async function POST(request: NextRequest) {
     const title = sanitizeArticleTitle(payload.rawTitle);
     const content = sanitizeAndTruncateArticleContent(payload.rawContent);
 
-    const db = getDb();
+    const db = getDbForRoute();
 
     const [ownedFeed] = await db
       .select({ id: feeds.id })
@@ -206,6 +225,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newArticle);
   } catch (error) {
-    return logAndRespondError("Articles POST error", error);
+    return respondError("Articles POST error", error);
   }
 }
