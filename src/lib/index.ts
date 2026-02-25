@@ -10,7 +10,7 @@ export { useLocalStorage } from "@/hooks/useLocalStorage";
 export { useSessionState } from "@/hooks/useSessionState";
 
 // API clients
-export { ArticleService, AuthService, FeedService } from "./api/services";
+export { ArticleService, AuthService, FeedService } from "./api/service";
 
 // Shared utilities
 export {
@@ -22,11 +22,11 @@ export {
   normalizeCategoryLabelKey,
   removeCategoryLabel,
   replaceCategoryLabel,
-  toCategoryLabelOrDefault,
-  toOptionalCategoryLabel,
+  toCategoryLabelOrDefault
 } from "./utils/categories";
 export { formatRelativeDate } from "./utils/date-utils";
 export { parseOpmlFeedImport } from "./utils/opml";
 export type { OpmlFeedImportEntry } from "./utils/opml";
 export { isValidUrl } from "./utils/url";
 export { isSafePositiveItemId } from "./utils/validation";
+
