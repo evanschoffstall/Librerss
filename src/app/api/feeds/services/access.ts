@@ -1,8 +1,8 @@
-import { jsonError } from "@/lib/api/responses";
 import {
   type AuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/api/request-guards";
+import { jsonError } from "@/lib/api/responses";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { NextRequest } from "next/server";
 
@@ -20,7 +20,12 @@ export async function requireMutableFeedAccess(
   },
 ): Promise<AuthenticatedUser | Response> {
   const user = await requireMutableAuthenticatedUser(request, {
-    rateLimit: options?.rateLimit,
+    rateLimit: options?.rateLimit
+      ? {
+          ...options.rateLimit,
+          scope: "user",
+        }
+      : undefined,
   });
   if (user instanceof Response) {
     return user;
