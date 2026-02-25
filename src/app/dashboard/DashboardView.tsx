@@ -268,49 +268,51 @@ export const DashboardView = ({
           </div>
         </aside>
 
-        <section ref={feedScrollRef} className="min-h-0 flex-1 overflow-auto lg:min-w-0">
-          <div className="sticky top-0 z-30 mx-auto flex w-full max-w-3xl flex-shrink-0 items-center gap-2 border-b border-border/60 bg-background/80 px-1 py-2 backdrop-blur-sm lg:max-w-none lg:px-3">
-            {ARTICLE_FILTER_OPTIONS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setArticleFilter(value)}
-                className={`rounded-md px-2 py-0.5 text-xs capitalize transition-colors ${articleFilter === value
-                  ? "bg-muted/70 text-foreground"
-                  : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
-                  }`}
+        <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
+          <ScrollArea ref={feedScrollRef} className="h-full">
+            <div className="sticky top-0 z-30 mx-auto flex w-full max-w-3xl flex-shrink-0 items-center gap-2 border-b border-border/60 bg-background/80 px-1 py-2 backdrop-blur-sm lg:max-w-none lg:px-3">
+              {ARTICLE_FILTER_OPTIONS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setArticleFilter(value)}
+                  className={`rounded-md px-2 py-0.5 text-xs capitalize transition-colors ${articleFilter === value
+                    ? "bg-muted/70 text-foreground"
+                    : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground"
+                    }`}
+                >
+                  {value}
+                </button>
+              ))}
+
+              <span
+                className="ml-auto whitespace-nowrap text-right text-[11px] text-muted-foreground/70"
+                aria-live="polite"
               >
-                {value}
-              </button>
-            ))}
+                Last refreshed: {lastRefreshLabel}
+              </span>
+            </div>
 
-            <span
-              className="ml-auto whitespace-nowrap text-right text-[11px] text-muted-foreground/70"
-              aria-live="polite"
-            >
-              Last refreshed: {lastRefreshLabel}
-            </span>
-          </div>
-
-          <div>
-            <FeedList
-              loading={loading}
-              filteredFeed={filteredFeed}
-              visibleCount={visibleCount}
-              expandedArticleKey={expandedArticleKey}
-              hydratedArticleLinks={articleActions.hydratedArticleLinks}
-              hydratingArticleLinks={articleActions.hydratingArticleLinks}
-              updatingArticleState={articleActions.updatingArticleState}
-              showFavicons={showFavicons}
-              searchTerm={searchTerm}
-              sentinelRef={sentinelRef}
-              onToggle={(article) => void articleActions.handleArticleToggle(article)}
-              onToggleRead={(article) => void articleActions.handleToggleReadState(article)}
-              onToggleStarred={(article) => void articleActions.handleToggleStarredState(article)}
-              onClearSearch={() => setSearchTerm("")}
-              onRefresh={refreshFeedList}
-            />
-          </div>
+            <div>
+              <FeedList
+                loading={loading}
+                filteredFeed={filteredFeed}
+                visibleCount={visibleCount}
+                expandedArticleKey={expandedArticleKey}
+                hydratedArticleLinks={articleActions.hydratedArticleLinks}
+                hydratingArticleLinks={articleActions.hydratingArticleLinks}
+                updatingArticleState={articleActions.updatingArticleState}
+                showFavicons={showFavicons}
+                searchTerm={searchTerm}
+                sentinelRef={sentinelRef}
+                onToggle={(article) => void articleActions.handleArticleToggle(article)}
+                onToggleRead={(article) => void articleActions.handleToggleReadState(article)}
+                onToggleStarred={(article) => void articleActions.handleToggleStarredState(article)}
+                onClearSearch={() => setSearchTerm("")}
+                onRefresh={refreshFeedList}
+              />
+            </div>
+          </ScrollArea>
         </section>
       </div>
 
