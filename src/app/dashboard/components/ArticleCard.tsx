@@ -266,9 +266,9 @@ export const ArticleCard = ({
         : "border-border bg-white/70"
         } ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 z-0 transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
-        <div className={`absolute inset-0 z-10 bg-gradient-to-br transition duration-1000 ${isDark
+      <div className="pointer-events-none absolute inset-0 rounded-xl">
+        <div className="absolute inset-0 z-0 rounded-xl transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
+        <div className={`absolute inset-0 z-10 rounded-xl bg-gradient-to-br transition duration-1000 ${isDark
           ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
           : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
           } ${isCardHovered ? "opacity-100" : "opacity-0"}`} />
