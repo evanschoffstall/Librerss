@@ -9,9 +9,12 @@ import {
 } from "@/lib";
 import { toast } from "sonner";
 import {
-  flattenCategoryFeeds,
-  relocateFeedInCategories,
-} from "../../services/category-tree";
+  findFeedNodeByKey,
+  findFeedNodeByUrl,
+  getAllFeedNodes,
+  getFirstFeedNode,
+} from "../../services/category-feeds";
+import { relocateFeedInCategories } from "../../services/category-tree";
 
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],
@@ -19,9 +22,7 @@ export function selectFeedByKeyFromCategories(
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>,
   fetchFeed: (url: string) => Promise<void>,
 ) {
-  const sourceNode = flattenCategoryFeeds(categories).find(
-    (item) => item.key === feedKey,
-  );
+  const sourceNode = findFeedNodeByKey(categories, feedKey);
   if (!sourceNode?.data?.url) return;
 
   setSelectedCategory(sourceNode.key);
@@ -60,9 +61,7 @@ export async function addFeedSourceAndRefresh({
       category: normalizeCategory(category),
     });
     const nextCategories = await loadFeedSources();
-    const latestNode = flattenCategoryFeeds(nextCategories).find(
-      (node) => node.data?.url === url.trim(),
-    );
+    const latestNode = findFeedNodeByUrl(nextCategories, url.trim());
 
     if (latestNode?.data?.url) {
       setSelectedCategory(latestNode.key);
@@ -97,9 +96,7 @@ export async function removeFeedSourceAndRefresh({
   fetchFeed: (url: string) => Promise<void>;
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
 }) {
-  const selectedNode = flattenCategoryFeeds(categories).find(
-    (node) => node.key === key,
-  );
+  const selectedNode = findFeedNodeByKey(categories, key);
   const sourceId = selectedNode?.data?.sourceId;
 
   if (!isSafePositiveItemId(sourceId)) return;
@@ -108,9 +105,10 @@ export async function removeFeedSourceAndRefresh({
   try {
     await FeedService.deleteFeedSource(validSourceId);
     const nextCategories = await loadFeedSources();
-    const nextAvailable = flattenCategoryFeeds(nextCategories);
-    const selectedFeedNode = nextAvailable.find(
-      (node) => node.key === selectedCategory,
+    const nextAvailable = getAllFeedNodes(nextCategories);
+    const selectedFeedNode = findFeedNodeByKey(
+      nextCategories,
+      selectedCategory,
     );
     const selectedCategoryNode = nextCategories.find(
       (node) => node.key === selectedCategory,
@@ -128,7 +126,10 @@ export async function removeFeedSourceAndRefresh({
     } else if (selectedCategoryNode) {
       await fetchCategoryFeeds(selectedCategoryNode);
     } else {
-      const fallback = nextAvailable[0];
+      const fallback = getFirstFeedNode(nextCategories);
+      if (!fallback) {
+        return;
+      }
       setSelectedCategory(fallback.key);
       if (fallback.data?.url) await fetchFeed(fallback.data.url);
     }
@@ -153,9 +154,7 @@ export async function renameFeedSourceAndRefresh({
   nextUrl: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
 }): Promise<boolean> {
-  const selectedNode = flattenCategoryFeeds(categories).find(
-    (node) => node.key === key,
-  );
+  const selectedNode = findFeedNodeByKey(categories, key);
   const sourceId = selectedNode?.data?.sourceId;
   const normalizedName = nextName.trim();
   const normalizedUrl = nextUrl.trim();
@@ -215,9 +214,7 @@ export async function moveFeedByDropAndPersist({
   const sourceCategoryNode = categories.find((cat) =>
     (cat.children ?? []).some((node) => node.key === key),
   );
-  const sourceNode = flattenCategoryFeeds(categories).find(
-    (node) => node.key === key,
-  );
+  const sourceNode = findFeedNodeByKey(categories, key);
 
   if (!sourceCategoryNode || !sourceNode) return;
 

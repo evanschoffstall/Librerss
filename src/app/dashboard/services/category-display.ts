@@ -1,4 +1,8 @@
 import { normalizeCategoryLabelKey, type CategoryTreeNode } from "@/lib";
+import {
+  collectKnownCategoryLabels,
+  toDistinctCategoryLabels,
+} from "./category-labels";
 import { toCategoryKey } from "./category-tree";
 
 export function buildDisplayCategories(
@@ -32,26 +36,9 @@ export function computeNextOrderedCategoryLabels(
   customCategoryLabels: string[],
   currentLabels: string[],
 ): string[] {
-  const seen = new Set<string>();
-  const uniqueLabels: string[] = [];
-
-  for (const label of [
-    ...categories.map((node) => node.label),
-    ...customCategoryLabels.filter(
-      (label) =>
-        !categories.some(
-          (node) =>
-            normalizeCategoryLabelKey(node.label) ===
-            normalizeCategoryLabelKey(label),
-        ),
-    ),
-  ]) {
-    const key = normalizeCategoryLabelKey(label);
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueLabels.push(label);
-    }
-  }
+  const uniqueLabels = toDistinctCategoryLabels(
+    collectKnownCategoryLabels(categories, customCategoryLabels),
+  );
 
   const existingKeys = new Set(uniqueLabels.map(normalizeCategoryLabelKey));
   const preserved = currentLabels.filter((label) =>

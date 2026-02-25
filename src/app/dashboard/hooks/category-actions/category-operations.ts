@@ -10,25 +10,11 @@ import {
 } from "@/lib";
 import { toast } from "sonner";
 import {
-  flattenCategoryFeeds,
-  toCategoryKey,
-} from "../../services/category-tree";
-
-function collectKnownCategoryLabels(
-  categories: CategoryTreeNode[],
-  customCategoryLabels: string[],
-): string[] {
-  return [...categories.map((node) => node.label), ...customCategoryLabels];
-}
-
-function getSelectedSourceUrl(
-  categories: CategoryTreeNode[],
-  selectedCategoryKey: string,
-): string | undefined {
-  return flattenCategoryFeeds(categories).find(
-    (node) => node.key === selectedCategoryKey,
-  )?.data?.url;
-}
+  findFeedNodeByUrl,
+  getFeedUrlBySelectedKey,
+} from "../../services/category-feeds";
+import { collectKnownCategoryLabels } from "../../services/category-labels";
+import { toCategoryKey } from "../../services/category-tree";
 
 function updateCategoryLabelCollections(
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>,
@@ -74,8 +60,9 @@ function restoreSelectedCategoryFromSourceUrl({
     return;
   }
 
-  const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
-    (node) => node.data?.url === selectedSourceUrl,
+  const selectedNode = findFeedNodeByUrl(
+    refreshedCategories,
+    selectedSourceUrl,
   );
 
   if (selectedNode) {
@@ -100,11 +87,9 @@ export function addCategoryLabel({
     return false;
   }
 
-  const existing = new Set(
-    collectKnownCategoryLabels(categories, customCategoryLabels),
-  );
+  const existing = collectKnownCategoryLabels(categories, customCategoryLabels);
 
-  if (includesCategoryLabel(Array.from(existing), normalized)) {
+  if (includesCategoryLabel(existing, normalized)) {
     toast.error("Category already exists.");
     return false;
   }
@@ -216,18 +201,19 @@ export async function renameCategoryAndRefresh({
     return false;
   }
 
-  const allLabels = new Set(
-    collectKnownCategoryLabels(categories, customCategoryLabels),
+  const allLabels = collectKnownCategoryLabels(
+    categories,
+    customCategoryLabels,
   );
 
-  if (includesCategoryLabel(Array.from(allLabels), normalizedNext)) {
+  if (includesCategoryLabel(allLabels, normalizedNext)) {
     toast.error("Category already exists.");
     return false;
   }
 
   const categoryNode = findCategoryByLabel(categories, normalizedCurrent);
   const feedsInCategory = categoryNode?.children ?? [];
-  const previousSelectedSourceUrl = getSelectedSourceUrl(
+  const previousSelectedSourceUrl = getFeedUrlBySelectedKey(
     categories,
     selectedCategory,
   );
@@ -364,7 +350,7 @@ export async function removeCategoryAndRefresh({
   try {
     await assignFeedsToCategory(feedsInCategory, targetCategory);
     const refreshedCategories = await loadFeedSources();
-    const previousSelectedSourceUrl = getSelectedSourceUrl(
+    const previousSelectedSourceUrl = getFeedUrlBySelectedKey(
       categories,
       selectedCategory,
     );
