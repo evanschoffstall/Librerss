@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import {
   flattenCategoryFeeds,
   toCategoryKey,
-} from "../../helpers/category-helpers";
+} from "../../services/category-tree";
 
 export function addCategoryLabel({
   label,

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   dedupeAndSortArticles,
   getArticleKey,
-} from "../helpers/article-helpers";
+} from "../services/article-collection";
 import {
   FEED_LOADING_FAILSAFE_MS,
   type FeedBatchSource,
@@ -17,13 +17,13 @@ import {
   mapBatchResultsToArticles,
   mapFeedNodesToBatchSources,
   normalizeFeedBatchSources,
-} from "../helpers/batch-helpers";
+} from "../services/feed-batch";
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
   flattenCategoryFeeds,
-} from "../helpers/category-helpers";
-import type { FeedFetchOptions } from "../helpers/selection";
+} from "../services/category-tree";
+import type { FeedFetchOptions } from "../services/selection";
 
 interface UseFeedLoaderOptions {
   usePlaceholderData: boolean;

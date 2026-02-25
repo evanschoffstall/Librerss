@@ -1,5 +1,5 @@
 /**
- * Pure-function tests for src/app/dashboard/helpers/favicons.ts
+ * Pure-function tests for src/app/dashboard/services/favicons.ts
  * Covers: getHostnameLabel, getFaviconCacheKey, getMergedFaviconCandidates,
  *         getFaviconTintColors, getFaviconUrl, setCachedFaviconIndex,
  *         getCachedFaviconIndex
@@ -11,7 +11,7 @@ import {
   getFaviconUrl,
   getHostnameLabel,
   getMergedFaviconCandidates,
-} from "@/app/dashboard/helpers/favicons";
+} from "@/app/dashboard/services/favicons";
 import { describe, expect, test } from "bun:test";
 describe("favicons – getHostnameLabel", () => {
   test("strips www. prefix", () => {

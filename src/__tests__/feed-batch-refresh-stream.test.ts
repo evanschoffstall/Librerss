@@ -14,17 +14,17 @@ import {
   TAG_MUTATIONS,
   USER_LABEL_PREFIX,
 } from "@/app/api/greader.php/[...segments]/constants";
-import { resolveCategoryWithFallback } from "@/app/api/greader.php/[...segments]/utils/categories";
+import { resolveCategoryWithFallback } from "@/app/api/greader.php/[...segments]/services/categories";
 import {
   mapArticleAsItem,
   toReaderIconUrl,
-} from "@/app/api/greader.php/[...segments]/utils/mappers";
-import { parseDistinctReaderArticleIds } from "@/app/api/greader.php/[...segments]/utils/reader-item-params";
+} from "@/app/api/greader.php/[...segments]/services/mappers";
+import { parseDistinctReaderArticleIds } from "@/app/api/greader.php/[...segments]/services/reader-item-params";
 import { parseUserLabel } from "@/lib/core/stream-ids";
 import {
   notFoundResponse,
   textResponse,
-} from "@/app/api/greader.php/[...segments]/utils/responses";
+} from "@/app/api/greader.php/[...segments]/services/responses";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { toCategoryLookupKey } from "@/lib/utils/url";
 import { describe, expect, test } from "bun:test";

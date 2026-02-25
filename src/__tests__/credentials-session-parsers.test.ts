@@ -9,8 +9,8 @@ import {
   parseCreateFeedPayload,
   parseDeleteSourceId,
   parseRenameFeedPayload,
-} from "@/app/api/feeds/feed-parsers";
-import { toFeedSourceResponse } from "@/app/api/feeds/feed-repository";
+} from "@/app/api/feeds/services/parsers";
+import { toFeedSourceResponse } from "@/app/api/feeds/services/repository";
 import {
   toggleReadStatus,
   toggleStarredStatus,

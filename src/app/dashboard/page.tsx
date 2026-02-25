@@ -2,7 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
-import { DashboardRouter } from "./dashboard-router";
+import { DashboardRouter } from "./DashboardRouter";
 
 export default function Dashboard() {
   return (

@@ -3,7 +3,7 @@
  * Tests for src/lib/core/feed-fetcher.ts
  */
 
-import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-helpers";
+import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import {
   fetchAndCacheFeedArticles,
   fetchAndCacheFeedArticlesBatch,
@@ -29,7 +29,7 @@ import {
 afterAll(() => {
   mock.module("@/lib/db/db", () => realDbModule);
   mock.module(
-    "@/lib/core/feed-batch-helpers",
+    "@/lib/core/feed-batch-pipeline",
     () => realFeedBatchHelpersModule,
   );
   mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
@@ -92,7 +92,7 @@ function registerModuleMocks() {
     }),
   }));
 
-  mock.module("@/lib/core/feed-batch-helpers", () => ({
+  mock.module("@/lib/core/feed-batch-pipeline", () => ({
     resolveAuthorizedFeedRecords: mock(async () => ({
       allowedUrls: ["https://example.com/feed"],
       feedByUrl: new Map([
@@ -247,7 +247,7 @@ describe("Feed Fetcher - Batch Operations", () => {
   });
 
   test("fetchAndCacheFeedArticlesBatch handles multiple feeds", async () => {
-    mock.module("@/lib/core/feed-batch-helpers", () => ({
+    mock.module("@/lib/core/feed-batch-pipeline", () => ({
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed1", "https://example.com/feed2"],
         feedByUrl: new Map([
@@ -290,7 +290,7 @@ describe("Feed Fetcher - Batch Operations", () => {
   });
 
   test("fetchAndCacheFeedArticlesBatch handles unauthorized feeds", async () => {
-    mock.module("@/lib/core/feed-batch-helpers", () => ({
+    mock.module("@/lib/core/feed-batch-pipeline", () => ({
       resolveAuthorizedFeedRecords: mock(async () => null),
       buildRefreshPlan: mock(() => ({ toRefresh: [], fromCache: [] })),
       executeParallelRefreshes: mock(async () => ({
@@ -310,7 +310,7 @@ describe("Feed Fetcher - Batch Operations", () => {
   });
 
   test("fetchAndCacheFeedArticlesBatch handles upstream errors", async () => {
-    mock.module("@/lib/core/feed-batch-helpers", () => ({
+    mock.module("@/lib/core/feed-batch-pipeline", () => ({
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
         feedByUrl: new Map([
@@ -340,7 +340,7 @@ describe("Feed Fetcher - Batch Operations", () => {
   });
 
   test("fetchAndCacheFeedArticlesBatch handles feeds without records", async () => {
-    mock.module("@/lib/core/feed-batch-helpers", () => ({
+    mock.module("@/lib/core/feed-batch-pipeline", () => ({
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
         feedByUrl: new Map(),

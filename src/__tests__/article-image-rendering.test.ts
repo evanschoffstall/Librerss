@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getRichContentClass } from "../app/dashboard/helpers/article-content";
+import { getRichContentClass } from "../app/dashboard/services/article-content";
 
 describe("Article Image Rendering", () => {
   test("should include image styling in rich content classes", () => {

@@ -74,7 +74,7 @@ describe("core/feed-parser", () => {
 describe("db helpers and transactions", () => {
   test("sanitizes db error messages and classifies SQL codes", async () => {
     const { sanitizeDbError, isUniqueConstraintError, isForeignKeyError } =
-      await import("@/lib/db/helpers");
+      await import("@/lib/db/db-errors");
 
     const sanitized = sanitizeDbError(
       new Error("connect failed password=supersecret"),

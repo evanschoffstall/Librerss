@@ -3,7 +3,7 @@
  */
 
 import { type Article, type CategoryTreeNode } from "@/lib";
-import { dedupeAndSortArticles } from "./article-helpers";
+import { dedupeAndSortArticles } from "./article-collection";
 
 export interface FeedBatchSource {
   url: string;

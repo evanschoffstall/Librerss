@@ -4,7 +4,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
-import { createMockRequest } from "./helpers/test-utils";
+import { createMockRequest } from "./support/test-utils";
 
 function registerModuleMocks() {
   mock.module("@/lib/db/db", () => ({

@@ -3,7 +3,7 @@ import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { CONFIG } from "@/lib/config";
 import {
   isAllowedFeedUrl,

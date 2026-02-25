@@ -151,8 +151,7 @@ console.log(
   `${colorize("PASS", ANSI.bold, ANSI.green)} ${colorize("Passed", ANSI.bold)} (${passed.length})`,
 );
 console.log(formatStatus("Failed", failed.length, ANSI.red, "none"));
-if (failed.length === 0) {
-} else {
+if (failed.length > 0) {
   for (const result of failed) {
     const message = result.message ? ` [${result.message}]` : "";
     console.log(
@@ -162,8 +161,7 @@ if (failed.length === 0) {
 }
 
 console.log(formatStatus("Skipped", skipped.length, ANSI.yellow, "none"));
-if (skipped.length === 0) {
-} else {
+if (skipped.length > 0) {
   for (const result of skipped) {
     console.log(
       `  ${colorize("•", ANSI.yellow)} ${colorize(formatLocation(result), ANSI.yellow)}`,

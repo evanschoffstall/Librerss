@@ -4,7 +4,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
-import { createMockArticle, createMockRequest } from "./helpers/test-utils";
+import { createMockArticle, createMockRequest } from "./support/test-utils";
 
 const mockState = {
   selectResult: [createMockArticle()],
@@ -37,7 +37,7 @@ function registerModuleMocks() {
     }),
   }));
 
-  mock.module("@/lib/api/route-helpers", () => ({
+  mock.module("@/lib/api/request-guards", () => ({
     requireAuthenticatedUser: async () => ({
       userId: 1,
       email: "test@example.com",

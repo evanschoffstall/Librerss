@@ -2,7 +2,7 @@ import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { CONFIG } from "@/lib/config";
 import {
   isFeedSourceNotFoundError,
@@ -13,20 +13,20 @@ import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
-import { requireMutableFeedAccess } from "./feed-access";
-import { handleFeedRead } from "./feed-get";
+import { requireMutableFeedAccess } from "./services/access";
+import { handleFeedRead } from "./services/read";
 import {
   assertAllowedFeedUrl,
   getRequestedFeedUrl,
   parseCreateFeedPayload,
   parseDeleteSourceId,
   parseRenameFeedPayload,
-} from "./feed-parsers";
+} from "./services/parsers";
 import {
   createOrUpdateFeedSource,
   deleteFeedSourceForUser,
   renameFeedSourceForUser,
-} from "./feed-repository";
+} from "./services/repository";
 
 export const dynamic = "force-dynamic";
 

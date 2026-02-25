@@ -9,7 +9,7 @@ import {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";

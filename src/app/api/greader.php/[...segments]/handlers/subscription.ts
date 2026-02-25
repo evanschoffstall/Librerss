@@ -21,9 +21,9 @@ import {
 import {
   maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
-} from "../utils/categories";
-import { toReaderIconUrl } from "../utils/mappers";
-import { textResponse } from "../utils/responses";
+} from "../services/categories";
+import { toReaderIconUrl } from "../services/mappers";
+import { textResponse } from "../services/responses";
 
 export async function handleSubscriptionList(
   user: SessionUser,

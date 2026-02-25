@@ -1,7 +1,7 @@
 import { type CategoryTreeNode } from "@/lib";
 import { getUrlHostnameLabel } from "@/lib/utils/url";
 import { Globe } from "lucide-react";
-import { setCachedFaviconIndex } from "../../helpers/favicons";
+import { setCachedFaviconIndex } from "../../services/favicons";
 import { useFavicon } from "../../hooks/useFavicon";
 
 interface FeedCategoryProps {

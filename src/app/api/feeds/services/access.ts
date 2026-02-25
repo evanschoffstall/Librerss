@@ -2,7 +2,7 @@ import { jsonError } from "@/lib/api/responses";
 import {
   type AuthenticatedUser,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { NextRequest } from "next/server";
 

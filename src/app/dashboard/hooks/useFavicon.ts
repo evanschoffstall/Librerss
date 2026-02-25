@@ -11,7 +11,7 @@ import {
   getFaviconCacheKey,
   getFaviconTintColors,
   getMergedFaviconCandidates,
-} from "../helpers/favicons";
+} from "../services/favicons";
 
 interface UseFaviconOptions {
   /** Primary URL (e.g. feedUrl). */

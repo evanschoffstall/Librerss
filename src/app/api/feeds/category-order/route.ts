@@ -3,12 +3,12 @@ import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { getDb } from "@/lib/db/db";
 import { categoryOrders } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { requireMutableFeedAccess } from "../feed-access";
+import { requireMutableFeedAccess } from "../services/access";
 
 export async function GET(request: NextRequest) {
   try {

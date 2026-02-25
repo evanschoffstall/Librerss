@@ -16,8 +16,8 @@ import {
 import {
   maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
-} from "../utils/categories";
-import { textResponse } from "../utils/responses";
+} from "../services/categories";
+import { textResponse } from "../services/responses";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const db = getDb();

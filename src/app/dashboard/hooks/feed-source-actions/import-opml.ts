@@ -6,7 +6,7 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { toast } from "sonner";
-import { flattenCategoryFeeds } from "../../helpers/category-helpers";
+import { flattenCategoryFeeds } from "../../services/category-tree";
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 

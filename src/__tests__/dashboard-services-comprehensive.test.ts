@@ -38,7 +38,7 @@ const makeArticle = (overrides: Partial<ArticleLike> = {}): ArticleLike => ({
 describe("dashboard article helpers comprehensive", () => {
   test("dedupeAndSortArticles drops empty links and prefers longer content", async () => {
     const { dedupeAndSortArticles, getArticleKey } =
-      await import("@/app/dashboard/helpers/article-helpers");
+      await import("@/app/dashboard/services/article-collection");
 
     const a1 = makeArticle({
       id: 1,
@@ -69,7 +69,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("dedupeAndSortArticles uses newer publicationDate as tiebreaker", async () => {
     const { dedupeAndSortArticles } =
-      await import("@/app/dashboard/helpers/article-helpers");
+      await import("@/app/dashboard/services/article-collection");
 
     const older = makeArticle({
       id: 5,
@@ -91,7 +91,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("buildPreview handles overflow and non-overflow content", async () => {
     const { buildPreview } =
-      await import("@/app/dashboard/helpers/article-content");
+      await import("@/app/dashboard/services/article-content");
 
     const short = buildPreview("small");
     expect(short.preview).toBe("small");
@@ -111,7 +111,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("getArticleSourceLabel prioritizes feedName then hostname fallback", async () => {
     const { getArticleSourceLabel, getUrlHostnameLabel } =
-      await import("@/app/dashboard/helpers/article-content");
+      await import("@/app/dashboard/services/article-content");
 
     const named = makeArticle({
       feedName: "My Feed",
@@ -139,7 +139,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("getRichContentClass returns expanded and collapsed variants", async () => {
     const { getRichContentClass } =
-      await import("@/app/dashboard/helpers/article-content");
+      await import("@/app/dashboard/services/article-content");
 
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
@@ -152,7 +152,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles keeps article feedName when source name missing", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/helpers/batch-helpers");
+      await import("@/app/dashboard/services/feed-batch");
 
     const result = mapBatchResultsToArticles(
       [
@@ -178,7 +178,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles does not set feedName to feed URL", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/helpers/batch-helpers");
+      await import("@/app/dashboard/services/feed-batch");
 
     const result = mapBatchResultsToArticles(
       [
@@ -207,7 +207,7 @@ describe("dashboard article helpers comprehensive", () => {
 describe("dashboard favicons comprehensive", () => {
   test("getFaviconCacheKey picks first valid hostname from candidates", async () => {
     const { getFaviconCacheKey } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     expect(
       getFaviconCacheKey(
@@ -238,7 +238,7 @@ describe("dashboard favicons comprehensive", () => {
     );
 
     const { getCachedFaviconIndex } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     expect(getCachedFaviconIndex("ok.example.com")).toBe(4);
     expect(getCachedFaviconIndex("legacy-number.example.com")).toBe(2);
@@ -249,7 +249,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("cache index set/get works for success and failure entries", async () => {
     const { getCachedFaviconIndex, setCachedFaviconIndex } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     expect(getCachedFaviconIndex("example.com")).toBe(0);
 
@@ -265,7 +265,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("cache trimming keeps storage bounded after many inserts", async () => {
     const { getCachedFaviconIndex, setCachedFaviconIndex } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     for (let index = 0; index < 430; index += 1) {
       setCachedFaviconIndex(`bulk-${index}.example.com`, index % 3);
@@ -294,7 +294,7 @@ describe("dashboard favicons comprehensive", () => {
     );
 
     const { getCachedFaviconIndex } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     const ok = getCachedFaviconIndex("ok.example.com");
     const legacy = getCachedFaviconIndex("legacy.example.com");
@@ -307,7 +307,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("merged favicon candidates include provider and direct icon URLs", async () => {
     const { getMergedFaviconCandidates, getFaviconUrl, getHostnameLabel } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     const candidates = getMergedFaviconCandidates(
       "https://sub.blog.example.com/path",
@@ -336,7 +336,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("favicon tint colors are deterministic and include default fallback", async () => {
     const { getFaviconTintColors } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
 
     const a = getFaviconTintColors("https://example.com/a");
     const b = getFaviconTintColors("https://example.com/a");

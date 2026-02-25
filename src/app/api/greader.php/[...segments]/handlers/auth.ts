@@ -19,7 +19,7 @@ import { CONFIG } from "@/lib/config";
 import { rateLimiter } from "@/lib/utils/rate-limit";
 import { NextRequest } from "next/server";
 import { GOOGLE_LOGIN_PREFIX } from "../constants";
-import { textResponse } from "../utils/responses";
+import { textResponse } from "../services/responses";
 
 type ClientLoginPayload = {
   email: string;

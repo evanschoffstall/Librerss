@@ -4,17 +4,17 @@
  * All tested via real imports — no module mocking.
  */
 
-import { resolveCategoryWithFallback } from "@/app/api/greader.php/[...segments]/utils/categories";
+import { resolveCategoryWithFallback } from "@/app/api/greader.php/[...segments]/services/categories";
 import {
   mapArticleAsItem,
   toReaderIconUrl,
-} from "@/app/api/greader.php/[...segments]/utils/mappers";
+} from "@/app/api/greader.php/[...segments]/services/mappers";
 import {
   parseOlderThanDate,
   parseStreamId,
   parseStreamPaging,
   shouldExcludeReadFromStream,
-} from "@/app/api/greader.php/[...segments]/utils/stream";
+} from "@/app/api/greader.php/[...segments]/services/stream";
 import {
   parseReaderStreamItems,
   readerItemToArticle,

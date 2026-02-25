@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import {
   flattenCategoryFeeds,
   relocateFeedInCategories,
-} from "../../helpers/category-helpers";
+} from "../../services/category-tree";
 
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],
@@ -103,9 +103,10 @@ export async function removeFeedSourceAndRefresh({
   const sourceId = selectedNode?.data?.sourceId;
 
   if (!isSafePositiveItemId(sourceId)) return;
+  const validSourceId = sourceId;
 
   try {
-    await FeedService.deleteFeedSource(sourceId);
+    await FeedService.deleteFeedSource(validSourceId);
     const nextCategories = await loadFeedSources();
     const nextAvailable = flattenCategoryFeeds(nextCategories);
     const selectedFeedNode = nextAvailable.find(
@@ -173,9 +174,14 @@ export async function renameFeedSourceAndRefresh({
     toast.error("Unable to rename this feed.");
     return false;
   }
+  const validSourceId = sourceId;
 
   try {
-    await FeedService.renameFeedSource(sourceId, normalizedName, normalizedUrl);
+    await FeedService.renameFeedSource(
+      validSourceId,
+      normalizedName,
+      normalizedUrl,
+    );
     await loadFeedSources();
     toast.success("Feed source updated.");
     return true;

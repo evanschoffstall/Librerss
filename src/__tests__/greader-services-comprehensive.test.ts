@@ -8,10 +8,10 @@ afterEach(() => {
   mock.restore();
 });
 
-describe("greader utils/stream", () => {
+describe("greader services/stream", () => {
   test("parseStreamPaging handles default, netnewswire, offset, and continuation id", async () => {
     const { parseStreamPaging } =
-      await import("@/app/api/greader.php/[...segments]/utils/stream");
+      await import("@/app/api/greader.php/[...segments]/services/stream");
 
     const defaultPaging = parseStreamPaging(new URLSearchParams(), "Mozilla");
     expect(defaultPaging.limit).toBeGreaterThan(0);
@@ -51,7 +51,7 @@ describe("greader utils/stream", () => {
 
   test("parseStreamId, parseOlderThanDate, and shouldExcludeReadFromStream branches", async () => {
     const { parseStreamId, parseOlderThanDate, shouldExcludeReadFromStream } =
-      await import("@/app/api/greader.php/[...segments]/utils/stream");
+      await import("@/app/api/greader.php/[...segments]/services/stream");
     const { READ_STATE, READING_LIST_STREAM } =
       await import("@/app/api/greader.php/[...segments]/constants");
 
@@ -84,7 +84,7 @@ describe("greader utils/stream", () => {
 describe("greader utils/mappers", () => {
   test("toReaderIconUrl maps valid feed URL and rejects invalid values", async () => {
     const { toReaderIconUrl } =
-      await import("@/app/api/greader.php/[...segments]/utils/mappers");
+      await import("@/app/api/greader.php/[...segments]/services/mappers");
 
     expect(toReaderIconUrl("https://sub.example.com/feed.xml")).toContain(
       "domain=sub.example.com",
@@ -94,7 +94,7 @@ describe("greader utils/mappers", () => {
 
   test("mapArticleAsItem builds reader payload with category fallback and states", async () => {
     const { mapArticleAsItem } =
-      await import("@/app/api/greader.php/[...segments]/utils/mappers");
+      await import("@/app/api/greader.php/[...segments]/services/mappers");
     const {
       READ_STATE,
       STARRED_STATE,

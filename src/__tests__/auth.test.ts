@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { NextResponse } from "next/server";
-import { createMockRequest } from "./helpers/test-utils";
+import { createMockRequest } from "./support/test-utils";
 
 // ─── Session Management ───────────────────────────────────────────────────────
 

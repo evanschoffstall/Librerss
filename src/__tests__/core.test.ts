@@ -709,17 +709,17 @@ describe("feed-refresh", () => {
 
 // ─── Feed Batch Helpers ───────────────────────────────────────────────────────
 
-describe("feed-batch-helpers", () => {
+describe("feed-batch-pipeline", () => {
   const feedBatchHelpersPath = [
     "..",
     "lib",
     "core",
-    "feed-batch-helpers.ts?core-feed-batch",
+    "feed-batch-pipeline.ts?core-feed-batch",
   ].join("/");
 
   const importFeedBatchHelpers = () =>
     import(feedBatchHelpersPath) as Promise<
-      typeof import("../lib/core/feed-batch-helpers")
+      typeof import("../lib/core/feed-batch-pipeline")
     >;
 
   function createResolveDb(options: {

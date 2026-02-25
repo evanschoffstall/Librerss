@@ -3,7 +3,7 @@
  * Tests for src/app/api/feeds/feed-repository.ts
  */
 
-import type { FeedTransaction } from "@/app/api/feeds/feed-types";
+import type { FeedTransaction } from "@/app/api/feeds/types";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
@@ -18,7 +18,7 @@ import {
   test,
 } from "bun:test";
 
-const getFeedRepository = async () => import("@/app/api/feeds/feed-repository");
+const getFeedRepository = async () => import("@/app/api/feeds/services/repository");
 
 const toFeedSourceResponse = async (row: {
   id: number;

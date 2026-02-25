@@ -15,8 +15,8 @@ import {
   READING_LIST_STREAM,
   TAG_MUTATIONS,
 } from "../constants";
-import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
-import { textResponse } from "../utils/responses";
+import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
+import { textResponse } from "../services/responses";
 
 export async function handleMarkAllAsRead(
   user: SessionUser,

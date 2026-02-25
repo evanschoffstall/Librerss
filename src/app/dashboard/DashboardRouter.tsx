@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LoginView } from "./components/login/LoginView";
 import { DASHBOARD_EVENTS } from "./constants";
-import { DashboardView } from "./dashboard-view";
+import { DashboardView } from "./DashboardView";
 
 export function DashboardRouter() {
   const [isSessionLoading, setIsSessionLoading] = useState(true);

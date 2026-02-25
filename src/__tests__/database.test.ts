@@ -44,14 +44,14 @@ describe("schema", () => {
 
 describe("db-helpers", () => {
   test("sanitizeDbError removes sensitive info", async () => {
-    const { sanitizeDbError } = await import("@/lib/db/helpers");
+    const { sanitizeDbError } = await import("@/lib/db/db-errors");
     const error = new Error("connection failed: password=secret123");
     const sanitized = sanitizeDbError(error);
     expect(sanitized.message).not.toContain("secret123");
   });
 
   test("isUniqueConstraintError detects unique violations", async () => {
-    const { isUniqueConstraintError } = await import("@/lib/db/helpers");
+    const { isUniqueConstraintError } = await import("@/lib/db/db-errors");
     const uniqueError = { code: "23505" } as any;
     const otherError = { code: "23503" } as any;
 
@@ -60,7 +60,7 @@ describe("db-helpers", () => {
   });
 
   test("isForeignKeyError detects foreign key violations", async () => {
-    const { isForeignKeyError } = await import("@/lib/db/helpers");
+    const { isForeignKeyError } = await import("@/lib/db/db-errors");
     const fkError = { code: "23503" } as any;
     const otherError = { code: "23505" } as any;
 

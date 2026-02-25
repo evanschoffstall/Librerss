@@ -1,6 +1,6 @@
 import type { CategoryTreeNode } from "@/lib";
 import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL } from "../constants";
-import { flattenCategoryFeeds } from "./category-helpers";
+import { flattenCategoryFeeds } from "./category-tree";
 
 export type FeedFetchOptions = {
   forceRefresh?: boolean;

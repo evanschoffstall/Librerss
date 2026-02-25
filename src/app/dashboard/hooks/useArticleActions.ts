@@ -3,7 +3,7 @@
 import { ArticleService, type Article } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getArticleKey } from "../helpers/article-helpers";
+import { getArticleKey } from "../services/article-collection";
 import { escapeArticleKey, useArticleHydration } from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
 
