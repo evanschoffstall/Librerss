@@ -1,85 +1,162 @@
-# 📰 LibreRSS
+<div align="center">
 
-A free, open-source RSS reader for a calm, ad-free reading flow.
+<img src="public/favicon.svg" width="96" height="96" alt="LibreRSS logo" />
 
-## ✨ What it does
+<h1>LibreRSS</h1>
 
-- Subscribe to any RSS feed quickly
-- Organize feeds into categories
-- Read normalized, distraction-free articles
-- Manage everything from one dashboard
-- Connect NetNewsWire/FreshRSS-style clients via a greader-compatible API
+<p><strong>Your feeds. Your rules. Zero noise.</strong></p>
 
-## 🧱 Stack
+<p>A self-hosted, open-source RSS reader built for calm, focused reading —<br/>no ads, no algorithms, no distractions.</p>
 
-- Next.js 16 + React 19 + TypeScript
-- Tailwind CSS + shadcn/ui (Radix)
-- Drizzle ORM + PostgreSQL
-- Bun scripts
+<p>
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5" />
+  <img src="https://img.shields.io/badge/Bun-runtime-F9F1E1?style=flat-square&logo=bun&logoColor=black" alt="Bun" />
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License" />
+</p>
 
-## 🚀 Quick start
+<br/>
 
-1. Install dependencies
-
-   ```bash
-   bun install
-   ```
-
-2. Create `.env.local`
-
-   ```env
-   DATABASE_URL="postgres://user:password@host:5432/dbname"
-   ALLOW_SIGNUP="false"
-   NODE_ENV="development"
-   # TRUSTED_PROXY_COUNT=1
-   ```
-
-   - `ALLOW_SIGNUP`: set to `"false"` to disable public signup (existing users can still log in)
-   - `TRUSTED_PROXY_COUNT`: trusted reverse-proxy hops for `X-Forwarded-For` IP detection (default `1`)
-
-3. Provision the database
-
-   ```bash
-   bun run db:provision
-   ```
-
-   Verifies `DATABASE_URL`, checks the connection, and applies the schema.
-
-4. Start the development server
-
-   ```bash
-   bun dev
-   ```
-
-5. Open 🌐 http://localhost:3000
-
-   NetNewsWire/FreshRSS-style greader clients can use `http://localhost:3000/api/greader.php`.
+</div>
 
 ---
 
-## 🗄️ Database
+## ✨ &nbsp;What is LibreRSS?
 
-### ⚙️ Commands
+LibreRSS is a **beautiful, self-hosted RSS reader** you run on your own server. Subscribe to any feed, organize your sources into categories, and read clean distraction-free articles — all from one dashboard you control.
 
-| Command                | Description                                       |
-| ---------------------- | ------------------------------------------------- |
-| `bun run db:provision` | Validate connection and apply full schema         |
-| `bun run db:push`      | Push schema changes directly (no migration files) |
-| `bun run db:generate`  | Generate SQL migration files                      |
-| `bun run db:studio`    | Open Drizzle Studio                               |
+It also speaks the **GReader protocol**, so clients like **NetNewsWire**, **FreshRSS**, **Reeder**, and others connect natively.
 
 ---
 
-## 👤 User management
+## 🌟 &nbsp;Features
 
-### ➕ Create a user
+| | |
+|---|---|
+| 📡 &nbsp;**Universal RSS support** | Subscribe to any RSS or Atom feed |
+| 🗂️ &nbsp;**Category organization** | Group feeds however makes sense to you |
+| 🧘 &nbsp;**Distraction-free reading** | Clean article view, no clutter |
+| 🔗 &nbsp;**GReader API** | Works with NetNewsWire, Reeder, and more |
+| 🌙 &nbsp;**Dark & light mode** | Looks great either way |
+| 🔒 &nbsp;**Self-hosted** | Your data stays on your server |
+| 🚪 &nbsp;**Invite-only mode** | Disable public signup when you want |
+
+---
+
+## 🚀 &nbsp;Quick Start
+
+### 1 · Install dependencies
+
+```bash
+bun install
+```
+
+### 2 · Configure your environment
+
+Create `.env.local` at the project root:
+
+```env
+DATABASE_URL="postgres://user:password@host:5432/dbname"
+ALLOW_SIGNUP="false"
+NODE_ENV="development"
+# TRUSTED_PROXY_COUNT=1
+```
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `ALLOW_SIGNUP` | `"true"` to open public registration, `"false"` to restrict |
+| `TRUSTED_PROXY_COUNT` | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
+
+### 3 · Provision the database
+
+```bash
+bun run db:provision
+```
+
+Verifies your connection and applies the full schema in one shot.
+
+### 4 · Start the dev server
+
+```bash
+bun dev
+```
+
+Open **[http://localhost:3000](http://localhost:3000)** 🎉
+
+> **GReader clients** connect at `http://localhost:3000/api/greader.php`
+
+---
+
+## 🧱 &nbsp;Stack
+
+<table>
+  <tr>
+    <td><strong>⚡ Framework</strong></td>
+    <td>Next.js 16 · React 19 · TypeScript 5</td>
+  </tr>
+  <tr>
+    <td><strong>🎨 UI</strong></td>
+    <td>Tailwind CSS v4 · shadcn/ui · Radix UI · Lucide Icons</td>
+  </tr>
+  <tr>
+    <td><strong>🗄️ Database</strong></td>
+    <td>PostgreSQL · Drizzle ORM</td>
+  </tr>
+  <tr>
+    <td><strong>🏎️ Runtime</strong></td>
+    <td>Bun</td>
+  </tr>
+</table>
+
+---
+
+## 🗄️ &nbsp;Database Commands
+
+| Command | Description |
+|---|---|
+| `bun run db:provision` | ✅ &nbsp;Verify connection and apply full schema |
+| `bun run db:push` | ⬆️ &nbsp;Push schema changes directly (no migration files) |
+| `bun run db:generate` | 📄 &nbsp;Generate SQL migration files via Drizzle Kit |
+| `bun run db:studio` | 🔬 &nbsp;Open Drizzle Studio in the browser |
+
+---
+
+## 👤 &nbsp;User Management
+
+### Create a user
 
 ```bash
 bun run create-user <email> <password>
 ```
 
-Creates a user directly in the database. Password must be at least 8 characters.
+Inserts a user directly into the database. Minimum 8-character password. Ideal when public signup is disabled.
 
 ---
 
-Made with love by Evan Schoffstall ❤️
+## 🗂️ &nbsp;Project Structure
+
+```
+librerss/
+├── src/
+│   ├── app/
+│   │   ├── api/          # Feed, article, and GReader API routes
+│   │   ├── dashboard/    # Main reader UI
+│   │   └── landing/      # Marketing / login page
+│   └── lib/
+│       ├── db/           # Drizzle schema and database client
+│       └── api/          # Service layer
+├── scripts/              # CLI scripts (provision, create-user, check)
+└── public/               # Static assets
+```
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [Evan Schoffstall](https://github.com/evan-schoffstall)**
+
+*MIT License · Free forever · Self-host it*
+
+</div>
