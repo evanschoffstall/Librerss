@@ -338,14 +338,23 @@ describe("feed-parser", () => {
 // ─── Feed HTTP ────────────────────────────────────────────────────────────────
 
 describe("feed-http", () => {
-  test("fetchFeedXml validates URL, forwards request options, and validates redirects", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+  test("fetchFeedXml validates URL, forwards request options, and follows validated redirects", async () => {
+    const { fetchFeedXml } = await import("../lib/core/feed-http");
 
     const assertPublicFeedUrlFn = mock(async () => {});
     let requestOptions: any;
-    const axiosGetFn = mock(async (_url: string, options: unknown) => {
+    const axiosGetFn = mock(async (requestUrl: string, options: unknown) => {
       requestOptions = options;
-      return { data: "<rss />" };
+
+      if (requestUrl === "https://example.com/feed.xml") {
+        return {
+          status: 302,
+          headers: { location: "/redirected.xml" },
+          data: "",
+        };
+      }
+
+      return { status: 200, headers: {}, data: "<rss />" };
     });
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
@@ -357,33 +366,43 @@ describe("feed-http", () => {
     expect(assertPublicFeedUrlFn).toHaveBeenCalledWith(
       "https://example.com/feed.xml",
     );
-    expect(requestOptions.timeout).toBeGreaterThan(0);
-    expect(requestOptions.maxRedirects).toBe(5);
-
-    expect(() => requestOptions.beforeRedirect({})).toThrow(
-      "Redirect with no target URL",
+    expect(assertPublicFeedUrlFn).toHaveBeenCalledWith(
+      "https://example.com/redirected.xml",
     );
-    expect(() =>
-      requestOptions.beforeRedirect({ href: "ftp://example.com/feed.xml" }),
-    ).toThrow("Blocked redirect to non-HTTP protocol");
-    expect(() =>
-      requestOptions.beforeRedirect({
-        href: "https://user:pass@example.com/feed.xml",
+    expect(requestOptions.timeout).toBeGreaterThan(0);
+    expect(requestOptions.maxRedirects).toBe(0);
+    expect(requestOptions.validateStatus(302)).toBe(true);
+    expect(requestOptions.validateStatus(400)).toBe(false);
+  });
+
+  test("fetchFeedXml fails on redirects without location and redirect loops", async () => {
+    const { fetchFeedXml } = await import("../lib/core/feed-http");
+
+    await expect(
+      fetchFeedXml("https://example.com/feed.xml", {
+        assertPublicFeedUrlFn: async () => {},
+        axiosGetFn: (async () => ({
+          status: 302,
+          headers: {},
+          data: "",
+        })) as any,
       }),
-    ).toThrow("Blocked redirect to credentialed URL");
-    expect(() =>
-      requestOptions.beforeRedirect({ href: "https://example.com/feed.xml" }),
-    ).not.toThrow();
-    expect(() =>
-      requestOptions.beforeRedirect({ href: "https://localhost/feed.xml" }),
-    ).toThrow("Blocked redirect to private hostname");
-    expect(() =>
-      requestOptions.beforeRedirect({ href: "https://127.0.0.1/feed.xml" }),
-    ).toThrow(/Blocked redirect to private (hostname|IP address)/);
+    ).rejects.toThrow("Redirect without Location header");
+
+    await expect(
+      fetchFeedXml("https://example.com/feed.xml", {
+        assertPublicFeedUrlFn: async () => {},
+        axiosGetFn: (async () => ({
+          status: 302,
+          headers: { location: "/loop" },
+          data: "",
+        })) as any,
+      }),
+    ).rejects.toThrow("Too many redirects");
   });
 
   test("fetchFeedXml coerces non-string response data", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("../lib/core/feed-http");
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
       assertPublicFeedUrlFn: async () => {},
@@ -394,7 +413,7 @@ describe("feed-http", () => {
   });
 
   test("fetchFeedXml maps DataDome 403 errors to a descriptive message", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("../lib/core/feed-http");
 
     const upstreamError = {
       response: {
@@ -415,7 +434,7 @@ describe("feed-http", () => {
   });
 
   test("fetchFeedXml rethrows non-DataDome axios errors", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("../lib/core/feed-http");
 
     const upstreamError = {
       response: {
