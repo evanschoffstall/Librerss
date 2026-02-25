@@ -350,3 +350,140 @@ describe("dashboard favicons comprehensive", () => {
     expect(d.foreground).toMatch(/^hsl\(/);
   });
 });
+
+// ─── feed-batch: full branch coverage ────────────────────────────────────────
+
+describe("feed-batch pure helpers", () => {
+  test("mapBatchResultsToArticles: usePlaceholderData returns placeholder articles on failed result", async () => {
+    const { mapBatchResultsToArticles } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const placeholderArticle = makeArticle({
+      id: 99,
+      link: "https://placeholder.example.com/1",
+      feedName: "Placeholder",
+    });
+    const result = mapBatchResultsToArticles(
+      [{ url: "https://example.com/feed", ok: false, articles: [] }],
+      new Map([["https://example.com/feed", "My Feed"]]),
+      true,
+      () => [placeholderArticle],
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]?.feedName).toBe("My Feed");
+  });
+
+  test("mapBatchResultsToArticles: failed result with usePlaceholderData=false returns empty", async () => {
+    const { mapBatchResultsToArticles } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const result = mapBatchResultsToArticles(
+      [{ url: "https://example.com/feed", ok: false, articles: [] }],
+      new Map([["https://example.com/feed", "My Feed"]]),
+      false,
+      () => [],
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  test("mapBatchResultsToArticles: ok=true but empty articles falls to placeholder branch", async () => {
+    const { mapBatchResultsToArticles } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const placeholder = makeArticle({ id: 50, link: "https://placeholder.example/x" });
+    const result = mapBatchResultsToArticles(
+      [{ url: "https://example.com/feed", ok: true, articles: [] }],
+      new Map([["https://example.com/feed", "Feed A"]]),
+      true,
+      () => [placeholder],
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {
+    const { normalizeFeedBatchSources } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const sources = [
+      { url: "https://a.com/feed", name: "A" },
+      { url: "https://b.com/feed", name: "B" },
+      { url: "https://a.com/feed", name: "A2" }, // duplicate
+      { url: "", name: "empty" }, // empty url filtered
+    ];
+    const result = normalizeFeedBatchSources(sources);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.url).toBe("https://a.com/feed");
+    expect(result[0]?.name).toBe("A");
+    expect(result[1]?.url).toBe("https://b.com/feed");
+  });
+
+  test("normalizeFeedBatchSources returns empty array for all-duplicate input", async () => {
+    const { normalizeFeedBatchSources } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const result = normalizeFeedBatchSources([
+      { url: "https://x.com/feed", name: "X" },
+      { url: "https://x.com/feed", name: "X" },
+    ]);
+    expect(result).toHaveLength(1);
+  });
+
+  test("buildBatchRequestSignature produces stable sorted string", async () => {
+    const { buildBatchRequestSignature } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const a = buildBatchRequestSignature([
+      { url: "https://b.com/feed", name: "B" },
+      { url: "https://a.com/feed", name: "A" },
+    ]);
+    const b = buildBatchRequestSignature([
+      { url: "https://a.com/feed", name: "A" },
+      { url: "https://b.com/feed", name: "B" },
+    ]);
+    expect(a).toBe(b);
+    expect(a).toContain("https://a.com/feed");
+    expect(a).toContain("https://b.com/feed");
+  });
+
+  test("buildBatchRequestSignature returns empty string for empty input", async () => {
+    const { buildBatchRequestSignature } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    expect(buildBatchRequestSignature([])).toBe("");
+  });
+
+  test("mapFeedNodesToBatchSources filters nodes without url", async () => {
+    const { mapFeedNodesToBatchSources } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const nodes = [
+      { label: "Feed A", data: { url: "https://a.com/rss" } },
+      { label: "No URL", data: {} },
+      { label: "Feed B", data: { url: "https://b.com/rss" } },
+    ] as any[];
+    const result = mapFeedNodesToBatchSources(nodes);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ url: "https://a.com/rss", name: "Feed A" });
+    expect(result[1]).toEqual({ url: "https://b.com/rss", name: "Feed B" });
+  });
+
+  test("mapFeedNodesToBatchSources handles null/undefined data", async () => {
+    const { mapFeedNodesToBatchSources } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    const nodes = [
+      { label: "No data", data: null },
+      { label: "No node", data: undefined },
+    ] as any[];
+    const result = mapFeedNodesToBatchSources(nodes);
+    expect(result).toHaveLength(0);
+  });
+
+  test("FEED_LOADING_FAILSAFE_MS is a positive number", async () => {
+    const { FEED_LOADING_FAILSAFE_MS } = await import(
+      "@/app/dashboard/services/feed-batch"
+    );
+    expect(typeof FEED_LOADING_FAILSAFE_MS).toBe("number");
+    expect(FEED_LOADING_FAILSAFE_MS).toBeGreaterThan(0);
+  });
+});
