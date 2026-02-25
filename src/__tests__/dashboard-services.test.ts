@@ -60,10 +60,10 @@ describe("favicons", () => {
 
 // ─── Filter Sort ──────────────────────────────────────────────────────────────
 
-describe("filter-sort", () => {
+describe("article-query", () => {
   test("filterArticles by unread status", async () => {
     const { filterArticles } =
-      await import("@/app/dashboard/services/filter-sort");
+      await import("@/app/dashboard/services/article-query");
     const articles = [
       { id: 1, isRead: false },
       { id: 2, isRead: true },
@@ -76,7 +76,7 @@ describe("filter-sort", () => {
 
   test("filterArticles by starred status", async () => {
     const { filterArticles } =
-      await import("@/app/dashboard/services/filter-sort");
+      await import("@/app/dashboard/services/article-query");
     const articles = [
       { id: 1, isStarred: true },
       { id: 2, isStarred: false },
@@ -89,7 +89,7 @@ describe("filter-sort", () => {
 
   test("sortArticles by date descending", async () => {
     const { sortArticles } =
-      await import("@/app/dashboard/services/filter-sort");
+      await import("@/app/dashboard/services/article-query");
     const articles = [
       { id: 1, publishedAt: new Date("2024-01-01") },
       { id: 2, publishedAt: new Date("2024-01-03") },
@@ -102,7 +102,7 @@ describe("filter-sort", () => {
 
   test("sortArticles by date ascending", async () => {
     const { sortArticles } =
-      await import("@/app/dashboard/services/filter-sort");
+      await import("@/app/dashboard/services/article-query");
     const articles = [
       { id: 1, publishedAt: new Date("2024-01-03") },
       { id: 2, publishedAt: new Date("2024-01-01") },

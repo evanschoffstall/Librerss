@@ -1,6 +1,6 @@
 /**
  * Comprehensive Tests: API Services
- * Tests for src/lib/api/services.ts
+ * Tests for src/lib/api/service.ts
  */
 
 import {
@@ -9,7 +9,7 @@ import {
   ArticleService,
   AuthService,
   FeedService,
-} from "@/lib/api/services";
+} from "@/lib/api/service";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Create a mock axios instance
