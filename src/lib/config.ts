@@ -35,7 +35,7 @@ export const CONFIG = {
   MAX_FEED_RESPONSE_SIZE_BYTES: 5 * 1024 * 1024, // 5MB
   FEED_REQUEST_USER_AGENT:
     process.env.FEED_REQUEST_USER_AGENT ??
-    "Mozilla/5.0 (compatible; Librerss/1.0; +https://github.com/evanschoffstall/librerss)",
+    "Mozilla/5.0 (compatible; Librerss/0.1; +https://github.com/evanschoffstall/librerss)",
   FEED_REQUEST_ACCEPT:
     "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
 

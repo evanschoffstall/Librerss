@@ -49,6 +49,7 @@ import {
   isValidUrl,
   normalizeDistinctUrlList,
   normalizeFeedUrl,
+  redactUrlForLogs,
   toCategoryLookupKey,
   tryGetUrlHostname,
   tryNormalizeFeedUrl,
@@ -243,6 +244,18 @@ describe("url – toCategoryLookupKey", () => {
 
   test("uses / for root path", () => {
     expect(toCategoryLookupKey("https://example.com")).toBe("example.com/");
+  });
+});
+
+describe("url – redactUrlForLogs", () => {
+  test("removes credentials, query, and hash", () => {
+    expect(
+      redactUrlForLogs("https://user:pass@example.com/path?q=secret#token"),
+    ).toBe("https://example.com/path");
+  });
+
+  test("returns marker for invalid URLs", () => {
+    expect(redactUrlForLogs("not-a-url")).toBe("[invalid-url]");
   });
 });
 
@@ -600,6 +613,12 @@ describe("ssrf", () => {
   test("isBlockedResolvedAddress handles IPv4-mapped IPv6", () => {
     expect(isBlockedResolvedAddress("::ffff:127.0.0.1")).toBe(true);
     expect(isBlockedResolvedAddress("::ffff:8.8.8.8")).toBe(false);
+  });
+
+  test("isBlockedResolvedAddress blocks IPv4-mapped IPv6 with hex tail for private/loopback ranges", () => {
+    expect(isBlockedResolvedAddress("::ffff:7f00:1")).toBe(true);
+    expect(isBlockedResolvedAddress("::ffff:c0a8:101")).toBe(true);
+    expect(isBlockedResolvedAddress("::ffff:0808:0808")).toBe(false);
   });
 
   test("isBlockedResolvedAddress blocks fc addresses", () => {

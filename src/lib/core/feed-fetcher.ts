@@ -63,6 +63,16 @@ type BatchFeedResult = {
   lastFetchedByUrl: Map<string, Date>;
 };
 
+function buildEmptyBatchResult(): BatchFeedResult {
+  return {
+    articles: new Map(),
+    errors: new Map(),
+    refreshedCount: 0,
+    cachedCount: 0,
+    lastFetchedByUrl: new Map(),
+  };
+}
+
 export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<typeof getDb>,
   userId: number,
@@ -77,14 +87,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     requestSource?: string;
   } = {},
 ): Promise<BatchFeedResult> {
-  if (feedUrls.length === 0)
-    return {
-      articles: new Map(),
-      errors: new Map(),
-      refreshedCount: 0,
-      cachedCount: 0,
-      lastFetchedByUrl: new Map(),
-    };
+  if (feedUrls.length === 0) return buildEmptyBatchResult();
 
   if (DIAG) {
     logger.info("Batch feed fetch started", {
@@ -98,48 +101,29 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   const resolved = await resolveAuthorizedFeedRecords(db, userId, feedUrls);
   if (!resolved) {
-    if (DIAG) {
-      logger.warn("Batch feed fetch denied: no owned URLs", {
-        userId,
-        requestedUrlCount: feedUrls.length,
-      });
-    }
-    return {
-      articles: new Map(),
-      errors: new Map(),
-      refreshedCount: 0,
-      cachedCount: 0,
-      lastFetchedByUrl: new Map(),
-    };
+    if (DIAG) logger.warn("Batch feed fetch denied: no owned URLs", { userId, requestedUrlCount: feedUrls.length });
+    return buildEmptyBatchResult();
   }
 
   const { allowedUrls, feedByUrl } = resolved;
 
   if (DIAG) {
-    const plan = buildRefreshPlan(
-      feedByUrl,
-      allowedUrls,
-      skipRefresh,
-      forceRefresh,
-    );
     logger.info("Batch feed refresh plan", {
       userId,
       requestSource,
       allowedUrlCount: allowedUrls.length,
-      missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u))
-        .length,
-      plan,
+      missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
+      plan: buildRefreshPlan(feedByUrl, allowedUrls, skipRefresh, forceRefresh),
     });
   }
 
-  const { errors: upstreamErrors, refreshedCount } =
-    await executeParallelRefreshes(
-      db,
-      feedByUrl,
-      allowedUrls,
-      skipRefresh,
-      forceRefresh,
-    );
+  const { errors: upstreamErrors, refreshedCount } = await executeParallelRefreshes(
+    db,
+    feedByUrl,
+    allowedUrls,
+    skipRefresh,
+    forceRefresh,
+  );
 
   if (DIAG && !skipRefresh) {
     if (refreshedCount > 0) {
@@ -173,26 +157,19 @@ export async function fetchAndCacheFeedArticlesBatch(
     };
   }
 
-  const currentLastFetchedRows = await db
+  const rawLastFetchedRows = await db
     .select({ url: feeds.url, lastFetched: feeds.lastFetched })
     .from(feeds)
     .where(inArray(feeds.url, allowedUrls));
 
-  const normalizedLastFetchedRows = Array.isArray(currentLastFetchedRows)
-    ? currentLastFetchedRows
-    : currentLastFetchedRows &&
-        typeof currentLastFetchedRows === "object" &&
-        "rows" in currentLastFetchedRows &&
-        Array.isArray((currentLastFetchedRows as { rows?: unknown }).rows)
-      ? ((
-          currentLastFetchedRows as {
-            rows: Array<{ url: string; lastFetched: Date }>;
-          }
-        ).rows ?? [])
-      : [];
+  // Drizzle returns an array; some test mocks return { rows: [...] }.
+  const lastFetchedRows: Array<{ url: string; lastFetched: Date }> =
+    Array.isArray(rawLastFetchedRows)
+      ? rawLastFetchedRows
+      : ((rawLastFetchedRows as { rows?: unknown }).rows as Array<{ url: string; lastFetched: Date }> ?? []);
 
   const lastFetchedByUrl = new Map<string, Date>(
-    normalizedLastFetchedRows.map((row) => [row.url, row.lastFetched]),
+    lastFetchedRows.map((row) => [row.url, row.lastFetched]),
   );
 
   const rows = await queryTopArticlesPerFeed(db, userId, feedIds);
@@ -215,12 +192,11 @@ export async function fetchAndCacheFeedArticlesBatch(
     });
   }
 
-  const cachedCount = allowedUrls.length - refreshedCount;
   return {
     articles: result,
     errors: upstreamErrors,
     refreshedCount,
-    cachedCount,
+    cachedCount: allowedUrls.length - refreshedCount,
     lastFetchedByUrl,
   };
 }
@@ -235,9 +211,7 @@ class UpstreamFeedError extends Error {
   }
 }
 
-export function isUpstreamFeedError(
-  error: unknown,
-): error is UpstreamFeedError {
+export function isUpstreamFeedError(error: unknown): error is UpstreamFeedError {
   return (
     error instanceof UpstreamFeedError ||
     (error instanceof Error && error.name === "UpstreamFeedError")
@@ -264,12 +238,9 @@ export async function fetchAndCacheFeedArticles(
 
   const feed = (await ensureFeedRecordByUrl(db, feedUrl)) as FeedRecord;
 
-  const needsRefresh = shouldRefreshFeed(feed.lastFetched);
-  if (needsRefresh) {
+  if (shouldRefreshFeed(feed.lastFetched)) {
     const result = await refreshFeedFromUpstream(db, feed);
-    if (!result.ok) {
-      throw new UpstreamFeedError(feedUrl, result.error);
-    }
+    if (!result.ok) throw new UpstreamFeedError(feedUrl, result.error);
     logger.info(`📡 Single feed: 1 refreshed, 0 cached`);
   } else {
     logger.info(`💾 Single feed: 0 refreshed, 1 cached`);

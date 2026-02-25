@@ -69,6 +69,14 @@ export class RateLimiter {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean);
+
+        // Require at least one untrusted client hop in front of the trusted
+        // proxy chain. Without this, a client can provide an undersized or
+        // malformed chain that would otherwise fall back to a different header.
+        if (ips.length <= trustedProxies) {
+          return "unknown";
+        }
+
         // XFF is ordered: client, proxy1, proxy2, ..., proxyN.
         // Remove the right-most trusted proxy hops and read the client that
         // precedes them.
@@ -79,10 +87,9 @@ export class RateLimiter {
             return clientIp;
           }
         }
-      }
 
-      const realIp = request.headers.get("x-real-ip")?.trim();
-      if (realIp && isIP(realIp)) return realIp;
+        return "unknown";
+      }
     }
 
     // No usable proxy header — bucket all unidentified clients together.

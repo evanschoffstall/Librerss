@@ -1,3 +1,4 @@
+import { jsonError } from "@/lib/api/responses";
 import { NextResponse } from "next/server";
 
 export function textResponse(body: string, status = 200): Response {
@@ -11,5 +12,5 @@ export function textResponse(body: string, status = 200): Response {
 }
 
 export function notFoundResponse(): Response {
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return jsonError("Not found", 404);
 }

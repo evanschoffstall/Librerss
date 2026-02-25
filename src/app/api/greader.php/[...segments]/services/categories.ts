@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds } from "@/lib/db/schema";
+import { toOptionalCategoryLabel } from "@/lib/utils/categories";
 import { toCategoryLookupKey } from "@/lib/utils/url";
 import { eq } from "drizzle-orm";
 
@@ -13,7 +14,7 @@ export function resolveCategoryWithFallback(
   feedUrl: string | null | undefined,
   fallbackByUrlKey: Map<string, string>,
 ): string | null {
-  const normalizedCategory = category?.trim();
+  const normalizedCategory = toOptionalCategoryLabel(category);
   if (normalizedCategory) {
     return normalizedCategory;
   }
@@ -27,7 +28,7 @@ export async function maybeLoadCategoryFallback(
   userId: number,
   rows: Array<{ category?: string | null }>,
 ): Promise<Map<string, string>> {
-  return rows.some((row) => !row.category?.trim())
+  return rows.some((row) => !toOptionalCategoryLabel(row.category))
     ? loadUserCategoryFallbackByFeedUrl(userId)
     : new Map<string, string>();
 }
@@ -52,7 +53,7 @@ function buildCategoryFallbackMap(rows: CategoryRow[]): Map<string, string> {
   const fallbackByUrlKey = new Map<string, string>();
 
   for (const row of rows) {
-    const categoryLabel = row.category?.trim();
+    const categoryLabel = toOptionalCategoryLabel(row.category);
     if (!categoryLabel) {
       continue;
     }

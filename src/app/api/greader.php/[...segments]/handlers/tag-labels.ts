@@ -1,8 +1,11 @@
-import { parseFormOrQueryParams } from "@/lib/api/request";
+import { asTrimmedString, parseFormOrQueryParams } from "@/lib/api/request";
 import { type SessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
-import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
+import {
+  DEFAULT_CATEGORY_LABEL,
+  toOptionalCategoryLabel,
+} from "@/lib/utils/categories";
 import { logger } from "@/lib/utils/logger";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -50,12 +53,14 @@ export async function handleTagList(user: SessionUser): Promise<Response> {
     resolveCategoryWithFallback(row.category, row.url, categoryFallbackByUrl),
   );
 
-  const hasUncategorized = resolvedCategories.some((cat) => !cat?.trim());
+  const hasUncategorized = resolvedCategories.some(
+    (cat) => !toOptionalCategoryLabel(cat),
+  );
 
   const namedLabels = Array.from(
     new Set(
       resolvedCategories
-        .map((cat) => cat?.trim())
+        .map((cat) => toOptionalCategoryLabel(cat))
         .filter((label): label is string => Boolean(label)),
     ),
   );
@@ -92,7 +97,7 @@ export async function handleDisableTag(
     return params;
   }
 
-  const tagId = params.get("s")?.trim() ?? "";
+  const tagId = asTrimmedString(params.get("s"));
   // Not a user label — nothing to disable (system tags like reading-list are not deletable).
   const label = parseUserLabel(tagId);
   if (!label) {
@@ -126,8 +131,8 @@ export async function handleRenameTag(
     return params;
   }
 
-  const sourceTag = params.get("s")?.trim() ?? "";
-  const destTag = params.get("dest")?.trim() ?? "";
+  const sourceTag = asTrimmedString(params.get("s"));
+  const destTag = asTrimmedString(params.get("dest"));
 
   const oldLabel = parseUserLabel(sourceTag);
   const newLabel = parseUserLabel(destTag);

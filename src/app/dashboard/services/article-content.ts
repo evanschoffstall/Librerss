@@ -4,14 +4,11 @@
  */
 
 import { type Article } from "@/lib";
-import { getUrlHostnameLabel } from "@/lib/utils/url";
+import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 
-function getUrlHostnameLabelForDisplay(raw?: string): string {
-  const label = getUrlHostnameLabel(raw, raw ?? "No source URL");
-  return label.replace(/^www\./i, "");
+export function getUrlHostnameLabel(raw?: string): string {
+  return getUrlHostnameDisplayLabel(raw, { fallback: raw ?? "No source URL" });
 }
-
-export { getUrlHostnameLabelForDisplay as getUrlHostnameLabel };
 
 // ── Preview truncation ────────────────────────────────────────────────────────
 
@@ -43,7 +40,7 @@ export function getArticleSourceLabel(article: Article): string {
   if (article.feedName?.trim()) {
     return article.feedName;
   }
-  return getUrlHostnameLabelForDisplay(article.feedUrl ?? article.link);
+  return getUrlHostnameLabel(article.feedUrl ?? article.link);
 }
 
 // ── Rich-text CSS classes ─────────────────────────────────────────────────────

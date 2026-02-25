@@ -26,21 +26,21 @@
 
 LibreRSS is a **beautiful, self-hosted RSS reader** you run on your own server. Subscribe to any feed, organize your sources into categories, and read clean distraction-free articles — all from one dashboard you control.
 
-It also speaks the **GReader protocol**, so clients like **NetNewsWire**, **FreshRSS**, **Reeder**, and others connect natively.
+It also speaks the **GReader protocol**, so clients like **NetNewsWire** connect natively.
 
 ---
 
 ## 🌟 &nbsp;Features
 
-| | |
-|---|---|
-| 📡 &nbsp;**Universal RSS support** | Subscribe to any RSS or Atom feed |
-| 🗂️ &nbsp;**Category organization** | Group feeds however makes sense to you |
-| 🧘 &nbsp;**Distraction-free reading** | Clean article view, no clutter |
-| 🔗 &nbsp;**GReader API** | Works with NetNewsWire, Reeder, and more |
-| 🌙 &nbsp;**Dark & light mode** | Looks great either way |
-| 🔒 &nbsp;**Self-hosted** | Your data stays on your server |
-| 🚪 &nbsp;**Invite-only mode** | Disable public signup when you want |
+|                                       |                                          |
+| ------------------------------------- | ---------------------------------------- |
+| 📡 &nbsp;**Universal RSS support**    | Subscribe to any RSS or Atom feed        |
+| 🗂️ &nbsp;**Category organization**    | Group feeds however makes sense to you   |
+| 🧘 &nbsp;**Distraction-free reading** | Clean article view, no clutter           |
+| 🔗 &nbsp;**GReader API**              | Works with NetNewsWire, Reeder, and more |
+| 🌙 &nbsp;**Dark & light mode**        | Looks great either way                   |
+| 🔒 &nbsp;**Self-hosted**              | Your data stays on your server           |
+| 🚪 &nbsp;**Invite-only mode**         | Disable public signup when you want      |
 
 ---
 
@@ -63,10 +63,10 @@ NODE_ENV="development"
 # TRUSTED_PROXY_COUNT=1
 ```
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `ALLOW_SIGNUP` | `"true"` to open public registration, `"false"` to restrict |
+| Variable              | Description                                                    |
+| --------------------- | -------------------------------------------------------------- |
+| `DATABASE_URL`        | PostgreSQL connection string                                   |
+| `ALLOW_SIGNUP`        | `"true"` to open public registration, `"false"` to restrict    |
 | `TRUSTED_PROXY_COUNT` | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
 
 ### 3 · Provision the database
@@ -114,12 +114,12 @@ Open **[http://localhost:3000](http://localhost:3000)** 🎉
 
 ## 🗄️ &nbsp;Database Commands
 
-| Command | Description |
-|---|---|
-| `bun run db:provision` | ✅ &nbsp;Verify connection and apply full schema |
-| `bun run db:push` | ⬆️ &nbsp;Push schema changes directly (no migration files) |
-| `bun run db:generate` | 📄 &nbsp;Generate SQL migration files via Drizzle Kit |
-| `bun run db:studio` | 🔬 &nbsp;Open Drizzle Studio in the browser |
+| Command                | Description                                                |
+| ---------------------- | ---------------------------------------------------------- |
+| `bun run db:provision` | ✅ &nbsp;Verify connection and apply full schema           |
+| `bun run db:push`      | ⬆️ &nbsp;Push schema changes directly (no migration files) |
+| `bun run db:generate`  | 📄 &nbsp;Generate SQL migration files via Drizzle Kit      |
+| `bun run db:studio`    | 🔬 &nbsp;Open Drizzle Studio in the browser                |
 
 ---
 
@@ -155,8 +155,8 @@ librerss/
 
 <div align="center">
 
-**Made with ❤️ by [Evan Schoffstall](https://github.com/evan-schoffstall)**
+**Made with ❤️ by [Evan Schoffstall](https://github.com/evanschoffstall)**
 
-*MIT License · Free forever · Self-host it*
+_MIT License · Free forever · Self-host it_
 
 </div>

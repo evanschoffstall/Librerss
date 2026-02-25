@@ -89,7 +89,96 @@ describe("RateLimiter", () => {
     limiter.destroy();
   });
 
-  test("uses x-real-ip as fallback when x-forwarded-for is invalid", () => {
+  test("treats all requests as unknown when TRUSTED_PROXY_COUNT is 0", () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "0";
+
+    try {
+      const limiter = new RateLimiter();
+      const config = { windowMs: 60000, maxAttempts: 1 };
+
+      const request1 = new Request("https://example.com", {
+        headers: { "x-forwarded-for": "203.0.113.1, 10.0.0.1" },
+      });
+      const request2 = new Request("https://example.com", {
+        headers: { "x-forwarded-for": "198.51.100.2, 10.0.0.1" },
+      });
+
+      expect(limiter.check(request1, "test", config)).toBeNull();
+      const blocked = limiter.check(request2, "test", config);
+      expect(blocked).not.toBeNull();
+
+      limiter.destroy();
+    } finally {
+      if (previous !== undefined) {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+    }
+  });
+
+  test("extracts client IP correctly when TRUSTED_PROXY_COUNT is 2", () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "2";
+
+    try {
+      const limiter = new RateLimiter();
+      const config = { windowMs: 60000, maxAttempts: 1 };
+
+      const request1 = new Request("https://example.com", {
+        headers: { "x-forwarded-for": "203.0.113.10, 10.0.0.2, 10.0.0.3" },
+      });
+      const request2 = new Request("https://example.com", {
+        headers: { "x-forwarded-for": "198.51.100.20, 10.0.0.2, 10.0.0.3" },
+      });
+
+      expect(limiter.check(request1, "test", config)).toBeNull();
+      expect(limiter.check(request2, "test", config)).toBeNull();
+
+      const blockedFirst = limiter.check(request1, "test", config);
+      expect(blockedFirst).not.toBeNull();
+
+      limiter.destroy();
+    } finally {
+      if (previous !== undefined) {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+    }
+  });
+
+  test("falls back to unknown when TRUSTED_PROXY_COUNT exceeds x-forwarded-for chain length", () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "3";
+
+    try {
+      const limiter = new RateLimiter();
+      const config = { windowMs: 60000, maxAttempts: 1 };
+
+      const request1 = new Request("https://example.com", {
+        headers: { "x-forwarded-for": "203.0.113.10, 10.0.0.5" },
+      });
+      const request2 = new Request("https://example.com", {
+        headers: { "x-forwarded-for": "198.51.100.20, 10.0.0.6" },
+      });
+
+      expect(limiter.check(request1, "test", config)).toBeNull();
+      const blocked = limiter.check(request2, "test", config);
+      expect(blocked).not.toBeNull();
+
+      limiter.destroy();
+    } finally {
+      if (previous !== undefined) {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+    }
+  });
+
+  test("does not trust x-real-ip when x-forwarded-for is absent", () => {
     const limiter = new RateLimiter();
 
     const request = new Request("https://example.com", {
@@ -98,8 +187,9 @@ describe("RateLimiter", () => {
 
     const config = { windowMs: 60000, maxAttempts: 1 };
 
-    const result = limiter.check(request, "test", config);
-    expect(result).toBeNull();
+    expect(limiter.check(request, "test", config)).toBeNull();
+    const blocked = limiter.check(request, "test", config);
+    expect(blocked).not.toBeNull();
 
     limiter.destroy();
   });

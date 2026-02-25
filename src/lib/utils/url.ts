@@ -96,6 +96,24 @@ export function getUrlHostnameLabel(
 }
 
 /**
+ * Human-friendly hostname label with optional `www.` stripping.
+ */
+export function getUrlHostnameDisplayLabel(
+  raw?: string,
+  options?: {
+    fallback?: string;
+    stripWww?: boolean;
+  },
+): string {
+  const label = getUrlHostnameLabel(raw, options?.fallback ?? "No source URL");
+  if (options?.stripWww === false) {
+    return label;
+  }
+
+  return label.replace(/^www\./i, "");
+}
+
+/**
  * Creates a stable lookup key for feed URLs, preserving path and query params.
  * Used for category resolution and feed matching across the GReader API.
  */
@@ -116,5 +134,26 @@ export function toCategoryLookupKey(feedUrl: string): string {
       .toLowerCase()
       .replace(/^https?:\/\//, "")
       .replace(/\/+$/, "");
+  }
+}
+
+/**
+ * Redacts sensitive URL components (credentials, query, hash) for logs.
+ */
+export function redactUrlForLogs(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return "[empty-url]";
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return "[invalid-url]";
   }
 }

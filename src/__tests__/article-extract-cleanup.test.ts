@@ -301,6 +301,28 @@ describe("article extract cleanup", () => {
     ).rejects.toThrow("Too many redirects");
   });
 
+  test("fetchHtml supports array-valued redirect location header", async () => {
+    const axiosGetFn = mock(async (url: string) => {
+      if (url === "https://example.com/a") {
+        return {
+          status: 302,
+          headers: { location: ["/b", "/ignored"] },
+          data: "",
+        } as any;
+      }
+
+      return { status: 200, headers: {}, data: "<html />" } as any;
+    });
+
+    const html = await fetchHtml("https://example.com/a", {
+      isAllowedFeedUrlFn: async () => true,
+      axiosGetFn: axiosGetFn as any,
+    });
+
+    expect(html).toBe("<html />");
+    expect(axiosGetFn).toHaveBeenCalledTimes(2);
+  });
+
   test("POST returns early auth/parse responses", async () => {
     const authResponse = new Response("unauthorized", { status: 401 });
     const fromAuth = await POST({} as any, {

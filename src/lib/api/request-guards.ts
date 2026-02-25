@@ -14,10 +14,7 @@ export async function requireAuthenticatedUser(
   request: NextRequest,
 ): Promise<AuthenticatedUser | Response> {
   const user = await getUserFromRequest(request);
-  if (!user) {
-    return jsonError("Unauthorized", 401);
-  }
-
+  if (!user) return jsonError("Unauthorized", 401);
   return user;
 }
 
@@ -26,25 +23,32 @@ type MutationRequestOptions = {
     key: string;
     windowMs: number;
     maxAttempts: number;
+    // "request" = keyed by client IP (no auth required).
+    // "user"    = keyed by userId (checked after auth in requireMutableAuthenticatedUser).
+    scope?: "request" | "user";
   };
 };
 
+// Validates CSRF and applies request-scoped (IP-based) rate limiting.
+// User-scoped rate limiting is handled separately in requireMutableAuthenticatedUser
+// because it requires a resolved userId.
 export function requireMutableRequest(
   request: Request,
   options?: MutationRequestOptions,
 ): Response | null {
-  if (options?.rateLimit) {
-    const rateLimitError = rateLimiter.check(request, options.rateLimit.key, {
-      windowMs: options.rateLimit.windowMs,
-      maxAttempts: options.rateLimit.maxAttempts,
-    });
+  const sameOriginError = requireSameOrigin(request);
+  if (sameOriginError) return sameOriginError;
 
-    if (rateLimitError) {
-      return rateLimitError;
-    }
+  const rl = options?.rateLimit;
+  if (rl && (rl.scope ?? "request") === "request") {
+    const rateLimitError = rateLimiter.check(request, rl.key, {
+      windowMs: rl.windowMs,
+      maxAttempts: rl.maxAttempts,
+    });
+    if (rateLimitError) return rateLimitError;
   }
 
-  return requireSameOrigin(request);
+  return null;
 }
 
 export async function requireMutableAuthenticatedUser(
@@ -52,11 +56,22 @@ export async function requireMutableAuthenticatedUser(
   options?: MutationRequestOptions,
 ): Promise<AuthenticatedUser | Response> {
   const requestError = requireMutableRequest(request, options);
-  if (requestError) {
-    return requestError;
+  if (requestError) return requestError;
+
+  const user = await requireAuthenticatedUser(request);
+  if (user instanceof Response) return user;
+
+  const rl = options?.rateLimit;
+  if (rl && (rl.scope ?? "request") === "user") {
+    const rateLimitError = rateLimiter.check(
+      request,
+      `${rl.key}:user:${user.userId}`,
+      { windowMs: rl.windowMs, maxAttempts: rl.maxAttempts },
+    );
+    if (rateLimitError) return rateLimitError;
   }
 
-  return requireAuthenticatedUser(request);
+  return user;
 }
 
 export function logAndRespondError(
@@ -67,12 +82,6 @@ export function logAndRespondError(
     publicMessage?: string;
   },
 ): Response {
-  logger.error(message, {
-    error: toError(error),
-  });
-
-  return jsonError(
-    options?.publicMessage ?? "Internal Server Error",
-    options?.status ?? 500,
-  );
+  logger.error(message, { error: toError(error) });
+  return jsonError(options?.publicMessage ?? "Internal Server Error", options?.status ?? 500);
 }

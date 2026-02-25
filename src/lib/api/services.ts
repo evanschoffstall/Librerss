@@ -8,6 +8,11 @@ import {
   readerItemToArticle,
   type ReaderApiStreamResponse,
 } from "./reader-api";
+import {
+  ensureArrayResponse,
+  normalizeBatchItem,
+  type BatchFeedResponseItem,
+} from "./response-normalizers";
 
 // ── HTTP infrastructure ───────────────────────────────────────────────────────
 
@@ -82,47 +87,6 @@ function createLinkedAbortController(signal?: AbortSignal): {
     dispose: () => {
       signal.removeEventListener("abort", handleAbort);
     },
-  };
-}
-
-// ── Shared response normalizers ───────────────────────────────────────────────
-
-function ensureArrayResponse<T>(data: unknown): T[] {
-  if (!Array.isArray(data)) throw new Error("Invalid response format");
-  return data as T[];
-}
-
-interface BatchFeedResponseItem {
-  url: string;
-  articles: Article[];
-  ok: boolean;
-  error?: string;
-  lastFetchedAt?: Date;
-}
-
-function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
-  const candidate =
-    item && typeof item === "object"
-      ? (item as Record<string, unknown>)
-      : ({} as Record<string, unknown>);
-
-  const rawLastFetchedAt = candidate.lastFetchedAt;
-  const parsedLastFetchedAt =
-    typeof rawLastFetchedAt === "string" || rawLastFetchedAt instanceof Date
-      ? new Date(rawLastFetchedAt)
-      : null;
-  const hasValidLastFetchedAt =
-    parsedLastFetchedAt instanceof Date &&
-    !Number.isNaN(parsedLastFetchedAt.getTime());
-
-  return {
-    url: typeof candidate.url === "string" ? candidate.url : "",
-    articles: Array.isArray(candidate.articles)
-      ? (candidate.articles as Article[])
-      : [],
-    ok: Boolean(candidate.ok),
-    ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),
-    ...(hasValidLastFetchedAt ? { lastFetchedAt: parsedLastFetchedAt } : {}),
   };
 }
 

@@ -11,6 +11,11 @@ import {
   getArticleKey,
 } from "../services/article-collection";
 import {
+  buildCategoriesFromSources,
+  buildDefaultCategories,
+  flattenCategoryFeeds,
+} from "../services/category-tree";
+import {
   FEED_LOADING_FAILSAFE_MS,
   type FeedBatchSource,
   buildBatchRequestSignature,
@@ -18,11 +23,6 @@ import {
   mapFeedNodesToBatchSources,
   normalizeFeedBatchSources,
 } from "../services/feed-batch";
-import {
-  buildCategoriesFromSources,
-  buildDefaultCategories,
-  flattenCategoryFeeds,
-} from "../services/category-tree";
 import type { FeedFetchOptions } from "../services/selection";
 
 interface UseFeedLoaderOptions {
@@ -62,6 +62,68 @@ function getNewestLastFetchedAt(batchResults: FeedBatchResult[]): Date | null {
 
     return latest;
   }, null);
+}
+
+function summarizeBatchResults(batchResults: FeedBatchResult[]) {
+  let okCount = 0;
+  let missingCount = 0;
+  let errorCount = 0;
+
+  const articlesByUrl = batchResults.map((item) => {
+    if (item.ok) {
+      okCount += 1;
+    } else {
+      missingCount += 1;
+    }
+
+    if (item.error) {
+      errorCount += 1;
+    }
+
+    return {
+      url: item.url,
+      ok: item.ok,
+      articleCount: item.articles.length,
+      error: item.error ?? null,
+    };
+  });
+
+  return {
+    resultCount: batchResults.length,
+    okCount,
+    missingCount,
+    errorCount,
+    articlesByUrl,
+  };
+}
+
+function mapSourcesToPlaceholderArticles(
+  sources: FeedBatchSource[],
+): Article[] {
+  return dedupeAndSortArticles(
+    sources.flatMap((source) =>
+      getPlaceholderArticlesForSource(source.url).map((article) => ({
+        ...article,
+        feedName: source.name,
+        feedUrl: source.url,
+      })),
+    ),
+  );
+}
+
+function resolveExpandedArticleKey(
+  currentKey: string | null,
+  articles: Article[],
+): string | null {
+  if (!currentKey) {
+    return null;
+  }
+
+  const hasExpandedArticle = articles.some(
+    (article) => getArticleKey(article) === currentKey,
+  );
+
+  return hasExpandedArticle ? currentKey : null;
 }
 
 function getSourceNamesByUrl(
@@ -178,15 +240,8 @@ export function useFeedLoader({
         }
 
         if (usePlaceholderData) {
-          const fallbackArticles = dedupeAndSortArticles(
-            normalizedSources.flatMap((source) =>
-              getPlaceholderArticlesForSource(source.url).map((article) => ({
-                ...article,
-                feedName: source.name,
-                feedUrl: source.url,
-              })),
-            ),
-          );
+          const fallbackArticles =
+            mapSourcesToPlaceholderArticles(normalizedSources);
           setFeed(fallbackArticles);
         } else {
           console.error("Batch feed fetch error:", error);
@@ -289,16 +344,7 @@ export function useFeedLoader({
 
         logRefreshDiagnostics("refresh:batch-response", {
           requestId,
-          resultCount: batchResults.length,
-          okCount: batchResults.filter((item) => item.ok).length,
-          missingCount: batchResults.filter((item) => !item.ok).length,
-          errorCount: batchResults.filter((item) => item.error).length,
-          articlesByUrl: batchResults.map((item) => ({
-            url: item.url,
-            ok: item.ok,
-            articleCount: item.articles.length,
-            error: item.error ?? null,
-          })),
+          ...summarizeBatchResults(batchResults),
         });
 
         const newestLastFetchedAt = getNewestLastFetchedAt(batchResults);
@@ -321,17 +367,9 @@ export function useFeedLoader({
 
         if (articles.length > 0) {
           setFeed(articles);
-          setExpandedArticleKey((currentKey) => {
-            if (!currentKey) {
-              return null;
-            }
-
-            const hasExpandedArticle = articles.some(
-              (article) => getArticleKey(article) === currentKey,
-            );
-
-            return hasExpandedArticle ? currentKey : null;
-          });
+          setExpandedArticleKey((currentKey) =>
+            resolveExpandedArticleKey(currentKey, articles),
+          );
           logRefreshDiagnostics("refresh:applied", {
             requestId,
             articleCount: articles.length,

@@ -24,17 +24,13 @@ export async function parseJsonBody<T>(
     response: jsonError("Request body too large", 413),
   };
 
-  const contentLengthHeader = request.headers.get("content-length");
-  if (contentLengthHeader) {
-    const contentLength = Number(contentLengthHeader);
-    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-      return bodyTooLarge;
-    }
+  if (isBodyTooLargeByHeader(request, maxBytes)) {
+    return bodyTooLarge;
   }
 
   try {
     const raw = await request.text();
-    if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+    if (isBodyTooLargeByUtf8Length(raw, maxBytes)) {
       return bodyTooLarge;
     }
 
@@ -75,12 +71,8 @@ export async function parseFormOrQueryParams(
   const bodyTooLarge = jsonError("Request body too large", 413);
   const contentType = request.headers.get("content-type") ?? "";
 
-  const contentLengthHeader = request.headers.get("content-length");
-  if (contentLengthHeader) {
-    const contentLength = Number(contentLengthHeader);
-    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-      return bodyTooLarge;
-    }
+  if (isBodyTooLargeByHeader(request, maxBytes)) {
+    return bodyTooLarge;
   }
 
   if (contentType.toLowerCase().includes("multipart/form-data")) {
@@ -101,7 +93,7 @@ export async function parseFormOrQueryParams(
   }
 
   const raw = await request.text();
-  if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+  if (isBodyTooLargeByUtf8Length(raw, maxBytes)) {
     return bodyTooLarge;
   }
 
@@ -123,6 +115,39 @@ export function parsePositiveInt(value: unknown): number | null {
   }
 
   return parsed;
+}
+
+function isBodyTooLargeByHeader(request: Request, maxBytes: number): boolean {
+  const contentLengthHeader = request.headers.get("content-length");
+  if (!contentLengthHeader) {
+    return false;
+  }
+
+  const contentLength = Number(contentLengthHeader);
+  return Number.isFinite(contentLength) && contentLength > maxBytes;
+}
+
+function isBodyTooLargeByUtf8Length(raw: string, maxBytes: number): boolean {
+  return Buffer.byteLength(raw, "utf8") > maxBytes;
+}
+
+export function parseNonNegativeInt(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+export function parseUnixTimestampSeconds(value: unknown): Date | null {
+  const seconds = parsePositiveInt(value);
+  if (!seconds) {
+    return null;
+  }
+
+  const parsed = new Date(seconds * 1000);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function parseDateInput(value: unknown): Date | null {

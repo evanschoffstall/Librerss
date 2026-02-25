@@ -1,3 +1,2 @@
-// Consolidated component exports
-export * from "./AppThemeProvider";
-export * from "./Debug";
+export { AppThemeProvider } from "./AppThemeProvider";
+export { DebugBorder, DebugGrid } from "./Debug";

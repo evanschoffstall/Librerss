@@ -333,38 +333,7 @@ function printCompactSummary(results: {
   const row = (label: string, passing: boolean, details: string) =>
     `${statusToken(passing)} ${colorize(label.padEnd(13), ANSI.bold)} ${details}`;
 
-  console.log(`\n${colorize("Quality Summary", ANSI.bold, ANSI.cyan)}`);
-  console.log(divider());
-  console.log(
-    row("Test Runner", results.testRunnerPassing, "bun test exit code"),
-  );
-  console.log(
-    row(
-      "Tests",
-      results.tests.exitCode === 0,
-      `${results.tests.passedCount} passed · ${results.tests.failedCount} failed · ${results.tests.skippedCount} skipped`,
-    ),
-  );
-  console.log(
-    row(
-      "Coverage",
-      results.coverage.exitCode === 0,
-      `${results.coverage.lineCoverage.toFixed(2)}% (${results.coverage.coveredLines}/${results.coverage.foundLines}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
-    ),
-  );
-  console.log(
-    row("TypeScript", results.staticAnalysis.tscPassing, "tsc --noEmit"),
-  );
-  console.log(row("ESLint", results.staticAnalysis.eslintPassing, "eslint ."));
-  console.log(divider());
-  console.log(
-    row(
-      "Overall",
-      overallPassing,
-      overallPassing ? "all checks passed" : "one or more checks failed",
-    ),
-  );
-  console.log(divider());
+  logStep("Done", "none");
 
   if (results.tests.failedTests.length > 0) {
     console.log(`\n${colorize("Failed tests", ANSI.bold, ANSI.red)}`);
@@ -384,6 +353,34 @@ function printCompactSummary(results: {
       );
     }
   }
+
+  console.log(`\n${colorize("Quality Summary", ANSI.bold, ANSI.cyan)}`);
+  console.log(divider());
+  console.log(
+    row(
+      "Tests",
+      results.tests.exitCode === 0,
+      `${results.tests.passedCount} passed · ${results.tests.failedCount} failed · ${results.tests.skippedCount} skipped`,
+    ),
+  );
+  console.log(
+    row(
+      "Coverage",
+      results.coverage.exitCode === 0,
+      `${results.coverage.lineCoverage.toFixed(2)}% (${results.coverage.coveredLines}/${results.coverage.foundLines}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
+    ),
+  );
+  console.log(row("Types", results.staticAnalysis.tscPassing, ""));
+  console.log(row("Lint", results.staticAnalysis.eslintPassing, ""));
+  console.log(divider());
+  console.log(
+    row(
+      "Overall",
+      overallPassing,
+      overallPassing ? "all checks passed" : "one or more checks failed",
+    ),
+  );
+  console.log(divider());
 
   return overallPassing ? 0 : 1;
 }

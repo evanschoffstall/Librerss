@@ -42,28 +42,19 @@ function registerModuleMocks() {
   mock.module("@/app/api/feeds/services/read", () => ({
     handleFeedRead: async () => Response.json([]),
   }));
-
-  mock.module("@/lib/api/request-guards", () => ({
-    requireAuthenticatedUser: async () => ({
-      userId: 1,
-      email: "test@example.com",
-    }),
-    requireMutableAuthenticatedUser: async () => ({
-      userId: 1,
-      email: "test@example.com",
-    }),
-    requireMutableRequest: () => null,
-    logAndRespondError: (
-      _message: string,
-      _error: unknown,
-      options?: { status?: number; publicMessage?: string },
-    ) =>
-      Response.json(
-        { error: options?.publicMessage ?? "Internal Server Error" },
-        { status: options?.status ?? 500 },
-      ),
-  }));
 }
+
+const authenticatedUser = {
+  sessionId: 1,
+  userId: 1,
+  email: "test@example.com",
+  expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+};
+
+const routeDeps = {
+  requireAuthenticatedUserFn: async () => authenticatedUser,
+  requireMutableFeedAccessFn: async () => authenticatedUser,
+};
 
 beforeAll(() => {
   registerModuleMocks();
@@ -80,7 +71,7 @@ describe("Feeds API - List", () => {
       cookies: { session: "test-session" },
     });
 
-    const response = await GET(request);
+    const response = await GET(request, routeDeps);
     expect(response.status).toBeLessThan(400);
     const body = await response.json();
     expect(body).toEqual([]);
@@ -97,7 +88,7 @@ describe("Feeds API - Add", () => {
       headers: { "sec-fetch-site": "same-origin" },
     });
 
-    const response = await POST(request);
+    const response = await POST(request, routeDeps);
     expect(response.status).toBe(400);
   });
 
@@ -110,7 +101,7 @@ describe("Feeds API - Add", () => {
       headers: { "sec-fetch-site": "same-origin" },
     });
 
-    const response = await POST(request);
+    const response = await POST(request, routeDeps);
     expect(response.status).toBeGreaterThanOrEqual(400);
   });
 
@@ -123,7 +114,7 @@ describe("Feeds API - Add", () => {
       headers: { "sec-fetch-site": "same-origin" },
     });
 
-    const response = await POST(request);
+    const response = await POST(request, routeDeps);
     expect(response.status).toBeLessThan(500);
   });
 });
