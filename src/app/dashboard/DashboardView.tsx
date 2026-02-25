@@ -241,7 +241,7 @@ export const DashboardView = ({
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <SheetContent
           side="left"
-          className="h-full w-[min(22rem,88vw)] gap-0 p-0 transition-transform ease-out data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0 data-[state=closed]:duration-200 data-[state=open]:duration-300 lg:hidden"
+          className="w-[min(22rem,88vw)] gap-0 p-0 lg:hidden"
         >
           <SheetHeader className="space-y-0 px-4 pb-2 pt-5 text-left">
             <SheetTitle className="text-sm font-semibold tracking-tight text-foreground/90">
@@ -258,12 +258,12 @@ export const DashboardView = ({
         </SheetContent>
       </Sheet>
 
-      <div className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+3.5rem)] z-40 p-1 py-1.5">
+      <div className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+3.5rem)] z-40 py-1.5">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-0 px-4 md:px-6">
           <div className="hidden lg:block lg:w-[220px] lg:shrink-0" />
           <div className="flex-1 lg:min-w-0">
             <div className="mx-auto w-full max-w-3xl px-1 lg:max-w-none lg:px-3">
-              <div className="flex min-h-8 items-center gap-2 rounded-xl border border-border bg-card/75 px-2 py-1 backdrop-blur-sm">
+              <div className="flex min-h-8 items-center gap-2 rounded-xl border border-border/60 bg-card/75 px-2 py-1 backdrop-blur-sm">
                 {ARTICLE_FILTER_OPTIONS.map((value) => (
                   <button
                     key={value}

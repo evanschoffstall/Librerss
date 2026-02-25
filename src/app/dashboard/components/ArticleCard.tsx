@@ -261,7 +261,7 @@ export const ArticleCard = ({
       style={{
         boxShadow: isDark ? undefined : 'none',
       }}
-      className={`group relative overflow-hidden rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
+      className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
         ? "border-border bg-card/70 shadow-2xl shadow-zinc-900/50"
         : "border-border bg-white/70"
         } ${visuallyExpanded ? "p-4" : "p-3"}`}
@@ -275,12 +275,7 @@ export const ArticleCard = ({
       </div>
 
       <div className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
-        <div
-          className={visuallyExpanded
-            ? "sticky top-0 z-20 space-y-2 pb-1"
-            : "space-y-2"
-          }
-        >
+        <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
             <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <CalendarDays className="size-3" />
