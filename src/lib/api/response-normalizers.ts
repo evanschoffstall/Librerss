@@ -1,4 +1,5 @@
 import type { Article } from "../core/types";
+import { parseDateOrNull } from "../utils/date-utils";
 
 export function ensureArrayResponse<T>(data: unknown): T[] {
   if (!Array.isArray(data)) throw new Error("Invalid response format");
@@ -14,12 +15,7 @@ export interface BatchFeedResponseItem {
 }
 
 function parseLastFetchedAt(value: unknown): Date | null {
-  if (!(typeof value === "string" || value instanceof Date)) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return parseDateOrNull(value);
 }
 
 export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {

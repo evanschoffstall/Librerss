@@ -3,6 +3,7 @@
  * Pure transformations: no IO, no DB access.
  */
 
+import { parseDateOrFallback } from "@/lib/utils/date-utils";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
@@ -27,9 +28,7 @@ export function parseFeedItemDate(
   value: string | undefined,
   fallback: Date,
 ): Date {
-  if (!value) return fallback;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+  return parseDateOrFallback(value, fallback);
 }
 
 export function dedupePendingArticles(
