@@ -36,16 +36,17 @@ import {
   Share2,
   Star,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useArticleExpansion, useArticleHeights } from "../hooks/useArticleExpansion";
+import { useFavicon } from "../hooks/useFavicon";
 import {
   buildPreview,
   getArticleSourceLabel,
   getRichContentClass,
 } from "../services/article-content";
 import { setCachedFaviconIndex } from "../services/favicons";
-import { useArticleExpansion, useArticleHeights } from "../hooks/useArticleExpansion";
-import { useFavicon } from "../hooks/useFavicon";
 import { ANIM_TRANSITION_COLORS } from "./styles";
 
 interface ArticleCardProps {
@@ -84,8 +85,11 @@ export const ArticleCard = ({
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
   const [supportsNativeShare, setSupportsNativeShare] = useState(false);
+  const [isCardHovered, setIsCardHovered] = useState(false);
   const isDevelopment = process.env.NODE_ENV === "development";
   const isMobile = useIsMobile();
+  const { resolvedTheme } = useTheme();
+  const isDark = (resolvedTheme ?? "dark") === "dark";
 
   const rawHtml = article.content || "";
   const normalizedHtml = normalizeArticleHtmlSpacing(rawHtml);
@@ -120,6 +124,8 @@ export const ArticleCard = ({
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const rawHtmlPreRef = useRef<HTMLPreElement | null>(null);
   const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
+  const articleRef = useRef<HTMLElement | null>(null);
+  const pointerPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
@@ -145,6 +151,48 @@ export const ArticleCard = ({
 
   useEffect(() => {
     setSupportsNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+
+  useEffect(() => {
+    const updateHoverState = () => {
+      const target = articleRef.current;
+      const pointer = pointerPosRef.current;
+
+      if (!target || !pointer) {
+        setIsCardHovered(false);
+        return;
+      }
+
+      const element = document.elementFromPoint(pointer.x, pointer.y);
+      setIsCardHovered(Boolean(element && target.contains(element)));
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      pointerPosRef.current = { x: event.clientX, y: event.clientY };
+      updateHoverState();
+    };
+
+    const handleScroll = () => {
+      updateHoverState();
+    };
+
+    const handleWindowMouseLeave = (event: MouseEvent) => {
+      if (event.relatedTarget !== null) return;
+      setIsCardHovered(false);
+      pointerPosRef.current = null;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+    window.addEventListener("wheel", handleScroll, { passive: true });
+    window.addEventListener("mouseleave", handleWindowMouseLeave);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("wheel", handleScroll);
+      window.removeEventListener("mouseleave", handleWindowMouseLeave);
+    };
   }, []);
 
   const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -209,6 +257,7 @@ export const ArticleCard = ({
 
   return (
     <article
+      ref={articleRef}
       data-article-key={articleKey}
       role="button"
       tabIndex={0}
@@ -216,9 +265,24 @@ export const ArticleCard = ({
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
       onMouseDown={handleMouseDown}
-      className={`group rounded-xl border bg-card/40 transition-[padding,background-color,max-height] anim-duration-ui anim-ease-ui hover:bg-card/70 ${visuallyExpanded ? "p-4" : "p-3"}`}
+      onMouseLeave={() => setIsCardHovered(false)}
+      style={{
+        boxShadow: isDark ? undefined : 'none',
+      }}
+      className={`group relative overflow-hidden rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
+        ? "border-zinc-600 bg-card/70 shadow-2xl shadow-zinc-900/50"
+        : "border-zinc-400 bg-white/70"
+        } ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
-      <div className={`space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 z-0 transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
+        <div className={`absolute inset-0 z-10 bg-gradient-to-br transition duration-1000 ${isDark
+          ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
+          : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
+          } ${isCardHovered ? "opacity-100" : "opacity-0"}`} />
+      </div>
+
+      <div className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
         <div
           className={visuallyExpanded
             ? "sticky top-0 z-20 space-y-2 bg-card/95 pb-1 backdrop-blur-sm"

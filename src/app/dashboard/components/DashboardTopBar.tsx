@@ -61,8 +61,11 @@ export function DashboardTopBar() {
     };
   }, []);
 
-  const isDark = (resolvedTheme ?? "dark") === "dark";
+  const isDark = mounted && (resolvedTheme ?? "dark") === "dark";
   const nextTheme = isDark ? "light" : "dark";
+  const themeToggleLabel = mounted
+    ? `Switch to ${nextTheme} mode`
+    : "Toggle theme";
 
   const handleSearchChange = (term: string) => {
     setSearch(term);
@@ -158,7 +161,7 @@ export function DashboardTopBar() {
           <button
             type="button"
             onClick={() => setTheme(nextTheme)}
-            aria-label={`Switch to ${nextTheme} mode`}
+            aria-label={themeToggleLabel}
             className={toolbarBtnClass}
           >
             {mounted && isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

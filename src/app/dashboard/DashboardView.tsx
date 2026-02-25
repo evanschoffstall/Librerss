@@ -12,10 +12,6 @@ import { useCallback, useEffect, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
-import { ARTICLE_FILTER_OPTIONS } from "./services/article-filters";
-import { computeNextOrderedCategoryLabels } from "./services/category-display";
-import { buildDashboardViewModel } from "./services/dashboard-view-model";
-import { formatLastRefreshLabel } from "./services/refresh-time";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
@@ -31,12 +27,22 @@ import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
 import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
+import { ARTICLE_FILTER_OPTIONS } from "./services/article-filters";
+import { computeNextOrderedCategoryLabels } from "./services/category-display";
+import { buildDashboardViewModel } from "./services/dashboard-view-model";
+import { formatLastRefreshLabel } from "./services/refresh-time";
 
 type DashboardViewProps = {
   usePlaceholderData: boolean;
+  showParticlesBackground: boolean;
+  onShowParticlesBackgroundChange: (value: boolean) => void;
 };
 
-export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
+export const DashboardView = ({
+  usePlaceholderData,
+  showParticlesBackground,
+  onShowParticlesBackgroundChange,
+}: DashboardViewProps) => {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [, setRelativeRefreshTick] = useState(0);
 
@@ -317,8 +323,10 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
           selectedCategory={selectedCategory}
           pageSize={pageSize}
           showFavicons={showFavicons}
+          showParticlesBackground={showParticlesBackground}
           onPageSizeChange={setPageSize}
           onShowFaviconsChange={setShowFavicons}
+          onShowParticlesBackgroundChange={onShowParticlesBackgroundChange}
           onImportOpml={categoryManager.importOpmlFeeds}
           onDropFeed={categoryManager.moveFeedByDrop}
           onAddFeed={categoryManager.addFeedSource}

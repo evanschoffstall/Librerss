@@ -11,15 +11,19 @@ import { Switch } from "@/components/ui/switch";
 interface SettingsDisplaySectionProps {
   pageSize: number;
   showFavicons: boolean;
+  showParticlesBackground: boolean;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
+  onShowParticlesBackgroundChange: (value: boolean) => void;
 }
 
 export function SettingsDisplaySection({
   pageSize,
   showFavicons,
+  showParticlesBackground,
   onPageSizeChange,
   onShowFaviconsChange,
+  onShowParticlesBackgroundChange,
 }: SettingsDisplaySectionProps) {
   return (
     <section className="rounded-lg border bg-card p-4 space-y-4">
@@ -53,6 +57,14 @@ export function SettingsDisplaySection({
             id="show-favicons"
             checked={showFavicons}
             onCheckedChange={onShowFaviconsChange}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-particles-background">Particles background</Label>
+          <Switch
+            id="show-particles-background"
+            checked={showParticlesBackground}
+            onCheckedChange={onShowParticlesBackgroundChange}
           />
         </div>
       </div>

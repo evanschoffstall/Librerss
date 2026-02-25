@@ -38,8 +38,10 @@ interface SettingsModalProps {
   selectedCategory: string;
   pageSize: number;
   showFavicons: boolean;
+  showParticlesBackground: boolean;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
+  onShowParticlesBackgroundChange: (value: boolean) => void;
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
   onDropFeed: (key: string, targetCategory: string, targetIndex: number) => Promise<void>;
   onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
@@ -58,8 +60,10 @@ function SettingsBody({
   pendingCategoryRemovalLabel,
   pageSize,
   showFavicons,
+  showParticlesBackground,
   onPageSizeChange,
   onShowFaviconsChange,
+  onShowParticlesBackgroundChange,
   onRemoveCategory,
 }: {
   state: ReturnType<typeof useSettingsModalState>;
@@ -67,8 +71,10 @@ function SettingsBody({
   pendingCategoryRemovalLabel: string | null;
   pageSize: number;
   showFavicons: boolean;
+  showParticlesBackground: boolean;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
+  onShowParticlesBackgroundChange: (value: boolean) => void;
   onRemoveCategory: (label: string) => Promise<boolean>;
 }) {
   return (
@@ -76,8 +82,10 @@ function SettingsBody({
       <SettingsDisplaySection
         pageSize={pageSize}
         showFavicons={showFavicons}
+        showParticlesBackground={showParticlesBackground}
         onPageSizeChange={onPageSizeChange}
         onShowFaviconsChange={onShowFaviconsChange}
+        onShowParticlesBackgroundChange={onShowParticlesBackgroundChange}
       />
 
       <section className="rounded-lg border bg-card p-4 space-y-4">
@@ -159,8 +167,10 @@ export const SettingsModal = ({
   selectedCategory,
   pageSize,
   showFavicons,
+  showParticlesBackground,
   onPageSizeChange,
   onShowFaviconsChange,
+  onShowParticlesBackgroundChange,
   onImportOpml,
   onDropFeed,
   onAddFeed,
@@ -192,8 +202,10 @@ export const SettingsModal = ({
     pendingCategoryRemovalLabel,
     pageSize,
     showFavicons,
+    showParticlesBackground,
     onPageSizeChange,
     onShowFaviconsChange,
+    onShowParticlesBackgroundChange,
     onRemoveCategory,
   } as const;
 
