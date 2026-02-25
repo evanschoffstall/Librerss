@@ -61,6 +61,7 @@ export async function handleSubscriptionList(
 
   return NextResponse.json({
     subscriptions: rows.map((row) => {
+      const iconUrl = toReaderIconUrl(row.url);
       const resolvedCategory = resolveCategoryWithFallback(
         row.category,
         row.url,
@@ -72,7 +73,7 @@ export async function handleSubscriptionList(
         title: row.title,
         url: row.url,
         htmlUrl: row.url,
-        iconUrl: toReaderIconUrl(row.url),
+        ...(iconUrl ? { iconUrl } : {}),
         sortid: String(row.sourceId),
         // Return an empty categories array for feeds with no resolved category
         // so NNW leaves them at the account top level rather than treating them

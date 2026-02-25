@@ -832,8 +832,8 @@ describe("greader mappers – toReaderIconUrl", () => {
     expect(result).toContain("example.com");
   });
 
-  test("returns empty string for invalid URL", () => {
-    expect(toReaderIconUrl("not-a-url")).toBe("");
+  test("returns null for invalid URL", () => {
+    expect(toReaderIconUrl("not-a-url")).toBeNull();
   });
 });
 

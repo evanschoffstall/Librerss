@@ -89,7 +89,7 @@ describe("greader utils/mappers", () => {
     expect(toReaderIconUrl("https://sub.example.com/feed.xml")).toContain(
       "domain=sub.example.com",
     );
-    expect(toReaderIconUrl("not-a-url")).toBe("");
+    expect(toReaderIconUrl("not-a-url")).toBeNull();
   });
 
   test("mapArticleAsItem builds reader payload with category fallback and states", async () => {

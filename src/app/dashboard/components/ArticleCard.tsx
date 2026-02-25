@@ -261,26 +261,21 @@ export const ArticleCard = ({
       style={{
         boxShadow: isDark ? undefined : 'none',
       }}
-      className={`group relative overflow-hidden rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
+      className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
         ? "border-border bg-card/70 shadow-2xl shadow-zinc-900/50"
         : "border-border bg-white/70"
         } ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 z-0 transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
-        <div className={`absolute inset-0 z-10 bg-gradient-to-br transition duration-1000 ${isDark
+      <div className="pointer-events-none absolute inset-0 rounded-xl">
+        <div className="absolute inset-0 z-0 rounded-xl transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
+        <div className={`absolute inset-0 z-10 rounded-xl bg-gradient-to-br transition duration-1000 ${isDark
           ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
           : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
           } ${isCardHovered ? "opacity-100" : "opacity-0"}`} />
       </div>
 
       <div className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
-        <div
-          className={visuallyExpanded
-            ? "sticky top-0 z-20 space-y-2 pb-1"
-            : "space-y-2"
-          }
-        >
+        <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
             <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <CalendarDays className="size-3" />

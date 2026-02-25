@@ -28,10 +28,10 @@ function toReaderCategoryLabel(category: string | null | undefined): string {
   return trimmed ? trimmed : DEFAULT_CATEGORY_LABEL;
 }
 
-export function toReaderIconUrl(feedUrl: string): string {
+export function toReaderIconUrl(feedUrl: string): string | null {
   const hostname = tryGetUrlHostname(feedUrl);
   if (!hostname) {
-    return "";
+    return null;
   }
 
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;

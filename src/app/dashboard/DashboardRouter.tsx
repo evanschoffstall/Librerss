@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { LoginView } from "./components/login/LoginView";
 import { ParticlesBackground } from "./components/ParticlesBackground";
+import { ParticlesBackgroundLight } from "./components/ParticlesBackgroundLight";
 import { DASHBOARD_EVENTS } from "./constants";
 import { DashboardView } from "./DashboardView";
 
@@ -21,8 +22,8 @@ export function DashboardRouter() {
     true,
   );
 
-  const shouldShowParticlesBackground =
-    showParticlesBackground && (resolvedTheme ?? "dark") === "dark";
+  const shouldShowParticlesBackground = showParticlesBackground;
+  const isLightMode = (resolvedTheme ?? "dark") === "light";
 
   useEffect(() => {
     const loadSession = async () => {
@@ -71,7 +72,11 @@ export function DashboardRouter() {
 
   return (
     <main className="relative h-full overflow-hidden bg-background">
-      {shouldShowParticlesBackground ? <ParticlesBackground /> : null}
+      {shouldShowParticlesBackground
+        ? isLightMode
+          ? <ParticlesBackgroundLight />
+          : <ParticlesBackground />
+        : null}
       <div className="relative z-10 h-full">
         <DashboardView
           usePlaceholderData={isPreviewMode || usePlaceholderData}
