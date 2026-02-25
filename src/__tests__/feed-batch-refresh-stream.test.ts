@@ -20,12 +20,12 @@ import {
   toReaderIconUrl,
 } from "@/app/api/greader.php/[...segments]/services/mappers";
 import { parseDistinctReaderArticleIds } from "@/app/api/greader.php/[...segments]/services/reader-item-params";
-import { parseUserLabel } from "@/lib/core/stream-ids";
 import {
   notFoundResponse,
   textResponse,
 } from "@/app/api/greader.php/[...segments]/services/responses";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
+import { parseUserLabel } from "@/lib/core/stream-ids";
 import { toCategoryLookupKey } from "@/lib/utils/url";
 import { describe, expect, test } from "bun:test";
 
@@ -156,8 +156,8 @@ describe("GReader mappers", () => {
     expect(result).toContain("example.com");
   });
 
-  test("toReaderIconUrl returns empty string for invalid URL", () => {
-    expect(toReaderIconUrl("not-a-url")).toBe("");
+  test("toReaderIconUrl returns null for invalid URL", () => {
+    expect(toReaderIconUrl("not-a-url")).toBeNull();
   });
 
   test("mapArticleAsItem produces correct structure", () => {
