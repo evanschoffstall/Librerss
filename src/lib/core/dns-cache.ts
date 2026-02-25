@@ -15,22 +15,21 @@ interface DnsCacheEntry {
 }
 
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
-const DNS_CACHE_MAX_ENTRIES = 10_000;
 
 export function __resetDnsCacheForTests(): void {
   DNS_CACHE.clear();
 }
 
 function setCacheSafe(key: string, value: DnsCacheEntry): void {
-  if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+  if (DNS_CACHE.size >= CONFIG.DNS_CACHE_MAX_ENTRIES) {
     const now = Date.now();
     for (const [k, entry] of DNS_CACHE.entries()) {
       if (entry.expiresAt <= now) DNS_CACHE.delete(k);
     }
 
-    if (DNS_CACHE.size >= DNS_CACHE_MAX_ENTRIES) {
+    if (DNS_CACHE.size >= CONFIG.DNS_CACHE_MAX_ENTRIES) {
       // Evict oldest 20% to avoid thundering-herd on full flush.
-      const evictCount = Math.ceil(DNS_CACHE_MAX_ENTRIES * 0.2);
+      const evictCount = Math.ceil(CONFIG.DNS_CACHE_MAX_ENTRIES * 0.2);
       let evicted = 0;
       for (const k of DNS_CACHE.keys()) {
         DNS_CACHE.delete(k);

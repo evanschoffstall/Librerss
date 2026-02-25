@@ -49,7 +49,7 @@ export async function parseCreateFeedPayload(
     category.length > CONFIG.MAX_CATEGORY_NAME_LENGTH
   ) {
     return jsonError(
-      `name and category must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less`,
+      `name must be ${CONFIG.MAX_FEED_NAME_LENGTH} characters or less; category must be ${CONFIG.MAX_CATEGORY_NAME_LENGTH} characters or less`,
       400,
     );
   }
