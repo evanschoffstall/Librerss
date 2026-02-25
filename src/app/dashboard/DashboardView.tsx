@@ -34,9 +34,15 @@ import { formatLastRefreshLabel } from "./services/refresh-time";
 
 type DashboardViewProps = {
   usePlaceholderData: boolean;
+  showParticlesBackground: boolean;
+  onShowParticlesBackgroundChange: (value: boolean) => void;
 };
 
-export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
+export const DashboardView = ({
+  usePlaceholderData,
+  showParticlesBackground,
+  onShowParticlesBackgroundChange,
+}: DashboardViewProps) => {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [, setRelativeRefreshTick] = useState(0);
 
@@ -317,8 +323,10 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
           selectedCategory={selectedCategory}
           pageSize={pageSize}
           showFavicons={showFavicons}
+          showParticlesBackground={showParticlesBackground}
           onPageSizeChange={setPageSize}
           onShowFaviconsChange={setShowFavicons}
+          onShowParticlesBackgroundChange={onShowParticlesBackgroundChange}
           onImportOpml={categoryManager.importOpmlFeeds}
           onDropFeed={categoryManager.moveFeedByDrop}
           onAddFeed={categoryManager.addFeedSource}

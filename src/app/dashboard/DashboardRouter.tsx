@@ -1,9 +1,11 @@
 "use client";
 
-import { AuthService, type AuthUser } from "@/lib";
+import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
 import { Loader2 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { LoginView } from "./components/login/LoginView";
+import { ParticlesBackground } from "./components/ParticlesBackground";
 import { DASHBOARD_EVENTS } from "./constants";
 import { DashboardView } from "./DashboardView";
 
@@ -13,6 +15,14 @@ export function DashboardRouter() {
   const [allowSignup, setAllowSignup] = useState(true);
   const [usePlaceholderData, setUsePlaceholderData] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const [showParticlesBackground, setShowParticlesBackground] = useLocalStorage<boolean>(
+    "librerss:showParticlesBackground",
+    true,
+  );
+
+  const shouldShowParticlesBackground =
+    showParticlesBackground && (resolvedTheme ?? "dark") === "dark";
 
   useEffect(() => {
     const loadSession = async () => {
@@ -60,8 +70,15 @@ export function DashboardRouter() {
   }
 
   return (
-    <main className="h-full overflow-hidden bg-background">
-      <DashboardView usePlaceholderData={isPreviewMode || usePlaceholderData} />
+    <main className="relative h-full overflow-hidden bg-background">
+      {shouldShowParticlesBackground ? <ParticlesBackground /> : null}
+      <div className="relative z-10 h-full">
+        <DashboardView
+          usePlaceholderData={isPreviewMode || usePlaceholderData}
+          showParticlesBackground={showParticlesBackground}
+          onShowParticlesBackgroundChange={setShowParticlesBackground}
+        />
+      </div>
     </main>
   );
 }
