@@ -1,12 +1,12 @@
 import { CONFIG } from "@/lib/config";
 import axios from "axios";
 
-export type FetchTextWithValidatedRedirectsDeps = {
+type FetchTextWithValidatedRedirectsDeps = {
   axiosGetFn?: typeof axios.get;
   isAxiosErrorFn?: typeof axios.isAxiosError;
 };
 
-export type FetchTextWithValidatedRedirectsOptions = {
+type FetchTextWithValidatedRedirectsOptions = {
   url: string;
   assertAllowedUrl: (url: string) => Promise<void>;
   maxRedirects: number;
