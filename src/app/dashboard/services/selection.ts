@@ -1,6 +1,6 @@
 import type { CategoryTreeNode } from "@/lib";
 import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL } from "../constants";
-import { flattenCategoryFeeds } from "./category-tree";
+import { findFeedNodeByKey } from "./category-feeds";
 
 export type FeedFetchOptions = {
   forceRefresh?: boolean;
@@ -50,8 +50,9 @@ export async function initializeDashboardSelection(
     return;
   }
 
-  const selectedFeedNode = flattenCategoryFeeds(loadedCategories).find(
-    (node) => node.key === selectedCategory,
+  const selectedFeedNode = findFeedNodeByKey(
+    loadedCategories,
+    selectedCategory,
   );
   if (selectedFeedNode?.data?.url) {
     await fetchFeed(selectedFeedNode.data.url, initialFetchOptions);

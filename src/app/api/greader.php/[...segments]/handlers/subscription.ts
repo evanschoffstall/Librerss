@@ -1,4 +1,5 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
+import { textResponse } from "@/lib/api/responses";
 import { type SessionUser } from "@/lib/auth/session";
 import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
@@ -23,7 +24,6 @@ import {
   resolveCategoryWithFallback,
 } from "../services/categories";
 import { toReaderIconUrl } from "../services/mappers";
-import { textResponse } from "../services/responses";
 
 export async function handleSubscriptionList(
   user: SessionUser,

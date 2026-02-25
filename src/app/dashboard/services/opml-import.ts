@@ -6,7 +6,7 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { toast } from "sonner";
-import { flattenCategoryFeeds } from "../../services/category-tree";
+import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-feeds";
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 
@@ -34,9 +34,10 @@ export async function importOpmlFeedsAndRefresh({
     return;
   }
 
-  const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-    (node) => node.key === selectedCategory,
-  )?.data?.url;
+  const previousSelectedSourceUrl = getFeedUrlBySelectedKey(
+    categories,
+    selectedCategory,
+  );
 
   let importedCount = 0;
   let failedCount = 0;
@@ -86,13 +87,11 @@ export async function importOpmlFeedsAndRefresh({
 
   const nextCategories = await loadFeedSources();
   const restoredSelection = previousSelectedSourceUrl
-    ? flattenCategoryFeeds(nextCategories).find(
-        (node) => node.data?.url === previousSelectedSourceUrl,
-      )
+    ? findFeedNodeByUrl(nextCategories, previousSelectedSourceUrl)
     : null;
-  const importedSelection = flattenCategoryFeeds(nextCategories).find((node) =>
-    successfulUrls.includes(node.data?.url ?? ""),
-  );
+  const importedSelection = successfulUrls
+    .map((url) => findFeedNodeByUrl(nextCategories, url))
+    .find((node) => node !== undefined);
   const nextSelection = importedSelection ?? restoredSelection;
 
   if (nextSelection?.data?.url) {

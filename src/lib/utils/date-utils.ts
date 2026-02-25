@@ -25,3 +25,22 @@ export const formatRelativeDate = (date: Date): string => {
   if (diffDays <= 6) return `${diffDays} days ago`;
   return date.toLocaleDateString();
 };
+
+/**
+ * Parses a date-like input into a valid Date, otherwise returns null.
+ */
+export function parseDateOrNull(value: unknown): Date | null {
+  if (!(typeof value === "string" || value instanceof Date)) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Parses a date-like input, falling back when invalid or missing.
+ */
+export function parseDateOrFallback(value: unknown, fallback: Date): Date {
+  return parseDateOrNull(value) ?? fallback;
+}

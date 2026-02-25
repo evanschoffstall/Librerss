@@ -8,7 +8,6 @@ type DashboardTopTokenBarProps = {
   onArticleFilterChange: (value: ArticleFilter) => void;
   lastRefreshLabel: string;
   loading: boolean;
-  hasLastRefresh: boolean;
 };
 
 export function DashboardTopTokenBar({
@@ -16,7 +15,6 @@ export function DashboardTopTokenBar({
   onArticleFilterChange,
   lastRefreshLabel,
   loading,
-  hasLastRefresh,
 }: DashboardTopTokenBarProps) {
   return (
     <div className="sticky z-40 shrink-0 py-1">
@@ -45,7 +43,7 @@ export function DashboardTopTokenBar({
                   aria-live="polite"
                 >
                   Last refreshed:{" "}
-                  {loading && hasLastRefresh ? (
+                  {loading ? (
                     <Skeleton
                       className="inline-block h-[11px] w-12 rounded-sm align-middle"
                       aria-label="Refreshing"

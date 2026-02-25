@@ -10,10 +10,10 @@ import {
   dedupeAndSortArticles,
   getArticleKey,
 } from "../services/article-collection";
+import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-feeds";
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
-  flattenCategoryFeeds,
 } from "../services/category-tree";
 import {
   FEED_LOADING_FAILSAFE_MS,
@@ -257,7 +257,7 @@ export function useFeedLoader({
 
   const handleEmptyBatchResult = useCallback(() => {
     const hasConfiguredFeeds =
-      flattenCategoryFeeds(categoriesRef.current).length > 0;
+      getAllFeedNodes(categoriesRef.current).length > 0;
     if (!hasConfiguredFeeds) {
       toast.info("No feed sources yet.", {
         description: "Add your feeds in Settings to start reading.",
@@ -409,9 +409,7 @@ export function useFeedLoader({
 
   const fetchFeed = useCallback(
     async (url: string, options?: FeedFetchOptions) => {
-      const sourceName = flattenCategoryFeeds(categoriesRef.current).find(
-        (node) => node.data?.url === url,
-      )?.label;
+      const sourceName = findFeedNodeByUrl(categoriesRef.current, url)?.label;
       await fetchFeedBatch([{ url, name: sourceName }], options);
     },
     [fetchFeedBatch, categoriesRef],
@@ -432,7 +430,7 @@ export function useFeedLoader({
     ) => {
       const resolvedCategories = sourceCategories ?? categoriesRef.current;
       const sources = mapFeedNodesToBatchSources(
-        flattenCategoryFeeds(resolvedCategories),
+        getAllFeedNodes(resolvedCategories),
       );
       await fetchFeedBatch(sources, options);
     },

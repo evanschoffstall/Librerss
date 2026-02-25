@@ -16,7 +16,7 @@ import {
   normalizeArticleHtmlSpacing,
   sanitizeArticleHtml,
 } from "@/lib/utils/sanitize";
-import { redactUrlForLogs } from "@/lib/utils/url";
+import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
@@ -50,7 +50,8 @@ export async function parseAndValidateArticleUrl(
 
   const articleUrl = payloadOrResponse.url?.trim() ?? "";
   if (!articleUrl) return toJsonError("Article URL is required", 400);
-  if (!(await isAllowedUrl(articleUrl))) return toJsonError(PUBLIC_FEED_URL_ERROR, 400);
+  if (!(await isAllowedUrl(articleUrl)))
+    return toJsonError(PUBLIC_FEED_URL_ERROR, 400);
 
   return articleUrl;
 }
@@ -79,11 +80,7 @@ export function sanitizeExtractedContent(rawContent: string): string {
 }
 
 export function getHostname(url: string): string {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return "";
-  }
+  return tryGetUrlHostname(url) ?? "";
 }
 
 // ─── Daily Kos boilerplate cleanup ───────────────────────────────────────────
@@ -121,12 +118,18 @@ export function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
 }
 
 export function hasDailyKosStoryImage(content: string): boolean {
-  return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(content);
+  return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(
+    content,
+  );
 }
 
 export function extractDailyKosStoryFallbackHtml(rawHtml: string): string {
-  const figureMatch = rawHtml.match(/<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i);
-  const textBlockMatch = rawHtml.match(/<div\s+class="story__text">([\s\S]*?)<\/div>/i);
+  const figureMatch = rawHtml.match(
+    /<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i,
+  );
+  const textBlockMatch = rawHtml.match(
+    /<div\s+class="story__text">([\s\S]*?)<\/div>/i,
+  );
 
   const figureHtml = figureMatch?.[0] ?? "";
   const storyTextHtml = (textBlockMatch?.[1] ?? "")
@@ -159,7 +162,10 @@ type FetchHtmlDeps = {
   axiosGetFn?: typeof axios.get;
 };
 
-export async function fetchHtml(url: string, deps?: FetchHtmlDeps): Promise<string> {
+export async function fetchHtml(
+  url: string,
+  deps?: FetchHtmlDeps,
+): Promise<string> {
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   let isFirstValidation = true;
 
@@ -175,7 +181,9 @@ export async function fetchHtml(url: string, deps?: FetchHtmlDeps): Promise<stri
       },
       assertAllowedUrl: async (candidateUrl) => {
         if (!(await isAllowedUrl(candidateUrl))) {
-          throw new Error(isFirstValidation ? "Blocked URL" : "Blocked redirect target");
+          throw new Error(
+            isFirstValidation ? "Blocked URL" : "Blocked redirect target",
+          );
         }
         isFirstValidation = false;
       },
@@ -204,15 +212,21 @@ type ExtractPostDeps = {
 };
 
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
-  const requireAuth = deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
-  const parseArticleUrl = deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
+  const requireAuth =
+    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+  const parseArticleUrl =
+    deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
   const extractArticle = deps?.extractFromHtmlFn ?? extractFromHtml;
-  const sanitizeContent = deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
-  const cleanContent = deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
+  const sanitizeContent =
+    deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
+  const cleanContent =
+    deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
   const hostnameOf = deps?.getHostnameFn ?? getHostname;
   const hasStoryImage = deps?.hasDailyKosStoryImageFn ?? hasDailyKosStoryImage;
-  const extractFallback = deps?.extractDailyKosStoryFallbackHtmlFn ?? extractDailyKosStoryFallbackHtml;
+  const extractFallback =
+    deps?.extractDailyKosStoryFallbackHtmlFn ??
+    extractDailyKosStoryFallbackHtml;
   const toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
   const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
@@ -241,12 +255,19 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       contentLengthThreshold: 120,
     });
 
-    const rawContent = extracted?.content?.trim() || extracted?.description?.trim() || "";
+    const rawContent =
+      extracted?.content?.trim() || extracted?.description?.trim() || "";
     const sanitizedContent = sanitizeContent(rawContent);
     let content = cleanContent(sanitizedContent, articleUrl);
 
-    if (hostnameOf(articleUrl).endsWith("dailykos.com") && !hasStoryImage(content)) {
-      const fallbackContent = cleanContent(sanitizeContent(extractFallback(html)), articleUrl);
+    if (
+      hostnameOf(articleUrl).endsWith("dailykos.com") &&
+      !hasStoryImage(content)
+    ) {
+      const fallbackContent = cleanContent(
+        sanitizeContent(extractFallback(html)),
+        articleUrl,
+      );
       if (hasStoryImage(fallbackContent)) {
         content = fallbackContent;
       }
@@ -263,16 +284,25 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     if (isAxiosError(error)) {
       const upstreamStatus = error.response?.status;
-      const status = typeof upstreamStatus === "number" && upstreamStatus >= 400 ? upstreamStatus : 502;
+      const status =
+        typeof upstreamStatus === "number" && upstreamStatus >= 400
+          ? upstreamStatus
+          : 502;
       const label = status === 502 ? "Bad Gateway" : "Upstream Error";
-      warn(`Returning ${status} ${label} — article extract upstream request failed${urlSuffix}: ${toMessage(error)}`);
+      warn(
+        `Returning ${status} ${label} — article extract upstream request failed${urlSuffix}: ${toMessage(error)}`,
+      );
       return toJsonError(
-        status === 502 ? ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE : ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+        status === 502
+          ? ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE
+          : ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
         status,
       );
     }
 
-    warn(`Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`);
+    warn(
+      `Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`,
+    );
     return respondError("Article extract error", error, {
       status: 502,
       publicMessage: ARTICLE_EXTRACTION_ERROR_MESSAGE,

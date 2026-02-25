@@ -1,6 +1,7 @@
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { feedSources } from "@/lib/db/schema";
+import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
 import { eq } from "drizzle-orm";
 import {
@@ -63,7 +64,7 @@ export async function maybeRefreshGReaderStreamFeeds(
       userId,
       streamId,
       requestSource,
-      error: error instanceof Error ? error.message : String(error),
+      error: toErrorMessage(error),
     });
   }
 }
