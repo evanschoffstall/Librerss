@@ -126,6 +126,24 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).toBe("Cartoon & Politics & Markets");
   });
 
+  test("sanitizeArticleTitle strips unknown entities", async () => {
+    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+
+    const title = "Headline &doesnotexist; update";
+    const result = sanitizeArticleTitle(title);
+
+    expect(result).toBe("Headline update");
+  });
+
+  test("decodeHtmlEntities handles decimal/hex entities and overflow safely", async () => {
+    const { __decodeHtmlEntitiesForTests } =
+      await import("@/lib/utils/sanitize");
+
+    expect(__decodeHtmlEntitiesForTests("A &#65; B")).toBe("A A B");
+    expect(__decodeHtmlEntitiesForTests("A &#x41; B")).toBe("A A B");
+    expect(__decodeHtmlEntitiesForTests("A &#x110000; B")).toBe("A  B");
+  });
+
   test("sanitizeArticleTitle handles empty input with fallback", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
 
