@@ -19,9 +19,18 @@ const MARK_ALL_READ_LIMIT = 10_000;
 export async function markStreamAsRead(
   userId: number,
   stream: string,
+  deps?: {
+    db?: ReturnType<typeof getDb>;
+    canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;
+    upsertArticleStatusesFn?: typeof upsertArticleStatuses;
+  },
 ): Promise<void> {
-  const db = getDb();
-  const useArticleStatuses = await canUseArticleStatusesTable();
+  const db = deps?.db ?? getDb();
+  const canUseArticleStatuses =
+    deps?.canUseArticleStatusesTableFn ?? canUseArticleStatusesTable;
+  const upsertStatuses = deps?.upsertArticleStatusesFn ?? upsertArticleStatuses;
+
+  const useArticleStatuses = await canUseArticleStatuses();
 
   const rows = stream.startsWith(FEED_STREAM_PREFIX)
     ? await db
@@ -67,7 +76,7 @@ export async function markStreamAsRead(
             )
             .limit(MARK_ALL_READ_LIMIT);
 
-  await upsertArticleStatuses(
+  await upsertStatuses(
     userId,
     rows.map((row) => row.articleId),
     { isRead: true },

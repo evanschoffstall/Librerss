@@ -1075,6 +1075,71 @@ describe("mark-stream-read", () => {
   test("markStreamAsRead is exported as callable async function", async () => {
     const markStream = await import("@/lib/core/mark-stream-read");
     expect(typeof markStream.markStreamAsRead).toBe("function");
-    expect(markStream.markStreamAsRead.length).toBe(2);
+    expect(markStream.markStreamAsRead.length).toBe(3);
+  });
+
+  test("markStreamAsRead handles feed and default streams", async () => {
+    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+
+    const rows = [{ articleId: 1 }, { articleId: 2 }];
+    const chain: any = {
+      innerJoin: mock(() => chain),
+      where: mock(() => chain),
+      limit: mock(async () => rows),
+    };
+    const db = {
+      select: mock(() => ({
+        from: mock(() => chain),
+      })),
+    };
+    const upsert = mock(async () => {});
+
+    await markStreamAsRead(5, "feed/https://example.com/feed.xml", {
+      db: db as any,
+      canUseArticleStatusesTableFn: async () => true,
+      upsertArticleStatusesFn: upsert as any,
+    });
+    expect(upsert).toHaveBeenCalledWith(5, [1, 2], { isRead: true });
+
+    await markStreamAsRead(5, "user/-/state/com.google/reading-list", {
+      db: db as any,
+      canUseArticleStatusesTableFn: async () => false,
+      upsertArticleStatusesFn: upsert as any,
+    });
+    expect(upsert).toHaveBeenCalledTimes(2);
+  });
+
+  test("markStreamAsRead handles starred stream with and without article statuses", async () => {
+    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { STARRED_STATE } = await import("@/lib/core/stream-ids");
+
+    const starredRows = [{ articleId: 7 }];
+    const chain: any = {
+      innerJoin: mock(() => chain),
+      where: mock(() => chain),
+      limit: mock(async () => starredRows),
+    };
+    const db = {
+      select: mock(() => ({
+        from: mock(() => chain),
+      })),
+    };
+    const upsert = mock(async () => {});
+
+    await markStreamAsRead(9, STARRED_STATE, {
+      db: db as any,
+      canUseArticleStatusesTableFn: async () => true,
+      upsertArticleStatusesFn: upsert as any,
+    });
+    expect(upsert).toHaveBeenCalledWith(9, [7], { isRead: true });
+
+    const dbNoQuery = { select: mock(() => ({ from: mock(() => chain) })) };
+    await markStreamAsRead(9, STARRED_STATE, {
+      db: dbNoQuery as any,
+      canUseArticleStatusesTableFn: async () => false,
+      upsertArticleStatusesFn: upsert as any,
+    });
+    expect(upsert).toHaveBeenCalledWith(9, [], { isRead: true });
+    expect(dbNoQuery.select).toHaveBeenCalledTimes(0);
   });
 });
