@@ -263,7 +263,7 @@ export const DashboardView = ({
           <div className="hidden lg:block lg:w-[220px] lg:shrink-0" />
           <div className="flex-1 lg:min-w-0">
             <div className="mx-auto w-full max-w-3xl px-1 lg:max-w-none lg:px-3">
-              <div className="flex min-h-8 items-center gap-2 rounded-xl border border-border/60 bg-card/75 px-2 py-1 backdrop-blur-sm">
+              <div className="flex min-h-8 items-center gap-2 rounded-xl border border-border bg-card/75 px-2 py-1 backdrop-blur-sm">
                 {ARTICLE_FILTER_OPTIONS.map((value) => (
                   <button
                     key={value}
