@@ -599,6 +599,87 @@ describe("useArticleActions - Article Hydration Integration", () => {
     document.body.removeChild(mockElement);
   });
 
+  test("collapse scroll does not move viewport when card remains visible", async () => {
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    Object.defineProperty(viewport, "scrollTop", {
+      value: 600,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      value: 2000,
+      configurable: true,
+    });
+    Object.defineProperty(viewport, "clientHeight", {
+      value: 400,
+      configurable: true,
+    });
+    viewport.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 100,
+        top: 100,
+        left: 0,
+        right: 500,
+        bottom: 500,
+        width: 500,
+        height: 400,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    viewport.scrollTo = mock(() => {}) as typeof viewport.scrollTo;
+
+    const mockElement = document.createElement("div");
+    mockElement.setAttribute(
+      "data-article-key",
+      "1_https://example.com/article",
+    );
+    mockElement.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 180,
+        top: 180,
+        left: 0,
+        right: 500,
+        bottom: 260,
+        width: 500,
+        height: 80,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    mockElement.closest = mock(() => viewport) as typeof mockElement.closest;
+
+    viewport.appendChild(mockElement);
+    document.body.appendChild(viewport);
+
+    const article = createMockArticle({
+      id: 1,
+      link: "https://example.com/article",
+    });
+    const articleKey = "1_https://example.com/article";
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        feed: [article],
+        setFeed,
+        expandedArticleKey: articleKey,
+        setExpandedArticleKey,
+        articleFilter: "all",
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(viewport.scrollTo).not.toHaveBeenCalled();
+
+    document.body.removeChild(viewport);
+  });
+
   test("auto-hydration runs once per expanded key even if feed updates", async () => {
     const article = createMockArticle({
       id: 1,
