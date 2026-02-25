@@ -145,7 +145,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
 
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [feed, searchTerm, pageSize, articleFilter, setVisibleCount]);
+  }, [selectedCategory, searchTerm, pageSize, articleFilter, setVisibleCount]);
 
   useFeedVisibilityObserver({
     sentinelRef,
