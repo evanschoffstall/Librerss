@@ -1,4 +1,5 @@
 import { parseFormOrQueryParams } from "@/lib/api/request";
+import { textResponse } from "@/lib/api/responses";
 import { type SessionUser } from "@/lib/auth/session";
 import {
   canUseArticleStatusesTable,
@@ -16,7 +17,6 @@ import {
   TAG_MUTATIONS,
 } from "../constants";
 import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
-import { textResponse } from "../services/responses";
 
 export async function handleMarkAllAsRead(
   user: SessionUser,

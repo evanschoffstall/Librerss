@@ -1,4 +1,5 @@
 import { getSearchParams } from "@/lib/api/request";
+import { notFoundResponse, textResponse } from "@/lib/api/responses";
 import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/utils/logger";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +29,6 @@ import {
   handleRenameTag,
   handleTagList,
 } from "./handlers/tag-labels";
-import { notFoundResponse, textResponse } from "./services/responses";
 
 export const dynamic = "force-dynamic";
 

@@ -1,4 +1,5 @@
 import { asTrimmedString, parseFormOrQueryParams } from "@/lib/api/request";
+import { textResponse } from "@/lib/api/responses";
 import { type SessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
@@ -20,7 +21,6 @@ import {
   maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
 } from "../services/categories";
-import { textResponse } from "../services/responses";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const db = getDb();
