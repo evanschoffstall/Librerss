@@ -263,7 +263,6 @@ export const DashboardView = ({
         onArticleFilterChange={setArticleFilter}
         lastRefreshLabel={lastRefreshLabel}
         loading={loading}
-        hasLastRefresh={Boolean(lastRefreshedAt)}
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch lg:gap-0">
