@@ -14,6 +14,75 @@ import {
   toCategoryKey,
 } from "../../services/category-tree";
 
+function collectKnownCategoryLabels(
+  categories: CategoryTreeNode[],
+  customCategoryLabels: string[],
+): string[] {
+  return [...categories.map((node) => node.label), ...customCategoryLabels];
+}
+
+function getSelectedSourceUrl(
+  categories: CategoryTreeNode[],
+  selectedCategoryKey: string,
+): string | undefined {
+  return flattenCategoryFeeds(categories).find(
+    (node) => node.key === selectedCategoryKey,
+  )?.data?.url;
+}
+
+function updateCategoryLabelCollections(
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>,
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>,
+  update: (labels: string[]) => string[],
+): void {
+  setCustomCategoryLabels((current) => update(current));
+  setOrderedCategoryLabels((current) => update(current));
+}
+
+function removeCategoryFromLabelCollections(
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>,
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>,
+  label: string,
+): void {
+  updateCategoryLabelCollections(
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    (current) => removeCategoryLabel(current, label),
+  );
+}
+
+function getCategoryRemovalTarget(
+  categories: CategoryTreeNode[],
+  customCategoryLabels: string[],
+  labelToRemove: string,
+): string | undefined {
+  return collectKnownCategoryLabels(categories, customCategoryLabels)
+    .map((label) => normalizeCategory(label))
+    .find((label) => !isSameCategoryLabel(label, labelToRemove));
+}
+
+function restoreSelectedCategoryFromSourceUrl({
+  refreshedCategories,
+  selectedSourceUrl,
+  setSelectedCategory,
+}: {
+  refreshedCategories: CategoryTreeNode[];
+  selectedSourceUrl?: string;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}): void {
+  if (!selectedSourceUrl) {
+    return;
+  }
+
+  const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
+    (node) => node.data?.url === selectedSourceUrl,
+  );
+
+  if (selectedNode) {
+    setSelectedCategory(selectedNode.key);
+  }
+}
+
 export function addCategoryLabel({
   label,
   categories,
@@ -31,10 +100,9 @@ export function addCategoryLabel({
     return false;
   }
 
-  const existing = new Set([
-    ...categories.map((node) => node.label),
-    ...customCategoryLabels,
-  ]);
+  const existing = new Set(
+    collectKnownCategoryLabels(categories, customCategoryLabels),
+  );
 
   if (includesCategoryLabel(Array.from(existing), normalized)) {
     toast.error("Category already exists.");
@@ -144,12 +212,13 @@ export async function renameCategoryAndRefresh({
     return false;
   }
 
-  if (isSameCategoryLabel(normalizedCurrent, normalizedNext)) return false;
+  if (isSameCategoryLabel(normalizedCurrent, normalizedNext)) {
+    return false;
+  }
 
-  const allLabels = new Set([
-    ...categories.map((node) => node.label),
-    ...customCategoryLabels,
-  ]);
+  const allLabels = new Set(
+    collectKnownCategoryLabels(categories, customCategoryLabels),
+  );
 
   if (includesCategoryLabel(Array.from(allLabels), normalizedNext)) {
     toast.error("Category already exists.");
@@ -158,31 +227,37 @@ export async function renameCategoryAndRefresh({
 
   const categoryNode = findCategoryByLabel(categories, normalizedCurrent);
   const feedsInCategory = categoryNode?.children ?? [];
-  const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-    (node) => node.key === selectedCategory,
-  )?.data?.url;
+  const previousSelectedSourceUrl = getSelectedSourceUrl(
+    categories,
+    selectedCategory,
+  );
 
   try {
-    let refreshedCategories: CategoryTreeNode[] | null = null;
+    let refreshedCategories: CategoryTreeNode[] = categories;
+    let categoriesWereReloaded = false;
 
     if (feedsInCategory.length > 0) {
       await assignFeedsToCategory(feedsInCategory, normalizedNext);
       refreshedCategories = await loadFeedSources();
+      categoriesWereReloaded = true;
     }
 
-    setCustomCategoryLabels((current) =>
-      replaceCategoryLabel(current, normalizedCurrent, normalizedNext),
-    );
-    setOrderedCategoryLabels((current) =>
-      replaceCategoryLabel(current, normalizedCurrent, normalizedNext),
+    updateCategoryLabelCollections(
+      setCustomCategoryLabels,
+      setOrderedCategoryLabels,
+      (current) =>
+        replaceCategoryLabel(current, normalizedCurrent, normalizedNext),
     );
 
     if (previousSelectedSourceUrl) {
-      if (!refreshedCategories) refreshedCategories = await loadFeedSources();
-      const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
-        (node) => node.data?.url === previousSelectedSourceUrl,
-      );
-      if (selectedNode) setSelectedCategory(selectedNode.key);
+      if (!categoriesWereReloaded) {
+        refreshedCategories = await loadFeedSources();
+      }
+      restoreSelectedCategoryFromSourceUrl({
+        refreshedCategories,
+        selectedSourceUrl: previousSelectedSourceUrl,
+        setSelectedCategory,
+      });
     }
 
     toast.success("Category updated.");
@@ -244,66 +319,69 @@ export async function removeCategoryAndRefresh({
 }): Promise<boolean> {
   const categoryNode = findCategoryByLabel(categories, label);
   const feedsInCategory = categoryNode?.children ?? [];
+  const hasFeeds = feedsInCategory.length > 0;
 
-  const removeBothLabels = (lbl: string) => {
-    setCustomCategoryLabels((current) => removeCategoryLabel(current, lbl));
-    setOrderedCategoryLabels((current) => removeCategoryLabel(current, lbl));
-  };
-
-  if (feedsInCategory.length > 0) {
-    if (!isSameCategoryLabel(pendingCategoryRemovalLabel ?? "", label)) {
-      setPendingCategoryRemovalLabel(label);
-      return false;
-    }
-
-    const targetCategory = [
-      ...categories.map((n) => n.label),
-      ...customCategoryLabels,
-    ]
-      .map((l) => normalizeCategory(l))
-      .find((candidate) => !isSameCategoryLabel(candidate, label));
-
-    if (!targetCategory) {
-      setPendingCategoryRemovalLabel(null);
-      toast.error("Add another category before removing this one.");
-      return false;
-    }
-
-    ensureCategoryLabelExists(targetCategory);
-
-    setCategories((current) =>
-      removeCategoryFromLocalState(current, label, targetCategory),
+  if (!hasFeeds) {
+    setPendingCategoryRemovalLabel(null);
+    setCategories((current) => removeCategoryFromLocalState(current, label));
+    removeCategoryFromLabelCollections(
+      setCustomCategoryLabels,
+      setOrderedCategoryLabels,
+      label,
     );
-    removeBothLabels(label);
-
-    try {
-      await assignFeedsToCategory(feedsInCategory, targetCategory);
-      const refreshedCategories = await loadFeedSources();
-      const previousSelectedSourceUrl = flattenCategoryFeeds(categories).find(
-        (node) => node.key === selectedCategory,
-      )?.data?.url;
-
-      if (previousSelectedSourceUrl) {
-        const selectedNode = flattenCategoryFeeds(refreshedCategories).find(
-          (node) => node.data?.url === previousSelectedSourceUrl,
-        );
-        if (selectedNode) setSelectedCategory(selectedNode.key);
-      }
-
-      setPendingCategoryRemovalLabel(null);
-      toast.success(`Category removed. Feeds moved to "${targetCategory}".`);
-      return true;
-    } catch (err) {
-      console.error("Remove category error:", err);
-      setPendingCategoryRemovalLabel(null);
-      toast.error("Unable to remove category right now.");
-      return false;
-    }
+    toast.success("Category removed.");
+    return true;
   }
 
-  setPendingCategoryRemovalLabel(null);
-  setCategories((current) => removeCategoryFromLocalState(current, label));
-  removeBothLabels(label);
-  toast.success("Category removed.");
-  return true;
+  if (!isSameCategoryLabel(pendingCategoryRemovalLabel ?? "", label)) {
+    setPendingCategoryRemovalLabel(label);
+    return false;
+  }
+
+  const targetCategory = getCategoryRemovalTarget(
+    categories,
+    customCategoryLabels,
+    label,
+  );
+
+  if (!targetCategory) {
+    setPendingCategoryRemovalLabel(null);
+    toast.error("Add another category before removing this one.");
+    return false;
+  }
+
+  ensureCategoryLabelExists(targetCategory);
+
+  setCategories((current) =>
+    removeCategoryFromLocalState(current, label, targetCategory),
+  );
+  removeCategoryFromLabelCollections(
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    label,
+  );
+
+  try {
+    await assignFeedsToCategory(feedsInCategory, targetCategory);
+    const refreshedCategories = await loadFeedSources();
+    const previousSelectedSourceUrl = getSelectedSourceUrl(
+      categories,
+      selectedCategory,
+    );
+
+    restoreSelectedCategoryFromSourceUrl({
+      refreshedCategories,
+      selectedSourceUrl: previousSelectedSourceUrl,
+      setSelectedCategory,
+    });
+
+    setPendingCategoryRemovalLabel(null);
+    toast.success(`Category removed. Feeds moved to "${targetCategory}".`);
+    return true;
+  } catch (err) {
+    console.error("Remove category error:", err);
+    setPendingCategoryRemovalLabel(null);
+    toast.error("Unable to remove category right now.");
+    return false;
+  }
 }
