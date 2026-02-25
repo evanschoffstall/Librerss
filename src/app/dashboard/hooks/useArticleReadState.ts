@@ -3,7 +3,7 @@
 import { ArticleService, type Article } from "@/lib";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { getArticleKey } from "../helpers/article-helpers";
+import { getArticleKey } from "../services/article-collection";
 
 interface UseArticleReadStateOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;

@@ -1,4 +1,4 @@
-import { logAndRespondError } from "@/lib/api/route-helpers";
+import { logAndRespondError } from "@/lib/api/request-guards";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { NextRequest, NextResponse } from "next/server";

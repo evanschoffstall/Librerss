@@ -8,7 +8,7 @@ import {
 } from "@/lib";
 import { useRef, useState } from "react";
 import { ALL_FEEDS_NODE_KEY, INITIAL_CATEGORIES } from "../constants";
-import { type ArticleFilter } from "../helpers/article-filters";
+import { type ArticleFilter } from "../services/article-filters";
 
 export function useDashboardViewState() {
   const [feed, setFeed] = useState<Article[]>([]);

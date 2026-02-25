@@ -3,7 +3,7 @@
  * Runs before all tests
  */
 
-import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-helpers";
+import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import * as realUrlModule from "@/lib/utils/url";
@@ -52,7 +52,7 @@ afterEach(() => {
   mock.module("@/lib/db/db", () => realDbModule);
   mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
   mock.module(
-    "@/lib/core/feed-batch-helpers",
+    "@/lib/core/feed-batch-pipeline",
     () => realFeedBatchHelpersModule,
   );
   mock.module("@/lib/utils/url", () => realUrlModule);

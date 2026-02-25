@@ -4,8 +4,8 @@ import type { CategoryTreeNode } from "@/lib";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { DASHBOARD_EVENTS } from "../constants";
-import type { FeedFetchOptions } from "../helpers/selection";
-import { initializeDashboardSelection } from "../helpers/selection";
+import type { FeedFetchOptions } from "../services/selection";
+import { initializeDashboardSelection } from "../services/selection";
 
 type UseFeedLoadingTimeoutOptions = {
   loading: boolean;

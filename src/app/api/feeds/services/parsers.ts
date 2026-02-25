@@ -11,7 +11,7 @@ import {
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-fetcher";
 import type { NextRequest } from "next/server";
-import type { CreateFeedPayload, RenameFeedPayload } from "./feed-types";
+import type { CreateFeedPayload, RenameFeedPayload } from "../types";
 
 export async function assertAllowedFeedUrl(
   url: string,

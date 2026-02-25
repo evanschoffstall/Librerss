@@ -3,7 +3,7 @@ import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireMutableRequest,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,

@@ -21,7 +21,7 @@ import {
   mock,
   test,
 } from "bun:test";
-import { createMockArticle } from "./helpers/test-utils";
+import { createMockArticle } from "./support/test-utils";
 
 const runWithAct = async (callback: () => Promise<void> | void) => {
   await act(async () => {

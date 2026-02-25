@@ -15,7 +15,7 @@ import type {
   FeedSourceListRow,
   FeedSourceRecord,
   FeedTransaction,
-} from "./feed-types";
+} from "../types";
 
 const feedSourceFields = {
   id: feedSources.id,

@@ -12,10 +12,10 @@ import { useCallback, useEffect, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
-import { ARTICLE_FILTER_OPTIONS } from "./helpers/article-filters";
-import { computeNextOrderedCategoryLabels } from "./helpers/category-display";
-import { buildDashboardViewModel } from "./helpers/dashboard-view-model";
-import { formatLastRefreshLabel } from "./helpers/refresh-time";
+import { ARTICLE_FILTER_OPTIONS } from "./services/article-filters";
+import { computeNextOrderedCategoryLabels } from "./services/category-display";
+import { buildDashboardViewModel } from "./services/dashboard-view-model";
+import { formatLastRefreshLabel } from "./services/refresh-time";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
@@ -145,7 +145,7 @@ export const DashboardView = ({ usePlaceholderData }: DashboardViewProps) => {
 
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [feed, searchTerm, pageSize, articleFilter, setVisibleCount]);
+  }, [selectedCategory, searchTerm, pageSize, articleFilter, setVisibleCount]);
 
   useFeedVisibilityObserver({
     sentinelRef,

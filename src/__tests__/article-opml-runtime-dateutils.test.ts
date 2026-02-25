@@ -17,11 +17,11 @@ import {
   getArticleSourceLabel,
   getRichContentClass,
   getUrlHostnameLabel,
-} from "@/app/dashboard/helpers/article-content";
+} from "@/app/dashboard/services/article-content";
 import {
   dedupeAndSortArticles,
   getArticleKey,
-} from "@/app/dashboard/helpers/article-helpers";
+} from "@/app/dashboard/services/article-collection";
 import { CONFIG } from "@/lib/config";
 import { formatRelativeDate } from "@/lib/utils/date-utils";
 import { parseOpmlFeedImport } from "@/lib/utils/opml";
@@ -36,9 +36,9 @@ function loadRuntimeModule() {
   );
 }
 
-// ─── article-helpers.ts ───────────────────────────────────────────────────────
+// ─── article-collection.ts ───────────────────────────────────────────────────────
 
-describe("article-helpers – getArticleKey", () => {
+describe("article-collection – getArticleKey", () => {
   test("returns trimmed link", async () => {
     expect(
       getArticleKey({
@@ -54,7 +54,7 @@ describe("article-helpers – getArticleKey", () => {
   });
 });
 
-describe("article-helpers – dedupeAndSortArticles", () => {
+describe("article-collection – dedupeAndSortArticles", () => {
   test("removes duplicate articles by link", async () => {
     const now = new Date();
     const articles = [

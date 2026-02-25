@@ -8,10 +8,7 @@ import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/utils/logger";
 import { tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { NextResponse } from "next/server";
-import {
-  listFeedSourcesForUser,
-  toFeedSourceResponse,
-} from "./feed-repository";
+import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";
 
 export async function handleFeedRead(userId: number, feedUrl: string | null) {
   const normalizedFeedUrl = feedUrl ? tryNormalizeFeedUrl(feedUrl) : null;

@@ -28,7 +28,7 @@ import {
   handleRenameTag,
   handleTagList,
 } from "./handlers/tag-labels";
-import { notFoundResponse, textResponse } from "./utils/responses";
+import { notFoundResponse, textResponse } from "./services/responses";
 
 export const dynamic = "force-dynamic";
 

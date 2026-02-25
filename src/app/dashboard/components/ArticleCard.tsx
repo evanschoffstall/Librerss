@@ -42,8 +42,8 @@ import {
   buildPreview,
   getArticleSourceLabel,
   getRichContentClass,
-} from "../helpers/article-content";
-import { setCachedFaviconIndex } from "../helpers/favicons";
+} from "../services/article-content";
+import { setCachedFaviconIndex } from "../services/favicons";
 import { useArticleExpansion, useArticleHeights } from "../hooks/useArticleExpansion";
 import { useFavicon } from "../hooks/useFavicon";
 import { ANIM_TRANSITION_COLORS } from "./styles";

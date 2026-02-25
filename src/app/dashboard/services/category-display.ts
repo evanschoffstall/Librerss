@@ -1,5 +1,5 @@
 import { normalizeCategoryLabelKey, type CategoryTreeNode } from "@/lib";
-import { toCategoryKey } from "./category-helpers";
+import { toCategoryKey } from "./category-tree";
 
 export function buildDisplayCategories(
   categories: CategoryTreeNode[],

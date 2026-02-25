@@ -1,16 +1,16 @@
 /**
- * Component Tests: Dashboard Helpers
- * Tests for src/app/dashboard/helpers/
+ * Component Tests: Dashboard Services
+ * Tests for src/app/dashboard/services/
  */
 
 import { describe, expect, test } from "bun:test";
 
-// ─── Article Content Helpers ──────────────────────────────────────────────────
+// ─── Article Content Services ─────────────────────────────────────────────────
 
-describe("article-content helpers", () => {
+describe("article-content services", () => {
   test("getUrlHostnameLabel extracts hostname", async () => {
     const { getUrlHostnameLabel } =
-      await import("@/app/dashboard/helpers/article-content");
+      await import("@/app/dashboard/services/article-content");
     expect(getUrlHostnameLabel("https://www.example.com/path")).toBe(
       "example.com",
     );
@@ -21,13 +21,13 @@ describe("article-content helpers", () => {
 
   test("getUrlHostnameLabel removes www prefix", async () => {
     const { getUrlHostnameLabel } =
-      await import("@/app/dashboard/helpers/article-content");
+      await import("@/app/dashboard/services/article-content");
     expect(getUrlHostnameLabel("https://www.example.com")).toBe("example.com");
   });
 
   test("getUrlHostnameLabel handles invalid URLs", async () => {
     const { getUrlHostnameLabel } =
-      await import("@/app/dashboard/helpers/article-content");
+      await import("@/app/dashboard/services/article-content");
     expect(getUrlHostnameLabel("not-a-url")).toBe("not-a-url");
   });
 });
@@ -36,13 +36,13 @@ describe("article-content helpers", () => {
 
 describe("favicons", () => {
   test("getFaviconUrl generates favicon URL", async () => {
-    const { getFaviconUrl } = await import("@/app/dashboard/helpers/favicons");
+    const { getFaviconUrl } = await import("@/app/dashboard/services/favicons");
     const url = getFaviconUrl("https://example.com");
     expect(url).toContain("example.com");
   });
 
   test("getFaviconUrl handles URLs without protocol", async () => {
-    const { getFaviconUrl } = await import("@/app/dashboard/helpers/favicons");
+    const { getFaviconUrl } = await import("@/app/dashboard/services/favicons");
     const url = getFaviconUrl("example.com");
     expect(typeof url).toBe("string");
     expect(url).toBe("");
@@ -50,7 +50,7 @@ describe("favicons", () => {
 
   test("getHostnameLabel extracts clean hostname", async () => {
     const { getHostnameLabel } =
-      await import("@/app/dashboard/helpers/favicons");
+      await import("@/app/dashboard/services/favicons");
     expect(getHostnameLabel("https://www.example.com")).toBe("example.com");
     expect(getHostnameLabel("http://blog.example.com")).toBe(
       "blog.example.com",
@@ -63,7 +63,7 @@ describe("favicons", () => {
 describe("filter-sort", () => {
   test("filterArticles by unread status", async () => {
     const { filterArticles } =
-      await import("@/app/dashboard/helpers/filter-sort");
+      await import("@/app/dashboard/services/filter-sort");
     const articles = [
       { id: 1, isRead: false },
       { id: 2, isRead: true },
@@ -76,7 +76,7 @@ describe("filter-sort", () => {
 
   test("filterArticles by starred status", async () => {
     const { filterArticles } =
-      await import("@/app/dashboard/helpers/filter-sort");
+      await import("@/app/dashboard/services/filter-sort");
     const articles = [
       { id: 1, isStarred: true },
       { id: 2, isStarred: false },
@@ -89,7 +89,7 @@ describe("filter-sort", () => {
 
   test("sortArticles by date descending", async () => {
     const { sortArticles } =
-      await import("@/app/dashboard/helpers/filter-sort");
+      await import("@/app/dashboard/services/filter-sort");
     const articles = [
       { id: 1, publishedAt: new Date("2024-01-01") },
       { id: 2, publishedAt: new Date("2024-01-03") },
@@ -102,7 +102,7 @@ describe("filter-sort", () => {
 
   test("sortArticles by date ascending", async () => {
     const { sortArticles } =
-      await import("@/app/dashboard/helpers/filter-sort");
+      await import("@/app/dashboard/services/filter-sort");
     const articles = [
       { id: 1, publishedAt: new Date("2024-01-03") },
       { id: 2, publishedAt: new Date("2024-01-01") },

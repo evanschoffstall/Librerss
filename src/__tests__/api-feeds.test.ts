@@ -4,7 +4,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
-import { createMockFeed, createMockRequest } from "./helpers/test-utils";
+import { createMockFeed, createMockRequest } from "./support/test-utils";
 
 const createSelectChain = () => ({
   leftJoin: () => createSelectChain(),
@@ -39,11 +39,11 @@ function registerModuleMocks() {
     }),
   }));
 
-  mock.module("@/app/api/feeds/feed-get", () => ({
+  mock.module("@/app/api/feeds/services/read", () => ({
     handleFeedRead: async () => Response.json([]),
   }));
 
-  mock.module("@/lib/api/route-helpers", () => ({
+  mock.module("@/lib/api/request-guards", () => ({
     requireAuthenticatedUser: async () => ({
       userId: 1,
       email: "test@example.com",

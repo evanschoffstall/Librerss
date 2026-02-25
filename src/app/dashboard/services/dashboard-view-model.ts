@@ -4,7 +4,7 @@ import { buildDisplayCategories } from "./category-display";
 import {
   flattenCategoryFeeds,
   SYSTEM_ALL_FEEDS_CATEGORY,
-} from "./category-helpers";
+} from "./category-tree";
 
 type DashboardViewModelInput = {
   feed: Article[];

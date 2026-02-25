@@ -21,13 +21,13 @@ import {
 import {
   maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
-} from "../utils/categories";
-import { ListedArticle, mapArticleAsItem } from "../utils/mappers";
+} from "../services/categories";
+import { ListedArticle, mapArticleAsItem } from "../services/mappers";
 import {
   parseOlderThanDate,
   parseStreamId,
   parseStreamPaging,
-} from "../utils/stream";
+} from "../services/stream";
 import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 
 export async function handleStreamContents(

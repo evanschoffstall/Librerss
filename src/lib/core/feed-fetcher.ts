@@ -22,7 +22,7 @@ import {
   mapRowsToArticleMap,
   queryTopArticlesPerFeed,
   resolveAuthorizedFeedRecords,
-} from "./feed-batch-helpers";
+} from "./feed-batch-pipeline";
 import {
   type FeedRecord,
   refreshFeedFromUpstream,

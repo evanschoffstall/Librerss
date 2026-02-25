@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
 import { Loader2 } from "lucide-react";
-import { getArticleKey } from "../../helpers/article-helpers";
+import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 
 const emptyActionBtnCls =

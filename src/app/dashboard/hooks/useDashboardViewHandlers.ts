@@ -6,7 +6,7 @@ import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
   type FeedFetchOptions,
   refreshCurrentSelection,
-} from "../helpers/selection";
+} from "../services/selection";
 
 type UseDashboardViewHandlersOptions = {
   selectedCategory: string;

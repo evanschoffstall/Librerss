@@ -1,7 +1,7 @@
 import {
   logAndRespondError,
   requireMutableRequest,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import {
   SESSION_COOKIE_NAME,
   clearSessionCookie,

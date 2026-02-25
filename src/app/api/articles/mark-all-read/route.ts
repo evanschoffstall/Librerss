@@ -3,7 +3,7 @@ import { jsonError } from "@/lib/api/responses";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
 import { NextRequest, NextResponse } from "next/server";
 

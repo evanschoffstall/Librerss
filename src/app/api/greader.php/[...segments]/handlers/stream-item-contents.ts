@@ -16,9 +16,9 @@ import { MAX_STREAM_ITEMS, READING_LIST_STREAM } from "../constants";
 import {
   maybeLoadCategoryFallback,
   resolveCategoryWithFallback,
-} from "../utils/categories";
-import { mapArticleAsItem } from "../utils/mappers";
-import { parseDistinctReaderArticleIds } from "../utils/reader-item-params";
+} from "../services/categories";
+import { mapArticleAsItem } from "../services/mappers";
+import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
 
 export async function handleStreamItemContents(
   user: SessionUser,

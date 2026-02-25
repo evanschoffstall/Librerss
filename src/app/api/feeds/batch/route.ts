@@ -2,7 +2,7 @@ import { parseJsonBodyOrResponse } from "@/lib/api/request";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/route-helpers";
+} from "@/lib/api/request-guards";
 import { CONFIG } from "@/lib/config";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
