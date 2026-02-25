@@ -179,3 +179,177 @@ describe("Feeds API - Refresh", () => {
     expect(response.status).toBeLessThan(500);
   });
 });
+
+describe("Feeds API - Route branches with injected deps", () => {
+  test("GET handles source-not-found, upstream, axios, and generic errors", async () => {
+    const { GET } = await import("@/app/api/feeds/route");
+
+    const request = createMockRequest("https://example.com/api/feeds");
+
+    const sourceNotFound = await GET(request as any, {
+      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+      handleFeedReadFn: async () => {
+        throw new Error("missing");
+      },
+      isFeedSourceNotFoundErrorFn: (() => true) as any,
+      jsonErrorFn: ((message: string, status: number) =>
+        Response.json({ error: message }, { status })) as any,
+    });
+    expect(sourceNotFound.status).toBe(404);
+
+    const upstream = await GET(request as any, {
+      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+      handleFeedReadFn: async () => {
+        throw new Error("upstream");
+      },
+      isUpstreamFeedErrorFn: (() => true) as any,
+      toErrorMessageFn: () => "upstream-error",
+      warnFn: (() => {}) as any,
+      jsonErrorFn: ((message: string, status: number) =>
+        Response.json({ error: message }, { status })) as any,
+    });
+    expect(upstream.status).toBe(502);
+
+    const axiosError = new Error("axios") as Error & {
+      response?: { status?: number };
+    };
+    axiosError.response = { status: 429 };
+
+    const axiosResponse = await GET(request as any, {
+      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+      handleFeedReadFn: async () => {
+        throw axiosError;
+      },
+      isAxiosErrorFn: (() => true) as any,
+      toErrorMessageFn: () => "axios-error",
+      warnFn: (() => {}) as any,
+      jsonErrorFn: ((message: string, status: number) =>
+        Response.json({ error: message }, { status })) as any,
+    });
+    expect(axiosResponse.status).toBe(429);
+
+    const generic = await GET(request as any, {
+      requireAuthenticatedUserFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      handleFeedReadFn: async () => {
+        throw new Error("generic");
+      },
+      isFeedSourceNotFoundErrorFn: (() => false) as any,
+      isUpstreamFeedErrorFn: (() => false) as any,
+      isAxiosErrorFn: (() => false) as any,
+      logAndRespondErrorFn: (() =>
+        Response.json({ error: "generic" }, { status: 500 })) as any,
+    });
+    expect(generic.status).toBe(500);
+  });
+
+  test("POST, PATCH, DELETE cover success and not-found branches via deps", async () => {
+    const { DELETE, PATCH, POST } = await import("@/app/api/feeds/route");
+
+    const request = createMockRequest("https://example.com/api/feeds", {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+
+    const postCreated = await POST(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseCreateFeedPayloadFn: async () => ({
+        name: "Feed",
+        url: "https://example.com/feed.xml",
+        category: "Tech",
+      }),
+      assertAllowedFeedUrlFn: async () => null,
+      getDbFn: (() => ({
+        transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({}),
+      })) as any,
+      createOrUpdateFeedSourceFn: async () => ({
+        sourceRecord: { id: 1, name: "Feed", url: "https://example.com/feed.xml" },
+        isNew: true,
+      }),
+    });
+    expect(postCreated.status).toBe(201);
+
+    const postUpdated = await POST(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseCreateFeedPayloadFn: async () => ({
+        name: "Feed",
+        url: "https://example.com/feed.xml",
+        category: "Tech",
+      }),
+      assertAllowedFeedUrlFn: async () => null,
+      getDbFn: (() => ({
+        transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({}),
+      })) as any,
+      createOrUpdateFeedSourceFn: async () => ({
+        sourceRecord: { id: 1, name: "Feed", url: "https://example.com/feed.xml" },
+        isNew: false,
+      }),
+    });
+    expect(postUpdated.status).toBe(200);
+
+    const patchNotFound = await PATCH(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseRenameFeedPayloadFn: async () => ({
+        sourceId: 1,
+        name: "Renamed",
+        url: "https://example.com/feed.xml",
+      }),
+      assertAllowedFeedUrlFn: async () => null,
+      renameFeedSourceForUserFn: async () => null,
+      jsonErrorFn: ((message: string, status: number) =>
+        Response.json({ error: message }, { status })) as any,
+    });
+    expect(patchNotFound.status).toBe(404);
+
+    const deleteNotFound = await DELETE(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseDeleteSourceIdFn: () => 1,
+      deleteFeedSourceForUserFn: async () => null,
+      jsonErrorFn: ((message: string, status: number) =>
+        Response.json({ error: message }, { status })) as any,
+    });
+    expect(deleteNotFound.status).toBe(404);
+  });
+
+  test("POST, PATCH, DELETE catch branches use logAndRespondError", async () => {
+    const { DELETE, PATCH, POST } = await import("@/app/api/feeds/route");
+
+    const request = createMockRequest("https://example.com/api/feeds", {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+
+    const respondError =
+      ((_message: string, _error: unknown) =>
+        Response.json({ error: "caught" }, { status: 500 })) as any;
+
+    const postCaught = await POST(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseCreateFeedPayloadFn: async () => {
+        throw new Error("create payload failed");
+      },
+      logAndRespondErrorFn: respondError,
+    });
+    expect(postCaught.status).toBe(500);
+
+    const patchCaught = await PATCH(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseRenameFeedPayloadFn: async () => {
+        throw new Error("rename payload failed");
+      },
+      logAndRespondErrorFn: respondError,
+    });
+    expect(patchCaught.status).toBe(500);
+
+    const deleteCaught = await DELETE(request as any, {
+      requireMutableFeedAccessFn: async () => ({ userId: 1, email: "x@y.com" } as any),
+      parseDeleteSourceIdFn: () => {
+        throw new Error("delete id failed");
+      },
+      logAndRespondErrorFn: respondError,
+    });
+    expect(deleteCaught.status).toBe(500);
+  });
+});

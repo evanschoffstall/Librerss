@@ -30,60 +30,104 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
+type FeedRouteDeps = {
+  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+  requireMutableFeedAccessFn?: typeof requireMutableFeedAccess;
+  getRequestedFeedUrlFn?: typeof getRequestedFeedUrl;
+  assertAllowedFeedUrlFn?: typeof assertAllowedFeedUrl;
+  handleFeedReadFn?: typeof handleFeedRead;
+  isFeedSourceNotFoundErrorFn?: typeof isFeedSourceNotFoundError;
+  isUpstreamFeedErrorFn?: typeof isUpstreamFeedError;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
+  toErrorMessageFn?: typeof toErrorMessage;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+  jsonErrorFn?: typeof jsonError;
+  warnFn?: typeof logger.warn;
+  parseCreateFeedPayloadFn?: typeof parseCreateFeedPayload;
+  getDbFn?: typeof getDb;
+  createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
+  parseRenameFeedPayloadFn?: typeof parseRenameFeedPayload;
+  renameFeedSourceForUserFn?: typeof renameFeedSourceForUser;
+  parseDeleteSourceIdFn?: typeof parseDeleteSourceId;
+  deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
+};
+
+export async function GET(request: NextRequest, deps?: FeedRouteDeps) {
+  const requireAuth = deps?.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
+  const requestedFeedUrl = deps?.getRequestedFeedUrlFn ?? getRequestedFeedUrl;
+  const assertAllowedUrl = deps?.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
+  const readFeed = deps?.handleFeedReadFn ?? handleFeedRead;
+  const isSourceNotFound =
+    deps?.isFeedSourceNotFoundErrorFn ?? isFeedSourceNotFoundError;
+  const isUpstreamError = deps?.isUpstreamFeedErrorFn ?? isUpstreamFeedError;
+  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+  const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
+  const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+  const toJsonError = deps?.jsonErrorFn ?? jsonError;
+  const warn = deps?.warnFn ?? logger.warn;
+
   try {
-    const user = await requireAuthenticatedUser(request);
+    const user = await requireAuth(request);
     if (user instanceof Response) {
       return user;
     }
 
-    const feedUrl = getRequestedFeedUrl(request);
+    const feedUrl = requestedFeedUrl(request);
 
     if (feedUrl) {
-      const invalidFeedUrlResponse = await assertAllowedFeedUrl(feedUrl);
+      const invalidFeedUrlResponse = await assertAllowedUrl(feedUrl);
       if (invalidFeedUrlResponse) {
         return invalidFeedUrlResponse;
       }
     }
 
-    return handleFeedRead(user.userId, feedUrl);
+    return await readFeed(user.userId, feedUrl);
   } catch (error) {
-    const requestedFeedUrl = getRequestedFeedUrl(request);
+    const requestedUrl = requestedFeedUrl(request);
 
-    if (isFeedSourceNotFoundError(error)) {
-      return jsonError("Feed source not found", 404);
+    if (isSourceNotFound(error)) {
+      return toJsonError("Feed source not found", 404);
     }
 
-    if (isUpstreamFeedError(error)) {
-      const detail = toErrorMessage(error);
-      logger.warn(
-        `Returning 502 Bad Gateway — upstream feed fetch failed${requestedFeedUrl ? ` for ${requestedFeedUrl}` : ""}: ${detail}`,
+    if (isUpstreamError(error)) {
+      const detail = toMessage(error);
+      warn(
+        `Returning 502 Bad Gateway — upstream feed fetch failed${requestedUrl ? ` for ${requestedUrl}` : ""}: ${detail}`,
       );
-      return jsonError(detail, 502);
+      return toJsonError(detail, 502);
     }
 
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       const upstreamStatus = error.response?.status;
-      const detail = toErrorMessage(error);
+      const detail = toMessage(error);
       const status =
         typeof upstreamStatus === "number" && upstreamStatus >= 400
           ? upstreamStatus
           : 502;
 
-      logger.warn(
-        `Returning ${status} ${status === 502 ? "Bad Gateway" : "Upstream Error"} — upstream feed request failed${requestedFeedUrl ? ` for ${requestedFeedUrl}` : ""}: ${detail}`,
+      warn(
+        `Returning ${status} ${status === 502 ? "Bad Gateway" : "Upstream Error"} — upstream feed request failed${requestedUrl ? ` for ${requestedUrl}` : ""}: ${detail}`,
       );
 
-      return jsonError(detail, status);
+      return toJsonError(detail, status);
     }
 
-    return logAndRespondError("Error fetching feed", error);
+    return respondError("Error fetching feed", error);
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, deps?: FeedRouteDeps) {
+  const requireMutable = deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const parseCreatePayload =
+    deps?.parseCreateFeedPayloadFn ?? parseCreateFeedPayload;
+  const assertAllowedUrl = deps?.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
+  const getDbForRoute = deps?.getDbFn ?? getDb;
+  const createOrUpdate =
+    deps?.createOrUpdateFeedSourceFn ?? createOrUpdateFeedSource;
+  const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+
   try {
-    const user = await requireMutableFeedAccess(request, {
+    const user = await requireMutable(request, {
       rateLimit: {
         key: "feed-create",
         windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
@@ -94,22 +138,22 @@ export async function POST(request: NextRequest) {
       return user;
     }
 
-    const parsedPayload = await parseCreateFeedPayload(request);
+    const parsedPayload = await parseCreatePayload(request);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }
 
     const payload = parsedPayload;
 
-    const invalidFeedUrlResponse = await assertAllowedFeedUrl(payload.url);
+    const invalidFeedUrlResponse = await assertAllowedUrl(payload.url);
     if (invalidFeedUrlResponse) {
       return invalidFeedUrlResponse;
     }
 
-    const db = getDb();
+    const db = getDbForRoute();
 
     const { sourceRecord, isNew } = await db.transaction(async (tx) => {
-      return createOrUpdateFeedSource(tx, user.userId, payload);
+      return createOrUpdate(tx, user.userId, payload);
     });
 
     return NextResponse.json(
@@ -117,30 +161,39 @@ export async function POST(request: NextRequest) {
       { status: isNew ? 201 : 200 },
     );
   } catch (error) {
-    return logAndRespondError("Error creating feed source", error);
+    return respondError("Error creating feed source", error);
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest, deps?: FeedRouteDeps) {
+  const requireMutable = deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const parseRenamePayload =
+    deps?.parseRenameFeedPayloadFn ?? parseRenameFeedPayload;
+  const assertAllowedUrl = deps?.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
+  const renameSource =
+    deps?.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
+  const toJsonError = deps?.jsonErrorFn ?? jsonError;
+  const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+
   try {
-    const user = await requireMutableFeedAccess(request);
+    const user = await requireMutable(request);
     if (user instanceof Response) {
       return user;
     }
 
-    const parsedPayload = await parseRenameFeedPayload(request);
+    const parsedPayload = await parseRenamePayload(request);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }
 
     const { sourceId, name, url } = parsedPayload;
 
-    const invalidFeedUrlResponse = await assertAllowedFeedUrl(url);
+    const invalidFeedUrlResponse = await assertAllowedUrl(url);
     if (invalidFeedUrlResponse) {
       return invalidFeedUrlResponse;
     }
 
-    const updatedSource = await renameFeedSourceForUser(
+    const updatedSource = await renameSource(
       user.userId,
       sourceId,
       name,
@@ -148,36 +201,42 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (!updatedSource) {
-      return jsonError("Feed source not found", 404);
+      return toJsonError("Feed source not found", 404);
     }
 
     return NextResponse.json(updatedSource);
   } catch (error) {
-    return logAndRespondError("Error renaming feed source", error);
+    return respondError("Error renaming feed source", error);
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest, deps?: FeedRouteDeps) {
+  const requireMutable = deps?.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const parseDeleteId = deps?.parseDeleteSourceIdFn ?? parseDeleteSourceId;
+  const deleteSource = deps?.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
+  const toJsonError = deps?.jsonErrorFn ?? jsonError;
+  const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+
   try {
-    const user = await requireMutableFeedAccess(request);
+    const user = await requireMutable(request);
     if (user instanceof Response) {
       return user;
     }
 
-    const sourceId = parseDeleteSourceId(request);
+    const sourceId = parseDeleteId(request);
     if (sourceId instanceof Response) {
       return sourceId;
     }
 
-    const deletedSource = await deleteFeedSourceForUser(user.userId, sourceId);
+    const deletedSource = await deleteSource(user.userId, sourceId);
 
     if (!deletedSource) {
       // Row was deleted by a concurrent request; treat as already gone.
-      return jsonError("Feed source not found", 404);
+      return toJsonError("Feed source not found", 404);
     }
 
     return NextResponse.json(deletedSource);
   } catch (error) {
-    return logAndRespondError("Error deleting feed source", error);
+    return respondError("Error deleting feed source", error);
   }
 }
