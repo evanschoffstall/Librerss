@@ -374,6 +374,12 @@ describe("feed-http", () => {
     expect(() =>
       requestOptions.beforeRedirect({ href: "https://example.com/feed.xml" }),
     ).not.toThrow();
+    expect(() =>
+      requestOptions.beforeRedirect({ href: "https://localhost/feed.xml" }),
+    ).toThrow("Blocked redirect to private hostname");
+    expect(() =>
+      requestOptions.beforeRedirect({ href: "https://127.0.0.1/feed.xml" }),
+    ).toThrow(/Blocked redirect to private (hostname|IP address)/);
   });
 
   test("fetchFeedXml coerces non-string response data", async () => {

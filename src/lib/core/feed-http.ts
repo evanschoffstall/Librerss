@@ -3,7 +3,13 @@
  */
 
 import { CONFIG } from "@/lib/config";
+import {
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
 import axios from "axios";
+import { isIP } from "node:net";
 import { assertPublicFeedUrl } from "./feed-url-validator";
 
 const MAX_FEED_REDIRECTS = 5;
@@ -51,6 +57,19 @@ export async function fetchFeedXml(
         }
         if (parsed.username || parsed.password) {
           throw new Error("Blocked redirect to credentialed URL");
+        }
+
+        const host = normalizeHostname(parsed.hostname);
+        if (!host) {
+          throw new Error("Blocked redirect with empty hostname");
+        }
+
+        if (isBlockedHost(host)) {
+          throw new Error("Blocked redirect to private hostname");
+        }
+
+        if (isIP(host) && isBlockedResolvedAddress(host)) {
+          throw new Error("Blocked redirect to private IP address");
         }
       },
     });
