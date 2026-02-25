@@ -117,8 +117,43 @@ export function useArticleActions({
 
       if (!collapsingEl) return;
 
-      // Scroll the collapsed article itself back into view so user can see where they were
-      collapsingEl.scrollIntoView({ block: "start", behavior: "smooth" });
+      const viewport = collapsingEl.closest<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      );
+
+      if (!viewport) {
+        collapsingEl.scrollIntoView({
+          block: "nearest",
+          inline: "nearest",
+          behavior: "smooth",
+        });
+        return;
+      }
+
+      const viewportRect = viewport.getBoundingClientRect();
+      const articleRect = collapsingEl.getBoundingClientRect();
+
+      // Keep current position if the card is already fully visible.
+      if (
+        articleRect.top >= viewportRect.top &&
+        articleRect.bottom <= viewportRect.bottom
+      ) {
+        return;
+      }
+
+      const targetScrollTop = Math.max(
+        0,
+        Math.min(
+          viewport.scrollTop + (articleRect.top - viewportRect.top),
+          Math.max(0, viewport.scrollHeight - viewport.clientHeight),
+        ),
+      );
+
+      if (Math.abs(viewport.scrollTop - targetScrollTop) <= 1) {
+        return;
+      }
+
+      viewport.scrollTo({ top: targetScrollTop, behavior: "smooth" });
     },
     [],
   );

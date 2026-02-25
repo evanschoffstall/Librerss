@@ -10,6 +10,7 @@ import {
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
+import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import { useArticleActions } from "./hooks/useArticleActions";
@@ -27,7 +28,6 @@ import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
 import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
-import { ARTICLE_FILTER_OPTIONS } from "./services/article-filters";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/refresh-time";
@@ -237,7 +237,7 @@ export const DashboardView = ({
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+6rem)] md:px-6">
+    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+3.8rem)] md:px-6">
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
         <SheetContent
           side="left"
@@ -258,37 +258,13 @@ export const DashboardView = ({
         </SheetContent>
       </Sheet>
 
-      <div className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+3.5rem)] z-40 py-1.5">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-0 px-4 md:px-6">
-          <div className="hidden lg:block lg:w-[220px] lg:shrink-0" />
-          <div className="flex-1 lg:min-w-0">
-            <div className="mx-auto w-full max-w-3xl px-1 lg:max-w-none lg:px-3">
-              <div className="flex min-h-8 items-center gap-2 rounded-xl border border-border/60 bg-card/75 px-2 py-1 backdrop-blur-sm">
-                {ARTICLE_FILTER_OPTIONS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setArticleFilter(value)}
-                    className={`rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${articleFilter === value
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground"
-                      }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-
-                <span
-                  className="ml-auto whitespace-nowrap text-right text-[11px] text-muted-foreground/70"
-                  aria-live="polite"
-                >
-                  Last refreshed: {lastRefreshLabel}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <DashboardTopTokenBar
+        articleFilter={articleFilter}
+        onArticleFilterChange={setArticleFilter}
+        lastRefreshLabel={lastRefreshLabel}
+        loading={loading}
+        hasLastRefresh={Boolean(lastRefreshedAt)}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch lg:gap-0">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">

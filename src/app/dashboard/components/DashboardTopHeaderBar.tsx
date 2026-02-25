@@ -1,25 +1,34 @@
 "use client";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AuthService } from "@/lib";
-import { CheckCheck, LogOut, Menu, Moon, RefreshCw, Search, Settings2, Sun } from "lucide-react";
+import {
+  CheckCheck,
+  EllipsisVertical,
+  LogOut,
+  Menu,
+  Moon,
+  RefreshCw,
+  Search,
+  Settings2,
+  Sun,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DASHBOARD_EVENTS } from "../constants";
 import { ANIM_TRANSITION_COLORS } from "./styles";
 
-const toolbarBtnClass =
-  `${ANIM_TRANSITION_COLORS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300`;
+const toolbarBtnClass = `${ANIM_TRANSITION_COLORS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300`;
 
-/**
- * Fixed top bar shown on the dashboard route.
- *
- * Communicates with the dashboard page via custom window events:
- * - Listens: `dashboard:title-change`, `dashboard:search-sync`, `dashboard:enter-preview`
- * - Dispatches: `dashboard:refresh`, `dashboard:open-settings`, `dashboard:search-change`
- */
-export function DashboardTopBar() {
+export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("LibreRSS");
@@ -47,17 +56,38 @@ export function DashboardTopBar() {
     const handleMarkAllReadStart = () => setIsMarkingAllRead(true);
     const handleMarkAllReadEnd = () => setIsMarkingAllRead(false);
 
-    window.addEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
-    window.addEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
+    window.addEventListener(
+      DASHBOARD_EVENTS.TITLE_CHANGE,
+      handleTitleChange as EventListener,
+    );
+    window.addEventListener(
+      DASHBOARD_EVENTS.SEARCH_SYNC,
+      handleSearchSync as EventListener,
+    );
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
-    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, handleMarkAllReadStart);
+    window.addEventListener(
+      DASHBOARD_EVENTS.MARK_ALL_READ_START,
+      handleMarkAllReadStart,
+    );
     window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
     return () => {
-      window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, handleTitleChange as EventListener);
-      window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, handleSearchSync as EventListener);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.TITLE_CHANGE,
+        handleTitleChange as EventListener,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SEARCH_SYNC,
+        handleSearchSync as EventListener,
+      );
       window.removeEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
-      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, handleMarkAllReadStart);
-      window.removeEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_ALL_READ_START,
+        handleMarkAllReadStart,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_ALL_READ_END,
+        handleMarkAllReadEnd,
+      );
     };
   }, []);
 
@@ -69,7 +99,9 @@ export function DashboardTopBar() {
 
   const handleSearchChange = (term: string) => {
     setSearch(term);
-    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { detail: { term } }));
+    window.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { detail: { term } }),
+    );
   };
 
   const handleSignOut = async () => {
@@ -95,7 +127,9 @@ export function DashboardTopBar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-6">
         <button
           type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR))}
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR))
+          }
           aria-label="Open feeds"
           className={`${toolbarBtnClass} lg:hidden`}
         >
@@ -107,7 +141,7 @@ export function DashboardTopBar() {
           <span>{title}</span>
         </h1>
 
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
           <Input
             value={search}
@@ -117,10 +151,67 @@ export function DashboardTopBar() {
           />
         </div>
 
-        <div className="flex items-center gap-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open actions menu"
+              className={`${toolbarBtnClass} md:hidden`}
+            >
+              <EllipsisVertical className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={8} className="md:hidden">
+            <DropdownMenuItem
+              onSelect={() =>
+                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
+              }
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh selected feed
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isMarkingAllRead}
+              onSelect={() =>
+                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))
+              }
+            >
+              <CheckCheck className="h-4 w-4" />
+              Mark all read
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))
+              }
+            >
+              <Settings2 className="h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setTheme(nextTheme)}>
+              {mounted && isDark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+              {themeToggleLabel}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isSigningOut}
+              onSelect={() => void handleSignOut()}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="hidden items-center gap-4 md:flex">
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
+            }
             aria-label="Refresh selected feed"
             className={toolbarBtnClass}
           >
@@ -130,7 +221,9 @@ export function DashboardTopBar() {
           <button
             type="button"
             disabled={isMarkingAllRead}
-            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))
+            }
             aria-label="Mark all read"
             className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70 ${isMarkingAllRead ? "animate-pulse" : ""}`}
           >
@@ -139,7 +232,9 @@ export function DashboardTopBar() {
 
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))
+            }
             aria-label="Open dashboard settings"
             className={toolbarBtnClass}
           >
@@ -164,10 +259,15 @@ export function DashboardTopBar() {
             aria-label={themeToggleLabel}
             className={toolbarBtnClass}
           >
-            {mounted && isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {mounted && isDark ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
     </div>
   );
 }
+

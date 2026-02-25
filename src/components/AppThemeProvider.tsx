@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardTopBar } from "@/app/dashboard/components/DashboardTopBar";
+import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
 import { Moon, Sun } from "lucide-react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -27,7 +27,7 @@ function ThemeModeToggle() {
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardTopBar />;
+    return <DashboardTopHeaderBar />;
   }
 
   return (
