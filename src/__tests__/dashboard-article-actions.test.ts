@@ -341,7 +341,7 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
-  test.skip("handleArticleToggle schedules removal animation for read articles in unread filter", async () => {
+  test("handleArticleToggle schedules removal animation for read articles in unread filter", async () => {
     const article = createMockArticle({ isRead: true });
     const articleKey = "https://example.com/article";
     const setFeed = mock(() => {});
@@ -507,6 +507,56 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     expect(result.current.hydratedArticleLinks).toBeDefined();
     expect(result.current.hydratingArticleLinks).toBeDefined();
+  });
+
+  test("re-expanding the same article triggers extract each time", async () => {
+    const article = createMockArticle({
+      id: 42,
+      link: "https://example.com/reexpand",
+    });
+    let expandedArticleKey: string | null = null;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: any) => {
+      expandedArticleKey =
+        typeof updater === "function" ? updater(expandedArticleKey) : updater;
+    });
+
+    const { result, rerender } = renderHook(
+      ({ expandedKey }) =>
+        useArticleActions({
+          feed: [article],
+          setFeed,
+          expandedArticleKey: expandedKey,
+          setExpandedArticleKey,
+          articleFilter: "all",
+        }),
+      {
+        initialProps: { expandedKey: expandedArticleKey },
+      },
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
+    rerender({ expandedKey: expandedArticleKey });
+
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+    });
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
+    rerender({ expandedKey: expandedArticleKey });
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
+    rerender({ expandedKey: expandedArticleKey });
+
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(2);
+    });
   });
 
   test("handles article collapse with scrolling", async () => {

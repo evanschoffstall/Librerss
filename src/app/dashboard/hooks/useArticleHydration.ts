@@ -7,6 +7,10 @@ interface UseArticleHydrationOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
 }
 
+interface HydrateArticleContentOptions {
+  force?: boolean;
+}
+
 /** Safely escape an article key for use in a CSS attribute selector. */
 export function escapeArticleKey(articleKey: string): string {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
@@ -21,7 +25,7 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
   const [hydratingArticleLinks, setHydratingArticleLinks] = useState<
     Record<string, boolean>
   >({});
-  const articleHydrationInFlightRef = useRef(new Set<string>());
+  const articleHydrationInFlightRef = useRef(new Map<string, number>());
 
   const scrollArticleIntoView = useCallback((articleKey: string) => {
     let el: HTMLElement | null = null;
@@ -53,13 +57,16 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
   }, []);
 
   const hydrateArticleContent = useCallback(
-    async (article: Article) => {
+    async (article: Article, options?: HydrateArticleContentOptions) => {
+      const forceHydration = options?.force ?? false;
       const link = article.link?.trim();
       if (!link || !isValidUrl(link)) return;
-      if (hydratedArticleLinks[link]) return;
-      if (articleHydrationInFlightRef.current.has(link)) return;
+      const inFlightCount = articleHydrationInFlightRef.current.get(link) ?? 0;
 
-      articleHydrationInFlightRef.current.add(link);
+      if (!forceHydration && hydratedArticleLinks[link]) return;
+      if (!forceHydration && inFlightCount > 0) return;
+
+      articleHydrationInFlightRef.current.set(link, inFlightCount + 1);
       setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
 
       try {
@@ -91,12 +98,19 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
           return rest;
         });
       } finally {
-        articleHydrationInFlightRef.current.delete(link);
-        setHydratingArticleLinks((current) => {
-          if (!current[link]) return current;
-          const { [link]: _, ...rest } = current;
-          return rest;
-        });
+        const remainingInFlight =
+          (articleHydrationInFlightRef.current.get(link) ?? 1) - 1;
+
+        if (remainingInFlight <= 0) {
+          articleHydrationInFlightRef.current.delete(link);
+          setHydratingArticleLinks((current) => {
+            if (!current[link]) return current;
+            const { [link]: _, ...rest } = current;
+            return rest;
+          });
+        } else {
+          articleHydrationInFlightRef.current.set(link, remainingInFlight);
+        }
       }
     },
     [hydratedArticleLinks, setFeed],
