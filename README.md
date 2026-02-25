@@ -66,13 +66,13 @@ NODE_ENV="development"
 # DB_EAGER_CONNECT_CHECK=false
 ```
 
-| Variable              | Description                                                    |
-| --------------------- | -------------------------------------------------------------- |
-| `DATABASE_URL`        | PostgreSQL connection string                                   |
-| `ALLOW_SIGNUP`        | `"true"` to open public registration, `"false"` to restrict    |
-| `TRUSTED_PROXY_COUNT` | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
-| `DB_MAX_CONNECTIONS`  | Max pg pool size (default `1`, keep low to minimize DB CUs)    |
-| `DB_IDLE_TIMEOUT_MS`  | Close idle pg clients after this delay (default `1000`)        |
+| Variable                 | Description                                                    |
+| ------------------------ | -------------------------------------------------------------- |
+| `DATABASE_URL`           | PostgreSQL connection string                                   |
+| `ALLOW_SIGNUP`           | `"true"` to open public registration, `"false"` to restrict    |
+| `TRUSTED_PROXY_COUNT`    | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
+| `DB_MAX_CONNECTIONS`     | Max pg pool size (default `1`, keep low to minimize DB CUs)    |
+| `DB_IDLE_TIMEOUT_MS`     | Close idle pg clients after this delay (default `1000`)        |
 | `DB_EAGER_CONNECT_CHECK` | `"true"` runs startup `select 1`; default is lazy/no pre-check |
 
 ### 3 · Provision the database
