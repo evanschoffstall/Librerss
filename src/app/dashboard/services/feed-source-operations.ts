@@ -13,8 +13,8 @@ import {
   findFeedNodeByUrl,
   getAllFeedNodes,
   getFirstFeedNode,
-} from "../../services/category-feeds";
-import { relocateFeedInCategories } from "../../services/category-tree";
+} from "./category-feeds";
+import { relocateFeedInCategories } from "./category-tree";
 
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],

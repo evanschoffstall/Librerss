@@ -17,8 +17,8 @@ import {
   removeFeedSourceAndRefresh,
   renameFeedSourceAndRefresh,
   selectFeedByKeyFromCategories,
-} from "./feed-source-actions/feed-source-crud";
-import { importOpmlFeedsAndRefresh } from "./feed-source-actions/import-opml";
+} from "../services/feed-source-operations";
+import { importOpmlFeedsAndRefresh } from "../services/opml-import";
 
 interface UseFeedSourceActionsOptions {
   categories: CategoryTreeNode[];

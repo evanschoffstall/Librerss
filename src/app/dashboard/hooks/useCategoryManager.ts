@@ -18,7 +18,7 @@ import {
   moveCategoryByDropInOrder,
   removeCategoryAndRefresh,
   renameCategoryAndRefresh,
-} from "./category-actions/category-operations";
+} from "../services/category-operations";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
 interface UseCategoryManagerOptions {
