@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:local": "bun dev --turbopack -H 0.0.0.0 -p 3000",
     "build": "next build",
+    "clean": "rm -rf .next",
     "start": "next start",
     "check": "bun scripts/check.ts",
     "test": "bun test",
