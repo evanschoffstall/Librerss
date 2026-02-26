@@ -216,6 +216,47 @@ describe("article extract cleanup", () => {
     expect(cleaned).not.toContain("<script>");
   });
 
+  test("sanitizeExtractedContent preserves figures and promotes lazy image sources", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<figure><img data-src="/images/article.jpg" alt="Hero" /><figcaption>Caption</figcaption></figure>',
+    );
+
+    expect(cleaned).toContain("<img");
+    expect(cleaned).toContain('src="/images/article.jpg"');
+    expect(cleaned).toContain("Caption");
+  });
+
+  test("sanitizeExtractedContent keeps image content wrapped by section containers", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<section><article><div><p><img src="https://example.com/hero.jpg" alt="Hero" /></p></div></article></section><p>Body text</p>',
+    );
+
+    expect(cleaned).toContain('<img src="https://example.com/hero.jpg"');
+    expect(cleaned).toContain("Body text");
+  });
+
+  test("sanitizeExtractedContent recovers exactly one section-wrapped image when sanitizer drops wrappers", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" /></p></article></section><p>Story body.</p>',
+    );
+
+    const imgMatches = cleaned.match(/<img\b/gi) ?? [];
+    expect(imgMatches).toHaveLength(1);
+    expect(cleaned).toContain('src="https://example.com/cover.jpg"');
+    expect(cleaned).toContain("Story body.");
+  });
+
+  test("sanitizeExtractedContent does not duplicate image when one is already preserved", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<p><img src="https://example.com/inline.jpg" alt="Inline" /></p><p>Body copy.</p>',
+    );
+
+    const imgMatches = cleaned.match(/<img\b/gi) ?? [];
+    expect(imgMatches).toHaveLength(1);
+    expect(cleaned).toContain('src="https://example.com/inline.jpg"');
+    expect(cleaned).toContain("Body copy.");
+  });
+
   test("normalizeExtractedHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
     const cleaned = normalizeExtractedHtmlSpacing(
       "<p></p>\n\n<p>One</p>\n\n<p>Two</p>",
