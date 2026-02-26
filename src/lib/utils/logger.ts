@@ -16,10 +16,45 @@ interface LogContext {
   stack?: string;
 }
 
-class Logger {
+export class Logger {
   private isDevelopment = process.env.NODE_ENV === "development";
   private readonly sensitiveKeyPattern =
     /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
+
+  private readonly reset = "\u001b[0m";
+
+  private readonly levelIcons: Record<LogLevel, string> = {
+    info: "ℹ",
+    warn: "⚠",
+    error: "✖",
+    debug: "◆",
+  };
+
+  private readonly levelColors: Record<LogLevel, string> = {
+    info: "\u001b[38;5;39m",
+    warn: "\u001b[38;5;214m",
+    error: "\u001b[38;5;196m",
+    debug: "\u001b[38;5;141m",
+  };
+
+  private readonly dim = "\u001b[2m";
+
+  private isColorEnabledByEnv(): boolean {
+    const value = process.env.LOG_COLORS_ENABLED?.trim().toLowerCase();
+    if (!value) return true;
+
+    if (["0", "false", "no", "off"].includes(value)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private supportsColor(): boolean {
+    if (process.env.NODE_ENV === "test") return false;
+    if (process.env.NO_COLOR === "1") return false;
+    return this.isColorEnabledByEnv();
+  }
 
   private getCurrentLogLevel(): "none" | "error" | "warn" | "info" | "verbose" {
     const level = process.env.LOG_LEVEL?.toLowerCase();
@@ -42,9 +77,39 @@ class Logger {
     context?: LogContext,
   ): string {
     const timestamp = new Date().toISOString();
-    const contextStr = context ? JSON.stringify(context, null, 2) : "";
+    const levelLabel = `[${level.toUpperCase()}]`;
+    const icon = this.levelIcons[level];
+    const baseLine = `[${timestamp}] ${levelLabel} ${message} ${icon}`;
 
-    return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr ? `\n${contextStr}` : ""}`;
+    const contextStr = context
+      ? `\n${this.formatContextBlock(JSON.stringify(context, null, 2))}`
+      : "";
+
+    if (!this.supportsColor()) {
+      return `${baseLine}${contextStr}`;
+    }
+
+    const color = this.levelColors[level];
+    const coloredLine = `${this.dim}[${timestamp}]${this.reset} ${color}${levelLabel}${this.reset} ${message} ${icon}`;
+
+    return `${coloredLine}${contextStr}`;
+  }
+
+  private formatContextBlock(contextJson: string): string {
+    const lines = contextJson.split("\n");
+    const heading = this.supportsColor()
+      ? `${this.dim}└─ context${this.reset}`
+      : "└─ context";
+    const body = lines
+      .map((line) => {
+        if (this.supportsColor()) {
+          return `${this.dim}   ${line}${this.reset}`;
+        }
+        return `   ${line}`;
+      })
+      .join("\n");
+
+    return `${heading}\n${body}`;
   }
 
   private sanitizeContext(context?: LogContext): LogContext | undefined {

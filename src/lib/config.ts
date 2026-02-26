@@ -136,6 +136,7 @@ const resolveConfigValue = (key: string): unknown => {
   return envNumber(key);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CONFIG: any = new Proxy<Record<string, unknown>>(
   {},
   {

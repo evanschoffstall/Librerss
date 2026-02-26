@@ -63,6 +63,7 @@ DATABASE_URL="postgres://user:password@host:5432/dbname"
 ALLOW_SIGNUP="false"
 NODE_ENV="development"
 LOG_LEVEL="error"
+LOG_COLORS_ENABLED="true"
 NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED="false"
 NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES="15"
 # Example overrides:
@@ -84,6 +85,7 @@ Runtime load order is:
 | `DATABASE_URL`                                 | PostgreSQL connection string                                   |
 | `ALLOW_SIGNUP`                                 | `"true"` to open public registration, `"false"` to restrict    |
 | `LOG_LEVEL`                                    | One of `none`, `error`, `warn`, `info`, `verbose`              |
+| `LOG_COLORS_ENABLED`                           | Enables ANSI colorized logger output (default `"true"`)        |
 | `NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES`           | Client-side feed auto-refresh TTL in minutes                   |
 | `NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED` | Enables client-side feed refresh diagnostics                   |
 | `TRUSTED_PROXY_COUNT`                          | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
