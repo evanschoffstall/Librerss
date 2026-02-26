@@ -39,8 +39,18 @@
     "node_modules",
     "**/node_modules/**",
     ".next",
+    ".next/**",
+    "**/.next/**",
     "dist",
+    "dist/**",
     "build",
+    "build/**",
+    "coverage",
+    "coverage/**",
+    ".cache",
+    ".cache/**",
+    "drizzle/meta",
+    "drizzle/meta/**",
     "src/components/ui/**"
   ]
 }
