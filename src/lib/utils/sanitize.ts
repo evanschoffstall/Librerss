@@ -1,4 +1,4 @@
-import { CONFIG } from "@/lib/config";
+import { CONFIG, maxArticleConsecutiveBlankLines } from "@/lib/config";
 import sanitizeHtml from "sanitize-html";
 import {
   normalizeArticleHtmlSpacing,
@@ -13,7 +13,7 @@ import { ARTICLE_SANITIZE_OPTIONS } from "./sanitize-patterns";
  * Used for article preview generation.
  */
 export function toPlainText(value: string): string {
-  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+  const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
 
   return stripEmbeddedMediaBlocks(value)
