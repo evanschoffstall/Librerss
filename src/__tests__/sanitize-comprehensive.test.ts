@@ -264,6 +264,30 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).toContain('referrerpolicy="no-referrer"');
   });
 
+  test("sanitizeAndTruncateArticleContent removes tiny placeholder images below minimum dimensions", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img src="https://static.example.com/placeholder.png" width="150" height="84" alt="placeholder" /><p>Body content</p>';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).not.toContain("placeholder.png");
+    expect(result).toContain("Body content");
+  });
+
+  test("sanitizeAndTruncateArticleContent removes known placeholder image URLs without dimensions", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="placeholder" /><p>Body content</p>';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).not.toContain("grey-placeholder.png");
+    expect(result).toContain("Body content");
+  });
+
   test("sanitizeAndTruncateArticleContent handles long content truncation", async () => {
     const { sanitizeAndTruncateArticleContent } =
       await import("@/lib/utils/sanitize");

@@ -86,6 +86,32 @@ describe("Image Sanitization", () => {
     expect(result).toContain('height="600"');
   });
 
+  test("should remove images below minimum width", () => {
+    const input =
+      '<img src="https://example.com/tiny.jpg" width="32" height="400" alt="Tiny">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).not.toContain("<img");
+    expect(result).not.toContain("tiny.jpg");
+  });
+
+  test("should remove images below minimum height", () => {
+    const input =
+      '<img src="https://example.com/short.jpg" width="400" height="32" alt="Short">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).not.toContain("<img");
+    expect(result).not.toContain("short.jpg");
+  });
+
+  test("should keep images when dimensions are not provided", () => {
+    const input = '<img src="https://example.com/no-dims.jpg" alt="No dims">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).toContain("<img");
+    expect(result).toContain('src="https://example.com/no-dims.jpg"');
+  });
+
   test("should remove unknown/unsafe attributes", () => {
     const input =
       '<img src="https://example.com/photo.jpg" data-evil="payload" style="display:none" class="hack">';

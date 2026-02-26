@@ -1,8 +1,55 @@
+import { CONFIG } from "@/lib/config";
+
 export const AP_JUNK_CLASS_PATTERN =
   /(?:hub[\s_-]?peek|related[\s_-]?stories|related[\s_-]?content|related[\s_-]?links|more[\s_-]?on|tag[\s_-]?page|inline[\s_-]?module)/i;
 
 export const RELATED_HEADING_PATTERN =
   /^\s*(?:more\s+on|related(?:\s+(?:stories|articles|content|links|news))?|see\s+also|also\s+(?:of\s+interest|read)|you\s+may\s+(?:also\s+)?like|trending\s+now|popular\s+now|from\s+our\s+partners)\b/i;
+
+function parseDimension(value: string | undefined): number | null {
+  if (!value) return null;
+
+  const normalized = value.trim();
+  if (!normalized || normalized.includes("%")) return null;
+
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+
+  return parsed;
+}
+
+function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
+  if (!attribs) return false;
+
+  const width = parseDimension(attribs.width);
+  const height = parseDimension(attribs.height);
+
+  if (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) {
+    return true;
+  }
+
+  if (height !== null && height < CONFIG.MIN_ARTICLE_IMAGE_HEIGHT_PX) {
+    return true;
+  }
+
+  return false;
+}
+
+function isKnownPlaceholderImage(
+  attribs: Record<string, string> | undefined,
+): boolean {
+  if (!attribs) return false;
+
+  const source = (attribs.src || "").trim().toLowerCase();
+  if (!source) return false;
+
+  return (
+    source.includes("grey-placeholder") ||
+    source.includes("gray-placeholder") ||
+    source.includes("/placeholder") ||
+    source.includes("placeholder.")
+  );
+}
 
 export const ARTICLE_SANITIZE_OPTIONS = {
   allowedTags: [
@@ -59,6 +106,9 @@ export const ARTICLE_SANITIZE_OPTIONS = {
   allowedSchemesByTag: {
     img: ["http", "https"],
   },
+  exclusiveFilter: (frame: { tag: string; attribs?: Record<string, string> }) =>
+    frame.tag === "img" &&
+    (isTooSmallImage(frame.attribs) || isKnownPlaceholderImage(frame.attribs)),
   transformTags: {
     a: (tagName: string, attribs: Record<string, string>) => ({
       tagName,

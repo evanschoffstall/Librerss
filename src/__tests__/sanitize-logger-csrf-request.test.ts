@@ -167,10 +167,11 @@ describe("sanitize – sanitizeArticleHtml", () => {
 
   test("preserves img allowed attributes", () => {
     const result = sanitizeArticleHtml(
-      '<img src="https://example.com/img.jpg" alt="Test" width="100" height="50">',
+      '<img src="https://example.com/img.jpg" alt="Test" width="200" height="120">',
     );
     expect(result).toContain('alt="Test"');
-    expect(result).toContain('width="100"');
+    expect(result).toContain('width="200"');
+    expect(result).toContain('height="120"');
   });
 });
 

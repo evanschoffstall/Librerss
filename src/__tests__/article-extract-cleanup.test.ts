@@ -257,6 +257,33 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body copy.");
   });
 
+  test("sanitizeExtractedContent removes direct tiny placeholder images below minimum size", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<img src="https://static.example.com/grey-placeholder.png" width="150" height="84" alt="placeholder" /><p>Article body.</p>',
+    );
+
+    expect(cleaned).not.toContain("grey-placeholder.png");
+    expect(cleaned).toContain("Article body.");
+  });
+
+  test("sanitizeExtractedContent filters recovered tiny images below minimum size", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<section><article><p><img src="https://example.com/tiny.jpg" width="24" height="24" alt="Tiny" /></p></article></section><p>Body text remains.</p>',
+    );
+
+    expect(cleaned).not.toContain("tiny.jpg");
+    expect(cleaned).toContain("Body text remains.");
+  });
+
+  test("sanitizeExtractedContent removes known placeholder image URLs without dimensions", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<section><article><p><img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="Placeholder" /></p></article></section><p>Body text remains.</p>',
+    );
+
+    expect(cleaned).not.toContain("grey-placeholder.png");
+    expect(cleaned).toContain("Body text remains.");
+  });
+
   test("normalizeExtractedHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
     const cleaned = normalizeExtractedHtmlSpacing(
       "<p></p>\n\n<p>One</p>\n\n<p>Two</p>",

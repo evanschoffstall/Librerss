@@ -6,6 +6,7 @@
 import { parseReaderItemId } from "../core/reader-item-id";
 import { READ_STATE, STARRED_STATE } from "../core/stream-ids";
 import type { Article } from "../core/types";
+import { sanitizeArticleHtml } from "../utils/sanitize";
 
 // ── Wire types ────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export function readerItemToArticle(
     id: (item.id ? parseReaderItemId(item.id) : null) ?? index + 1,
     title: item.title?.trim() || "Untitled",
     link,
-    content: item.summary?.content || "",
+    content: sanitizeArticleHtml(item.summary?.content || ""),
     publicationDate,
     lastChecked: new Date(),
     feedId: 0,
