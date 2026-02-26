@@ -54,6 +54,21 @@ export async function parseAndValidateArticleUrl(
   if (!(await isAllowedUrl(articleUrl)))
     return toJsonError(PUBLIC_FEED_URL_ERROR, 400);
 
+  // Strip the URL fragment before making any upstream request. Fragments are
+  // client-side navigation hints and must not be sent in HTTP requests — RFC
+  // 3986 §3.5. Some CDNs and reverse proxies (e.g. Cloudflare, Akamai) treat
+  // a request URL containing a raw fragment as malformed and return 403/400.
+  // Article links from RSS feeds frequently contain anchors (#comments, etc.).
+  try {
+    const parsed = new URL(articleUrl);
+    if (parsed.hash) {
+      parsed.hash = "";
+      return parsed.toString();
+    }
+  } catch {
+    // URL already validated above — this branch is unreachable in practice.
+  }
+
   return articleUrl;
 }
 
@@ -271,6 +286,7 @@ export function cleanExtractedArticleHtml(
 type FetchHtmlDeps = {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
   axiosGetFn?: typeof axios.get;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
 };
 
 export async function fetchHtml(
@@ -278,17 +294,30 @@ export async function fetchHtml(
   deps?: FetchHtmlDeps,
 ): Promise<string> {
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
+  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   let isFirstValidation = true;
 
   return fetchTextWithValidatedRedirects(
     {
       url,
-      maxRedirects: 3,
+      // 5 hops matches feed fetching. Article URLs from RSS often route through
+      // tracking redirectors (feedproxy, dlvr.it, etc.) before reaching origin.
+      maxRedirects: 5,
       timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
       maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
       headers: {
-        "User-Agent": CONFIG.FEED_REQUEST_USER_AGENT,
+        "User-Agent": CONFIG.ARTICLE_EXTRACT_USER_AGENT,
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "max-age=0",
+        Connection: "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
       },
       assertAllowedUrl: async (candidateUrl) => {
         if (!(await isAllowedUrl(candidateUrl))) {
@@ -298,8 +327,20 @@ export async function fetchHtml(
         }
         isFirstValidation = false;
       },
+      onAxiosError: (error, isAxios) => {
+        if (!isAxios(error)) return;
+        const status = error.response?.status;
+        const dataDomeHeader = String(
+          error.response?.headers?.["x-datadome"] ?? "",
+        ).toLowerCase();
+        if (status === 403 && dataDomeHeader === "protected") {
+          throw new Error(
+            "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
+          );
+        }
+      },
     },
-    { axiosGetFn: deps?.axiosGetFn },
+    { axiosGetFn: deps?.axiosGetFn, isAxiosErrorFn: isAxiosError },
   );
 }
 
@@ -319,6 +360,7 @@ type ExtractPostDeps = {
   toErrorMessageFn?: typeof toErrorMessage;
   logAndRespondErrorFn?: typeof logAndRespondError;
   isAxiosErrorFn?: typeof axios.isAxiosError;
+  infoFn?: typeof logger.info;
   warnFn?: typeof logger.warn;
 };
 
@@ -342,6 +384,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
   const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+  const info = deps?.infoFn ?? logger.info.bind(logger);
   const warn = deps?.warnFn ?? logger.warn.bind(logger);
 
   let articleUrl: string | null = null;
@@ -361,10 +404,22 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     if (parsedUrl instanceof Response) return parsedUrl;
     articleUrl = parsedUrl;
 
+    const safeUrl = redactUrlForLogs(articleUrl);
+    info(`Article extract started`, { url: safeUrl });
+
     const html = await fetchArticleHtml(articleUrl);
+    info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
+
     const extracted = await extractArticle(html, articleUrl, {
       contentLengthThreshold: 120,
     });
+
+    if (
+      !extracted ||
+      (!extracted.content?.trim() && !extracted.description?.trim())
+    ) {
+      warn(`Article extractor returned no content`, { url: safeUrl });
+    }
 
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
@@ -388,6 +443,18 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       }
     }
 
+    if (!content.trim()) {
+      warn(`Article content empty after full extraction pipeline`, {
+        url: safeUrl,
+      });
+    } else {
+      info(`Article extract completed`, {
+        url: safeUrl,
+        contentLength: content.length,
+        hasTitle: !!extracted?.title,
+      });
+    }
+
     return NextResponse.json({
       content,
       title: extracted?.title ?? null,
@@ -399,18 +466,22 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     if (isAxiosError(error)) {
       const upstreamStatus = error.response?.status;
+      // Never mirror upstream 4xx/5xx back as our own status — upstream refusing
+      // our server request (e.g. 403) is not the client's fault. Map to 502 for
+      // all upstream errors, with the exception of 404 which maps to 422 since
+      // the article URL the client supplied simply doesn't exist upstream.
       const status =
-        typeof upstreamStatus === "number" && upstreamStatus >= 400
-          ? upstreamStatus
+        typeof upstreamStatus === "number" && upstreamStatus === 404
+          ? 422
           : 502;
-      const label = status === 502 ? "Bad Gateway" : "Upstream Error";
+      const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
       warn(
-        `Returning ${status} ${label} — article extract upstream request failed${urlSuffix}: ${toMessage(error)}`,
+        `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
       );
       return toJsonError(
-        status === 502
-          ? ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE
-          : ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+        status === 422
+          ? ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE
+          : ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
         status,
       );
     }

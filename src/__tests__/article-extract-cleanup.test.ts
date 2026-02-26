@@ -437,6 +437,24 @@ describe("article extract cleanup", () => {
       isAllowedFeedUrlFn: async () => true,
     });
     expect(allowed).toBe("https://example.com/article");
+
+    // Fragment must be stripped: HTTP requests must not carry URL fragments
+    // (RFC 3986 §3.5). CDNs can return 403/400 for requests with raw fragments.
+    const withFragment = await parseAndValidateArticleUrl({} as any, {
+      parseJsonBodyOrResponseFn: (async () => ({
+        url: "https://example.com/article#comments",
+      })) as any,
+      isAllowedFeedUrlFn: async () => true,
+    });
+    expect(withFragment).toBe("https://example.com/article");
+
+    const withQueryAndFragment = await parseAndValidateArticleUrl({} as any, {
+      parseJsonBodyOrResponseFn: (async () => ({
+        url: "https://example.com/article?ref=rss#section-2",
+      })) as any,
+      isAllowedFeedUrlFn: async () => true,
+    });
+    expect(withQueryAndFragment).toBe("https://example.com/article?ref=rss");
   });
 
   test("fetchHtml blocks disallowed URLs and supports redirects", async () => {
@@ -580,6 +598,9 @@ describe("article extract cleanup", () => {
     );
     const warnFn = mock(() => {});
 
+    // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
+    // client — they are gateway failures, not client errors. Only upstream 404
+    // is special-cased to 422 Unprocessable Content.
     const axiosError = { response: { status: 429 } };
     const axiosResult = await POST({} as any, {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
@@ -593,8 +614,11 @@ describe("article extract cleanup", () => {
       warnFn: warnFn as any,
     });
 
-    expect(axiosResult.status).toBe(429);
-    expect(jsonErrorFn).toHaveBeenCalledWith("Upstream request failed", 429);
+    expect(axiosResult.status).toBe(502);
+    expect(jsonErrorFn).toHaveBeenCalledWith(
+      "Failed to fetch article content from upstream",
+      502,
+    );
 
     const logAndRespondErrorFn = mock(
       (
@@ -630,5 +654,170 @@ describe("article extract cleanup", () => {
         publicMessage: "Failed to extract article content",
       }),
     );
+  });
+
+  // ─── Fragment stripping in upstream request layer ─────────────────────────
+
+  test("fetchHtml strips fragment from initial URL before sending to upstream", async () => {
+    const requestedUrls: string[] = [];
+    const axiosGetFn = mock(async (url: string) => {
+      requestedUrls.push(url);
+      return { status: 200, headers: {}, data: "<html />" } as any;
+    });
+
+    await fetchHtml("https://example.com/article#comments", {
+      isAllowedFeedUrlFn: async () => true,
+      axiosGetFn: axiosGetFn as any,
+    });
+
+    expect(requestedUrls).toHaveLength(1);
+    expect(requestedUrls[0]).toBe("https://example.com/article");
+    expect(requestedUrls[0]).not.toContain("#");
+  });
+
+  test("fetchHtml strips fragment from redirect Location targets before next hop", async () => {
+    const requestedUrls: string[] = [];
+    const axiosGetFn = mock(async (url: string) => {
+      requestedUrls.push(url);
+      if (url === "https://example.com/a") {
+        // Redirect target contains a fragment — common in tracking redirectors
+        return {
+          status: 302,
+          headers: { location: "https://example.com/article#section-2" },
+          data: "",
+        } as any;
+      }
+      return { status: 200, headers: {}, data: "<html />" } as any;
+    });
+
+    await fetchHtml("https://example.com/a", {
+      isAllowedFeedUrlFn: async () => true,
+      axiosGetFn: axiosGetFn as any,
+    });
+
+    expect(requestedUrls).toHaveLength(2);
+    expect(requestedUrls[1]).toBe("https://example.com/article");
+    expect(requestedUrls[1]).not.toContain("#");
+  });
+
+  test("fetchHtml allows up to 5 redirect hops (not 3)", async () => {
+    // Build a chain: /a → /b → /c → /d → /e → /final (5 redirects then 200)
+    const axiosGetFn = mock(async (url: string) => {
+      const chain: Record<string, string> = {
+        "https://example.com/a": "/b",
+        "https://example.com/b": "/c",
+        "https://example.com/c": "/d",
+        "https://example.com/d": "/e",
+        "https://example.com/e": "/final",
+      };
+      if (chain[url]) {
+        return {
+          status: 302,
+          headers: { location: chain[url] },
+          data: "",
+        } as any;
+      }
+      return { status: 200, headers: {}, data: "<html>final</html>" } as any;
+    });
+
+    const html = await fetchHtml("https://example.com/a", {
+      isAllowedFeedUrlFn: async () => true,
+      axiosGetFn: axiosGetFn as any,
+    });
+
+    expect(html).toBe("<html>final</html>");
+    // 5 redirects + 1 final = 6 calls
+    expect(axiosGetFn).toHaveBeenCalledTimes(6);
+  });
+
+  test("fetchHtml raises DataDome-specific error on 403 with x-datadome: protected", async () => {
+    const axiosGetFn = mock(async () => {
+      const err: any = new Error("Request failed with status code 403");
+      err.isAxiosError = true;
+      err.response = { status: 403, headers: { "x-datadome": "protected" } };
+      throw err;
+    });
+
+    await expect(
+      fetchHtml("https://example.com/article", {
+        isAllowedFeedUrlFn: async () => true,
+        axiosGetFn: axiosGetFn as any,
+        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
+      }),
+    ).rejects.toThrow("DataDome");
+  });
+
+  // ─── POST logging ─────────────────────────────────────────────────────────
+
+  test("POST fires info logs at start, after fetch, and on success", async () => {
+    const infoFn = mock(() => {});
+
+    await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: async () => "<html />",
+      extractFromHtmlFn: async () => ({
+        title: "Title",
+        content: "<p>Real article content here that is long enough.</p>",
+      }),
+      sanitizeExtractedContentFn: (c) => c,
+      cleanExtractedArticleHtmlFn: (c) => c,
+      getHostnameFn: () => "example.com",
+      infoFn: infoFn as any,
+      warnFn: mock(() => {}),
+    });
+
+    const messages: string[] = infoFn.mock.calls.map(
+      (c: any[]) => c[0] as string,
+    );
+    expect(messages.some((m) => m.includes("started"))).toBe(true);
+    expect(messages.some((m) => m.includes("fetched"))).toBe(true);
+    expect(messages.some((m) => m.includes("completed"))).toBe(true);
+  });
+
+  test("POST fires warn log when extractor returns no content", async () => {
+    const warnFn = mock(() => {});
+
+    await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: async () => "<html />",
+      extractFromHtmlFn: async () => null,
+      sanitizeExtractedContentFn: (c) => c,
+      cleanExtractedArticleHtmlFn: (c) => c,
+      getHostnameFn: () => "example.com",
+      infoFn: mock(() => {}),
+      warnFn: warnFn as any,
+    });
+
+    const warnMessages: string[] = warnFn.mock.calls.map(
+      (c: any[]) => c[0] as string,
+    );
+    expect(warnMessages.some((m) => m.includes("no content"))).toBe(true);
+  });
+
+  test("POST fires warn log when content is empty after full pipeline", async () => {
+    const warnFn = mock(() => {});
+
+    await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: async () => "<html />",
+      extractFromHtmlFn: async () => ({ title: "T", content: "<p>stuff</p>" }),
+      sanitizeExtractedContentFn: () => "",
+      cleanExtractedArticleHtmlFn: () => "",
+      getHostnameFn: () => "example.com",
+      infoFn: mock(() => {}),
+      warnFn: warnFn as any,
+    });
+
+    const warnMessages: string[] = warnFn.mock.calls.map(
+      (c: any[]) => c[0] as string,
+    );
+    expect(
+      warnMessages.some((m) =>
+        m.includes("empty after full extraction pipeline"),
+      ),
+    ).toBe(true);
   });
 });
