@@ -4,6 +4,7 @@ import {
   extractDailyKosStoryFallbackHtml,
   fetchHtml,
   getHostname,
+  hasReadableArticleBody,
   hasDailyKosStoryImage,
   isLikelyDailyKosFooterBoilerplate,
   normalizeExtractedHtmlSpacing,
@@ -12,6 +13,7 @@ import {
   stripKnownDailyKosBoilerplate,
   toParagraphHtml,
 } from "@/app/api/articles/extract/route";
+import { extractFromHtml } from "@extractus/article-extractor";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -120,6 +122,32 @@ describe("article extract cleanup", () => {
     expect(fallback).not.toContain("Related |");
   });
 
+  test("extractDailyKosStoryFallbackHtml skips placeholder story__text blocks", () => {
+    const rawHtml = `
+      <div class="story__image">
+        <figure>
+          <img src="https://cdn.prod.dailykos.com/images/1528012/story_image/example.jpg" alt="Example" />
+          <figcaption>Caption text</figcaption>
+        </figure>
+      </div>
+      <div class="placeholder story__text"></div>
+      <div class="story__text">
+        <p>First paragraph.</p>
+        <div class="dk-editor-embed">
+          <div class="remove-embed-content">x</div>
+          <a href="//youtube.com/watch?v=test">YouTube Video</a>
+        </div>
+        <p>Second paragraph.</p>
+      </div>
+    `;
+
+    const fallback = extractDailyKosStoryFallbackHtml(rawHtml);
+
+    expect(fallback).toContain("story_image/example.jpg");
+    expect(fallback).toContain("First paragraph.");
+    expect(fallback).toContain("Second paragraph.");
+  });
+
   test("toParagraphHtml creates paragraph blocks from plain text", () => {
     const html = toParagraphHtml("One\nline\n\nTwo");
     expect(html).toContain("<p>One<br />line</p>");
@@ -153,22 +181,75 @@ describe("article extract cleanup", () => {
     expect(cleaned).toBe("<p>One</p>\n<p>Two</p>");
   });
 
-  test("sanitizeExtractedContent normalizes NO-style extracted snapshot spacing", () => {
-    const noSnapshot = readFileSync(
-      join(process.cwd(), "src/__tests__/snapshots/article-NO-1.html"),
-      "utf8",
-    );
-    const standardSnapshot = readFileSync(
-      join(process.cwd(), "src/__tests__/snapshots/article-standard-1.html"),
-      "utf8",
-    );
+  test("downloaded html matches extraction pipeline snapshots", async () => {
+    const fixtures = [
+      {
+        name: "article-1",
+        url: "https://www.abc27.com/news/massive-fire-breaks-out-at-york-county-salvage-yard/",
+      },
+      {
+        name: "article-2",
+        url: "https://www.motherjones.com/politics/2026/02/epstein-files-oval-office-trump-white-house/",
+      },
+      {
+        name: "article-3",
+        url: "https://www.dailykos.com/stories/2026/2/25/2370437/-Mamdani-and-AOC-prove-who-s-really-the-party-of-family-values?pm_campaign=blog&pm_medium=rss&pm_source=main",
+      },
+      {
+        name: "article-4",
+        url: "https://news.sky.com/story/we-decided-to-stand-up-to-a-bully-says-ukrainian-who-swapped-wall-street-for-the-frontline-13511695",
+      },
+    ] as const;
 
-    const normalizedNo = sanitizeExtractedContent(noSnapshot);
-    const normalizedStandard = sanitizeExtractedContent(standardSnapshot);
+    for (const fixture of fixtures) {
+      const before = readFileSync(
+        join(
+          process.cwd(),
+          `src/__tests__/snapshots/expect-extraction/${fixture.name}.html`,
+        ),
+        "utf8",
+      );
+      const expectedAfter = readFileSync(
+        join(
+          process.cwd(),
+          `src/__tests__/snapshots/expect-extraction/article-expect-${fixture.name.split("-")[1]}.html`,
+        ),
+        "utf8",
+      ).trim();
 
-    expect(normalizedNo).not.toContain("<p></p>");
-    expect(normalizedNo).not.toMatch(/>\s*\n\s*\n\s*</);
-    expect(normalizedStandard).not.toMatch(/>\s*\n\s*\n\s*</);
+      expect(expectedAfter.length).toBeGreaterThan(0);
+
+      const extracted = await extractFromHtml(before, fixture.url, {
+        contentLengthThreshold: 120,
+      });
+      const rawContent =
+        extracted?.content?.trim() || extracted?.description?.trim() || "";
+      const normalized = sanitizeExtractedContent(rawContent);
+      let cleaned = cleanExtractedArticleHtml(normalized, fixture.url);
+
+      if (
+        getHostname(fixture.url).endsWith("dailykos.com") &&
+        (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
+      ) {
+        const fallbackContent = cleanExtractedArticleHtml(
+          sanitizeExtractedContent(extractDailyKosStoryFallbackHtml(before)),
+          fixture.url,
+        );
+
+        if (
+          hasDailyKosStoryImage(fallbackContent) ||
+          hasReadableArticleBody(fallbackContent) ||
+          !cleaned.trim()
+        ) {
+          cleaned = fallbackContent;
+        }
+      }
+
+      expect(cleaned.length).toBeGreaterThan(0);
+      expect(cleaned).toBe(expectedAfter);
+      expect(cleaned).not.toContain("<p></p>");
+      expect(cleaned).not.toMatch(/>\s*\n\s*\n\s*</);
+    }
   });
 
   test("getHostname normalizes valid hostnames and handles invalid urls", () => {
