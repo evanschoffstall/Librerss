@@ -84,6 +84,7 @@ export const ArticleCard = ({
 }: ArticleCardProps) => {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [supportsNativeShare, setSupportsNativeShare] = useState(false);
   const [isCardHovered, setIsCardHovered] = useState(false);
   const isDevelopment = process.env.NODE_ENV === "development";
@@ -143,6 +144,13 @@ export const ArticleCard = ({
 
   const handleCopyLinkOpenChange = (open: boolean) => {
     setIsCopyLinkOpen(open);
+    if (!open) {
+      blockArticleInteractionTemporarily();
+    }
+  };
+
+  const handleShareMenuOpenChange = (open: boolean) => {
+    setIsShareMenuOpen(open);
     if (!open) {
       blockArticleInteractionTemporarily();
     }
@@ -397,7 +405,7 @@ export const ArticleCard = ({
                   <Share2 className="size-3.5" />
                 </button>
               ) : (
-                <DropdownMenu>
+                <DropdownMenu open={isShareMenuOpen} onOpenChange={handleShareMenuOpenChange}>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
@@ -416,12 +424,13 @@ export const ArticleCard = ({
                       disabled={!shareUrl}
                       onSelect={(event: Event) => {
                         event.preventDefault();
+                        setIsShareMenuOpen(false);
                         setIsCopyLinkOpen(true);
                       }}
                     >
                       Copy link
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem onSelect={() => setIsShareMenuOpen(false)} asChild>
                       <a
                         href={`mailto:?subject=${encodedShareTitle}&body=${encodedShareUrl}`}
                         target="_blank"
@@ -431,7 +440,7 @@ export const ArticleCard = ({
                         Email
                       </a>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem onSelect={() => setIsShareMenuOpen(false)} asChild>
                       <a
                         href={`https://www.reddit.com/submit?url=${encodedShareUrl}&title=${encodedShareTitle}`}
                         target="_blank"
@@ -440,7 +449,7 @@ export const ArticleCard = ({
                         Share to Reddit
                       </a>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem onSelect={() => setIsShareMenuOpen(false)} asChild>
                       <a
                         href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${article.title} ${shareUrl || ""}`.trim())}`}
                         target="_blank"
