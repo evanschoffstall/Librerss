@@ -4,12 +4,13 @@ import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
 import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { LoginView } from "./components/login/LoginView";
-import { ParticlesBackground, StarsBackground } from "./components/ParticlesBackground";
 import {
+  ParticlesBackground,
   ParticlesBackgroundLight,
+  StarsBackground,
   StarsBackgroundLight,
-} from "./components/ParticlesBackgroundLight";
+} from "./components/Background";
+import { LoginView } from "./components/login/LoginView";
 import type { BackgroundMode } from "./constants";
 import { DASHBOARD_EVENTS } from "./constants";
 import { DashboardView } from "./DashboardView";

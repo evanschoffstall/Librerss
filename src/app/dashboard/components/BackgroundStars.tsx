@@ -34,7 +34,7 @@ const TWINKLE_MIN_SPEED = 0.0012;
 const FADE_MAX_SPEED = 0.0014;
 const FADE_MIN_SPEED = 0.0006;
 
-export default function Stars({
+export default function BackgroundStars({
   className = "",
   quantity = 30,
   staticity = 50,
