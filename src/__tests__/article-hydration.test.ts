@@ -1,37 +1,89 @@
 #!/usr/bin/env bun
 
-/**
- * Test that article expansion hydration always attempts extraction
- */
+import { useArticleHydration } from "@/app/dashboard/hooks/useArticleHydration";
+import type { Article } from "@/lib";
+import { ArticleService } from "@/lib";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-import { describe, expect, test } from "bun:test";
+beforeEach(() => {
+  mock.restore();
+});
 
-describe("Article Hydration Logic", () => {
-  test("should hydrate articles even when RSS content is already substantial", () => {
-    const currentContentLength = 15092;
-    const shouldAttemptHydration = currentContentLength >= 0;
+afterEach(() => {
+  mock.restore();
+});
 
-    expect(shouldAttemptHydration).toBe(true);
+describe("Article Hydration Fixtures", () => {
+  const originalExtractArticleContent = ArticleService.extractArticleContent;
+  const fixtureNames = [
+    "article-pass-1",
+    "article-pass-2",
+    "article-fail-1",
+    "article-fail-2",
+  ] as const;
+
+  const createMockArticle = (content: string): Article => ({
+    id: 1,
+    title: "Fixture Article",
+    link: "https://example.com/article",
+    content,
+    publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+    feedId: 1,
+    feedName: "Fixture Feed",
+    feedUrl: "https://example.com/feed.xml",
+    isRead: false,
+    isStarred: false,
+    lastChecked: new Date("2024-01-01T00:00:00.000Z"),
   });
 
-  test("should hydrate articles with short content", () => {
-    const currentContentLength = 350;
-    const shouldAttemptHydration = currentContentLength >= 0;
+  const readFixture = (name: (typeof fixtureNames)[number]) =>
+    readFileSync(
+      join(
+        process.cwd(),
+        "src/__tests__/snapshots/expect-hydration",
+        `${name}.html`,
+      ),
+      "utf8",
+    );
 
-    expect(shouldAttemptHydration).toBe(true);
+  afterEach(() => {
+    ArticleService.extractArticleContent =
+      originalExtractArticleContent as typeof ArticleService.extractArticleContent;
   });
 
-  test("edge case: exactly 2000 chars should still hydrate", () => {
-    const currentContentLength = 2000;
-    const shouldAttemptHydration = currentContentLength >= 0;
+  for (const fixtureName of fixtureNames) {
+    test(`hydrates content from fixture ${fixtureName}`, async () => {
+      const fixtureContent = readFixture(fixtureName);
+      const extractedContent = `<p>Hydrated from ${fixtureName}</p>`;
 
-    expect(shouldAttemptHydration).toBe(true);
-  });
+      ArticleService.extractArticleContent = mock(
+        async () => extractedContent,
+      ) as unknown as typeof ArticleService.extractArticleContent;
 
-  test("edge case: 0 chars should hydrate", () => {
-    const currentContentLength = 0;
-    const shouldAttemptHydration = currentContentLength >= 0;
+      let feedState = [createMockArticle(fixtureContent)];
+      const setFeed = mock((updater: any) => {
+        feedState =
+          typeof updater === "function" ? updater(feedState) : updater;
+      });
 
-    expect(shouldAttemptHydration).toBe(true);
-  });
+      const { result } = renderHook(() => useArticleHydration({ setFeed }));
+
+      await act(async () => {
+        await result.current.hydrateArticleContent(feedState[0]);
+      });
+
+      await waitFor(() => {
+        expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
+          "https://example.com/article",
+        );
+        expect(feedState[0].content).toBe(extractedContent);
+        expect(
+          result.current.hydratedArticleLinks["https://example.com/article"],
+        ).toBe(true);
+      });
+    });
+  }
 });
