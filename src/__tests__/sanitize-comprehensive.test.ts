@@ -290,7 +290,7 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).not.toMatch(/\n{5,}/);
   });
 
-  test("sanitizeAndTruncateArticleContent handles figcaption removal", async () => {
+  test("sanitizeAndTruncateArticleContent keeps figure image and caption text", async () => {
     const { sanitizeAndTruncateArticleContent } =
       await import("@/lib/utils/sanitize");
 
@@ -298,8 +298,43 @@ describe("lib/utils/sanitize comprehensive", () => {
       "<figure><img src='test.jpg'/><figcaption>Image caption</figcaption></figure><p>Text</p>";
     const result = sanitizeAndTruncateArticleContent(html);
 
+    expect(result).toContain("<img");
+    expect(result).toContain("Image caption");
     expect(result).toContain("Text");
-    // Figcaption should be handled appropriately
+  });
+
+  test("sanitizeAndTruncateArticleContent promotes lazy image attributes to src", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<figure><img data-src="/images/example.jpg" alt="Example" /></figure>';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain('src="/images/example.jpg"');
+    expect(result).toContain("<img");
+  });
+
+  test("sanitizeAndTruncateArticleContent promotes data-original to src", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img data-original="https://example.com/original.jpg" alt="Original" />';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain('src="https://example.com/original.jpg"');
+  });
+
+  test("sanitizeAndTruncateArticleContent promotes data-lazy-src to src", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img data-lazy-src="https://example.com/lazy.jpg" alt="Lazy" />';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain('src="https://example.com/lazy.jpg"');
   });
 
   test("sanitizeAndTruncateArticleContent allows target=_blank on links", async () => {

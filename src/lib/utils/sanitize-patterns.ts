@@ -68,13 +68,26 @@ export const ARTICLE_SANITIZE_OPTIONS = {
         target: "_blank",
       },
     }),
-    img: (tagName: string, attribs: Record<string, string>) => ({
-      tagName,
-      attribs: {
-        ...attribs,
-        referrerpolicy: attribs.referrerpolicy || "no-referrer",
-        loading: attribs.loading || "lazy",
-      },
-    }),
+    img: (tagName: string, attribs: Record<string, string>) => {
+      const sourceCandidate =
+        attribs.src ||
+        attribs["data-src"] ||
+        attribs["data-original"] ||
+        attribs["data-lazy-src"] ||
+        attribs["data-url"] ||
+        "";
+
+      const trimmedSource = sourceCandidate.trim();
+
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          ...(trimmedSource ? { src: trimmedSource } : {}),
+          referrerpolicy: attribs.referrerpolicy || "no-referrer",
+          loading: attribs.loading || "lazy",
+        },
+      };
+    },
   },
 };
