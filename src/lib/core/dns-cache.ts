@@ -56,7 +56,7 @@ export async function resolvesToBlockedAddress(
   const lookupFn = deps?.lookupFn ?? lookup;
   const isBlockedAddress =
     deps?.isBlockedResolvedAddressFn ?? isBlockedResolvedAddress;
-  const warn = deps?.warnFn ?? logger.warn;
+  const warn = deps?.warnFn ?? logger.warn.bind(logger);
   const setTimeoutFn = deps?.setTimeoutFn ?? setTimeout;
   const clearTimeoutFn = deps?.clearTimeoutFn ?? clearTimeout;
 
