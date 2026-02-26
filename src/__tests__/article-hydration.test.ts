@@ -19,10 +19,10 @@ afterEach(() => {
 describe("Article Hydration Fixtures", () => {
   const originalExtractArticleContent = ArticleService.extractArticleContent;
   const fixtureNames = [
-    "article-pass-1",
-    "article-pass-2",
-    "article-fail-1",
-    "article-fail-2",
+    "test-pass-1",
+    "test-pass-2",
+    "test-fail-1",
+    "test-fail-2",
   ] as const;
 
   const createMockArticle = (content: string): Article => ({
@@ -43,7 +43,7 @@ describe("Article Hydration Fixtures", () => {
     readFileSync(
       join(
         process.cwd(),
-        "src/__tests__/snapshots/expect-hydration",
+        "src/__tests__/templates/expect-pipeline",
         `${name}.html`,
       ),
       "utf8",
