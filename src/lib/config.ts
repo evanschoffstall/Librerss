@@ -38,6 +38,10 @@ export const CONFIG = {
     "Mozilla/5.0 (compatible; Librerss/0.1; +https://github.com/evanschoffstall/librerss)",
   FEED_REQUEST_ACCEPT:
     "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+  // Article extraction user-agent — uses real browser string to avoid 403s
+  ARTICLE_EXTRACT_USER_AGENT:
+    process.env.ARTICLE_EXTRACT_USER_AGENT ??
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 
   // Content limits
   MAX_ARTICLE_CONTENT_LENGTH: 100000, // 100KB per article
