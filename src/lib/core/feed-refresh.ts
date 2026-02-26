@@ -57,7 +57,9 @@ export type UpstreamRefreshResult = { ok: true } | { ok: false; error: string };
 
 type RefreshDeps = {
   fetchFeedXmlFn?: (url: string) => Promise<string>;
-  parseFeedXmlFn?: (xml: string) => Promise<{ items: unknown[] }>;
+  parseFeedXmlFn?: (
+    xml: string,
+  ) => Promise<{ items: Array<Parser.Item & { contentEncoded?: string }> }>;
   toPendingArticleFn?: typeof toPendingArticle;
   dedupePendingArticlesFn?: typeof dedupePendingArticles;
   getPublicationDateRangeFn?: typeof getPublicationDateRange;
@@ -90,7 +92,7 @@ export async function refreshFeedFromUpstream(
     const feedXml = await fetchXml(feed.url);
     const parsed = await parseFeedXml(feedXml);
 
-    const mappedItems = (parsed.items as Array<any>)
+    const mappedItems = parsed.items
       .map((item) => toPending(item, feed.id, now))
       .filter((item): item is PendingArticle => item !== null);
     const validItems = dedupe(mappedItems);
