@@ -1,6 +1,6 @@
 "use client";
 
-import { CONFIG } from "@/lib/config";
+import { clientFeedCacheTtlMinutes } from "@/lib/config";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect } from "react";
 
@@ -23,7 +23,7 @@ export function useDashboardIntervals({
 
   useEffect(() => {
     const autoRefreshIntervalMs =
-      Math.max(CONFIG.FEED_CACHE_TTL_MINUTES, 1) * 60_000;
+      Math.max(clientFeedCacheTtlMinutes(), 1) * 60_000;
 
     const intervalId = window.setInterval(() => {
       if (document.hidden) {
