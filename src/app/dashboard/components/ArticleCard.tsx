@@ -47,7 +47,6 @@ import {
   getRichContentClass,
 } from "../services/article-content";
 import { setCachedFaviconIndex } from "../services/favicons";
-import { ANIM_TRANSITION_COLORS } from "./styles";
 
 interface ArticleCardProps {
   articleKey: string;
@@ -64,10 +63,10 @@ interface ArticleCardProps {
 }
 
 const iconBtnCls =
-  `inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 ${ANIM_TRANSITION_COLORS} hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50`;
+  "inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 
 const iconLinkCls =
-  `inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/40 ${ANIM_TRANSITION_COLORS} hover:text-foreground`;
+  "inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground";
 
 export const ArticleCard = ({
   articleKey,
