@@ -369,6 +369,10 @@ describe("useArticleHydration", () => {
     await runWithAct(async () => {
       await result.current.hydrateArticleContent(article);
     });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Unable to extract article content right now.",
+    );
   });
 
   test("hydrateArticleContent handles empty extracted content", async () => {

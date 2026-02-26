@@ -2,6 +2,7 @@
 
 import { ArticleService, isValidUrl, type Article } from "@/lib";
 import { useCallback, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface UseArticleHydrationOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
@@ -97,6 +98,7 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
           const { [link]: _, ...rest } = current;
           return rest;
         });
+        toast.error("Unable to extract article content right now.");
       } finally {
         const remainingInFlight =
           (articleHydrationInFlightRef.current.get(link) ?? 1) - 1;

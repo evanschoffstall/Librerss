@@ -174,76 +174,95 @@ describe("Feeds API - Refresh", () => {
 describe("Feeds API - Route branches with injected deps", () => {
   test("GET handles source-not-found, upstream, axios, and generic errors", async () => {
     const { GET } = await import("@/app/api/feeds/route");
+    const previousLogLevel = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = "verbose";
 
     const request = createMockRequest("https://example.com/api/feeds");
+    const warnFn = mock(() => {});
 
-    const sourceNotFound = await GET(request as any, {
-      requireAuthenticatedUserFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
-      handleFeedReadFn: async () => {
-        throw new Error("missing");
-      },
-      isFeedSourceNotFoundErrorFn: (() => true) as any,
-      jsonErrorFn: ((message: string, status: number) =>
-        Response.json({ error: message }, { status })) as any,
-    });
-    expect(sourceNotFound.status).toBe(404);
+    try {
+      const sourceNotFound = await GET(request as any, {
+        requireAuthenticatedUserFn: async () =>
+          ({ userId: 1, email: "x@y.com" }) as any,
+        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+        handleFeedReadFn: async () => {
+          throw new Error("missing");
+        },
+        isFeedSourceNotFoundErrorFn: (() => true) as any,
+        jsonErrorFn: ((message: string, status: number) =>
+          Response.json({ error: message }, { status })) as any,
+      });
+      expect(sourceNotFound.status).toBe(404);
 
-    const upstream = await GET(request as any, {
-      requireAuthenticatedUserFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
-      handleFeedReadFn: async () => {
-        throw new Error("upstream");
-      },
-      isUpstreamFeedErrorFn: (() => true) as any,
-      toErrorMessageFn: () => "upstream-error",
-      warnFn: (() => {}) as any,
-      jsonErrorFn: ((message: string, status: number) =>
-        Response.json({ error: message }, { status })) as any,
-    });
-    expect(upstream.status).toBe(502);
-    await expect(upstream.json()).resolves.toEqual({
-      error: "Failed to fetch feed from upstream",
-    });
+      const upstream = await GET(request as any, {
+        requireAuthenticatedUserFn: async () =>
+          ({ userId: 1, email: "x@y.com" }) as any,
+        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+        handleFeedReadFn: async () => {
+          throw new Error("upstream");
+        },
+        isUpstreamFeedErrorFn: (() => true) as any,
+        toErrorMessageFn: () => "upstream-error",
+        warnFn: warnFn as any,
+        jsonErrorFn: ((message: string, status: number) =>
+          Response.json({ error: message }, { status })) as any,
+      });
+      expect(upstream.status).toBe(502);
+      await expect(upstream.json()).resolves.toEqual({
+        error: "Failed to fetch feed from upstream",
+      });
 
-    const axiosError = new Error("axios") as Error & {
-      response?: { status?: number };
-    };
-    axiosError.response = { status: 429 };
+      const axiosError = new Error("axios") as Error & {
+        response?: { status?: number };
+      };
+      axiosError.response = { status: 429 };
 
-    const axiosResponse = await GET(request as any, {
-      requireAuthenticatedUserFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
-      handleFeedReadFn: async () => {
-        throw axiosError;
-      },
-      isAxiosErrorFn: (() => true) as any,
-      toErrorMessageFn: () => "axios-error",
-      warnFn: (() => {}) as any,
-      jsonErrorFn: ((message: string, status: number) =>
-        Response.json({ error: message }, { status })) as any,
-    });
-    expect(axiosResponse.status).toBe(429);
-    await expect(axiosResponse.json()).resolves.toEqual({
-      error: "Upstream request failed",
-    });
+      const axiosResponse = await GET(request as any, {
+        requireAuthenticatedUserFn: async () =>
+          ({ userId: 1, email: "x@y.com" }) as any,
+        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+        handleFeedReadFn: async () => {
+          throw axiosError;
+        },
+        isAxiosErrorFn: (() => true) as any,
+        toErrorMessageFn: () => "axios-error",
+        warnFn: warnFn as any,
+        jsonErrorFn: ((message: string, status: number) =>
+          Response.json({ error: message }, { status })) as any,
+      });
+      expect(axiosResponse.status).toBe(429);
+      await expect(axiosResponse.json()).resolves.toEqual({
+        error: "Upstream request failed",
+      });
+      expect(warnFn).toHaveBeenCalledWith(
+        expect.stringContaining("upstream feed request failed"),
+        expect.objectContaining({
+          upstreamStatus: 429,
+          feedAttemptId: expect.any(String),
+          requestId: null,
+        }),
+      );
 
-    const generic = await GET(request as any, {
-      requireAuthenticatedUserFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      handleFeedReadFn: async () => {
-        throw new Error("generic");
-      },
-      isFeedSourceNotFoundErrorFn: (() => false) as any,
-      isUpstreamFeedErrorFn: (() => false) as any,
-      isAxiosErrorFn: (() => false) as any,
-      logAndRespondErrorFn: (() =>
-        Response.json({ error: "generic" }, { status: 500 })) as any,
-    });
-    expect(generic.status).toBe(500);
+      const generic = await GET(request as any, {
+        requireAuthenticatedUserFn: async () =>
+          ({ userId: 1, email: "x@y.com" }) as any,
+        handleFeedReadFn: async () => {
+          throw new Error("generic");
+        },
+        isFeedSourceNotFoundErrorFn: (() => false) as any,
+        isUpstreamFeedErrorFn: (() => false) as any,
+        isAxiosErrorFn: (() => false) as any,
+        logAndRespondErrorFn: (() =>
+          Response.json({ error: "generic" }, { status: 500 })) as any,
+      });
+      expect(generic.status).toBe(500);
+    } finally {
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
+    }
   });
 
   test("POST, PATCH, DELETE cover success and not-found branches via deps", async () => {
@@ -375,9 +394,8 @@ describe("Feeds API - Route branches with injected deps", () => {
 
 describe("feeds/services/access: requireMutableFeedAccess", () => {
   test("returns Response when auth guard fails (no CSRF)", async () => {
-    const { requireMutableFeedAccess } = await import(
-      "@/app/api/feeds/services/access"
-    );
+    const { requireMutableFeedAccess } =
+      await import("@/app/api/feeds/services/access");
     // No sec-fetch-site → CSRF fails → requireMutableAuthenticatedUser returns Response
     const request = createMockRequest("https://example.com/api/feeds", {
       method: "POST",
@@ -388,9 +406,8 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
   });
 
   test("passes rateLimit option through without throwing", async () => {
-    const { requireMutableFeedAccess } = await import(
-      "@/app/api/feeds/services/access"
-    );
+    const { requireMutableFeedAccess } =
+      await import("@/app/api/feeds/services/access");
     // Verify the rateLimit option path is accepted (no throw).
     // In parallel suites, session may be mocked → auth may succeed or fail,
     // so we only assert the function completes and returns a defined result.
@@ -413,9 +430,8 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
     } else {
       // In DB mode the function either returns a user or an auth-failure Response.
       // The ensureFeedManagementEnabled() null path is covered — just verify no throw.
-      const { requireMutableFeedAccess } = await import(
-        "@/app/api/feeds/services/access"
-      );
+      const { requireMutableFeedAccess } =
+        await import("@/app/api/feeds/services/access");
       const request = createMockRequest("https://example.com/api/feeds", {
         method: "POST",
       });

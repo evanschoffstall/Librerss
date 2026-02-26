@@ -1,6 +1,7 @@
 import {
   POST,
   cleanExtractedArticleHtml,
+  clearArticleExtractCacheForTests,
   extractDailyKosStoryFallbackHtml,
   fetchHtml,
   getHostname,
@@ -66,10 +67,12 @@ const SNAPSHOT_SPECIAL_CASE_HOSTNAME = getHostname(
 
 beforeEach(() => {
   mock.restore();
+  clearArticleExtractCacheForTests();
 });
 
 afterEach(() => {
   mock.restore();
+  clearArticleExtractCacheForTests();
 });
 
 describe("article extract cleanup", () => {
@@ -593,6 +596,9 @@ describe("article extract cleanup", () => {
   });
 
   test("POST maps axios and generic failures to expected error handlers", async () => {
+    const previousLogLevel = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = "verbose";
+
     const jsonErrorFn = mock((message: string, status: number) =>
       Response.json({ error: message }, { status }),
     );
@@ -602,58 +608,75 @@ describe("article extract cleanup", () => {
     // client — they are gateway failures, not client errors. Only upstream 404
     // is special-cased to 422 Unprocessable Content.
     const axiosError = { response: { status: 429 } };
-    const axiosResult = await POST({} as any, {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: async () => {
-        throw axiosError;
-      },
-      isAxiosErrorFn: (() => true) as any,
-      toErrorMessageFn: () => "upstream-throttled",
-      jsonErrorFn: jsonErrorFn as any,
-      warnFn: warnFn as any,
-    });
+    try {
+      const axiosResult = await POST({} as any, {
+        requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+        parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+        fetchHtmlFn: async () => {
+          throw axiosError;
+        },
+        isAxiosErrorFn: (() => true) as any,
+        toErrorMessageFn: () => "upstream-throttled",
+        jsonErrorFn: jsonErrorFn as any,
+        warnFn: warnFn as any,
+      });
 
-    expect(axiosResult.status).toBe(502);
-    expect(jsonErrorFn).toHaveBeenCalledWith(
-      "Failed to fetch article content from upstream",
-      502,
-    );
+      expect(axiosResult.status).toBe(502);
+      expect(jsonErrorFn).toHaveBeenCalledWith(
+        "Failed to fetch article content from upstream",
+        502,
+      );
+      expect(warnFn).toHaveBeenCalledWith(
+        expect.stringContaining("upstream request failed"),
+        expect.objectContaining({
+          upstreamStatus: 429,
+          upstreamMethod: null,
+          responseBodySnippet: undefined,
+          extractAttemptId: expect.any(String),
+        }),
+      );
 
-    const logAndRespondErrorFn = mock(
-      (
-        _message: string,
-        _error: unknown,
-        options?: { status?: number; publicMessage?: string },
-      ) =>
-        Response.json(
-          { error: options?.publicMessage ?? "unknown" },
-          { status: options?.status ?? 500 },
-        ),
-    );
+      const logAndRespondErrorFn = mock(
+        (
+          _message: string,
+          _error: unknown,
+          options?: { status?: number; publicMessage?: string },
+        ) =>
+          Response.json(
+            { error: options?.publicMessage ?? "unknown" },
+            { status: options?.status ?? 500 },
+          ),
+      );
 
-    const genericResult = await POST({} as any, {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: async () => {
-        throw new Error("boom");
-      },
-      isAxiosErrorFn: (() => false) as any,
-      toErrorMessageFn: () => "normalized-boom",
-      logAndRespondErrorFn: logAndRespondErrorFn as any,
-      warnFn: warnFn as any,
-    });
+      const genericResult = await POST({} as any, {
+        requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+        parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+        fetchHtmlFn: async () => {
+          throw new Error("boom");
+        },
+        isAxiosErrorFn: (() => false) as any,
+        toErrorMessageFn: () => "normalized-boom",
+        logAndRespondErrorFn: logAndRespondErrorFn as any,
+        warnFn: warnFn as any,
+      });
 
-    expect(genericResult.status).toBe(502);
-    expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
-    expect(logAndRespondErrorFn).toHaveBeenCalledWith(
-      "Article extract error",
-      expect.any(Error),
-      expect.objectContaining({
-        status: 502,
-        publicMessage: "Failed to extract article content",
-      }),
-    );
+      expect(genericResult.status).toBe(502);
+      expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
+      expect(logAndRespondErrorFn).toHaveBeenCalledWith(
+        "Article extract error",
+        expect.any(Error),
+        expect.objectContaining({
+          status: 502,
+          publicMessage: "Failed to extract article content",
+        }),
+      );
+    } finally {
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
+    }
   });
 
   // ─── Fragment stripping in upstream request layer ─────────────────────────
@@ -819,5 +842,74 @@ describe("article extract cleanup", () => {
         m.includes("empty after full extraction pipeline"),
       ),
     ).toBe(true);
+  });
+
+  test("POST uses extract cache when enabled", async () => {
+    const fetchHtmlFn = mock(async () => "<html />");
+    const extractFromHtmlFn = mock(async () => ({
+      title: "Title",
+      source: "Source",
+      content: "cached-content",
+    }));
+    const infoFn = mock(() => {});
+    const warnFn = mock(() => {});
+
+    const deps = {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: fetchHtmlFn as any,
+      extractFromHtmlFn: extractFromHtmlFn as any,
+      sanitizeExtractedContentFn: (content: string) => content,
+      cleanExtractedArticleHtmlFn: (content: string) => content,
+      getHostnameFn: () => "example.com",
+      infoFn: infoFn as any,
+      warnFn: warnFn as any,
+      shouldUseExtractCacheFn: () => true,
+    };
+
+    const firstResponse = await POST({} as any, deps);
+    const secondResponse = await POST({} as any, deps);
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(fetchHtmlFn).toHaveBeenCalledTimes(1);
+    expect(extractFromHtmlFn).toHaveBeenCalledTimes(1);
+    expect(await secondResponse.json()).toEqual({
+      content: "cached-content",
+      title: "Title",
+      source: "Source",
+    });
+  });
+
+  test("POST bypasses extract cache when disabled", async () => {
+    const fetchHtmlFn = mock(async () => "<html />");
+    const extractFromHtmlFn = mock(async () => ({
+      title: "Title",
+      source: "Source",
+      content: "uncached-content",
+    }));
+    const infoFn = mock(() => {});
+    const warnFn = mock(() => {});
+
+    const deps = {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      fetchHtmlFn: fetchHtmlFn as any,
+      extractFromHtmlFn: extractFromHtmlFn as any,
+      sanitizeExtractedContentFn: (content: string) => content,
+      cleanExtractedArticleHtmlFn: (content: string) => content,
+      getHostnameFn: () => "example.com",
+      infoFn: infoFn as any,
+      warnFn: warnFn as any,
+      shouldUseExtractCacheFn: () => false,
+    };
+
+    const firstResponse = await POST({} as any, deps);
+    const secondResponse = await POST({} as any, deps);
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(fetchHtmlFn).toHaveBeenCalledTimes(2);
+    expect(extractFromHtmlFn).toHaveBeenCalledTimes(2);
   });
 });

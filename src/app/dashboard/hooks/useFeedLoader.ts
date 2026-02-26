@@ -2,7 +2,7 @@
 
 import type { Article, CategoryTreeNode } from "@/lib";
 import { FeedService } from "@/lib";
-import { CONFIG } from "@/lib/config";
+import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -179,7 +179,7 @@ export function useFeedLoader({
 
   const logRefreshDiagnostics = useCallback(
     (event: string, details: Record<string, unknown>) => {
-      if (!CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+      if (!clientFeedRefreshDiagnosticsEnabled()) {
         return;
       }
 

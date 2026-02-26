@@ -1,103 +1,151 @@
 /**
- * Centralized application configuration
- * All magic numbers and constants should be defined here
+ * Environment helpers.
+ * This module intentionally avoids a centralized per-key config registry.
  */
 
-/**
- * NODE_ENV convenience flags — safe in both server and client contexts
- * because Next.js inlines process.env.NODE_ENV at build time.
- */
+export const isDevelopment = process.env.NODE_ENV === "development";
+
 export const ENV = {
-  isDevelopment: process.env.NODE_ENV === "development",
+  isDevelopment,
 } as const;
 
-export const CONFIG = {
-  // Logging
-  // Logging level: none, error, warn, info, verbose
-  // Set to "error" to hide feed batch/list info/warn logs
-  LOG_LEVEL: "error" as "none" | "error" | "warn" | "info" | "verbose",
+export const envString = (key: string): string => {
+  const value = process.env[key];
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
 
-  // Feed settings
-  FEED_REFRESH_DIAGNOSTICS_ENABLED: false,
-  // Non-force refresh TTL: feeds older than this are refreshed on the next
-  // background/page-load fetch.
-  FEED_CACHE_TTL_MINUTES: 15,
-  // Force-refresh cooldown: manual refresh requests are capped to at most once
-  // per feed per this many minutes.
-  FEED_FORCE_REFRESH_TTL_MINUTES: 5,
-  FEED_BATCH_MAX_URLS: 64,
-  FEED_BATCH_CONCURRENCY: 8,
-  // Upstream feeds refresh concurrently inside a batch request.  A long
-  // timeout makes the HTTP response wait for the slowest upstream feed.
-  // 14 s is a reasonable ceiling: legitimately slow feeds will usually respond
-  // by then; truly unresponsive ones stop blocking the batch sooner.
-  FEED_REQUEST_TIMEOUT_MS: 14_000,
-  MAX_FEED_RESPONSE_SIZE_BYTES: 5 * 1024 * 1024, // 5MB
-  FEED_REQUEST_USER_AGENT:
-    process.env.FEED_REQUEST_USER_AGENT ??
-    "Mozilla/5.0 (compatible; Librerss/0.1; +https://github.com/evanschoffstall/librerss)",
-  FEED_REQUEST_ACCEPT:
-    "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
-  // Article extraction user-agent — uses real browser string to avoid 403s
-  ARTICLE_EXTRACT_USER_AGENT:
-    process.env.ARTICLE_EXTRACT_USER_AGENT ??
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  return value;
+};
 
-  // Content limits
-  MAX_ARTICLE_CONTENT_LENGTH: 100000, // 100KB per article
-  MAX_ARTICLES_PER_FEED: 200, // max articles returned per feed
-  MAX_ALL_ARTICLES_LIMIT: 500, // max articles returned by the global /api/articles endpoint
-  MAX_ARTICLE_TITLE_LENGTH: 500,
-  MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: 3,
-  MIN_ARTICLE_IMAGE_WIDTH_PX: 151,
-  MIN_ARTICLE_IMAGE_HEIGHT_PX: 85,
-  MAX_FEED_NAME_LENGTH: 255,
-  MAX_CATEGORY_NAME_LENGTH: 255,
-  OPML_MAX_IMPORT_ENTRIES: 500, // max distinct feed URLs accepted from a single OPML upload
+export const envNumber = (key: string): number => {
+  const value = envString(key);
+  const parsed = Number(value);
 
-  // Authentication
-  SESSION_DURATION_DAYS: 30,
-  PASSWORD_MIN_LENGTH: 8,
-  // SECURITY: scrypt CPU time scales with password length. Cap at a safe upper
-  // bound to prevent DoS via extremely long passwords submitted to /api/auth/*.
-  PASSWORD_MAX_LENGTH: 1024,
-  PASSWORD_COMPLEXITY_REQUIRED_TYPES: 3, // out of 4 types (upper, lower, number, special)
-  MAX_SESSIONS_PER_USER: 5,
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid numeric environment variable: ${key}`);
+  }
 
-  // Email
-  MAX_EMAIL_LENGTH: 320, // RFC 5321 maximum
+  return parsed;
+};
 
-  // Rate limiting
-  RATE_LIMIT_LOGIN_WINDOW_MS: 15 * 60 * 1000, // 15 minutes
-  RATE_LIMIT_LOGIN_MAX_ATTEMPTS: 5,
-  RATE_LIMIT_SIGNUP_WINDOW_MS: 60 * 60 * 1000, // 1 hour
-  RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: 3,
-  RATE_LIMIT_FEED_WINDOW_MS: 60 * 1000, // 1 minute
-  RATE_LIMIT_FEED_MAX_REQUESTS: 30,
-  RATE_LIMIT_FEED_BATCH_WINDOW_MS: 60 * 1000, // 1 minute
-  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: 20,
-  // Article extraction — makes outbound HTTP requests; keep tight to prevent
-  // the server being used as an amplification proxy by authenticated users.
-  RATE_LIMIT_EXTRACT_WINDOW_MS: 60 * 1000, // 1 minute
-  RATE_LIMIT_EXTRACT_MAX_REQUESTS: 10,
+export const envBoolean = (key: string): boolean => {
+  const normalized = envString(key).trim().toLowerCase();
 
-  // DNS validation
-  DNS_CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes
-  DNS_LOOKUP_TIMEOUT_MS: 3000, // 3 seconds
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
 
-  // Request parsing
-  MAX_JSON_BODY_BYTES: 64 * 1024, // 64KB
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
 
-  // GReader API
-  GREADER_MAX_STREAM_ITEMS: 250,
-  GREADER_DEFAULT_STREAM_ITEMS: 50,
-  GREADER_NETNEWSWIRE_MAX_ITEMS: 250,
+  throw new Error(`Invalid boolean environment variable: ${key}`);
+};
 
-  // Batch operations
-  MARK_ALL_READ_LIMIT: 10_000,
+export const envEnum = <T extends string>(
+  key: string,
+  allowedValues: readonly T[],
+): T => {
+  const value = envString(key);
 
-  // Caching limits
-  DNS_CACHE_MAX_ENTRIES: 10_000,
-  MAX_FAVICON_CACHE_ENTRIES: 400,
-  FEED_LOADING_FAILSAFE_MS: 20_000,
-} as const;
+  if (!allowedValues.includes(value as T)) {
+    throw new Error(
+      `Invalid environment variable ${key}; expected one of: ${allowedValues.join(", ")}`,
+    );
+  }
+
+  return value as T;
+};
+
+export const getLogLevel = (): "none" | "error" | "warn" | "info" | "verbose" =>
+  envEnum("LOG_LEVEL", ["none", "error", "warn", "info", "verbose"] as const);
+
+const requireClientEnvString = (
+  value: string | undefined,
+  key: string,
+): string => {
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+
+  return value;
+};
+
+export const clientFeedCacheTtlMinutes = (): number => {
+  const key = "NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES";
+  const parsed = Number(
+    requireClientEnvString(process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES, key),
+  );
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid numeric environment variable: ${key}`);
+  }
+
+  return parsed;
+};
+
+export const clientFeedRefreshDiagnosticsEnabled = (): boolean => {
+  const key = "NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED";
+  const normalized = requireClientEnvString(
+    process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED,
+    key,
+  )
+    .trim()
+    .toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean environment variable: ${key}`);
+};
+
+export const maxArticleConsecutiveBlankLines = (): number => {
+  const clientKey = "NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES";
+  const clientValue =
+    process.env.NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+
+  if (clientValue !== undefined && clientValue.trim() !== "") {
+    const parsed = Number(requireClientEnvString(clientValue, clientKey));
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`Invalid numeric environment variable: ${clientKey}`);
+    }
+
+    return parsed;
+  }
+
+  return envNumber("MAX_ARTICLE_CONSECUTIVE_BLANK_LINES");
+};
+
+const resolveConfigValue = (key: string): unknown => {
+  if (key === "LOG_LEVEL") {
+    return getLogLevel();
+  }
+
+  if (key.endsWith("_USER_AGENT") || key.endsWith("_ACCEPT")) {
+    return envString(key);
+  }
+
+  if (key.endsWith("_ENABLED")) {
+    return envBoolean(key);
+  }
+
+  return envNumber(key);
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const CONFIG: any = new Proxy<Record<string, unknown>>(
+  {},
+  {
+    get: (_target, property) => {
+      if (typeof property !== "string") {
+        return undefined;
+      }
+
+      return resolveConfigValue(property);
+    },
+  },
+);

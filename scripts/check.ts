@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 const LINE_COVERAGE_THRESHOLD = 80;
 const TEST_TIMEOUT_MS = 5_000;
-const TEST_COMMAND_TIMEOUT_MS = 120_000;
+const TEST_COMMAND_TIMEOUT_MS = 10_000;
 
 // This should always be empty-- no exceptions.
 const COVERAGE_EXCLUDED_FILES: string[] = [];

@@ -1,4 +1,4 @@
-import { CONFIG } from "@/lib/config";
+import { maxArticleConsecutiveBlankLines } from "@/lib/config";
 import {
   AP_JUNK_CLASS_PATTERN,
   RELATED_HEADING_PATTERN,
@@ -28,7 +28,7 @@ export function stripEmbeddedMediaBlocks(html: string): string {
 }
 
 function collapseExcessNewlines(html: string): string {
-  const maxConsecutiveBlankLines = CONFIG.MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+  const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
 
   return html

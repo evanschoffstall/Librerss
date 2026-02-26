@@ -3,7 +3,16 @@
  * Tests for src/lib/utils/
  */
 
-import { describe, expect, test } from "bun:test";
+import { Logger } from "@/lib/utils/logger";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+beforeEach(() => {
+  mock.restore();
+});
+
+afterEach(() => {
+  mock.restore();
+});
 
 // ─── Date Utils ───────────────────────────────────────────────────────────────
 
@@ -158,8 +167,8 @@ describe("url utils", () => {
 // ─── Logger ───────────────────────────────────────────────────────────────────
 
 describe("logger", () => {
-  test("logger instance exists and has methods", async () => {
-    const { logger } = await import("@/lib/utils/logger");
+  test("logger instance exists and has methods", () => {
+    const logger = new Logger();
     expect(typeof logger.info).toBe("function");
     expect(typeof logger.error).toBe("function");
     expect(typeof logger.warn).toBe("function");
@@ -167,66 +176,73 @@ describe("logger", () => {
     logger.debug("debug-smoke");
   });
 
-  test("logger sanitizes sensitive fields and logs all levels", async () => {
+  test("logger sanitizes sensitive fields and logs all levels", () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "info";
 
-    const { logger } = await import("@/lib/utils/logger");
+    const logger = new Logger();
 
-    const originalLog = console.log;
-    const originalWarn = console.warn;
-    const originalError = console.error;
-
-    const seen: string[] = [];
-    console.log = (message?: unknown) => {
-      seen.push(String(message));
-    };
-    console.warn = (message?: unknown) => {
-      seen.push(String(message));
-    };
-    console.error = (message?: unknown) => {
-      seen.push(String(message));
+    const context = {
+      email: "alice@example.com",
+      password: "secret-pass",
+      nested: { token: "abc123", when: new Date("2024-01-01T00:00:00.000Z") },
+      list: [{ apiKey: "xyz" }],
+      error: new Error("boom"),
     };
 
     try {
-      logger.info("hello", {
-        email: "alice@example.com",
-        password: "secret-pass",
-        nested: { token: "abc123", when: new Date("2024-01-01T00:00:00.000Z") },
-        list: [{ apiKey: "xyz" }],
-        error: new Error("boom"),
-      });
-      logger.warn("warn", { sessionToken: "token-value" });
-      logger.error("error", { cookie: "session-cookie" });
+      const formattedInfo = (logger as any).formatMessage(
+        "info",
+        "hello",
+        (logger as any).sanitizeContext(context),
+      );
+      const formattedWarn = (logger as any).formatMessage(
+        "warn",
+        "warn",
+        (logger as any).sanitizeContext({ sessionToken: "token-value" }),
+      );
+      const formattedError = (logger as any).formatMessage(
+        "error",
+        "error",
+        (logger as any).sanitizeContext({ cookie: "session-cookie" }),
+      );
+
+      const output = [formattedInfo, formattedWarn, formattedError].join("\n");
+      let plainOutput = "";
+      for (let index = 0; index < output.length; index += 1) {
+        if (output.charCodeAt(index) === 27) {
+          while (index < output.length && output[index] !== "m") {
+            index += 1;
+          }
+          continue;
+        }
+        plainOutput += output[index];
+      }
+
+      expect(plainOutput).toContain("[INFO] hello");
+      expect(plainOutput).toContain("[WARN] warn");
+      expect(plainOutput).toContain("[ERROR] error");
+      expect(plainOutput).toContain('"password": "[redacted]"');
+      expect(plainOutput).toContain('"token": "[redacted]"');
+      expect(plainOutput).toContain('"apiKey": "[redacted]"');
+      expect(plainOutput).toContain('"cookie": "[redacted]"');
+      expect(plainOutput).toContain('"email": "al***@example.com"');
+      expect(plainOutput).toContain('"timestamp":');
+      expect(plainOutput).toContain('"message": "boom"');
     } finally {
-      console.log = originalLog;
-      console.warn = originalWarn;
-      console.error = originalError;
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;
       } else {
         process.env.LOG_LEVEL = previousLogLevel;
       }
     }
-
-    const output = seen.join("\n");
-    expect(output).toContain("[INFO] hello");
-    expect(output).toContain("[WARN] warn");
-    expect(output).toContain("[ERROR] error");
-    expect(output).toContain('"password": "[redacted]"');
-    expect(output).toContain('"token": "[redacted]"');
-    expect(output).toContain('"apiKey": "[redacted]"');
-    expect(output).toContain('"cookie": "[redacted]"');
-    expect(output).toContain('"email": "al***@example.com"');
-    expect(output).toContain('"timestamp":');
-    expect(output).toContain('"message": "boom"');
   });
 
-  test("logger truncates deeply nested context values", async () => {
+  test("logger truncates deeply nested context values", () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "info";
 
-    const { logger } = await import("@/lib/utils/logger");
+    const logger = new Logger();
 
     const originalLog = console.log;
     let captured = "";

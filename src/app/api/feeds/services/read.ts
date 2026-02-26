@@ -27,7 +27,7 @@ export async function handleFeedRead(userId: number, feedUrl: string | null) {
     const sources = await listFeedSourcesForUser(userId);
     const sourcesResponse = sources.map(toFeedSourceResponse);
     logger.info(
-      `📋 Feed list [${sourcesResponse.length} source${sourcesResponse.length !== 1 ? "s" : ""}]: retrieved from database`,
+      `Feed list [${sourcesResponse.length} source${sourcesResponse.length !== 1 ? "s" : ""}]: retrieved from database`,
     );
     return NextResponse.json(sourcesResponse);
   }

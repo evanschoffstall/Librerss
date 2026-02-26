@@ -29,6 +29,192 @@ const ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE =
   "Failed to fetch article content from upstream";
 const ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
 const ARTICLE_EXTRACTION_ERROR_MESSAGE = "Failed to extract article content";
+const ARTICLE_EXTRACT_CACHE_TTL_MS = 10 * 60 * 1000;
+const ARTICLE_EXTRACT_CACHE_MAX_ENTRIES = 500;
+
+const VERBOSE_LOG_LEVEL = "verbose";
+const SAFE_UPSTREAM_RESPONSE_HEADERS = [
+  "server",
+  "cf-ray",
+  "cf-cache-status",
+  "x-cache",
+  "x-served-by",
+  "retry-after",
+  "content-type",
+  "content-length",
+  "x-datadome",
+] as const;
+
+const SAFE_UPSTREAM_REQUEST_HEADERS = [
+  "user-agent",
+  "accept",
+  "accept-language",
+  "accept-encoding",
+  "referer",
+  "cache-control",
+] as const;
+
+type ExtractResponsePayload = {
+  content: string;
+  title: string | null;
+  source: string | null;
+};
+
+type CachedExtractResponse = {
+  expiresAt: number;
+  payload: ExtractResponsePayload;
+};
+
+const articleExtractCache = new Map<string, CachedExtractResponse>();
+
+function isExtractCacheEnabled(): boolean {
+  return (
+    process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test"
+  );
+}
+
+function getCachedExtractPayload(url: string): ExtractResponsePayload | null {
+  const cached = articleExtractCache.get(url);
+  if (!cached) return null;
+
+  if (cached.expiresAt <= Date.now()) {
+    articleExtractCache.delete(url);
+    return null;
+  }
+
+  return cached.payload;
+}
+
+function setCachedExtractPayload(
+  url: string,
+  payload: ExtractResponsePayload,
+): void {
+  if (articleExtractCache.size >= ARTICLE_EXTRACT_CACHE_MAX_ENTRIES) {
+    const oldestKey = articleExtractCache.keys().next().value;
+    if (typeof oldestKey === "string") {
+      articleExtractCache.delete(oldestKey);
+    }
+  }
+
+  articleExtractCache.set(url, {
+    expiresAt: Date.now() + ARTICLE_EXTRACT_CACHE_TTL_MS,
+    payload,
+  });
+}
+
+export function clearArticleExtractCacheForTests(): void {
+  articleExtractCache.clear();
+}
+
+function isVerboseLoggingEnabled(): boolean {
+  const envLevel = process.env.LOG_LEVEL?.trim().toLowerCase();
+  if (envLevel) return envLevel === VERBOSE_LOG_LEVEL;
+
+  try {
+    return CONFIG.LOG_LEVEL === VERBOSE_LOG_LEVEL;
+  } catch {
+    return false;
+  }
+}
+
+function toHeaderRecord(headers: unknown): Record<string, string> {
+  if (!headers || typeof headers !== "object") {
+    return {};
+  }
+
+  const entries = Object.entries(headers as Record<string, unknown>);
+  return entries.reduce<Record<string, string>>((acc, [rawName, rawValue]) => {
+    const key = rawName.toLowerCase();
+    if (typeof rawValue === "string") {
+      acc[key] = rawValue;
+      return acc;
+    }
+
+    if (Array.isArray(rawValue)) {
+      acc[key] = rawValue.map((v) => String(v)).join(", ");
+      return acc;
+    }
+
+    if (typeof rawValue === "number" || typeof rawValue === "boolean") {
+      acc[key] = String(rawValue);
+    }
+
+    return acc;
+  }, {});
+}
+
+function pickAllowedHeaders(
+  headers: unknown,
+  allowed: readonly string[],
+): Record<string, string> {
+  const normalized = toHeaderRecord(headers);
+  return allowed.reduce<Record<string, string>>((acc, headerName) => {
+    const value = normalized[headerName];
+    if (typeof value === "string" && value.trim()) {
+      acc[headerName] = value;
+    }
+    return acc;
+  }, {});
+}
+
+function toBodySnippet(data: unknown, maxLength = 240): string | undefined {
+  if (typeof data === "string") {
+    const compact = data.replace(/\s+/g, " ").trim();
+    if (!compact) return undefined;
+    return compact.length > maxLength
+      ? `${compact.slice(0, maxLength)}…`
+      : compact;
+  }
+
+  if (
+    data &&
+    typeof data === "object" &&
+    "toString" in data &&
+    typeof (data as { toString: unknown }).toString === "function"
+  ) {
+    const text = String((data as { toString: () => string }).toString());
+    const compact = text.replace(/\s+/g, " ").trim();
+    if (!compact || compact === "[object Object]") return undefined;
+    return compact.length > maxLength
+      ? `${compact.slice(0, maxLength)}…`
+      : compact;
+  }
+
+  return undefined;
+}
+
+function buildAxiosFailureDiagnostics(
+  error: unknown,
+  isAxiosErrorFn: typeof axios.isAxiosError,
+): Record<string, unknown> {
+  if (!isAxiosErrorFn(error)) return {};
+
+  const requestHeaders = pickAllowedHeaders(
+    error.config?.headers,
+    SAFE_UPSTREAM_REQUEST_HEADERS,
+  );
+  const responseHeaders = pickAllowedHeaders(
+    error.response?.headers,
+    SAFE_UPSTREAM_RESPONSE_HEADERS,
+  );
+
+  return {
+    upstreamStatus: error.response?.status ?? null,
+    upstreamStatusText: error.response?.statusText ?? null,
+    upstreamMethod: error.config?.method?.toUpperCase() ?? null,
+    upstreamUrl: error.config?.url ?? null,
+    requestTimeoutMs:
+      typeof error.config?.timeout === "number" ? error.config.timeout : null,
+    requestMaxRedirects:
+      typeof error.config?.maxRedirects === "number"
+        ? error.config.maxRedirects
+        : null,
+    requestHeaders,
+    responseHeaders,
+    responseBodySnippet: toBodySnippet(error.response?.data),
+    axiosErrorCode: error.code ?? null,
+  };
+}
 
 // ─── URL validation ───────────────────────────────────────────────────────────
 
@@ -289,6 +475,10 @@ type FetchHtmlDeps = {
   isAxiosErrorFn?: typeof axios.isAxiosError;
 };
 
+// sec-ch-ua values must stay in sync with ARTICLE_EXTRACT_USER_AGENT (Chrome 130).
+const ARTICLE_EXTRACT_SEC_CH_UA =
+  '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"';
+
 export async function fetchHtml(
   url: string,
   deps?: FetchHtmlDeps,
@@ -296,6 +486,19 @@ export async function fetchHtml(
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   let isFirstValidation = true;
+
+  // Derive a Referer from the article's own origin so the request looks like an
+  // in-site navigation (e.g. user clicked an article link from the homepage).
+  // Anti-bot systems (Cloudflare, DataDome, PerimeterX) treat an absent Referer
+  // on a document navigation as a strong bot signal; a same-origin Referer is
+  // cheap to add and dramatically reduces false-positive 403s.
+  let referer: string | undefined;
+  try {
+    const u = new URL(url);
+    referer = `${u.protocol}//${u.host}/`;
+  } catch {
+    // Unparseable URL — assertAllowedUrl will surface the real error.
+  }
 
   return fetchTextWithValidatedRedirects(
     {
@@ -316,8 +519,18 @@ export async function fetchHtml(
         "Upgrade-Insecure-Requests": "1",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
+        // same-origin when we have a referer (looks like a link-click within
+        // the site); none only when we genuinely cannot derive an origin.
+        "Sec-Fetch-Site": referer ? "same-origin" : "none",
         "Sec-Fetch-User": "?1",
+        // Client Hints — Chrome always sends these alongside its UA string.
+        // Absence of sec-ch-ua with a Chrome UA is itself a bot signal.
+        "sec-ch-ua": ARTICLE_EXTRACT_SEC_CH_UA,
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        // Navigation priority hint sent by Chrome on document fetches.
+        Priority: "u=0, i",
+        ...(referer ? { Referer: referer } : {}),
       },
       assertAllowedUrl: async (candidateUrl) => {
         if (!(await isAllowedUrl(candidateUrl))) {
@@ -362,6 +575,7 @@ type ExtractPostDeps = {
   isAxiosErrorFn?: typeof axios.isAxiosError;
   infoFn?: typeof logger.info;
   warnFn?: typeof logger.warn;
+  shouldUseExtractCacheFn?: () => boolean;
 };
 
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
@@ -386,6 +600,17 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   const info = deps?.infoFn ?? logger.info.bind(logger);
   const warn = deps?.warnFn ?? logger.warn.bind(logger);
+  const shouldUseCache = deps?.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
+  const verboseLoggingEnabled = isVerboseLoggingEnabled();
+  const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const requestHeaders =
+    request && typeof request === "object" && "headers" in request
+      ? (request as { headers?: Headers }).headers
+      : undefined;
+  const requestId =
+    requestHeaders?.get("x-request-id") ??
+    requestHeaders?.get("x-correlation-id") ??
+    null;
 
   let articleUrl: string | null = null;
 
@@ -405,7 +630,23 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     articleUrl = parsedUrl;
 
     const safeUrl = redactUrlForLogs(articleUrl);
-    info(`Article extract started`, { url: safeUrl });
+    info(`Article extract started`, {
+      url: safeUrl,
+      extractAttemptId,
+      requestId,
+    });
+
+    if (shouldUseCache()) {
+      const cachedPayload = getCachedExtractPayload(articleUrl);
+      if (cachedPayload) {
+        info(`Article extract cache hit`, {
+          url: safeUrl,
+          extractAttemptId,
+          requestId,
+        });
+        return NextResponse.json(cachedPayload);
+      }
+    }
 
     const html = await fetchArticleHtml(articleUrl);
     info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
@@ -455,11 +696,17 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       });
     }
 
-    return NextResponse.json({
+    const payload: ExtractResponsePayload = {
       content,
       title: extracted?.title ?? null,
       source: extracted?.source ?? null,
-    });
+    };
+
+    if (shouldUseCache()) {
+      setCachedExtractPayload(articleUrl, payload);
+    }
+
+    return NextResponse.json(payload);
   } catch (error) {
     const safeArticleUrl = articleUrl ? redactUrlForLogs(articleUrl) : null;
     const urlSuffix = safeArticleUrl ? ` for ${safeArticleUrl}` : "";
@@ -477,6 +724,14 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
       warn(
         `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
+        {
+          url: safeArticleUrl,
+          extractAttemptId,
+          requestId,
+          ...(verboseLoggingEnabled
+            ? buildAxiosFailureDiagnostics(error, isAxiosError)
+            : {}),
+        },
       );
       return toJsonError(
         status === 422
@@ -488,6 +743,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     warn(
       `Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`,
+      {
+        url: safeArticleUrl,
+        extractAttemptId,
+        requestId,
+      },
     );
     return respondError("Article extract error", error, {
       status: 502,
