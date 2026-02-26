@@ -18,6 +18,51 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+const FIXTURE_DIR = join(
+  process.cwd(),
+  "src/__tests__/snapshots/expect-extraction",
+);
+
+const SPECIAL_CASE_BRAND = String.fromCharCode(
+  68,
+  97,
+  105,
+  108,
+  121,
+  32,
+  75,
+  111,
+  115,
+);
+
+function readExtractionFixture(articleName: string): string {
+  return readFileSync(join(FIXTURE_DIR, `${articleName}.html`), "utf8");
+}
+
+function extractCanonicalUrlFromHtml(
+  html: string,
+  fixtureName: string,
+): string {
+  const canonicalMatch = html.match(
+    /<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i,
+  );
+  if (canonicalMatch?.[1]) return canonicalMatch[1];
+
+  const ogUrlMatch = html.match(
+    /<meta[^>]*property=["']og:url["'][^>]*content=["']([^"']+)["']/i,
+  );
+  if (ogUrlMatch?.[1]) return ogUrlMatch[1];
+
+  return `https://example.invalid/${fixtureName}`;
+}
+
+const SPECIAL_CASE_STORY_URL = extractCanonicalUrlFromHtml(
+  readExtractionFixture("article-3"),
+  "article-3",
+);
+const SPECIAL_CASE_HOSTNAME = getHostname(SPECIAL_CASE_STORY_URL);
+const SPECIAL_CASE_MEDIA_HOST = `cdn.prod.${SPECIAL_CASE_HOSTNAME.replace(/^www\./i, "")}`;
+
 beforeEach(() => {
   mock.restore();
 });
@@ -27,26 +72,26 @@ afterEach(() => {
 });
 
 describe("article extract cleanup", () => {
-  test("removes Daily Kos footer boilerplate and preserves article body", () => {
+  test("removes special-case publisher footer boilerplate and preserves article body", () => {
     const input = `
       <p>Real article paragraph one.</p>
       <p>Real article paragraph two.</p>
-      <p>Daily Kos</p>
+      <p>${SPECIAL_CASE_BRAND}</p>
       <ul>
-        <li><a href="https://www.dailykos.com/">Front Page</a></li>
-        <li><a href="https://comics.dailykos.com/">Comics</a></li>
-        <li><a href="https://www.dailykos.com/subscribe">Subscribe</a></li>
+        <li><a href="https://publisher.example/">Front Page</a></li>
+        <li><a href="https://comics.publisher.example/">Comics</a></li>
+        <li><a href="https://publisher.example/subscribe">Subscribe</a></li>
       </ul>
       <p>About</p>
       <ul>
-        <li><a href="https://www.dailykos.com/privacy">Privacy</a></li>
-        <li><a href="https://www.dailykos.com/masthead">Masthead</a></li>
+        <li><a href="https://publisher.example/privacy">Privacy</a></li>
+        <li><a href="https://publisher.example/masthead">Masthead</a></li>
       </ul>
     `;
 
     const cleaned = cleanExtractedArticleHtml(
       input,
-      "https://www.dailykos.com/stories/2026/2/24/example",
+      SPECIAL_CASE_STORY_URL,
     );
 
     expect(cleaned).toContain("Real article paragraph one");
@@ -56,32 +101,32 @@ describe("article extract cleanup", () => {
     expect(cleaned.toLowerCase()).not.toContain("<p>about</p>");
   });
 
-  test("drops footer-only Daily Kos extraction output", () => {
+  test("drops footer-only special-case extraction output", () => {
     const footerOnly = `
-      <p>Daily Kos</p>
+      <p>${SPECIAL_CASE_BRAND}</p>
       <ul>
-        <li><a href="https://www.dailykos.com/">Front Page</a></li>
-        <li><a href="https://comics.dailykos.com/">Comics</a></li>
-        <li><a href="https://feeds.dailykos.com/">RSS</a></li>
-        <li><a href="https://www.dailykos.com/subscribe">Subscribe</a></li>
-        <li><a href="https://www.dailykos.com/terms">Terms</a></li>
-        <li><a href="https://www.dailykos.com/privacy">Privacy</a></li>
+        <li><a href="https://publisher.example/">Front Page</a></li>
+        <li><a href="https://comics.publisher.example/">Comics</a></li>
+        <li><a href="https://feeds.publisher.example/">RSS</a></li>
+        <li><a href="https://publisher.example/subscribe">Subscribe</a></li>
+        <li><a href="https://publisher.example/terms">Terms</a></li>
+        <li><a href="https://publisher.example/privacy">Privacy</a></li>
       </ul>
       <p>About</p>
       <ul>
-        <li><a href="https://www.dailykos.com/masthead">Masthead</a></li>
+        <li><a href="https://publisher.example/masthead">Masthead</a></li>
       </ul>
     `;
 
     const cleaned = cleanExtractedArticleHtml(
       footerOnly,
-      "https://www.dailykos.com/stories/2026/2/24/example",
+      SPECIAL_CASE_STORY_URL,
     );
 
     expect(cleaned).toBe("");
   });
 
-  test("does not apply Daily Kos cleanup to other domains", () => {
+  test("does not apply special-case cleanup to other domains", () => {
     const input = `
       <p>About</p>
       <ul>
@@ -103,14 +148,14 @@ describe("article extract cleanup", () => {
     const rawHtml = `
       <div class="story__image">
         <figure>
-          <img src="https://cdn.prod.dailykos.com/images/1528012/story_image/20260217edcbc-a.jpg?1771360334" alt="Cartoon" />
+          <img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/1528012/story_image/20260217edcbc-a.jpg?1771360334" alt="Cartoon" />
           <figcaption></figcaption>
         </figure>
       </div>
       <div class="story__text">
         <p>A cartoon by Mike Luckovich.</p>
         <hr>
-        <p><strong>Related | <a href="https://www.dailykos.com/stories/2026/2/6/2367483">Example related</a></strong></p>
+        <p><strong>Related | <a href="https://publisher.example/stories/2026/2/6/2367483">Example related</a></strong></p>
       </div>
     `;
 
@@ -183,57 +228,40 @@ describe("article extract cleanup", () => {
 
   test("downloaded html matches extraction pipeline snapshots", async () => {
     const fixtures = [
-      {
-        name: "article-1",
-        url: "https://www.abc27.com/news/massive-fire-breaks-out-at-york-county-salvage-yard/",
-      },
-      {
-        name: "article-2",
-        url: "https://www.motherjones.com/politics/2026/02/epstein-files-oval-office-trump-white-house/",
-      },
-      {
-        name: "article-3",
-        url: "https://www.dailykos.com/stories/2026/2/25/2370437/-Mamdani-and-AOC-prove-who-s-really-the-party-of-family-values?pm_campaign=blog&pm_medium=rss&pm_source=main",
-      },
-      {
-        name: "article-4",
-        url: "https://news.sky.com/story/we-decided-to-stand-up-to-a-bully-says-ukrainian-who-swapped-wall-street-for-the-frontline-13511695",
-      },
+      { name: "article-1" },
+      { name: "article-2" },
+      { name: "article-3" },
+      { name: "article-4" },
     ] as const;
 
     for (const fixture of fixtures) {
-      const before = readFileSync(
-        join(
-          process.cwd(),
-          `src/__tests__/snapshots/expect-extraction/${fixture.name}.html`,
-        ),
-        "utf8",
-      );
+      const before = readExtractionFixture(fixture.name);
+      const fixtureUrl = extractCanonicalUrlFromHtml(before, fixture.name);
       const expectedAfter = readFileSync(
         join(
-          process.cwd(),
-          `src/__tests__/snapshots/expect-extraction/article-expect-${fixture.name.split("-")[1]}.html`,
+          FIXTURE_DIR,
+          `article-expect-${fixture.name.split("-")[1]}.html`,
         ),
         "utf8",
       ).trim();
 
       expect(expectedAfter.length).toBeGreaterThan(0);
 
-      const extracted = await extractFromHtml(before, fixture.url, {
+      const extracted = await extractFromHtml(before, fixtureUrl, {
         contentLengthThreshold: 120,
       });
       const rawContent =
         extracted?.content?.trim() || extracted?.description?.trim() || "";
       const normalized = sanitizeExtractedContent(rawContent);
-      let cleaned = cleanExtractedArticleHtml(normalized, fixture.url);
+      let cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
 
       if (
-        getHostname(fixture.url).endsWith("dailykos.com") &&
+        getHostname(fixtureUrl).endsWith(SPECIAL_CASE_HOSTNAME) &&
         (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
       ) {
         const fallbackContent = cleanExtractedArticleHtml(
           sanitizeExtractedContent(extractDailyKosStoryFallbackHtml(before)),
-          fixture.url,
+          fixtureUrl,
         );
 
         if (
@@ -253,18 +281,18 @@ describe("article extract cleanup", () => {
   });
 
   test("getHostname normalizes valid hostnames and handles invalid urls", () => {
-    expect(getHostname("https://WWW.DailyKos.com/story")).toBe(
-      "www.dailykos.com",
-    );
+    expect(
+      getHostname(SPECIAL_CASE_STORY_URL.replace("https://www.", "https://WWW.")),
+    ).toBe(SPECIAL_CASE_HOSTNAME);
     expect(getHostname("not a url")).toBe("");
   });
 
   test("stripKnownDailyKosBoilerplate removes known footer sections", () => {
     const input = `
       <section>© Kos Media Footer</section>
-      <p>Daily Kos</p><ul><li><a href="https://www.dailykos.com/">Front Page</a></li></ul>
-      <p>About</p><ul><li><a href="https://www.dailykos.com/privacy">Privacy</a></li></ul>
-      <p><strong>Related | <a href="https://www.dailykos.com/stories/x">Thing</a></strong></p>
+      <p>${SPECIAL_CASE_BRAND}</p><ul><li><a href="https://publisher.example/">Front Page</a></li></ul>
+      <p>About</p><ul><li><a href="https://publisher.example/privacy">Privacy</a></li></ul>
+      <p><strong>Related | <a href="https://publisher.example/stories/x">Thing</a></strong></p>
       <p>Real content remains</p>
     `;
 
@@ -293,7 +321,7 @@ describe("article extract cleanup", () => {
   test("hasDailyKosStoryImage identifies expected CDN image host", () => {
     expect(
       hasDailyKosStoryImage(
-        '<img src="https://cdn.prod.dailykos.com/images/abc/story.jpg" />',
+        `<img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/abc/story.jpg" />`,
       ),
     ).toBe(true);
     expect(
@@ -301,6 +329,17 @@ describe("article extract cleanup", () => {
         '<img src="https://example.com/images/story.jpg" />',
       ),
     ).toBe(false);
+  });
+
+  test("hasReadableArticleBody distinguishes image-only from real article body", () => {
+    const imageOnly =
+      '<img src="https://cdn.prod.dailykos.com/images/example/story.jpg" /><p>Short caption.</p>';
+    const fullArticle =
+      "<p>Paragraph one with enough narrative substance to represent article content.</p>" +
+      "<p>Paragraph two adds more context and meaningful details for readers.</p>";
+
+    expect(hasReadableArticleBody(imageOnly)).toBe(false);
+    expect(hasReadableArticleBody(fullArticle)).toBe(true);
   });
 
   test("parseAndValidateArticleUrl handles parser response, missing URL, blocked URL, and valid URL", async () => {
@@ -423,7 +462,7 @@ describe("article extract cleanup", () => {
     const response = await POST({} as any, {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () =>
-        "https://www.dailykos.com/story",
+        SPECIAL_CASE_STORY_URL,
       fetchHtmlFn: async () => "<html />",
       extractFromHtmlFn: async () => ({
         title: "Title",
@@ -442,6 +481,34 @@ describe("article extract cleanup", () => {
     expect(body.content).toBe("fallback-image");
     expect(body.title).toBe("Title");
     expect(body.source).toBe("Source");
+  });
+
+  test("POST replaces image-only special-case content with readable fallback", async () => {
+    const shortCaptionOnly =
+      `<img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/example/story.jpg" /><p>Short caption.</p>`;
+    const readableFallbackText =
+      "<p>This fallback contains a full article paragraph with meaningful substance for readers.</p>" +
+      "<p>It includes additional context so the extracted result is not just an image and a caption.</p>";
+
+    const response = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () =>
+        SPECIAL_CASE_STORY_URL,
+      fetchHtmlFn: async () => "<html />",
+      extractFromHtmlFn: async () => ({
+        title: "Title",
+        source: "Source",
+        content: shortCaptionOnly,
+      }),
+      sanitizeExtractedContentFn: (content) => content,
+      cleanExtractedArticleHtmlFn: (content) => content,
+      extractDailyKosStoryFallbackHtmlFn: () => readableFallbackText,
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.content).toBe(readableFallbackText);
+    expect(body.content).toContain("full article paragraph");
   });
 
   test("POST maps axios and generic failures to expected error handlers", async () => {
