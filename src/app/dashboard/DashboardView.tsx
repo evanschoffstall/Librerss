@@ -13,6 +13,7 @@ import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
+import type { BackgroundMode } from "./constants";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
@@ -34,14 +35,14 @@ import { formatLastRefreshLabel } from "./services/refresh-time";
 
 type DashboardViewProps = {
   usePlaceholderData: boolean;
-  showParticlesBackground: boolean;
-  onShowParticlesBackgroundChange: (value: boolean) => void;
+  backgroundMode: BackgroundMode;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
 };
 
 export const DashboardView = ({
   usePlaceholderData,
-  showParticlesBackground,
-  onShowParticlesBackgroundChange,
+  backgroundMode,
+  onBackgroundModeChange,
 }: DashboardViewProps) => {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [, setRelativeRefreshTick] = useState(0);
@@ -312,10 +313,10 @@ export const DashboardView = ({
           selectedCategory={selectedCategory}
           pageSize={pageSize}
           showFavicons={showFavicons}
-          showParticlesBackground={showParticlesBackground}
+          backgroundMode={backgroundMode}
           onPageSizeChange={setPageSize}
           onShowFaviconsChange={setShowFavicons}
-          onShowParticlesBackgroundChange={onShowParticlesBackgroundChange}
+          onBackgroundModeChange={onBackgroundModeChange}
           onImportOpml={categoryManager.importOpmlFeeds}
           onDropFeed={categoryManager.moveFeedByDrop}
           onAddFeed={categoryManager.addFeedSource}

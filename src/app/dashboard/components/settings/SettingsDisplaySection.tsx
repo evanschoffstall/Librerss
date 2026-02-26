@@ -7,23 +7,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import type { BackgroundMode } from "../../constants";
 
 interface SettingsDisplaySectionProps {
   pageSize: number;
   showFavicons: boolean;
-  showParticlesBackground: boolean;
+  backgroundMode: BackgroundMode;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
-  onShowParticlesBackgroundChange: (value: boolean) => void;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
 }
 
 export function SettingsDisplaySection({
   pageSize,
   showFavicons,
-  showParticlesBackground,
+  backgroundMode,
   onPageSizeChange,
   onShowFaviconsChange,
-  onShowParticlesBackgroundChange,
+  onBackgroundModeChange,
 }: SettingsDisplaySectionProps) {
   return (
     <section className="rounded-lg border bg-card p-4 space-y-4">
@@ -59,13 +60,18 @@ export function SettingsDisplaySection({
             onCheckedChange={onShowFaviconsChange}
           />
         </div>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="show-particles-background">Particles background</Label>
-          <Switch
-            id="show-particles-background"
-            checked={showParticlesBackground}
-            onCheckedChange={onShowParticlesBackgroundChange}
-          />
+        <div className="flex items-center justify-between gap-4">
+          <Label>Background</Label>
+          <Select value={backgroundMode} onValueChange={(value) => onBackgroundModeChange(value as BackgroundMode)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select background" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="particles">Particles</SelectItem>
+              <SelectItem value="stars">Stars</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </section>

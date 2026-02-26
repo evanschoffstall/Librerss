@@ -25,3 +25,5 @@ export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
     children: [],
   },
 ];
+
+export type BackgroundMode = "none" | "particles" | "stars";

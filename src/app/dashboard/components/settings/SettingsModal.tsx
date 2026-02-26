@@ -22,6 +22,7 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { Loader2, Plus, X } from "lucide-react";
+import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import { SettingsCategoryList } from "./SettingsCategoryList";
 import { SettingsDisplaySection } from "./SettingsDisplaySection";
@@ -38,10 +39,10 @@ interface SettingsModalProps {
   selectedCategory: string;
   pageSize: number;
   showFavicons: boolean;
-  showParticlesBackground: boolean;
+  backgroundMode: BackgroundMode;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
-  onShowParticlesBackgroundChange: (value: boolean) => void;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
   onDropFeed: (key: string, targetCategory: string, targetIndex: number) => Promise<void>;
   onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
@@ -60,10 +61,10 @@ function SettingsBody({
   pendingCategoryRemovalLabel,
   pageSize,
   showFavicons,
-  showParticlesBackground,
+  backgroundMode,
   onPageSizeChange,
   onShowFaviconsChange,
-  onShowParticlesBackgroundChange,
+  onBackgroundModeChange,
   onRemoveCategory,
 }: {
   state: ReturnType<typeof useSettingsModalState>;
@@ -71,10 +72,10 @@ function SettingsBody({
   pendingCategoryRemovalLabel: string | null;
   pageSize: number;
   showFavicons: boolean;
-  showParticlesBackground: boolean;
+  backgroundMode: BackgroundMode;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
-  onShowParticlesBackgroundChange: (value: boolean) => void;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
   onRemoveCategory: (label: string) => Promise<boolean>;
 }) {
   return (
@@ -82,10 +83,10 @@ function SettingsBody({
       <SettingsDisplaySection
         pageSize={pageSize}
         showFavicons={showFavicons}
-        showParticlesBackground={showParticlesBackground}
+        backgroundMode={backgroundMode}
         onPageSizeChange={onPageSizeChange}
         onShowFaviconsChange={onShowFaviconsChange}
-        onShowParticlesBackgroundChange={onShowParticlesBackgroundChange}
+        onBackgroundModeChange={onBackgroundModeChange}
       />
 
       <section className="rounded-lg border bg-card p-4 space-y-4">
@@ -167,10 +168,10 @@ export const SettingsModal = ({
   selectedCategory,
   pageSize,
   showFavicons,
-  showParticlesBackground,
+  backgroundMode,
   onPageSizeChange,
   onShowFaviconsChange,
-  onShowParticlesBackgroundChange,
+  onBackgroundModeChange,
   onImportOpml,
   onDropFeed,
   onAddFeed,
@@ -202,10 +203,10 @@ export const SettingsModal = ({
     pendingCategoryRemovalLabel,
     pageSize,
     showFavicons,
-    showParticlesBackground,
+    backgroundMode,
     onPageSizeChange,
     onShowFaviconsChange,
-    onShowParticlesBackgroundChange,
+    onBackgroundModeChange,
     onRemoveCategory,
   } as const;
 
