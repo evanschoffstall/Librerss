@@ -11,6 +11,7 @@
     "start": "next start",
     "check": "bun scripts/check.ts",
     "test": "bun test",
+    "test:regen-expectations": "bun run src/__tests__/snapshots/expect-extraction/regen-expections.ts",
     "types": "tsc --noEmit",
     "lint": "eslint .",
     "db:provision": "bun scripts/provision-db.ts",

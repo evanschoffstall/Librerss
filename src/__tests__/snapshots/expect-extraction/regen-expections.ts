@@ -10,23 +10,38 @@ import {
   sanitizeExtractedContent,
 } from "@/app/api/articles/extract/route";
 
-const FIXTURE_URLS: Record<string, string> = {
-  "article-1": "https://www.abc27.com/news/massive-fire-breaks-out-at-york-county-salvage-yard/",
-  "article-2": "https://www.motherjones.com/politics/2026/02/epstein-files-oval-office-trump-white-house/",
-  "article-3": "https://www.dailykos.com/stories/2026/2/25/2370437/-Mamdani-and-AOC-prove-who-s-really-the-party-of-family-values?pm_campaign=blog&pm_medium=rss&pm_source=main",
-  "article-4": "https://news.sky.com/story/we-decided-to-stand-up-to-a-bully-says-ukrainian-who-swapped-wall-street-for-the-frontline-13511695",
-};
+function extractCanonicalUrlFromHtml(
+  html: string,
+  fixtureName: string,
+): string {
+  const canonicalMatch = html.match(
+    /<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i,
+  );
+  if (canonicalMatch?.[1]) return canonicalMatch[1];
+
+  const ogUrlMatch = html.match(
+    /<meta[^>]*property=["']og:url["'][^>]*content=["']([^"']+)["']/i,
+  );
+  if (ogUrlMatch?.[1]) return ogUrlMatch[1];
+
+  return `https://example.invalid/${fixtureName}`;
+}
 
 function resolveExpectedPath(dir: string, articleName: string): string {
   const articleNumber = articleName.split("-")[1];
   return join(dir, `article-expect-${articleNumber}.html`);
 }
 
-async function regenerateExpectation(dir: string, articleName: string, url: string) {
+async function regenerateExpectation(
+  dir: string,
+  articleName: string,
+  specialCaseHost: string,
+) {
   const inputPath = join(dir, `${articleName}.html`);
   const outputPath = resolveExpectedPath(dir, articleName);
 
   const downloadedHtml = readFileSync(inputPath, "utf8");
+  const url = extractCanonicalUrlFromHtml(downloadedHtml, articleName);
 
   const extracted = await extractFromHtml(downloadedHtml, url, {
     contentLengthThreshold: 120,
@@ -41,7 +56,7 @@ async function regenerateExpectation(dir: string, articleName: string, url: stri
   ).trim();
 
   if (
-    getHostname(url).endsWith("dailykos.com") &&
+    getHostname(url).endsWith(specialCaseHost) &&
     (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
   ) {
     const fallbackContent = cleanExtractedArticleHtml(
@@ -68,6 +83,10 @@ async function regenerateExpectation(dir: string, articleName: string, url: stri
 
 async function main() {
   const dir = __dirname;
+  const specialCaseHtml = readFileSync(join(dir, "article-3.html"), "utf8");
+  const specialCaseHost = getHostname(
+    extractCanonicalUrlFromHtml(specialCaseHtml, "article-3"),
+  );
 
   const articleFiles = readdirSync(dir)
     .filter((name) => /^article-\d+\.html$/.test(name))
@@ -75,12 +94,7 @@ async function main() {
     .sort((a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]));
 
   for (const articleName of articleFiles) {
-    const url = FIXTURE_URLS[articleName];
-    if (!url) {
-      throw new Error(`No source URL configured for ${articleName}`);
-    }
-
-    const result = await regenerateExpectation(dir, articleName, url);
+    const result = await regenerateExpectation(dir, articleName, specialCaseHost);
     console.log(`regenerated ${result.articleName} -> ${result.outputPath} (${result.size} chars)`);
   }
 }
