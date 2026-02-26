@@ -264,6 +264,30 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).toContain('referrerpolicy="no-referrer"');
   });
 
+  test("sanitizeAndTruncateArticleContent removes tiny placeholder images below minimum dimensions", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img src="https://static.example.com/placeholder.png" width="150" height="84" alt="placeholder" /><p>Body content</p>';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).not.toContain("placeholder.png");
+    expect(result).toContain("Body content");
+  });
+
+  test("sanitizeAndTruncateArticleContent removes known placeholder image URLs without dimensions", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="placeholder" /><p>Body content</p>';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).not.toContain("grey-placeholder.png");
+    expect(result).toContain("Body content");
+  });
+
   test("sanitizeAndTruncateArticleContent handles long content truncation", async () => {
     const { sanitizeAndTruncateArticleContent } =
       await import("@/lib/utils/sanitize");
@@ -290,7 +314,7 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).not.toMatch(/\n{5,}/);
   });
 
-  test("sanitizeAndTruncateArticleContent handles figcaption removal", async () => {
+  test("sanitizeAndTruncateArticleContent keeps figure image and caption text", async () => {
     const { sanitizeAndTruncateArticleContent } =
       await import("@/lib/utils/sanitize");
 
@@ -298,8 +322,43 @@ describe("lib/utils/sanitize comprehensive", () => {
       "<figure><img src='test.jpg'/><figcaption>Image caption</figcaption></figure><p>Text</p>";
     const result = sanitizeAndTruncateArticleContent(html);
 
+    expect(result).toContain("<img");
+    expect(result).toContain("Image caption");
     expect(result).toContain("Text");
-    // Figcaption should be handled appropriately
+  });
+
+  test("sanitizeAndTruncateArticleContent promotes lazy image attributes to src", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<figure><img data-src="/images/example.jpg" alt="Example" /></figure>';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain('src="/images/example.jpg"');
+    expect(result).toContain("<img");
+  });
+
+  test("sanitizeAndTruncateArticleContent promotes data-original to src", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img data-original="https://example.com/original.jpg" alt="Original" />';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain('src="https://example.com/original.jpg"');
+  });
+
+  test("sanitizeAndTruncateArticleContent promotes data-lazy-src to src", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/utils/sanitize");
+
+    const html =
+      '<img data-lazy-src="https://example.com/lazy.jpg" alt="Lazy" />';
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain('src="https://example.com/lazy.jpg"');
   });
 
   test("sanitizeAndTruncateArticleContent allows target=_blank on links", async () => {

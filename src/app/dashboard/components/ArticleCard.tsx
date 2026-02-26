@@ -122,16 +122,45 @@ export const ArticleCard = ({
   } = useFavicon({ primaryUrl: article.feedUrl, fallbackUrl: article.link });
 
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
-  const rawHtmlPreRef = useRef<HTMLPreElement | null>(null);
+  const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const pointerPosRef = useRef<{ x: number; y: number } | null>(null);
+  const interactionBlockUntilRef = useRef(0);
+
+  const shouldBlockArticleInteraction = () => Date.now() < interactionBlockUntilRef.current;
+
+  const blockArticleInteractionTemporarily = () => {
+    interactionBlockUntilRef.current = Date.now() + 200;
+  };
+
+  const handleRawHtmlOpenChange = (open: boolean) => {
+    setIsRawHtmlOpen(open);
+    if (!open) {
+      blockArticleInteractionTemporarily();
+    }
+  };
+
+  const handleCopyLinkOpenChange = (open: boolean) => {
+    setIsCopyLinkOpen(open);
+    if (!open) {
+      blockArticleInteractionTemporarily();
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (shouldBlockArticleInteraction()) {
+      e.stopPropagation();
+      return;
+    }
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
   };
 
   const toggleExpanded = (e: React.MouseEvent) => {
+    if (shouldBlockArticleInteraction()) {
+      e.stopPropagation();
+      return;
+    }
     const down = mouseDownPos.current;
     if (down) {
       const dx = e.clientX - down.x;
@@ -144,6 +173,10 @@ export const ArticleCard = ({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (shouldBlockArticleInteraction()) {
+      event.stopPropagation();
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     onToggle();
@@ -207,16 +240,17 @@ export const ArticleCard = ({
 
   const handleSelectRawHtml = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    const preElement = rawHtmlPreRef.current;
-    if (!preElement) return;
+    event.preventDefault();
+    selectRawHtml();
+  };
 
-    const selection = window.getSelection();
-    if (!selection) return;
+  const selectRawHtml = () => {
+    const textarea = rawHtmlTextAreaRef.current;
+    if (!textarea) return;
 
-    const range = document.createRange();
-    range.selectNodeContents(preElement);
-    selection.removeAllRanges();
-    selection.addRange(range);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
   };
 
   const shareUrl = article.link;
@@ -246,6 +280,16 @@ export const ArticleCard = ({
 
     return () => window.clearTimeout(timer);
   }, [isCopyLinkOpen]);
+
+  useEffect(() => {
+    if (!isRawHtmlOpen) return;
+
+    const timer = window.setTimeout(() => {
+      selectRawHtml();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [isRawHtmlOpen]);
 
   return (
     <article
@@ -516,14 +560,14 @@ export const ArticleCard = ({
 
       {isDevelopment ? (
         isMobile ? (
-          <Drawer open={isRawHtmlOpen} onOpenChange={setIsRawHtmlOpen}>
+          <Drawer open={isRawHtmlOpen} onOpenChange={handleRawHtmlOpenChange}>
             <DrawerContent
               className="max-h-[85dvh]"
               onClick={(event) => event.stopPropagation()}
             >
-              <DrawerHeader className="space-y-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+              <DrawerHeader className="space-y-2 text-left">
+                <div className="flex w-full items-start justify-between gap-3 text-left">
+                  <div className="min-w-0 flex-1 text-left">
                     <DrawerTitle>Raw Article HTML</DrawerTitle>
                     <DrawerDescription>
                       Development-only view of the current article content payload.
@@ -533,6 +577,7 @@ export const ArticleCard = ({
                     type="button"
                     size="sm"
                     variant="outline"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={handleSelectRawHtml}
                   >
                     Select
@@ -540,26 +585,29 @@ export const ArticleCard = ({
                 </div>
               </DrawerHeader>
               <div className="px-4 pb-6">
-                <div className="max-h-[60dvh] overflow-auto rounded-md border bg-muted/40 p-3">
-                  <pre
-                    ref={rawHtmlPreRef}
-                    className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
-                  >
-                    {normalizedHtml}
-                  </pre>
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <textarea
+                    ref={rawHtmlTextAreaRef}
+                    value={normalizedHtml}
+                    readOnly
+                    aria-label="Raw article HTML"
+                    className="h-[60dvh] min-h-[12rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
+                    onClick={(event) => event.stopPropagation()}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
                 </div>
               </div>
             </DrawerContent>
           </Drawer>
         ) : (
-          <Dialog open={isRawHtmlOpen} onOpenChange={setIsRawHtmlOpen}>
+          <Dialog open={isRawHtmlOpen} onOpenChange={handleRawHtmlOpenChange}>
             <DialogContent
               className="max-w-3xl"
               onClick={(event) => event.stopPropagation()}
             >
-              <DialogHeader className="space-y-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+              <DialogHeader className="space-y-2 text-left">
+                <div className="flex w-full items-start justify-between gap-3 text-left">
+                  <div className="min-w-0 flex-1 text-left">
                     <DialogTitle>Raw Article HTML</DialogTitle>
                     <DialogDescription>
                       Development-only view of the current article content payload.
@@ -569,19 +617,23 @@ export const ArticleCard = ({
                     type="button"
                     size="sm"
                     variant="outline"
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={handleSelectRawHtml}
                   >
                     Select
                   </Button>
                 </div>
               </DialogHeader>
-              <div className="max-h-[65vh] overflow-auto rounded-md border bg-muted/40 p-3">
-                <pre
-                  ref={rawHtmlPreRef}
-                  className="whitespace-pre-wrap break-all text-xs leading-5 text-foreground/90"
-                >
-                  {normalizedHtml}
-                </pre>
+              <div className="rounded-md border bg-muted/40 p-3">
+                <textarea
+                  ref={rawHtmlTextAreaRef}
+                  value={normalizedHtml}
+                  readOnly
+                  aria-label="Raw article HTML"
+                  className="h-[65vh] min-h-[14rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
               </div>
             </DialogContent>
           </Dialog>
@@ -589,7 +641,7 @@ export const ArticleCard = ({
       ) : null}
 
       {isMobile ? (
-        <Drawer open={isCopyLinkOpen} onOpenChange={setIsCopyLinkOpen}>
+        <Drawer open={isCopyLinkOpen} onOpenChange={handleCopyLinkOpenChange}>
           <DrawerContent
             className="max-h-[45dvh]"
             onClick={(event) => event.stopPropagation()}
@@ -626,7 +678,7 @@ export const ArticleCard = ({
           </DrawerContent>
         </Drawer>
       ) : (
-        <Dialog open={isCopyLinkOpen} onOpenChange={setIsCopyLinkOpen}>
+        <Dialog open={isCopyLinkOpen} onOpenChange={handleCopyLinkOpenChange}>
           <DialogContent
             className="max-w-md"
             onClick={(event) => event.stopPropagation()}

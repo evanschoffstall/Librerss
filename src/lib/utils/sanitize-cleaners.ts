@@ -73,6 +73,7 @@ export function stripOrphanedRelatedBlocks(html: string): string {
 export function normalizeArticleHtmlSpacing(html: string): string {
   return html
     .replace(/\r\n?/g, "\n")
+    .replace(/<figure>(?:\s|&nbsp;|&#160;|<br\s*\/?>)*<\/figure>\s*/gi, "")
     .replace(
       /<p>(?:\s|&nbsp;|&#160;|<br\s*\/?>|<\/?(?:strong|em|b|i|u|span)\b[^>]*>)*<\/p>\s*/gi,
       "",

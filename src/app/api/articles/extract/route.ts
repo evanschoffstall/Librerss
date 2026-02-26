@@ -15,6 +15,7 @@ import { logger } from "@/lib/utils/logger";
 import {
   normalizeArticleHtmlSpacing,
   sanitizeArticleHtml,
+  toPlainText,
 } from "@/lib/utils/sanitize";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 import { extractFromHtml } from "@extractus/article-extractor";
@@ -69,14 +70,60 @@ export function toParagraphHtml(raw: string): string {
 
 export const normalizeExtractedHtmlSpacing = normalizeArticleHtmlSpacing;
 
+function recoverSanitizedImageHtml(rawHtml: string): string {
+  const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
+  if (imgTags.length === 0) return "";
+
+  const recovered = imgTags
+    .map((tag) => sanitizeArticleHtml(tag).trim())
+    .filter((tag) => /<img\b/i.test(tag));
+
+  return recovered.join("\n");
+}
+
 export function sanitizeExtractedContent(rawContent: string): string {
   const normalized = rawContent.trim();
   if (!normalized) return "";
 
   const containsHtml = /<\/?[a-z][\s\S]*>/i.test(normalized);
   const htmlCandidate = containsHtml ? normalized : toParagraphHtml(normalized);
+  const sanitized = sanitizeArticleHtml(htmlCandidate);
+  const recoveredImageHtml = containsHtml
+    ? recoverSanitizedImageHtml(htmlCandidate)
+    : "";
+  const recoveredImageCount = (recoveredImageHtml.match(/<img\b/gi) ?? [])
+    .length;
 
-  return sanitizeArticleHtml(htmlCandidate);
+  if (sanitized.trim()) {
+    if (
+      recoveredImageCount === 1 &&
+      recoveredImageHtml &&
+      !/<img\b/i.test(sanitized)
+    ) {
+      return normalizeExtractedHtmlSpacing(
+        [recoveredImageHtml, sanitized].filter(Boolean).join("\n"),
+      );
+    }
+
+    return sanitized;
+  }
+
+  const plainText = containsHtml ? toPlainText(normalized) : normalized;
+  if (!plainText.trim()) return "";
+
+  const fallbackSanitized = sanitizeArticleHtml(toParagraphHtml(plainText));
+
+  if (
+    recoveredImageCount === 1 &&
+    recoveredImageHtml &&
+    !/<img\b/i.test(fallbackSanitized)
+  ) {
+    return normalizeExtractedHtmlSpacing(
+      [recoveredImageHtml, fallbackSanitized].filter(Boolean).join("\n"),
+    );
+  }
+
+  return fallbackSanitized;
 }
 
 export function getHostname(url: string): string {
@@ -123,16 +170,80 @@ export function hasDailyKosStoryImage(content: string): boolean {
   );
 }
 
+export function hasReadableArticleBody(content: string): boolean {
+  const blockElementCount = (
+    content.match(/<(?:p|h[1-6]|blockquote|ul|ol)\b/gi) ?? []
+  ).length;
+  if (blockElementCount >= 2) return true;
+
+  const plainTextLength = toPlainText(content)
+    .replace(/\s+/g, " ")
+    .trim().length;
+  return plainTextLength >= 280;
+}
+
+function extractDivInnerHtmlByClass(
+  rawHtml: string,
+  className: string,
+): string {
+  const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const startTagPattern = new RegExp(
+    `<div[^>]*class=("|')[^"']*\\b${escapedClass}\\b[^"']*\\1[^>]*>`,
+    "gi",
+  );
+
+  let bestMatch = "";
+
+  for (
+    let startMatch = startTagPattern.exec(rawHtml);
+    startMatch;
+    startMatch = startTagPattern.exec(rawHtml)
+  ) {
+    if (startMatch.index < 0) continue;
+
+    const startTagIndex = startMatch.index;
+    const startTag = startMatch[0];
+    const contentStart = startTagIndex + startTag.length;
+
+    const divTagPattern = /<\/?div\b[^>]*>/gi;
+    divTagPattern.lastIndex = contentStart;
+
+    let depth = 1;
+    let endIndex = -1;
+
+    for (
+      let next = divTagPattern.exec(rawHtml);
+      next;
+      next = divTagPattern.exec(rawHtml)
+    ) {
+      const tag = next[0];
+      const isClosingTag = /^<\/div\b/i.test(tag);
+      depth += isClosingTag ? -1 : 1;
+
+      if (depth === 0) {
+        endIndex = next.index;
+        break;
+      }
+    }
+
+    if (endIndex < 0) continue;
+
+    const candidate = rawHtml.slice(contentStart, endIndex).trim();
+    if (candidate.length > bestMatch.length) {
+      bestMatch = candidate;
+    }
+  }
+
+  return bestMatch;
+}
+
 export function extractDailyKosStoryFallbackHtml(rawHtml: string): string {
   const figureMatch = rawHtml.match(
     /<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i,
   );
-  const textBlockMatch = rawHtml.match(
-    /<div\s+class="story__text">([\s\S]*?)<\/div>/i,
-  );
 
   const figureHtml = figureMatch?.[0] ?? "";
-  const storyTextHtml = (textBlockMatch?.[1] ?? "")
+  const storyTextHtml = extractDivInnerHtmlByClass(rawHtml, "story__text")
     .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
     .replace(/<hr\b[^>]*>/gi, "");
 
@@ -231,7 +342,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
   const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
-  const warn = deps?.warnFn ?? logger.warn;
+  const warn = deps?.warnFn ?? logger.warn.bind(logger);
 
   let articleUrl: string | null = null;
 
@@ -262,13 +373,17 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     if (
       hostnameOf(articleUrl).endsWith("dailykos.com") &&
-      !hasStoryImage(content)
+      (!hasStoryImage(content) || !hasReadableArticleBody(content))
     ) {
       const fallbackContent = cleanContent(
         sanitizeContent(extractFallback(html)),
         articleUrl,
       );
-      if (hasStoryImage(fallbackContent)) {
+      if (
+        hasStoryImage(fallbackContent) ||
+        hasReadableArticleBody(fallbackContent) ||
+        !content.trim()
+      ) {
         content = fallbackContent;
       }
     }

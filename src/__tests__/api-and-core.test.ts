@@ -125,6 +125,23 @@ describe("lib/api/reader-api", () => {
     expect(result.feedName).toBeUndefined();
     expect(result.feedUrl).toBeUndefined();
   });
+
+  test("readerItemToArticle sanitizes tiny placeholder images from summary content", async () => {
+    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+
+    const item = {
+      title: "Placeholder",
+      canonical: [{ href: "https://example.com/article" }],
+      summary: {
+        content:
+          '<img style="display:block" src="https://static.files.bbci.co.uk/grey-placeholder.png" width="150" height="84" /><p>Body remains</p>',
+      },
+    };
+
+    const result = readerItemToArticle(item, 0);
+    expect(result.content).not.toContain("grey-placeholder.png");
+    expect(result.content).toContain("Body remains");
+  });
 });
 
 describe("lib/auth/csrf additional coverage", () => {

@@ -45,6 +45,8 @@ export const CONFIG = {
   MAX_ALL_ARTICLES_LIMIT: 500, // max articles returned by the global /api/articles endpoint
   MAX_ARTICLE_TITLE_LENGTH: 500,
   MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: 3,
+  MIN_ARTICLE_IMAGE_WIDTH_PX: 151,
+  MIN_ARTICLE_IMAGE_HEIGHT_PX: 85,
   MAX_FEED_NAME_LENGTH: 255,
   MAX_CATEGORY_NAME_LENGTH: 255,
   OPML_MAX_IMPORT_ENTRIES: 500, // max distinct feed URLs accepted from a single OPML upload

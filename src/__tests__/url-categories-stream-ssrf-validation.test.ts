@@ -840,6 +840,23 @@ describe("reader-api – readerItemToArticle", () => {
     );
     expect(article.feedUrl).toBe("https://blog.com/rss");
   });
+
+  test("sanitizes tiny placeholder image in reader summary content", () => {
+    const article = readerItemToArticle(
+      {
+        title: "BBC style image",
+        canonical: [{ href: "https://example.com/article" }],
+        summary: {
+          content:
+            '<img src="https://static.files.bbci.co.uk/bbcdotcom/web/grey-placeholder.png" width="150" height="84" /><p>Story text</p>',
+        },
+      },
+      0,
+    );
+
+    expect(article.content).not.toContain("grey-placeholder.png");
+    expect(article.content).toContain("Story text");
+  });
 });
 
 // ─── greader mappers ──────────────────────────────────────────────────────────
