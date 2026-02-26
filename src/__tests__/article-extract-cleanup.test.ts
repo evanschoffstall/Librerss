@@ -20,7 +20,7 @@ import { join } from "node:path";
 
 const FIXTURE_DIR = join(
   process.cwd(),
-  "src/__tests__/snapshots/expect-extraction",
+  "src/__tests__/templates/expect-pipeline",
 );
 
 const SPECIAL_CASE_BRAND = String.fromCharCode(
@@ -340,6 +340,7 @@ describe("article extract cleanup", () => {
       expect(cleaned).toBe(expectedAfter);
       expect(cleaned).not.toContain("<p></p>");
       expect(cleaned).not.toMatch(/>\s*\n\s*\n\s*</);
+      expect(cleaned).not.toMatch(/\n[ \t]*\n/);
     }
   });
 

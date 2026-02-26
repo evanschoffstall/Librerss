@@ -79,6 +79,7 @@ export function normalizeArticleHtmlSpacing(html: string): string {
       "",
     )
     .replace(/<p>(?:\s|&nbsp;|&#160;|<br\s*\/?>)*<\/p>\s*/gi, "")
+    .replace(/\n[ \t]*\n+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
     .trim();
 }
