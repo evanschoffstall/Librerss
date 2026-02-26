@@ -163,7 +163,7 @@ export default function BackgroundStars({
     if (!update) {
       stars.current.push(star);
     }
-  }, [color]);
+  }, []);
 
   const drawStars = useCallback(() => {
     clearContext();
