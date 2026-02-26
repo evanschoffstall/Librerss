@@ -135,11 +135,16 @@ export function hasReadableArticleBody(content: string): boolean {
   ).length;
   if (blockElementCount >= 2) return true;
 
-  const plainTextLength = toPlainText(content).replace(/\s+/g, " ").trim().length;
+  const plainTextLength = toPlainText(content)
+    .replace(/\s+/g, " ")
+    .trim().length;
   return plainTextLength >= 280;
 }
 
-function extractDivInnerHtmlByClass(rawHtml: string, className: string): string {
+function extractDivInnerHtmlByClass(
+  rawHtml: string,
+  className: string,
+): string {
   const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const startTagPattern = new RegExp(
     `<div[^>]*class=("|')[^"']*\\b${escapedClass}\\b[^"']*\\1[^>]*>`,
@@ -148,7 +153,11 @@ function extractDivInnerHtmlByClass(rawHtml: string, className: string): string 
 
   let bestMatch = "";
 
-  for (let startMatch = startTagPattern.exec(rawHtml); startMatch; startMatch = startTagPattern.exec(rawHtml)) {
+  for (
+    let startMatch = startTagPattern.exec(rawHtml);
+    startMatch;
+    startMatch = startTagPattern.exec(rawHtml)
+  ) {
     if (startMatch.index < 0) continue;
 
     const startTagIndex = startMatch.index;
@@ -161,7 +170,11 @@ function extractDivInnerHtmlByClass(rawHtml: string, className: string): string 
     let depth = 1;
     let endIndex = -1;
 
-    for (let next = divTagPattern.exec(rawHtml); next; next = divTagPattern.exec(rawHtml)) {
+    for (
+      let next = divTagPattern.exec(rawHtml);
+      next;
+      next = divTagPattern.exec(rawHtml)
+    ) {
       const tag = next[0];
       const isClosingTag = /^<\/div\b/i.test(tag);
       depth += isClosingTag ? -1 : 1;
