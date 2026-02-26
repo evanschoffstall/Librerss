@@ -63,6 +63,8 @@ DATABASE_URL="postgres://user:password@host:5432/dbname"
 ALLOW_SIGNUP="false"
 NODE_ENV="development"
 LOG_LEVEL="error"
+NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED="false"
+NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES="15"
 # Example overrides:
 # FEED_BATCH_CONCURRENCY=12
 # FEED_REQUEST_TIMEOUT_MS=20000
@@ -77,15 +79,17 @@ Runtime load order is:
 1. `.env` (committed defaults)
 2. `.env.local` (local override)
 
-| Variable                 | Description                                                    |
-| ------------------------ | -------------------------------------------------------------- |
-| `DATABASE_URL`           | PostgreSQL connection string                                   |
-| `ALLOW_SIGNUP`           | `"true"` to open public registration, `"false"` to restrict    |
-| `LOG_LEVEL`              | One of `none`, `error`, `warn`, `info`, `verbose`              |
-| `TRUSTED_PROXY_COUNT`    | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
-| `DB_MAX_CONNECTIONS`     | Max pg pool size (default `1`, keep low to minimize DB CUs)    |
-| `DB_IDLE_TIMEOUT_MS`     | Close idle pg clients after this delay (default `1000`)        |
-| `DB_EAGER_CONNECT_CHECK` | `"true"` runs startup `select 1`; default is lazy/no pre-check |
+| Variable                                       | Description                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| `DATABASE_URL`                                 | PostgreSQL connection string                                   |
+| `ALLOW_SIGNUP`                                 | `"true"` to open public registration, `"false"` to restrict    |
+| `LOG_LEVEL`                                    | One of `none`, `error`, `warn`, `info`, `verbose`              |
+| `NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES`           | Client-side feed auto-refresh TTL in minutes                   |
+| `NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED` | Enables client-side feed refresh diagnostics                   |
+| `TRUSTED_PROXY_COUNT`                          | Trusted reverse-proxy hops for `X-Forwarded-For` (default `1`) |
+| `DB_MAX_CONNECTIONS`                           | Max pg pool size (default `1`, keep low to minimize DB CUs)    |
+| `DB_IDLE_TIMEOUT_MS`                           | Close idle pg clients after this delay (default `1000`)        |
+| `DB_EAGER_CONNECT_CHECK`                       | `"true"` runs startup `select 1`; default is lazy/no pre-check |
 
 All `src/lib/config.ts` values are environment-driven and required. If a config key is missing or invalid, the app will fail fast at startup.
 
