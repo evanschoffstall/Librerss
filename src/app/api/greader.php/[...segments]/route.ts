@@ -13,7 +13,7 @@ import {
   handleStreamContents,
   handleStreamItemContents,
   handleStreamItemIds,
-} from "./handlers/stream";
+} from "./handlers/stream-handlers";
 import {
   handleSubscriptionEdit,
   handleSubscriptionList,

@@ -27,7 +27,7 @@ import {
   parseOlderThanDate,
   parseStreamId,
   parseStreamPaging,
-} from "../services/stream";
+} from "../services/stream-service";
 import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 
 export async function handleStreamContents(

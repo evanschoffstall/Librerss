@@ -14,7 +14,7 @@ import {
   parseStreamId,
   parseStreamPaging,
   shouldExcludeReadFromStream,
-} from "@/app/api/greader.php/[...segments]/services/stream";
+} from "@/app/api/greader.php/[...segments]/services/stream-service";
 import {
   parseReaderStreamItems,
   readerItemToArticle,
