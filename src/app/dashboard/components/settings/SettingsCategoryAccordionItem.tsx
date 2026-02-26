@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
-import { ANIM_TRANSITION_COLORS } from "../styles";
 import { SettingsFeedRow } from "./SettingsFeedRow";
-import { SettingsIconBtn, settingsDragHandleCls } from "./SettingsIconBtn";
+import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton";
+
+const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
 
 interface SettingsCategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
@@ -120,8 +121,8 @@ export function SettingsCategoryAccordionItem({
       key={`${categoryNode.key}-motion`}
       className={
         categoryDropIndex === categoryIndex
-          ? `rounded-md border border-primary bg-primary/5 ${ANIM_TRANSITION_COLORS}`
-          : ANIM_TRANSITION_COLORS
+          ? `rounded-md border border-primary bg-primary/5 ${animTransitionColorsClass}`
+          : animTransitionColorsClass
       }
       onDragOver={(event) => onCategoryDragOver(event, categoryIndex)}
       onDrop={(event) => onCategoryDrop(event, categoryIndex)}
@@ -193,14 +194,14 @@ export function SettingsCategoryAccordionItem({
 
           {!isEditing && (
             <div className="flex shrink-0 items-center gap-0.5">
-              <SettingsIconBtn
+              <SettingsIconButton
                 tip="Add feed"
                 onClick={() => onToggleAddFeed(categoryNode.label)}
                 className={isAddingFeed ? "bg-accent" : ""}
               >
                 <Plus className="size-3.5" />
-              </SettingsIconBtn>
-              <SettingsIconBtn
+              </SettingsIconButton>
+              <SettingsIconButton
                 tip={isPendingRemoval ? "Click again to confirm" : "Delete category"}
                 onClick={() => onRemoveCategory(categoryNode.label)}
                 className={
@@ -210,14 +211,14 @@ export function SettingsCategoryAccordionItem({
                 }
               >
                 <Trash2 className="size-3.5" />
-              </SettingsIconBtn>
+              </SettingsIconButton>
             </div>
           )}
         </div>
 
         <AccordionContent className="px-3 pb-3">
           {isAddingFeed && (
-            <div className={`mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 ${ANIM_TRANSITION_COLORS}`}>
+            <div className={`mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 ${animTransitionColorsClass}`}>
               <Input
                 value={newFeedName}
                 onChange={(e) => onNewFeedNameChange(e.target.value)}
@@ -304,8 +305,8 @@ export function SettingsCategoryAccordionItem({
                   onDrop={onFeedDrop}
                   onEditingNameChange={onEditingFeedNameChange}
                   onEditingUrlChange={onEditingFeedUrlChange}
-                  onSaveRename={onSaveFeedRename}
                   onCancelRename={onCancelFeedEdit}
+                  onSaveRename={onSaveFeedRename}
                   onStartEditing={onStartFeedEdit}
                   onRemove={onRemoveFeed}
                 />

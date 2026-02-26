@@ -1,7 +1,7 @@
 import { type Article, type CategoryTreeNode } from "@/lib";
 import { filterArticlesByState, type ArticleFilter } from "./article-filters";
 import { buildDisplayCategories } from "./category-display";
-import { findFeedNodeByKey, getAllFeedNodes } from "./category-feeds";
+import { findFeedNodeByKey } from "./category-feeds";
 import { SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
 
 type DashboardViewModelInput = {
@@ -41,7 +41,6 @@ export function buildDashboardViewModel({
       (article.content || "").toLowerCase().includes(loweredSearchTerm),
   );
 
-  const availableSources = getAllFeedNodes(categories);
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 
   const displayCategories = buildDisplayCategories(

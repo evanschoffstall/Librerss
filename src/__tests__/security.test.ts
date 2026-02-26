@@ -602,7 +602,7 @@ describe("greader reader-item hardening", () => {
 
   test("parseOlderThanDate ignores non-positive and invalid values", async () => {
     const { parseOlderThanDate } =
-      await import("@/app/api/greader.php/[...segments]/services/stream");
+      await import("@/app/api/greader.php/[...segments]/services/stream-service");
 
     expect(parseOlderThanDate(new URLSearchParams("ot=0"))).toBeNull();
     expect(parseOlderThanDate(new URLSearchParams("ot=-1"))).toBeNull();
@@ -615,7 +615,7 @@ describe("greader reader-item hardening", () => {
 
   test("shouldExcludeReadFromStream only applies read exclusion to reading-list", async () => {
     const { shouldExcludeReadFromStream } =
-      await import("@/app/api/greader.php/[...segments]/services/stream");
+      await import("@/app/api/greader.php/[...segments]/services/stream-service");
 
     expect(
       shouldExcludeReadFromStream("user/-/state/com.google/reading-list", [

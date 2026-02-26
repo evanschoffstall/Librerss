@@ -1,7 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
 import { FeedCategory } from "./feed/FeedCategory";
-import { ANIM_TRANSITION_OPACITY } from "./styles";
 
 const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
 
@@ -50,7 +49,7 @@ export function DashboardSidebarContent({
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
               <div
                 key={categoryNode.key}
-                className={`space-y-0.5 anim-fade-in-load-slow ${ANIM_TRANSITION_OPACITY} ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                className={`space-y-0.5 anim-fade-in-load-slow transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
                   }`}
                 style={{
                   animationDelay: `${index * 35}ms`,

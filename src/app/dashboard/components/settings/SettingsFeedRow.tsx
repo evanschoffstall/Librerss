@@ -2,8 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Trash2 } from "lucide-react";
-import { ANIM_TRANSITION_COLORS } from "../styles";
-import { SettingsIconBtn, settingsDragHandleCls } from "./SettingsIconBtn";
+import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton";
+
+const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
 
 interface SettingsFeedRowProps {
   feedNode: CategoryTreeNode;
@@ -71,7 +72,7 @@ export function SettingsFeedRow({
   return (
     <div
       key={feedNode.key}
-      className={`relative flex items-center gap-2 rounded-md border px-3 py-2 ${ANIM_TRANSITION_COLORS}`}
+      className={`relative flex items-center gap-2 rounded-md border px-3 py-2 ${animTransitionColorsClass}`}
       onDragOver={(event) => {
         const targetIndex = resolveTargetIndexFromPointer(event);
         onDragOver(event, categoryLabel, targetIndex);
@@ -175,7 +176,7 @@ export function SettingsFeedRow({
       )}
 
       <div className="flex shrink-0 items-center gap-1">
-        <SettingsIconBtn
+        <SettingsIconButton
           tip="Remove feed"
           onClick={() => onRemove(feedNode.key)}
           disabled={deletingKey === feedNode.key || draggingFeedKey === feedNode.key}
@@ -186,7 +187,7 @@ export function SettingsFeedRow({
           ) : (
             <Trash2 className="size-3.5" />
           )}
-        </SettingsIconBtn>
+        </SettingsIconButton>
       </div>
     </div>
   );

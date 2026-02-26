@@ -19,7 +19,7 @@ import {
   parseOlderThanDate,
   parseStreamPaging,
   shouldExcludeReadFromStream,
-} from "../services/stream";
+} from "../services/stream-service";
 import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 
 function isMissingRelationError(error: unknown): boolean {

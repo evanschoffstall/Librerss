@@ -4,9 +4,14 @@ import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
 import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import {
+  ParticlesBackground,
+  ParticlesBackgroundLight,
+  StarsBackground,
+  StarsBackgroundLight,
+} from "./components/Background";
 import { LoginView } from "./components/login/LoginView";
-import { ParticlesBackground } from "./components/ParticlesBackground";
-import { ParticlesBackgroundLight } from "./components/ParticlesBackgroundLight";
+import type { BackgroundMode } from "./constants";
 import { DASHBOARD_EVENTS } from "./constants";
 import { DashboardView } from "./DashboardView";
 
@@ -17,13 +22,30 @@ export function DashboardRouter() {
   const [usePlaceholderData, setUsePlaceholderData] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const { resolvedTheme } = useTheme();
-  const [showParticlesBackground, setShowParticlesBackground] = useLocalStorage<boolean>(
-    "librerss:showParticlesBackground",
-    true,
+  const [backgroundMode, setBackgroundMode] = useLocalStorage<BackgroundMode>(
+    "librerss:backgroundMode",
+    "particles",
   );
 
-  const shouldShowParticlesBackground = showParticlesBackground;
   const isLightMode = (resolvedTheme ?? "dark") === "light";
+
+  useEffect(() => {
+    const legacyValue = localStorage.getItem("librerss:showParticlesBackground");
+    if (legacyValue === null) {
+      return;
+    }
+
+    try {
+      const parsedValue = JSON.parse(legacyValue);
+      if (typeof parsedValue === "boolean") {
+        setBackgroundMode(parsedValue ? "particles" : "none");
+      }
+    } catch {
+      // ignore invalid persisted legacy values
+    }
+
+    localStorage.removeItem("librerss:showParticlesBackground");
+  }, [setBackgroundMode]);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -72,16 +94,20 @@ export function DashboardRouter() {
 
   return (
     <main className="relative h-full overflow-hidden bg-background">
-      {shouldShowParticlesBackground
+      {backgroundMode === "particles"
         ? isLightMode
           ? <ParticlesBackgroundLight />
           : <ParticlesBackground />
-        : null}
+        : backgroundMode === "stars"
+          ? isLightMode
+            ? <StarsBackgroundLight />
+            : <StarsBackground />
+          : null}
       <div className="relative z-10 h-full">
         <DashboardView
           usePlaceholderData={isPreviewMode || usePlaceholderData}
-          showParticlesBackground={showParticlesBackground}
-          onShowParticlesBackgroundChange={setShowParticlesBackground}
+          backgroundMode={backgroundMode}
+          onBackgroundModeChange={setBackgroundMode}
         />
       </div>
     </main>

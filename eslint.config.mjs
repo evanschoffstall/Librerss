@@ -6,12 +6,27 @@ import tseslint from "typescript-eslint";
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+  },
+  {
     ignores: [
       "node_modules",
       "**/node_modules/**",
       ".next",
+      ".next/**",
+      "**/.next/**",
       "dist",
+      "dist/**",
       "build",
+      "build/**",
+      "coverage",
+      "coverage/**",
+      ".cache",
+      ".cache/**",
+      "drizzle/meta",
+      "drizzle/meta/**",
       "src/components/ui/**",
     ],
   },
@@ -37,12 +52,32 @@ export default [
   },
   {
     rules: {
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/ban-ts-comment": [
+        "warn",
+        {
+          "ts-ignore": "allow-with-description",
+          "ts-expect-error": "allow-with-description",
+          "ts-nocheck": true,
+          "ts-check": false,
+          minimumDescriptionLength: 5,
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/__tests__/**/*.{ts,tsx}"],
+    rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/ban-ts-comment": "off",
-      "react/react-in-jsx-scope": "off",
-      "react/prop-types": "off",
-      "react/no-unknown-property": "off",
     },
   },
 ];

@@ -8,10 +8,10 @@ afterEach(() => {
   mock.restore();
 });
 
-describe("greader services/stream", () => {
+describe("greader services/stream-service", () => {
   test("parseStreamPaging handles default, netnewswire, offset, and continuation id", async () => {
     const { parseStreamPaging } =
-      await import("@/app/api/greader.php/[...segments]/services/stream");
+      await import("@/app/api/greader.php/[...segments]/services/stream-service");
 
     const defaultPaging = parseStreamPaging(new URLSearchParams(), "Mozilla");
     expect(defaultPaging.limit).toBeGreaterThan(0);
@@ -51,7 +51,7 @@ describe("greader services/stream", () => {
 
   test("parseStreamId, parseOlderThanDate, and shouldExcludeReadFromStream branches", async () => {
     const { parseStreamId, parseOlderThanDate, shouldExcludeReadFromStream } =
-      await import("@/app/api/greader.php/[...segments]/services/stream");
+      await import("@/app/api/greader.php/[...segments]/services/stream-service");
     const { READ_STATE, READING_LIST_STREAM } =
       await import("@/app/api/greader.php/[...segments]/constants");
 

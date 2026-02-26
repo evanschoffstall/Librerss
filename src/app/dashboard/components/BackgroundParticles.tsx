@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useMousePosition } from "../hooks/useMousePosition";
 
-interface ParticlesLightProps {
+interface ParticlesProps {
   className?: string;
   quantity?: number;
   staticity?: number;
   ease?: number;
   refresh?: boolean;
+  color?: "light" | "dark";
 }
 
 type Circle = {
@@ -24,13 +25,14 @@ type Circle = {
   magnetism: number;
 };
 
-export default function ParticlesLight({
+export default function BackgroundParticles({
   className = "",
   quantity = 30,
   staticity = 50,
   ease = 50,
   refresh = false,
-}: ParticlesLightProps) {
+  color = "light",
+}: ParticlesProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const context = useRef<CanvasRenderingContext2D | null>(null);
@@ -38,6 +40,8 @@ export default function ParticlesLight({
   const mousePosition = useMousePosition();
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const canvasSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  const particleColor = color === "dark" ? "0, 0, 0" : "255, 255, 255";
 
   const remapValue = useCallback(
     (value: number, start1: number, end1: number, start2: number, end2: number): number => {
@@ -85,15 +89,14 @@ export default function ParticlesLight({
     context.current.translate(translateX, translateY);
     context.current.beginPath();
     context.current.arc(x, y, size, 0, 2 * Math.PI);
-    // Dark particles for light background
-    context.current.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+    context.current.fillStyle = `rgba(${particleColor}, ${alpha})`;
     context.current.fill();
     context.current.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     if (!update) {
       circles.current.push(circle);
     }
-  }, []);
+  }, [particleColor]);
 
   const drawParticles = useCallback(() => {
     clearContext();

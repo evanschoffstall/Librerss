@@ -34,7 +34,7 @@ type StaticAnalysis = {
   eslintPassing: boolean;
   exitCode: number;
 };
-type Command = { exitCode: number; timedOut: boolean };
+type Command = { exitCode: number; timedOut: boolean; output: string };
 
 const ANSI = {
   reset: "\x1b[0m",
@@ -76,10 +76,14 @@ const staticSummary = (
   exitCode: tscExit === 0 && eslintExit === 0 ? 0 : 1,
 });
 
-function step(label: string, details?: string) {
-  console.log(paint(`\n⏱️  ${label}`, ANSI.bold, ANSI.cyan));
-  if (details && details !== "none")
-    console.log(paint(`   ${details}`, ANSI.gray));
+function printStepOutput(label: string, output: string) {
+  console.log(`\n${paint(label, ANSI.bold)}`);
+  if (!output.trim()) {
+    console.log(paint("(no output)", ANSI.gray));
+    return;
+  }
+  for (const line of output.replace(/\s+$/g, "").split(/\r?\n/))
+    console.log(line);
 }
 
 const parseTestcases = (xml: string) =>
@@ -220,7 +224,6 @@ function printSummary(results: {
     results.tests.exitCode === 0 &&
     results.coverage.exitCode === 0 &&
     results.testRunnerPassing;
-  step("Done");
   printTests("Failed tests", ANSI.red, results.tests.failedTests);
   printTests("Skipped tests", ANSI.gray, results.tests.skippedTests);
   console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
@@ -256,10 +259,16 @@ async function run(
 ): Promise<Command> {
   const child = Bun.spawn([command, ...args], {
     cwd: process.cwd(),
-    stdin: "inherit",
-    stdout: "inherit",
-    stderr: "inherit",
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
   });
+  const stdoutPromise = child.stdout
+    ? new Response(child.stdout).text()
+    : Promise.resolve("");
+  const stderrPromise = child.stderr
+    ? new Response(child.stderr).text()
+    : Promise.resolve("");
   let timedOut = false;
   const timeout =
     timeoutMs && timeoutMs > 0
@@ -268,21 +277,25 @@ async function run(
           child.kill();
         }, timeoutMs)
       : null;
-  const exitCode = (await child.exited) ?? 1;
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    stdoutPromise,
+    stderrPromise,
+  ]);
   if (timeout) clearTimeout(timeout);
+  const output = `${stdout}${stderr}`;
   return timedOut
-    ? { exitCode: 124, timedOut: true }
-    : { exitCode, timedOut: false };
+    ? { exitCode: 124, timedOut: true, output }
+    : { exitCode: exitCode ?? 1, timedOut: false, output };
 }
 
 const runStep = (
-  label: string,
+  _label: string,
   command: string,
   args: string[],
   timeoutMs?: number,
-  details?: string,
+  _details?: string,
 ) => {
-  step(label, details);
   return run(command, args, timeoutMs);
 };
 
@@ -293,10 +306,7 @@ async function main() {
     `\n${paint("⏳ Please wait -- validating static analysis, tests, and coverage...", ANSI.bold, ANSI.cyan)}`,
   );
 
-  let timedOut = false;
-  let tscExit = 1;
-  let eslintExit = 1;
-  const testRun = await runStep(
+  const testRunPromise = runStep(
     "Running tests",
     "bun",
     [
@@ -308,21 +318,22 @@ async function main() {
     TEST_COMMAND_TIMEOUT_MS,
     `${TEST_TIMEOUT_MS / 1000}s per test, ${TEST_COMMAND_TIMEOUT_MS / 1000}s process failsafe`,
   );
-  timedOut ||= testRun.timedOut;
+  const typesRunPromise = runStep("Running Types", "tsc", ["--noEmit"]);
+  const lintRunPromise = runStep("Running Lint", "bun", ["scripts/lint.ts"]);
 
-  if (!timedOut) {
-    const typesRun = await runStep("Running Types", "tsc", ["--noEmit"]);
-    tscExit = typesRun.exitCode;
-    timedOut ||= typesRun.timedOut;
-  }
-  if (!timedOut) {
-    const lintRun = await runStep("Running Lint", "eslint", ["."]);
-    eslintExit = lintRun.exitCode;
-    timedOut ||= lintRun.timedOut;
-  }
+  const [testRun, typesRun, lintRun] = await Promise.all([
+    testRunPromise,
+    typesRunPromise,
+    lintRunPromise,
+  ]);
+  const timedOut = testRun.timedOut || typesRun.timedOut || lintRun.timedOut;
+
+  printStepOutput("Tests", testRun.output);
+  printStepOutput("Types", typesRun.output);
+  printStepOutput("Lint", lintRun.output);
 
   const qualityGateExit = printSummary({
-    staticAnalysis: staticSummary(tscExit, eslintExit),
+    staticAnalysis: staticSummary(typesRun.exitCode, lintRun.exitCode),
     tests: testSummary(junitPath),
     coverage: coverageSummary(lcovPath),
     testRunnerPassing: testRun.exitCode === 0,

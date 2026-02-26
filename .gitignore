@@ -67,6 +67,7 @@ bun-debug.log*
 Thumbs.db
 *.pem
 .tsc-out/
+.cache/
 
 # Affinity
 *.ignored
