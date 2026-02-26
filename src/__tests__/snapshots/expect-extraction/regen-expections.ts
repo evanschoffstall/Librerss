@@ -1,14 +1,14 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { extractFromHtml } from "@extractus/article-extractor";
 import {
   cleanExtractedArticleHtml,
   extractDailyKosStoryFallbackHtml,
   getHostname,
-  hasReadableArticleBody,
   hasDailyKosStoryImage,
+  hasReadableArticleBody,
   sanitizeExtractedContent,
 } from "@/app/api/articles/extract/route";
+import { extractFromHtml } from "@extractus/article-extractor";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 function extractCanonicalUrlFromHtml(
   html: string,
@@ -60,7 +60,9 @@ async function regenerateExpectation(
     (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
   ) {
     const fallbackContent = cleanExtractedArticleHtml(
-      sanitizeExtractedContent(extractDailyKosStoryFallbackHtml(downloadedHtml)),
+      sanitizeExtractedContent(
+        extractDailyKosStoryFallbackHtml(downloadedHtml),
+      ),
       url,
     ).trim();
 
@@ -94,8 +96,14 @@ async function main() {
     .sort((a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]));
 
   for (const articleName of articleFiles) {
-    const result = await regenerateExpectation(dir, articleName, specialCaseHost);
-    console.log(`regenerated ${result.articleName} -> ${result.outputPath} (${result.size} chars)`);
+    const result = await regenerateExpectation(
+      dir,
+      articleName,
+      specialCaseHost,
+    );
+    console.log(
+      `regenerated ${result.articleName} -> ${result.outputPath} (${result.size} chars)`,
+    );
   }
 }
 

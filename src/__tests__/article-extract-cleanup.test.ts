@@ -4,8 +4,8 @@ import {
   extractDailyKosStoryFallbackHtml,
   fetchHtml,
   getHostname,
-  hasReadableArticleBody,
   hasDailyKosStoryImage,
+  hasReadableArticleBody,
   isLikelyDailyKosFooterBoilerplate,
   normalizeExtractedHtmlSpacing,
   parseAndValidateArticleUrl,
@@ -56,12 +56,13 @@ function extractCanonicalUrlFromHtml(
   return `https://example.invalid/${fixtureName}`;
 }
 
-const SPECIAL_CASE_STORY_URL = extractCanonicalUrlFromHtml(
-  readExtractionFixture("article-3"),
-  "article-3",
-);
+const SPECIAL_CASE_STORY_URL =
+  "https://www.dailykos.com/stories/2026/2/25/2370437/example-story";
 const SPECIAL_CASE_HOSTNAME = getHostname(SPECIAL_CASE_STORY_URL);
 const SPECIAL_CASE_MEDIA_HOST = `cdn.prod.${SPECIAL_CASE_HOSTNAME.replace(/^www\./i, "")}`;
+const SNAPSHOT_SPECIAL_CASE_HOSTNAME = getHostname(
+  extractCanonicalUrlFromHtml(readExtractionFixture("article-3"), "article-3"),
+);
 
 beforeEach(() => {
   mock.restore();
@@ -89,10 +90,7 @@ describe("article extract cleanup", () => {
       </ul>
     `;
 
-    const cleaned = cleanExtractedArticleHtml(
-      input,
-      SPECIAL_CASE_STORY_URL,
-    );
+    const cleaned = cleanExtractedArticleHtml(input, SPECIAL_CASE_STORY_URL);
 
     expect(cleaned).toContain("Real article paragraph one");
     expect(cleaned).toContain("Real article paragraph two");
@@ -238,10 +236,7 @@ describe("article extract cleanup", () => {
       const before = readExtractionFixture(fixture.name);
       const fixtureUrl = extractCanonicalUrlFromHtml(before, fixture.name);
       const expectedAfter = readFileSync(
-        join(
-          FIXTURE_DIR,
-          `article-expect-${fixture.name.split("-")[1]}.html`,
-        ),
+        join(FIXTURE_DIR, `article-expect-${fixture.name.split("-")[1]}.html`),
         "utf8",
       ).trim();
 
@@ -256,7 +251,7 @@ describe("article extract cleanup", () => {
       let cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
 
       if (
-        getHostname(fixtureUrl).endsWith(SPECIAL_CASE_HOSTNAME) &&
+        getHostname(fixtureUrl).endsWith(SNAPSHOT_SPECIAL_CASE_HOSTNAME) &&
         (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
       ) {
         const fallbackContent = cleanExtractedArticleHtml(
@@ -282,7 +277,9 @@ describe("article extract cleanup", () => {
 
   test("getHostname normalizes valid hostnames and handles invalid urls", () => {
     expect(
-      getHostname(SPECIAL_CASE_STORY_URL.replace("https://www.", "https://WWW.")),
+      getHostname(
+        SPECIAL_CASE_STORY_URL.replace("https://www.", "https://WWW."),
+      ),
     ).toBe(SPECIAL_CASE_HOSTNAME);
     expect(getHostname("not a url")).toBe("");
   });
@@ -461,8 +458,7 @@ describe("article extract cleanup", () => {
   test("POST can replace content with DailyKos fallback story image", async () => {
     const response = await POST({} as any, {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () =>
-        SPECIAL_CASE_STORY_URL,
+      parseAndValidateArticleUrlFn: async () => SPECIAL_CASE_STORY_URL,
       fetchHtmlFn: async () => "<html />",
       extractFromHtmlFn: async () => ({
         title: "Title",
@@ -484,16 +480,14 @@ describe("article extract cleanup", () => {
   });
 
   test("POST replaces image-only special-case content with readable fallback", async () => {
-    const shortCaptionOnly =
-      `<img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/example/story.jpg" /><p>Short caption.</p>`;
+    const shortCaptionOnly = `<img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/example/story.jpg" /><p>Short caption.</p>`;
     const readableFallbackText =
       "<p>This fallback contains a full article paragraph with meaningful substance for readers.</p>" +
       "<p>It includes additional context so the extracted result is not just an image and a caption.</p>";
 
     const response = await POST({} as any, {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () =>
-        SPECIAL_CASE_STORY_URL,
+      parseAndValidateArticleUrlFn: async () => SPECIAL_CASE_STORY_URL,
       fetchHtmlFn: async () => "<html />",
       extractFromHtmlFn: async () => ({
         title: "Title",
