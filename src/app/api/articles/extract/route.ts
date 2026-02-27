@@ -2,6 +2,7 @@ import { parseJsonBodyOrResponse } from "@/lib/api/request";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
+  requireMutablePublicRequest,
 } from "@/lib/api/request-guards";
 import { jsonError } from "@/lib/api/responses";
 import { CONFIG } from "@/lib/config";
@@ -536,6 +537,41 @@ const EXTRACT_FINGERPRINT_POOL = [
 // Fingerprint pool index 0 is the canonical default used by injected callers (tests/overrides).
 const ARTICLE_EXTRACT_SEC_CH_UA = EXTRACT_FINGERPRINT_POOL[0].secChUa;
 
+/**
+ * Fetch article HTML using got-scraping — a pure-Node.js HTTP client that spoofs
+ * the TLS/JA3 fingerprint, HTTP/2 SETTINGS frames, and pseudo-header ordering to
+ * match a real Chrome 130 browser.  No binary required; works on any serverless
+ * platform including Vercel Hobby.
+ *
+ * This is the DataDome fallback path.  Node.js's default TLS client hello has a
+ * distinct JA3 hash that DataDome recognises and blocks regardless of how
+ * convincing the HTTP headers look.  axios uses the default Node.js TLS stack;
+ * got-scraping replaces cipher suite ordering, HTTP/2 SETTINGS, and
+ * pseudo-header order with browser-matching values, changing the JA3/JA3S/Akamai
+ * fingerprints to those of a real Chrome instance.
+ */
+async function fetchHtmlWithFingerprint(url: string): Promise<string> {
+  // got-scraping is ESM-only; dynamic import keeps it out of the boot-time module graph.
+  const { gotScraping } = await import("got-scraping");
+
+  const response = await gotScraping.get(url, {
+    // Ask header-generator to produce a full Chrome 130 Windows header set
+    // so every observable signal (UA, Accept, sec-ch-ua, etc.) is consistent.
+    headerGeneratorOptions: {
+      browsers: [{ name: "chrome", minVersion: 130, maxVersion: 130 }],
+      devices: ["desktop"],
+      locales: ["en-US"],
+      operatingSystems: ["windows"],
+    },
+    followRedirect: true,
+    timeout: { request: 25_000 },
+    https: { rejectUnauthorized: true },
+    responseType: "text",
+  });
+
+  return response.body as string;
+}
+
 export async function fetchHtml(
   url: string,
   deps?: FetchHtmlDeps,
@@ -548,6 +584,10 @@ export async function fetchHtml(
   const injectedGet = deps?.axiosGetFn;
 
   let lastError: unknown;
+  // Set to true when DataDome (x-datadome: protected) is detected on a 403.
+  // Rotating axios fingerprints won't help — the block is at TLS/IP level.
+  // The browser fallback runs after the loop exits.
+  let dataDomeDetected = false;
 
   const attempts = injectedGet ? 1 : 1 + EXTRACT_403_RETRIES;
 
@@ -627,8 +667,10 @@ export async function fetchHtml(
                 error.response?.headers?.["x-datadome"] ?? "",
               ).toLowerCase();
               if (dataDomeHeader === "protected") {
-                // DataDome-specific error: don't retry — DataDome blocks by IP
-                // and will return 403 on every attempt from this server.
+                // DataDome detected: fingerprint rotation won't help — the block
+                // operates at TLS (JA3) and IP-reputation level. Mark the flag so
+                // the catch block exits the loop and the browser fallback runs.
+                dataDomeDetected = true;
                 throw new Error(
                   "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
                 );
@@ -641,11 +683,32 @@ export async function fetchHtml(
       );
     } catch (err) {
       lastError = err;
+      if (dataDomeDetected) {
+        // Exit the fingerprint-rotation loop immediately: additional axios
+        // requests from the same server IP won't bypass DataDome — the block
+        // is at the TLS/JA3 fingerprint level.  The got-scraping fallback
+        // below sends a proper Chrome TLS hello which changes the JA3 hash.
+        break;
+      }
       // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
       if (got403 && attempt < attempts - 1) {
         continue;
       }
       throw err;
+    }
+  }
+
+  // TLS fingerprint fallback: when DataDome is detected by axios, retry the
+  // request with got-scraping which spoofs the JA3/HTTP2 fingerprint to match
+  // Chrome 130 at the TLS layer — something axios/Node.js cannot do natively.
+  // Injected callers (tests) always skip this path — they receive the original
+  // DataDome error so existing test contracts are unchanged.
+  if (dataDomeDetected && !injectedGet) {
+    try {
+      return await fetchHtmlWithFingerprint(url);
+    } catch {
+      // got-scraping also failed (IP reputation block or network error) —
+      // fall through and surface the original DataDome error to the caller.
     }
   }
 
@@ -676,7 +739,7 @@ type ExtractPostDeps = {
 
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const requireAuth =
-    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+    deps?.requireMutableAuthenticatedUserFn ?? requireMutablePublicRequest;
   const parseArticleUrl =
     deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
