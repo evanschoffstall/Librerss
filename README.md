@@ -6,7 +6,7 @@
 
 <p><strong>Your feeds. Your rules. Zero noise.</strong></p>
 
-<p>A self-hosted, open-source RSS reader built for calm, focused reading —<br/>no ads, no algorithms, no distractions.</p>
+<p>A self-hosted, open-source RSS reader built for calm, focused reading —<br/>fast feeds, clean layouts, and fewer distractions.</p>
 
 <p>
   <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js 16" />
