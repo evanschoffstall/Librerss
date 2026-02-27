@@ -1,9 +1,5 @@
 import {
   cleanExtractedArticleHtml,
-  extractDailyKosStoryFallbackHtml,
-  getHostname,
-  hasDailyKosStoryImage,
-  hasReadableArticleBody,
   sanitizeExtractedContent,
 } from "@/app/api/articles/extract/route";
 import { extractFromHtml } from "@extractus/article-extractor";
@@ -32,11 +28,7 @@ function resolveExpectedPath(dir: string, articleName: string): string {
   return join(dir, `article-expect-${articleNumber}.html`);
 }
 
-async function regenerateExpectation(
-  dir: string,
-  articleName: string,
-  specialCaseHost: string,
-) {
+async function regenerateExpectation(dir: string, articleName: string) {
   const inputPath = join(dir, `${articleName}.html`);
   const outputPath = resolveExpectedPath(dir, articleName);
 
@@ -50,30 +42,10 @@ async function regenerateExpectation(
   const rawContent =
     extracted?.content?.trim() || extracted?.description?.trim() || "";
 
-  let cleaned = cleanExtractedArticleHtml(
+  const cleaned = cleanExtractedArticleHtml(
     sanitizeExtractedContent(rawContent),
     url,
   ).trim();
-
-  if (
-    getHostname(url).endsWith(specialCaseHost) &&
-    (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
-  ) {
-    const fallbackContent = cleanExtractedArticleHtml(
-      sanitizeExtractedContent(
-        extractDailyKosStoryFallbackHtml(downloadedHtml),
-      ),
-      url,
-    ).trim();
-
-    if (
-      hasDailyKosStoryImage(fallbackContent) ||
-      hasReadableArticleBody(fallbackContent) ||
-      !cleaned
-    ) {
-      cleaned = fallbackContent;
-    }
-  }
 
   if (!cleaned) {
     throw new Error(`${articleName} produced empty expectation output`);
@@ -85,10 +57,6 @@ async function regenerateExpectation(
 
 async function main() {
   const dir = __dirname;
-  const specialCaseHtml = readFileSync(join(dir, "article-3.html"), "utf8");
-  const specialCaseHost = getHostname(
-    extractCanonicalUrlFromHtml(specialCaseHtml, "article-3"),
-  );
 
   const articleFiles = readdirSync(dir)
     .filter((name) => /^article-\d+\.html$/.test(name))
@@ -96,11 +64,7 @@ async function main() {
     .sort((a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]));
 
   for (const articleName of articleFiles) {
-    const result = await regenerateExpectation(
-      dir,
-      articleName,
-      specialCaseHost,
-    );
+    const result = await regenerateExpectation(dir, articleName);
     console.log(
       `regenerated ${result.articleName} -> ${result.outputPath} (${result.size} chars)`,
     );

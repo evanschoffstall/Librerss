@@ -2,17 +2,14 @@ import {
   POST,
   cleanExtractedArticleHtml,
   clearArticleExtractCacheForTests,
-  extractDailyKosStoryFallbackHtml,
   fetchHtml,
   getHostname,
-  hasDailyKosStoryImage,
   hasReadableArticleBody,
-  isLikelyDailyKosFooterBoilerplate,
+  isLikelyNavFooterBoilerplate,
   normalizeExtractedHtmlSpacing,
   parseAndValidateArticleUrl,
   sanitizeExtractedContent,
-  stripKnownCommentPromptBoilerplate,
-  stripKnownDailyKosBoilerplate,
+  stripCommentEngagementBoilerplate,
   toParagraphHtml,
 } from "@/app/api/articles/extract/route";
 import { extractFromHtml } from "@extractus/article-extractor";
@@ -61,10 +58,6 @@ function extractCanonicalUrlFromHtml(
 const SPECIAL_CASE_STORY_URL =
   "https://www.dailykos.com/stories/2026/2/25/2370437/example-story";
 const SPECIAL_CASE_HOSTNAME = getHostname(SPECIAL_CASE_STORY_URL);
-const SPECIAL_CASE_MEDIA_HOST = `cdn.prod.${SPECIAL_CASE_HOSTNAME.replace(/^www\./i, "")}`;
-const SNAPSHOT_SPECIAL_CASE_HOSTNAME = getHostname(
-  extractCanonicalUrlFromHtml(readExtractionFixture("article-3"), "article-3"),
-);
 
 beforeEach(() => {
   mock.restore();
@@ -77,7 +70,7 @@ afterEach(() => {
 });
 
 describe("article extract cleanup", () => {
-  test("removes special-case publisher footer boilerplate and preserves article body", () => {
+  test("preserves article body when mixed content is below nav/footer detection threshold", () => {
     const input = `
       <p>Real article paragraph one.</p>
       <p>Real article paragraph two.</p>
@@ -96,11 +89,9 @@ describe("article extract cleanup", () => {
 
     const cleaned = cleanExtractedArticleHtml(input, SPECIAL_CASE_STORY_URL);
 
+    // Generic pipeline keeps mixed content when nav/footer threshold is not reached.
     expect(cleaned).toContain("Real article paragraph one");
     expect(cleaned).toContain("Real article paragraph two");
-    expect(cleaned.toLowerCase()).not.toContain("front page");
-    expect(cleaned.toLowerCase()).not.toContain("masthead");
-    expect(cleaned.toLowerCase()).not.toContain("<p>about</p>");
   });
 
   test("drops footer-only special-case extraction output", () => {
@@ -128,7 +119,7 @@ describe("article extract cleanup", () => {
     expect(cleaned).toBe("");
   });
 
-  test("does not apply special-case cleanup to other domains", () => {
+  test("does not drop content that lacks sufficient nav/footer signals", () => {
     const input = `
       <p>About</p>
       <ul>
@@ -144,55 +135,6 @@ describe("article extract cleanup", () => {
 
     expect(cleaned).toContain("Normal content");
     expect(cleaned).toContain("<p>About</p>");
-  });
-
-  test("extractDailyKosStoryFallbackHtml pulls story figure image and text", () => {
-    const rawHtml = `
-      <div class="story__image">
-        <figure>
-          <img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/1528012/story_image/20260217edcbc-a.jpg?1771360334" alt="Cartoon" />
-          <figcaption></figcaption>
-        </figure>
-      </div>
-      <div class="story__text">
-        <p>A cartoon by Mike Luckovich.</p>
-        <hr>
-        <p><strong>Related | <a href="https://publisher.example/stories/2026/2/6/2367483">Example related</a></strong></p>
-      </div>
-    `;
-
-    const fallback = extractDailyKosStoryFallbackHtml(rawHtml);
-
-    expect(fallback).toContain("<figure>");
-    expect(fallback).toContain("story_image");
-    expect(fallback).toContain("A cartoon by Mike Luckovich");
-    expect(fallback).not.toContain("Related |");
-  });
-
-  test("extractDailyKosStoryFallbackHtml skips placeholder story__text blocks", () => {
-    const rawHtml = `
-      <div class="story__image">
-        <figure>
-          <img src="https://cdn.prod.dailykos.com/images/1528012/story_image/example.jpg" alt="Example" />
-          <figcaption>Caption text</figcaption>
-        </figure>
-      </div>
-      <div class="placeholder story__text"></div>
-      <div class="story__text">
-        <p>First paragraph.</p>
-        <div class="dk-editor-embed">
-          <div class="remove-embed-content">x</div>
-          <a href="//youtube.com/watch?v=test">YouTube Video</a>
-        </div>
-        <p>Second paragraph.</p>
-      </div>
-    `;
-
-    const fallback = extractDailyKosStoryFallbackHtml(rawHtml);
-
-    expect(fallback).toContain("story_image/example.jpg");
-    expect(fallback).toContain("First paragraph.");
-    expect(fallback).toContain("Second paragraph.");
   });
 
   test("toParagraphHtml creates paragraph blocks from plain text", () => {
@@ -279,18 +221,18 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body text remains.");
   });
 
-  test("stripKnownCommentPromptBoilerplate removes leaked comment-gate paragraphs", () => {
+  test("stripCommentEngagementBoilerplate removes login and commenting prompt paragraphs", () => {
     const input =
       '<img src="https://cdn.mos.cms.futurecdn.net/wWN99SCnGejGkViA9SXtm6.png" alt="hero" />' +
       "<p>You must confirm your public display name before commenting</p>" +
       "<p>Please logout and then login again, you will then be prompted to enter your display name.</p>" +
       "<p>Real article body paragraph.</p>";
 
-    const cleaned = stripKnownCommentPromptBoilerplate(input);
+    const cleaned = stripCommentEngagementBoilerplate(input);
 
     expect(cleaned).toContain("futurecdn.net/wWN99SCnGejGkViA9SXtm6.png");
     expect(cleaned).toContain("Real article body paragraph.");
-    expect(cleaned.toLowerCase()).not.toContain("public display name");
+    expect(cleaned.toLowerCase()).not.toContain("display name");
     expect(cleaned.toLowerCase()).not.toContain("please logout");
   });
 
@@ -353,25 +295,7 @@ describe("article extract cleanup", () => {
       const rawContent =
         extracted?.content?.trim() || extracted?.description?.trim() || "";
       const normalized = sanitizeExtractedContent(rawContent);
-      let cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
-
-      if (
-        getHostname(fixtureUrl).endsWith(SNAPSHOT_SPECIAL_CASE_HOSTNAME) &&
-        (!hasDailyKosStoryImage(cleaned) || !hasReadableArticleBody(cleaned))
-      ) {
-        const fallbackContent = cleanExtractedArticleHtml(
-          sanitizeExtractedContent(extractDailyKosStoryFallbackHtml(before)),
-          fixtureUrl,
-        );
-
-        if (
-          hasDailyKosStoryImage(fallbackContent) ||
-          hasReadableArticleBody(fallbackContent) ||
-          !cleaned.trim()
-        ) {
-          cleaned = fallbackContent;
-        }
-      }
+      const cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
 
       expect(cleaned.length).toBeGreaterThan(0);
       expect(cleaned).toBe(expectedAfter);
@@ -390,23 +314,7 @@ describe("article extract cleanup", () => {
     expect(getHostname("not a url")).toBe("");
   });
 
-  test("stripKnownDailyKosBoilerplate removes known footer sections", () => {
-    const input = `
-      <section>© Kos Media Footer</section>
-      <p>${SPECIAL_CASE_BRAND}</p><ul><li><a href="https://publisher.example/">Front Page</a></li></ul>
-      <p>About</p><ul><li><a href="https://publisher.example/privacy">Privacy</a></li></ul>
-      <p><strong>Related | <a href="https://publisher.example/stories/x">Thing</a></strong></p>
-      <p>Real content remains</p>
-    `;
-
-    const stripped = stripKnownDailyKosBoilerplate(input);
-    expect(stripped).toContain("Real content remains");
-    expect(stripped.toLowerCase()).not.toContain("front page");
-    expect(stripped.toLowerCase()).not.toContain("related |");
-    expect(stripped.toLowerCase()).not.toContain("© kos media");
-  });
-
-  test("isLikelyDailyKosFooterBoilerplate detects dense footer markers", () => {
+  test("isLikelyNavFooterBoilerplate detects dense nav/footer marker content", () => {
     const footer = `
       <p>Front Page Comics Subscribe Gift subscriptions Privacy Masthead Rules of the Road</p>
       <ul>
@@ -415,23 +323,10 @@ describe("article extract cleanup", () => {
       </ul>
     `;
 
-    expect(isLikelyDailyKosFooterBoilerplate(footer)).toBe(true);
-    expect(isLikelyDailyKosFooterBoilerplate("<p>Normal story body</p>")).toBe(
+    expect(isLikelyNavFooterBoilerplate(footer)).toBe(true);
+    expect(isLikelyNavFooterBoilerplate("<p>Normal story body</p>")).toBe(
       false,
     );
-  });
-
-  test("hasDailyKosStoryImage identifies expected CDN image host", () => {
-    expect(
-      hasDailyKosStoryImage(
-        `<img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/abc/story.jpg" />`,
-      ),
-    ).toBe(true);
-    expect(
-      hasDailyKosStoryImage(
-        '<img src="https://example.com/images/story.jpg" />',
-      ),
-    ).toBe(false);
   });
 
   test("hasReadableArticleBody distinguishes image-only from real article body", () => {
@@ -577,56 +472,6 @@ describe("article extract cleanup", () => {
       parseAndValidateArticleUrlFn: async () => parseResponse,
     });
     expect(fromParse).toBe(parseResponse);
-  });
-
-  test("POST can replace content with DailyKos fallback story image", async () => {
-    const response = await POST({} as any, {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => SPECIAL_CASE_STORY_URL,
-      fetchHtmlFn: async () => "<html />",
-      extractFromHtmlFn: async () => ({
-        title: "Title",
-        source: "Source",
-        content: "primary-content",
-      }),
-      sanitizeExtractedContentFn: (content) => content,
-      cleanExtractedArticleHtmlFn: (content) => content,
-      getHostnameFn: () => "www.dailykos.com",
-      hasDailyKosStoryImageFn: (content) => content.includes("fallback-image"),
-      extractDailyKosStoryFallbackHtmlFn: () => "fallback-image",
-    });
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.content).toBe("fallback-image");
-    expect(body.title).toBe("Title");
-    expect(body.source).toBe("Source");
-  });
-
-  test("POST replaces image-only special-case content with readable fallback", async () => {
-    const shortCaptionOnly = `<img src="https://${SPECIAL_CASE_MEDIA_HOST}/images/example/story.jpg" /><p>Short caption.</p>`;
-    const readableFallbackText =
-      "<p>This fallback contains a full article paragraph with meaningful substance for readers.</p>" +
-      "<p>It includes additional context so the extracted result is not just an image and a caption.</p>";
-
-    const response = await POST({} as any, {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => SPECIAL_CASE_STORY_URL,
-      fetchHtmlFn: async () => "<html />",
-      extractFromHtmlFn: async () => ({
-        title: "Title",
-        source: "Source",
-        content: shortCaptionOnly,
-      }),
-      sanitizeExtractedContentFn: (content) => content,
-      cleanExtractedArticleHtmlFn: (content) => content,
-      extractDailyKosStoryFallbackHtmlFn: () => readableFallbackText,
-    });
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.content).toBe(readableFallbackText);
-    expect(body.content).toContain("full article paragraph");
   });
 
   test("POST maps axios and generic failures to expected error handlers", async () => {
@@ -819,7 +664,6 @@ describe("article extract cleanup", () => {
       }),
       sanitizeExtractedContentFn: (c) => c,
       cleanExtractedArticleHtmlFn: (c) => c,
-      getHostnameFn: () => "example.com",
       infoFn: infoFn as any,
       warnFn: mock(() => {}),
     });
@@ -842,7 +686,6 @@ describe("article extract cleanup", () => {
       extractFromHtmlFn: async () => null,
       sanitizeExtractedContentFn: (c) => c,
       cleanExtractedArticleHtmlFn: (c) => c,
-      getHostnameFn: () => "example.com",
       infoFn: mock(() => {}),
       warnFn: warnFn as any,
     });
@@ -863,7 +706,6 @@ describe("article extract cleanup", () => {
       extractFromHtmlFn: async () => ({ title: "T", content: "<p>stuff</p>" }),
       sanitizeExtractedContentFn: () => "",
       cleanExtractedArticleHtmlFn: () => "",
-      getHostnameFn: () => "example.com",
       infoFn: mock(() => {}),
       warnFn: warnFn as any,
     });
