@@ -20,7 +20,9 @@ import {
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
+import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 import { NextRequest, NextResponse } from "next/server";
+import { CookieJar } from "tough-cookie";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -495,9 +497,45 @@ type FetchHtmlDeps = {
   isAxiosErrorFn?: typeof axios.isAxiosError;
 };
 
-// sec-ch-ua values must stay in sync with ARTICLE_EXTRACT_USER_AGENT (Chrome 130).
-const ARTICLE_EXTRACT_SEC_CH_UA =
-  '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"';
+// Dedicated axios instance with cookie jar support for article extraction.
+// Using a separate instance avoids polluting the global axios used by feed fetching.
+// Cookie jar support persists challenge cookies (Cloudflare, DataDome, Akamai)
+// across all redirect hops within a single extraction attempt.
+const extractionAxios = cookieJarWrapper(axios.create());
+
+// How many additional attempts to make after the initial try when a 403 is returned.
+// Total attempts = 1 + EXTRACT_403_RETRIES. Each retry uses a different UA fingerprint
+// and a fresh cookie jar — many bot systems pass the request through on retry once
+// they have logged the initial probe.
+const EXTRACT_403_RETRIES = 2;
+
+// Chrome 130 fingerprint pool — Windows, macOS, and Linux variants.
+// Rotated on each retry attempt so successive requests look like different users.
+// All three share the same sec-ch-ua brand list (only sec-ch-ua-platform differs).
+const EXTRACT_FINGERPRINT_POOL = [
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    secChUa:
+      '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    secChUaPlatform: '"Windows"',
+  },
+  {
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    secChUa:
+      '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    secChUaPlatform: '"macOS"',
+  },
+  {
+    ua: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    secChUa:
+      '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    secChUaPlatform: '"Linux"',
+  },
+] as const;
+
+// Default fingerprint (index 0) kept for backward-compat with CONFIG.ARTICLE_EXTRACT_USER_AGENT
+// which is still honoured when axiosGetFn is injected via deps (tests / overrides).
+const ARTICLE_EXTRACT_SEC_CH_UA = EXTRACT_FINGERPRINT_POOL[0].secChUa;
 
 export async function fetchHtml(
   url: string,
@@ -505,72 +543,115 @@ export async function fetchHtml(
 ): Promise<string> {
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
-  let isFirstValidation = true;
 
-  return fetchTextWithValidatedRedirects(
-    {
-      url,
-      // 5 hops matches feed fetching. Article URLs from RSS often route through
-      // tracking redirectors (feedproxy, dlvr.it, etc.) before reaching origin.
-      maxRedirects: 5,
-      timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-      maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-      headers: {
-        "User-Agent": CONFIG.ARTICLE_EXTRACT_USER_AGENT,
-        // Chrome 130 Accept header with modern image format support (avif, apng).
-        // Order and q-values match real Chrome to avoid fingerprint mismatches.
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        // Chrome 130 compression support including zstd. Note: server support
-        // for zstd varies; gzip/br are universal. Axios handles decompression.
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Cache-Control": "max-age=0",
-        // DO NOT set Connection header — axios + HTTP/2 handle this automatically.
-        // Explicit "keep-alive" conflicts with modern protocol negotiation.
-        "Upgrade-Insecure-Requests": "1",
-        // Sec-Fetch-* policy metadata. CRITICAL: Sec-Fetch-Site MUST be "none"
-        // for direct navigation (bookmark/typed URL). Setting "same-origin" when
-        // the request originates from librerss servers (not the target origin)
-        // is instantly detected via IP/TLS verification and flagged as a bot.
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        // Client Hints — Chrome always sends these alongside its UA. Omitting
-        // sec-ch-ua when using a Chrome UA is a top-tier bot detection signal.
-        "sec-ch-ua": ARTICLE_EXTRACT_SEC_CH_UA,
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        // Priority hint for resource scheduling (Chrome 130 navigations).
-        Priority: "u=0, i",
-        // NO Referer: Direct navigation (typed URL/bookmark) has no referrer.
-        // Sending a Referer from the target's own origin while our IP is external
-        // creates a contradictory signal that anti-bot systems detect immediately.
-      },
-      assertAllowedUrl: async (candidateUrl) => {
-        if (!(await isAllowedUrl(candidateUrl))) {
-          throw new Error(
-            isFirstValidation ? "Blocked URL" : "Blocked redirect target",
-          );
-        }
-        isFirstValidation = false;
-      },
-      onAxiosError: (error, isAxios) => {
-        if (!isAxios(error)) return;
-        const status = error.response?.status;
-        const dataDomeHeader = String(
-          error.response?.headers?.["x-datadome"] ?? "",
-        ).toLowerCase();
-        if (status === 403 && dataDomeHeader === "protected") {
-          throw new Error(
-            "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
-          );
-        }
-      },
-    },
-    { axiosGetFn: deps?.axiosGetFn, isAxiosErrorFn: isAxiosError },
-  );
+  // When axiosGetFn is injected (tests / external callers) fall back to the
+  // original single-attempt behaviour — cookie jar and retry are production-only.
+  const injectedGet = deps?.axiosGetFn;
+
+  let lastError: unknown;
+
+  const attempts = injectedGet ? 1 : 1 + EXTRACT_403_RETRIES;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    // Exponential backoff between retries (first attempt is immediate).
+    if (attempt > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 600 * attempt));
+    }
+
+    // Rotate fingerprint on each attempt. Injected axiosGetFn callers always
+    // use the default fingerprint / CONFIG UA so test expectations stay stable.
+    const fp =
+      EXTRACT_FINGERPRINT_POOL[attempt % EXTRACT_FINGERPRINT_POOL.length];
+    const ua = injectedGet ? CONFIG.ARTICLE_EXTRACT_USER_AGENT : fp.ua;
+    const secChUa = injectedGet ? ARTICLE_EXTRACT_SEC_CH_UA : fp.secChUa;
+    const secChUaPlatform = injectedGet ? '"Windows"' : fp.secChUaPlatform;
+
+    // Fresh cookie jar per attempt so challenge cookies issued by the bot-check
+    // on hop N are carried to hop N+1 within this attempt, but stale/blocked
+    // cookies from a previous failed attempt don't pollute the retry.
+    const jar = injectedGet ? undefined : new CookieJar();
+    const axiosGet: typeof axios.get = injectedGet
+      ? injectedGet
+      : (reqUrl, config) => extractionAxios.get(reqUrl, { ...config, jar });
+
+    let got403 = false;
+    let isFirstValidation = true;
+
+    try {
+      return await fetchTextWithValidatedRedirects(
+        {
+          url,
+          // 5 hops matches feed fetching. Article URLs from RSS often route through
+          // tracking redirectors (feedproxy, dlvr.it, etc.) before reaching origin.
+          maxRedirects: 5,
+          timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+          maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+          headers: {
+            "User-Agent": ua,
+            // Chrome 130 Accept header with modern image format support.
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            // Chrome 130 supports zstd in addition to gzip/deflate/br.
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Cache-Control": "max-age=0",
+            "Upgrade-Insecure-Requests": "1",
+            // Sec-Fetch-* direct-navigation policy (bookmark / typed URL).
+            // Sec-Fetch-Site MUST be "none" — claiming same-origin while
+            // arriving from an external IP is a top bot-detection signal.
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            // Chrome Client Hints — absence alongside a Chrome UA is an
+            // immediate bot fingerprint flag.
+            "sec-ch-ua": secChUa,
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": secChUaPlatform,
+            // Navigation fetch priority (Chrome 130).
+            Priority: "u=0, i",
+          },
+          assertAllowedUrl: async (candidateUrl) => {
+            if (!(await isAllowedUrl(candidateUrl))) {
+              throw new Error(
+                isFirstValidation ? "Blocked URL" : "Blocked redirect target",
+              );
+            }
+            isFirstValidation = false;
+          },
+          onAxiosError: (error, isAxios) => {
+            if (!isAxios(error)) return;
+            const status = error.response?.status;
+            if (status === 403) {
+              got403 = true;
+              const dataDomeHeader = String(
+                error.response?.headers?.["x-datadome"] ?? "",
+              ).toLowerCase();
+              if (dataDomeHeader === "protected") {
+                // DataDome-specific error: don't retry — DataDome blocks by IP
+                // and will return 403 on every attempt from this server.
+                throw new Error(
+                  "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
+                );
+              }
+              // Other 403s: let the error propagate so the retry loop can catch it.
+            }
+          },
+        },
+        { axiosGetFn: axiosGet, isAxiosErrorFn: isAxiosError },
+      );
+    } catch (err) {
+      lastError = err;
+      // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
+      if (got403 && attempt < attempts - 1) {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  // Unreachable — the loop always throws or returns — but satisfies TS.
+  throw lastError;
 }
 
 // ─── POST handler ─────────────────────────────────────────────────────────────
