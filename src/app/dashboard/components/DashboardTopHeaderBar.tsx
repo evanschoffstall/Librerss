@@ -124,7 +124,7 @@ export function DashboardTopHeaderBar() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] md:px-6">
         <button
           type="button"
           onClick={() =>
@@ -136,9 +136,9 @@ export function DashboardTopHeaderBar() {
           <Menu className="h-4 w-4" />
         </button>
 
-        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        <h1 className="flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight">
           <img src="/favicon.svg" alt="LibreRSS logo" className="h-5 w-5" />
-          <span>{title}</span>
+          <span className="truncate">{title}</span>
         </h1>
 
         <div className="relative min-w-0 flex-1">
@@ -156,7 +156,7 @@ export function DashboardTopHeaderBar() {
             <button
               type="button"
               aria-label="Open actions menu"
-              className={`${toolbarBtnClass} md:hidden`}
+              className={`${toolbarBtnClass} shrink-0 md:hidden`}
             >
               <EllipsisVertical className="h-4 w-4" />
             </button>
