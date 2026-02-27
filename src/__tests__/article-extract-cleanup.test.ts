@@ -11,6 +11,7 @@ import {
   normalizeExtractedHtmlSpacing,
   parseAndValidateArticleUrl,
   sanitizeExtractedContent,
+  stripKnownCommentPromptBoilerplate,
   stripKnownDailyKosBoilerplate,
   toParagraphHtml,
 } from "@/app/api/articles/extract/route";
@@ -276,6 +277,39 @@ describe("article extract cleanup", () => {
 
     expect(cleaned).not.toContain("tiny.jpg");
     expect(cleaned).toContain("Body text remains.");
+  });
+
+  test("stripKnownCommentPromptBoilerplate removes leaked comment-gate paragraphs", () => {
+    const input =
+      '<img src="https://cdn.mos.cms.futurecdn.net/wWN99SCnGejGkViA9SXtm6.png" alt="hero" />' +
+      "<p>You must confirm your public display name before commenting</p>" +
+      "<p>Please logout and then login again, you will then be prompted to enter your display name.</p>" +
+      "<p>Real article body paragraph.</p>";
+
+    const cleaned = stripKnownCommentPromptBoilerplate(input);
+
+    expect(cleaned).toContain("futurecdn.net/wWN99SCnGejGkViA9SXtm6.png");
+    expect(cleaned).toContain("Real article body paragraph.");
+    expect(cleaned.toLowerCase()).not.toContain("public display name");
+    expect(cleaned.toLowerCase()).not.toContain("please logout");
+  });
+
+  test("cleanExtractedArticleHtml removes leaked comment-gate paragraphs for non-special domains", () => {
+    const input =
+      "<p>Lead paragraph.</p>" +
+      "<p>You must confirm your public display name before commenting</p>" +
+      "<p>Please logout and then login again, you will then be prompted to enter your display name.</p>" +
+      "<p>Second paragraph.</p>";
+
+    const cleaned = cleanExtractedArticleHtml(
+      input,
+      "https://www.livescience.com/archaeology/neanderthal-human-interbreeding",
+    );
+
+    expect(cleaned).toContain("Lead paragraph.");
+    expect(cleaned).toContain("Second paragraph.");
+    expect(cleaned.toLowerCase()).not.toContain("public display name");
+    expect(cleaned.toLowerCase()).not.toContain("please logout");
   });
 
   test("sanitizeExtractedContent removes known placeholder image URLs without dimensions", () => {

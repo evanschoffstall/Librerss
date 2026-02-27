@@ -318,6 +318,86 @@ export function toParagraphHtml(raw: string): string {
 
 export const normalizeExtractedHtmlSpacing = normalizeArticleHtmlSpacing;
 
+// ─── Pre-extraction HTML cleaning ────────────────────────────────────────────
+
+/**
+ * Remove the entire subtree of the first element whose `id` exactly matches
+ * `idValue`.  Uses depth-counting so nested tags of the same type are handled
+ * correctly.  Returns the original string when no match is found.
+ */
+function removeElementById(rawHtml: string, idValue: string): string {
+  const escaped = idValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Use ["'] bracket instead of a backreference — simpler and avoids group
+  // numbering bugs. Attribute values in HTML are always quoted in practice.
+  const startRe = new RegExp(
+    `<([a-z][a-z0-9:-]*)\\b[^>]*\\bid=["']${escaped}["'][^>]*>`,
+    "i",
+  );
+
+  const startMatch = startRe.exec(rawHtml);
+  if (!startMatch) return rawHtml;
+
+  const tagName = startMatch[1];
+  if (!tagName) return rawHtml;
+  const startIdx = startMatch.index;
+  const afterOpenTag = startIdx + startMatch[0].length;
+
+  const tagRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+  tagRe.lastIndex = afterOpenTag;
+  let depth = 1;
+  let endIdx = -1;
+  let m: RegExpExecArray | null;
+
+  while (depth > 0 && (m = tagRe.exec(rawHtml)) !== null) {
+    if (m[0].startsWith("</")) depth--;
+    else depth++;
+    if (depth === 0) endIdx = m.index + m[0].length;
+  }
+
+  if (endIdx < 0) return rawHtml;
+  return rawHtml.slice(0, startIdx) + rawHtml.slice(endIdx);
+}
+
+/**
+ * Strip known noise containers from raw article HTML **before** passing to the
+ * content extractor.  This prevents the extractor from picking comment widgets,
+ * paywall overlays, or recirculation blocks as the primary article body.
+ *
+ * - Removes `<script>` and `<style>` blocks (extractor noise).
+ * - Removes known comment / engagement widget containers by their DOM ids.
+ * - Removes `<aside data-nosnippet>` recirculation blocks that publishers
+ *   explicitly mark as non-article content.
+ */
+export function preCleanHtmlForExtraction(rawHtml: string): string {
+  let html = rawHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
+
+  // Known comment / engagement widget container ids.
+  const idsToRemove = [
+    "viafoura-comments",
+    "viafoura-comments-container",
+    "viafoura-comment-wrapper",
+    "kiosq-app-paywall-js",
+    "kiosq-app",
+    "coral-display-comments",
+    "comment-container",
+    "mj-comments-container",
+  ];
+
+  for (const id of idsToRemove) {
+    html = removeElementById(html, id);
+  }
+
+  // Remove <aside data-nosnippet> recirculation / promo blocks.
+  html = html.replace(
+    /<aside\b[^>]*\bdata-nosnippet\b[^>]*>[\s\S]*?<\/aside>/gi,
+    "",
+  );
+
+  return html;
+}
+
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
   if (imgTags.length === 0) return "";
@@ -334,7 +414,15 @@ export function sanitizeExtractedContent(rawContent: string): string {
   if (!normalized) return "";
 
   const containsHtml = /<\/?[a-z][\s\S]*>/i.test(normalized);
-  const htmlCandidate = containsHtml ? normalized : toParagraphHtml(normalized);
+  // `section` is in nonTextTags so sanitize-html discards its children entirely.
+  // The extractor often wraps content in <section> legitimately, so we strip
+  // only the section open/close tags here (unwrap, not discard) before the
+  // general sanitizer runs. This does not affect <aside> or <nav> which are
+  // also nonTextTags and should still be discarded.
+  const unwrapped = containsHtml
+    ? normalized.replace(/<\/?section\b[^>]*>/gi, "")
+    : normalized;
+  const htmlCandidate = containsHtml ? unwrapped : toParagraphHtml(unwrapped);
   const sanitized = sanitizeArticleHtml(htmlCandidate);
   const recoveredImageHtml = containsHtml
     ? recoverSanitizedImageHtml(htmlCandidate)
@@ -376,6 +464,19 @@ export function sanitizeExtractedContent(rawContent: string): string {
 
 export function getHostname(url: string): string {
   return tryGetUrlHostname(url) ?? "";
+}
+
+export function stripKnownCommentPromptBoilerplate(content: string): string {
+  return content
+    .replace(
+      /<p\b[^>]*>\s*You\s+must\s+confirm\s+your\s+public\s+display\s+name\s+before\s+commenting\s*<\/p>/gi,
+      "",
+    )
+    .replace(
+      /<p\b[^>]*>\s*Please\s+log\s*out\s+and\s+then\s+log\s*in\s+again,?\s+you\s+will\s+then\s+be\s+prompted\s+to\s+enter\s+your\s+display\s+name\.?\s*<\/p>/gi,
+      "",
+    )
+    .trim();
 }
 
 // ─── Daily Kos boilerplate cleanup ───────────────────────────────────────────
@@ -504,11 +605,16 @@ export function cleanExtractedArticleHtml(
 ): string {
   if (!sanitizedContent.trim()) return "";
 
+  const withoutCommentPrompts =
+    stripKnownCommentPromptBoilerplate(sanitizedContent);
+
+  if (!withoutCommentPrompts.trim()) return "";
+
   if (!getHostname(articleUrl).endsWith("dailykos.com")) {
-    return sanitizedContent;
+    return withoutCommentPrompts;
   }
 
-  const stripped = stripKnownDailyKosBoilerplate(sanitizedContent);
+  const stripped = stripKnownDailyKosBoilerplate(withoutCommentPrompts);
   if (!stripped) return "";
 
   return isLikelyDailyKosFooterBoilerplate(stripped) ? "" : stripped;
@@ -842,7 +948,8 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     });
     info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
 
-    const extracted = await extractArticle(html, articleUrl, {
+    const extractableHtml = preCleanHtmlForExtraction(html);
+    const extracted = await extractArticle(extractableHtml, articleUrl, {
       contentLengthThreshold: 120,
     });
 
@@ -863,7 +970,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       (!hasStoryImage(content) || !hasReadableArticleBody(content))
     ) {
       const fallbackContent = cleanContent(
-        sanitizeContent(extractFallback(html)),
+        sanitizeContent(extractFallback(extractableHtml)),
         articleUrl,
       );
       if (
