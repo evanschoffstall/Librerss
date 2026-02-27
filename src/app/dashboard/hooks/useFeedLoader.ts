@@ -197,11 +197,18 @@ export function useFeedLoader({
   );
 
   const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
+    // In placeholder/preview mode, skip the API call entirely
+    if (usePlaceholderData) {
+      const defaults = buildDefaultCategories(true);
+      setCategories(defaults);
+      return defaults;
+    }
+
     try {
       const sources = await FeedService.getFeedSources();
 
       if (sources.length === 0) {
-        const defaults = buildDefaultCategories(usePlaceholderData);
+        const defaults = buildDefaultCategories(false);
         setCategories(defaults);
         return defaults;
       }
@@ -211,7 +218,7 @@ export function useFeedLoader({
       return nextCategories;
     } catch (err) {
       console.error("Feed source fetch error:", err);
-      const defaults = buildDefaultCategories(usePlaceholderData);
+      const defaults = buildDefaultCategories(false);
       setCategories(defaults);
       return defaults;
     }
@@ -226,10 +233,25 @@ export function useFeedLoader({
       signal?: AbortSignal,
     ): Promise<FeedBatchResult[] | null> => {
       const urls = normalizedSources.map((s) => s.url);
+      // In placeholder/preview mode, skip the API call and use local data directly
+      if (usePlaceholderData) {
+        return normalizedSources.map((source) => ({
+          url: source.url,
+          articles: getPlaceholderArticlesForSource(source.url).map(
+            (article) => ({
+              ...article,
+              feedName: source.name,
+              feedUrl: source.url,
+            }),
+          ),
+          ok: true,
+        }));
+      }
+
       try {
         // Single fetch: returns cached articles and refreshes stale feeds in one pass
         return await FeedService.getFeedsBatch(urls, {
-          skipRefresh: options?.skipRefresh ?? usePlaceholderData,
+          skipRefresh: options?.skipRefresh ?? false,
           forceRefresh: options?.forceRefresh === true,
           requestSource: options?.requestSource,
           signal,

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { AuthService, type AuthUser } from "@/lib";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +22,12 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Enter") {
+      void handleSubmit();
+    }
+  };
 
   const handleSubmit = async () => {
     if (mode === "signup" && !allowSignup) {
@@ -82,12 +89,14 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
             placeholder="Email address"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            onKeyDown={handleKeyDown}
           />
           <Input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            onKeyDown={handleKeyDown}
           />
           {mode === "signup" && (
             <Input
@@ -95,6 +104,7 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
               placeholder="Confirm password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
+              onKeyDown={handleKeyDown}
             />
           )}
           <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting}>

@@ -19,6 +19,7 @@ import {
   selectFeedByKeyFromCategories,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
+import type { FeedFetchOptions } from "../services/selection";
 
 interface UseFeedSourceActionsOptions {
   categories: CategoryTreeNode[];
@@ -27,7 +28,7 @@ interface UseFeedSourceActionsOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
   ensureCategoryLabelExists: (label: string) => void;
 }

@@ -19,6 +19,7 @@ import {
   removeCategoryAndRefresh,
   renameCategoryAndRefresh,
 } from "../services/category-operations";
+import type { FeedFetchOptions } from "../services/selection";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
 interface UseCategoryManagerOptions {
@@ -28,8 +29,9 @@ interface UseCategoryManagerOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+  usePlaceholderData?: boolean;
 }
 
 export function useCategoryManager({
@@ -41,6 +43,7 @@ export function useCategoryManager({
   loadFeedSources,
   fetchFeed,
   fetchCategoryFeeds,
+  usePlaceholderData = false,
 }: UseCategoryManagerOptions) {
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>(
     [],
@@ -53,8 +56,9 @@ export function useCategoryManager({
   const hasLoadedOrderRef = useRef(false);
   const savePendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load category order from DB on mount
+  // Load category order from DB on mount (skip in placeholder/preview mode)
   useEffect(() => {
+    if (usePlaceholderData) return;
     if (hasLoadedOrderRef.current) return;
     hasLoadedOrderRef.current = true;
     void FeedService.getCategoryOrder()
@@ -66,7 +70,7 @@ export function useCategoryManager({
       .catch(() => {
         // Silently ignore — will fall back to default ordering
       });
-  }, []);
+  }, [usePlaceholderData]);
 
   // Debounced save to DB whenever order changes
   const hasMountedRef = useRef(false);
@@ -77,6 +81,7 @@ export function useCategoryManager({
       return;
     }
     if (orderedCategoryLabels.length === 0) return;
+    if (usePlaceholderData) return;
 
     if (savePendingRef.current) {
       clearTimeout(savePendingRef.current);
@@ -92,7 +97,7 @@ export function useCategoryManager({
         clearTimeout(savePendingRef.current);
       }
     };
-  }, [orderedCategoryLabels]);
+  }, [orderedCategoryLabels, usePlaceholderData]);
 
   const ensureCategoryLabelExists = useCallback(
     (label: string) => {

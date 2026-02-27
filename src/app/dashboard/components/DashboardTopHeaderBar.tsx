@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { AuthService } from "@/lib";
+import { AuthService, useLocalStorage } from "@/lib";
 import {
   CheckCheck,
   EllipsisVertical,
@@ -23,10 +23,10 @@ import {
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DASHBOARD_EVENTS } from "../constants";
+import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 
 const toolbarBtnClass =
-  "transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
+  "cursor-pointer transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
 
 export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -34,7 +34,10 @@ export function DashboardTopHeaderBar() {
   const [title, setTitle] = useState("LibreRSS");
   const [search, setSearch] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
+    DASHBOARD_PREVIEW_STORAGE_KEY,
+    false,
+  );
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export function DashboardTopHeaderBar() {
         handleMarkAllReadEnd,
       );
     };
-  }, []);
+  }, [setIsPreviewMode]);
 
   const isDark = mounted && (resolvedTheme ?? "dark") === "dark";
   const nextTheme = isDark ? "light" : "dark";
@@ -108,13 +111,15 @@ export function DashboardTopHeaderBar() {
     if (isSigningOut) return;
 
     if (isPreviewMode) {
-      window.location.assign("/dashboard");
+      setIsPreviewMode(false);
+      window.location.assign("/landing");
       return;
     }
 
     setIsSigningOut(true);
     try {
       await AuthService.logout();
+      setIsPreviewMode(false);
       window.location.assign("/landing");
     } catch {
       toast.error("Unable to sign out.");
@@ -123,8 +128,8 @@ export function DashboardTopHeaderBar() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-6">
+    <div className="fixed inset-x-0 top-0 z-50 pointer-events-auto border-b border-border/60 bg-background/95">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] md:px-6">
         <button
           type="button"
           onClick={() =>
@@ -136,9 +141,9 @@ export function DashboardTopHeaderBar() {
           <Menu className="h-4 w-4" />
         </button>
 
-        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        <h1 className="flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight">
           <img src="/favicon.svg" alt="LibreRSS logo" className="h-5 w-5" />
-          <span>{title}</span>
+          <span className="truncate">{title}</span>
         </h1>
 
         <div className="relative min-w-0 flex-1">
@@ -156,12 +161,12 @@ export function DashboardTopHeaderBar() {
             <button
               type="button"
               aria-label="Open actions menu"
-              className={`${toolbarBtnClass} md:hidden`}
+              className={`${toolbarBtnClass} h-4 w-4 shrink-0 p-0 md:hidden`}
             >
               <EllipsisVertical className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8} className="md:hidden">
+          <DropdownMenuContent align="end" sideOffset={8}>
             <DropdownMenuItem
               onSelect={() =>
                 window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))

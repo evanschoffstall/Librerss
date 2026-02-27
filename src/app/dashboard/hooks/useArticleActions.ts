@@ -18,6 +18,7 @@ interface UseArticleActionsOptions {
   expandedArticleKey: string | null;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
   articleFilter: "all" | "unread" | "read" | "starred";
+  usePlaceholderData?: boolean;
 }
 
 export function useArticleActions({
@@ -26,13 +27,14 @@ export function useArticleActions({
   expandedArticleKey,
   setExpandedArticleKey,
   articleFilter,
+  usePlaceholderData = false,
 }: UseArticleActionsOptions) {
   const {
     updatingArticleState,
     setUpdatingArticleState,
     setArticleReadState,
     handleToggleReadState,
-  } = useArticleReadState({ setFeed });
+  } = useArticleReadState({ setFeed, usePlaceholderData });
 
   const { hydratedArticleLinks, hydratingArticleLinks, hydrateArticleContent } =
     useArticleHydration({ setFeed });
@@ -243,9 +245,11 @@ export function useArticleActions({
       });
 
       try {
-        await ArticleService.updateArticleStatus(article.id, {
-          isStarred: nextStarredState,
-        });
+        if (!usePlaceholderData) {
+          await ArticleService.updateArticleStatus(article.id, {
+            isStarred: nextStarredState,
+          });
+        }
       } catch (error) {
         console.error("Toggle starred state error:", error);
         setFeed((currentFeed) => {
@@ -269,7 +273,7 @@ export function useArticleActions({
         setUpdatingArticleState(({ [articleKey]: _, ...rest }) => rest);
       }
     },
-    [articleFilter, setFeed, setUpdatingArticleState],
+    [articleFilter, setFeed, setUpdatingArticleState, usePlaceholderData],
   );
 
   return {

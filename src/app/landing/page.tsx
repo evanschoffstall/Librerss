@@ -1,5 +1,6 @@
 "use client";
 
+import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import Link from "next/link";
 const LandingView = () => {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden">
+      <ThemeNoticeDialog />
       {/* Ambient background glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -104,7 +106,7 @@ const LandingView = () => {
 
       {/* Bottom tagline */}
       <p className="landing-tagline absolute bottom-8 text-xs text-muted-foreground/40">
-        Open source &middot; Self-hostable &middot; No tracking
+        Open source &middot; Self-hostable &middot; GReader compatible
       </p>
     </div>
   );

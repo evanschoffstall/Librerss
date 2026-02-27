@@ -7,9 +7,13 @@ import { getArticleKey } from "../services/article-collection";
 
 interface UseArticleReadStateOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  usePlaceholderData?: boolean;
 }
 
-export function useArticleReadState({ setFeed }: UseArticleReadStateOptions) {
+export function useArticleReadState({
+  setFeed,
+  usePlaceholderData = false,
+}: UseArticleReadStateOptions) {
   const [updatingArticleState, setUpdatingArticleState] = useState<
     Record<string, boolean>
   >({});
@@ -34,9 +38,11 @@ export function useArticleReadState({ setFeed }: UseArticleReadStateOptions) {
       await Promise.resolve();
 
       try {
-        await ArticleService.updateArticleStatus(article.id, {
-          isRead: nextReadState,
-        });
+        if (!usePlaceholderData) {
+          await ArticleService.updateArticleStatus(article.id, {
+            isRead: nextReadState,
+          });
+        }
       } catch (error) {
         console.error("Set read state error:", error);
         setFeed((currentFeed) =>
@@ -53,7 +59,7 @@ export function useArticleReadState({ setFeed }: UseArticleReadStateOptions) {
         setUpdatingArticleState(({ [articleKey]: _, ...rest }) => rest);
       }
     },
-    [setFeed],
+    [setFeed, usePlaceholderData],
   );
 
   const handleToggleReadState = useCallback(

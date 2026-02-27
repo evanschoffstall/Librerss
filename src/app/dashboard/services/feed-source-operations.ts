@@ -15,12 +15,13 @@ import {
   getFirstFeedNode,
 } from "./category-feeds";
 import { relocateFeedInCategories } from "./category-tree";
+import type { FeedFetchOptions } from "./selection";
 
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],
   feedKey: string,
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>,
-  fetchFeed: (url: string) => Promise<void>,
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>,
 ) {
   const sourceNode = findFeedNodeByKey(categories, feedKey);
   if (!sourceNode?.data?.url) return;
@@ -42,7 +43,7 @@ export async function addFeedSourceAndRefresh({
   category: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  fetchFeed: (url: string) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
 }): Promise<boolean> {
   if (!name.trim() || !url.trim()) {
     toast.error("Feed name and URL are required.");
@@ -65,7 +66,10 @@ export async function addFeedSourceAndRefresh({
 
     if (latestNode?.data?.url) {
       setSelectedCategory(latestNode.key);
-      await fetchFeed(latestNode.data.url);
+      await fetchFeed(latestNode.data.url, {
+        forceRefresh: true,
+        requestSource: "feed-added",
+      });
     }
 
     toast.success("Feed source added.");

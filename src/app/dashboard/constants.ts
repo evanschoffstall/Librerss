@@ -18,6 +18,8 @@ export const DASHBOARD_EVENTS = {
   ENTER_PREVIEW: "dashboard:enter-preview",
 } as const;
 
+export const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
+
 export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   {
     key: "0",

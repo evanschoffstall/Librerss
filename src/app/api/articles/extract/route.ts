@@ -1,7 +1,7 @@
 import { parseJsonBodyOrResponse } from "@/lib/api/request";
 import {
   logAndRespondError,
-  requireMutableAuthenticatedUser,
+  requireMutablePublicRequest,
 } from "@/lib/api/request-guards";
 import { jsonError } from "@/lib/api/responses";
 import { CONFIG } from "@/lib/config";
@@ -9,6 +9,7 @@ import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-fetcher";
+import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
@@ -22,6 +23,8 @@ import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { CookieJar } from "tough-cookie";
 
 export const dynamic = "force-dynamic";
@@ -122,6 +125,28 @@ function setCachedExtractPayload(
     expiresAt: Date.now() + ARTICLE_EXTRACT_CACHE_TTL_MS,
     payload,
   });
+}
+
+type PlaceholderSnapshotHit = {
+  html: string;
+  snapshotPath: string;
+};
+
+async function readPlaceholderSnapshotHtml(
+  url: string,
+): Promise<PlaceholderSnapshotHit | null> {
+  const snapshotPath = getPlaceholderSnapshotPathByArticleUrl(url);
+  if (!snapshotPath) return null;
+
+  const normalizedSnapshotPath = snapshotPath.replace(/^\/+/, "");
+  const filePath = join(process.cwd(), "public", normalizedSnapshotPath);
+
+  try {
+    const html = await readFile(filePath, "utf8");
+    return { html, snapshotPath: `/${normalizedSnapshotPath}` };
+  } catch {
+    return null;
+  }
 }
 
 export function clearArticleExtractCacheForTests(): void {
@@ -293,6 +318,86 @@ export function toParagraphHtml(raw: string): string {
 
 export const normalizeExtractedHtmlSpacing = normalizeArticleHtmlSpacing;
 
+// ─── Pre-extraction HTML cleaning ────────────────────────────────────────────
+
+/**
+ * Remove the entire subtree of the first element whose `id` exactly matches
+ * `idValue`.  Uses depth-counting so nested tags of the same type are handled
+ * correctly.  Returns the original string when no match is found.
+ */
+function removeElementById(rawHtml: string, idValue: string): string {
+  const escaped = idValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Use ["'] bracket instead of a backreference — simpler and avoids group
+  // numbering bugs. Attribute values in HTML are always quoted in practice.
+  const startRe = new RegExp(
+    `<([a-z][a-z0-9:-]*)\\b[^>]*\\bid=["']${escaped}["'][^>]*>`,
+    "i",
+  );
+
+  const startMatch = startRe.exec(rawHtml);
+  if (!startMatch) return rawHtml;
+
+  const tagName = startMatch[1];
+  if (!tagName) return rawHtml;
+  const startIdx = startMatch.index;
+  const afterOpenTag = startIdx + startMatch[0].length;
+
+  const tagRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+  tagRe.lastIndex = afterOpenTag;
+  let depth = 1;
+  let endIdx = -1;
+  let m: RegExpExecArray | null;
+
+  while (depth > 0 && (m = tagRe.exec(rawHtml)) !== null) {
+    if (m[0].startsWith("</")) depth--;
+    else depth++;
+    if (depth === 0) endIdx = m.index + m[0].length;
+  }
+
+  if (endIdx < 0) return rawHtml;
+  return rawHtml.slice(0, startIdx) + rawHtml.slice(endIdx);
+}
+
+/**
+ * Strip known noise containers from raw article HTML **before** passing to the
+ * content extractor.  This prevents the extractor from picking comment widgets,
+ * paywall overlays, or recirculation blocks as the primary article body.
+ *
+ * - Removes `<script>` and `<style>` blocks (extractor noise).
+ * - Removes known comment / engagement widget containers by their DOM ids.
+ * - Removes `<aside data-nosnippet>` recirculation blocks that publishers
+ *   explicitly mark as non-article content.
+ */
+export function preCleanHtmlForExtraction(rawHtml: string): string {
+  let html = rawHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
+
+  // Known comment / engagement widget container ids.
+  const idsToRemove = [
+    "viafoura-comments",
+    "viafoura-comments-container",
+    "viafoura-comment-wrapper",
+    "kiosq-app-paywall-js",
+    "kiosq-app",
+    "coral-display-comments",
+    "comment-container",
+    "mj-comments-container",
+  ];
+
+  for (const id of idsToRemove) {
+    html = removeElementById(html, id);
+  }
+
+  // Remove <aside data-nosnippet> recirculation / promo blocks.
+  html = html.replace(
+    /<aside\b[^>]*\bdata-nosnippet\b[^>]*>[\s\S]*?<\/aside>/gi,
+    "",
+  );
+
+  return html;
+}
+
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
   if (imgTags.length === 0) return "";
@@ -309,7 +414,15 @@ export function sanitizeExtractedContent(rawContent: string): string {
   if (!normalized) return "";
 
   const containsHtml = /<\/?[a-z][\s\S]*>/i.test(normalized);
-  const htmlCandidate = containsHtml ? normalized : toParagraphHtml(normalized);
+  // `section` is in nonTextTags so sanitize-html discards its children entirely.
+  // The extractor often wraps content in <section> legitimately, so we strip
+  // only the section open/close tags here (unwrap, not discard) before the
+  // general sanitizer runs. This does not affect <aside> or <nav> which are
+  // also nonTextTags and should still be discarded.
+  const unwrapped = containsHtml
+    ? normalized.replace(/<\/?section\b[^>]*>/gi, "")
+    : normalized;
+  const htmlCandidate = containsHtml ? unwrapped : toParagraphHtml(unwrapped);
   const sanitized = sanitizeArticleHtml(htmlCandidate);
   const recoveredImageHtml = containsHtml
     ? recoverSanitizedImageHtml(htmlCandidate)
@@ -353,44 +466,39 @@ export function getHostname(url: string): string {
   return tryGetUrlHostname(url) ?? "";
 }
 
-// ─── Daily Kos boilerplate cleanup ───────────────────────────────────────────
-
-export function stripKnownDailyKosBoilerplate(content: string): string {
+export function stripCommentEngagementBoilerplate(content: string): string {
   return content
-    .replace(/<section>[\s\S]*?©\s*Kos\s+Media[\s\S]*?<\/section>/gi, "")
-    .replace(/<p>\s*Daily\s+Kos\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
-    .replace(/<p>\s*About\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
-    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
-    .replace(
-      /<p>\s*<a[^>]*href="https?:\/\/(?:www\.)?dailykos\.com\/blacklivesmatter\/?"[^>]*>\s*<img[\s\S]*?<\/a>\s*<\/p>[\s\S]*?Learn\s+More[\s\S]*?<\/a>/gi,
-      "",
-    )
+    .replace(/<p\b[^>]*>([^<]{0,300})<\/p>/gi, (match, text: string) => {
+      const lower = text.toLowerCase();
+      const hasLoginSignal =
+        /(log\s*(?:in|out)|sign\s*(?:in|out)|display\s*name|before\s+commenting|to\s+comment|must\s+confirm|will\s+be\s+prompted)/.test(
+          lower,
+        );
+      return hasLoginSignal ? "" : match;
+    })
     .trim();
 }
 
-export function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
+export function isLikelyNavFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
   const markerHits = [
-    "© kos media",
-    "front page",
-    "comics",
-    "subscribe",
-    "gift subscriptions",
     "privacy",
+    "terms",
+    "subscribe",
     "masthead",
+    "copyright",
+    "© ",
+    "newsletter",
+    "advertise",
+    "contact",
+    "sitemap",
     "rules of the road",
-  ].filter((marker) => lower.includes(marker)).length;
+  ].filter((m) => lower.includes(m)).length;
 
   const linkCount = (content.match(/<a\b/gi) ?? []).length;
   const listItemCount = (content.match(/<li\b/gi) ?? []).length;
 
-  return markerHits >= 3 && linkCount >= 6 && listItemCount >= 4;
-}
-
-export function hasDailyKosStoryImage(content: string): boolean {
-  return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(
-    content,
-  );
+  return markerHits >= 2 && linkCount >= 6 && listItemCount >= 4;
 }
 
 export function hasReadableArticleBody(content: string): boolean {
@@ -405,88 +513,20 @@ export function hasReadableArticleBody(content: string): boolean {
   return plainTextLength >= 280;
 }
 
-function extractDivInnerHtmlByClass(
-  rawHtml: string,
-  className: string,
-): string {
-  const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const startTagPattern = new RegExp(
-    `<div[^>]*class=("|')[^"']*\\b${escapedClass}\\b[^"']*\\1[^>]*>`,
-    "gi",
-  );
-
-  let bestMatch = "";
-
-  for (
-    let startMatch = startTagPattern.exec(rawHtml);
-    startMatch;
-    startMatch = startTagPattern.exec(rawHtml)
-  ) {
-    if (startMatch.index < 0) continue;
-
-    const startTagIndex = startMatch.index;
-    const startTag = startMatch[0];
-    const contentStart = startTagIndex + startTag.length;
-
-    const divTagPattern = /<\/?div\b[^>]*>/gi;
-    divTagPattern.lastIndex = contentStart;
-
-    let depth = 1;
-    let endIndex = -1;
-
-    for (
-      let next = divTagPattern.exec(rawHtml);
-      next;
-      next = divTagPattern.exec(rawHtml)
-    ) {
-      const tag = next[0];
-      const isClosingTag = /^<\/div\b/i.test(tag);
-      depth += isClosingTag ? -1 : 1;
-
-      if (depth === 0) {
-        endIndex = next.index;
-        break;
-      }
-    }
-
-    if (endIndex < 0) continue;
-
-    const candidate = rawHtml.slice(contentStart, endIndex).trim();
-    if (candidate.length > bestMatch.length) {
-      bestMatch = candidate;
-    }
-  }
-
-  return bestMatch;
-}
-
-export function extractDailyKosStoryFallbackHtml(rawHtml: string): string {
-  const figureMatch = rawHtml.match(
-    /<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i,
-  );
-
-  const figureHtml = figureMatch?.[0] ?? "";
-  const storyTextHtml = extractDivInnerHtmlByClass(rawHtml, "story__text")
-    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
-    .replace(/<hr\b[^>]*>/gi, "");
-
-  return [figureHtml, storyTextHtml].filter(Boolean).join("\n").trim();
-}
-
 export function cleanExtractedArticleHtml(
   sanitizedContent: string,
-  articleUrl: string,
+  _articleUrl: string,
 ): string {
   if (!sanitizedContent.trim()) return "";
 
-  if (!getHostname(articleUrl).endsWith("dailykos.com")) {
-    return sanitizedContent;
-  }
+  const withoutEngagementPrompts =
+    stripCommentEngagementBoilerplate(sanitizedContent);
 
-  const stripped = stripKnownDailyKosBoilerplate(sanitizedContent);
-  if (!stripped) return "";
+  if (!withoutEngagementPrompts.trim()) return "";
 
-  return isLikelyDailyKosFooterBoilerplate(stripped) ? "" : stripped;
+  return isLikelyNavFooterBoilerplate(withoutEngagementPrompts)
+    ? ""
+    : withoutEngagementPrompts;
 }
 
 // ─── Upstream HTML fetch ──────────────────────────────────────────────────────
@@ -536,6 +576,41 @@ const EXTRACT_FINGERPRINT_POOL = [
 // Fingerprint pool index 0 is the canonical default used by injected callers (tests/overrides).
 const ARTICLE_EXTRACT_SEC_CH_UA = EXTRACT_FINGERPRINT_POOL[0].secChUa;
 
+/**
+ * Fetch article HTML using got-scraping — a pure-Node.js HTTP client that spoofs
+ * the TLS/JA3 fingerprint, HTTP/2 SETTINGS frames, and pseudo-header ordering to
+ * match a real Chrome 130 browser.  No binary required; works on any serverless
+ * platform including Vercel Hobby.
+ *
+ * This is the DataDome fallback path.  Node.js's default TLS client hello has a
+ * distinct JA3 hash that DataDome recognises and blocks regardless of how
+ * convincing the HTTP headers look.  axios uses the default Node.js TLS stack;
+ * got-scraping replaces cipher suite ordering, HTTP/2 SETTINGS, and
+ * pseudo-header order with browser-matching values, changing the JA3/JA3S/Akamai
+ * fingerprints to those of a real Chrome instance.
+ */
+async function fetchHtmlWithFingerprint(url: string): Promise<string> {
+  // got-scraping is ESM-only; dynamic import keeps it out of the boot-time module graph.
+  const { gotScraping } = await import("got-scraping");
+
+  const response = await gotScraping.get(url, {
+    // Ask header-generator to produce a full Chrome 130 Windows header set
+    // so every observable signal (UA, Accept, sec-ch-ua, etc.) is consistent.
+    headerGeneratorOptions: {
+      browsers: [{ name: "chrome", minVersion: 130, maxVersion: 130 }],
+      devices: ["desktop"],
+      locales: ["en-US"],
+      operatingSystems: ["windows"],
+    },
+    followRedirect: true,
+    timeout: { request: 25_000 },
+    https: { rejectUnauthorized: true },
+    responseType: "text",
+  });
+
+  return response.body as string;
+}
+
 export async function fetchHtml(
   url: string,
   deps?: FetchHtmlDeps,
@@ -548,6 +623,10 @@ export async function fetchHtml(
   const injectedGet = deps?.axiosGetFn;
 
   let lastError: unknown;
+  // Set to true when DataDome (x-datadome: protected) is detected on a 403.
+  // Rotating axios fingerprints won't help — the block is at TLS/IP level.
+  // The browser fallback runs after the loop exits.
+  let dataDomeDetected = false;
 
   const attempts = injectedGet ? 1 : 1 + EXTRACT_403_RETRIES;
 
@@ -627,8 +706,10 @@ export async function fetchHtml(
                 error.response?.headers?.["x-datadome"] ?? "",
               ).toLowerCase();
               if (dataDomeHeader === "protected") {
-                // DataDome-specific error: don't retry — DataDome blocks by IP
-                // and will return 403 on every attempt from this server.
+                // DataDome detected: fingerprint rotation won't help — the block
+                // operates at TLS (JA3) and IP-reputation level. Mark the flag so
+                // the catch block exits the loop and the browser fallback runs.
+                dataDomeDetected = true;
                 throw new Error(
                   "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
                 );
@@ -641,11 +722,32 @@ export async function fetchHtml(
       );
     } catch (err) {
       lastError = err;
+      if (dataDomeDetected) {
+        // Exit the fingerprint-rotation loop immediately: additional axios
+        // requests from the same server IP won't bypass DataDome — the block
+        // is at the TLS/JA3 fingerprint level.  The got-scraping fallback
+        // below sends a proper Chrome TLS hello which changes the JA3 hash.
+        break;
+      }
       // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
       if (got403 && attempt < attempts - 1) {
         continue;
       }
       throw err;
+    }
+  }
+
+  // TLS fingerprint fallback: when DataDome is detected by axios, retry the
+  // request with got-scraping which spoofs the JA3/HTTP2 fingerprint to match
+  // Chrome 130 at the TLS layer — something axios/Node.js cannot do natively.
+  // Injected callers (tests) always skip this path — they receive the original
+  // DataDome error so existing test contracts are unchanged.
+  if (dataDomeDetected && !injectedGet) {
+    try {
+      return await fetchHtmlWithFingerprint(url);
+    } catch {
+      // got-scraping also failed (IP reputation block or network error) —
+      // fall through and surface the original DataDome error to the caller.
     }
   }
 
@@ -656,15 +758,12 @@ export async function fetchHtml(
 // ─── POST handler ─────────────────────────────────────────────────────────────
 
 type ExtractPostDeps = {
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  requireMutableAuthenticatedUserFn?: typeof requireMutablePublicRequest;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   fetchHtmlFn?: typeof fetchHtml;
   extractFromHtmlFn?: typeof extractFromHtml;
   sanitizeExtractedContentFn?: typeof sanitizeExtractedContent;
   cleanExtractedArticleHtmlFn?: typeof cleanExtractedArticleHtml;
-  getHostnameFn?: typeof getHostname;
-  hasDailyKosStoryImageFn?: typeof hasDailyKosStoryImage;
-  extractDailyKosStoryFallbackHtmlFn?: typeof extractDailyKosStoryFallbackHtml;
   jsonErrorFn?: typeof jsonError;
   toErrorMessageFn?: typeof toErrorMessage;
   logAndRespondErrorFn?: typeof logAndRespondError;
@@ -676,7 +775,7 @@ type ExtractPostDeps = {
 
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const requireAuth =
-    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+    deps?.requireMutableAuthenticatedUserFn ?? requireMutablePublicRequest;
   const parseArticleUrl =
     deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
@@ -685,11 +784,6 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
   const cleanContent =
     deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
-  const hostnameOf = deps?.getHostnameFn ?? getHostname;
-  const hasStoryImage = deps?.hasDailyKosStoryImageFn ?? hasDailyKosStoryImage;
-  const extractFallback =
-    deps?.extractDailyKosStoryFallbackHtmlFn ??
-    extractDailyKosStoryFallbackHtml;
   const toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
   const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
@@ -744,10 +838,19 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       }
     }
 
-    const html = await fetchArticleHtml(articleUrl);
+    const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
+    const html = localSnapshot?.html ?? (await fetchArticleHtml(articleUrl));
+    info(`Article extract source`, {
+      url: safeUrl,
+      source: localSnapshot ? "local-snapshot" : "upstream-url",
+      snapshotPath: localSnapshot?.snapshotPath ?? null,
+      extractAttemptId,
+      requestId,
+    });
     info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
 
-    const extracted = await extractArticle(html, articleUrl, {
+    const extractableHtml = preCleanHtmlForExtraction(html);
+    const extracted = await extractArticle(extractableHtml, articleUrl, {
       contentLengthThreshold: 120,
     });
 
@@ -761,24 +864,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
     const sanitizedContent = sanitizeContent(rawContent);
-    let content = cleanContent(sanitizedContent, articleUrl);
-
-    if (
-      hostnameOf(articleUrl).endsWith("dailykos.com") &&
-      (!hasStoryImage(content) || !hasReadableArticleBody(content))
-    ) {
-      const fallbackContent = cleanContent(
-        sanitizeContent(extractFallback(html)),
-        articleUrl,
-      );
-      if (
-        hasStoryImage(fallbackContent) ||
-        hasReadableArticleBody(fallbackContent) ||
-        !content.trim()
-      ) {
-        content = fallbackContent;
-      }
-    }
+    const content = cleanContent(sanitizedContent, articleUrl);
 
     if (!content.trim()) {
       warn(`Article content empty after full extraction pipeline`, {

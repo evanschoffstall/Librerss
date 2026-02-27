@@ -7,6 +7,7 @@ import {
 } from "@/lib";
 import { toast } from "sonner";
 import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-feeds";
+import type { FeedFetchOptions } from "./selection";
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 
@@ -17,7 +18,7 @@ type ImportOpmlFeedsOptions = {
   setCustomCategoryLabels: CategoryLabelListSetter;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
 };
 
 export async function importOpmlFeedsAndRefresh({
@@ -96,7 +97,10 @@ export async function importOpmlFeedsAndRefresh({
 
   if (nextSelection?.data?.url) {
     setSelectedCategory(nextSelection.key);
-    await fetchFeed(nextSelection.data.url);
+    await fetchFeed(nextSelection.data.url, {
+      forceRefresh: true,
+      requestSource: "opml-imported",
+    });
   }
 
   toast.success(
