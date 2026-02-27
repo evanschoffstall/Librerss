@@ -6,49 +6,57 @@ export const PLACEHOLDER_CATEGORY = "Placeholder Feeds";
 export const PLACEHOLDER_FEED_SOURCES: FeedSource[] = [
   {
     id: 1,
-    name: "World News",
-    url: "https://feeds.bbci.co.uk/news/world/rss.xml",
+    name: "Live Science",
+    url: "https://www.livescience.com/feeds/all",
     category: PLACEHOLDER_CATEGORY,
   },
   {
     id: 2,
-    name: "Technology",
-    url: "https://techcrunch.com/feed/",
+    name: "Psychology Today",
+    url: "https://www.psychologytoday.com/us/news",
     category: PLACEHOLDER_CATEGORY,
   },
   {
     id: 3,
-    name: "Science",
-    url: "https://feeds.feedburner.com/oreilly/radar",
+    name: "NASA",
+    url: "https://www.nasa.gov/rss/dyn/breaking_news.rss",
     category: PLACEHOLDER_CATEGORY,
   },
 ];
 
-type PlaceholderSeed = { title: string; slug: string; content: string };
-type PlaceholderSeedTuple = readonly [title: string, slug: string];
-
-const PLACEHOLDER_ARTICLE_CONTENT =
-  "This placeholder article provides an extended body for realistic UI testing, including list previews, expanded reading views, search snippets, and typography checks across desktop and mobile layouts. The narrative explains timeline context, implementation milestones, operational dependencies, and review checkpoints so the entry behaves like a substantial report instead of a short stub. Additional lines describe stakeholder coordination, risk tracking, data verification, and follow up planning, which helps validate truncation behavior, line wrapping, spacing rhythm, and scroll performance under heavier content loads. The text remains intentionally synthetic and neutral so teams can test interaction quality, loading behavior, and long form readability without relying on sensitive or production editorial material.";
+type PlaceholderSeed = {
+  title: string;
+  slug: string;
+  url: string;
+  content: string;
+};
+type PlaceholderSeedTuple = readonly [
+  title: string,
+  slug: string,
+  url: string,
+  content: string,
+];
 
 const createPlaceholderSeeds = (
   entries: readonly PlaceholderSeedTuple[],
 ): PlaceholderSeed[] =>
-  entries.map(([title, slug]) => ({
+  entries.map(([title, slug, url, content]) => ({
     title,
     slug,
-    content: PLACEHOLDER_ARTICLE_CONTENT,
+    url,
+    content,
   }));
 
 const createPlaceholderArticles = (
   feedId: number,
-  basePath: string,
+  _basePath: string,
   seeds: PlaceholderSeed[],
 ): Article[] => {
   const MINUTE = 60 * 1000;
   return seeds.map((seed, index) => ({
     id: -(feedId * 100 + index + 1),
     title: seed.title,
-    link: `https://example.com/${basePath}/${seed.slug}`,
+    link: seed.url,
     content: seed.content,
     publicationDate: new Date(Date.now() - (12 + index * 23) * MINUTE),
     lastChecked: new Date(Date.now() - (4 + index) * MINUTE),
@@ -58,140 +66,128 @@ const createPlaceholderArticles = (
 
 const WORLD_SEEDS = createPlaceholderSeeds([
   [
-    "Regional power grid trial reduces outage recovery time by 22%",
-    "grid-trial-recovery-time",
+    "Humans and Neanderthals interbred — but it was mostly male Neanderthals and female humans, study finds",
+    "neanderthals-interbred",
+    "https://www.livescience.com/archaeology/neanderthals/humans-and-neanderthals-interbred-but-it-was-mostly-male-neanderthals-and-female-humans-who-coupled-up-study-finds",
+    "Humans and Neanderthals interbred — but it was mostly male Neanderthals and female humans, study finds.",
   ],
   [
-    "Port city expands flood barrier network before monsoon season",
-    "port-city-flood-barriers",
+    "'Revolutionary': Vera C. Rubin Observatory found 800,000 objects of interest in a single night",
+    "rubin-observatory-800k",
+    "https://www.livescience.com/space/astronomy/rubin-observatory-alerts-scientists-to-800-000-new-asteroids-exploding-stars-and-other-cosmic-phenomena-in-just-one-night",
+    "A sample of five solar systems objects that changed in brightness or position during Rubin's nightly observations.",
   ],
   [
-    "Cross-border rail timetable agreement adds overnight freight capacity",
-    "rail-overnight-freight-capacity",
+    "Giant 'spiderwebs' on Mars contain tiny egg-like structures that scientists can't quite explain",
+    "mars-spiderwebs",
+    "https://www.livescience.com/space/mars/giant-spiderwebs-on-mars-contain-tiny-egg-like-structures-that-scientists-cant-quite-explain-nasa-rover-reveals",
+    "One of the new photos, captured on Sept. 26, 2025, shows hundreds of tiny egg-like nodules on the surface of one of the boxwork ridges.",
   ],
   [
-    "Public health agency launches early-warning dashboard for heat risk",
-    "heat-risk-early-warning-dashboard",
+    "Fresh look at Apollo moon rocks solves decades-old mystery about the moon's magnetic field",
+    "apollo-moon-rocks-magnetic-field",
+    "https://www.livescience.com/space/the-moon/fresh-look-at-apollo-moon-rocks-solves-decades-old-mystery-about-the-moons-magnetic-field",
+    "An Apollo 12 astronaut collects lunar samples while his fellow crew member takes a photo.",
   ],
   [
-    "Municipal housing retrofit program records first winter efficiency gains",
-    "housing-retrofit-efficiency-gains",
+    "Chinese astronauts describe moment a crack was discovered on Shenzhou-20 spacecraft",
+    "shenzhou-20-crack",
+    "https://www.livescience.com/space/space-exploration/chinese-astronauts-describe-moment-a-crack-was-discovered-on-shenzhou-20-spacecraft",
+    "Chinese astronauts describe moment a crack was discovered on Shenzhou-20 spacecraft.",
   ],
   [
-    "Coastal airport tests autonomous tug routing for ground operations",
-    "airport-autonomous-tug-routing",
-  ],
-  [
-    "Agriculture ministry opens drought insurance data API for cooperatives",
-    "drought-insurance-data-api",
-  ],
-  [
-    "Metropolitan bike network adds protected links near transit hubs",
-    "bike-network-transit-links",
-  ],
-  [
-    "National archive digitization project reaches 10 million records indexed",
-    "archive-digitization-indexed-records",
-  ],
-  [
-    "Intercity water-sharing pact adds transparent reservoir reporting",
-    "water-sharing-reservoir-reporting",
+    "Scientists find ancient black hole breaking the cosmic 'speed limit,' challenging multiple theories",
+    "cosmic-speed-limit-black-hole",
+    "https://www.livescience.com/space/black-holes/rule-breaking-black-hole-found-growing-at-13-times-the-cosmic-speed-limit-challenging-theories",
+    "An artist's rendition of a black hole, along with its swirling accretion disk, bright corona and jet.",
   ],
 ]);
 
 const TECHNOLOGY_SEEDS = createPlaceholderSeeds([
   [
-    "Edge inference toolkit adds quantization presets for ARM gateways",
-    "edge-inference-quantization-presets",
+    "The Most Dangerous Books in Society",
+    "most-dangerous-books",
+    "https://www.psychologytoday.com/us/blog/curious/202602/the-most-dangerous-books-in-society",
+    "We talk about a lot of strange things in my Psychology 417: Science of Well-Being class.",
   ],
   [
-    "Open telemetry client introduces schema migration assistant",
-    "telemetry-schema-migration-assistant",
+    "For the Love of Boredom",
+    "for-the-love-of-boredom",
+    "https://www.psychologytoday.com/us/blog/modern-boredom/202602/for-the-love-of-boredom",
+    "Everybody knows the story of Phineas Gage, the railroad worker who survived an iron bar shooting through his skull.",
   ],
   [
-    "Passwordless auth provider ships hardware-backed passkey recovery flow",
-    "passkey-recovery-hardware-backed",
+    "2 Ways to Stop Shutting Down During Conflicts",
+    "stop-shutting-down-during-conflicts",
+    "https://www.psychologytoday.com/us/blog/social-instincts/202602/2-ways-to-stop-shutting-down-during-conflicts",
+    "Shutting down during conflict is often misunderstood as weakness, but it is usually a stress response.",
   ],
   [
-    "Database proxy benchmark shows better tail latency after queue tuning",
-    "database-proxy-tail-latency",
+    "How Kindness and Compassion Make Hard Goals Doable",
+    "kindness-compassion-hard-goals",
+    "https://www.psychologytoday.com/us/blog/from-striving-to-thriving/202602/how-kindness-and-compassion-make-hard-goals-doable",
+    "A coaching challenge to do 100 push-ups in eight weeks became a lesson in motivation and support.",
   ],
   [
-    "Design system compiler adds token diff snapshots in pull requests",
-    "design-system-token-diff-snapshots",
+    "Perfectionists Don't Ever Believe You're Trying Your Best",
+    "perfectionists-trying-your-best",
+    "https://www.psychologytoday.com/us/blog/perfectionism/202602/perfectionists-dont-ever-believe-youre-trying-your-best",
+    "Some people believe others are trying their best, while others insist you should always try your best.",
   ],
   [
-    "Container runtime patch cuts cold-start variance for short jobs",
-    "container-runtime-cold-start-variance",
-  ],
-  [
-    "Mobile crash analytics SDK adds offline symbolication queue",
-    "mobile-crash-sdk-offline-symbolication",
-  ],
-  [
-    "Graph query engine preview introduces cost hints for nested filters",
-    "graph-query-cost-hints",
-  ],
-  [
-    "Developer platform bundles local secret vault for ephemeral environments",
-    "developer-platform-local-secret-vault",
-  ],
-  [
-    "A11y lint rule pack expands checks for keyboard trap edge cases",
-    "a11y-lint-keyboard-trap-checks",
+    "Why Trying Too Hard Keeps You Stuck: The Art of Letting Go",
+    "trying-too-hard-letting-go",
+    "https://www.psychologytoday.com/us/blog/buddhist-psychology-east-meets-west/202602/why-trying-too-hard-keeps-you-stuck-the-art-of",
+    "Many of us struggle to let go of relationship pain or career disappointments, and that struggle can linger for years.",
   ],
 ]);
 
 const SCIENCE_SEEDS = createPlaceholderSeeds([
   [
-    "Ocean sensor array identifies seasonal plankton bloom timing shift",
-    "plankton-bloom-timing-shift",
+    "JPL 3D-Printed Part Springs Forward",
+    "jpl-3d-printed-part",
+    "https://science.nasa.gov/photojournal/jpl-3d-printed-part-springs-forward/",
+    "With a simple motion, a jack-in-the-box-like spring designed at NASA’s Jet Propulsion Laboratory showed the potential of additive manufacturing, also known as 3D printing, to cut costs and complexity for futuristic space antennas.",
   ],
   [
-    "Low-cost air monitors validate wildfire smoke model in rural counties",
-    "air-monitor-wildfire-model-validation",
+    "Landsat 9: More Than Just A Picture",
+    "landsat-9-more-than-just-a-picture",
+    "https://science.nasa.gov/missions/landsat/landsat-9-more-than-just-a-picture/",
+    "For over 50 years, the Landsat program has provided the longest continuous satellite record of Earth's land surface from space.",
   ],
   [
-    "Clinical trial consortium publishes open protocol for adaptive enrollment",
-    "adaptive-enrollment-open-protocol",
+    "NASA's ESCAPADE Ready to Study Space Weather from Earth to Mars",
+    "escapade-space-weather-earth-mars",
+    "https://science.nasa.gov/science-research/heliophysics/nasas-escapade-ready-to-study-space-weather-from-earth-to-mars/",
+    "Once warm and watery, Mars is now cold and dry beneath a thin atmosphere.",
   ],
   [
-    "Lab demonstrates recyclable membrane for industrial desalination pilot",
-    "recyclable-membrane-desalination",
+    "Inside Project Hail Mary",
+    "inside-project-hail-mary",
+    "https://www.nasa.gov/image-article/inside-project-hail-mary/",
+    "NASA astronaut Kjell Lindgren joined the Project Hail Mary event at JPL with cast and filmmakers to discuss human spaceflight.",
   ],
   [
-    "Seismic team maps microfault activity beneath rapidly growing suburbs",
-    "microfault-activity-suburbs",
+    "NASA Invites Media to Discuss Next Steps for Artemis Campaign",
+    "artemis-next-steps",
+    "https://www.nasa.gov/news-release/nasa-invites-media-to-discuss-next-steps-for-artemis-campaign/",
+    "After rollback of the Artemis II SLS rocket and Orion spacecraft, NASA scheduled a media briefing from Kennedy Space Center.",
   ],
   [
-    "Bioinformatics workflow cuts genome assembly runtime on shared clusters",
-    "genome-assembly-runtime-cut",
-  ],
-  [
-    "Archaeology project reconstructs trade routes from isotopic pottery scans",
-    "isotopic-pottery-trade-routes",
-  ],
-  [
-    "Urban ecology study links tree diversity to lower summer street temperatures",
-    "tree-diversity-street-temperature",
-  ],
-  [
-    "Particle detector upgrade improves rare-event background rejection",
-    "particle-detector-background-rejection",
-  ],
-  [
-    "Citizen science network tracks pollinator recovery across restored meadows",
-    "pollinator-recovery-restored-meadows",
+    "Dry-Season Floods Drench Northern Colombia",
+    "dry-season-floods-colombia",
+    "https://science.nasa.gov/earth/earth-observatory/dry-season-floods-drench-northern-colombia/",
+    "Villages and farmland were swamped after unusually heavy early-February rains pushed the Sinú River over its banks.",
   ],
 ]);
 
 const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = {
   [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[0].url)]:
-    createPlaceholderArticles(1, "world", WORLD_SEEDS),
+    createPlaceholderArticles(1, "livescience", WORLD_SEEDS),
   [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[1].url)]:
-    createPlaceholderArticles(2, "technology", TECHNOLOGY_SEEDS),
+    createPlaceholderArticles(2, "psychologytoday", TECHNOLOGY_SEEDS),
   [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[2].url)]:
-    createPlaceholderArticles(3, "science", SCIENCE_SEEDS),
+    createPlaceholderArticles(3, "nasa", SCIENCE_SEEDS),
 };
 
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
