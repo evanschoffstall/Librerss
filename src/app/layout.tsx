@@ -1,4 +1,5 @@
 import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import React from "react";
@@ -36,6 +37,7 @@ export default function RootLayout({
           </>
         )}
         <AppThemeProvider>{children}</AppThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
