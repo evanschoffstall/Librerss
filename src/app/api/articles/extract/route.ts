@@ -466,57 +466,39 @@ export function getHostname(url: string): string {
   return tryGetUrlHostname(url) ?? "";
 }
 
-export function stripKnownCommentPromptBoilerplate(content: string): string {
+export function stripCommentEngagementBoilerplate(content: string): string {
   return content
-    .replace(
-      /<p\b[^>]*>\s*You\s+must\s+confirm\s+your\s+public\s+display\s+name\s+before\s+commenting\s*<\/p>/gi,
-      "",
-    )
-    .replace(
-      /<p\b[^>]*>\s*Please\s+log\s*out\s+and\s+then\s+log\s*in\s+again,?\s+you\s+will\s+then\s+be\s+prompted\s+to\s+enter\s+your\s+display\s+name\.?\s*<\/p>/gi,
-      "",
-    )
+    .replace(/<p\b[^>]*>([^<]{0,300})<\/p>/gi, (match, text: string) => {
+      const lower = text.toLowerCase();
+      const hasLoginSignal =
+        /(log\s*(?:in|out)|sign\s*(?:in|out)|display\s*name|before\s+commenting|to\s+comment|must\s+confirm|will\s+be\s+prompted)/.test(
+          lower,
+        );
+      return hasLoginSignal ? "" : match;
+    })
     .trim();
 }
 
-// ─── Daily Kos boilerplate cleanup ───────────────────────────────────────────
-
-export function stripKnownDailyKosBoilerplate(content: string): string {
-  return content
-    .replace(/<section>[\s\S]*?©\s*Kos\s+Media[\s\S]*?<\/section>/gi, "")
-    .replace(/<p>\s*Daily\s+Kos\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
-    .replace(/<p>\s*About\s*<\/p>\s*<ul>[\s\S]*?<\/ul>/gi, "")
-    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
-    .replace(
-      /<p>\s*<a[^>]*href="https?:\/\/(?:www\.)?dailykos\.com\/blacklivesmatter\/?"[^>]*>\s*<img[\s\S]*?<\/a>\s*<\/p>[\s\S]*?Learn\s+More[\s\S]*?<\/a>/gi,
-      "",
-    )
-    .trim();
-}
-
-export function isLikelyDailyKosFooterBoilerplate(content: string): boolean {
+export function isLikelyNavFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
   const markerHits = [
-    "© kos media",
-    "front page",
-    "comics",
-    "subscribe",
-    "gift subscriptions",
     "privacy",
+    "terms",
+    "subscribe",
     "masthead",
+    "copyright",
+    "© ",
+    "newsletter",
+    "advertise",
+    "contact",
+    "sitemap",
     "rules of the road",
-  ].filter((marker) => lower.includes(marker)).length;
+  ].filter((m) => lower.includes(m)).length;
 
   const linkCount = (content.match(/<a\b/gi) ?? []).length;
   const listItemCount = (content.match(/<li\b/gi) ?? []).length;
 
-  return markerHits >= 3 && linkCount >= 6 && listItemCount >= 4;
-}
-
-export function hasDailyKosStoryImage(content: string): boolean {
-  return /<img\b[^>]*src="https?:\/\/cdn\.prod\.dailykos\.com\/images\//i.test(
-    content,
-  );
+  return markerHits >= 2 && linkCount >= 6 && listItemCount >= 4;
 }
 
 export function hasReadableArticleBody(content: string): boolean {
@@ -531,93 +513,20 @@ export function hasReadableArticleBody(content: string): boolean {
   return plainTextLength >= 280;
 }
 
-function extractDivInnerHtmlByClass(
-  rawHtml: string,
-  className: string,
-): string {
-  const escapedClass = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const startTagPattern = new RegExp(
-    `<div[^>]*class=("|')[^"']*\\b${escapedClass}\\b[^"']*\\1[^>]*>`,
-    "gi",
-  );
-
-  let bestMatch = "";
-
-  for (
-    let startMatch = startTagPattern.exec(rawHtml);
-    startMatch;
-    startMatch = startTagPattern.exec(rawHtml)
-  ) {
-    if (startMatch.index < 0) continue;
-
-    const startTagIndex = startMatch.index;
-    const startTag = startMatch[0];
-    const contentStart = startTagIndex + startTag.length;
-
-    const divTagPattern = /<\/?div\b[^>]*>/gi;
-    divTagPattern.lastIndex = contentStart;
-
-    let depth = 1;
-    let endIndex = -1;
-
-    for (
-      let next = divTagPattern.exec(rawHtml);
-      next;
-      next = divTagPattern.exec(rawHtml)
-    ) {
-      const tag = next[0];
-      const isClosingTag = /^<\/div\b/i.test(tag);
-      depth += isClosingTag ? -1 : 1;
-
-      if (depth === 0) {
-        endIndex = next.index;
-        break;
-      }
-    }
-
-    if (endIndex < 0) continue;
-
-    const candidate = rawHtml.slice(contentStart, endIndex).trim();
-    if (candidate.length > bestMatch.length) {
-      bestMatch = candidate;
-    }
-  }
-
-  return bestMatch;
-}
-
-export function extractDailyKosStoryFallbackHtml(rawHtml: string): string {
-  const figureMatch = rawHtml.match(
-    /<figure>[\s\S]*?<img\b[\s\S]*?<\/figure>/i,
-  );
-
-  const figureHtml = figureMatch?.[0] ?? "";
-  const storyTextHtml = extractDivInnerHtmlByClass(rawHtml, "story__text")
-    .replace(/<p>\s*<strong>\s*Related\s*\|[\s\S]*?<\/p>/gi, "")
-    .replace(/<hr\b[^>]*>/gi, "");
-
-  return [figureHtml, storyTextHtml].filter(Boolean).join("\n").trim();
-}
-
 export function cleanExtractedArticleHtml(
   sanitizedContent: string,
-  articleUrl: string,
+  _articleUrl: string,
 ): string {
   if (!sanitizedContent.trim()) return "";
 
-  const withoutCommentPrompts =
-    stripKnownCommentPromptBoilerplate(sanitizedContent);
+  const withoutEngagementPrompts =
+    stripCommentEngagementBoilerplate(sanitizedContent);
 
-  if (!withoutCommentPrompts.trim()) return "";
+  if (!withoutEngagementPrompts.trim()) return "";
 
-  if (!getHostname(articleUrl).endsWith("dailykos.com")) {
-    return withoutCommentPrompts;
-  }
-
-  const stripped = stripKnownDailyKosBoilerplate(withoutCommentPrompts);
-  if (!stripped) return "";
-
-  return isLikelyDailyKosFooterBoilerplate(stripped) ? "" : stripped;
+  return isLikelyNavFooterBoilerplate(withoutEngagementPrompts)
+    ? ""
+    : withoutEngagementPrompts;
 }
 
 // ─── Upstream HTML fetch ──────────────────────────────────────────────────────
@@ -855,9 +764,6 @@ type ExtractPostDeps = {
   extractFromHtmlFn?: typeof extractFromHtml;
   sanitizeExtractedContentFn?: typeof sanitizeExtractedContent;
   cleanExtractedArticleHtmlFn?: typeof cleanExtractedArticleHtml;
-  getHostnameFn?: typeof getHostname;
-  hasDailyKosStoryImageFn?: typeof hasDailyKosStoryImage;
-  extractDailyKosStoryFallbackHtmlFn?: typeof extractDailyKosStoryFallbackHtml;
   jsonErrorFn?: typeof jsonError;
   toErrorMessageFn?: typeof toErrorMessage;
   logAndRespondErrorFn?: typeof logAndRespondError;
@@ -878,11 +784,6 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
   const cleanContent =
     deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
-  const hostnameOf = deps?.getHostnameFn ?? getHostname;
-  const hasStoryImage = deps?.hasDailyKosStoryImageFn ?? hasDailyKosStoryImage;
-  const extractFallback =
-    deps?.extractDailyKosStoryFallbackHtmlFn ??
-    extractDailyKosStoryFallbackHtml;
   const toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
   const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
@@ -963,24 +864,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
     const sanitizedContent = sanitizeContent(rawContent);
-    let content = cleanContent(sanitizedContent, articleUrl);
-
-    if (
-      hostnameOf(articleUrl).endsWith("dailykos.com") &&
-      (!hasStoryImage(content) || !hasReadableArticleBody(content))
-    ) {
-      const fallbackContent = cleanContent(
-        sanitizeContent(extractFallback(extractableHtml)),
-        articleUrl,
-      );
-      if (
-        hasStoryImage(fallbackContent) ||
-        hasReadableArticleBody(fallbackContent) ||
-        !content.trim()
-      ) {
-        content = fallbackContent;
-      }
-    }
+    const content = cleanContent(sanitizedContent, articleUrl);
 
     if (!content.trim()) {
       warn(`Article content empty after full extraction pipeline`, {
