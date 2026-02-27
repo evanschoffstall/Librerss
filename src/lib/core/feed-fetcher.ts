@@ -242,7 +242,13 @@ export async function fetchAndCacheFeedArticles(
   const [userSource] = await db
     .select({ id: feedSources.id })
     .from(feedSources)
-    .where(and(eq(feedSources.userId, userId), eq(feedSources.url, feedUrl)))
+    .where(
+      and(
+        eq(feedSources.userId, userId),
+        eq(feedSources.url, feedUrl),
+        eq(feedSources.enabled, true),
+      ),
+    )
     .limit(1);
 
   if (!userSource) throw new FeedSourceNotFoundError(feedUrl);

@@ -17,6 +17,7 @@ export interface FeedSource {
   name: string;
   url: string;
   category?: string;
+  enabled?: boolean;
 }
 
 export interface Article {
@@ -37,5 +38,10 @@ export interface CategoryTreeNode {
   key: string;
   label: string;
   children?: CategoryTreeNode[];
-  data?: { url: string; sourceId?: number; category?: string };
+  data?: {
+    url: string;
+    sourceId?: number;
+    category?: string;
+    enabled?: boolean;
+  };
 }

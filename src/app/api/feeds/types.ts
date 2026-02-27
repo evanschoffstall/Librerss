@@ -16,10 +16,16 @@ export type RenameFeedPayload = {
   url: string;
 };
 
+export type ToggleFeedEnabledPayload = {
+  sourceId: number;
+  enabled: boolean;
+};
+
 export type FeedSourceRecord = {
   id: number;
   name: string;
   url: string;
+  enabled?: boolean;
 };
 
 export type FeedSourceListRow = FeedSourceRecord & {

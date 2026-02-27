@@ -88,6 +88,7 @@ export const feedSources = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 255 }).notNull(),
     url: text("url").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
   },
   (table) => ({
     userUrlIdx: uniqueIndex("feed_source_user_url_idx").on(

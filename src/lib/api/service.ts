@@ -202,6 +202,17 @@ export class FeedService {
     return response.data;
   }
 
+  static async setFeedSourceEnabled(
+    id: number,
+    enabled: boolean,
+  ): Promise<FeedSource> {
+    const response = await api.patch(`${this.baseUrl}/feeds`, {
+      id,
+      enabled,
+    });
+    return response.data;
+  }
+
   static async getCategoryOrder(): Promise<string[]> {
     const response = await api.get(`${this.baseUrl}/feeds/category-order`);
     return Array.isArray(response.data?.orderedLabels)
