@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { AuthService } from "@/lib";
+import { AuthService, useLocalStorage } from "@/lib";
 import {
   CheckCheck,
   EllipsisVertical,
@@ -23,7 +23,7 @@ import {
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DASHBOARD_EVENTS } from "../constants";
+import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 
 const toolbarBtnClass =
   "transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
@@ -34,7 +34,10 @@ export function DashboardTopHeaderBar() {
   const [title, setTitle] = useState("LibreRSS");
   const [search, setSearch] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
+    DASHBOARD_PREVIEW_STORAGE_KEY,
+    false,
+  );
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export function DashboardTopHeaderBar() {
         handleMarkAllReadEnd,
       );
     };
-  }, []);
+  }, [setIsPreviewMode]);
 
   const isDark = mounted && (resolvedTheme ?? "dark") === "dark";
   const nextTheme = isDark ? "light" : "dark";
@@ -108,13 +111,15 @@ export function DashboardTopHeaderBar() {
     if (isSigningOut) return;
 
     if (isPreviewMode) {
-      window.location.assign("/dashboard");
+      setIsPreviewMode(false);
+      window.location.assign("/landing");
       return;
     }
 
     setIsSigningOut(true);
     try {
       await AuthService.logout();
+      setIsPreviewMode(false);
       window.location.assign("/landing");
     } catch {
       toast.error("Unable to sign out.");

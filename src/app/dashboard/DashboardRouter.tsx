@@ -12,7 +12,7 @@ import {
 } from "./components/Background";
 import { LoginView } from "./components/login/LoginView";
 import type { BackgroundMode } from "./constants";
-import { DASHBOARD_EVENTS } from "./constants";
+import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 
 export function DashboardRouter() {
@@ -20,7 +20,10 @@ export function DashboardRouter() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [allowSignup, setAllowSignup] = useState(true);
   const [usePlaceholderData, setUsePlaceholderData] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
+    DASHBOARD_PREVIEW_STORAGE_KEY,
+    false,
+  );
   const { resolvedTheme } = useTheme();
   const [backgroundMode, setBackgroundMode] = useLocalStorage<BackgroundMode>(
     "librerss:backgroundMode",
@@ -53,6 +56,9 @@ export function DashboardRouter() {
         const session = await AuthService.getSession();
         setAllowSignup(session.allowSignup);
         setUsePlaceholderData(session.usePlaceholderData);
+        if (session.authenticated || session.allowSignup) {
+          setIsPreviewMode(false);
+        }
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
         setAllowSignup(true);
@@ -63,7 +69,7 @@ export function DashboardRouter() {
     };
 
     void loadSession();
-  }, []);
+  }, [setIsPreviewMode]);
 
   const handleEnterPreview = () => {
     setIsPreviewMode(true);
