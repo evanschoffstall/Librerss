@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 
 const toolbarBtnClass =
-  "transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
+  "cursor-pointer transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
 
 export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -128,7 +128,7 @@ export function DashboardTopHeaderBar() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-x-0 top-0 z-50 pointer-events-auto border-b border-border/60 bg-background/95">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] md:px-6">
         <button
           type="button"
@@ -161,12 +161,12 @@ export function DashboardTopHeaderBar() {
             <button
               type="button"
               aria-label="Open actions menu"
-              className={`${toolbarBtnClass} shrink-0 md:hidden`}
+              className={`${toolbarBtnClass} h-4 w-4 shrink-0 p-0 md:hidden`}
             >
               <EllipsisVertical className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8} className="md:hidden">
+          <DropdownMenuContent align="end" sideOffset={8}>
             <DropdownMenuItem
               onSelect={() =>
                 window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
