@@ -26,6 +26,8 @@ interface SharedFeedRowProps {
   onCancelFeedEdit: () => void;
   onStartFeedEdit: (key: string, name: string, url: string) => void;
   onRemoveFeed: (key: string) => void;
+  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
+  togglingFeedKey: string | null;
 }
 
 interface SettingsCategoryListProps {
@@ -144,11 +146,10 @@ export function SettingsCategoryList({
 
         {drag.draggingCategoryLabel && (
           <div
-            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${
-              drag.categoryDropIndex === categories.length
+            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${drag.categoryDropIndex === categories.length
                 ? "border-primary bg-primary/5 text-foreground"
                 : "text-muted-foreground"
-            }`}
+              }`}
             onDragOver={(event) => drag.onCategoryDragOver(event, categories.length)}
             onDrop={(event) => drag.onCategoryDrop(event, categories.length)}
           >

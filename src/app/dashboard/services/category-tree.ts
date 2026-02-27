@@ -39,6 +39,7 @@ export const buildCategoriesFromSources = (
     name: string;
     url: string;
     category?: string | null;
+    enabled?: boolean;
   }>,
 ): CategoryTreeNode[] => {
   const grouped = new Map<string, CategoryTreeNode[]>();
@@ -50,7 +51,12 @@ export const buildCategoriesFromSources = (
     current.push({
       key: `${toCategoryKey(categoryLabel)}-${source.id}`,
       label: source.name,
-      data: { url: source.url, sourceId: source.id, category: categoryLabel },
+      data: {
+        url: source.url,
+        sourceId: source.id,
+        category: categoryLabel,
+        enabled: source.enabled !== false,
+      },
     });
 
     grouped.set(categoryLabel, current);

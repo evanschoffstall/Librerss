@@ -30,6 +30,10 @@ interface UseCategoryManagerOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
   usePlaceholderData?: boolean;
 }
@@ -42,6 +46,7 @@ export function useCategoryManager({
   setFeed,
   loadFeedSources,
   fetchFeed,
+  fetchAllFeeds,
   fetchCategoryFeeds,
   usePlaceholderData = false,
 }: UseCategoryManagerOptions) {
@@ -126,6 +131,7 @@ export function useCategoryManager({
     setFeed,
     loadFeedSources,
     fetchFeed,
+    fetchAllFeeds,
     fetchCategoryFeeds,
     ensureCategoryLabelExists,
   });
@@ -226,6 +232,7 @@ export function useCategoryManager({
     addFeedSource: feedSourceActions.addFeedSource,
     removeFeedSource: feedSourceActions.removeFeedSource,
     renameFeedSource: feedSourceActions.renameFeedSource,
+    setFeedSourceEnabled: feedSourceActions.setFeedSourceEnabled,
     moveFeedByDrop: feedSourceActions.moveFeedByDrop,
     selectFeedByKey: feedSourceActions.selectFeedByKey,
     importOpmlFeeds,

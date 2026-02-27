@@ -8,6 +8,7 @@ import {
   type CategoryTreeNode,
 } from "@/lib";
 import { toast } from "sonner";
+import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
   findFeedNodeByKey,
   findFeedNodeByUrl,
@@ -243,5 +244,66 @@ export async function moveFeedByDropAndPersist({
     console.error("Drag move feed category error:", err);
     toast.error("Unable to move feed right now.");
     await loadFeedSources();
+  }
+}
+
+export async function setFeedSourceEnabledAndRefresh({
+  categories,
+  selectedCategory,
+  key,
+  enabled,
+  setSelectedCategory,
+  loadFeedSources,
+  fetchFeed,
+  fetchAllFeeds,
+}: {
+  categories: CategoryTreeNode[];
+  selectedCategory: string;
+  key: string;
+  enabled: boolean;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
+}): Promise<boolean> {
+  const sourceNode = findFeedNodeByKey(categories, key);
+  const sourceId = sourceNode?.data?.sourceId;
+  const sourceUrl = sourceNode?.data?.url;
+
+  if (!isSafePositiveItemId(sourceId)) {
+    toast.error("Unable to update this feed.");
+    return false;
+  }
+
+  try {
+    await FeedService.setFeedSourceEnabled(sourceId, enabled);
+    const nextCategories = await loadFeedSources();
+
+    if (!enabled && selectedCategory === key) {
+      setSelectedCategory(ALL_FEEDS_NODE_KEY);
+      await fetchAllFeeds(nextCategories, {
+        requestSource: "feed-hidden-selection-fallback",
+      });
+    }
+
+    if (enabled && sourceUrl) {
+      const latestNode = findFeedNodeByUrl(nextCategories, sourceUrl);
+      if (latestNode?.data?.url) {
+        await fetchFeed(latestNode.data.url, {
+          forceRefresh: true,
+          requestSource: "feed-reenabled",
+        });
+      }
+    }
+
+    toast.success(enabled ? "Feed enabled." : "Feed disabled.");
+    return true;
+  } catch (err) {
+    console.error("Toggle feed source enabled error:", err);
+    toast.error("Unable to update feed state.");
+    return false;
   }
 }

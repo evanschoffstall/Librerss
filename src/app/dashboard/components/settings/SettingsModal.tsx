@@ -52,6 +52,7 @@ interface SettingsModalProps {
   onRemoveCategory: (label: string) => Promise<boolean>;
   onRemoveFeed: (key: string) => Promise<void>;
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
+  onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
 }
 
 /** Shared body rendered inside both the Dialog and the Drawer. */
@@ -181,6 +182,7 @@ export const SettingsModal = ({
   onRemoveCategory,
   onRemoveFeed,
   onRenameFeed,
+  onSetFeedEnabled,
 }: SettingsModalProps) => {
   const isMobile = useIsMobile();
   const state = useSettingsModalState({
@@ -195,6 +197,7 @@ export const SettingsModal = ({
     onDropCategory,
     onRemoveFeed,
     onRenameFeed,
+    onSetFeedEnabled,
   });
 
   const bodyProps = {

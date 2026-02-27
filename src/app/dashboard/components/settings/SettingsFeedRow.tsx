@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
-import { GripVertical, Loader2, Trash2 } from "lucide-react";
+import { Eye, EyeOff, GripVertical, Loader2, Trash2 } from "lucide-react";
 import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton";
 
 const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
@@ -29,6 +29,8 @@ interface SettingsFeedRowProps {
   onCancelRename: () => void;
   onStartEditing: (key: string, currentName: string, currentUrl: string) => void;
   onRemove: (key: string) => void;
+  onToggleEnabled: (key: string, enabled: boolean) => void;
+  togglingFeedKey: string | null;
 }
 
 export function SettingsFeedRow({
@@ -54,7 +56,11 @@ export function SettingsFeedRow({
   onCancelRename,
   onStartEditing,
   onRemove,
+  onToggleEnabled,
+  togglingFeedKey,
 }: SettingsFeedRowProps) {
+  const isEnabled = feedNode.data?.enabled !== false;
+  const isTogglingEnabled = togglingFeedKey === feedNode.key;
   const isEditing = editingFeedKey === feedNode.key;
   const isDropBefore =
     feedDropTarget?.categoryLabel === categoryLabel &&
@@ -148,7 +154,7 @@ export function SettingsFeedRow({
         </div>
       ) : (
         <div
-          className={`min-w-0 flex-1 ${movingFeedKey === feedNode.key ? "opacity-60" : ""}`}
+          className={`min-w-0 flex-1 ${movingFeedKey === feedNode.key || !isEnabled ? "opacity-60" : ""}`}
         >
           <p
             className={`truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}
@@ -177,9 +183,30 @@ export function SettingsFeedRow({
 
       <div className="flex shrink-0 items-center gap-1">
         <SettingsIconButton
+          tip={isEnabled ? "Disable feed" : "Enable feed"}
+          onClick={() => onToggleEnabled(feedNode.key, !isEnabled)}
+          disabled={
+            isTogglingEnabled ||
+            deletingKey === feedNode.key ||
+            draggingFeedKey === feedNode.key
+          }
+        >
+          {isTogglingEnabled ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : isEnabled ? (
+            <Eye className="size-3.5" />
+          ) : (
+            <EyeOff className="size-3.5" />
+          )}
+        </SettingsIconButton>
+        <SettingsIconButton
           tip="Remove feed"
           onClick={() => onRemove(feedNode.key)}
-          disabled={deletingKey === feedNode.key || draggingFeedKey === feedNode.key}
+          disabled={
+            deletingKey === feedNode.key ||
+            draggingFeedKey === feedNode.key ||
+            isTogglingEnabled
+          }
           className="text-muted-foreground hover:text-destructive"
         >
           {deletingKey === feedNode.key ? (

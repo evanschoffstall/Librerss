@@ -17,6 +17,7 @@ import {
   removeFeedSourceAndRefresh,
   renameFeedSourceAndRefresh,
   selectFeedByKeyFromCategories,
+  setFeedSourceEnabledAndRefresh,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
 import type { FeedFetchOptions } from "../services/selection";
@@ -29,6 +30,10 @@ interface UseFeedSourceActionsOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
   ensureCategoryLabelExists: (label: string) => void;
 }
@@ -41,6 +46,7 @@ export function useFeedSourceActions({
   setFeed,
   loadFeedSources,
   fetchFeed,
+  fetchAllFeeds,
   fetchCategoryFeeds,
   ensureCategoryLabelExists,
 }: UseFeedSourceActionsOptions) {
@@ -122,6 +128,29 @@ export function useFeedSourceActions({
     [categories, setCategories, ensureCategoryLabelExists, loadFeedSources],
   );
 
+  const setFeedSourceEnabled = useCallback(
+    async (key: string, enabled: boolean) => {
+      return setFeedSourceEnabledAndRefresh({
+        categories,
+        selectedCategory,
+        key,
+        enabled,
+        setSelectedCategory,
+        loadFeedSources,
+        fetchFeed,
+        fetchAllFeeds,
+      });
+    },
+    [
+      categories,
+      selectedCategory,
+      setSelectedCategory,
+      loadFeedSources,
+      fetchFeed,
+      fetchAllFeeds,
+    ],
+  );
+
   const importOpmlFeeds = useCallback(
     async (
       entries: OpmlFeedImportEntry[],
@@ -154,6 +183,7 @@ export function useFeedSourceActions({
     addFeedSource,
     removeFeedSource,
     renameFeedSource,
+    setFeedSourceEnabled,
     moveFeedByDrop,
     importOpmlFeeds,
   };
