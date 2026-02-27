@@ -64,6 +64,20 @@ const createPlaceholderArticles = (
   }));
 };
 
+const toLocalPlaceholderPath = (basePath: string, slug: string) =>
+  `/placeholder-articles/${basePath}/${slug}.html`;
+
+const buildPlaceholderSnapshotPathByUrl = (
+  basePath: string,
+  seeds: PlaceholderSeed[],
+): Record<string, string> =>
+  Object.fromEntries(
+    seeds.map((seed) => [
+      tryNormalizeFeedUrl(seed.url),
+      toLocalPlaceholderPath(basePath, seed.slug),
+    ]),
+  );
+
 const WORLD_SEEDS = createPlaceholderSeeds([
   [
     "Humans and Neanderthals interbred — but it was mostly male Neanderthals and female humans, study finds",
@@ -181,6 +195,12 @@ const SCIENCE_SEEDS = createPlaceholderSeeds([
   ],
 ]);
 
+const PLACEHOLDER_SNAPSHOT_PATH_BY_URL = {
+  ...buildPlaceholderSnapshotPathByUrl("livescience", WORLD_SEEDS),
+  ...buildPlaceholderSnapshotPathByUrl("psychologytoday", TECHNOLOGY_SEEDS),
+  ...buildPlaceholderSnapshotPathByUrl("nasa", SCIENCE_SEEDS),
+};
+
 const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = {
   [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[0].url)]:
     createPlaceholderArticles(1, "livescience", WORLD_SEEDS),
@@ -192,3 +212,10 @@ const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = {
 
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
   PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ?? [];
+
+export const getPlaceholderSnapshotPathByArticleUrl = (
+  url: string,
+): string | null => {
+  const normalizedUrl = tryNormalizeFeedUrl(url);
+  return PLACEHOLDER_SNAPSHOT_PATH_BY_URL[normalizedUrl] ?? null;
+};

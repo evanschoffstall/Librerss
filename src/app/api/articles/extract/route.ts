@@ -1,7 +1,6 @@
 import { parseJsonBodyOrResponse } from "@/lib/api/request";
 import {
   logAndRespondError,
-  requireMutableAuthenticatedUser,
   requireMutablePublicRequest,
 } from "@/lib/api/request-guards";
 import { jsonError } from "@/lib/api/responses";
@@ -10,6 +9,7 @@ import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-fetcher";
+import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/utils/logger";
@@ -23,6 +23,8 @@ import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { CookieJar } from "tough-cookie";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +125,28 @@ function setCachedExtractPayload(
     expiresAt: Date.now() + ARTICLE_EXTRACT_CACHE_TTL_MS,
     payload,
   });
+}
+
+type PlaceholderSnapshotHit = {
+  html: string;
+  snapshotPath: string;
+};
+
+async function readPlaceholderSnapshotHtml(
+  url: string,
+): Promise<PlaceholderSnapshotHit | null> {
+  const snapshotPath = getPlaceholderSnapshotPathByArticleUrl(url);
+  if (!snapshotPath) return null;
+
+  const normalizedSnapshotPath = snapshotPath.replace(/^\/+/, "");
+  const filePath = join(process.cwd(), "public", normalizedSnapshotPath);
+
+  try {
+    const html = await readFile(filePath, "utf8");
+    return { html, snapshotPath: `/${normalizedSnapshotPath}` };
+  } catch {
+    return null;
+  }
 }
 
 export function clearArticleExtractCacheForTests(): void {
@@ -719,7 +743,7 @@ export async function fetchHtml(
 // ─── POST handler ─────────────────────────────────────────────────────────────
 
 type ExtractPostDeps = {
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  requireMutableAuthenticatedUserFn?: typeof requireMutablePublicRequest;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   fetchHtmlFn?: typeof fetchHtml;
   extractFromHtmlFn?: typeof extractFromHtml;
@@ -807,7 +831,15 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       }
     }
 
-    const html = await fetchArticleHtml(articleUrl);
+    const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
+    const html = localSnapshot?.html ?? (await fetchArticleHtml(articleUrl));
+    info(`Article extract source`, {
+      url: safeUrl,
+      source: localSnapshot ? "local-snapshot" : "upstream-url",
+      snapshotPath: localSnapshot?.snapshotPath ?? null,
+      extractAttemptId,
+      requestId,
+    });
     info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
 
     const extracted = await extractArticle(html, articleUrl, {
