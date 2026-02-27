@@ -64,7 +64,10 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
       if (!link || !isValidUrl(link)) return;
       const inFlightCount = articleHydrationInFlightRef.current.get(link) ?? 0;
 
-      if (!forceHydration && hydratedArticleLinks[link]) return;
+      if (!forceHydration && hydratedArticleLinks[link]) {
+        console.info("[dashboard] Article hydration cache hit", { link });
+        return;
+      }
       if (!forceHydration && inFlightCount > 0) return;
 
       articleHydrationInFlightRef.current.set(link, inFlightCount + 1);
