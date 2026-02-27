@@ -31,6 +31,8 @@ const ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
 const ARTICLE_EXTRACTION_ERROR_MESSAGE = "Failed to extract article content";
 const ARTICLE_EXTRACT_CACHE_TTL_MS = 10 * 60 * 1000;
 const ARTICLE_EXTRACT_CACHE_MAX_ENTRIES = 500;
+const BOOLEAN_TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
+const BOOLEAN_FALSE_VALUES = new Set(["0", "false", "no", "off"]);
 
 const VERBOSE_LOG_LEVEL = "verbose";
 const SAFE_UPSTREAM_RESPONSE_HEADERS = [
@@ -67,10 +69,28 @@ type CachedExtractResponse = {
 
 const articleExtractCache = new Map<string, CachedExtractResponse>();
 
+function readBooleanEnvFlag(key: string, defaultValue: boolean): boolean {
+  const raw = process.env[key];
+  if (raw === undefined || raw.trim() === "") return defaultValue;
+
+  const normalized = raw.trim().toLowerCase();
+  if (BOOLEAN_TRUE_VALUES.has(normalized)) return true;
+  if (BOOLEAN_FALSE_VALUES.has(normalized)) return false;
+  return defaultValue;
+}
+
 function isExtractCacheEnabled(): boolean {
-  return (
-    process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test"
+  const cacheEnabled = readBooleanEnvFlag(
+    "ARTICLE_EXTRACT_CACHE_ENABLED",
+    true,
   );
+  if (!cacheEnabled) return false;
+
+  if (process.env.NODE_ENV === "development") {
+    return readBooleanEnvFlag("ARTICLE_EXTRACT_CACHE_DEV_ENABLED", true);
+  }
+
+  return true;
 }
 
 function getCachedExtractPayload(url: string): ExtractResponsePayload | null {
@@ -487,19 +507,6 @@ export async function fetchHtml(
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   let isFirstValidation = true;
 
-  // Derive a Referer from the article's own origin so the request looks like an
-  // in-site navigation (e.g. user clicked an article link from the homepage).
-  // Anti-bot systems (Cloudflare, DataDome, PerimeterX) treat an absent Referer
-  // on a document navigation as a strong bot signal; a same-origin Referer is
-  // cheap to add and dramatically reduces false-positive 403s.
-  let referer: string | undefined;
-  try {
-    const u = new URL(url);
-    referer = `${u.protocol}//${u.host}/`;
-  } catch {
-    // Unparseable URL — assertAllowedUrl will surface the real error.
-  }
-
   return fetchTextWithValidatedRedirects(
     {
       url,
@@ -510,27 +517,36 @@ export async function fetchHtml(
       maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
       headers: {
         "User-Agent": CONFIG.ARTICLE_EXTRACT_USER_AGENT,
+        // Chrome 130 Accept header with modern image format support (avif, apng).
+        // Order and q-values match real Chrome to avoid fingerprint mismatches.
         Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
+        // Chrome 130 compression support including zstd. Note: server support
+        // for zstd varies; gzip/br are universal. Axios handles decompression.
+        "Accept-Encoding": "gzip, deflate, br, zstd",
         "Cache-Control": "max-age=0",
-        Connection: "keep-alive",
+        // DO NOT set Connection header — axios + HTTP/2 handle this automatically.
+        // Explicit "keep-alive" conflicts with modern protocol negotiation.
         "Upgrade-Insecure-Requests": "1",
+        // Sec-Fetch-* policy metadata. CRITICAL: Sec-Fetch-Site MUST be "none"
+        // for direct navigation (bookmark/typed URL). Setting "same-origin" when
+        // the request originates from librerss servers (not the target origin)
+        // is instantly detected via IP/TLS verification and flagged as a bot.
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
-        // same-origin when we have a referer (looks like a link-click within
-        // the site); none only when we genuinely cannot derive an origin.
-        "Sec-Fetch-Site": referer ? "same-origin" : "none",
+        "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
-        // Client Hints — Chrome always sends these alongside its UA string.
-        // Absence of sec-ch-ua with a Chrome UA is itself a bot signal.
+        // Client Hints — Chrome always sends these alongside its UA. Omitting
+        // sec-ch-ua when using a Chrome UA is a top-tier bot detection signal.
         "sec-ch-ua": ARTICLE_EXTRACT_SEC_CH_UA,
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
-        // Navigation priority hint sent by Chrome on document fetches.
+        // Priority hint for resource scheduling (Chrome 130 navigations).
         Priority: "u=0, i",
-        ...(referer ? { Referer: referer } : {}),
+        // NO Referer: Direct navigation (typed URL/bookmark) has no referrer.
+        // Sending a Referer from the target's own origin while our IP is external
+        // creates a contradictory signal that anti-bot systems detect immediately.
       },
       assertAllowedUrl: async (candidateUrl) => {
         if (!(await isAllowedUrl(candidateUrl))) {
