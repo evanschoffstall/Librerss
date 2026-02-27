@@ -108,6 +108,7 @@ export const DashboardView = ({
     loadFeedSources,
     fetchFeed,
     fetchCategoryFeeds,
+    usePlaceholderData,
   });
 
   const articleActions = useArticleActions({
@@ -116,6 +117,7 @@ export const DashboardView = ({
     expandedArticleKey,
     setExpandedArticleKey,
     articleFilter,
+    usePlaceholderData,
   });
 
   const customCategoryLabels = categoryManager.customCategoryLabels;
