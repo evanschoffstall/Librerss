@@ -318,6 +318,81 @@ export function toParagraphHtml(raw: string): string {
 
 export const normalizeExtractedHtmlSpacing = normalizeArticleHtmlSpacing;
 
+function decodeBasicHtmlEntities(value: string): string {
+  return value
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .trim();
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function readMetaTagContent(rawHtml: string, keys: string[]): string {
+  const keySet = new Set(keys.map((key) => key.toLowerCase()));
+  const metaTags = rawHtml.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of metaTags) {
+    const attributes: Record<string, string> = {};
+
+    for (const match of tag.matchAll(
+      /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
+    )) {
+      const attributeName = match[1]?.toLowerCase();
+      const attributeValue = (match[2] ?? match[3] ?? "").trim();
+      if (!attributeName) continue;
+      attributes[attributeName] = attributeValue;
+    }
+
+    const key = (attributes.property || attributes.name || "").toLowerCase();
+    const content = attributes.content;
+    if (!key || !content) continue;
+    if (keySet.has(key)) return decodeBasicHtmlEntities(content);
+  }
+
+  return "";
+}
+
+export function buildMetadataImageFallbackHtml(rawHtml: string): string {
+  const imageUrl = readMetaTagContent(rawHtml, [
+    "og:image",
+    "twitter:image",
+    "twitter:image:src",
+  ]).trim();
+
+  if (!imageUrl) return "";
+
+  const imageHtml = sanitizeArticleHtml(
+    `<p><img src="${escapeHtmlAttribute(imageUrl)}" alt="" /></p>`,
+  );
+
+  if (!/<img\b[^>]*\bsrc=/i.test(imageHtml)) return "";
+
+  const description = readMetaTagContent(rawHtml, [
+    "og:description",
+    "twitter:description",
+  ])
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!description) return imageHtml;
+
+  const descriptionHtml = sanitizeArticleHtml(toParagraphHtml(description));
+
+  return normalizeExtractedHtmlSpacing(
+    [imageHtml, descriptionHtml].filter(Boolean).join("\n"),
+  );
+}
+
 // ─── Pre-extraction HTML cleaning ────────────────────────────────────────────
 
 /**
@@ -432,7 +507,7 @@ export function sanitizeExtractedContent(rawContent: string): string {
 
   if (sanitized.trim()) {
     if (
-      recoveredImageCount === 1 &&
+      recoveredImageCount > 0 &&
       recoveredImageHtml &&
       !/<img\b/i.test(sanitized)
     ) {
@@ -450,7 +525,7 @@ export function sanitizeExtractedContent(rawContent: string): string {
   const fallbackSanitized = sanitizeArticleHtml(toParagraphHtml(plainText));
 
   if (
-    recoveredImageCount === 1 &&
+    recoveredImageCount > 0 &&
     recoveredImageHtml &&
     !/<img\b/i.test(fallbackSanitized)
   ) {
@@ -864,7 +939,25 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const rawContent =
       extracted?.content?.trim() || extracted?.description?.trim() || "";
     const sanitizedContent = sanitizeContent(rawContent);
-    const content = cleanContent(sanitizedContent, articleUrl);
+    let content = cleanContent(sanitizedContent, articleUrl);
+
+    if (!content.trim()) {
+      const metadataFallbackContent = buildMetadataImageFallbackHtml(html);
+      if (metadataFallbackContent) {
+        const fallbackCleaned = cleanContent(
+          metadataFallbackContent,
+          articleUrl,
+        );
+        if (fallbackCleaned.trim()) {
+          content = fallbackCleaned;
+          info(`Article extract applied metadata image fallback`, {
+            url: safeUrl,
+            extractAttemptId,
+            requestId,
+          });
+        }
+      }
+    }
 
     if (!content.trim()) {
       warn(`Article content empty after full extraction pipeline`, {
