@@ -1,5 +1,6 @@
 "use client";
 
+import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
 import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -100,6 +101,7 @@ export function DashboardRouter() {
 
   return (
     <main className="relative h-full overflow-hidden bg-background">
+      <ThemeNoticeDialog />
       {backgroundMode === "particles"
         ? isLightMode
           ? <ParticlesBackgroundLight />
