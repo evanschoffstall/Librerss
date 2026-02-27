@@ -207,7 +207,7 @@ export function useArticleActions({
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
-      await hydrateArticleContent(article, { force: true });
+      await hydrateArticleContent(article);
     },
     [
       articleFilter,

@@ -12,12 +12,6 @@ interface HydrateArticleContentOptions {
   force?: boolean;
 }
 
-const hydratedArticleContentCache = new Map<string, string>();
-
-export function resetHydratedArticleContentCacheForTests(): void {
-  hydratedArticleContentCache.clear();
-}
-
 /** Safely escape an article key for use in a CSS attribute selector. */
 export function escapeArticleKey(articleKey: string): string {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
@@ -69,19 +63,6 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
       const link = article.link?.trim();
       if (!link || !isValidUrl(link)) return;
       const inFlightCount = articleHydrationInFlightRef.current.get(link) ?? 0;
-      const cachedContent = hydratedArticleContentCache.get(link);
-
-      if (!forceHydration && cachedContent) {
-        setFeed((currentFeed) =>
-          currentFeed.map((currentArticle) => {
-            if (currentArticle.link.trim() !== link) return currentArticle;
-            if (currentArticle.content === cachedContent) return currentArticle;
-            return { ...currentArticle, content: cachedContent };
-          }),
-        );
-        setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
-        return;
-      }
 
       if (!forceHydration && hydratedArticleLinks[link]) return;
       if (!forceHydration && inFlightCount > 0) return;
@@ -108,7 +89,6 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
             return { ...a, content: extractedContent };
           }),
         );
-        hydratedArticleContentCache.set(link, extractedContent);
 
         setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
       } catch (error) {

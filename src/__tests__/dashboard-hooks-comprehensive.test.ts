@@ -5,7 +5,6 @@
 
 import {
   escapeArticleKey,
-  resetHydratedArticleContentCacheForTests,
   useArticleHydration,
 } from "@/app/dashboard/hooks/useArticleHydration";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
@@ -74,7 +73,6 @@ describe("useArticleHydration", () => {
 
   beforeEach(() => {
     document.body.innerHTML = "";
-    resetHydratedArticleContentCacheForTests();
     // Reset CSS global
     global.CSS = {
       escape: (str: string) =>
@@ -236,39 +234,6 @@ describe("useArticleHydration", () => {
     ).mock.calls.length;
     expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     expect(afterSecondHydrateCalls).toBe(0);
-    expect(feedState[0].content).toContain("Extracted content");
-  });
-
-  test("hydrateArticleContent skips re-fetch after hook remount for same link", async () => {
-    const article = createMockArticle();
-    let feedState = [article];
-    const setFeed = mock((updater: any) => {
-      feedState = typeof updater === "function" ? updater(feedState) : updater;
-    });
-
-    const firstHook = renderHook(() => useArticleHydration({ setFeed }));
-
-    await runWithAct(async () => {
-      await firstHook.result.current.hydrateArticleContent(article);
-    });
-
-    await waitFor(() => {
-      expect(feedState[0].content).toContain("Extracted content");
-    });
-
-    firstHook.unmount();
-
-    (ArticleService.extractArticleContent as ReturnType<typeof mock>)
-      .mockClear()
-      .mockImplementation(async () => "<p>Should not fetch</p>");
-
-    const secondHook = renderHook(() => useArticleHydration({ setFeed }));
-
-    await runWithAct(async () => {
-      await secondHook.result.current.hydrateArticleContent(article);
-    });
-
-    expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(0);
     expect(feedState[0].content).toContain("Extracted content");
   });
 
