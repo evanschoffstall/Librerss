@@ -509,7 +509,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
     expect(result.current.hydratingArticleLinks).toBeDefined();
   });
 
-  test("re-expanding the same article triggers extract each time", async () => {
+  test("re-expanding the same article does not re-extract", async () => {
     const article = createMockArticle({
       id: 42,
       link: "https://example.com/reexpand",
@@ -555,7 +555,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
     rerender({ expandedKey: expandedArticleKey });
 
     await waitFor(() => {
-      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(2);
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -101,7 +101,11 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   const resolved = await resolveAuthorizedFeedRecords(db, userId, feedUrls);
   if (!resolved) {
-    if (DIAG) logger.warn("Batch feed fetch denied: no owned URLs", { userId, requestedUrlCount: feedUrls.length });
+    if (DIAG)
+      logger.warn("Batch feed fetch denied: no owned URLs", {
+        userId,
+        requestedUrlCount: feedUrls.length,
+      });
     return buildEmptyBatchResult();
   }
 
@@ -112,18 +116,20 @@ export async function fetchAndCacheFeedArticlesBatch(
       userId,
       requestSource,
       allowedUrlCount: allowedUrls.length,
-      missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
+      missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u))
+        .length,
       plan: buildRefreshPlan(feedByUrl, allowedUrls, skipRefresh, forceRefresh),
     });
   }
 
-  const { errors: upstreamErrors, refreshedCount } = await executeParallelRefreshes(
-    db,
-    feedByUrl,
-    allowedUrls,
-    skipRefresh,
-    forceRefresh,
-  );
+  const { errors: upstreamErrors, refreshedCount } =
+    await executeParallelRefreshes(
+      db,
+      feedByUrl,
+      allowedUrls,
+      skipRefresh,
+      forceRefresh,
+    );
 
   if (DIAG && !skipRefresh) {
     if (refreshedCount > 0) {
@@ -166,7 +172,10 @@ export async function fetchAndCacheFeedArticlesBatch(
   const lastFetchedRows: Array<{ url: string; lastFetched: Date }> =
     Array.isArray(rawLastFetchedRows)
       ? rawLastFetchedRows
-      : ((rawLastFetchedRows as { rows?: unknown }).rows as Array<{ url: string; lastFetched: Date }> ?? []);
+      : (((rawLastFetchedRows as { rows?: unknown }).rows as Array<{
+          url: string;
+          lastFetched: Date;
+        }>) ?? []);
 
   const lastFetchedByUrl = new Map<string, Date>(
     lastFetchedRows.map((row) => [row.url, row.lastFetched]),
@@ -211,7 +220,9 @@ class UpstreamFeedError extends Error {
   }
 }
 
-export function isUpstreamFeedError(error: unknown): error is UpstreamFeedError {
+export function isUpstreamFeedError(
+  error: unknown,
+): error is UpstreamFeedError {
   return (
     error instanceof UpstreamFeedError ||
     (error instanceof Error && error.name === "UpstreamFeedError")
@@ -241,9 +252,9 @@ export async function fetchAndCacheFeedArticles(
   if (shouldRefreshFeed(feed.lastFetched)) {
     const result = await refreshFeedFromUpstream(db, feed);
     if (!result.ok) throw new UpstreamFeedError(feedUrl, result.error);
-    logger.info(`📡 Single feed: 1 refreshed, 0 cached`);
+    logger.info(`Single feed: 1 refreshed, 0 cached`);
   } else {
-    logger.info(`💾 Single feed: 0 refreshed, 1 cached`);
+    logger.info(`Single feed: 0 refreshed, 1 cached`);
   }
 
   return db

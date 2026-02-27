@@ -8,7 +8,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
@@ -153,6 +153,21 @@ export const DashboardView = ({
   useEffect(() => {
     setVisibleCount(pageSize);
   }, [selectedCategory, searchTerm, pageSize, articleFilter, setVisibleCount]);
+
+  const previousSelectedCategoryRef = useRef(selectedCategory);
+  const previousArticleFilterRef = useRef(articleFilter);
+
+  useEffect(() => {
+    const categoryChanged = previousSelectedCategoryRef.current !== selectedCategory;
+    const filterChanged = previousArticleFilterRef.current !== articleFilter;
+
+    if (categoryChanged || filterChanged) {
+      setExpandedArticleKey(null);
+    }
+
+    previousSelectedCategoryRef.current = selectedCategory;
+    previousArticleFilterRef.current = articleFilter;
+  }, [selectedCategory, articleFilter, setExpandedArticleKey]);
 
   useFeedVisibilityObserver({
     sentinelRef,

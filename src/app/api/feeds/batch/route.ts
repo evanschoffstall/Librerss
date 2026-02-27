@@ -31,14 +31,18 @@ export async function POST(request: NextRequest) {
     });
     if (user instanceof Response) return user;
 
-    const bodyOrResponse = await parseJsonBodyOrResponse<BatchRequestBody>(request);
+    const bodyOrResponse =
+      await parseJsonBodyOrResponse<BatchRequestBody>(request);
     if (bodyOrResponse instanceof Response) return bodyOrResponse;
 
     const body = bodyOrResponse;
     const urls = normalizeDistinctUrlList(body.urls);
     const skipRefresh = body.skipRefresh === true;
     const forceRefresh = body.forceRefresh === true;
-    const requestSource = typeof body.requestSource === "string" ? body.requestSource : "unspecified";
+    const requestSource =
+      typeof body.requestSource === "string"
+        ? body.requestSource
+        : "unspecified";
 
     if (DIAG) {
       logger.info("Feed batch request received", {
@@ -54,7 +58,9 @@ export async function POST(request: NextRequest) {
 
     if (urls.length > CONFIG.FEED_BATCH_MAX_URLS) {
       return NextResponse.json(
-        { error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once` },
+        {
+          error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once`,
+        },
         { status: 400 },
       );
     }
@@ -69,7 +75,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (normalizedUrls.length === 0) {
-      if (DIAG) logger.info("Feed batch request had no valid URLs after normalization", { userId: user.userId });
+      if (DIAG)
+        logger.info(
+          "Feed batch request had no valid URLs after normalization",
+          { userId: user.userId },
+        );
       return NextResponse.json([]);
     }
 
@@ -99,20 +109,26 @@ export async function POST(request: NextRequest) {
         ? { lastFetchedAt: lastFetchedByUrl.get(normalizedUrl)?.toISOString() }
         : {}),
       // Surface upstream fetch errors so the client can inform the user.
-      ...(upstreamErrors.has(normalizedUrl) ? { error: upstreamErrors.get(normalizedUrl) } : {}),
+      ...(upstreamErrors.has(normalizedUrl)
+        ? { error: upstreamErrors.get(normalizedUrl) }
+        : {}),
     }));
 
     const hasUpstreamErrors = upstreamErrors.size > 0;
 
     // Always log cache/refresh breakdown for feed batch requests.
-    const flags = [forceRefresh && "force", skipRefresh && "skip refresh"].filter(Boolean).join(", ");
+    const flags = [forceRefresh && "force", skipRefresh && "skip refresh"]
+      .filter(Boolean)
+      .join(", ");
     const flagStr = flags ? ` [${flags}]` : "";
     logger.info(
-      `📦 Batch [${normalizedUrls.length} feed${normalizedUrls.length !== 1 ? "s" : ""}]: ${refreshedCount} refreshed, ${cachedCount} cached${flagStr}`,
+      `Batch [${normalizedUrls.length} feed${normalizedUrls.length !== 1 ? "s" : ""}]: ${refreshedCount} refreshed, ${cachedCount} cached${flagStr}`,
     );
 
     if (hasUpstreamErrors) {
-      const failures = [...upstreamErrors.entries()].map(([url, err]) => `  • ${url}: ${err}`);
+      const failures = [...upstreamErrors.entries()].map(
+        ([url, err]) => `  • ${url}: ${err}`,
+      );
       logger.warn(
         `Returning 207 Multi-Status — ${upstreamErrors.size} feed(s) have upstream errors:\n${failures.join("\n")}`,
       );
@@ -125,7 +141,10 @@ export async function POST(request: NextRequest) {
         okCount: results.filter((item) => item.ok).length,
         missingCount: results.filter((item) => !item.ok).length,
         upstreamErrorCount: upstreamErrors.size,
-        totalArticles: results.reduce((sum, item) => sum + item.articles.length, 0),
+        totalArticles: results.reduce(
+          (sum, item) => sum + item.articles.length,
+          0,
+        ),
         skipRefresh,
         forceRefresh,
         requestSource,
@@ -134,7 +153,9 @@ export async function POST(request: NextRequest) {
 
     // Return 207 Multi-Status when some feeds had upstream errors so
     // clients can distinguish partial failures from full success.
-    return NextResponse.json(results, { status: hasUpstreamErrors ? 207 : 200 });
+    return NextResponse.json(results, {
+      status: hasUpstreamErrors ? 207 : 200,
+    });
   } catch (error) {
     return logAndRespondError("Feed batch fetch error", error);
   }
