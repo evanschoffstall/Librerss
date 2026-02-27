@@ -533,8 +533,7 @@ const EXTRACT_FINGERPRINT_POOL = [
   },
 ] as const;
 
-// Default fingerprint (index 0) kept for backward-compat with CONFIG.ARTICLE_EXTRACT_USER_AGENT
-// which is still honoured when axiosGetFn is injected via deps (tests / overrides).
+// Fingerprint pool index 0 is the canonical default used by injected callers (tests/overrides).
 const ARTICLE_EXTRACT_SEC_CH_UA = EXTRACT_FINGERPRINT_POOL[0].secChUa;
 
 export async function fetchHtml(
@@ -558,11 +557,11 @@ export async function fetchHtml(
       await new Promise<void>((resolve) => setTimeout(resolve, 600 * attempt));
     }
 
-    // Rotate fingerprint on each attempt. Injected axiosGetFn callers always
-    // use the default fingerprint / CONFIG UA so test expectations stay stable.
+    // Rotate fingerprint on each attempt. Injected callers (tests/overrides)
+    // always use fingerprint pool index 0 so UA expectations stay stable.
     const fp =
       EXTRACT_FINGERPRINT_POOL[attempt % EXTRACT_FINGERPRINT_POOL.length];
-    const ua = injectedGet ? CONFIG.ARTICLE_EXTRACT_USER_AGENT : fp.ua;
+    const ua = injectedGet ? EXTRACT_FINGERPRINT_POOL[0].ua : fp.ua;
     const secChUa = injectedGet ? ARTICLE_EXTRACT_SEC_CH_UA : fp.secChUa;
     const secChUaPlatform = injectedGet ? '"Windows"' : fp.secChUaPlatform;
 
