@@ -75,7 +75,11 @@ export async function resolveAuthorizedFeedRecords(
     .select({ url: feedSources.url })
     .from(feedSources)
     .where(
-      and(eq(feedSources.userId, userId), inArray(feedSources.url, feedUrls)),
+      and(
+        eq(feedSources.userId, userId),
+        eq(feedSources.enabled, true),
+        inArray(feedSources.url, feedUrls),
+      ),
     );
 
   const ownedUrlSet = new Set(ownedRows.map((r) => r.url));

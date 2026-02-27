@@ -49,12 +49,27 @@ export function buildDashboardViewModel({
     orderedCategoryLabels,
   );
 
-  const sidebarCategories = [SYSTEM_ALL_FEEDS_CATEGORY, ...displayCategories];
+  const sidebarDisplayCategories = displayCategories
+    .map((category) => ({
+      ...category,
+      children: (category.children ?? []).filter(
+        (feedNode) => feedNode.data?.enabled !== false,
+      ),
+    }))
+    .filter((category) => (category.children?.length ?? 0) > 0);
+
+  const sidebarCategories = [
+    SYSTEM_ALL_FEEDS_CATEGORY,
+    ...sidebarDisplayCategories,
+  ];
   const selectedCategoryNode = sidebarCategories.find(
     (node) => node.key === selectedCategory,
   );
 
-  const selectedFeedUrl = selectedFeedNode?.data?.url;
+  const selectedFeedUrl =
+    selectedFeedNode?.data?.enabled === false
+      ? undefined
+      : selectedFeedNode?.data?.url;
   const selectedFeed = selectedFeedNode?.label ?? selectedCategoryNode?.label;
   const categoryOptions = displayCategories.map((node) => node.label);
 

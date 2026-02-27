@@ -1,3 +1,4 @@
+import { parseJsonBodyOrResponse } from "@/lib/api/request";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
@@ -20,13 +21,15 @@ import {
   getRequestedFeedUrl,
   parseCreateFeedPayload,
   parseDeleteSourceId,
-  parseRenameFeedPayload,
+  parseRenameFeedPayloadFromBody,
+  parseToggleFeedEnabledPayloadFromBody,
 } from "./services/parsers";
 import { handleFeedRead } from "./services/read";
 import {
   createOrUpdateFeedSource,
   deleteFeedSourceForUser,
   renameFeedSourceForUser,
+  setFeedSourceEnabledForUser,
 } from "./services/repository";
 
 export const dynamic = "force-dynamic";
@@ -184,8 +187,13 @@ type FeedRouteDeps = {
   parseCreateFeedPayloadFn?: typeof parseCreateFeedPayload;
   getDbFn?: typeof getDb;
   createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
-  parseRenameFeedPayloadFn?: typeof parseRenameFeedPayload;
+  parseRenameFeedPayloadFn?: (
+    request: NextRequest,
+  ) => Promise<{ sourceId: number; name: string; url: string } | Response>;
+  parseRenameFeedPayloadFromBodyFn?: typeof parseRenameFeedPayloadFromBody;
+  parseToggleFeedEnabledPayloadFromBodyFn?: typeof parseToggleFeedEnabledPayloadFromBody;
   renameFeedSourceForUserFn?: typeof renameFeedSourceForUser;
+  setFeedSourceEnabledForUserFn?: typeof setFeedSourceEnabledForUser;
   parseDeleteSourceIdFn?: typeof parseDeleteSourceId;
   deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
 };
@@ -346,11 +354,17 @@ export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
 export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
   const requireMutable =
     deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
-  const parseRenamePayload =
-    deps.parseRenameFeedPayloadFn ?? parseRenameFeedPayload;
+  const parseRenamePayloadFromBody =
+    deps.parseRenameFeedPayloadFromBodyFn ?? parseRenameFeedPayloadFromBody;
+  const parseRenamePayload = deps.parseRenameFeedPayloadFn;
+  const parseToggleEnabledPayloadFromBody =
+    deps.parseToggleFeedEnabledPayloadFromBodyFn ??
+    parseToggleFeedEnabledPayloadFromBody;
   const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
   const renameSource =
     deps.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
+  const setSourceEnabled =
+    deps.setFeedSourceEnabledForUserFn ?? setFeedSourceEnabledForUser;
   const toJsonError = deps.jsonErrorFn ?? jsonError;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
@@ -358,7 +372,47 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
     const user = await requireMutable(request);
     if (user instanceof Response) return user;
 
-    const parsedPayload = await parseRenamePayload(request);
+    if (parseRenamePayload) {
+      const parsedPayload = await parseRenamePayload(request);
+      if (parsedPayload instanceof Response) return parsedPayload;
+
+      const { sourceId, name, url } = parsedPayload;
+
+      const invalidFeedUrlResponse = await assertAllowedUrl(url);
+      if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
+
+      const updatedSource = await renameSource(
+        user.userId,
+        sourceId,
+        name,
+        url,
+      );
+      if (!updatedSource) return toJsonError("Feed source not found", 404);
+
+      return NextResponse.json(updatedSource);
+    }
+
+    const payloadOrResponse =
+      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    if (payloadOrResponse instanceof Response) return payloadOrResponse;
+
+    const payload = payloadOrResponse;
+
+    if (typeof payload.enabled === "boolean") {
+      const parsedTogglePayload = parseToggleEnabledPayloadFromBody(payload);
+      if (parsedTogglePayload instanceof Response) return parsedTogglePayload;
+
+      const updatedSource = await setSourceEnabled(
+        user.userId,
+        parsedTogglePayload.sourceId,
+        parsedTogglePayload.enabled,
+      );
+      if (!updatedSource) return toJsonError("Feed source not found", 404);
+
+      return NextResponse.json(updatedSource);
+    }
+
+    const parsedPayload = parseRenamePayloadFromBody(payload);
     if (parsedPayload instanceof Response) return parsedPayload;
 
     const { sourceId, name, url } = parsedPayload;

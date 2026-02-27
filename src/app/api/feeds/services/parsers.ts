@@ -11,7 +11,11 @@ import {
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-fetcher";
 import type { NextRequest } from "next/server";
-import type { CreateFeedPayload, RenameFeedPayload } from "../types";
+import type {
+  CreateFeedPayload,
+  RenameFeedPayload,
+  ToggleFeedEnabledPayload,
+} from "../types";
 
 export async function assertAllowedFeedUrl(
   url: string,
@@ -66,7 +70,12 @@ export async function parseRenameFeedPayload(
     return payloadOrResponse;
   }
 
-  const payload = payloadOrResponse;
+  return parseRenameFeedPayloadFromBody(payloadOrResponse);
+}
+
+export function parseRenameFeedPayloadFromBody(
+  payload: Record<string, unknown>,
+): RenameFeedPayload | Response {
   const sourceId = parsePositiveInt(payload.id);
   const name = asTrimmedString(payload.name);
   const url = asTrimmedString(payload.url);
@@ -91,6 +100,21 @@ export async function parseRenameFeedPayload(
   }
 
   return { sourceId, name, url };
+}
+
+export function parseToggleFeedEnabledPayloadFromBody(
+  payload: Record<string, unknown>,
+): ToggleFeedEnabledPayload | Response {
+  const sourceId = parsePositiveInt(payload.id);
+  if (!sourceId) {
+    return jsonError("A valid id is required", 400);
+  }
+
+  if (typeof payload.enabled !== "boolean") {
+    return jsonError("enabled must be a boolean", 400);
+  }
+
+  return { sourceId, enabled: payload.enabled };
 }
 
 export function parseDeleteSourceId(request: NextRequest): number | Response {

@@ -23,13 +23,6 @@ export class Logger {
 
   private readonly reset = "\u001b[0m";
 
-  private readonly levelIcons: Record<LogLevel, string> = {
-    info: "ℹ",
-    warn: "⚠",
-    error: "✖",
-    debug: "◆",
-  };
-
   private readonly levelColors: Record<LogLevel, string> = {
     info: "\u001b[38;5;39m",
     warn: "\u001b[38;5;214m",
@@ -78,8 +71,7 @@ export class Logger {
   ): string {
     const timestamp = new Date().toISOString();
     const levelLabel = `[${level.toUpperCase()}]`;
-    const icon = this.levelIcons[level];
-    const baseLine = `[${timestamp}] ${levelLabel} ${message} ${icon}`;
+    const baseLine = `[${timestamp}] ${levelLabel} ${message}`;
 
     const contextStr = context
       ? `\n${this.formatContextBlock(JSON.stringify(context, null, 2))}`
@@ -90,7 +82,7 @@ export class Logger {
     }
 
     const color = this.levelColors[level];
-    const coloredLine = `${this.dim}[${timestamp}]${this.reset} ${color}${levelLabel}${this.reset} ${message} ${icon}`;
+    const coloredLine = `${this.dim}[${timestamp}]${this.reset} ${color}${levelLabel}${this.reset} ${message}`;
 
     return `${coloredLine}${contextStr}`;
   }

@@ -1,5 +1,5 @@
 import {
-  POST,
+  buildMetadataImageFallbackHtml,
   cleanExtractedArticleHtml,
   clearArticleExtractCacheForTests,
   fetchHtml,
@@ -8,6 +8,7 @@ import {
   isLikelyNavFooterBoilerplate,
   normalizeExtractedHtmlSpacing,
   parseAndValidateArticleUrl,
+  POST,
   sanitizeExtractedContent,
   stripCommentEngagementBoilerplate,
   toParagraphHtml,
@@ -192,6 +193,18 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Story body.");
   });
 
+  test("sanitizeExtractedContent recovers multiple safe section-wrapped images when none survive sanitizer output", () => {
+    const cleaned = sanitizeExtractedContent(
+      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" /></p><p><img src="https://example.com/cartoon.jpg" alt="Cartoon" /></p></article></section><p>Story body.</p>',
+    );
+
+    const imgMatches = cleaned.match(/<img\b/gi) ?? [];
+    expect(imgMatches).toHaveLength(2);
+    expect(cleaned).toContain('src="https://example.com/cover.jpg"');
+    expect(cleaned).toContain('src="https://example.com/cartoon.jpg"');
+    expect(cleaned).toContain("Story body.");
+  });
+
   test("sanitizeExtractedContent does not duplicate image when one is already preserved", () => {
     const cleaned = sanitizeExtractedContent(
       '<p><img src="https://example.com/inline.jpg" alt="Inline" /></p><p>Body copy.</p>',
@@ -261,6 +274,40 @@ describe("article extract cleanup", () => {
 
     expect(cleaned).not.toContain("grey-placeholder.png");
     expect(cleaned).toContain("Body text remains.");
+  });
+
+  test("buildMetadataImageFallbackHtml uses og:image and og:description", () => {
+    const fallback = buildMetadataImageFallbackHtml(`
+      <html>
+        <head>
+          <meta property="og:image" content="https://cdn.example.com/cartoon.jpg" />
+          <meta property="og:description" content="A cartoon by Tim Campbell." />
+        </head>
+      </html>
+    `);
+
+    expect(fallback).toContain(
+      '<img src="https://cdn.example.com/cartoon.jpg"',
+    );
+    expect(fallback).toContain("A cartoon by Tim Campbell.");
+  });
+
+  test("buildMetadataImageFallbackHtml returns empty when image metadata is missing or unsafe", () => {
+    const noImage = buildMetadataImageFallbackHtml(`
+      <html><head><meta property="og:description" content="No image" /></head></html>
+    `);
+
+    const unsafeImage = buildMetadataImageFallbackHtml(`
+      <html>
+        <head>
+          <meta property="og:image" content="javascript:alert(1)" />
+          <meta property="og:description" content="Unsafe" />
+        </head>
+      </html>
+    `);
+
+    expect(noImage).toBe("");
+    expect(unsafeImage).toBe("");
   });
 
   test("normalizeExtractedHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
@@ -716,6 +763,113 @@ describe("article extract cleanup", () => {
     expect(
       warnMessages.some((m) =>
         m.includes("empty after full extraction pipeline"),
+      ),
+    ).toBe(true);
+  });
+
+  test("POST falls back to metadata image when extractor output is nav/footer boilerplate", async () => {
+    const infoFn = mock(() => {});
+    const warnFn = mock(() => {});
+
+    const footerOnlyExtraction = `
+      <p>Daily Kos</p>
+      <ul>
+        <li><a href="https://www.dailykos.com/">Front Page</a></li>
+        <li><a href="https://comics.dailykos.com/">Comics</a></li>
+        <li><a href="https://feeds.dailykos.com/">RSS</a></li>
+        <li><a href="https://www.dailykos.com/subscribe">Subscribe</a></li>
+        <li><a href="https://www.dailykos.com/terms">Terms</a></li>
+        <li><a href="https://www.dailykos.com/privacy">Privacy</a></li>
+      </ul>
+      <p>About</p>
+      <ul>
+        <li><a href="https://www.dailykos.com/masthead">Masthead</a></li>
+      </ul>
+    `;
+
+    const response = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+      fetchHtmlFn: async () => `
+        <html>
+          <head>
+            <meta property="og:image" content="https://cdn.prod.dailykos.com/images/1528229/story_image/20260218edshe-b.jpg?1771436292" />
+            <meta property="og:description" content="A cartoon by Drew Sheneman." />
+          </head>
+        </html>
+      `,
+      extractFromHtmlFn: async () => ({
+        title: "Cartoon: But the portions are huge!",
+        content: footerOnlyExtraction,
+      }),
+      infoFn: infoFn as any,
+      warnFn: warnFn as any,
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain(
+      'src="https://cdn.prod.dailykos.com/images/1528229/story_image/20260218edshe-b.jpg?1771436292"',
+    );
+    expect(payload.content).toContain("A cartoon by Drew Sheneman.");
+    expect(
+      infoFn.mock.calls.some((call: any[]) =>
+        String(call[0]).includes("metadata image fallback"),
+      ),
+    ).toBe(true);
+    expect(
+      warnFn.mock.calls.some((call: any[]) =>
+        String(call[0]).includes("empty after full extraction pipeline"),
+      ),
+    ).toBe(false);
+  });
+
+  test("POST keeps empty content when metadata image fallback URL is unsafe", async () => {
+    const warnFn = mock(() => {});
+
+    const footerOnlyExtraction = `
+      <p>Daily Kos</p>
+      <ul>
+        <li><a href="https://www.dailykos.com/">Front Page</a></li>
+        <li><a href="https://comics.dailykos.com/">Comics</a></li>
+        <li><a href="https://feeds.dailykos.com/">RSS</a></li>
+        <li><a href="https://www.dailykos.com/subscribe">Subscribe</a></li>
+        <li><a href="https://www.dailykos.com/terms">Terms</a></li>
+        <li><a href="https://www.dailykos.com/privacy">Privacy</a></li>
+      </ul>
+      <p>About</p>
+      <ul>
+        <li><a href="https://www.dailykos.com/masthead">Masthead</a></li>
+      </ul>
+    `;
+
+    const response = await POST({} as any, {
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+      fetchHtmlFn: async () => `
+        <html>
+          <head>
+            <meta property="og:image" content="javascript:alert(1)" />
+            <meta property="og:description" content="Unsafe metadata image." />
+          </head>
+        </html>
+      `,
+      extractFromHtmlFn: async () => ({
+        title: "Cartoon: But the portions are huge!",
+        content: footerOnlyExtraction,
+      }),
+      warnFn: warnFn as any,
+      infoFn: mock(() => {}) as any,
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toBe("");
+    expect(
+      warnFn.mock.calls.some((call: any[]) =>
+        String(call[0]).includes("empty after full extraction pipeline"),
       ),
     ).toBe(true);
   });

@@ -80,7 +80,7 @@ export function useDashboardViewHandlers({
     (feedNode: CategoryTreeNode) => {
       setSelectedCategory(feedNode.key);
       setIsMobileSidebarOpen(false);
-      if (feedNode.data?.url) {
+      if (feedNode.data?.url && feedNode.data.enabled !== false) {
         void fetchFeed(feedNode.data.url);
       }
     },

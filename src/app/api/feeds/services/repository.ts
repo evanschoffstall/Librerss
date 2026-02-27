@@ -25,6 +25,7 @@ const feedSourceFields = {
   id: feedSources.id,
   name: feedSources.name,
   url: feedSources.url,
+  enabled: feedSources.enabled,
 };
 
 export function toFeedSourceResponse(
@@ -46,6 +47,7 @@ export async function listFeedSourcesForUser(
       id: feedSources.id,
       name: feedSources.name,
       url: feedSources.url,
+      enabled: feedSources.enabled,
       category: feedCategories.category,
     })
     .from(feedSources)
@@ -188,6 +190,22 @@ export async function deleteFeedSourceForUser(
   return deletedSource ?? null;
 }
 
+export async function setFeedSourceEnabledForUser(
+  userId: number,
+  sourceId: number,
+  enabled: boolean,
+): Promise<FeedSourceRecord | null> {
+  const db = getDb();
+
+  const [updatedSource] = await db
+    .update(feedSources)
+    .set({ enabled })
+    .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+    .returning(feedSourceFields);
+
+  return updatedSource ?? null;
+}
+
 async function upsertFeedSource(
   tx: FeedTransaction,
   userId: number,
@@ -205,7 +223,7 @@ async function upsertFeedSource(
   if (existingSource) {
     const [updatedSource] = await tx
       .update(feedSources)
-      .set({ name })
+      .set({ name, enabled: true })
       .where(
         and(
           eq(feedSources.id, existingSource.id),
@@ -223,7 +241,7 @@ async function upsertFeedSource(
 
   const [createdSource] = await tx
     .insert(feedSources)
-    .values({ userId, name, url: normalizedUrl })
+    .values({ userId, name, url: normalizedUrl, enabled: true })
     .returning(feedSourceFields);
 
   if (!createdSource) {

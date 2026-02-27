@@ -104,8 +104,9 @@ export function mapFeedNodesToBatchSources(
   nodes: CategoryTreeNode[],
 ): FeedBatchSource[] {
   return nodes
-    .filter((node): node is CategoryTreeNode & { data: { url: string } } =>
-      Boolean(node.data?.url),
+    .filter(
+      (node): node is CategoryTreeNode & { data: { url: string } } =>
+        Boolean(node.data?.url) && node.data?.enabled !== false,
     )
     .map((node) => ({
       url: node.data.url,

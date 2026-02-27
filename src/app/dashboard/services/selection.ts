@@ -54,7 +54,7 @@ export async function initializeDashboardSelection(
     loadedCategories,
     selectedCategory,
   );
-  if (selectedFeedNode?.data?.url) {
+  if (selectedFeedNode?.data?.url && selectedFeedNode.data.enabled !== false) {
     await fetchFeed(selectedFeedNode.data.url, initialFetchOptions);
     return;
   }

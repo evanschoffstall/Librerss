@@ -41,7 +41,9 @@ beforeAll(() => {
 const originalExtractArticleContent = ArticleService.extractArticleContent;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
 const originalConsoleError = console.error;
+const originalConsoleInfo = console.info;
 const muteConsoleError = (() => {}) as typeof console.error;
+const muteConsoleInfo = (() => {}) as typeof console.info;
 
 afterEach(() => {
   ArticleService.extractArticleContent =
@@ -49,6 +51,7 @@ afterEach(() => {
   ArticleService.updateArticleStatus =
     originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
   console.error = originalConsoleError;
+  console.info = originalConsoleInfo;
 });
 
 afterAll(() => {
@@ -86,6 +89,7 @@ describe("useArticleHydration", () => {
       async () => {},
     ) as unknown as typeof ArticleService.updateArticleStatus;
     console.error = muteConsoleError;
+    console.info = mock(muteConsoleInfo) as unknown as typeof console.info;
     (toast.error as ReturnType<typeof mock>).mockClear();
   });
 
@@ -232,8 +236,12 @@ describe("useArticleHydration", () => {
     const afterSecondHydrateCalls = (
       ArticleService.extractArticleContent as ReturnType<typeof mock>
     ).mock.calls.length;
+    const infoCalls = (console.info as ReturnType<typeof mock>).mock.calls;
     expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     expect(afterSecondHydrateCalls).toBe(0);
+    expect(infoCalls.length).toBeGreaterThanOrEqual(1);
+    expect(infoCalls[0]?.[0]).toBe("[dashboard] Article hydration cache hit");
+    expect(infoCalls[0]?.[1]).toEqual({ link: article.link });
     expect(feedState[0].content).toContain("Extracted content");
   });
 

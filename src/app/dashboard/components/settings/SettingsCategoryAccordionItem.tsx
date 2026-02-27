@@ -63,6 +63,8 @@ interface SettingsCategoryAccordionItemProps {
   onCancelFeedEdit: () => void;
   onStartFeedEdit: (key: string, currentName: string, currentUrl: string) => void;
   onRemoveFeed: (key: string) => void;
+  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
+  togglingFeedKey: string | null;
 }
 
 export function SettingsCategoryAccordionItem({
@@ -110,6 +112,8 @@ export function SettingsCategoryAccordionItem({
   onCancelFeedEdit,
   onStartFeedEdit,
   onRemoveFeed,
+  onToggleFeedEnabled,
+  togglingFeedKey,
 }: SettingsCategoryAccordionItemProps) {
   const categoryFeeds = categoryNode.children ?? [];
   const isEditing = editingCategory === categoryNode.label;
@@ -309,6 +313,8 @@ export function SettingsCategoryAccordionItem({
                   onSaveRename={onSaveFeedRename}
                   onStartEditing={onStartFeedEdit}
                   onRemove={onRemoveFeed}
+                  onToggleEnabled={onToggleFeedEnabled}
+                  togglingFeedKey={togglingFeedKey}
                 />
               ))}
             </div>

@@ -27,6 +27,7 @@ interface UseSettingsModalStateOptions {
   onDropCategory: (label: string, targetIndex: number) => Promise<void>;
   onRemoveFeed: (key: string) => Promise<void>;
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
+  onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
 }
 
 interface SharedFeedRowProps {
@@ -49,6 +50,8 @@ interface SharedFeedRowProps {
   onCancelFeedEdit: () => void;
   onStartFeedEdit: (key: string, name: string, url: string) => void;
   onRemoveFeed: (key: string) => void;
+  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
+  togglingFeedKey: string | null;
 }
 
 export function useSettingsModalState({
@@ -63,6 +66,7 @@ export function useSettingsModalState({
   onDropCategory,
   onRemoveFeed,
   onRenameFeed,
+  onSetFeedEnabled,
 }: UseSettingsModalStateOptions) {
   // ── Add-feed form state ───────────────────────────────────────────────────
   const [newFeedName, setNewFeedName] = useState("");
@@ -89,6 +93,7 @@ export function useSettingsModalState({
   const [editingFeedUrl, setEditingFeedUrl] = useState("");
   const [savingFeedKey, setSavingFeedKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [togglingFeedKey, setTogglingFeedKey] = useState<string | null>(null);
 
   // ── Drag state ────────────────────────────────────────────────────────────
   const drag = useSettingsDrag({ onDropFeed, onDropCategory });
@@ -189,6 +194,15 @@ export function useSettingsModalState({
     }
   };
 
+  const handleToggleFeedEnabled = async (feedKey: string, enabled: boolean) => {
+    setTogglingFeedKey(feedKey);
+    try {
+      await onSetFeedEnabled(feedKey, enabled);
+    } finally {
+      setTogglingFeedKey(null);
+    }
+  };
+
   // ── Category handlers ─────────────────────────────────────────────────────
 
   const handleAddCategory = () => {
@@ -263,6 +277,9 @@ export function useSettingsModalState({
       setEditingFeedUrl(url);
     },
     onRemoveFeed: (key: string) => void handleRemoveFeed(key),
+    onToggleFeedEnabled: (key: string, enabled: boolean) =>
+      void handleToggleFeedEnabled(key, enabled),
+    togglingFeedKey,
   };
 
   return {

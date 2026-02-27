@@ -107,6 +107,7 @@ export const DashboardView = ({
     setFeed,
     loadFeedSources,
     fetchFeed,
+    fetchAllFeeds,
     fetchCategoryFeeds,
     usePlaceholderData,
   });
@@ -343,6 +344,7 @@ export const DashboardView = ({
           onRemoveCategory={categoryManager.removeCategory}
           onRemoveFeed={categoryManager.removeFeedSource}
           onRenameFeed={categoryManager.renameFeedSource}
+          onSetFeedEnabled={categoryManager.setFeedSourceEnabled}
         />
       )}
     </div>
