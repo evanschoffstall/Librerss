@@ -1,17 +1,11 @@
-import { parsePositiveInt } from "@/lib/api/http";
+import { jsonError, parsePositiveInt } from "@/lib/api/http";
 import {
-  logAndRespondError,
-  requireAuthenticatedUser,
-} from "@/lib/server";
-import { jsonError } from "@/lib/api/http";
+  getUserOwnedArticleById,
+  withNormalizedArticleContent,
+} from "@/lib/core/article-records";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
-import { articles, feeds, feedSources } from "@/lib/db/schema";
-import {
-  normalizeArticleHtmlSpacing,
-  stripOrphanedRelatedBlocks,
-} from "@/lib/sanitize";
-import { and, eq } from "drizzle-orm";
+import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -35,61 +29,31 @@ export async function GET(
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
-    const authResult = await requireAuth(request);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-    const user = authResult;
-
-    const { id } = await context.params;
-    const articleId = parsePositiveInt(id);
-
-    if (!articleId) {
-      return jsonError("articleId must be a positive integer", 400);
-    }
-
     if (RUNTIME_FLAGS.usePlaceholderData) {
       return jsonError("Article not found", 404);
     }
 
-    const db = getDbForRoute();
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) {
+      return authResult;
+    }
 
-    // Join through feeds → feedSources to verify the requesting user owns
-    // a subscription to the feed this article belongs to.
-    const [article] = await db
-      .select({
-        id: articles.id,
-        title: articles.title,
-        link: articles.link,
-        content: articles.content,
-        publicationDate: articles.publicationDate,
-        lastChecked: articles.lastChecked,
-        feedId: articles.feedId,
-      })
-      .from(articles)
-      .innerJoin(feeds, eq(feeds.id, articles.feedId))
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-        ),
-      )
-      .where(eq(articles.id, articleId))
-      .limit(1);
+    const { id } = await context.params;
+    const articleId = parsePositiveInt(id);
+    if (!articleId) {
+      return jsonError("articleId must be a positive integer", 400);
+    }
+
+    const user = authResult;
+
+    const db = getDbForRoute();
+    const article = await getUserOwnedArticleById(db, user.userId, articleId);
 
     if (!article) {
       return jsonError("Article not found", 404);
     }
 
-    return NextResponse.json({
-      ...article,
-      content: article.content
-        ? normalizeArticleHtmlSpacing(
-            stripOrphanedRelatedBlocks(article.content),
-          )
-        : article.content,
-    });
+    return NextResponse.json(withNormalizedArticleContent(article));
   } catch (error) {
     return respondError("Article GET error", error);
   }

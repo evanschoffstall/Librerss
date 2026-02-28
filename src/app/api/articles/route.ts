@@ -1,28 +1,30 @@
 import {
   asTrimmedString,
+  jsonError,
   parseDateInput,
   parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
+import { CONFIG } from "@/lib/config";
+import {
+  listUserOwnedArticles,
+  withNormalizedArticleContent,
+} from "@/lib/core/article-records";
+import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
+import { RUNTIME_FLAGS } from "@/lib/core/runtime";
+import { getDb } from "@/lib/db/db";
+import { articles, feeds, feedSources } from "@/lib/db/schema";
+import {
+  sanitizeAndTruncateArticleContent,
+  sanitizeArticleTitle,
+} from "@/lib/sanitize";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
-import { jsonError } from "@/lib/api/http";
-import { CONFIG } from "@/lib/config";
-import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
-import { articles, feeds, feedSources } from "@/lib/db/schema";
-import {
-  normalizeArticleHtmlSpacing,
-  sanitizeAndTruncateArticleContent,
-  sanitizeArticleTitle,
-  stripOrphanedRelatedBlocks,
-} from "@/lib/sanitize";
 import { isValidUrl } from "@/lib/utils/url";
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -119,38 +121,13 @@ export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
     }
 
     const db = getDbForRoute();
-
-    // Single JOIN replaces the previous 3 sequential queries.
-    const userArticles = await db
-      .select({
-        id: articles.id,
-        title: articles.title,
-        link: articles.link,
-        content: articles.content,
-        publicationDate: articles.publicationDate,
-        lastChecked: articles.lastChecked,
-        feedId: articles.feedId,
-      })
-      .from(articles)
-      .innerJoin(feeds, eq(feeds.id, articles.feedId))
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-        ),
-      )
-      .orderBy(desc(articles.publicationDate))
-      .limit(CONFIG.MAX_ALL_ARTICLES_LIMIT);
-
-    return NextResponse.json(
-      userArticles.map((a) => ({
-        ...a,
-        content: a.content
-          ? normalizeArticleHtmlSpacing(stripOrphanedRelatedBlocks(a.content))
-          : a.content,
-      })),
+    const userArticles = await listUserOwnedArticles(
+      db,
+      user.userId,
+      CONFIG.MAX_ALL_ARTICLES_LIMIT,
     );
+
+    return NextResponse.json(userArticles.map(withNormalizedArticleContent));
   } catch (error) {
     return respondError("Articles GET error", error);
   }
