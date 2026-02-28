@@ -1,6 +1,7 @@
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
+import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
@@ -22,39 +23,68 @@ type FetchHtmlDeps = {
 // across all redirect hops within a single extraction attempt.
 const extractionAxios = cookieJarWrapper(axios.create());
 
-/**
- * Fetch article HTML using got-scraping — a pure-Node.js HTTP client that spoofs
- * the TLS/JA3 fingerprint, HTTP/2 SETTINGS frames, and pseudo-header ordering to
- * match a real Chrome 130 browser.  No binary required; works on any serverless
- * platform including Vercel Hobby.
- *
- * This is the DataDome fallback path.  Node.js's default TLS client hello has a
- * distinct JA3 hash that DataDome recognises and blocks regardless of how
- * convincing the HTTP headers look.  axios uses the default Node.js TLS stack;
- * got-scraping replaces cipher suite ordering, HTTP/2 SETTINGS, and
- * pseudo-header order with browser-matching values, changing the JA3/JA3S/Akamai
- * fingerprints to those of a real Chrome instance.
- */
-async function fetchHtmlWithFingerprint(url: string): Promise<string> {
-  // got-scraping is ESM-only; dynamic import keeps it out of the boot-time module graph.
+export async function fetchHtmlWithFingerprint(
+  url: string,
+  isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
+): Promise<string> {
   const { gotScraping } = await import("got-scraping");
 
-  const response = await gotScraping.get(url, {
-    // Ask header-generator to produce a full Chrome 130 Windows header set
-    // so every observable signal (UA, Accept, sec-ch-ua, etc.) is consistent.
-    headerGeneratorOptions: {
-      browsers: [{ name: "chrome", minVersion: 130, maxVersion: 130 }],
-      devices: ["desktop"],
-      locales: ["en-US"],
-      operatingSystems: ["windows"],
-    },
-    followRedirect: true,
-    timeout: { request: 25_000 },
-    https: { rejectUnauthorized: true },
-    responseType: "text",
-  });
+  let currentUrl = stripUrlFragment(url);
+  let isFirstValidation = true;
 
-  return response.body as string;
+  for (let redirects = 0; redirects <= 5; redirects += 1) {
+    if (!(await isAllowedUrl(currentUrl))) {
+      throw new Error(
+        isFirstValidation ? "Blocked URL" : "Blocked redirect target",
+      );
+    }
+    isFirstValidation = false;
+
+    const response = await gotScraping.get(currentUrl, {
+      headerGeneratorOptions: {
+        browsers: [{ name: "chrome", minVersion: 130, maxVersion: 130 }],
+        devices: ["desktop"],
+        locales: ["en-US"],
+        operatingSystems: ["windows"],
+      },
+      followRedirect: false,
+      throwHttpErrors: false,
+      timeout: { request: 25_000 },
+      https: { rejectUnauthorized: true },
+      responseType: "text",
+    });
+
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      if (redirects === 5) {
+        throw new Error("Too many redirects");
+      }
+
+      const locationHeader = response.headers.location;
+      const location = Array.isArray(locationHeader)
+        ? locationHeader[0]
+        : locationHeader;
+
+      if (typeof location !== "string" || !location.trim()) {
+        throw new Error("Redirect without Location header");
+      }
+
+      currentUrl = stripUrlFragment(new URL(location, currentUrl).toString());
+      continue;
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error(`Upstream responded with status ${response.statusCode}`);
+    }
+
+    const body = typeof response.body === "string" ? response.body : "";
+    if (Buffer.byteLength(body, "utf8") > CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES) {
+      throw new Error("Upstream response too large");
+    }
+
+    return body;
+  }
+
+  throw new Error("Too many redirects");
 }
 
 export async function fetchHtml(
@@ -209,7 +239,7 @@ export async function fetchHtml(
   // the original error so existing test contracts are unchanged.
   if ((dataDomeDetected || perimeterXDetected) && !injectedGet) {
     try {
-      return await fetchHtmlWithFingerprint(url);
+      return await fetchHtmlWithFingerprint(url, isAllowedUrl);
     } catch {
       // got-scraping also failed (IP reputation block or network error) —
       // fall through and surface the original DataDome error to the caller.

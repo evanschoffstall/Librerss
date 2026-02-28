@@ -1,19 +1,20 @@
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  parseAndValidateArticleUrl,
+    clearArticleExtractCacheForTests,
+    fetchHtml,
+    fetchHtmlWithFingerprint,
+    parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import {
-  buildMetadataImageFallbackHtml,
-  cleanExtractedArticleHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  normalizeArticleHtmlSpacing,
-  preCleanHtmlForExtraction,
-  sanitizeExtractedContent,
-  stripCommentEngagementBoilerplate,
-  toParagraphHtml,
+    buildMetadataImageFallbackHtml,
+    cleanExtractedArticleHtml,
+    hasReadableArticleBody,
+    isLikelyNavFooterBoilerplate,
+    normalizeArticleHtmlSpacing,
+    preCleanHtmlForExtraction,
+    sanitizeExtractedContent,
+    stripCommentEngagementBoilerplate,
+    toParagraphHtml,
 } from "@/lib/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -798,6 +799,33 @@ describe("article extract cleanup", () => {
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("PerimeterX");
+  });
+
+  test("fetchHtmlWithFingerprint validates redirects against SSRF policy", async () => {
+    const gotGet = mock(async (inputUrl: string) => {
+      if (inputUrl === "https://example.com/article") {
+        return {
+          statusCode: 302,
+          headers: { location: "http://127.0.0.1/private" },
+          body: "",
+        };
+      }
+
+      return { statusCode: 200, headers: {}, body: "ok" };
+    });
+
+    mock.module("got-scraping", () => ({
+      gotScraping: { get: gotGet },
+    }));
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        async (candidateUrl) => !candidateUrl.includes("127.0.0.1"),
+      ),
+    ).rejects.toThrow("Blocked redirect target");
+
+    expect(gotGet).toHaveBeenCalledTimes(1);
   });
 
   // ─── POST logging ─────────────────────────────────────────────────────────

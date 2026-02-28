@@ -18,6 +18,6 @@ export {
 
 export { readPlaceholderSnapshotHtml } from "./placeholder-snapshot";
 
-export { fetchHtml } from "./upstream-fetch";
+export { fetchHtml, fetchHtmlWithFingerprint } from "./upstream-fetch";
 
 export { parseAndValidateArticleUrl } from "./url-validation";
