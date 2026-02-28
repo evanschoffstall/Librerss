@@ -10,8 +10,8 @@ import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "../constants";
-import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
+import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "./constants";
+import { parseDistinctReaderArticleIds } from "./reader-item-params";
 
 export async function handleMarkAllAsRead(
   user: SessionUser,

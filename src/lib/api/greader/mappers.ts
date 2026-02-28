@@ -6,8 +6,8 @@ import {
   toReaderItemId,
   USER_LABEL_PREFIX,
 } from "@/lib/core/stream-ids";
-import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
 import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
+import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
 import { tryGetUrlHostname } from "@/lib/utils/url";
 
 export type ListedArticle = {

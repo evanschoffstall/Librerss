@@ -3,7 +3,7 @@ import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { buildUserCategoryJoin } from "./stream-joins";
 
-export type UserSubscriptionRow = {
+type UserSubscriptionRow = {
   sourceId: number;
   title: string;
   url: string;

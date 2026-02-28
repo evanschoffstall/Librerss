@@ -13,15 +13,15 @@ import {
 import { logger } from "@/lib/logger";
 import { eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { MAX_STREAM_ITEMS } from "../constants";
-import { withResolvedCategoryByUrl } from "../services/categories";
-import { mapArticleAsItem } from "../services/mappers";
-import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
+import { withResolvedCategoryByUrl } from "./categories";
+import { MAX_STREAM_ITEMS } from "./constants";
+import { mapArticleAsItem } from "./mappers";
+import { parseDistinctReaderArticleIds } from "./reader-item-params";
 import {
   buildUserArticleStatusJoin,
   buildUserCategoryJoin,
   buildUserFeedJoin,
-} from "../services/stream-joins";
+} from "./stream-joins";
 
 export async function handleStreamItemContents(
   user: SessionUser,

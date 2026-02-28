@@ -20,8 +20,8 @@ import {
 } from "@/lib/utils/categories";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveCategoryLabelsByUrl } from "../services/categories";
-import { loadUserSubscriptionRows } from "../services/subscription-data";
+import { resolveCategoryLabelsByUrl } from "./categories";
+import { loadUserSubscriptionRows } from "./subscription-data";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const rows = await loadUserSubscriptionRows(user.userId);

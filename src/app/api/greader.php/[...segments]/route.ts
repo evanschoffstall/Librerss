@@ -1,4 +1,27 @@
 import {
+  handleClientLogin,
+  requireGReaderMutableUser,
+  requireGReaderUser,
+} from "@/lib/api/greader/auth";
+import { handleStreamContents } from "@/lib/api/greader/stream-contents";
+import { handleStreamItemContents } from "@/lib/api/greader/stream-item-contents";
+import { handleStreamItemIds } from "@/lib/api/greader/stream-item-ids";
+import {
+  handleSubscriptionEdit,
+  handleSubscriptionList,
+  handleSubscriptionQuickAdd,
+} from "@/lib/api/greader/subscription";
+import {
+  handleEditTag,
+  handleMarkAllAsRead,
+  handleUnreadCount,
+} from "@/lib/api/greader/tag";
+import {
+  handleDisableTag,
+  handleRenameTag,
+  handleTagList,
+} from "@/lib/api/greader/tag-labels";
+import {
   getSearchParams,
   notFoundResponse,
   textResponse,
@@ -7,29 +30,6 @@ import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import {
-  handleClientLogin,
-  requireGReaderMutableUser,
-  requireGReaderUser,
-} from "./handlers/auth";
-import { handleStreamContents } from "./handlers/stream-contents";
-import { handleStreamItemContents } from "./handlers/stream-item-contents";
-import { handleStreamItemIds } from "./handlers/stream-item-ids";
-import {
-  handleSubscriptionEdit,
-  handleSubscriptionList,
-  handleSubscriptionQuickAdd,
-} from "./handlers/subscription";
-import {
-  handleEditTag,
-  handleMarkAllAsRead,
-  handleUnreadCount,
-} from "./handlers/tag";
-import {
-  handleDisableTag,
-  handleRenameTag,
-  handleTagList,
-} from "./handlers/tag-labels";
 
 export const dynamic = "force-dynamic";
 

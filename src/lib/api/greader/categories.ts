@@ -28,7 +28,7 @@ export function resolveCategoryWithFallback(
   return lookupKey ? (fallbackByUrlKey.get(lookupKey) ?? null) : null;
 }
 
-export async function maybeLoadCategoryFallback(
+async function maybeLoadCategoryFallback(
   userId: number,
   rows: Array<{ category?: string | null }>,
 ): Promise<Map<string, string>> {

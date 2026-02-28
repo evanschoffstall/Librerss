@@ -18,19 +18,19 @@ import {
 import { logger } from "@/lib/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { withResolvedCategoryByUrl } from "../services/categories";
-import { ListedArticle, mapArticleAsItem } from "../services/mappers";
+import { withResolvedCategoryByUrl } from "./categories";
+import { ListedArticle, mapArticleAsItem } from "./mappers";
 import {
   buildUserArticleStatusJoin,
   buildUserCategoryJoin,
   buildUserFeedJoin,
-} from "../services/stream-joins";
+} from "./stream-joins";
+import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 import {
   parseOlderThanDate,
   parseStreamId,
   parseStreamPaging,
-} from "../services/stream-service";
-import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
+} from "./stream-service";
 
 export async function handleStreamContents(
   user: SessionUser,

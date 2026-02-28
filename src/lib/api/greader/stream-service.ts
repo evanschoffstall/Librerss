@@ -8,7 +8,7 @@ import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,
   NETNEWSWIRE_MAX_STREAM_ITEMS,
-} from "../constants";
+} from "./constants";
 
 export function parseStreamPaging(
   searchParams: URLSearchParams,

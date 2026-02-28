@@ -18,9 +18,9 @@ import { logger } from "@/lib/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { withResolvedCategoryByUrl } from "../services/categories";
-import { toReaderIconUrl } from "../services/mappers";
-import { loadUserSubscriptionRows } from "../services/subscription-data";
+import { withResolvedCategoryByUrl } from "./categories";
+import { toReaderIconUrl } from "./mappers";
+import { loadUserSubscriptionRows } from "./subscription-data";
 
 export async function handleSubscriptionList(
   user: SessionUser,

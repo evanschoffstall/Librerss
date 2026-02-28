@@ -9,16 +9,13 @@ import { logger } from "@/lib/logger";
 import { isSafePositiveItemId } from "@/lib/utils/validation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  buildUserArticleStatusJoin,
-  buildUserFeedJoin,
-} from "../services/stream-joins";
+import { buildUserArticleStatusJoin, buildUserFeedJoin } from "./stream-joins";
+import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 import {
   parseOlderThanDate,
   parseStreamPaging,
   shouldExcludeReadFromStream,
-} from "../services/stream-service";
-import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
+} from "./stream-service";
 
 function isMissingRelationError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
