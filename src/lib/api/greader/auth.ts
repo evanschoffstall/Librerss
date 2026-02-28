@@ -145,12 +145,7 @@ function extractAuthToken(request: NextRequest): string | null {
 
   const searchParams = getSearchParams(request);
 
-  return (
-    searchParams.get("auth") ??
-    searchParams.get("Auth") ??
-    searchParams.get("T") ??
-    null
-  );
+  return searchParams.get("auth") ?? searchParams.get("Auth") ?? null;
 }
 
 export async function requireGReaderUser(
