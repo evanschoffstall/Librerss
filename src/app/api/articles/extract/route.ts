@@ -203,7 +203,6 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         key: "article-extract",
         windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
         maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
-        scope: "user",
       },
     });
     if (authResult instanceof Response) return authResult;
