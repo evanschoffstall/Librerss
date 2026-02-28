@@ -213,6 +213,11 @@ export async function getUserFromRequest(request: NextRequest) {
  * GReader `ClientLogin` endpoint so that security measures (scrypt params,
  * placeholder-mode checks) stay in a single code path.
  */
+// SECURITY: constant-time dummy hash — used when the email is not found so
+// that verifyPassword always runs, preventing timing-based email enumeration.
+const DUMMY_HASH =
+  "v2:0000000000000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+
 export async function authenticateCredentials(
   email: string,
   password: string,
@@ -253,12 +258,12 @@ export async function authenticateCredentials(
     .where(eq(users.email, email))
     .limit(1);
 
-  if (!user) {
-    return { ok: false };
-  }
+  // Always call verifyPassword — even when the user is not found — to prevent
+  // timing-based email enumeration via response-time measurement.
+  const hashToVerify = user?.passwordHash ?? DUMMY_HASH;
+  const isValid = await verifyPassword(password, hashToVerify);
 
-  const isValid = await verifyPassword(password, user.passwordHash);
-  if (!isValid) {
+  if (!user || !isValid) {
     return { ok: false };
   }
 
