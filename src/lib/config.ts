@@ -140,6 +140,11 @@ const resolveConfigValue = (key: string): unknown => {
   return envNumber(key);
 };
 
+// CONFIG is typed `any` because this is a dynamic Proxy: each key returns a
+// different type (number | boolean | string) based on the key name suffix, and
+// TypeScript cannot express per-key types on a runtime Proxy trap. The parse/
+// validate guarantees happen inside `resolveConfigValue`; call sites rely on
+// conventional key naming (e.g. _MAX_, _ENABLED) for correctness.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CONFIG: any = new Proxy<Record<string, unknown>>(
   {},
