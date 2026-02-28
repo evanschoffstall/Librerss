@@ -601,7 +601,11 @@ describe("Service Error Handling", () => {
 
   test("services handle server errors", async () => {
     mockAxiosInstance.post = mock(async () => {
-      throw { response: { status: 500, data: { error: "Server error" } } };
+      const error = new Error("Server error") as Error & {
+        response?: { status: number; data: { error: string } };
+      };
+      error.response = { status: 500, data: { error: "Server error" } };
+      throw error;
     });
 
     try {

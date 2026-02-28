@@ -53,7 +53,7 @@ describe("greader services/stream-service", () => {
     const { parseStreamId, parseOlderThanDate, shouldExcludeReadFromStream } =
       await import("@/app/api/greader.php/[...segments]/services/stream-service");
     const { READ_STATE, READING_LIST_STREAM } =
-      await import("@/app/api/greader.php/[...segments]/constants");
+      await import("@/lib/core/stream-ids");
 
     expect(
       parseStreamId(
@@ -100,7 +100,7 @@ describe("greader utils/mappers", () => {
       STARRED_STATE,
       READING_LIST_STREAM,
       USER_LABEL_PREFIX,
-    } = await import("@/app/api/greader.php/[...segments]/constants");
+    } = await import("@/lib/core/stream-ids");
 
     const publicationDate = new Date("2024-01-02T03:04:05.000Z");
 
