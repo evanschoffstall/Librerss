@@ -371,8 +371,23 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
 
   if (!imageUrl) return "";
 
+  // Include explicit dimensions when the publisher provides them via standard
+  // Open Graph width/height meta tags.  Without at least one size signal the
+  // sanitizer cannot verify the image is content-sized and will drop it.
+  // Fall back to a srcset= pointing to the same URL — this is a valid single-
+  // descriptor srcset and satisfies the "has sizeable signal" requirement while
+  // accurately describing an image the publisher explicitly chose to feature.
+  const ogWidth = readMetaTagContent(rawHtml, ["og:image:width"]).trim();
+  const ogHeight = readMetaTagContent(rawHtml, ["og:image:height"]).trim();
+  const widthAttr = ogWidth ? ` width="${escapeHtmlAttribute(ogWidth)}"` : "";
+  const heightAttr = ogHeight
+    ? ` height="${escapeHtmlAttribute(ogHeight)}"`
+    : "";
+  const srcsetAttr =
+    !ogWidth && !ogHeight ? ` srcset="${escapeHtmlAttribute(imageUrl)}"` : "";
+
   const imageHtml = sanitizeArticleHtml(
-    `<p><img src="${escapeHtmlAttribute(imageUrl)}" alt="" /></p>`,
+    `<p><img src="${escapeHtmlAttribute(imageUrl)}" alt=""${widthAttr}${heightAttr}${srcsetAttr} /></p>`,
   );
 
   if (!/<img\b[^>]*\bsrc=/i.test(imageHtml)) return "";
@@ -436,17 +451,57 @@ function removeElementById(rawHtml: string, idValue: string): string {
 /**
  * Strip known noise containers from raw article HTML **before** passing to the
  * content extractor.  This prevents the extractor from picking comment widgets,
- * paywall overlays, or recirculation blocks as the primary article body.
+ * paywall overlays, recirculation blocks, or site-chrome as the primary article
+ * body.
  *
- * - Removes `<script>` and `<style>` blocks (extractor noise).
- * - Removes known comment / engagement widget containers by their DOM ids.
- * - Removes `<aside data-nosnippet>` recirculation blocks that publishers
- *   explicitly mark as non-article content.
+ * Background — why pre-cleaning is necessary:
+ * `@extractus/article-extractor` uses `@mozilla/readability` under the hood.
+ * Readability scores candidate nodes by text density rather than semantic role,
+ * so large, link-heavy site-chrome elements routinely outscore the real article
+ * body when the article markup is lightly structured.  Pre-cleaning removes
+ * those high-density non-article nodes so Readability never sees them.
+ *
+ * Specific cases that drove each removal rule:
+ *
+ * `<header>` / `<footer>` — Sites with dense navigation or copyright footers
+ * (dozens of nav links, social icons, tag lists) can produce a footer whose
+ * raw link density exceeds the main article area.  Readability selected such
+ * a footer as the primary content block in tested scenarios, returning site
+ * navigation HTML instead of the article text.
+ *
+ * Pure-link `<ul>` lists — "Tag cloud" and hashtag panels rendered as
+ * `<ul><li><a>…</a></li>…</ul>` accumulate link density rapidly.  When such
+ * a panel appears in DOM order *before* the article body and contains 30+
+ * items, Readability scores it above the article.  The panel then gets
+ * correctly identified as boilerplate by `isLikelyNavFooterBoilerplate` and
+ * discarded — leaving the pipeline with no content at all.
+ *
+ * Comment widgets / paywall overlays — Large interactive widgets injected near
+ * the article end.  Some paywall scripts insert substantial visible text that
+ * Readability can absorb into its candidate selection.
+ *
+ * `<aside data-nosnippet>` — Publisher-marked recirculation blocks.  The
+ * `data-nosnippet` attribute is the canonical signal that a block must not
+ * be treated as primary content.
  */
 export function preCleanHtmlForExtraction(rawHtml: string): string {
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
+
+  // Remove <header> and <footer> before extraction.
+  //
+  // Finding: Readability uses link-density scoring.  A site footer that
+  // contains 30-50 nav/social/copyright links can score higher than an article
+  // body of equal byte size, especially when the article uses minimal semantic
+  // markup (e.g. bare divs instead of <article>/<p>).  In tested scenarios the
+  // extractor returned the footer's navigation HTML as the "article", producing
+  // hundreds of useless link characters instead of prose content.
+  //
+  // These are standard HTML5 sectioning elements whose purpose is unambiguous;
+  // stripping them unconditionally is safe — they never contain article body.
+  html = html.replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "");
+  html = html.replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "");
 
   // Known comment / engagement widget container ids.
   const idsToRemove = [
@@ -463,6 +518,31 @@ export function preCleanHtmlForExtraction(rawHtml: string): string {
   for (const id of idsToRemove) {
     html = removeElementById(html, id);
   }
+
+  // Remove "pure link lists" — <ul> blocks where every <li> contains only a
+  // single <a> element with no surrounding text.  These are non-content
+  // navigation constructs: tag clouds, hashtag panels, breadcrumb trees,
+  // sidebar link collections.
+  //
+  // Finding: After footer removal, Readability selected a 30-item tag-cloud
+  // <ul> that appeared ~3,800 bytes *before* the article body in DOM order.
+  // Because every list item was a bare hyperlink the block had 100% link
+  // density — the highest possible Readability score — so it was chosen as the
+  // candidate node.  `isLikelyNavFooterBoilerplate` then correctly discarded
+  // it, but that left the pipeline with zero content and forced a metadata-only
+  // fallback (363 chars of og:description instead of the full article).
+  //
+  // The 8-item threshold is intentional: genuine article bullet lists may
+  // consist entirely of hyperlinks (e.g. "Related reading" sections) but
+  // rarely exceed 7-8 items.  Navigation clouds have 15-100+ items.
+  html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
+    const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+    if (items.length < 8) return ulBlock;
+    const allPureLinks = items.every((m) =>
+      /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
+    );
+    return allPureLinks ? "" : ulBlock;
+  });
 
   // Remove <aside data-nosnippet> recirculation / promo blocks.
   html = html.replace(
@@ -554,6 +634,14 @@ export function stripCommentEngagementBoilerplate(content: string): string {
     .trim();
 }
 
+/**
+ * Returns true when the sanitized content looks like site navigation or footer
+ * boilerplate rather than an article body.  Detection is purely heuristic:
+ * it requires at least 2 known site-chrome keyword markers ("privacy",
+ * "advertise", "subscribe", etc.) AND a high link + list-item density.  All
+ * three conditions must hold to avoid false positives on article content that
+ * legitimately mentions those words.
+ */
 export function isLikelyNavFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
   const markerHits = [
@@ -573,21 +661,49 @@ export function isLikelyNavFooterBoilerplate(content: string): boolean {
   const linkCount = (content.match(/<a\b/gi) ?? []).length;
   const listItemCount = (content.match(/<li\b/gi) ?? []).length;
 
+  // Require all three signals to fire together to avoid false positives.
   return markerHits >= 2 && linkCount >= 6 && listItemCount >= 4;
 }
 
+/**
+ * Returns true when the content appears to contain a real article body worth
+ * showing to the user.  Two independent signals are tried in order:
+ *
+ * 1. Structural check — 2+ block-level elements (p, headings, blockquote, list)
+ *    strongly suggest formatted article prose.
+ * 2. Plain-text length check — ≥280 chars of prose (≈2 sentences) as a fallback
+ *    for pages that use only inline markup with no block containers.
+ *
+ * Used by the direct-sanitize fallback to avoid promoting ad fragments or
+ * empty boilerplate into the article slot.
+ */
 export function hasReadableArticleBody(content: string): boolean {
+  // Prefer structured markup as the primary signal — fast and reliable.
   const blockElementCount = (
     content.match(/<(?:p|h[1-6]|blockquote|ul|ol)\b/gi) ?? []
   ).length;
   if (blockElementCount >= 2) return true;
 
+  // Fall back to raw text length for pages with minimal HTML structure.
   const plainTextLength = toPlainText(content)
     .replace(/\s+/g, " ")
     .trim().length;
   return plainTextLength >= 280;
 }
 
+/**
+ * Final clean-up pass applied to sanitized article HTML before it is stored
+ * or returned to the client.  Two things are removed in sequence:
+ *
+ * 1. Comment-engagement boilerplate — login prompts, "before commenting"
+ *    notices, etc. that extractors sometimes pull in from the comment section.
+ * 2. Nav/footer boilerplate guard — if the whole remaining content still looks
+ *    like site chrome (high link density + site-chrome keywords), discard it
+ *    entirely so the caller can fall through to a better fallback.
+ *
+ * `_articleUrl` is reserved for future per-origin cleaning rules but is
+ * intentionally unused today to keep the logic domain-agnostic.
+ */
 export function cleanExtractedArticleHtml(
   sanitizedContent: string,
   _articleUrl: string,
@@ -599,6 +715,7 @@ export function cleanExtractedArticleHtml(
 
   if (!withoutEngagementPrompts.trim()) return "";
 
+  // Discard entirely if the content still looks like a nav/footer block.
   return isLikelyNavFooterBoilerplate(withoutEngagementPrompts)
     ? ""
     : withoutEngagementPrompts;
@@ -702,6 +819,10 @@ export async function fetchHtml(
   // Rotating axios fingerprints won't help — the block is at TLS/IP level.
   // The browser fallback runs after the loop exits.
   let dataDomeDetected = false;
+  // Set to true when PerimeterX (px-captcha challenge page or x-px-* headers) is
+  // detected on a 403.  Same reasoning as DataDome — TLS fingerprint is the
+  // distinguishing signal; UA rotation alone won't bypass it.
+  let perimeterXDetected = false;
 
   const attempts = injectedGet ? 1 : 1 + EXTRACT_403_RETRIES;
 
@@ -789,6 +910,20 @@ export async function fetchHtml(
                   "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
                 );
               }
+              // PerimeterX detection: challenge pages embed "px-captcha" in the
+              // body; some enforcer configs also set x-px-* response headers.
+              // TLS fingerprint rotation (got-scraping) is the correct bypass.
+              const responseBody = String(error.response?.data ?? "");
+              const resPxHeaders = Object.keys(error.response?.headers ?? {});
+              const isPerimeterX =
+                /px[-_]captcha|perimeterx|\/_px\//i.test(responseBody) ||
+                resPxHeaders.some((h) => h.toLowerCase().startsWith("x-px-"));
+              if (isPerimeterX) {
+                perimeterXDetected = true;
+                throw new Error(
+                  "Upstream blocked request with anti-bot protection (PerimeterX) [HTTP 403]",
+                );
+              }
               // Other 403s: let the error propagate so the retry loop can catch it.
             }
           },
@@ -797,11 +932,12 @@ export async function fetchHtml(
       );
     } catch (err) {
       lastError = err;
-      if (dataDomeDetected) {
+      if (dataDomeDetected || perimeterXDetected) {
         // Exit the fingerprint-rotation loop immediately: additional axios
-        // requests from the same server IP won't bypass DataDome — the block
-        // is at the TLS/JA3 fingerprint level.  The got-scraping fallback
-        // below sends a proper Chrome TLS hello which changes the JA3 hash.
+        // requests from the same server IP won't bypass DataDome/PerimeterX —
+        // the block is at the TLS/JA3 fingerprint level.  The got-scraping
+        // fallback below sends a proper Chrome TLS hello which changes the
+        // JA3 hash.
         break;
       }
       // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
@@ -812,12 +948,12 @@ export async function fetchHtml(
     }
   }
 
-  // TLS fingerprint fallback: when DataDome is detected by axios, retry the
-  // request with got-scraping which spoofs the JA3/HTTP2 fingerprint to match
-  // Chrome 130 at the TLS layer — something axios/Node.js cannot do natively.
-  // Injected callers (tests) always skip this path — they receive the original
-  // DataDome error so existing test contracts are unchanged.
-  if (dataDomeDetected && !injectedGet) {
+  // TLS fingerprint fallback: when DataDome or PerimeterX is detected by axios,
+  // retry the request with got-scraping which spoofs the JA3/HTTP2 fingerprint
+  // to match Chrome 130 at the TLS layer — something axios/Node.js cannot do
+  // natively.  Injected callers (tests) always skip this path — they receive
+  // the original error so existing test contracts are unchanged.
+  if ((dataDomeDetected || perimeterXDetected) && !injectedGet) {
     try {
       return await fetchHtmlWithFingerprint(url);
     } catch {
@@ -845,6 +981,7 @@ type ExtractPostDeps = {
   isAxiosErrorFn?: typeof axios.isAxiosError;
   infoFn?: typeof logger.info;
   warnFn?: typeof logger.warn;
+  errorFn?: typeof logger.error;
   shouldUseExtractCacheFn?: () => boolean;
 };
 
@@ -865,6 +1002,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   const info = deps?.infoFn ?? logger.info.bind(logger);
   const warn = deps?.warnFn ?? logger.warn.bind(logger);
+  const errorLog = deps?.errorFn ?? logger.error.bind(logger);
   const shouldUseCache = deps?.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
   const verboseLoggingEnabled = isVerboseLoggingEnabled();
   const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -942,6 +1080,40 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     let content = cleanContent(sanitizedContent, articleUrl);
 
     if (!content.trim()) {
+      // Direct-sanitize fallback.
+      //
+      // Finding: Readability's scoring algorithm relies on visible text density
+      // (chars per candidate node) and is sensitive to nesting depth.  On
+      // React / SPA pages the real article can live 5-6 div levels deep with
+      // no semantic anchors (no <article>, <main>, or id/class signals that
+      // Readability recognises).  In a tested scenario the DOM contained 24
+      // article paragraphs totalling ~5,900 chars of text, but Readability
+      // returned only ~194 chars consisting of ad copy and a form label because
+      // the outermost ancestor it could score was an anonymous wrapper div that
+      // happened to contain both the article subtree *and* several noisy
+      // siblings, diluting the density below competing nodes.
+      //
+      // Solution: when Readability returns nothing, skip it entirely and pipe
+      // the pre-cleaned HTML straight through `sanitizeExtractedContent`.
+      // The sanitizer is tag-allowlist based — it keeps <p>, <h1-6>,
+      // <blockquote>, <img>, etc. and discards everything else — so it
+      // recovers the article text without needing density scoring.  The
+      // `hasReadableArticleBody` guard ensures we only promote the result when
+      // it contains genuine prose (2+ block elements or 280+ plain-text chars)
+      // rather than residual ad fragments.
+      const directlySanitized = sanitizeContent(extractableHtml);
+      const directlyCleaned = cleanContent(directlySanitized, articleUrl);
+      if (directlyCleaned.trim() && hasReadableArticleBody(directlyCleaned)) {
+        content = directlyCleaned;
+        info(`Article extract applied direct sanitize fallback`, {
+          url: safeUrl,
+          extractAttemptId,
+          requestId,
+        });
+      }
+    }
+
+    if (!content.trim()) {
       const metadataFallbackContent = buildMetadataImageFallbackHtml(html);
       if (metadataFallbackContent) {
         const fallbackCleaned = cleanContent(
@@ -997,7 +1169,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
           ? 422
           : 502;
       const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
-      warn(
+      errorLog(
         `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
         {
           url: safeArticleUrl,
@@ -1016,7 +1188,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       );
     }
 
-    warn(
+    errorLog(
       `Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`,
       {
         url: safeArticleUrl,
