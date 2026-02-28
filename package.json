@@ -13,11 +13,11 @@
     "test": "bun test",
     "test:regen-expectations": "bun run src/__tests__/snapshots/expect-extraction/regen-expections.ts",
     "types": "tsc --noEmit",
-    "lint": "bun scripts/lint.ts",
+    "lint": "bun scripts/check.ts lint",
     "lint:style": "stylelint \"src/**/*.{css,scss}\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ts-prune": "bun scripts/ts-prune.ts --config .ts-prune.json",
+    "ts-prune": "bun scripts/check.ts ts-prune --config .ts-prune.json",
     "tsd": "tsd --typings next-env.d.ts",
     "hooks:install": "lefthook install",
     "staged": "lint-staged",
@@ -47,7 +47,7 @@
       "prettier --write"
     ],
     "*.{js,mjs,cjs,ts,tsx,jsx}": [
-      "bun scripts/lint.ts --fix"
+      "bun scripts/check.ts lint --fix"
     ],
     "*.{css,scss}": [
       "stylelint --fix"
