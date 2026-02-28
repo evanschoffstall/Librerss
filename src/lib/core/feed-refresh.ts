@@ -7,8 +7,8 @@
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { articles, feeds } from "@/lib/db/schema";
-import { toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/logger";
+import { toErrorMessage } from "@/lib/utils/errors";
 import { eq, sql } from "drizzle-orm";
 import Parser from "rss-parser";
 import { fetchFeedXml } from "./feed-http";
@@ -170,7 +170,7 @@ export async function refreshFeedFromUpstream(
       await db
         .update(feeds)
         .set({ lastFetched: new Date(), lastFetchError: errorMessage })
-        .where(eq(feeds.url, feed.url));
+        .where(eq(feeds.id, feed.id));
 
       if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
         logger.info("Upstream refresh failure cooldown applied", {
