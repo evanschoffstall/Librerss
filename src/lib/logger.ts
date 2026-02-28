@@ -17,7 +17,7 @@ interface LogContext {
 }
 
 export class Logger {
-  private isDevelopment = process.env.NODE_ENV === "development";
+  private readonly isDevelopment = process.env.NODE_ENV === "development";
   private readonly sensitiveKeyPattern =
     /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
 
@@ -168,9 +168,11 @@ export class Logger {
     return `${local.slice(0, 2)}***@${domain}`;
   }
 
+  // Level hierarchy: none < error < warn < info < verbose
   info(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
-    if (logLevel === "none" || logLevel === "error") return;
+    if (logLevel === "none" || logLevel === "error" || logLevel === "warn")
+      return;
     const sanitized = this.sanitizeContext(context);
     console.log(this.formatMessage("info", message, sanitized));
   }
@@ -183,16 +185,15 @@ export class Logger {
   }
 
   error(message: string, context?: LogContext): void {
+    if (this.getCurrentLogLevel() === "none") return;
     const sanitized = this.sanitizeContext(context);
-
     console.error(this.formatMessage("error", message, sanitized));
   }
 
   debug(message: string, context?: LogContext): void {
-    if (this.isDevelopment) {
-      const sanitized = this.sanitizeContext(context);
-      console.debug(this.formatMessage("debug", message, sanitized));
-    }
+    if (!this.isDevelopment || this.getCurrentLogLevel() !== "verbose") return;
+    const sanitized = this.sanitizeContext(context);
+    console.debug(this.formatMessage("debug", message, sanitized));
   }
 }
 
