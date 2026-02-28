@@ -101,8 +101,14 @@ export async function parseFormOrQueryParams(
       const formData = await request.formData();
       const params = new URLSearchParams();
 
+      let totalBytes = 0;
       for (const [key, value] of Array.from(formData.entries())) {
         if (typeof value === "string") {
+          totalBytes +=
+            Buffer.byteLength(key, "utf8") + Buffer.byteLength(value, "utf8");
+          if (totalBytes > maxBytes) {
+            return bodyTooLarge;
+          }
           params.append(key, value);
         }
       }
