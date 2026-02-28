@@ -1,13 +1,10 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
+import { jsonError } from "@/lib/api/http";
+import { upsertArticleStatuses } from "@/lib/core/article-status";
 import {
   logAndRespondError,
-  requireMutableAuthenticatedUser,
-} from "@/lib/api/request-guards";
-import {
-  isSafePositiveItemId,
-  upsertArticleStatuses,
-} from "@/lib/core/article-status";
+  requireMutableUserAndJsonBody,
+} from "@/lib/server";
+import { isSafePositiveItemId } from "@/lib/utils/validation";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -39,12 +36,11 @@ function parseStatusPayload(
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireMutableAuthenticatedUser(request);
-    if (user instanceof Response) return user;
+    const authAndBody =
+      await requireMutableUserAndJsonBody<Record<string, unknown>>(request);
+    if (authAndBody instanceof Response) return authAndBody;
 
-    const body =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
-    if (body instanceof Response) return body;
+    const { user, body } = authAndBody;
 
     const payload = parseStatusPayload(body);
     if (payload instanceof Response) return payload;

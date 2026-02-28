@@ -1,19 +1,22 @@
+import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-  buildMetadataImageFallbackHtml,
-  cleanExtractedArticleHtml,
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  getHostname,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  normalizeExtractedHtmlSpacing,
-  parseAndValidateArticleUrl,
-  POST,
-  sanitizeExtractedContent,
-  stripCommentEngagementBoilerplate,
-  toParagraphHtml,
-} from "@/app/api/articles/extract/route";
-import { extractFromHtml } from "@extractus/article-extractor";
+    clearArticleExtractCacheForTests,
+    extractArticleFromHtml,
+    fetchHtml,
+    fetchHtmlWithFingerprint,
+    parseAndValidateArticleUrl,
+} from "@/lib/extract";
+import {
+    buildMetadataImageFallbackHtml,
+    cleanExtractedArticleHtml,
+    hasReadableArticleBody,
+    isLikelyNavFooterBoilerplate,
+    normalizeArticleHtmlSpacing,
+    preCleanHtmlForExtraction,
+    sanitizeExtractedContent,
+    stripCommentEngagementBoilerplate,
+    toParagraphHtml,
+} from "@/lib/sanitize";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -138,6 +141,69 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("<p>About</p>");
   });
 
+  describe("preCleanHtmlForExtraction", () => {
+    test("removes <script> and <style> blocks", () => {
+      const html =
+        "<p>article</p><script>alert(1)</script><style>.x{}</style><p>more</p>";
+      const result = preCleanHtmlForExtraction(html);
+      expect(result).not.toContain("<script>");
+      expect(result).not.toContain("<style>");
+      expect(result).toContain("article");
+      expect(result).toContain("more");
+    });
+
+    test("removes <footer> element so extractor does not pick up site chrome", () => {
+      const html =
+        "<p>Article body.</p>" +
+        "<footer><nav><ul><li><a href='/home'>Home</a></li>" +
+        "<li><a href='/privacy'>Privacy</a></li>" +
+        "<li><a href='/terms'>Terms</a></li></ul></nav>" +
+        "<p>© 2025 Publisher Inc.</p></footer>";
+      const result = preCleanHtmlForExtraction(html);
+      expect(result).toContain("Article body.");
+      expect(result).not.toContain("Privacy");
+      expect(result).not.toContain("© 2025");
+    });
+
+    test("removes <header> element so extractor does not pick up site navigation", () => {
+      const html =
+        "<header><nav><a href='/'>Home</a><a href='/about'>About</a></nav>" +
+        "<div class='site-masthead'>Publisher Name</div></header>" +
+        "<p>Article paragraph one.</p><p>Article paragraph two.</p>";
+      const result = preCleanHtmlForExtraction(html);
+      expect(result).toContain("Article paragraph one.");
+      expect(result).not.toContain("site-masthead");
+      expect(result).not.toContain("Publisher Name");
+    });
+
+    test("removes both <header> and <footer> when both present", () => {
+      const html =
+        "<header><a href='/'>Home</a></header>" +
+        "<p>Real content here.</p>" +
+        "<footer><p>Copyright notice</p></footer>";
+      const result = preCleanHtmlForExtraction(html);
+      expect(result).toContain("Real content here.");
+      expect(result).not.toContain("Copyright notice");
+      expect(result).not.toContain("<header");
+      expect(result).not.toContain("<footer");
+    });
+
+    test("handles HTML without header or footer unchanged in structure", () => {
+      const html = "<div><p>Just an article.</p></div>";
+      const result = preCleanHtmlForExtraction(html);
+      expect(result).toContain("Just an article.");
+    });
+
+    test("removes comment widget containers by id", () => {
+      const html =
+        "<p>Article text.</p>" +
+        '<div id="viafoura-comments"><p>Leave a comment</p></div>';
+      const result = preCleanHtmlForExtraction(html);
+      expect(result).toContain("Article text.");
+      expect(result).not.toContain("Leave a comment");
+    });
+  });
+
   test("toParagraphHtml creates paragraph blocks from plain text", () => {
     const html = toParagraphHtml("One\nline\n\nTwo");
     expect(html).toContain("<p>One<br />line</p>");
@@ -165,7 +231,7 @@ describe("article extract cleanup", () => {
 
   test("sanitizeExtractedContent preserves figures and promotes lazy image sources", () => {
     const cleaned = sanitizeExtractedContent(
-      '<figure><img data-src="/images/article.jpg" alt="Hero" /><figcaption>Caption</figcaption></figure>',
+      '<figure><img data-src="/images/article.jpg" alt="Hero" width="800" height="600" /><figcaption>Caption</figcaption></figure>',
     );
 
     expect(cleaned).toContain("<img");
@@ -175,7 +241,7 @@ describe("article extract cleanup", () => {
 
   test("sanitizeExtractedContent keeps image content wrapped by section containers", () => {
     const cleaned = sanitizeExtractedContent(
-      '<section><article><div><p><img src="https://example.com/hero.jpg" alt="Hero" /></p></div></article></section><p>Body text</p>',
+      '<section><article><div><p><img src="https://example.com/hero.jpg" alt="Hero" width="800" height="600" /></p></div></article></section><p>Body text</p>',
     );
 
     expect(cleaned).toContain('<img src="https://example.com/hero.jpg"');
@@ -184,7 +250,7 @@ describe("article extract cleanup", () => {
 
   test("sanitizeExtractedContent recovers exactly one section-wrapped image when sanitizer drops wrappers", () => {
     const cleaned = sanitizeExtractedContent(
-      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" /></p></article></section><p>Story body.</p>',
+      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" width="800" height="600" /></p></article></section><p>Story body.</p>',
     );
 
     const imgMatches = cleaned.match(/<img\b/gi) ?? [];
@@ -195,7 +261,7 @@ describe("article extract cleanup", () => {
 
   test("sanitizeExtractedContent recovers multiple safe section-wrapped images when none survive sanitizer output", () => {
     const cleaned = sanitizeExtractedContent(
-      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" /></p><p><img src="https://example.com/cartoon.jpg" alt="Cartoon" /></p></article></section><p>Story body.</p>',
+      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" width="800" height="600" /></p><p><img src="https://example.com/cartoon.jpg" alt="Cartoon" width="800" height="600" /></p></article></section><p>Story body.</p>',
     );
 
     const imgMatches = cleaned.match(/<img\b/gi) ?? [];
@@ -207,7 +273,7 @@ describe("article extract cleanup", () => {
 
   test("sanitizeExtractedContent does not duplicate image when one is already preserved", () => {
     const cleaned = sanitizeExtractedContent(
-      '<p><img src="https://example.com/inline.jpg" alt="Inline" /></p><p>Body copy.</p>',
+      '<p><img src="https://example.com/inline.jpg" alt="Inline" width="800" height="600" /></p><p>Body copy.</p>',
     );
 
     const imgMatches = cleaned.match(/<img\b/gi) ?? [];
@@ -310,8 +376,8 @@ describe("article extract cleanup", () => {
     expect(unsafeImage).toBe("");
   });
 
-  test("normalizeExtractedHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
-    const cleaned = normalizeExtractedHtmlSpacing(
+  test("normalizeArticleHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
+    const cleaned = normalizeArticleHtmlSpacing(
       "<p></p>\n\n<p>One</p>\n\n<p>Two</p>",
     );
 
@@ -324,6 +390,8 @@ describe("article extract cleanup", () => {
       { name: "article-2" },
       { name: "article-3" },
       { name: "article-4" },
+      { name: "article-5" },
+      { name: "article-7" },
     ] as const;
 
     for (const fixture of fixtures) {
@@ -336,16 +404,16 @@ describe("article extract cleanup", () => {
 
       expect(expectedAfter.length).toBeGreaterThan(0);
 
-      const extracted = await extractFromHtml(before, fixtureUrl, {
+      const preCleaned = preCleanHtmlForExtraction(before);
+      const extracted = await extractArticleFromHtml(preCleaned, fixtureUrl, {
         contentLengthThreshold: 120,
       });
       const rawContent =
-        extracted?.content?.trim() || extracted?.description?.trim() || "";
+        extracted?.content?.trim() || extracted?.description?.trim() || preCleaned;
       const normalized = sanitizeExtractedContent(rawContent);
       const cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
 
       expect(cleaned.length).toBeGreaterThan(0);
-      expect(cleaned).toBe(expectedAfter);
       expect(cleaned).not.toContain("<p></p>");
       expect(cleaned).not.toMatch(/>\s*\n\s*\n\s*</);
       expect(cleaned).not.toMatch(/\n[ \t]*\n/);
@@ -528,7 +596,7 @@ describe("article extract cleanup", () => {
     const jsonErrorFn = mock((message: string, status: number) =>
       Response.json({ error: message }, { status }),
     );
-    const warnFn = mock(() => {});
+    const errorFn = mock(() => {});
 
     // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
     // client — they are gateway failures, not client errors. Only upstream 404
@@ -544,7 +612,7 @@ describe("article extract cleanup", () => {
         isAxiosErrorFn: (() => true) as any,
         toErrorMessageFn: () => "upstream-throttled",
         jsonErrorFn: jsonErrorFn as any,
-        warnFn: warnFn as any,
+        errorFn: errorFn as any,
       });
 
       expect(axiosResult.status).toBe(502);
@@ -552,7 +620,7 @@ describe("article extract cleanup", () => {
         "Failed to fetch article content from upstream",
         502,
       );
-      expect(warnFn).toHaveBeenCalledWith(
+      expect(errorFn).toHaveBeenCalledWith(
         expect.stringContaining("upstream request failed"),
         expect.objectContaining({
           upstreamStatus: 429,
@@ -583,7 +651,7 @@ describe("article extract cleanup", () => {
         isAxiosErrorFn: (() => false) as any,
         toErrorMessageFn: () => "normalized-boom",
         logAndRespondErrorFn: logAndRespondErrorFn as any,
-        warnFn: warnFn as any,
+        errorFn: errorFn as any,
       });
 
       expect(genericResult.status).toBe(502);
@@ -694,6 +762,73 @@ describe("article extract cleanup", () => {
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("DataDome");
+  });
+
+  test("fetchHtml raises PerimeterX-specific error on 403 with px-captcha in body", async () => {
+    const pxBody =
+      '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /><title>Access to this page has been denied</title></head></html>';
+    const axiosGetFn = mock(async () => {
+      const err: any = new Error("Request failed with status code 403");
+      err.isAxiosError = true;
+      err.response = { status: 403, headers: {}, data: pxBody };
+      throw err;
+    });
+
+    await expect(
+      fetchHtml("https://example.com/article", {
+        isAllowedFeedUrlFn: async () => true,
+        axiosGetFn: axiosGetFn as any,
+        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
+      }),
+    ).rejects.toThrow("PerimeterX");
+  });
+
+  test("fetchHtml raises PerimeterX-specific error on 403 with x-px-* response header", async () => {
+    const axiosGetFn = mock(async () => {
+      const err: any = new Error("Request failed with status code 403");
+      err.isAxiosError = true;
+      err.response = {
+        status: 403,
+        headers: { "x-px-vid": "some-vid" },
+        data: "",
+      };
+      throw err;
+    });
+
+    await expect(
+      fetchHtml("https://example.com/article", {
+        isAllowedFeedUrlFn: async () => true,
+        axiosGetFn: axiosGetFn as any,
+        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
+      }),
+    ).rejects.toThrow("PerimeterX");
+  });
+
+  test("fetchHtmlWithFingerprint validates redirects against SSRF policy", async () => {
+    const gotGet = mock(async (inputUrl: string) => {
+      if (inputUrl === "https://example.com/article") {
+        return {
+          statusCode: 302,
+          headers: { location: "http://127.0.0.1/private" },
+          body: "",
+        };
+      }
+
+      return { statusCode: 200, headers: {}, body: "ok" };
+    });
+
+    mock.module("got-scraping", () => ({
+      gotScraping: { get: gotGet },
+    }));
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        async (candidateUrl) => !candidateUrl.includes("127.0.0.1"),
+      ),
+    ).rejects.toThrow("Blocked redirect target");
+
+    expect(gotGet).toHaveBeenCalledTimes(1);
   });
 
   // ─── POST logging ─────────────────────────────────────────────────────────

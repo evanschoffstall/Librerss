@@ -1,8 +1,9 @@
+import { extractArticleFromHtml } from "@/lib/extract";
 import {
-  cleanExtractedArticleHtml,
-  sanitizeExtractedContent,
-} from "@/app/api/articles/extract/route";
-import { extractFromHtml } from "@extractus/article-extractor";
+    cleanExtractedArticleHtml,
+    preCleanHtmlForExtraction,
+    sanitizeExtractedContent,
+} from "@/lib/sanitize";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -35,12 +36,13 @@ async function regenerateExpectation(dir: string, articleName: string) {
   const downloadedHtml = readFileSync(inputPath, "utf8");
   const url = extractCanonicalUrlFromHtml(downloadedHtml, articleName);
 
-  const extracted = await extractFromHtml(downloadedHtml, url, {
+  const preCleaned = preCleanHtmlForExtraction(downloadedHtml);
+  const extracted = await extractArticleFromHtml(preCleaned, url, {
     contentLengthThreshold: 120,
   });
 
   const rawContent =
-    extracted?.content?.trim() || extracted?.description?.trim() || "";
+    extracted?.content?.trim() || extracted?.description?.trim() || preCleaned;
 
   const cleaned = cleanExtractedArticleHtml(
     sanitizeExtractedContent(rawContent),

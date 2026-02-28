@@ -11,7 +11,7 @@ afterEach(() => {
 describe("greader services/stream-service", () => {
   test("parseStreamPaging handles default, netnewswire, offset, and continuation id", async () => {
     const { parseStreamPaging } =
-      await import("@/app/api/greader.php/[...segments]/services/stream-service");
+      await import("@/lib/api/greader/stream-service");
 
     const defaultPaging = parseStreamPaging(new URLSearchParams(), "Mozilla");
     expect(defaultPaging.limit).toBeGreaterThan(0);
@@ -51,9 +51,9 @@ describe("greader services/stream-service", () => {
 
   test("parseStreamId, parseOlderThanDate, and shouldExcludeReadFromStream branches", async () => {
     const { parseStreamId, parseOlderThanDate, shouldExcludeReadFromStream } =
-      await import("@/app/api/greader.php/[...segments]/services/stream-service");
+      await import("@/lib/api/greader/stream-service");
     const { READ_STATE, READING_LIST_STREAM } =
-      await import("@/app/api/greader.php/[...segments]/constants");
+      await import("@/lib/core/stream-ids");
 
     expect(
       parseStreamId(
@@ -71,20 +71,16 @@ describe("greader services/stream-service", () => {
       parseOlderThanDate(new URLSearchParams("ot=not-a-number")),
     ).toBeNull();
 
-    expect(shouldExcludeReadFromStream(READING_LIST_STREAM, [READ_STATE])).toBe(
-      true,
-    );
-    expect(
-      shouldExcludeReadFromStream("feed/https://example.com", [READ_STATE]),
-    ).toBe(false);
-    expect(shouldExcludeReadFromStream(READING_LIST_STREAM, [])).toBe(false);
+    expect(shouldExcludeReadFromStream([READ_STATE])).toBe(true);
+    expect(shouldExcludeReadFromStream([READ_STATE])).toBe(true);
+    expect(shouldExcludeReadFromStream([])).toBe(false);
   });
 });
 
 describe("greader utils/mappers", () => {
   test("toReaderIconUrl maps valid feed URL and rejects invalid values", async () => {
     const { toReaderIconUrl } =
-      await import("@/app/api/greader.php/[...segments]/services/mappers");
+      await import("@/lib/api/greader/mappers");
 
     expect(toReaderIconUrl("https://sub.example.com/feed.xml")).toContain(
       "domain=sub.example.com",
@@ -94,13 +90,13 @@ describe("greader utils/mappers", () => {
 
   test("mapArticleAsItem builds reader payload with category fallback and states", async () => {
     const { mapArticleAsItem } =
-      await import("@/app/api/greader.php/[...segments]/services/mappers");
+      await import("@/lib/api/greader/mappers");
     const {
       READ_STATE,
       STARRED_STATE,
       READING_LIST_STREAM,
       USER_LABEL_PREFIX,
-    } = await import("@/app/api/greader.php/[...segments]/constants");
+    } = await import("@/lib/core/stream-ids");
 
     const publicationDate = new Date("2024-01-02T03:04:05.000Z");
 
@@ -159,7 +155,7 @@ describe("greader utils/mappers", () => {
 
 describe("api/request helpers", () => {
   test("parseJsonBody validates body size and malformed json", async () => {
-    const { parseJsonBody } = await import("@/lib/api/request");
+    const { parseJsonBody } = await import("@/lib/api/http");
 
     const oversizedByHeader = new Request("https://example.com", {
       method: "POST",
@@ -185,7 +181,7 @@ describe("api/request helpers", () => {
       getSearchParams,
       asTrimmedString,
       parseDateInput,
-    } = await import("@/lib/api/request");
+    } = await import("@/lib/api/http");
 
     const getRequest = new Request("https://example.com/path?x=1&y=2");
     const getParams = await parseFormOrQueryParams(getRequest);

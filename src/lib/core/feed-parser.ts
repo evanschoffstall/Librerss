@@ -7,7 +7,7 @@ import { parseDateOrFallback } from "@/lib/utils/date-utils";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
-} from "@/lib/utils/sanitize";
+} from "@/lib/sanitize";
 import { isValidUrl } from "@/lib/utils/url";
 import Parser from "rss-parser";
 

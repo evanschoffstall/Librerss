@@ -108,27 +108,7 @@
   }
 
   body.motion-profile-default {
-    --motion-duration-ui: 150ms;
-    --motion-duration-reveal: 800ms;
-    --motion-duration-tagline: 800ms;
-    --motion-duration-content-enter: 420ms;
-    --motion-duration-content-enter-slow: 900ms;
-    --motion-duration-arrow: 1800ms;
-    --motion-duration-icon-wiggle: 500ms;
-    --motion-duration-glow-main: 9000ms;
-    --motion-duration-glow-left: 11000ms;
-    --motion-duration-glow-right: 12000ms;
-    --motion-delay-tagline: 500ms;
-
-    --motion-ease-ui: linear;
-    --motion-ease-emphasized: ease-out;
-    --motion-ease-ambient: ease-in-out;
-
-    --motion-delay-0: 0ms;
-    --motion-delay-1: 120ms;
-    --motion-delay-2: 240ms;
-    --motion-delay-3: 360ms;
-    --motion-delay-step: 120ms;
+    /* Intentionally empty: defaults are defined on :root above. */
   }
 
   body.motion-profile-luxurious {
@@ -193,7 +173,6 @@
 
 @layer utilities {
   @keyframes landing-glow-main {
-
     0%,
     100% {
       opacity: 0.42;
@@ -207,7 +186,6 @@
   }
 
   @keyframes landing-glow-left {
-
     0%,
     100% {
       opacity: 0.24;
@@ -221,7 +199,6 @@
   }
 
   @keyframes landing-glow-right {
-
     0%,
     100% {
       opacity: 0.2;
@@ -281,7 +258,6 @@
   }
 
   @keyframes landing-arrow-bob {
-
     0%,
     100% {
       transform: translateX(0);
@@ -311,40 +287,48 @@
   }
 
   .landing-glow-main {
-    animation: landing-glow-main var(--motion-duration-glow-main) var(--motion-ease-ambient) infinite;
+    animation: landing-glow-main var(--motion-duration-glow-main)
+      var(--motion-ease-ambient) infinite;
     will-change: transform, opacity;
   }
 
   .landing-glow-left {
-    animation: landing-glow-left var(--motion-duration-glow-left) var(--motion-ease-ambient) infinite;
+    animation: landing-glow-left var(--motion-duration-glow-left)
+      var(--motion-ease-ambient) infinite;
     will-change: transform, opacity;
   }
 
   .landing-glow-right {
-    animation: landing-glow-right var(--motion-duration-glow-right) var(--motion-ease-ambient) infinite;
+    animation: landing-glow-right var(--motion-duration-glow-right)
+      var(--motion-ease-ambient) infinite;
     will-change: transform, opacity;
   }
 
   .landing-reveal {
     opacity: 0;
-    animation: landing-reveal-up var(--motion-duration-reveal) var(--motion-ease-emphasized) both;
+    animation: landing-reveal-up var(--motion-duration-reveal)
+      var(--motion-ease-emphasized) both;
   }
 
   .landing-tagline {
     opacity: 0;
-    animation: landing-tagline-reveal var(--motion-duration-tagline) var(--motion-ease-emphasized) var(--motion-delay-tagline) both;
+    animation: landing-tagline-reveal var(--motion-duration-tagline)
+      var(--motion-ease-emphasized) var(--motion-delay-tagline) both;
   }
 
   .landing-arrow-bob {
-    animation: landing-arrow-bob var(--motion-duration-arrow) var(--motion-ease-ambient) infinite;
+    animation: landing-arrow-bob var(--motion-duration-arrow)
+      var(--motion-ease-ambient) infinite;
   }
 
   .landing-icon-wiggle {
-    animation: landing-icon-wiggle var(--motion-duration-icon-wiggle) var(--motion-ease-ambient);
+    animation: landing-icon-wiggle var(--motion-duration-icon-wiggle)
+      var(--motion-ease-ambient);
   }
 
   .landing-feature:hover .landing-feature-icon {
-    animation: landing-icon-wiggle var(--motion-duration-icon-wiggle) var(--motion-ease-ambient);
+    animation: landing-icon-wiggle var(--motion-duration-icon-wiggle)
+      var(--motion-ease-ambient);
   }
 
   .anim-duration-ui {
@@ -356,12 +340,14 @@
   }
 
   .anim-fade-in-load {
-    animation: content-fade-in var(--motion-duration-content-enter) var(--motion-ease-emphasized) both;
+    animation: content-fade-in var(--motion-duration-content-enter)
+      var(--motion-ease-emphasized) both;
   }
 
   .anim-fade-in-load-slow {
     opacity: 0;
-    animation: content-fade-in-slow var(--motion-duration-content-enter-slow) var(--motion-ease-emphasized) both;
+    animation: content-fade-in-slow var(--motion-duration-content-enter-slow)
+      var(--motion-ease-emphasized) both;
   }
 
   .text-balance {

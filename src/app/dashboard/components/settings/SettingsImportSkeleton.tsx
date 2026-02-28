@@ -32,7 +32,9 @@ export function SettingsImportSkeleton() {
           )}
         </div>
       ))}
-      <p className="text-center text-xs text-muted-foreground pt-1">Importing feeds…</p>
+      <p className="text-center text-xs text-muted-foreground pt-1">
+        Importing feeds…
+      </p>
     </div>
   );
 }

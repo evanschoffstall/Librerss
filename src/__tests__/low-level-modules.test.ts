@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 describe("core/reader-item-id", () => {
   test("encodes and decodes hex/decimal reader ids", async () => {
     const { toReaderItemId, parseReaderItemId } =
-      await import("@/lib/core/reader-item-id");
+      await import("@/lib/core/stream-ids");
 
     const encoded = toReaderItemId(255);
     expect(encoded.endsWith("ff")).toBe(true);
@@ -71,27 +71,14 @@ describe("core/feed-parser", () => {
   });
 });
 
-describe("db helpers and transactions", () => {
-  test("sanitizes db error messages and classifies SQL codes", async () => {
-    const { sanitizeDbError, isUniqueConstraintError, isForeignKeyError } =
-      await import("@/lib/db/db-errors");
+describe("db helpers", () => {
+  test("classifies SQL error codes", async () => {
+    const { isUniqueConstraintError, isForeignKeyError } =
+      await import("@/lib/db/db");
 
-    const sanitized = sanitizeDbError(
-      new Error("connect failed password=supersecret"),
-    );
-    expect(sanitized.message.includes("supersecret")).toBe(false);
     expect(isUniqueConstraintError({ code: "23505" })).toBe(true);
     expect(isForeignKeyError({ code: "23503" })).toBe(true);
     expect(isForeignKeyError({ code: "00000" })).toBe(false);
-  });
-
-  test("withTransaction returns operation value and propagates errors", async () => {
-    const { withTransaction } = await import("@/lib/db/transactions");
-    const value = await withTransaction(async () => "ok");
-    expect(value).toBe("ok");
-    await expect(
-      withTransaction(async () => Promise.reject(new Error("tx-fail"))),
-    ).rejects.toThrow("tx-fail");
   });
 });
 
@@ -119,8 +106,18 @@ describe("core/runtime and utils/rate-limit", () => {
     process.env.ALLOW_SIGNUP = previousSignup;
   });
 
+  test("runtime flags default signup to disabled when ALLOW_SIGNUP is unset", async () => {
+    const previousSignup = process.env.ALLOW_SIGNUP;
+    delete process.env.ALLOW_SIGNUP;
+
+    const { RUNTIME_FLAGS } = await import("@/lib/core/runtime");
+    expect(RUNTIME_FLAGS.allowSignup).toBe(false);
+
+    process.env.ALLOW_SIGNUP = previousSignup;
+  });
+
   test("rate limiter enforces limits and supports trusted proxy extraction", async () => {
-    const { RateLimiter } = await import("@/lib/utils/rate-limit");
+    const { RateLimiter } = await import("@/lib/server");
     const limiter = new RateLimiter();
 
     try {

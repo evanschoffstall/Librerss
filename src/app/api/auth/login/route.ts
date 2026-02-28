@@ -1,13 +1,9 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
-import {
-  logAndRespondError,
-  requireMutableRequest,
-} from "@/lib/api/request-guards";
+import { parseJsonObjectBodyOrResponse, jsonError } from "@/lib/api/http";
+import { logAndRespondError, requireMutableRequest } from "@/lib/server";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import { authenticateCredentials, setSessionCookie } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { isValidEmail } from "@/lib/utils/validation";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -56,8 +52,7 @@ export async function POST(request: NextRequest) {
       return requestError;
     }
 
-    const payloadOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) {
       return payloadOrResponse;
     }

@@ -18,6 +18,28 @@ export function isValidUrl(url: string): boolean {
 }
 
 /**
+ * Strips the URL fragment (hash) if present.  Returns the original string
+ * when it is not a valid URL or has no fragment.
+ *
+ * URL fragments are client-side navigation hints that must not appear in
+ * HTTP request URIs (RFC 3986 §3.5).  Some CDN edge nodes (Cloudflare,
+ * Akamai, Fastly) treat a request-URI containing a literal '#' as
+ * malformed and return 403/400.
+ */
+export function stripUrlFragment(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hash) {
+      parsed.hash = "";
+      return parsed.toString();
+    }
+  } catch {
+    // Unparseable — return as-is.
+  }
+  return url;
+}
+
+/**
  * Normalizes a feed URL by stripping hash, credentials, and trailing slashes.
  *
  * @throws {TypeError} if {@link raw} is not a valid URL.

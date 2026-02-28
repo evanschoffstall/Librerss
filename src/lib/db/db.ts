@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -28,10 +29,10 @@ function runInitialDbConnectivityCheck(pool: Pool) {
     globalForDb.hasLoggedInitialDbConnectionWarning = true;
 
     const message = toErrorMessage(error);
-    console.warn(
-      `[db] Initial database connectivity check failed: ${message}. ` +
-        "The app will continue running, but database-backed features may fail until the connection is restored.",
-    );
+    logger.warn("[db] Initial database connectivity check failed", {
+      error: message,
+      note: "The app will continue running, but database-backed features may fail until the connection is restored.",
+    });
   });
 }
 
@@ -105,4 +106,22 @@ export function getDb() {
   globalForDb.db = db;
 
   return db;
+}
+
+// ─── DB error utilities ─────────────────────────────────────────────────────
+
+function hasDbErrorCode(error: unknown, code: string): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  return (error as { code?: unknown }).code === code;
+}
+
+export function isUniqueConstraintError(error: unknown): boolean {
+  return hasDbErrorCode(error, "23505");
+}
+
+export function isForeignKeyError(error: unknown): boolean {
+  return hasDbErrorCode(error, "23503");
 }

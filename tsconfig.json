@@ -24,6 +24,8 @@
       "@/components/*": ["./src/components/*"],
       "@/lib": ["./src/lib/index.ts"],
       "@/lib/utils": ["./src/lib/utils/index.ts"],
+      "@/lib/sanitize": ["./src/lib/sanitize/index.ts"],
+      "@/lib/server": ["./src/lib/server/index.ts"],
       "@/lib/*": ["./src/lib/*"],
       "@/*": ["./src/*"]
     }
@@ -36,20 +38,12 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
     "**/node_modules/**",
-    ".next",
-    ".next/**",
     "**/.next/**",
-    "dist",
-    "dist/**",
-    "build",
-    "build/**",
-    "coverage",
-    "coverage/**",
-    ".cache",
-    ".cache/**",
-    "drizzle/meta",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/.cache/**",
     "drizzle/meta/**",
     "src/components/ui/**"
   ]

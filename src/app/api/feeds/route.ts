@@ -1,21 +1,4 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import {
-  logAndRespondError,
-  requireAuthenticatedUser,
-} from "@/lib/api/request-guards";
-import { jsonError } from "@/lib/api/responses";
-import { CONFIG } from "@/lib/config";
-import {
-  isFeedSourceNotFoundError,
-  isUpstreamFeedError,
-} from "@/lib/core/feed-fetcher";
-import { getDb } from "@/lib/db/db";
-import { toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
-import { redactUrlForLogs } from "@/lib/utils/url";
-import axios from "axios";
-import { NextRequest, NextResponse } from "next/server";
-import { requireMutableFeedAccess } from "./services/access";
+import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
 import {
   assertAllowedFeedUrl,
   getRequestedFeedUrl,
@@ -23,151 +6,37 @@ import {
   parseDeleteSourceId,
   parseRenameFeedPayloadFromBody,
   parseToggleFeedEnabledPayloadFromBody,
-} from "./services/parsers";
-import { handleFeedRead } from "./services/read";
+} from "@/lib/api/feeds/parsers";
+import { handleFeedRead } from "@/lib/api/feeds/read";
 import {
   createOrUpdateFeedSource,
   deleteFeedSourceForUser,
   renameFeedSourceForUser,
   setFeedSourceEnabledForUser,
-} from "./services/repository";
+} from "@/lib/api/feeds/repository";
+import {
+  buildAxiosFailureDiagnostics,
+  isVerboseLoggingEnabled,
+  jsonError,
+  parseJsonObjectBodyOrResponse,
+} from "@/lib/api/http";
+import { CONFIG } from "@/lib/config";
+import {
+  isFeedSourceNotFoundError,
+  isUpstreamFeedError,
+} from "@/lib/core/feed-fetcher";
+import { getDb } from "@/lib/db/db";
+import { logger } from "@/lib/logger";
+import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
+import { toErrorMessage } from "@/lib/utils/errors";
+import { redactUrlForLogs } from "@/lib/utils/url";
+import axios from "axios";
+import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 const UPSTREAM_FEED_ERROR_MESSAGE = "Failed to fetch feed from upstream";
 const UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
-const VERBOSE_LOG_LEVEL = "verbose";
-
-const SAFE_UPSTREAM_RESPONSE_HEADERS = [
-  "server",
-  "cf-ray",
-  "cf-cache-status",
-  "x-cache",
-  "x-served-by",
-  "retry-after",
-  "content-type",
-  "content-length",
-  "x-datadome",
-] as const;
-
-const SAFE_UPSTREAM_REQUEST_HEADERS = [
-  "user-agent",
-  "accept",
-  "accept-language",
-  "accept-encoding",
-  "referer",
-  "cache-control",
-] as const;
-
-function isVerboseLoggingEnabled(): boolean {
-  const envLevel = process.env.LOG_LEVEL?.trim().toLowerCase();
-  if (envLevel) return envLevel === VERBOSE_LOG_LEVEL;
-
-  try {
-    return CONFIG.LOG_LEVEL === VERBOSE_LOG_LEVEL;
-  } catch {
-    return false;
-  }
-}
-
-function toHeaderRecord(headers: unknown): Record<string, string> {
-  if (!headers || typeof headers !== "object") {
-    return {};
-  }
-
-  const entries = Object.entries(headers as Record<string, unknown>);
-  return entries.reduce<Record<string, string>>((acc, [rawName, rawValue]) => {
-    const key = rawName.toLowerCase();
-    if (typeof rawValue === "string") {
-      acc[key] = rawValue;
-      return acc;
-    }
-
-    if (Array.isArray(rawValue)) {
-      acc[key] = rawValue.map((value) => String(value)).join(", ");
-      return acc;
-    }
-
-    if (typeof rawValue === "number" || typeof rawValue === "boolean") {
-      acc[key] = String(rawValue);
-    }
-
-    return acc;
-  }, {});
-}
-
-function pickAllowedHeaders(
-  headers: unknown,
-  allowed: readonly string[],
-): Record<string, string> {
-  const normalized = toHeaderRecord(headers);
-  return allowed.reduce<Record<string, string>>((acc, headerName) => {
-    const value = normalized[headerName];
-    if (typeof value === "string" && value.trim()) {
-      acc[headerName] = value;
-    }
-    return acc;
-  }, {});
-}
-
-function toBodySnippet(data: unknown, maxLength = 240): string | undefined {
-  if (typeof data === "string") {
-    const compact = data.replace(/\s+/g, " ").trim();
-    if (!compact) return undefined;
-    return compact.length > maxLength
-      ? `${compact.slice(0, maxLength)}…`
-      : compact;
-  }
-
-  if (
-    data &&
-    typeof data === "object" &&
-    "toString" in data &&
-    typeof (data as { toString: unknown }).toString === "function"
-  ) {
-    const text = String((data as { toString: () => string }).toString());
-    const compact = text.replace(/\s+/g, " ").trim();
-    if (!compact || compact === "[object Object]") return undefined;
-    return compact.length > maxLength
-      ? `${compact.slice(0, maxLength)}…`
-      : compact;
-  }
-
-  return undefined;
-}
-
-function buildAxiosFailureDiagnostics(
-  error: unknown,
-  isAxiosErrorFn: typeof axios.isAxiosError,
-): Record<string, unknown> {
-  if (!isAxiosErrorFn(error)) return {};
-
-  const requestHeaders = pickAllowedHeaders(
-    error.config?.headers,
-    SAFE_UPSTREAM_REQUEST_HEADERS,
-  );
-  const responseHeaders = pickAllowedHeaders(
-    error.response?.headers,
-    SAFE_UPSTREAM_RESPONSE_HEADERS,
-  );
-
-  return {
-    upstreamStatus: error.response?.status ?? null,
-    upstreamStatusText: error.response?.statusText ?? null,
-    upstreamMethod: error.config?.method?.toUpperCase() ?? null,
-    upstreamUrl: error.config?.url ?? null,
-    requestTimeoutMs:
-      typeof error.config?.timeout === "number" ? error.config.timeout : null,
-    requestMaxRedirects:
-      typeof error.config?.maxRedirects === "number"
-        ? error.config.maxRedirects
-        : null,
-    requestHeaders,
-    responseHeaders,
-    responseBodySnippet: toBodySnippet(error.response?.data),
-    axiosErrorCode: error.code ?? null,
-  };
-}
 
 // ─── Dependency injection types (for testability) ─────────────────────────────
 
@@ -392,8 +261,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       return NextResponse.json(updatedSource);
     }
 
-    const payloadOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) return payloadOrResponse;
 
     const payload = payloadOrResponse;

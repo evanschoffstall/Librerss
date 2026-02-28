@@ -47,9 +47,15 @@ export function FeedList({
   return (
     <>
       {loading ? (
-        <div key="feed-loading" className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 px-1 py-2 lg:max-w-none lg:px-3 anim-fade-in-load-slow">
+        <div
+          key="feed-loading"
+          className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 px-1 py-2 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
+        >
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="rounded-xl border bg-card/40 p-3 space-y-2">
+            <div
+              key={index}
+              className="rounded-xl border bg-card/40 p-3 space-y-2"
+            >
               <div className="flex items-center gap-2">
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-3 w-3 rounded-full" />
@@ -66,30 +72,30 @@ export function FeedList({
           ))}
         </div>
       ) : filteredFeed.length === 0 ? (
-        <div key="feed-empty" className="mx-auto flex w-full max-w-3xl items-center justify-center px-1 py-32 lg:max-w-none lg:px-3 anim-fade-in-load-slow">
+        <div
+          key="feed-empty"
+          className="mx-auto flex w-full max-w-3xl items-center justify-center px-1 py-32 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
+        >
           <div className="text-center space-y-2">
             <p className="text-base text-muted-foreground">
               {searchTerm ? "No matches." : "You're all caught up!"}
             </p>
             {searchTerm ? (
-              <button
-                onClick={onClearSearch}
-                className={emptyActionBtnCls}
-              >
+              <button onClick={onClearSearch} className={emptyActionBtnCls}>
                 Clear search
               </button>
             ) : (
-              <button
-                onClick={onRefresh}
-                className={emptyActionBtnCls}
-              >
+              <button onClick={onRefresh} className={emptyActionBtnCls}>
                 Refresh
               </button>
             )}
           </div>
         </div>
       ) : (
-        <div key="feed-list" className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3">
+        <div
+          key="feed-list"
+          className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
+        >
           {filteredFeed.slice(0, visibleCount).map((article) => {
             const cardKey = getArticleKey(article);
             const articleLink = article.link?.trim() ?? "";

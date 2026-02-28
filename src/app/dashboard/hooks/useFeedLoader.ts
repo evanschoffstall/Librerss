@@ -7,22 +7,28 @@ import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  dedupeAndSortArticles,
-  getArticleKey,
-} from "../services/article-collection";
-import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-feeds";
-import {
   buildCategoriesFromSources,
   buildDefaultCategories,
+  findFeedNodeByUrl,
+  getAllFeedNodes,
 } from "../services/category-tree";
 import {
-  FEED_LOADING_FAILSAFE_MS,
-  type FeedBatchSource,
   buildBatchRequestSignature,
+  FEED_LOADING_FAILSAFE_MS,
   mapBatchResultsToArticles,
   mapFeedNodesToBatchSources,
   normalizeFeedBatchSources,
+  type FeedBatchSource,
 } from "../services/feed-batch";
+import {
+  getNewestLastFetchedAt,
+  getSourceNamesByUrl,
+  isCanceledBatchRequest,
+  mapSourcesToPlaceholderArticles,
+  resolveExpandedArticleKey,
+  summarizeBatchResults,
+  type FeedBatchResult,
+} from "../services/feed-loader-helpers";
 import type { FeedFetchOptions } from "../services/selection";
 
 interface UseFeedLoaderOptions {
@@ -33,103 +39,6 @@ interface UseFeedLoaderOptions {
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
-}
-
-type FeedBatchResult = {
-  url: string;
-  articles: Article[];
-  ok: boolean;
-  error?: string;
-  lastFetchedAt?: Date;
-};
-
-function isCanceledBatchRequest(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.name === "AbortError" || error.name === "CanceledError")
-  );
-}
-
-function getNewestLastFetchedAt(batchResults: FeedBatchResult[]): Date | null {
-  return batchResults.reduce<Date | null>((latest, item) => {
-    if (!item.lastFetchedAt) {
-      return latest;
-    }
-
-    if (!latest || item.lastFetchedAt > latest) {
-      return item.lastFetchedAt;
-    }
-
-    return latest;
-  }, null);
-}
-
-function summarizeBatchResults(batchResults: FeedBatchResult[]) {
-  let okCount = 0;
-  let missingCount = 0;
-  let errorCount = 0;
-
-  const articlesByUrl = batchResults.map((item) => {
-    if (item.ok) {
-      okCount += 1;
-    } else {
-      missingCount += 1;
-    }
-
-    if (item.error) {
-      errorCount += 1;
-    }
-
-    return {
-      url: item.url,
-      ok: item.ok,
-      articleCount: item.articles.length,
-      error: item.error ?? null,
-    };
-  });
-
-  return {
-    resultCount: batchResults.length,
-    okCount,
-    missingCount,
-    errorCount,
-    articlesByUrl,
-  };
-}
-
-function mapSourcesToPlaceholderArticles(
-  sources: FeedBatchSource[],
-): Article[] {
-  return dedupeAndSortArticles(
-    sources.flatMap((source) =>
-      getPlaceholderArticlesForSource(source.url).map((article) => ({
-        ...article,
-        feedName: source.name,
-        feedUrl: source.url,
-      })),
-    ),
-  );
-}
-
-function resolveExpandedArticleKey(
-  currentKey: string | null,
-  articles: Article[],
-): string | null {
-  if (!currentKey) {
-    return null;
-  }
-
-  const hasExpandedArticle = articles.some(
-    (article) => getArticleKey(article) === currentKey,
-  );
-
-  return hasExpandedArticle ? currentKey : null;
-}
-
-function getSourceNamesByUrl(
-  sources: FeedBatchSource[],
-): Map<string, string | undefined> {
-  return new Map(sources.map((source) => [source.url, source.name] as const));
 }
 
 function notifyFeedFailures(

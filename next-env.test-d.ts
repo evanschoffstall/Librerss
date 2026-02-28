@@ -1,0 +1,3 @@
+import "./next-env";
+
+export {};

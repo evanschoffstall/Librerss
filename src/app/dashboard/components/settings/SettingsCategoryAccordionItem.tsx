@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
-import { SettingsFeedRow } from "./SettingsFeedRow";
-import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton";
+import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
+import {
+  SettingsIconButton,
+  settingsDragHandleCls,
+} from "./SettingsIconButton";
 
-const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
+const animTransitionColorsClass =
+  "transition-colors anim-duration-ui anim-ease-ui";
 
 interface SettingsCategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
@@ -27,19 +31,25 @@ interface SettingsCategoryAccordionItemProps {
   editingCategoryName: string;
   savingCategoryLabel: string | null;
   // Feed edit/state
-  editingFeedKey: string | null;
-  editingFeedName: string;
-  editingFeedUrl: string;
-  savingFeedKey: string | null;
-  deletingKey: string | null;
-  movingFeedKey: string | null;
-  draggingFeedKey: string | null;
-  feedDropTarget: { categoryLabel: string; index: number } | null;
+  editingFeedKey: SettingsFeedRowProps["editingFeedKey"];
+  editingFeedName: SettingsFeedRowProps["editingFeedName"];
+  editingFeedUrl: SettingsFeedRowProps["editingFeedUrl"];
+  savingFeedKey: SettingsFeedRowProps["savingFeedKey"];
+  deletingKey: SettingsFeedRowProps["deletingKey"];
+  movingFeedKey: SettingsFeedRowProps["movingFeedKey"];
+  draggingFeedKey: SettingsFeedRowProps["draggingFeedKey"];
+  feedDropTarget: SettingsFeedRowProps["feedDropTarget"];
   categoryDropIndex: number | null;
   // Callbacks — category
-  onCategoryDragStart: (event: React.DragEvent<HTMLButtonElement>, label: string) => void;
+  onCategoryDragStart: (
+    event: React.DragEvent<HTMLButtonElement>,
+    label: string,
+  ) => void;
   onCategoryDragEnd: () => void;
-  onCategoryDragOver: (event: React.DragEvent<HTMLElement>, index: number) => void;
+  onCategoryDragOver: (
+    event: React.DragEvent<HTMLElement>,
+    index: number,
+  ) => void;
   onCategoryDrop: (event: React.DragEvent<HTMLElement>, index: number) => void;
   onEditingCategoryNameChange: (name: string) => void;
   onSaveCategoryRename: (label: string) => void;
@@ -53,18 +63,18 @@ interface SettingsCategoryAccordionItemProps {
   onAddFeed: (categoryLabel: string) => void;
   onCancelAddFeed: () => void;
   // Callbacks — feed row
-  onFeedDragStart: (event: React.DragEvent<HTMLButtonElement>, key: string) => void;
-  onFeedDragEnd: () => void;
-  onFeedDragOver: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
-  onFeedDrop: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
-  onEditingFeedNameChange: (name: string) => void;
-  onEditingFeedUrlChange: (url: string) => void;
-  onSaveFeedRename: (key: string) => void;
-  onCancelFeedEdit: () => void;
-  onStartFeedEdit: (key: string, currentName: string, currentUrl: string) => void;
-  onRemoveFeed: (key: string) => void;
-  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
-  togglingFeedKey: string | null;
+  onFeedDragStart: SettingsFeedRowProps["onDragStart"];
+  onFeedDragEnd: SettingsFeedRowProps["onDragEnd"];
+  onFeedDragOver: SettingsFeedRowProps["onDragOver"];
+  onFeedDrop: SettingsFeedRowProps["onDrop"];
+  onEditingFeedNameChange: SettingsFeedRowProps["onEditingNameChange"];
+  onEditingFeedUrlChange: SettingsFeedRowProps["onEditingUrlChange"];
+  onSaveFeedRename: SettingsFeedRowProps["onSaveRename"];
+  onCancelFeedEdit: SettingsFeedRowProps["onCancelRename"];
+  onStartFeedEdit: SettingsFeedRowProps["onStartEditing"];
+  onRemoveFeed: SettingsFeedRowProps["onRemove"];
+  onToggleFeedEnabled: SettingsFeedRowProps["onToggleEnabled"];
+  togglingFeedKey: SettingsFeedRowProps["togglingFeedKey"];
 }
 
 export function SettingsCategoryAccordionItem({
@@ -118,7 +128,10 @@ export function SettingsCategoryAccordionItem({
   const categoryFeeds = categoryNode.children ?? [];
   const isEditing = editingCategory === categoryNode.label;
   const isAddingFeed = addingFeedInCategory === categoryNode.label;
-  const isPendingRemoval = isSameCategoryLabel(categoryNode.label, pendingCategoryRemovalLabel);
+  const isPendingRemoval = isSameCategoryLabel(
+    categoryNode.label,
+    pendingCategoryRemovalLabel,
+  );
 
   return (
     <div
@@ -140,7 +153,9 @@ export function SettingsCategoryAccordionItem({
             <button
               type="button"
               draggable
-              onDragStart={(event) => onCategoryDragStart(event, categoryNode.label)}
+              onDragStart={(event) =>
+                onCategoryDragStart(event, categoryNode.label)
+              }
               onDragEnd={onCategoryDragEnd}
               className={settingsDragHandleCls}
               aria-label={`Drag category ${categoryNode.label}`}
@@ -157,7 +172,8 @@ export function SettingsCategoryAccordionItem({
                 className="h-7 text-xs"
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") onSaveCategoryRename(categoryNode.label);
+                  if (e.key === "Enter")
+                    onSaveCategoryRename(categoryNode.label);
                   if (e.key === "Escape") onCancelCategoryEdit();
                 }}
               />
@@ -165,7 +181,10 @@ export function SettingsCategoryAccordionItem({
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => onSaveCategoryRename(categoryNode.label)}
-                disabled={!editingCategoryName.trim() || savingCategoryLabel === categoryNode.label}
+                disabled={
+                  !editingCategoryName.trim() ||
+                  savingCategoryLabel === categoryNode.label
+                }
               >
                 {savingCategoryLabel === categoryNode.label && (
                   <Loader2 className="mr-1 size-3 animate-spin" />
@@ -206,7 +225,11 @@ export function SettingsCategoryAccordionItem({
                 <Plus className="size-3.5" />
               </SettingsIconButton>
               <SettingsIconButton
-                tip={isPendingRemoval ? "Click again to confirm" : "Delete category"}
+                tip={
+                  isPendingRemoval
+                    ? "Click again to confirm"
+                    : "Delete category"
+                }
                 onClick={() => onRemoveCategory(categoryNode.label)}
                 className={
                   isPendingRemoval
@@ -222,7 +245,9 @@ export function SettingsCategoryAccordionItem({
 
         <AccordionContent className="px-3 pb-3">
           {isAddingFeed && (
-            <div className={`mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 ${animTransitionColorsClass}`}>
+            <div
+              className={`mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 ${animTransitionColorsClass}`}
+            >
               <Input
                 value={newFeedName}
                 onChange={(e) => onNewFeedNameChange(e.target.value)}
@@ -236,7 +261,11 @@ export function SettingsCategoryAccordionItem({
                 placeholder="https://example.com/feed.xml"
                 className="h-8 text-sm"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && newFeedName.trim() && newFeedUrl.trim()) {
+                  if (
+                    e.key === "Enter" &&
+                    newFeedName.trim() &&
+                    newFeedUrl.trim()
+                  ) {
                     onAddFeed(categoryNode.label);
                   }
                   if (e.key === "Escape") onCancelAddFeed();
@@ -246,9 +275,15 @@ export function SettingsCategoryAccordionItem({
                 size="sm"
                 className="h-8 shrink-0"
                 onClick={() => onAddFeed(categoryNode.label)}
-                disabled={!newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed}
+                disabled={
+                  !newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed
+                }
               >
-                {isSavingFeed ? <Loader2 className="size-3.5 animate-spin" /> : "Add"}
+                {isSavingFeed ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  "Add"
+                )}
               </Button>
               <Button
                 size="sm"
@@ -263,14 +298,20 @@ export function SettingsCategoryAccordionItem({
 
           {categoryFeeds.length === 0 && !isAddingFeed ? (
             <div
-              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs transition-colors ${feedDropTarget?.categoryLabel === categoryNode.label && feedDropTarget?.index === 0
-                ? "border-primary bg-primary/5 text-foreground"
-                : "text-muted-foreground"
-                }`}
-              onDragOver={(event) => onFeedDragOver(event, categoryNode.label, 0)}
+              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs transition-colors ${
+                feedDropTarget?.categoryLabel === categoryNode.label &&
+                feedDropTarget?.index === 0
+                  ? "border-primary bg-primary/5 text-foreground"
+                  : "text-muted-foreground"
+              }`}
+              onDragOver={(event) =>
+                onFeedDragOver(event, categoryNode.label, 0)
+              }
               onDrop={(event) => onFeedDrop(event, categoryNode.label, 0)}
             >
-              {draggingFeedKey ? "Drop feed here" : "Empty — click + to add a feed."}
+              {draggingFeedKey
+                ? "Drop feed here"
+                : "Empty — click + to add a feed."}
             </div>
           ) : (
             <div
@@ -279,7 +320,11 @@ export function SettingsCategoryAccordionItem({
                 // Fallback: if no specific row handled the event, treat it
                 // as "drop at end of category" (cursor is in the gap/padding).
                 if (!event.defaultPrevented) {
-                  onFeedDragOver(event, categoryNode.label, categoryFeeds.length);
+                  onFeedDragOver(
+                    event,
+                    categoryNode.label,
+                    categoryFeeds.length,
+                  );
                 }
               }}
               onDrop={(event) => {
@@ -288,35 +333,37 @@ export function SettingsCategoryAccordionItem({
                 }
               }}
             >
-              {categoryFeeds.map((feedNode: CategoryTreeNode, index: number) => (
-                <SettingsFeedRow
-                  key={feedNode.key}
-                  feedNode={feedNode}
-                  index={index}
-                  categoryLabel={categoryNode.label}
-                  selectedCategory={selectedCategory}
-                  editingFeedKey={editingFeedKey}
-                  editingFeedName={editingFeedName}
-                  editingFeedUrl={editingFeedUrl}
-                  savingFeedKey={savingFeedKey}
-                  deletingKey={deletingKey}
-                  movingFeedKey={movingFeedKey}
-                  draggingFeedKey={draggingFeedKey}
-                  feedDropTarget={feedDropTarget}
-                  onDragStart={onFeedDragStart}
-                  onDragEnd={onFeedDragEnd}
-                  onDragOver={onFeedDragOver}
-                  onDrop={onFeedDrop}
-                  onEditingNameChange={onEditingFeedNameChange}
-                  onEditingUrlChange={onEditingFeedUrlChange}
-                  onCancelRename={onCancelFeedEdit}
-                  onSaveRename={onSaveFeedRename}
-                  onStartEditing={onStartFeedEdit}
-                  onRemove={onRemoveFeed}
-                  onToggleEnabled={onToggleFeedEnabled}
-                  togglingFeedKey={togglingFeedKey}
-                />
-              ))}
+              {categoryFeeds.map(
+                (feedNode: CategoryTreeNode, index: number) => (
+                  <SettingsFeedRow
+                    key={feedNode.key}
+                    feedNode={feedNode}
+                    index={index}
+                    categoryLabel={categoryNode.label}
+                    selectedCategory={selectedCategory}
+                    editingFeedKey={editingFeedKey}
+                    editingFeedName={editingFeedName}
+                    editingFeedUrl={editingFeedUrl}
+                    savingFeedKey={savingFeedKey}
+                    deletingKey={deletingKey}
+                    movingFeedKey={movingFeedKey}
+                    draggingFeedKey={draggingFeedKey}
+                    feedDropTarget={feedDropTarget}
+                    onDragStart={onFeedDragStart}
+                    onDragEnd={onFeedDragEnd}
+                    onDragOver={onFeedDragOver}
+                    onDrop={onFeedDrop}
+                    onEditingNameChange={onEditingFeedNameChange}
+                    onEditingUrlChange={onEditingFeedUrlChange}
+                    onCancelRename={onCancelFeedEdit}
+                    onSaveRename={onSaveFeedRename}
+                    onStartEditing={onStartFeedEdit}
+                    onRemove={onRemoveFeed}
+                    onToggleEnabled={onToggleFeedEnabled}
+                    togglingFeedKey={togglingFeedKey}
+                  />
+                ),
+              )}
             </div>
           )}
         </AccordionContent>

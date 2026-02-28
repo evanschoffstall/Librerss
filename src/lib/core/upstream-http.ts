@@ -1,4 +1,5 @@
 import { CONFIG } from "@/lib/config";
+import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 
 type FetchTextWithValidatedRedirectsDeps = {
@@ -30,18 +31,7 @@ export async function fetchTextWithValidatedRedirects(
   // are client-side navigation hints that must not appear in HTTP request URIs
   // (RFC 3986 §3.5). Some CDN edge nodes (Cloudflare, Akamai, Fastly) treat a
   // request-uri containing a literal '#' as malformed and return 403/400.
-  let currentUrl = (() => {
-    try {
-      const u = new URL(options.url);
-      if (u.hash) {
-        u.hash = "";
-        return u.toString();
-      }
-    } catch {
-      // Unparseable URL — let assertAllowedUrl surface the error.
-    }
-    return options.url;
-  })();
+  let currentUrl = stripUrlFragment(options.url);
 
   for (let redirects = 0; redirects <= options.maxRedirects; redirects += 1) {
     await options.assertAllowedUrl(currentUrl);
@@ -73,15 +63,7 @@ export async function fetchTextWithValidatedRedirects(
 
         currentUrl = new URL(location, currentUrl).toString();
         // Strip any fragment from the redirect target — same reason as above.
-        try {
-          const u = new URL(currentUrl);
-          if (u.hash) {
-            u.hash = "";
-            currentUrl = u.toString();
-          }
-        } catch {
-          // Leave currentUrl as-is; assertAllowedUrl will reject it on next hop.
-        }
+        currentUrl = stripUrlFragment(currentUrl);
         continue;
       }
 

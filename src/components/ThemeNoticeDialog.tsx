@@ -51,7 +51,7 @@ function detectVisualAdjustmentExtensions(): boolean {
   ];
 
   return commonExtensionMarkers.some((attr) =>
-    document.documentElement.hasAttribute(attr)
+    document.documentElement.hasAttribute(attr),
   );
 }
 
@@ -82,11 +82,14 @@ export function ThemeNoticeDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) {
-        handleDismiss();
-      }
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleDismiss();
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="gap-3">
           <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-full bg-primary/10">
@@ -96,9 +99,10 @@ export function ThemeNoticeDialog() {
             Native Theme Support
           </DialogTitle>
           <DialogDescription className="text-center">
-            This website leverages carefully crafted beautiful dark and light themes. For the best
-            intended experience, please feel free to disable any visibility
-            adjustments (such as Dark Reader or similar extensions) and utilize our native theme support.
+            This website leverages carefully crafted beautiful dark and light
+            themes. For the best intended experience, please feel free to
+            disable any visibility adjustments (such as Dark Reader or similar
+            extensions) and utilize our native theme support.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-center">

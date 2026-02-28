@@ -44,21 +44,21 @@ describe("feed-url-validator", () => {
 
 describe("reader-item-id", () => {
   test("toReaderItemId creates valid ID", async () => {
-    const { toReaderItemId } = await import("@/lib/core/reader-item-id");
+    const { toReaderItemId } = await import("@/lib/core/stream-ids");
     const id = toReaderItemId(123);
     expect(id).toMatch(/^tag:google.com,2005:reader\/item\/[0-9a-f]+$/);
   });
 
   test("parseReaderItemId extracts article ID", async () => {
     const { toReaderItemId, parseReaderItemId } =
-      await import("@/lib/core/reader-item-id");
+      await import("@/lib/core/stream-ids");
     const encoded = toReaderItemId(456);
     const decoded = parseReaderItemId(encoded);
     expect(decoded).toBe(456);
   });
 
   test("parseReaderItemId returns null for invalid ID", async () => {
-    const { parseReaderItemId } = await import("@/lib/core/reader-item-id");
+    const { parseReaderItemId } = await import("@/lib/core/stream-ids");
     expect(parseReaderItemId("invalid-id")).toBeNull();
     expect(
       parseReaderItemId("tag:google.com,2005:reader/item/invalid"),
@@ -67,7 +67,7 @@ describe("reader-item-id", () => {
 
   test("toReaderItemId handles large numbers", async () => {
     const { toReaderItemId, parseReaderItemId } =
-      await import("@/lib/core/reader-item-id");
+      await import("@/lib/core/stream-ids");
     const largeId = 999999999;
     const encoded = toReaderItemId(largeId);
     const decoded = parseReaderItemId(encoded);
@@ -79,7 +79,7 @@ describe("reader-item-id", () => {
 
 describe("article-status", () => {
   test("isSafePositiveItemId validates safe positive integers", async () => {
-    const { isSafePositiveItemId } = await import("@/lib/core/article-status");
+    const { isSafePositiveItemId } = await import("@/lib/utils/validation");
     expect(isSafePositiveItemId(1)).toBe(true);
     expect(isSafePositiveItemId(123_456)).toBe(true);
     expect(isSafePositiveItemId(0)).toBe(false);
@@ -1189,7 +1189,14 @@ describe("feed-batch-pipeline", () => {
       }
     } else {
       // Feed is already eligible for force-refresh — just assert plan is defined
-      expect(buildRefreshPlan(feedByUrl, ["https://cooldown.example.com/feed"], false, true)).toBeDefined();
+      expect(
+        buildRefreshPlan(
+          feedByUrl,
+          ["https://cooldown.example.com/feed"],
+          false,
+          true,
+        ),
+      ).toBeDefined();
     }
   });
 
@@ -1217,12 +1224,16 @@ describe("feed-batch-pipeline", () => {
     ]);
 
     const db = {
-      update: mock(() => ({ set: mock(() => ({ where: mock(async () => []) })) })),
+      update: mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
+      })),
       insert: mock(() => ({
         values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
       })),
       select: mock(() => ({
-        from: mock(() => ({ where: mock(() => ({ limit: mock(() => Promise.resolve([])) })) })),
+        from: mock(() => ({
+          where: mock(() => ({ limit: mock(() => Promise.resolve([])) })),
+        })),
       })),
     };
 

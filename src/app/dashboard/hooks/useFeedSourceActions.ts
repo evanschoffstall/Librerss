@@ -5,11 +5,7 @@
  * Extracted from useCategoryManager so each hook has one responsibility.
  */
 
-import {
-  type Article,
-  type CategoryTreeNode,
-  type OpmlFeedImportEntry,
-} from "@/lib";
+import { type OpmlFeedImportEntry } from "@/lib";
 import { useCallback } from "react";
 import {
   addFeedSourceAndRefresh,
@@ -20,21 +16,9 @@ import {
   setFeedSourceEnabledAndRefresh,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
-import type { FeedFetchOptions } from "../services/selection";
+import type { FeedSourceActionState } from "./feedSourceActionTypes";
 
-interface UseFeedSourceActionsOptions {
-  categories: CategoryTreeNode[];
-  selectedCategory: string;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+interface UseFeedSourceActionsOptions extends FeedSourceActionState {
   ensureCategoryLabelExists: (label: string) => void;
 }
 

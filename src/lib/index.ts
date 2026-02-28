@@ -5,12 +5,12 @@ export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
 
 export { ENV } from "./config";
 
-export { useDebugState } from "@/hooks/useDebugState";
-export { useLocalStorage } from "@/hooks/useLocalStorage";
-export { useSessionState } from "@/hooks/useSessionState";
+export { useDebugState } from "./hooks/useDebugState";
+export { useLocalStorage } from "./hooks/useLocalStorage";
+export { useSessionState } from "./hooks/useSessionState";
 
 // API clients
-export { ArticleService, AuthService, FeedService } from "./api/service";
+export { ArticleService, AuthService, FeedService } from "./api/services";
 
 // Shared utilities
 export {
@@ -22,7 +22,6 @@ export {
   normalizeCategoryLabelKey,
   removeCategoryLabel,
   replaceCategoryLabel,
-  toCategoryLabelOrDefault,
 } from "./utils/categories";
 export { formatRelativeDate } from "./utils/date-utils";
 export { parseOpmlFeedImport } from "./utils/opml";

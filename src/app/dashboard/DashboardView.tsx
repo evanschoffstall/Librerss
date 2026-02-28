@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
@@ -31,7 +31,7 @@ import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
-import { formatLastRefreshLabel } from "./services/refresh-time";
+import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
 
 type DashboardViewProps = {
   usePlaceholderData: boolean;
@@ -161,7 +161,8 @@ export const DashboardView = ({
   const previousArticleFilterRef = useRef(articleFilter);
 
   useEffect(() => {
-    const categoryChanged = previousSelectedCategoryRef.current !== selectedCategory;
+    const categoryChanged =
+      previousSelectedCategoryRef.current !== selectedCategory;
     const filterChanged = previousArticleFilterRef.current !== articleFilter;
 
     if (categoryChanged || filterChanged) {
@@ -289,8 +290,9 @@ export const DashboardView = ({
           <div className="h-full rounded-xl bg-card/35 px-2 py-2">
             <ScrollArea
               ref={sidebarScrollRef}
-              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
-                }`}
+              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${
+                isSidebarVisible ? "opacity-100" : "opacity-0"
+              }`}
             >
               <DashboardSidebarContent {...sidebarProps} />
             </ScrollArea>
@@ -311,9 +313,15 @@ export const DashboardView = ({
                 showFavicons={showFavicons}
                 searchTerm={searchTerm}
                 sentinelRef={sentinelRef}
-                onToggle={(article) => void articleActions.handleArticleToggle(article)}
-                onToggleRead={(article) => void articleActions.handleToggleReadState(article)}
-                onToggleStarred={(article) => void articleActions.handleToggleStarredState(article)}
+                onToggle={(article) =>
+                  void articleActions.handleArticleToggle(article)
+                }
+                onToggleRead={(article) =>
+                  void articleActions.handleToggleReadState(article)
+                }
+                onToggleStarred={(article) =>
+                  void articleActions.handleToggleStarredState(article)
+                }
                 onClearSearch={() => setSearchTerm("")}
                 onRefresh={refreshFeedList}
               />
@@ -327,7 +335,9 @@ export const DashboardView = ({
           onClose={() => setShowSettingsModal(false)}
           categories={displayCategories}
           categoryOptions={categoryOptions}
-          pendingCategoryRemovalLabel={categoryManager.pendingCategoryRemovalLabel}
+          pendingCategoryRemovalLabel={
+            categoryManager.pendingCategoryRemovalLabel
+          }
           selectedCategory={selectedCategory}
           pageSize={pageSize}
           showFavicons={showFavicons}

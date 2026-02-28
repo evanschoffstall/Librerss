@@ -166,7 +166,25 @@ export const setCachedFaviconIndex = (
   persistFaviconIndexCache();
 };
 
-const isIPv4 = (hostname: string) => /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+const isIPv4 = (hostname: string) => {
+  const octets = hostname.split(".");
+  if (octets.length !== 4) {
+    return false;
+  }
+
+  return octets.every((octet) => {
+    if (!octet || octet.length > 3) {
+      return false;
+    }
+
+    if (!/^\d+$/.test(octet)) {
+      return false;
+    }
+
+    const value = Number.parseInt(octet, 10);
+    return value >= 0 && value <= 255;
+  });
+};
 
 const parseUrl = (raw: string) => {
   try {

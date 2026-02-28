@@ -19,4 +19,3 @@ declare module "next-themes" {
     setTheme: (theme: string) => void;
   };
 }
-

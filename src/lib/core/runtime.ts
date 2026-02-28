@@ -26,7 +26,7 @@ export const RUNTIME_FLAGS = {
     return !this.hasDatabaseUrl;
   },
   get allowSignup() {
-    return parseBooleanEnv(process.env.ALLOW_SIGNUP, true);
+    return parseBooleanEnv(process.env.ALLOW_SIGNUP, false);
   },
 } as const;
 

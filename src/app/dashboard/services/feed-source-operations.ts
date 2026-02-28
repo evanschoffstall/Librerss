@@ -14,8 +14,8 @@ import {
   findFeedNodeByUrl,
   getAllFeedNodes,
   getFirstFeedNode,
-} from "./category-feeds";
-import { relocateFeedInCategories } from "./category-tree";
+  relocateFeedInCategories,
+} from "./category-tree";
 import type { FeedFetchOptions } from "./selection";
 
 export function selectFeedByKeyFromCategories(

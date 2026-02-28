@@ -5,24 +5,23 @@
  */
 
 import {
-  DEFAULT_STREAM_ITEMS,
-  GOOGLE_LOGIN_PREFIX,
-  MAX_STREAM_ITEMS,
-  READ_STATE,
-  STARRED_STATE,
-  TAG_MUTATIONS,
-} from "@/app/api/greader.php/[...segments]/constants";
+    dedupeAndSortArticles,
+    getArticleKey,
+} from "@/app/dashboard/services/article-collection";
 import {
-  buildPreview,
-  getArticleSourceLabel,
-  getRichContentClass,
-  getUrlHostnameLabel,
+    buildPreview,
+    getArticleSourceLabel,
+    getRichContentClass,
+    getUrlHostnameLabel,
 } from "@/app/dashboard/services/article-content";
 import {
-  dedupeAndSortArticles,
-  getArticleKey,
-} from "@/app/dashboard/services/article-collection";
+    DEFAULT_STREAM_ITEMS,
+    GOOGLE_LOGIN_PREFIX,
+    MAX_STREAM_ITEMS,
+    TAG_MUTATIONS,
+} from "@/lib/api/greader/constants";
 import { CONFIG } from "@/lib/config";
+import { READ_STATE, STARRED_STATE } from "@/lib/core/stream-ids";
 import { formatRelativeDate } from "@/lib/utils/date-utils";
 import { parseOpmlFeedImport } from "@/lib/utils/opml";
 import { describe, expect, test } from "bun:test";

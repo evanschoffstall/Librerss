@@ -1,12 +1,12 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
+import { parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/request-guards";
+} from "@/lib/server";
 import { CONFIG } from "@/lib/config";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -31,11 +31,10 @@ export async function POST(request: NextRequest) {
     });
     if (user instanceof Response) return user;
 
-    const bodyOrResponse =
-      await parseJsonBodyOrResponse<BatchRequestBody>(request);
+    const bodyOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (bodyOrResponse instanceof Response) return bodyOrResponse;
 
-    const body = bodyOrResponse;
+    const body = bodyOrResponse as BatchRequestBody;
     const urls = normalizeDistinctUrlList(body.urls);
     const skipRefresh = body.skipRefresh === true;
     const forceRefresh = body.forceRefresh === true;

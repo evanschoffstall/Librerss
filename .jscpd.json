@@ -1,0 +1,15 @@
+{
+  "path": ["src"],
+  "ignore": [
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/components/ui/**"
+  ],
+  "reporters": ["console"],
+  "threshold": 0,
+  "minTokens": 80,
+  "mode": "strict"
+}

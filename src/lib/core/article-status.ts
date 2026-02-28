@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { articleStatuses } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { sql } from "drizzle-orm";
 
 // ── ArticleStatus table availability ──────────────────────────────────────────
@@ -87,10 +87,6 @@ export async function canUseArticleStatusesTable(
     throw error;
   }
 }
-
-// ── Safe item ID validation ───────────────────────────────────────────────────
-// Canonical definition lives in @/lib/utils/validation (pure, no DB deps).
-export { isSafePositiveItemId } from "@/lib/utils/validation";
 
 // ── Batch upsert ──────────────────────────────────────────────────────────────
 

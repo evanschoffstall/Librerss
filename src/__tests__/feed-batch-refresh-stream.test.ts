@@ -10,19 +10,16 @@
  * test files use mock.module() on their source modules, which interferes
  * with parallel test execution.
  */
+import { resolveCategoryWithFallback } from "@/lib/api/greader/categories";
+import { TAG_MUTATIONS } from "@/lib/api/greader/constants";
 import {
-  TAG_MUTATIONS,
-  USER_LABEL_PREFIX,
-} from "@/app/api/greader.php/[...segments]/constants";
-import { resolveCategoryWithFallback } from "@/app/api/greader.php/[...segments]/services/categories";
-import {
-  mapArticleAsItem,
-  toReaderIconUrl,
-} from "@/app/api/greader.php/[...segments]/services/mappers";
-import { parseDistinctReaderArticleIds } from "@/app/api/greader.php/[...segments]/services/reader-item-params";
-import { notFoundResponse, textResponse } from "@/lib/api/responses";
+    mapArticleAsItem,
+    toReaderIconUrl,
+} from "@/lib/api/greader/mappers";
+import { parseDistinctReaderArticleIds } from "@/lib/api/greader/reader-item-params";
+import { notFoundResponse, textResponse } from "@/lib/api/http";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
-import { parseUserLabel } from "@/lib/core/stream-ids";
+import { parseUserLabel, USER_LABEL_PREFIX } from "@/lib/core/stream-ids";
 import { toCategoryLookupKey } from "@/lib/utils/url";
 import { describe, expect, test } from "bun:test";
 

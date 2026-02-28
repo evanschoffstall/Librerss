@@ -1,24 +1,24 @@
 /**
  * Comprehensive Tests: Feed Repository
- * Tests for src/app/api/feeds/feed-repository.ts
+ * Tests for src/lib/api/feeds/repository.ts
  */
 
-import type { FeedTransaction } from "@/app/api/feeds/types";
+import type { FeedTransaction } from "@/lib/api/feeds/types";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import * as realUrlModule from "@/lib/utils/url";
 import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    mock,
+    test,
 } from "bun:test";
 
-const getFeedRepository = async () => import("@/app/api/feeds/services/repository");
+const getFeedRepository = async () => import("@/lib/api/feeds/repository");
 
 const toFeedSourceResponse = async (row: {
   id: number;
@@ -455,6 +455,11 @@ describe("Feed Repository - Rename Operations", () => {
             select: mock(() => ({
               from: mock(() => ({
                 where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([{ id: 1, url: "https://example.com/feed" }]),
+                    ),
+                  })),
                   limit: mock(() => Promise.resolve([])),
                 })),
               })),
@@ -494,13 +499,21 @@ describe("Feed Repository - Rename Operations", () => {
   test("renameFeedSourceForUser returns null for non-existent source", async () => {
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            where: mock(() => ({
-              limit: mock(() => Promise.resolve([])),
+        transaction: mock(async (callback: any) => {
+          const mockTx = {
+            select: mock(() => ({
+              from: mock(() => ({
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() => Promise.resolve([])),
+                  })),
+                  limit: mock(() => Promise.resolve([])),
+                })),
+              })),
             })),
-          })),
-        })),
+          };
+          return callback(mockTx);
+        }),
       }),
     }));
 
@@ -533,9 +546,27 @@ describe("Feed Repository - Rename Operations", () => {
             select: mock(() => ({
               from: mock(() => ({
                 where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([{ id: 1, url: "https://example.com/old-feed" }]),
+                    ),
+                  })),
                   limit: mock(() => Promise.resolve([])),
                 })),
               })),
+            })),
+            insert: mock(() => ({
+              values: mock(() => ({
+                onConflictDoNothing: mock(() => ({
+                  returning: mock(() =>
+                    Promise.resolve([{ id: 2, url: "https://example.com/new-feed" }]),
+                  ),
+                })),
+                onConflictDoUpdate: mock(() => Promise.resolve([])),
+              })),
+            })),
+            delete: mock(() => ({
+              where: mock(() => Promise.resolve([])),
             })),
             update: mock(() => ({
               set: mock(() => ({
@@ -567,31 +598,35 @@ describe("Feed Repository - Rename Operations", () => {
 
     expect(result).toBeDefined();
   });
-
   test("renameFeedSourceForUser preserves category on URL change", async () => {
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            where: mock(() => ({
-              limit: mock(() =>
-                Promise.resolve([
-                  { id: 1, url: "https://example.com/old-feed" },
-                ]),
-              ),
-            })),
-          })),
-        })),
         transaction: mock(async (callback: any) => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
                 where: mock(() => ({
-                  limit: mock(() =>
-                    Promise.resolve([{ category: "Technology" }]),
-                  ),
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([{ id: 1, url: "https://example.com/old-feed" }]),
+                    ),
+                  })),
+                  limit: mock(() => Promise.resolve([])),
                 })),
               })),
+            })),
+            insert: mock(() => ({
+              values: mock(() => ({
+                onConflictDoNothing: mock(() => ({
+                  returning: mock(() =>
+                    Promise.resolve([{ id: 2, url: "https://example.com/new-feed" }]),
+                  ),
+                })),
+                onConflictDoUpdate: mock(() => Promise.resolve([])),
+              })),
+            })),
+            delete: mock(() => ({
+              where: mock(() => Promise.resolve([])),
             })),
             update: mock(() => ({
               set: mock(() => ({
@@ -622,8 +657,7 @@ describe("Feed Repository - Rename Operations", () => {
     );
 
     expect(result).toBeDefined();
-  });
-});
+  });});
 
 describe("Feed Repository - Delete Operations", () => {
   test("deleteFeedSourceForUser deletes feed source", async () => {

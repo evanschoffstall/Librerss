@@ -1,7 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AuthService, type AuthUser } from "@/lib";
 import axios from "axios";
@@ -16,7 +22,11 @@ interface LoginViewProps {
   onEnterPreview?: () => void;
 }
 
-export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: LoginViewProps) => {
+export const LoginView = ({
+  onAuthenticated,
+  allowSignup,
+  onEnterPreview,
+}: LoginViewProps) => {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,7 +73,8 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
       toast.success(mode === "signup" ? "Account created." : "Welcome back.");
     } catch (error: unknown) {
       const message =
-        axios.isAxiosError(error) && typeof error.response?.data?.error === "string"
+        axios.isAxiosError(error) &&
+        typeof error.response?.data?.error === "string"
           ? error.response.data.error
           : "Authentication failed.";
       toast.error(message);
@@ -76,7 +87,9 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
     <div className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 pt-14">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{mode === "signup" ? "Create your account" : "Sign in to LibreRSS"}</CardTitle>
+          <CardTitle>
+            {mode === "signup" ? "Create your account" : "Sign in to LibreRSS"}
+          </CardTitle>
           <CardDescription>
             {mode === "signup"
               ? "Create an account to save your feeds and preferences."
@@ -107,7 +120,11 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
               onKeyDown={handleKeyDown}
             />
           )}
-          <Button className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+          <Button
+            className="w-full"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
             {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
             {mode === "signup" ? "Create account" : "Continue"}
           </Button>
@@ -115,10 +132,14 @@ export const LoginView = ({ onAuthenticated, allowSignup, onEnterPreview }: Logi
             <Button
               variant="link"
               className="px-0"
-              onClick={() => setMode((current) => (current === "login" ? "signup" : "login"))}
+              onClick={() =>
+                setMode((current) => (current === "login" ? "signup" : "login"))
+              }
               disabled={isSubmitting}
             >
-              {mode === "signup" ? "Already have an account? Sign in" : "Need an account? Sign up"}
+              {mode === "signup"
+                ? "Already have an account? Sign in"
+                : "Need an account? Sign up"}
             </Button>
           )}
           {!allowSignup && onEnterPreview && (

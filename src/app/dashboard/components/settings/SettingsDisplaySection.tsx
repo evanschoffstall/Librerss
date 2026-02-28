@@ -41,7 +41,10 @@ export function SettingsDisplaySection({
         </div>
         <div className="flex items-center justify-between gap-4">
           <Label>Items per page</Label>
-          <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => onPageSizeChange(Number(v))}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select amount" />
             </SelectTrigger>
@@ -62,7 +65,12 @@ export function SettingsDisplaySection({
         </div>
         <div className="flex items-center justify-between gap-4">
           <Label>Background</Label>
-          <Select value={backgroundMode} onValueChange={(value) => onBackgroundModeChange(value as BackgroundMode)}>
+          <Select
+            value={backgroundMode}
+            onValueChange={(value) =>
+              onBackgroundModeChange(value as BackgroundMode)
+            }
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select background" />
             </SelectTrigger>

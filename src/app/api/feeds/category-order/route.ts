@@ -1,14 +1,10 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
-import {
-  logAndRespondError,
-  requireAuthenticatedUser,
-} from "@/lib/api/request-guards";
+import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
+import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { getDb } from "@/lib/db/db";
 import { categoryOrders } from "@/lib/db/schema";
+import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { requireMutableFeedAccess } from "../services/access";
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,8 +48,7 @@ export async function PUT(request: NextRequest) {
       return user;
     }
 
-    const bodyOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const bodyOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (bodyOrResponse instanceof Response) {
       return bodyOrResponse;
     }

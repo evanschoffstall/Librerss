@@ -1,38 +1,44 @@
-import { getSearchParams } from "@/lib/api/request";
-import { notFoundResponse, textResponse } from "@/lib/api/responses";
-import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
-import { logger } from "@/lib/utils/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "node:crypto";
 import {
   handleClientLogin,
   requireGReaderMutableUser,
   requireGReaderUser,
-} from "./handlers/auth";
-import {
-  handleStreamContents,
-  handleStreamItemContents,
-  handleStreamItemIds,
-} from "./handlers/stream-handlers";
+} from "@/lib/api/greader/auth";
+import { handleStreamContents } from "@/lib/api/greader/stream-contents";
+import { handleStreamItemContents } from "@/lib/api/greader/stream-item-contents";
+import { handleStreamItemIds } from "@/lib/api/greader/stream-item-ids";
 import {
   handleSubscriptionEdit,
   handleSubscriptionList,
   handleSubscriptionQuickAdd,
-} from "./handlers/subscription";
+} from "@/lib/api/greader/subscription";
 import {
   handleEditTag,
   handleMarkAllAsRead,
   handleUnreadCount,
-} from "./handlers/tag";
+} from "@/lib/api/greader/tag";
 import {
   handleDisableTag,
   handleRenameTag,
   handleTagList,
-} from "./handlers/tag-labels";
+} from "@/lib/api/greader/tag-labels";
+import {
+  getSearchParams,
+  notFoundResponse,
+  textResponse,
+} from "@/lib/api/http";
+import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
+import { logger } from "@/lib/logger";
+import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
-const READER_API_EDIT_TOKEN = randomBytes(24).toString("hex");
+// Stable across worker restarts/processes — derived from AUTH_SECRET so it
+// is consistent in multi-worker deployments without requiring shared state.
+const READER_API_EDIT_TOKEN = createHash("sha256")
+  .update(`greader-edit-token:${process.env.AUTH_SECRET ?? ""}`)
+  .digest("hex")
+  .slice(0, 48);
 
 type RouteContext = {
   params: Promise<{ segments: string[] }>;

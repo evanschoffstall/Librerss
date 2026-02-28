@@ -5,36 +5,19 @@
  * Feed-source CRUD lives in useFeedSourceActions.
  */
 
-import {
-  FeedService,
-  includesCategoryLabel,
-  type Article,
-  type CategoryTreeNode,
-} from "@/lib";
+import { FeedService, includesCategoryLabel } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { hasCategoryLabelInTree } from "../services/category-labels";
 import {
   addCategoryLabel,
   moveCategoryByDropInOrder,
   removeCategoryAndRefresh,
   renameCategoryAndRefresh,
 } from "../services/category-operations";
-import type { FeedFetchOptions } from "../services/selection";
+import { hasCategoryLabelInTree } from "../services/category-tree";
+import type { FeedSourceActionState } from "./feedSourceActionTypes";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
-interface UseCategoryManagerOptions {
-  categories: CategoryTreeNode[];
-  selectedCategory: string;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+interface UseCategoryManagerOptions extends FeedSourceActionState {
   usePlaceholderData?: boolean;
 }
 

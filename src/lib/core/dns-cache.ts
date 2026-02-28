@@ -5,7 +5,7 @@
 
 import { CONFIG } from "@/lib/config";
 import { toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { isBlockedResolvedAddress } from "@/lib/utils/ssrf";
 import { lookup } from "node:dns/promises";
 

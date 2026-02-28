@@ -1,0 +1,9 @@
+pre-commit:
+  commands:
+    staged-checks:
+      run: bun run staged
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: bunx commitlint --edit {1}

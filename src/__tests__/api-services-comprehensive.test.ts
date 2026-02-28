@@ -6,10 +6,8 @@
 import {
   __resetApiClientForTesting,
   __setApiClientForTesting,
-  ArticleService,
-  AuthService,
-  FeedService,
-} from "@/lib/api/service";
+} from "@/lib/api/http-client";
+import { ArticleService, AuthService, FeedService } from "@/lib/api/services";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Create a mock axios instance
@@ -603,7 +601,11 @@ describe("Service Error Handling", () => {
 
   test("services handle server errors", async () => {
     mockAxiosInstance.post = mock(async () => {
-      throw { response: { status: 500, data: { error: "Server error" } } };
+      const error = new Error("Server error") as Error & {
+        response?: { status: number; data: { error: string } };
+      };
+      error.response = { status: 500, data: { error: "Server error" } };
+      throw error;
     });
 
     try {

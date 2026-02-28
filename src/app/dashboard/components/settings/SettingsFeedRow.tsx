@@ -2,11 +2,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
 import { Eye, EyeOff, GripVertical, Loader2, Trash2 } from "lucide-react";
-import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton";
+import {
+  SettingsIconButton,
+  settingsDragHandleCls,
+} from "./SettingsIconButton";
 
-const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
+const animTransitionColorsClass =
+  "transition-colors anim-duration-ui anim-ease-ui";
 
-interface SettingsFeedRowProps {
+export interface SettingsFeedRowProps {
   feedNode: CategoryTreeNode;
   index: number;
   categoryLabel: string;
@@ -21,13 +25,25 @@ interface SettingsFeedRowProps {
   feedDropTarget: { categoryLabel: string; index: number } | null;
   onDragStart: (event: React.DragEvent<HTMLButtonElement>, key: string) => void;
   onDragEnd: () => void;
-  onDragOver: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
-  onDrop: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
+  onDragOver: (
+    event: React.DragEvent<HTMLElement>,
+    categoryLabel: string,
+    index: number,
+  ) => void;
+  onDrop: (
+    event: React.DragEvent<HTMLElement>,
+    categoryLabel: string,
+    index: number,
+  ) => void;
   onEditingNameChange: (name: string) => void;
   onEditingUrlChange: (url: string) => void;
   onSaveRename: (key: string) => void;
   onCancelRename: () => void;
-  onStartEditing: (key: string, currentName: string, currentUrl: string) => void;
+  onStartEditing: (
+    key: string,
+    currentName: string,
+    currentUrl: string,
+  ) => void;
   onRemove: (key: string) => void;
   onToggleEnabled: (key: string, enabled: boolean) => void;
   togglingFeedKey: string | null;
@@ -69,7 +85,9 @@ export function SettingsFeedRow({
     feedDropTarget?.categoryLabel === categoryLabel &&
     feedDropTarget?.index === index + 1;
 
-  const resolveTargetIndexFromPointer = (event: React.DragEvent<HTMLElement>) => {
+  const resolveTargetIndexFromPointer = (
+    event: React.DragEvent<HTMLElement>,
+  ) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const midpoint = bounds.top + bounds.height / 2;
     return event.clientY < midpoint ? index : index + 1;
@@ -148,7 +166,12 @@ export function SettingsFeedRow({
             ) : null}
             Save
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelRename}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={onCancelRename}
+          >
             Cancel
           </Button>
         </div>
@@ -160,7 +183,11 @@ export function SettingsFeedRow({
             className={`truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}
             onDoubleClick={(event) => {
               event.stopPropagation();
-              onStartEditing(feedNode.key, feedNode.label, feedNode.data?.url ?? "");
+              onStartEditing(
+                feedNode.key,
+                feedNode.label,
+                feedNode.data?.url ?? "",
+              );
             }}
             title="Double-click to rename"
           >
@@ -171,7 +198,11 @@ export function SettingsFeedRow({
               className="truncate select-text text-xs text-muted-foreground/70"
               onDoubleClick={(event) => {
                 event.stopPropagation();
-                onStartEditing(feedNode.key, feedNode.label, feedNode.data?.url ?? "");
+                onStartEditing(
+                  feedNode.key,
+                  feedNode.label,
+                  feedNode.data?.url ?? "",
+                );
               }}
               title="Click and drag to select URL • Double-click to edit"
             >

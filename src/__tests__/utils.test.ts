@@ -3,7 +3,7 @@
  * Tests for src/lib/utils/
  */
 
-import { Logger } from "@/lib/utils/logger";
+import { Logger } from "@/lib/logger";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {

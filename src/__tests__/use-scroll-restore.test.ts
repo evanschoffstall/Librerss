@@ -1,4 +1,4 @@
-import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createElement, type RefCallback } from "react";

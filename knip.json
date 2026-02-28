@@ -1,0 +1,26 @@
+{
+  "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
+  "ignore": ["src/__tests__/**", "src/components/ui/**"],
+  "ignoreDependencies": [
+    "@lexical/code",
+    "@lexical/link",
+    "@lexical/list",
+    "@lexical/markdown",
+    "@lexical/react",
+    "@lexical/rich-text",
+    "@lexical/selection",
+    "@lexical/table",
+    "@lexical/utils",
+    "lexical",
+    "cmdk",
+    "embla-carousel-react",
+    "lodash",
+    "react-day-picker",
+    "react-hook-form",
+    "recharts",
+    "@types/lodash",
+    "postcss-load-config",
+    "ts-prune"
+  ]
+}

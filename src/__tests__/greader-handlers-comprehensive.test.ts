@@ -1,17 +1,17 @@
 /**
  * Comprehensive Tests: Google Reader API Handlers
- * Tests for src/app/api/greader.php/[...segments]/handlers/
+ * Tests for src/lib/api/greader/
  */
 
 import type { SessionUser } from "@/lib/auth/session";
 import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    mock,
+    test,
 } from "bun:test";
 import { NextRequest } from "next/server";
 
@@ -41,6 +41,7 @@ const createMockDb = () => ({
   delete: mock(() => ({
     where: mock(() => Promise.resolve([])),
   })),
+  transaction: mock(async (fn: (tx: ReturnType<typeof createMockDb>) => Promise<unknown>) => fn(createMockDb())),
 });
 
 const createQueryChain = () => ({
@@ -69,7 +70,7 @@ function registerBaseMocks() {
     upsertArticleStatuses: mock(async () => {}),
   }));
 
-  mock.module("@/lib/utils/logger", () => ({
+  mock.module("@/lib/logger", () => ({
     logger: {
       info: mock(() => {}),
       warn: mock(() => {}),
@@ -96,7 +97,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles reading list stream", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list",
@@ -115,7 +116,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles starred stream", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/starred",
@@ -134,7 +135,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles feed stream", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/feed/https://example.com/feed",
@@ -153,7 +154,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles unknown stream type", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/unknown-stream",
@@ -171,7 +172,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles pagination parameters", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list?n=20&c=continuation-id",
@@ -188,7 +189,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles NetNewsWire user agent", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list",
@@ -210,7 +211,7 @@ describe("Stream Contents Handler", () => {
 
   test("handles olderThan parameter", async () => {
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const olderThan = Math.floor(Date.now() / 1000);
     const request = new NextRequest(
@@ -233,7 +234,7 @@ describe("Stream Contents Handler", () => {
     }));
 
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/starred",
@@ -288,7 +289,7 @@ describe("Stream Contents Handler", () => {
     }));
 
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list?n=1",
@@ -360,7 +361,7 @@ describe("Stream Contents Handler", () => {
     }));
 
     const { handleStreamContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-contents");
+      await import("@/lib/api/greader/stream-contents");
 
     const olderThan = Math.floor(Date.now() / 1000);
     const request = new NextRequest(
@@ -390,7 +391,7 @@ describe("Stream Item Contents Handler", () => {
 
   test("handles empty article ID list", async () => {
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents",
@@ -405,7 +406,7 @@ describe("Stream Item Contents Handler", () => {
 
   test("handles single article ID", async () => {
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents?i=tag:google.com,2005:reader/item/00000001",
@@ -420,7 +421,7 @@ describe("Stream Item Contents Handler", () => {
 
   test("handles multiple article IDs", async () => {
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents?i=tag:google.com,2005:reader/item/00000001&i=tag:google.com,2005:reader/item/00000002",
@@ -433,7 +434,7 @@ describe("Stream Item Contents Handler", () => {
 
   test("handles POST request with form data", async () => {
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -454,7 +455,7 @@ describe("Stream Item Contents Handler", () => {
 
   test("limits article count to maximum", async () => {
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const url = new URL(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents",
@@ -476,7 +477,7 @@ describe("Stream Item Contents Handler", () => {
 
   test("handles invalid article ID format", async () => {
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents?i=invalid-id",
@@ -493,7 +494,7 @@ describe("Stream Item Contents Handler", () => {
     }));
 
     const { handleStreamItemContents } =
-      await import("@/app/api/greader.php/[...segments]/handlers/stream-item-contents");
+      await import("@/lib/api/greader/stream-item-contents");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents?i=tag:google.com,2005:reader/item/00000001",
@@ -532,7 +533,7 @@ describe("Tag Handler", () => {
     }));
 
     const { handleTagList } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag-labels");
+      await import("@/lib/api/greader/tag-labels");
 
     const response = await handleTagList(mockUser);
 
@@ -543,7 +544,7 @@ describe("Tag Handler", () => {
 
   test("handles edit tag operation", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -564,7 +565,7 @@ describe("Tag Handler", () => {
 
   test("handles star article operation", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -585,7 +586,7 @@ describe("Tag Handler", () => {
 
   test("handles unstar article operation", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -606,7 +607,7 @@ describe("Tag Handler", () => {
 
   test("handles mark as read operation", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -627,7 +628,7 @@ describe("Tag Handler", () => {
 
   test("handles mark as unread operation", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -648,7 +649,7 @@ describe("Tag Handler", () => {
 
   test("handles multiple article operations", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -670,7 +671,7 @@ describe("Tag Handler", () => {
 
   test("handles edit tag with invalid parameters", async () => {
     const { handleEditTag } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
@@ -687,7 +688,7 @@ describe("Tag Handler", () => {
 
   test("handles mark all as read", async () => {
     const { handleMarkAllAsRead } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("s", "user/-/state/com.google/reading-list");
@@ -708,7 +709,7 @@ describe("Tag Handler", () => {
 
   test("handles mark all as read for specific feed", async () => {
     const { handleMarkAllAsRead } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("s", "feed/https://example.com/feed");
@@ -729,7 +730,7 @@ describe("Tag Handler", () => {
 
   test("rejects mark all as read without timestamp", async () => {
     const { handleMarkAllAsRead } =
-      await import("@/app/api/greader.php/[...segments]/handlers/tag");
+      await import("@/lib/api/greader/tag");
 
     const formData = new FormData();
     formData.append("s", "user/-/state/com.google/reading-list");
@@ -780,7 +781,7 @@ describe("Subscription Handler", () => {
     }));
 
     const { handleSubscriptionList } =
-      await import("@/app/api/greader.php/[...segments]/handlers/subscription");
+      await import("@/lib/api/greader/subscription");
 
     const response = await handleSubscriptionList(mockUser);
 
@@ -791,7 +792,7 @@ describe("Subscription Handler", () => {
 
   test("handles subscription edit - add", async () => {
     const { handleSubscriptionEdit } =
-      await import("@/app/api/greader.php/[...segments]/handlers/subscription");
+      await import("@/lib/api/greader/subscription");
 
     const formData = new FormData();
     formData.append("ac", "subscribe");
@@ -813,7 +814,7 @@ describe("Subscription Handler", () => {
 
   test("handles subscription edit - remove", async () => {
     const { handleSubscriptionEdit } =
-      await import("@/app/api/greader.php/[...segments]/handlers/subscription");
+      await import("@/lib/api/greader/subscription");
 
     const formData = new FormData();
     formData.append("ac", "unsubscribe");
@@ -834,7 +835,7 @@ describe("Subscription Handler", () => {
 
   test("handles subscription edit with category", async () => {
     const { handleSubscriptionEdit } =
-      await import("@/app/api/greader.php/[...segments]/handlers/subscription");
+      await import("@/lib/api/greader/subscription");
 
     const formData = new FormData();
     formData.append("ac", "subscribe");

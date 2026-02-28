@@ -4,24 +4,26 @@
  */
 
 import {
-  asTrimmedString,
-  getSearchParams,
-  parseDateInput,
-  parseFormOrQueryParams,
-  parseJsonBody,
-  parsePositiveInt,
-} from "@/lib/api/request";
-import { forbiddenResponse, jsonError } from "@/lib/api/responses";
+    asTrimmedString,
+    forbiddenResponse,
+    getSearchParams,
+    jsonError,
+    parseDateInput,
+    parseFormOrQueryParams,
+    parseJsonBody,
+    parseJsonObjectBodyOrResponse,
+    parsePositiveInt
+} from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
-import { toError, toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import {
-  sanitizeAndTruncateArticleContent,
-  sanitizeArticleHtml,
-  sanitizeArticleTitle,
-  stripOrphanedRelatedBlocks,
-  toPlainText,
-} from "@/lib/utils/sanitize";
+    sanitizeAndTruncateArticleContent,
+    sanitizeArticleHtml,
+    sanitizeArticleTitle,
+    stripOrphanedRelatedBlocks,
+    toPlainText,
+} from "@/lib/sanitize";
+import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { describe, expect, test } from "bun:test";
 
 // ─── sanitize.ts ──────────────────────────────────────────────────────────────
@@ -153,14 +155,14 @@ describe("sanitize – sanitizeArticleHtml", () => {
 
   test("enforces lazy loading on images", () => {
     const result = sanitizeArticleHtml(
-      '<img src="https://example.com/img.jpg">',
+      '<img src="https://example.com/img.jpg" width="800" height="600">',
     );
     expect(result).toContain('loading="lazy"');
   });
 
   test("enforces no-referrer on images", () => {
     const result = sanitizeArticleHtml(
-      '<img src="https://example.com/img.jpg">',
+      '<img src="https://example.com/img.jpg" width="800" height="600">',
     );
     expect(result).toContain('referrerpolicy="no-referrer"');
   });
@@ -199,8 +201,10 @@ describe("sanitize – sanitizeArticleTitle", () => {
   test("truncates overlong titles", () => {
     const long = "A".repeat(600);
     const result = sanitizeArticleTitle(long);
-    expect(result.length).toBeLessThanOrEqual(505); // 500 + "..."
-    expect(result).toEndWith("...");
+    // Result must stay within MAX_ARTICLE_TITLE_LENGTH (500) — the ellipsis
+    // suffix is included in the budget, not added on top.
+    expect(result.length).toBeLessThanOrEqual(500);
+    expect(result).toEndWith("\u2026");
   });
 
   test("strips script tags from title", () => {
@@ -565,6 +569,48 @@ describe("request – parseJsonBody", () => {
     });
     const result = await parseJsonBody(request);
     expect(result.ok).toBe(false);
+  });
+
+  test("parseJsonObjectBodyOrResponse rejects null payload", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: "null",
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseJsonObjectBodyOrResponse(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+      await expect(result.json()).resolves.toEqual({
+        error: "JSON body must be an object",
+      });
+    }
+  });
+
+  test("parseJsonObjectBodyOrResponse rejects array payload", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: JSON.stringify([1, 2, 3]),
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseJsonObjectBodyOrResponse(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+
+  test("parseJsonObjectBodyOrResponse accepts object payload", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: JSON.stringify({ name: "ok" }),
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseJsonObjectBodyOrResponse(request);
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) {
+      expect(result.name).toBe("ok");
+    }
   });
 });
 

@@ -6,7 +6,7 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { toast } from "sonner";
-import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-feeds";
+import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-tree";
 import type { FeedFetchOptions } from "./selection";
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;

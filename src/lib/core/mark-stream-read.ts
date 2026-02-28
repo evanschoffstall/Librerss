@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
@@ -23,35 +23,43 @@ export async function markStreamAsRead(
     db?: ReturnType<typeof getDb>;
     canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;
     upsertArticleStatusesFn?: typeof upsertArticleStatuses;
+    /** Milliseconds since epoch — only mark articles published before this time. */
+    beforeMs?: number;
   },
 ): Promise<void> {
   const db = deps?.db ?? getDb();
   const canUseArticleStatuses =
     deps?.canUseArticleStatusesTableFn ?? canUseArticleStatusesTable;
   const upsertStatuses = deps?.upsertArticleStatusesFn ?? upsertArticleStatuses;
+  const beforeDate = deps?.beforeMs ? new Date(deps.beforeMs) : undefined;
 
   const useArticleStatuses = await canUseArticleStatuses();
+
+  const enabledJoin = and(
+    eq(feedSources.url, feeds.url),
+    eq(feedSources.userId, userId),
+    eq(feedSources.enabled, true),
+  );
 
   const rows = stream.startsWith(FEED_STREAM_PREFIX)
     ? await db
         .select({ articleId: articles.id })
         .from(articles)
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(eq(feedSources.url, feeds.url), eq(feedSources.userId, userId)),
+        .innerJoin(feedSources, enabledJoin)
+        .where(
+          and(
+            eq(feeds.url, stream.slice(FEED_STREAM_PREFIX.length)),
+            beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
+          ),
         )
-        .where(eq(feeds.url, stream.slice(FEED_STREAM_PREFIX.length)))
         .limit(MARK_ALL_READ_LIMIT)
     : stream === STARRED_STATE && useArticleStatuses
       ? await db
           .select({ articleId: articles.id })
           .from(articles)
           .innerJoin(feeds, eq(feeds.id, articles.feedId))
-          .innerJoin(
-            feedSources,
-            and(eq(feedSources.url, feeds.url), eq(feedSources.userId, userId)),
-          )
+          .innerJoin(feedSources, enabledJoin)
           .innerJoin(
             articleStatuses,
             and(
@@ -59,7 +67,12 @@ export async function markStreamAsRead(
               eq(articleStatuses.articleId, articles.id),
             ),
           )
-          .where(eq(articleStatuses.isStarred, true))
+          .where(
+            and(
+              eq(articleStatuses.isStarred, true),
+              beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
+            ),
+          )
           .limit(MARK_ALL_READ_LIMIT)
       : stream === STARRED_STATE
         ? []
@@ -67,12 +80,9 @@ export async function markStreamAsRead(
             .select({ articleId: articles.id })
             .from(articles)
             .innerJoin(feeds, eq(feeds.id, articles.feedId))
-            .innerJoin(
-              feedSources,
-              and(
-                eq(feedSources.url, feeds.url),
-                eq(feedSources.userId, userId),
-              ),
+            .innerJoin(feedSources, enabledJoin)
+            .where(
+              beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
             )
             .limit(MARK_ALL_READ_LIMIT);
 
