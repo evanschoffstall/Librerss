@@ -9,7 +9,20 @@ import { type SettingsFeedRowProps } from "./SettingsFeedRow";
 
 type SharedFeedRowProps = Omit<
   SettingsFeedRowProps,
-  "feedNode" | "index" | "categoryLabel" | "onDragStart" | "onDragEnd" | "onDragOver" | "onDrop" | "onEditingNameChange" | "onEditingUrlChange" | "onSaveRename" | "onCancelRename" | "onStartEditing" | "onRemove" | "onToggleEnabled"
+  | "feedNode"
+  | "index"
+  | "categoryLabel"
+  | "onDragStart"
+  | "onDragEnd"
+  | "onDragOver"
+  | "onDrop"
+  | "onEditingNameChange"
+  | "onEditingUrlChange"
+  | "onSaveRename"
+  | "onCancelRename"
+  | "onStartEditing"
+  | "onRemove"
+  | "onToggleEnabled"
 > & {
   onFeedDragStart: UseSettingsDragReturn["onFeedDragStart"];
   onFeedDragEnd: UseSettingsDragReturn["onFeedDragEnd"];
@@ -92,7 +105,11 @@ export function SettingsCategoryList({
             className="max-w-[200px]"
             onKeyDown={(e) => e.key === "Enter" && onAddCategory()}
           />
-          <Button size="sm" onClick={onAddCategory} disabled={!newCategoryName.trim()}>
+          <Button
+            size="sm"
+            onClick={onAddCategory}
+            disabled={!newCategoryName.trim()}
+          >
             <Plus className="mr-1.5 size-3.5" />
             Add
           </Button>
@@ -104,7 +121,9 @@ export function SettingsCategoryList({
   return (
     <div>
       <Accordion
-        key={categories.map((n) => `${n.key}:${(n.children ?? []).length}`).join("|")}
+        key={categories
+          .map((n) => `${n.key}:${(n.children ?? []).length}`)
+          .join("|")}
         type="multiple"
         defaultValue={categories.map((c) => c.key)}
         className="space-y-2"
@@ -143,11 +162,14 @@ export function SettingsCategoryList({
 
         {drag.draggingCategoryLabel && (
           <div
-            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${drag.categoryDropIndex === categories.length
-              ? "border-primary bg-primary/5 text-foreground"
-              : "text-muted-foreground"
-              }`}
-            onDragOver={(event) => drag.onCategoryDragOver(event, categories.length)}
+            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${
+              drag.categoryDropIndex === categories.length
+                ? "border-primary bg-primary/5 text-foreground"
+                : "text-muted-foreground"
+            }`}
+            onDragOver={(event) =>
+              drag.onCategoryDragOver(event, categories.length)
+            }
             onDrop={(event) => drag.onCategoryDrop(event, categories.length)}
           >
             Drop category here

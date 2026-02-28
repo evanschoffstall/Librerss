@@ -35,38 +35,49 @@
 .debug-grid {
   background:
     /* Blue vertical center line */
-    linear-gradient(to bottom, var(--grid-center-line-color), var(--grid-center-line-color)),
+    linear-gradient(
+      to bottom,
+      var(--grid-center-line-color),
+      var(--grid-center-line-color)
+    ),
     /* Blue horizontal center line */
-    linear-gradient(to right, var(--grid-center-line-color), var(--grid-center-line-color)),
+    linear-gradient(
+        to right,
+        var(--grid-center-line-color),
+        var(--grid-center-line-color)
+      ),
     /* Red vertical grid lines */
-    repeating-linear-gradient(0deg, var(--grid-line-color), var(--grid-line-color) 1px, transparent 1px, transparent var(--grid-line-spacing)),
+    repeating-linear-gradient(
+        0deg,
+        var(--grid-line-color),
+        var(--grid-line-color) 1px,
+        transparent 1px,
+        transparent var(--grid-line-spacing)
+      ),
     /* Red horizontal grid lines */
-    repeating-linear-gradient(90deg, var(--grid-line-color), var(--grid-line-color) 1px, transparent 1px, transparent var(--grid-line-spacing));
+    repeating-linear-gradient(
+        90deg,
+        var(--grid-line-color),
+        var(--grid-line-color) 1px,
+        transparent 1px,
+        transparent var(--grid-line-spacing)
+      );
   background-size:
     1px 100%,
-    /* Blue vertical line */
-    100% 1px,
-    /* Blue horizontal line */
-    var(--grid-line-spacing) var(--grid-line-spacing),
-    /* Red vertical grid */
-    var(--grid-line-spacing) var(--grid-line-spacing);
+    /* Blue vertical line */ 100% 1px,
+    /* Blue horizontal line */ var(--grid-line-spacing) var(--grid-line-spacing),
+    /* Red vertical grid */ var(--grid-line-spacing) var(--grid-line-spacing);
   /* Red horizontal grid */
   background-position:
     center center,
-    /* Blue vertical line */
-    center center,
-    /* Blue horizontal line */
-    center center,
-    /* Red vertical grid */
-    center center;
+    /* Blue vertical line */ center center,
+    /* Blue horizontal line */ center center,
+    /* Red vertical grid */ center center;
   /* Red horizontal grid */
   background-repeat:
     no-repeat,
-    /* Blue vertical line */
-    no-repeat,
-    /* Blue horizontal line */
-    repeat,
-    /* Red vertical grid */
-    repeat;
+    /* Blue vertical line */ no-repeat,
+    /* Blue horizontal line */ repeat,
+    /* Red vertical grid */ repeat;
   /* Red horizontal grid */
 }

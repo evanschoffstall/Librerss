@@ -47,7 +47,9 @@ export function DashboardRouter() {
   }, [hasPreviewQuery, setIsPreviewMode]);
 
   useEffect(() => {
-    const legacyValue = localStorage.getItem("librerss:showParticlesBackground");
+    const legacyValue = localStorage.getItem(
+      "librerss:showParticlesBackground",
+    );
     if (legacyValue === null) {
       return;
     }
@@ -70,7 +72,10 @@ export function DashboardRouter() {
         const session = await AuthService.getSession();
         setAllowSignup(session.allowSignup);
         setUsePlaceholderData(session.usePlaceholderData);
-        if (session.authenticated || (session.allowSignup && !hasPreviewQuery)) {
+        if (
+          session.authenticated ||
+          (session.allowSignup && !hasPreviewQuery)
+        ) {
           setIsPreviewMode(false);
         }
         setCurrentUser(session.authenticated ? session.user : null);
@@ -115,15 +120,19 @@ export function DashboardRouter() {
   return (
     <main className="relative h-full overflow-hidden bg-background">
       <ThemeNoticeDialog />
-      {backgroundMode === "particles"
-        ? isLightMode
-          ? <ParticlesBackgroundLight />
-          : <ParticlesBackground />
-        : backgroundMode === "stars"
-          ? isLightMode
-            ? <StarsBackgroundLight />
-            : <StarsBackground />
-          : null}
+      {backgroundMode === "particles" ? (
+        isLightMode ? (
+          <ParticlesBackgroundLight />
+        ) : (
+          <ParticlesBackground />
+        )
+      ) : backgroundMode === "stars" ? (
+        isLightMode ? (
+          <StarsBackgroundLight />
+        ) : (
+          <StarsBackground />
+        )
+      ) : null}
       <div className="relative z-10 h-full">
         <DashboardView
           usePlaceholderData={isPreviewMode || usePlaceholderData}

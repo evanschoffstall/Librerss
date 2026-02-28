@@ -17,10 +17,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import {
-  type CategoryTreeNode,
-  type OpmlFeedImportEntry,
-} from "@/lib";
+import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
 import { Loader2, Plus, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
@@ -44,7 +41,11 @@ interface SettingsModalProps {
   onShowFaviconsChange: (value: boolean) => void;
   onBackgroundModeChange: (value: BackgroundMode) => void;
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
-  onDropFeed: (key: string, targetCategory: string, targetIndex: number) => Promise<void>;
+  onDropFeed: (
+    key: string,
+    targetCategory: string,
+    targetIndex: number,
+  ) => Promise<void>;
   onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
   onAddCategory: (name: string) => boolean;
   onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
@@ -143,7 +144,9 @@ function SettingsBody({
               onNewCategoryNameChange={state.setNewCategoryName}
               onAddCategory={state.handleAddCategory}
               onEditingCategoryNameChange={state.setEditingCategoryName}
-              onSaveCategoryRename={(label) => void state.handleSaveCategoryRename(label)}
+              onSaveCategoryRename={(label) =>
+                void state.handleSaveCategoryRename(label)
+              }
               onCancelCategoryEdit={state.onCancelCategoryEdit}
               onStartCategoryEdit={state.onStartCategoryEdit}
               onToggleAddFeed={state.onToggleAddFeed}

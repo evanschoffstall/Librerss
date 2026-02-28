@@ -1,7 +1,4 @@
-import {
-  logAndRespondError,
-  requireMutableRequest,
-} from "@/lib/server";
+import { logAndRespondError, requireMutableRequest } from "@/lib/server";
 import {
   SESSION_COOKIE_NAME,
   clearSessionCookie,

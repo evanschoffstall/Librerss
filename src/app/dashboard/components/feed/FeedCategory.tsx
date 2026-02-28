@@ -11,7 +11,12 @@ interface FeedCategoryProps {
   showFavicon: boolean;
 }
 
-export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedCategoryProps) => {
+export const FeedCategory = ({
+  category,
+  isActive,
+  onClick,
+  showFavicon,
+}: FeedCategoryProps) => {
   const {
     faviconUrl,
     faviconTint,
@@ -26,10 +31,11 @@ export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedC
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${isActive
-        ? "bg-muted/80 text-foreground"
-        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-        }`}
+      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+        isActive
+          ? "bg-muted/80 text-foreground"
+          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+      }`}
     >
       <div className="min-w-0">
         <p className="font-sans text-[0.93rem] font-medium leading-[1.35] tracking-[-0.005em]">
@@ -64,7 +70,10 @@ export const FeedCategory = ({ category, isActive, onClick, showFavicon }: FeedC
           style={{ backgroundColor: faviconTint.background }}
           aria-hidden="true"
         >
-          <Globe className="size-2.5" style={{ color: faviconTint.foreground }} />
+          <Globe
+            className="size-2.5"
+            style={{ color: faviconTint.foreground }}
+          />
         </span>
       )}
     </button>

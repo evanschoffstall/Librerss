@@ -86,41 +86,51 @@ export default function BackgroundParticles({
     circles.current = seedParticles(quantity, width, height);
   }, [quantity, seedParticles]);
 
-  const renderFrame = useCallback((now: number) => {
-    const ctx = ctxRef.current;
-    if (!ctx) {
-      return;
-    }
+  const renderFrame = useCallback(
+    (now: number) => {
+      const ctx = ctxRef.current;
+      if (!ctx) {
+        return;
+      }
 
-    const elapsed = (now - startedAtRef.current) / 1000;
-    const { width, height } = canvasSize.current;
-    const swayScale = staticity <= 0 ? 0 : 1 / staticity;
+      const elapsed = (now - startedAtRef.current) / 1000;
+      const { width, height } = canvasSize.current;
+      const swayScale = staticity <= 0 ? 0 : 1 / staticity;
 
-    ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, width, height);
 
-    for (const circle of circles.current) {
-      circle.originX = (circle.originX + circle.driftX + width) % width;
-      circle.originY = (circle.originY + circle.driftY + height) % height;
+      for (const circle of circles.current) {
+        circle.originX = (circle.originX + circle.driftX + width) % width;
+        circle.originY = (circle.originY + circle.driftY + height) % height;
 
-      const wave = Math.sin(elapsed * circle.sway + circle.alphaPhase);
-      const alpha = Math.max(0.02, Math.min(0.75, circle.alphaBase + wave * 0.08));
+        const wave = Math.sin(elapsed * circle.sway + circle.alphaPhase);
+        const alpha = Math.max(
+          0.02,
+          Math.min(0.75, circle.alphaBase + wave * 0.08),
+        );
 
-      const parallaxX =
-        pointerOffsetRef.current.x * swayScale * (circle.sway / Math.max(1, ease));
-      const parallaxY =
-        pointerOffsetRef.current.y * swayScale * (circle.sway / Math.max(1, ease));
+        const parallaxX =
+          pointerOffsetRef.current.x *
+          swayScale *
+          (circle.sway / Math.max(1, ease));
+        const parallaxY =
+          pointerOffsetRef.current.y *
+          swayScale *
+          (circle.sway / Math.max(1, ease));
 
-      const drawX = circle.originX + parallaxX;
-      const drawY = circle.originY + parallaxY;
+        const drawX = circle.originX + parallaxX;
+        const drawY = circle.originY + parallaxY;
 
-      ctx.beginPath();
-      ctx.arc(drawX, drawY, circle.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${particleRgb}, ${alpha})`;
-      ctx.fill();
-    }
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, circle.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${particleRgb}, ${alpha})`;
+        ctx.fill();
+      }
 
-    frameRef.current = window.requestAnimationFrame(renderFrame);
-  }, [ease, particleRgb, staticity]);
+      frameRef.current = window.requestAnimationFrame(renderFrame);
+    },
+    [ease, particleRgb, staticity],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -165,7 +175,9 @@ export default function BackgroundParticles({
     const pointerInside =
       localX < halfW && localX > -halfW && localY < halfH && localY > -halfH;
 
-    pointerOffsetRef.current = pointerInside ? { x: localX, y: localY } : { x: 0, y: 0 };
+    pointerOffsetRef.current = pointerInside
+      ? { x: localX, y: localY }
+      : { x: 0, y: 0 };
   }, [mousePosition.x, mousePosition.y]);
 
   useEffect(() => {

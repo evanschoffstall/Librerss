@@ -79,13 +79,14 @@ export default function BackgroundStars({
         ? Math.random() * 1.4 + 1.1
         : Math.random() * 1 + 0.45;
 
-    const minAlpha = mode === "fade"
-      ? 0
-      : isDimStar
-        ? parseFloat((Math.random() * 0.08 + 0.02).toFixed(2))
-        : isBrightStar
-          ? parseFloat((Math.random() * 0.12 + 0.12).toFixed(2))
-          : parseFloat((Math.random() * 0.1 + 0.07).toFixed(2));
+    const minAlpha =
+      mode === "fade"
+        ? 0
+        : isDimStar
+          ? parseFloat((Math.random() * 0.08 + 0.02).toFixed(2))
+          : isBrightStar
+            ? parseFloat((Math.random() * 0.12 + 0.12).toFixed(2))
+            : parseFloat((Math.random() * 0.1 + 0.07).toFixed(2));
 
     const maxAlpha = isDimStar
       ? parseFloat((Math.random() * 0.2 + 0.18).toFixed(2))
@@ -94,15 +95,16 @@ export default function BackgroundStars({
         : parseFloat((Math.random() * 0.22 + 0.36).toFixed(2));
 
     const darkSkyColorRoll = Math.random();
-    const colorRgb = color === "light"
-      ? darkSkyColorRoll < 0.7
-        ? "255, 255, 255"
-        : darkSkyColorRoll < 0.85
-          ? "236, 242, 255"
-          : "255, 245, 224"
-      : isBrightStar
-        ? "25, 25, 25"
-        : "35, 35, 35";
+    const colorRgb =
+      color === "light"
+        ? darkSkyColorRoll < 0.7
+          ? "255, 255, 255"
+          : darkSkyColorRoll < 0.85
+            ? "236, 242, 255"
+            : "255, 245, 224"
+        : isBrightStar
+          ? "25, 25, 25"
+          : "35, 35, 35";
 
     return {
       x,
@@ -110,16 +112,21 @@ export default function BackgroundStars({
       translateX: 0,
       translateY: 0,
       size,
-      alpha: mode === "steady"
-        ? maxAlpha
-        : parseFloat((Math.random() * (maxAlpha - minAlpha) + minAlpha).toFixed(2)),
+      alpha:
+        mode === "steady"
+          ? maxAlpha
+          : parseFloat(
+              (Math.random() * (maxAlpha - minAlpha) + minAlpha).toFixed(2),
+            ),
       minAlpha,
       maxAlpha,
-      speed: mode === "twinkle"
-        ? Math.random() * (TWINKLE_MAX_SPEED - TWINKLE_MIN_SPEED) + TWINKLE_MIN_SPEED
-        : mode === "fade"
-          ? Math.random() * (FADE_MAX_SPEED - FADE_MIN_SPEED) + FADE_MIN_SPEED
-          : 0,
+      speed:
+        mode === "twinkle"
+          ? Math.random() * (TWINKLE_MAX_SPEED - TWINKLE_MIN_SPEED) +
+            TWINKLE_MIN_SPEED
+          : mode === "fade"
+            ? Math.random() * (FADE_MAX_SPEED - FADE_MIN_SPEED) + FADE_MIN_SPEED
+            : 0,
       magnetism: 0.1 + Math.random() * 4,
       colorRgb,
       glowStrength: isBrightStar ? 0.28 : isDimStar ? 0.1 : 0.18,
@@ -213,9 +220,11 @@ export default function BackgroundStars({
       }
 
       star.translateX +=
-        (mouse.current.x / (staticity / star.magnetism) - star.translateX) / ease;
+        (mouse.current.x / (staticity / star.magnetism) - star.translateX) /
+        ease;
       star.translateY +=
-        (mouse.current.y / (staticity / star.magnetism) - star.translateY) / ease;
+        (mouse.current.y / (staticity / star.magnetism) - star.translateY) /
+        ease;
 
       drawStar(star, true);
     }

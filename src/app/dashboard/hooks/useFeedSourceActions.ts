@@ -5,9 +5,7 @@
  * Extracted from useCategoryManager so each hook has one responsibility.
  */
 
-import {
-  type OpmlFeedImportEntry
-} from "@/lib";
+import { type OpmlFeedImportEntry } from "@/lib";
 import { useCallback } from "react";
 import {
   addFeedSourceAndRefresh,

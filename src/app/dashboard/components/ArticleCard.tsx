@@ -39,7 +39,10 @@ import {
 import { useTheme } from "next-themes";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useArticleExpansion, useArticleHeights } from "../hooks/useArticleExpansion";
+import {
+  useArticleExpansion,
+  useArticleHeights,
+} from "../hooks/useArticleExpansion";
 import { useFavicon } from "../hooks/useFavicon";
 import {
   buildPreview,
@@ -103,7 +106,8 @@ export const ArticleCard = ({
     useArticleExpansion(isExpanded, isHydrating);
 
   const showSkeleton = phase === "loading";
-  const showFullContent = phase === "ready" || phase === "expanded" || isCollapsing;
+  const showFullContent =
+    phase === "ready" || phase === "expanded" || isCollapsing;
   const visuallyExpanded = phase === "expanded" || isCollapsing;
 
   const richContentClassName = getRichContentClass(isExpanded);
@@ -128,7 +132,8 @@ export const ArticleCard = ({
   const pointerPosRef = useRef<{ x: number; y: number } | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
-  const shouldBlockArticleInteraction = () => Date.now() < interactionBlockUntilRef.current;
+  const shouldBlockArticleInteraction = () =>
+    Date.now() < interactionBlockUntilRef.current;
 
   const blockArticleInteractionTemporarily = () => {
     interactionBlockUntilRef.current = Date.now() + 200;
@@ -190,7 +195,9 @@ export const ArticleCard = ({
   };
 
   useEffect(() => {
-    setSupportsNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+    setSupportsNativeShare(
+      typeof navigator !== "undefined" && typeof navigator.share === "function",
+    );
   }, []);
 
   useEffect(() => {
@@ -273,7 +280,9 @@ export const ArticleCard = ({
     input.setSelectionRange(0, input.value.length);
   };
 
-  const handleSelectShareLink = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSelectShareLink = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     event.stopPropagation();
     selectShareLink();
   };
@@ -337,27 +346,35 @@ export const ArticleCard = ({
       onMouseDown={handleMouseDown}
       onMouseLeave={() => setIsCardHovered(false)}
       style={{
-        boxShadow: isDark ? undefined : 'none',
+        boxShadow: isDark ? undefined : "none",
       }}
-      className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${isDark
-        ? "border-border bg-card/70 shadow-2xl shadow-zinc-900/50"
-        : "border-border bg-white/70"
-        } ${visuallyExpanded ? "p-4" : "p-3"}`}
+      className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${
+        isDark
+          ? "border-border bg-card/70 shadow-2xl shadow-zinc-900/50"
+          : "border-border bg-white/70"
+      } ${visuallyExpanded ? "p-4" : "p-3"}`}
     >
       <div className="pointer-events-none absolute inset-0 rounded-xl">
         <div className="absolute inset-0 z-0 rounded-xl transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
-        <div className={`absolute inset-0 z-10 rounded-xl bg-gradient-to-br transition duration-1000 ${isDark
-          ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
-          : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
-          } ${isCardHovered ? "opacity-100" : "opacity-0"}`} />
+        <div
+          className={`absolute inset-0 z-10 rounded-xl bg-gradient-to-br transition duration-1000 ${
+            isDark
+              ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
+              : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
+          } ${isCardHovered ? "opacity-100" : "opacity-0"}`}
+        />
       </div>
 
-      <div className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}>
+      <div
+        className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}
+      >
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
             <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <CalendarDays className="size-3" />
-              {formatRelativeDate(new Date(article.publicationDate ?? Date.now()))}
+              {formatRelativeDate(
+                new Date(article.publicationDate ?? Date.now()),
+              )}
               <span className="text-border">|</span>
             </div>
             <div className="flex min-w-0 items-center gap-2">
@@ -375,7 +392,8 @@ export const ArticleCard = ({
                     onError={() => {
                       setFaviconIndex((current) => {
                         const next = current + 1;
-                        const resolved = next < faviconCandidates.length ? next : -1;
+                        const resolved =
+                          next < faviconCandidates.length ? next : -1;
                         setCachedFaviconIndex(faviconCacheKey, resolved);
                         return resolved;
                       });
@@ -387,7 +405,10 @@ export const ArticleCard = ({
                     style={{ backgroundColor: faviconTint.background }}
                     aria-hidden="true"
                   >
-                    <Globe className="size-2" style={{ color: faviconTint.foreground }} />
+                    <Globe
+                      className="size-2"
+                      style={{ color: faviconTint.foreground }}
+                    />
                   </span>
                 )
               ) : null}
@@ -405,7 +426,11 @@ export const ArticleCard = ({
                 aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
                 className={iconBtnCls}
               >
-                {article.isRead ? <CircleCheck className="size-3.5" /> : <Circle className="size-3.5" />}
+                {article.isRead ? (
+                  <CircleCheck className="size-3.5" />
+                ) : (
+                  <Circle className="size-3.5" />
+                )}
               </button>
 
               <button
@@ -418,7 +443,9 @@ export const ArticleCard = ({
                 aria-label={article.isStarred ? "Remove star" : "Star article"}
                 className={iconBtnCls}
               >
-                <Star className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`} />
+                <Star
+                  className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`}
+                />
               </button>
 
               {supportsNativeShare ? (
@@ -431,7 +458,10 @@ export const ArticleCard = ({
                   <Share2 className="size-3.5" />
                 </button>
               ) : (
-                <DropdownMenu open={isShareMenuOpen} onOpenChange={handleShareMenuOpenChange}>
+                <DropdownMenu
+                  open={isShareMenuOpen}
+                  onOpenChange={handleShareMenuOpenChange}
+                >
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
@@ -444,7 +474,9 @@ export const ArticleCard = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                    onClick={(event: React.MouseEvent) =>
+                      event.stopPropagation()
+                    }
                   >
                     <DropdownMenuItem
                       disabled={!shareUrl}
@@ -456,7 +488,10 @@ export const ArticleCard = ({
                     >
                       Copy link
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setIsShareMenuOpen(false)} asChild>
+                    <DropdownMenuItem
+                      onSelect={() => setIsShareMenuOpen(false)}
+                      asChild
+                    >
                       <a
                         href={`mailto:?subject=${encodedShareTitle}&body=${encodedShareUrl}`}
                         target="_blank"
@@ -466,7 +501,10 @@ export const ArticleCard = ({
                         Email
                       </a>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setIsShareMenuOpen(false)} asChild>
+                    <DropdownMenuItem
+                      onSelect={() => setIsShareMenuOpen(false)}
+                      asChild
+                    >
                       <a
                         href={`https://www.reddit.com/submit?url=${encodedShareUrl}&title=${encodedShareTitle}`}
                         target="_blank"
@@ -475,7 +513,10 @@ export const ArticleCard = ({
                         Share to Reddit
                       </a>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setIsShareMenuOpen(false)} asChild>
+                    <DropdownMenuItem
+                      onSelect={() => setIsShareMenuOpen(false)}
+                      asChild
+                    >
                       <a
                         href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${article.title} ${shareUrl || ""}`.trim())}`}
                         target="_blank"
@@ -534,7 +575,9 @@ export const ArticleCard = ({
                 : hasOverflow
                   ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                   : "none",
-              ...(hasOverflow && collapsedHeight === expandedHeight && !visuallyExpanded
+              ...(hasOverflow &&
+              collapsedHeight === expandedHeight &&
+              !visuallyExpanded
                 ? { maxHeight: `${collapsedHeight}px` }
                 : {}),
             }}
@@ -552,7 +595,8 @@ export const ArticleCard = ({
               </p>
             ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
               <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75">
-                Full article content unavailable. Open the original article to read more.
+                Full article content unavailable. Open the original article to
+                read more.
               </p>
             ) : useRichFormatting ? (
               <div
@@ -560,7 +604,9 @@ export const ArticleCard = ({
                 dangerouslySetInnerHTML={{ __html: normalizedHtml }}
               />
             ) : (
-              <p className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}>
+              <p
+                className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
+              >
                 {content}
               </p>
             )}
@@ -605,7 +651,8 @@ export const ArticleCard = ({
                   <div className="min-w-0 flex-1 text-left">
                     <DrawerTitle>Raw Article HTML</DrawerTitle>
                     <DrawerDescription>
-                      Development-only view of the current article content payload.
+                      Development-only view of the current article content
+                      payload.
                     </DrawerDescription>
                   </div>
                   <Button
@@ -645,7 +692,8 @@ export const ArticleCard = ({
                   <div className="min-w-0 flex-1 text-left">
                     <DialogTitle>Raw Article HTML</DialogTitle>
                     <DialogDescription>
-                      Development-only view of the current article content payload.
+                      Development-only view of the current article content
+                      payload.
                     </DialogDescription>
                   </div>
                   <Button

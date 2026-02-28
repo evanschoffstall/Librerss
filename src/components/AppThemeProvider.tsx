@@ -38,7 +38,11 @@ function ThemeModeToggle() {
         aria-label={`Switch to ${nextTheme} mode`}
         className="transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300"
       >
-        {mounted && isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        {mounted && isDark ? (
+          <Sun className="h-4 w-4" />
+        ) : (
+          <Moon className="h-4 w-4" />
+        )}
       </button>
     </div>
   );
@@ -49,7 +53,8 @@ function ThemedToaster() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const dashboardView = searchParams?.get("view") || "dashboard";
-  const shouldOffsetForDashboardBar = pathname === "/dashboard" && dashboardView === "dashboard";
+  const shouldOffsetForDashboardBar =
+    pathname === "/dashboard" && dashboardView === "dashboard";
 
   useEffect(() => {
     const handleToastClickToDismiss = (event: MouseEvent) => {
@@ -58,11 +63,17 @@ function ThemedToaster() {
         return;
       }
 
-      if (target.closest("button, a, input, textarea, select, label, [role='button'], [data-button], [data-close-button]")) {
+      if (
+        target.closest(
+          "button, a, input, textarea, select, label, [role='button'], [data-button], [data-close-button]",
+        )
+      ) {
         return;
       }
 
-      const toastElement = target.closest<HTMLElement>("[data-sonner-toast][data-dismissible='true']");
+      const toastElement = target.closest<HTMLElement>(
+        "[data-sonner-toast][data-dismissible='true']",
+      );
       if (!toastElement) {
         return;
       }

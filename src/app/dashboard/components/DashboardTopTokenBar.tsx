@@ -1,7 +1,10 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { ARTICLE_FILTER_OPTIONS, type ArticleFilter } from "../services/article-filters";
+import {
+  ARTICLE_FILTER_OPTIONS,
+  type ArticleFilter,
+} from "../services/article-filters";
 
 type DashboardTopTokenBarProps = {
   articleFilter: ArticleFilter;
@@ -29,10 +32,11 @@ export function DashboardTopTokenBar({
                     key={value}
                     type="button"
                     onClick={() => onArticleFilterChange(value)}
-                    className={`rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${articleFilter === value
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground"
-                      }`}
+                    className={`rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${
+                      articleFilter === value
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                    }`}
                   >
                     {value}
                   </button>
@@ -60,4 +64,3 @@ export function DashboardTopTokenBar({
     </div>
   );
 }
-

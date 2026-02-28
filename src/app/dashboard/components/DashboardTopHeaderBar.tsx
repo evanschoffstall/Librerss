@@ -72,7 +72,10 @@ export function DashboardTopHeaderBar() {
       DASHBOARD_EVENTS.MARK_ALL_READ_START,
       handleMarkAllReadStart,
     );
-    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, handleMarkAllReadEnd);
+    window.addEventListener(
+      DASHBOARD_EVENTS.MARK_ALL_READ_END,
+      handleMarkAllReadEnd,
+    );
     return () => {
       window.removeEventListener(
         DASHBOARD_EVENTS.TITLE_CHANGE,
@@ -82,7 +85,10 @@ export function DashboardTopHeaderBar() {
         DASHBOARD_EVENTS.SEARCH_SYNC,
         handleSearchSync as EventListener,
       );
-      window.removeEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.ENTER_PREVIEW,
+        handleEnterPreview,
+      );
       window.removeEventListener(
         DASHBOARD_EVENTS.MARK_ALL_READ_START,
         handleMarkAllReadStart,
@@ -133,7 +139,9 @@ export function DashboardTopHeaderBar() {
         <button
           type="button"
           onClick={() =>
-            window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR))
+            window.dispatchEvent(
+              new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR),
+            )
           }
           aria-label="Open feeds"
           className={`${toolbarBtnClass} lg:hidden`}
@@ -178,7 +186,9 @@ export function DashboardTopHeaderBar() {
             <DropdownMenuItem
               disabled={isMarkingAllRead}
               onSelect={() =>
-                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))
+                window.dispatchEvent(
+                  new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ),
+                )
               }
             >
               <CheckCheck className="h-4 w-4" />
@@ -186,7 +196,9 @@ export function DashboardTopHeaderBar() {
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() =>
-                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))
+                window.dispatchEvent(
+                  new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS),
+                )
               }
             >
               <Settings2 className="h-4 w-4" />
@@ -227,7 +239,9 @@ export function DashboardTopHeaderBar() {
             type="button"
             disabled={isMarkingAllRead}
             onClick={() =>
-              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ))
+              window.dispatchEvent(
+                new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ),
+              )
             }
             aria-label="Mark all read"
             className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70 ${isMarkingAllRead ? "animate-pulse" : ""}`}
@@ -238,7 +252,9 @@ export function DashboardTopHeaderBar() {
           <button
             type="button"
             onClick={() =>
-              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS))
+              window.dispatchEvent(
+                new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS),
+              )
             }
             aria-label="Open dashboard settings"
             className={toolbarBtnClass}
@@ -275,4 +291,3 @@ export function DashboardTopHeaderBar() {
     </div>
   );
 }
-

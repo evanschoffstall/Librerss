@@ -32,14 +32,15 @@ const LandingView = () => {
 
       {/* Content */}
       <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
-
         {/* Headline */}
         <h1
           className="landing-reveal mt-10 mb-6 text-5xl font-bold tracking-tight sm:text-7xl lg:text-8xl"
           style={{ animationDelay: "var(--motion-delay-0)" }}
         >
           <span className="block">Your reading,</span>
-          <span className="block text-muted-foreground/70">without the noise.</span>
+          <span className="block text-muted-foreground/70">
+            without the noise.
+          </span>
         </h1>
 
         {/* Subtitle */}
@@ -47,8 +48,8 @@ const LandingView = () => {
           className="landing-reveal mx-auto mb-10 max-w-lg text-lg text-muted-foreground sm:text-xl"
           style={{ animationDelay: "var(--motion-delay-1)" }}
         >
-          A free, open-source cloud reader for RSS.
-          All your sources in one calm, focused inbox.
+          A free, open-source cloud reader for RSS. All your sources in one
+          calm, focused inbox.
         </p>
 
         {/* Single CTA */}
@@ -58,7 +59,10 @@ const LandingView = () => {
         >
           <div className="transition-transform anim-duration-ui anim-ease-ui hover:-translate-y-0.5">
             <Button size="lg" className="h-12 px-8 text-base shadow-sm" asChild>
-              <Link href="/dashboard" className="group inline-flex items-center">
+              <Link
+                href="/dashboard"
+                className="group inline-flex items-center"
+              >
                 Start Reading
                 <span className="landing-arrow-bob ml-2 inline-flex transition-transform anim-duration-ui anim-ease-ui group-hover:translate-x-1">
                   <ArrowRight className="h-4 w-4" />

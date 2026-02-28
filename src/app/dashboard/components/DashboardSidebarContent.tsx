@@ -49,8 +49,9 @@ export function DashboardSidebarContent({
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
               <div
                 key={categoryNode.key}
-                className={`space-y-0.5 anim-fade-in-load-slow transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
-                  }`}
+                className={`space-y-0.5 anim-fade-in-load-slow transition-opacity anim-duration-ui anim-ease-ui ${
+                  isSidebarVisible ? "opacity-100" : "opacity-0"
+                }`}
                 style={{
                   animationDelay: `${index * 35}ms`,
                   transitionDelay: `${index * 35}ms`,
@@ -59,24 +60,27 @@ export function DashboardSidebarContent({
                 <div className="px-1.5 font-sans text-[0.74rem] font-semibold tracking-[0.02em] text-muted-foreground/70">
                   <button
                     type="button"
-                    className={`w-full rounded px-1.5 py-1 text-left font-sans text-[0.76rem] font-semibold tracking-[0.01em] transition-colors ${selectedCategory === categoryNode.key
-                      ? "bg-muted/60 text-foreground"
-                      : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
-                      }`}
+                    className={`w-full rounded px-1.5 py-1 text-left font-sans text-[0.76rem] font-semibold tracking-[0.01em] transition-colors ${
+                      selectedCategory === categoryNode.key
+                        ? "bg-muted/60 text-foreground"
+                        : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
+                    }`}
                     onClick={() => onCategoryClick(categoryNode)}
                   >
                     {categoryNode.label}
                   </button>
                 </div>
-                {(categoryNode.children ?? []).map((feedNode: CategoryTreeNode) => (
-                  <FeedCategory
-                    key={feedNode.key}
-                    category={feedNode}
-                    isActive={selectedCategory === feedNode.key}
-                    showFavicon={showFavicons}
-                    onClick={() => onFeedClick(feedNode)}
-                  />
-                ))}
+                {(categoryNode.children ?? []).map(
+                  (feedNode: CategoryTreeNode) => (
+                    <FeedCategory
+                      key={feedNode.key}
+                      category={feedNode}
+                      isActive={selectedCategory === feedNode.key}
+                      showFavicon={showFavicons}
+                      onClick={() => onFeedClick(feedNode)}
+                    />
+                  ),
+                )}
               </div>
             ))
           )}

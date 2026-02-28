@@ -5,10 +5,7 @@
  * Feed-source CRUD lives in useFeedSourceActions.
  */
 
-import {
-  FeedService,
-  includesCategoryLabel
-} from "@/lib";
+import { FeedService, includesCategoryLabel } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addCategoryLabel,

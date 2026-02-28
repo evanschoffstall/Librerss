@@ -13,6 +13,7 @@ import {
   getMergedFaviconCandidates,
 } from "@/app/dashboard/services/favicons";
 import { describe, expect, test } from "bun:test";
+
 describe("favicons – getHostnameLabel", () => {
   test("strips www. prefix", () => {
     expect(getHostnameLabel("https://www.example.com/feed")).toBe(

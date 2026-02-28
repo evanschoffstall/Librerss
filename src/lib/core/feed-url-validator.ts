@@ -3,7 +3,11 @@
  * Checks protocol, credentials, blocked hostnames/IPs, and DNS resolution.
  */
 
-import { isBlockedHost, isBlockedResolvedAddress, normalizeHostname } from "@/lib/utils/ssrf";
+import {
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
 import { isValidUrl } from "@/lib/utils/url";
 import { isIP } from "node:net";
 import { resolvesToBlockedAddress } from "./dns-cache";
