@@ -36,6 +36,15 @@ type StaticAnalysis = {
   eslintExitCode: number;
   exitCode: number;
 };
+type RedundancyChecks = {
+  jscpdPassing: boolean;
+  knipPassing: boolean;
+  tsPrunePassing: boolean;
+  jscpdExitCode: number;
+  knipExitCode: number;
+  tsPruneExitCode: number;
+  exitCode: number;
+};
 type Command = { exitCode: number; timedOut: boolean; output: string };
 
 const ANSI = {
@@ -78,6 +87,19 @@ const staticSummary = (
   tscExitCode: tscExit,
   eslintExitCode: eslintExit,
   exitCode: tscExit === 0 && eslintExit === 0 ? 0 : 1,
+});
+const redundancySummary = (
+  jscpdExit: number,
+  knipExit: number,
+  tsPruneExit: number,
+): RedundancyChecks => ({
+  jscpdPassing: jscpdExit === 0,
+  knipPassing: knipExit === 0,
+  tsPrunePassing: tsPruneExit === 0,
+  jscpdExitCode: jscpdExit,
+  knipExitCode: knipExit,
+  tsPruneExitCode: tsPruneExit,
+  exitCode: jscpdExit === 0 && knipExit === 0 && tsPruneExit === 0 ? 0 : 1,
 });
 
 function printStepOutput(label: string, output: string) {
@@ -220,12 +242,14 @@ function coverageSummary(path: string): Coverage {
 
 function printSummary(results: {
   staticAnalysis: StaticAnalysis;
+  redundancy: RedundancyChecks;
   tests: Summary;
   coverage: Coverage;
   testRunnerExitCode: number;
 }) {
   const ok =
     results.staticAnalysis.exitCode === 0 &&
+    results.redundancy.exitCode === 0 &&
     results.tests.exitCode === 0 &&
     results.coverage.exitCode === 0 &&
     results.testRunnerExitCode === 0;
@@ -235,16 +259,37 @@ function printSummary(results: {
   console.log(divider());
   console.log(
     row(
-      "Types",
+      "tsc",
       results.staticAnalysis.tscPassing,
       `exit ${results.staticAnalysis.tscExitCode}`,
     ),
   );
   console.log(
     row(
-      "Lint",
+      "eslint",
       results.staticAnalysis.eslintPassing,
       `exit ${results.staticAnalysis.eslintExitCode}`,
+    ),
+  );
+  console.log(
+    row(
+      "jscpd",
+      results.redundancy.jscpdPassing,
+      `exit ${results.redundancy.jscpdExitCode}`,
+    ),
+  );
+  console.log(
+    row(
+      "knip",
+      results.redundancy.knipPassing,
+      `exit ${results.redundancy.knipExitCode}`,
+    ),
+  );
+  console.log(
+    row(
+      "ts-prune",
+      results.redundancy.tsPrunePassing,
+      `exit ${results.redundancy.tsPruneExitCode}`,
     ),
   );
   console.log(
@@ -328,7 +373,7 @@ async function main() {
   const lcovPath = join(process.cwd(), "coverage", "lcov.info");
   process.stdout.write(
     paint(
-      "⏳ Please wait -- validating static analysis, tests, and coverage... ",
+      "⏳ Please wait -- validating static analysis, tests, coverage, and redundancy checks... ",
       ANSI.bold,
       ANSI.cyan,
     ),
@@ -348,27 +393,51 @@ async function main() {
   );
   const typesRunPromise = runStep("Running Types", "tsc", ["--noEmit"]);
   const lintRunPromise = runStep("Running Lint", "bun", ["scripts/lint.ts"]);
-
-  const [testRun, typesRun, lintRun] = await Promise.all([
-    testRunPromise,
-    typesRunPromise,
-    lintRunPromise,
+  const jscpdRunPromise = runStep("Running jscpd", "bun", ["run", "dup"]);
+  const knipRunPromise = runStep("Running knip", "bun", ["run", "redundancy"]);
+  const tsPruneRunPromise = runStep("Running ts-prune", "bun", [
+    "run",
+    "ts-prune",
   ]);
-  const timedOut = testRun.timedOut || typesRun.timedOut || lintRun.timedOut;
+
+  const [testRun, typesRun, lintRun, jscpdRun, knipRun, tsPruneRun] =
+    await Promise.all([
+      testRunPromise,
+      typesRunPromise,
+      lintRunPromise,
+      jscpdRunPromise,
+      knipRunPromise,
+      tsPruneRunPromise,
+    ]);
+  const timedOut =
+    testRun.timedOut ||
+    typesRun.timedOut ||
+    lintRun.timedOut ||
+    jscpdRun.timedOut ||
+    knipRun.timedOut ||
+    tsPruneRun.timedOut;
 
   printStepOutput("Tests", testRun.output);
   printStepOutput("Types", typesRun.output);
   printStepOutput("Lint", lintRun.output);
+  printStepOutput("jscpd", jscpdRun.output);
+  printStepOutput("knip", knipRun.output);
+  printStepOutput("ts-prune", tsPruneRun.output);
 
   const qualityGateExit = printSummary({
     staticAnalysis: staticSummary(typesRun.exitCode, lintRun.exitCode),
+    redundancy: redundancySummary(
+      jscpdRun.exitCode,
+      knipRun.exitCode,
+      tsPruneRun.exitCode,
+    ),
     tests: testSummary(junitPath),
     coverage: coverageSummary(lcovPath),
     testRunnerExitCode: testRun.exitCode,
   });
   if (timedOut) {
     console.error(
-      "Check command failed: bun test exceeded the 120-second failsafe timeout. Please try again.",
+      `Check command failed: bun test exceeded the ${TEST_COMMAND_TIMEOUT_MS / 1000}-second failsafe timeout. Please try again.`,
     );
     process.exit(1);
   }

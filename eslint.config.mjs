@@ -1,5 +1,6 @@
 import pluginJs from "@eslint/js";
 import pluginReactHooks from "eslint-plugin-react-hooks";
+import pluginSonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -44,10 +45,12 @@ export default [
   {
     plugins: {
       "react-hooks": pluginReactHooks,
+      sonarjs: pluginSonarjs,
     },
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      "sonarjs/no-identical-functions": "warn",
     },
   },
   {
