@@ -6,10 +6,8 @@
 import {
   __resetApiClientForTesting,
   __setApiClientForTesting,
-  ArticleService,
-  AuthService,
-  FeedService,
-} from "@/lib/api/services";
+} from "@/lib/api/http-client";
+import { ArticleService, AuthService, FeedService } from "@/lib/api/services";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Create a mock axios instance
