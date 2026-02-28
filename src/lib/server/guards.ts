@@ -1,4 +1,4 @@
-import { jsonError } from "@/lib/api/http";
+import { jsonError, parseJsonBodyOrResponse } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
@@ -108,6 +108,25 @@ export async function requireMutablePublicRequest(
     email: "anonymous",
     expiresAt: new Date(Date.now() + 86_400_000),
   };
+}
+
+export async function requireMutableUserAndJsonBody<
+  TBody extends Record<string, unknown>,
+>(
+  request: NextRequest,
+  options?: MutationRequestOptions,
+): Promise<{ user: AuthenticatedUser; body: TBody } | Response> {
+  const user = await requireMutableAuthenticatedUser(request, options);
+  if (user instanceof Response) {
+    return user;
+  }
+
+  const body = await parseJsonBodyOrResponse<TBody>(request);
+  if (body instanceof Response) {
+    return body;
+  }
+
+  return { user, body };
 }
 
 export function logAndRespondError(
