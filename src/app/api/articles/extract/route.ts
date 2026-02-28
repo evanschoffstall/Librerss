@@ -5,6 +5,7 @@ import {
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import type {
+  ExtractedArticle,
   ExtractRequestContext,
   ExtractResponsePayload,
 } from "@/lib/extract";
@@ -12,6 +13,7 @@ import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+  extractArticleFromHtml,
   fetchHtml,
   getCachedExtractPayload,
   isExtractCacheEnabled,
@@ -30,7 +32,6 @@ import {
 import { logAndRespondError, requireMutablePublicRequest } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
-import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -51,7 +52,7 @@ type ExtractPostDeps = {
   requireMutableAuthenticatedUserFn?: typeof requireMutablePublicRequest;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   fetchHtmlFn?: typeof fetchHtml;
-  extractFromHtmlFn?: typeof extractFromHtml;
+  extractFromHtmlFn?: typeof extractArticleFromHtml;
   sanitizeExtractedContentFn?: typeof sanitizeExtractedContent;
   cleanExtractedArticleHtmlFn?: typeof cleanExtractedArticleHtml;
   jsonErrorFn?: typeof jsonError;
@@ -81,7 +82,7 @@ function createExtractRequestContext(
 
 function buildExtractPayload(
   content: string,
-  extracted: Awaited<ReturnType<typeof extractFromHtml>> | null | undefined,
+  extracted: ExtractedArticle | null | undefined,
 ): ExtractResponsePayload {
   return {
     content,
@@ -130,17 +131,19 @@ async function resolveExtractedContent(
   extractableHtml: string,
   originalHtml: string,
   articleUrl: string,
-  extracted: Awaited<ReturnType<typeof extractFromHtml>> | null | undefined,
+  extracted: ExtractedArticle | null | undefined,
   sanitizeContent: (rawContent: string) => string,
   cleanContent: (sanitizedContent: string, articleUrl: string) => string,
   info: typeof logger.info,
   context: ExtractRequestContext,
 ): Promise<string> {
+  // 1. Sanitize the extracted article body container (if found)
   const rawContent =
     extracted?.content?.trim() || extracted?.description?.trim() || "";
   const sanitizedContent = sanitizeContent(rawContent);
   let content = cleanContent(sanitizedContent, articleUrl);
 
+  // 2. Fall back to direct sanitize of entire pre-cleaned page
   if (!content.trim()) {
     const directlySanitized = sanitizeContent(extractableHtml);
     const directlyCleaned = cleanContent(directlySanitized, articleUrl);
@@ -154,6 +157,7 @@ async function resolveExtractedContent(
     }
   }
 
+  // 3. Fall back to og:image + og:description metadata
   if (!content.trim()) {
     const metadataFallbackContent =
       buildMetadataImageFallbackHtml(originalHtml);
@@ -179,7 +183,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const parseArticleUrl =
     deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
-  const extractArticle = deps?.extractFromHtmlFn ?? extractFromHtml;
+  const extractArticle = deps?.extractFromHtmlFn ?? extractArticleFromHtml;
   const sanitizeContent =
     deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
   const cleanContent =
