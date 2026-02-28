@@ -119,6 +119,16 @@ describe("core/runtime and utils/rate-limit", () => {
     process.env.ALLOW_SIGNUP = previousSignup;
   });
 
+  test("runtime flags default signup to disabled when ALLOW_SIGNUP is unset", async () => {
+    const previousSignup = process.env.ALLOW_SIGNUP;
+    delete process.env.ALLOW_SIGNUP;
+
+    const { RUNTIME_FLAGS } = await import("@/lib/core/runtime");
+    expect(RUNTIME_FLAGS.allowSignup).toBe(false);
+
+    process.env.ALLOW_SIGNUP = previousSignup;
+  });
+
   test("rate limiter enforces limits and supports trusted proxy extraction", async () => {
     const { RateLimiter } = await import("@/lib/server");
     const limiter = new RateLimiter();
