@@ -80,14 +80,15 @@ const staticSummary = (
   exitCode: tscExit === 0 && eslintExit === 0 ? 0 : 1,
 });
 
-function printStepOutput(label: string, output: string, color?: string) {
+function printStepOutput(label: string, output: string) {
   console.log(`\n${paint(label, ANSI.bold)}`);
   if (!output.trim()) {
     console.log(paint("(no output)", ANSI.gray));
     return;
   }
-  for (const line of output.replace(/\s+$/g, "").split(/\r?\n/))
-    console.log(color ? paint(line, color) : line);
+  process.stdout.write(
+    output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
+  );
 }
 
 const parseTestcases = (xml: string) =>
@@ -273,8 +274,15 @@ async function run(
   args: string[],
   timeoutMs?: number,
 ): Promise<Command> {
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    FORCE_COLOR: process.env.FORCE_COLOR ?? "1",
+  };
+  delete env.NO_COLOR;
+
   const child = Bun.spawn([command, ...args], {
     cwd: process.cwd(),
+    env,
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
@@ -349,16 +357,8 @@ async function main() {
   const timedOut = testRun.timedOut || typesRun.timedOut || lintRun.timedOut;
 
   printStepOutput("Tests", testRun.output);
-  printStepOutput(
-    "Types",
-    typesRun.output,
-    typesRun.exitCode !== 0 ? ANSI.red : undefined,
-  );
-  printStepOutput(
-    "Lint",
-    lintRun.output,
-    lintRun.exitCode !== 0 ? ANSI.red : undefined,
-  );
+  printStepOutput("Types", typesRun.output);
+  printStepOutput("Lint", lintRun.output);
 
   const qualityGateExit = printSummary({
     staticAnalysis: staticSummary(typesRun.exitCode, lintRun.exitCode),
