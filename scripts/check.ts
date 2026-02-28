@@ -32,6 +32,8 @@ type Coverage = {
 type StaticAnalysis = {
   tscPassing: boolean;
   eslintPassing: boolean;
+  tscExitCode: number;
+  eslintExitCode: number;
   exitCode: number;
 };
 type Command = { exitCode: number; timedOut: boolean; output: string };
@@ -73,17 +75,19 @@ const staticSummary = (
 ): StaticAnalysis => ({
   tscPassing: tscExit === 0,
   eslintPassing: eslintExit === 0,
+  tscExitCode: tscExit,
+  eslintExitCode: eslintExit,
   exitCode: tscExit === 0 && eslintExit === 0 ? 0 : 1,
 });
 
-function printStepOutput(label: string, output: string) {
+function printStepOutput(label: string, output: string, color?: string) {
   console.log(`\n${paint(label, ANSI.bold)}`);
   if (!output.trim()) {
     console.log(paint("(no output)", ANSI.gray));
     return;
   }
   for (const line of output.replace(/\s+$/g, "").split(/\r?\n/))
-    console.log(line);
+    console.log(color ? paint(line, color) : line);
 }
 
 const parseTestcases = (xml: string) =>
@@ -217,22 +221,36 @@ function printSummary(results: {
   staticAnalysis: StaticAnalysis;
   tests: Summary;
   coverage: Coverage;
-  testRunnerPassing: boolean;
+  testRunnerExitCode: number;
 }) {
   const ok =
     results.staticAnalysis.exitCode === 0 &&
     results.tests.exitCode === 0 &&
     results.coverage.exitCode === 0 &&
-    results.testRunnerPassing;
+    results.testRunnerExitCode === 0;
   printTests("Failed tests", ANSI.red, results.tests.failedTests);
   printTests("Skipped tests", ANSI.gray, results.tests.skippedTests);
   console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
   console.log(divider());
   console.log(
     row(
+      "Types",
+      results.staticAnalysis.tscPassing,
+      `exit ${results.staticAnalysis.tscExitCode}`,
+    ),
+  );
+  console.log(
+    row(
+      "Lint",
+      results.staticAnalysis.eslintPassing,
+      `exit ${results.staticAnalysis.eslintExitCode}`,
+    ),
+  );
+  console.log(
+    row(
       "Tests",
-      results.tests.exitCode === 0,
-      `${results.tests.passedCount} passed · ${results.tests.failedCount} failed · ${results.tests.skippedCount} skipped`,
+      results.tests.exitCode === 0 && results.testRunnerExitCode === 0,
+      `${results.tests.passedCount} passed · ${results.tests.failedCount} failed · ${results.tests.skippedCount} skipped · runner exit ${results.testRunnerExitCode}`,
     ),
   );
   console.log(
@@ -242,8 +260,6 @@ function printSummary(results: {
       `${results.coverage.lineCoverage.toFixed(2)}% (${results.coverage.coveredLines}/${results.coverage.foundLines}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
     ),
   );
-  console.log(row("Types", results.staticAnalysis.tscPassing));
-  console.log(row("Lint", results.staticAnalysis.eslintPassing));
   console.log(divider());
   console.log(
     row("Overall", ok, ok ? "all checks passed" : "one or more checks failed"),
@@ -302,8 +318,12 @@ const runStep = (
 async function main() {
   const junitPath = join(process.cwd(), "coverage", "test-results.xml");
   const lcovPath = join(process.cwd(), "coverage", "lcov.info");
-  console.log(
-    `\n${paint("⏳ Please wait -- validating static analysis, tests, and coverage...", ANSI.bold, ANSI.cyan)}`,
+  process.stdout.write(
+    paint(
+      "⏳ Please wait -- validating static analysis, tests, and coverage... ",
+      ANSI.bold,
+      ANSI.cyan,
+    ),
   );
 
   const testRunPromise = runStep(
@@ -329,14 +349,22 @@ async function main() {
   const timedOut = testRun.timedOut || typesRun.timedOut || lintRun.timedOut;
 
   printStepOutput("Tests", testRun.output);
-  printStepOutput("Types", typesRun.output);
-  printStepOutput("Lint", lintRun.output);
+  printStepOutput(
+    "Types",
+    typesRun.output,
+    typesRun.exitCode !== 0 ? ANSI.red : undefined,
+  );
+  printStepOutput(
+    "Lint",
+    lintRun.output,
+    lintRun.exitCode !== 0 ? ANSI.red : undefined,
+  );
 
   const qualityGateExit = printSummary({
     staticAnalysis: staticSummary(typesRun.exitCode, lintRun.exitCode),
     tests: testSummary(junitPath),
     coverage: coverageSummary(lcovPath),
-    testRunnerPassing: testRun.exitCode === 0,
+    testRunnerExitCode: testRun.exitCode,
   });
   if (timedOut) {
     console.error(
