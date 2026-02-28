@@ -41,6 +41,7 @@ const createMockDb = () => ({
   delete: mock(() => ({
     where: mock(() => Promise.resolve([])),
   })),
+  transaction: mock(async (fn: (tx: ReturnType<typeof createMockDb>) => Promise<unknown>) => fn(createMockDb())),
 });
 
 const createQueryChain = () => ({
