@@ -22,7 +22,6 @@ export {
   normalizeCategoryLabelKey,
   removeCategoryLabel,
   replaceCategoryLabel,
-  toCategoryLabelOrDefault,
 } from "./utils/categories";
 export { formatRelativeDate } from "./utils/date-utils";
 export { parseOpmlFeedImport } from "./utils/opml";
