@@ -6,7 +6,7 @@ import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton"
 
 const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
 
-interface SettingsFeedRowProps {
+export interface SettingsFeedRowProps {
   feedNode: CategoryTreeNode;
   index: number;
   categoryLabel: string;

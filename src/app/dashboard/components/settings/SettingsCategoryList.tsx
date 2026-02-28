@@ -5,30 +5,27 @@ import { type CategoryTreeNode } from "@/lib";
 import { Plus } from "lucide-react";
 import { type UseSettingsDragReturn } from "../../hooks/useSettingsDrag";
 import { SettingsCategoryAccordionItem } from "./SettingsCategoryAccordionItem";
+import { type SettingsFeedRowProps } from "./SettingsFeedRow";
 
-interface SharedFeedRowProps {
-  selectedCategory: string;
-  editingFeedKey: string | null;
-  editingFeedName: string;
-  editingFeedUrl: string;
-  savingFeedKey: string | null;
-  deletingKey: string | null;
-  movingFeedKey: string | null;
-  draggingFeedKey: string | null;
-  feedDropTarget: { categoryLabel: string; index: number } | null;
+type SharedFeedRowProps = Omit<
+  SettingsFeedRowProps,
+  "feedNode" | "index" | "categoryLabel" | "onDragStart" | "onDragEnd" | "onDragOver" | "onDrop" | "onEditingNameChange" | "onEditingUrlChange" | "onSaveRename" | "onCancelRename" | "onStartEditing" | "onRemove" | "onToggleEnabled"
+> & {
   onFeedDragStart: UseSettingsDragReturn["onFeedDragStart"];
   onFeedDragEnd: UseSettingsDragReturn["onFeedDragEnd"];
   onFeedDragOver: UseSettingsDragReturn["onFeedDragOver"];
   onFeedDrop: UseSettingsDragReturn["onFeedDrop"];
-  onEditingFeedNameChange: (name: string) => void;
-  onEditingFeedUrlChange: (url: string) => void;
-  onSaveFeedRename: (key: string) => void;
-  onCancelFeedEdit: () => void;
-  onStartFeedEdit: (key: string, name: string, url: string) => void;
-  onRemoveFeed: (key: string) => void;
-  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
-  togglingFeedKey: string | null;
-}
+  onEditingFeedNameChange: SettingsFeedRowProps["onEditingNameChange"];
+  onEditingFeedUrlChange: SettingsFeedRowProps["onEditingUrlChange"];
+  onSaveFeedRename: SettingsFeedRowProps["onSaveRename"];
+  onCancelFeedEdit: SettingsFeedRowProps["onCancelRename"];
+  onStartFeedEdit: SettingsFeedRowProps["onStartEditing"];
+  onRemoveFeed: SettingsFeedRowProps["onRemove"];
+  onToggleFeedEnabled: SettingsFeedRowProps["onToggleEnabled"];
+};
+
+type TextChangeHandler = (value: string) => void;
+type CategoryLabelHandler = (categoryLabel: string) => void;
 
 interface SettingsCategoryListProps {
   categories: CategoryTreeNode[];
@@ -42,17 +39,17 @@ interface SettingsCategoryListProps {
   editingCategoryName: string;
   savingCategoryLabel: string | null;
   drag: UseSettingsDragReturn;
-  onNewCategoryNameChange: (name: string) => void;
+  onNewCategoryNameChange: TextChangeHandler;
   onAddCategory: () => void;
-  onEditingCategoryNameChange: (name: string) => void;
-  onSaveCategoryRename: (label: string) => void;
+  onEditingCategoryNameChange: TextChangeHandler;
+  onSaveCategoryRename: CategoryLabelHandler;
   onCancelCategoryEdit: () => void;
-  onStartCategoryEdit: (label: string) => void;
-  onToggleAddFeed: (label: string) => void;
-  onRemoveCategory: (label: string) => void;
-  onNewFeedNameChange: (name: string) => void;
-  onNewFeedUrlChange: (url: string) => void;
-  onAddFeed: (label: string) => void;
+  onStartCategoryEdit: CategoryLabelHandler;
+  onToggleAddFeed: CategoryLabelHandler;
+  onRemoveCategory: CategoryLabelHandler;
+  onNewFeedNameChange: TextChangeHandler;
+  onNewFeedUrlChange: TextChangeHandler;
+  onAddFeed: CategoryLabelHandler;
   onCancelAddFeed: () => void;
   sharedFeedRowProps: SharedFeedRowProps;
 }
@@ -147,8 +144,8 @@ export function SettingsCategoryList({
         {drag.draggingCategoryLabel && (
           <div
             className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${drag.categoryDropIndex === categories.length
-                ? "border-primary bg-primary/5 text-foreground"
-                : "text-muted-foreground"
+              ? "border-primary bg-primary/5 text-foreground"
+              : "text-muted-foreground"
               }`}
             onDragOver={(event) => drag.onCategoryDragOver(event, categories.length)}
             onDrop={(event) => drag.onCategoryDrop(event, categories.length)}

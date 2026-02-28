@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isSameCategoryLabel, type CategoryTreeNode } from "@/lib";
 import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
-import { SettingsFeedRow } from "./SettingsFeedRow";
+import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
 import { SettingsIconButton, settingsDragHandleCls } from "./SettingsIconButton";
 
 const animTransitionColorsClass = "transition-colors anim-duration-ui anim-ease-ui";
@@ -27,14 +27,14 @@ interface SettingsCategoryAccordionItemProps {
   editingCategoryName: string;
   savingCategoryLabel: string | null;
   // Feed edit/state
-  editingFeedKey: string | null;
-  editingFeedName: string;
-  editingFeedUrl: string;
-  savingFeedKey: string | null;
-  deletingKey: string | null;
-  movingFeedKey: string | null;
-  draggingFeedKey: string | null;
-  feedDropTarget: { categoryLabel: string; index: number } | null;
+  editingFeedKey: SettingsFeedRowProps["editingFeedKey"];
+  editingFeedName: SettingsFeedRowProps["editingFeedName"];
+  editingFeedUrl: SettingsFeedRowProps["editingFeedUrl"];
+  savingFeedKey: SettingsFeedRowProps["savingFeedKey"];
+  deletingKey: SettingsFeedRowProps["deletingKey"];
+  movingFeedKey: SettingsFeedRowProps["movingFeedKey"];
+  draggingFeedKey: SettingsFeedRowProps["draggingFeedKey"];
+  feedDropTarget: SettingsFeedRowProps["feedDropTarget"];
   categoryDropIndex: number | null;
   // Callbacks — category
   onCategoryDragStart: (event: React.DragEvent<HTMLButtonElement>, label: string) => void;
@@ -53,18 +53,18 @@ interface SettingsCategoryAccordionItemProps {
   onAddFeed: (categoryLabel: string) => void;
   onCancelAddFeed: () => void;
   // Callbacks — feed row
-  onFeedDragStart: (event: React.DragEvent<HTMLButtonElement>, key: string) => void;
-  onFeedDragEnd: () => void;
-  onFeedDragOver: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
-  onFeedDrop: (event: React.DragEvent<HTMLElement>, categoryLabel: string, index: number) => void;
-  onEditingFeedNameChange: (name: string) => void;
-  onEditingFeedUrlChange: (url: string) => void;
-  onSaveFeedRename: (key: string) => void;
-  onCancelFeedEdit: () => void;
-  onStartFeedEdit: (key: string, currentName: string, currentUrl: string) => void;
-  onRemoveFeed: (key: string) => void;
-  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
-  togglingFeedKey: string | null;
+  onFeedDragStart: SettingsFeedRowProps["onDragStart"];
+  onFeedDragEnd: SettingsFeedRowProps["onDragEnd"];
+  onFeedDragOver: SettingsFeedRowProps["onDragOver"];
+  onFeedDrop: SettingsFeedRowProps["onDrop"];
+  onEditingFeedNameChange: SettingsFeedRowProps["onEditingNameChange"];
+  onEditingFeedUrlChange: SettingsFeedRowProps["onEditingUrlChange"];
+  onSaveFeedRename: SettingsFeedRowProps["onSaveRename"];
+  onCancelFeedEdit: SettingsFeedRowProps["onCancelRename"];
+  onStartFeedEdit: SettingsFeedRowProps["onStartEditing"];
+  onRemoveFeed: SettingsFeedRowProps["onRemove"];
+  onToggleFeedEnabled: SettingsFeedRowProps["onToggleEnabled"];
+  togglingFeedKey: SettingsFeedRowProps["togglingFeedKey"];
 }
 
 export function SettingsCategoryAccordionItem({
