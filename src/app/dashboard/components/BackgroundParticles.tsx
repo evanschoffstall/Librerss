@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useMousePosition } from "../hooks/useMousePosition";
 
 interface ParticlesProps {
@@ -49,19 +49,22 @@ export default function BackgroundParticles({
     [color],
   );
 
-  const seedParticles = (count: number, width: number, height: number): Circle[] =>
-    Array.from({ length: count }, () => ({
-      originX: Math.random() * width,
-      originY: Math.random() * height,
-      size: Math.random() * 1.9 + 0.2,
-      alphaBase: Math.random() * 0.45 + 0.08,
-      alphaPhase: Math.random() * Math.PI * 2,
-      driftX: (Math.random() - 0.5) * 0.24,
-      driftY: (Math.random() - 0.5) * 0.24,
-      sway: Math.random() * 3.8 + 0.2,
-    }));
+  const seedParticles = useCallback(
+    (count: number, width: number, height: number): Circle[] =>
+      Array.from({ length: count }, () => ({
+        originX: Math.random() * width,
+        originY: Math.random() * height,
+        size: Math.random() * 1.9 + 0.2,
+        alphaBase: Math.random() * 0.45 + 0.08,
+        alphaPhase: Math.random() * Math.PI * 2,
+        driftX: (Math.random() - 0.5) * 0.24,
+        driftY: (Math.random() - 0.5) * 0.24,
+        sway: Math.random() * 3.8 + 0.2,
+      })),
+    [],
+  );
 
-  const resizeAndReseed = () => {
+  const resizeAndReseed = useCallback(() => {
     const canvas = canvasRef.current;
     const container = canvasContainerRef.current;
     const ctx = ctxRef.current;
@@ -81,9 +84,9 @@ export default function BackgroundParticles({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     circles.current = seedParticles(quantity, width, height);
-  };
+  }, [quantity, seedParticles]);
 
-  const renderFrame = (now: number) => {
+  const renderFrame = useCallback((now: number) => {
     const ctx = ctxRef.current;
     if (!ctx) {
       return;
@@ -117,7 +120,7 @@ export default function BackgroundParticles({
     }
 
     frameRef.current = window.requestAnimationFrame(renderFrame);
-  };
+  }, [ease, particleRgb, staticity]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -146,7 +149,7 @@ export default function BackgroundParticles({
       frameRef.current = null;
       window.removeEventListener("resize", onResize);
     };
-  }, [ease, particleRgb, quantity, staticity]);
+  }, [renderFrame, resizeAndReseed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -169,7 +172,7 @@ export default function BackgroundParticles({
     if (refresh) {
       resizeAndReseed();
     }
-  }, [quantity, refresh]);
+  }, [refresh, resizeAndReseed]);
 
   return (
     <div className={className} ref={canvasContainerRef} aria-hidden="true">
