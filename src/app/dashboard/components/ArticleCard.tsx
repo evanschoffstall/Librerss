@@ -22,8 +22,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { type Article, formatRelativeDate } from "@/lib";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 import {
   ArrowUpRight,
@@ -297,6 +297,33 @@ export const ArticleCard = ({
 
     return () => window.clearTimeout(timer);
   }, [isRawHtmlOpen]);
+
+  const copyLinkInputBlock = (
+    <div className="rounded-md border bg-muted/30 p-2">
+      <Input
+        ref={copyLinkInputRef}
+        value={shareUrl || ""}
+        readOnly
+        className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+        aria-label="Article link"
+        onClick={(event) => event.stopPropagation()}
+        onFocus={(event) => event.currentTarget.select()}
+      />
+    </div>
+  );
+
+  const copyLinkSelectAction = (
+    <div className="flex justify-end">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={handleSelectShareLink}
+      >
+        Select
+      </Button>
+    </div>
+  );
 
   return (
     <article
@@ -661,27 +688,8 @@ export const ArticleCard = ({
               </DrawerDescription>
             </DrawerHeader>
             <div className="space-y-3 px-4 pb-6">
-              <div className="rounded-md border bg-muted/30 p-2">
-                <Input
-                  ref={copyLinkInputRef}
-                  value={shareUrl || ""}
-                  readOnly
-                  className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
-                  aria-label="Article link"
-                  onClick={(event) => event.stopPropagation()}
-                  onFocus={(event) => event.currentTarget.select()}
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSelectShareLink}
-                >
-                  Select
-                </Button>
-              </div>
+              {copyLinkInputBlock}
+              {copyLinkSelectAction}
             </div>
           </DrawerContent>
         </Drawer>
@@ -698,27 +706,8 @@ export const ArticleCard = ({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
-              <div className="rounded-md border bg-muted/30 p-2">
-                <Input
-                  ref={copyLinkInputRef}
-                  value={shareUrl || ""}
-                  readOnly
-                  className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
-                  aria-label="Article link"
-                  onClick={(event) => event.stopPropagation()}
-                  onFocus={(event) => event.currentTarget.select()}
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSelectShareLink}
-                >
-                  Select
-                </Button>
-              </div>
+              {copyLinkInputBlock}
+              {copyLinkSelectAction}
             </div>
           </DialogContent>
         </Dialog>
