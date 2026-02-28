@@ -108,27 +108,7 @@
   }
 
   body.motion-profile-default {
-    --motion-duration-ui: 150ms;
-    --motion-duration-reveal: 800ms;
-    --motion-duration-tagline: 800ms;
-    --motion-duration-content-enter: 420ms;
-    --motion-duration-content-enter-slow: 900ms;
-    --motion-duration-arrow: 1800ms;
-    --motion-duration-icon-wiggle: 500ms;
-    --motion-duration-glow-main: 9000ms;
-    --motion-duration-glow-left: 11000ms;
-    --motion-duration-glow-right: 12000ms;
-    --motion-delay-tagline: 500ms;
-
-    --motion-ease-ui: linear;
-    --motion-ease-emphasized: ease-out;
-    --motion-ease-ambient: ease-in-out;
-
-    --motion-delay-0: 0ms;
-    --motion-delay-1: 120ms;
-    --motion-delay-2: 240ms;
-    --motion-delay-3: 360ms;
-    --motion-delay-step: 120ms;
+    /* Intentionally empty: defaults are defined on :root above. */
   }
 
   body.motion-profile-luxurious {
