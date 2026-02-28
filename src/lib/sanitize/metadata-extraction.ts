@@ -5,7 +5,7 @@ import {
 } from "./cleaners";
 import { decodeHtmlEntities, sanitizeArticleHtml } from "./sanitize";
 
-function readMetaTagContent(rawHtml: string, keys: string[]): string {
+export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
   const metaTags = rawHtml.match(/<meta\b[^>]*>/gi) ?? [];
 

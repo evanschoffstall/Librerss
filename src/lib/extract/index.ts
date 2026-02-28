@@ -1,3 +1,7 @@
+export type { ExtractedArticle } from "./content-extraction";
+
+export { extractArticleFromHtml } from "./content-extraction";
+
 export {
   clearArticleExtractCacheForTests,
   getCachedExtractPayload,

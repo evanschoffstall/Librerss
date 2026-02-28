@@ -21,4 +21,9 @@ export {
 
 export { preCleanHtmlForExtraction } from "./html-pre-cleaning";
 
-export { buildMetadataImageFallbackHtml } from "./metadata-extraction";
+export {
+  buildMetadataImageFallbackHtml,
+  readMetaTagContent,
+} from "./metadata-extraction";
+
+export { extractPageTitle, findArticleBody } from "./body-selection";
