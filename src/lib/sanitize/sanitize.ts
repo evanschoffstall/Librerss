@@ -47,6 +47,23 @@ function decodeHtmlEntities(value: string): string {
     quot: '"',
     apos: "'",
     nbsp: " ",
+    // Common typographic entities found in RSS feed titles and content
+    mdash: "\u2014",
+    ndash: "\u2013",
+    ldquo: "\u201C",
+    rdquo: "\u201D",
+    lsquo: "\u2018",
+    rsquo: "\u2019",
+    hellip: "\u2026",
+    copy: "\u00A9",
+    reg: "\u00AE",
+    trade: "\u2122",
+    bull: "\u2022",
+    middot: "\u00B7",
+    laquo: "\u00AB",
+    raquo: "\u00BB",
+    emdash: "\u2014",
+    euro: "\u20AC",
   };
 
   const decodeNumericEntity = (
@@ -60,7 +77,7 @@ function decodeHtmlEntities(value: string): string {
     }
   };
 
-  const decoded = value.replace(
+  return value.replace(
     /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
     (match, rawEntity: string) => {
       const entity = rawEntity.toLowerCase();
@@ -76,8 +93,6 @@ function decodeHtmlEntities(value: string): string {
       return namedEntities[entity] ?? "";
     },
   );
-
-  return decoded.replace(/&[a-z0-9#]+;/gi, "");
 }
 
 export const __decodeHtmlEntitiesForTests = decodeHtmlEntities;
@@ -113,7 +128,10 @@ export function sanitizeArticleTitle(title: string | null | undefined): string {
     allowedAttributes: {},
   }).trim();
   const cleaned =
-    decodeHtmlEntities(stripped).replace(/\s+/g, " ").trim() || "Untitled";
+    decodeHtmlEntities(stripped)
+      .replace(/&[a-z0-9#]+;/gi, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Untitled";
   if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
   // Slice to MAX-1 to leave room for the ellipsis so the result stays within
   // CONFIG.MAX_ARTICLE_TITLE_LENGTH.
