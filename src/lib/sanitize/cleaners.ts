@@ -1,21 +1,25 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
-import { AP_JUNK_CLASS_PATTERN, RELATED_HEADING_PATTERN } from "./patterns";
+import { hasApJunkClass, isRelatedHeading } from "./patterns";
 
 export function stripApJunkBlocks(html: string): string {
-  return html
-    .replace(
-      /<(div|section|aside|nav|ul|figure)(\s[^>]*)?>/gi,
-      (openTag, tagName: string, attrs: string = "") => {
-        if (AP_JUNK_CLASS_PATTERN.test(attrs)) {
-          return `<!--STRIP_${tagName.toUpperCase()}-->`;
-        }
+  const stripTags = ["div", "section", "aside", "nav", "ul", "figure"];
+
+  const marked = stripTags.reduce((currentHtml, tagName) => {
+    const openTagPattern = new RegExp(`<${tagName}\\b[^>]*>`, "gi");
+
+    return currentHtml.replace(openTagPattern, (openTag) => {
+      if (!hasApJunkClass(openTag)) {
         return openTag;
-      },
-    )
-    .replace(
-      /<!--STRIP_(DIV|SECTION|ASIDE|NAV|UL|FIGURE)-->(?:[\s\S]*?)<\/\1>/gi,
-      "",
-    );
+      }
+
+      return `<!--STRIP_${tagName.toUpperCase()}-->`;
+    });
+  }, html);
+
+  return marked.replace(
+    /<!--STRIP_(DIV|SECTION|ASIDE|NAV|UL|FIGURE)-->(?:[\s\S]*?)<\/\1>/gi,
+    "",
+  );
 }
 
 export function stripEmbeddedMediaBlocks(html: string): string {
@@ -51,31 +55,45 @@ function collapseExcessNewlines(html: string): string {
     );
 }
 
+function isEmptyInlineHtml(content: string): boolean {
+  const withoutFormattingTags = content.replace(
+    /<\/?(?:strong|em|b|i|u|span)\b[^>]*>/gi,
+    "",
+  );
+  const withoutBreaks = withoutFormattingTags.replace(/<br\s*\/?>/gi, " ");
+  const withoutNbspEntities = withoutBreaks
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&#160;", " ");
+
+  return withoutNbspEntities.trim().length === 0;
+}
+
+function stripEmptyTagBlocks(html: string, tagName: "p" | "figure"): string {
+  return html.replace(
+    new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>\\s*`, "gi"),
+    (match, content: string) => (isEmptyInlineHtml(content) ? "" : match),
+  );
+}
+
 export function stripOrphanedRelatedBlocks(html: string): string {
   const withoutHeadingLists = html.replace(
     /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
     (match, headingText: string) =>
-      RELATED_HEADING_PATTERN.test(headingText) ? "" : match,
+      isRelatedHeading(headingText) ? "" : match,
   );
 
   const withoutLooseHeadings = withoutHeadingLists.replace(
     /<h[1-6]>([^<]*)<\/h[1-6]>/gi,
     (match, headingText: string) =>
-      RELATED_HEADING_PATTERN.test(headingText) ? "" : match,
+      isRelatedHeading(headingText) ? "" : match,
   );
 
   return collapseExcessNewlines(withoutLooseHeadings);
 }
 
 export function normalizeArticleHtmlSpacing(html: string): string {
-  return html
+  return stripEmptyTagBlocks(stripEmptyTagBlocks(html, "figure"), "p")
     .replace(/\r\n?/g, "\n")
-    .replace(/<figure>(?:\s|&nbsp;|&#160;|<br\s*\/?>)*<\/figure>\s*/gi, "")
-    .replace(
-      /<p>(?:\s|&nbsp;|&#160;|<br\s*\/?>|<\/?(?:strong|em|b|i|u|span)\b[^>]*>)*<\/p>\s*/gi,
-      "",
-    )
-    .replace(/<p>(?:\s|&nbsp;|&#160;|<br\s*\/?>)*<\/p>\s*/gi, "")
     .replace(/\n[ \t]*\n+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
     .trim();

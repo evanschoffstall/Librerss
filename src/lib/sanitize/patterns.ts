@@ -1,10 +1,68 @@
 import { CONFIG } from "@/lib/config";
 
-export const AP_JUNK_CLASS_PATTERN =
-  /(?:hub[\s_-]?peek|related[\s_-]?stories|related[\s_-]?content|related[\s_-]?links|more[\s_-]?on|tag[\s_-]?page|inline[\s_-]?module)/i;
+const AP_JUNK_CLASS_MARKERS = [
+  "hub peek",
+  "related stories",
+  "related content",
+  "related links",
+  "more on",
+  "tag page",
+  "inline module",
+] as const;
 
-export const RELATED_HEADING_PATTERN =
-  /^\s*(?:more\s+on|related(?:\s+(?:stories|articles|content|links|news))?|see\s+also|also\s+(?:of\s+interest|read)|you\s+may\s+(?:also\s+)?like|trending\s+now|popular\s+now|from\s+our\s+partners)\b/i;
+const RELATED_HEADING_EXACT_PREFIXES = [
+  "more on",
+  "see also",
+  "trending now",
+  "popular now",
+  "from our partners",
+] as const;
+
+const RELATED_HEADING_RELATED_PREFIXES = [
+  "related",
+  "also",
+  "you may like",
+  "you may also like",
+] as const;
+
+function normalizePhrase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ")
+    .trim();
+}
+
+export function hasApJunkClass(attrs: string): boolean {
+  const normalized = normalizePhrase(attrs);
+  return AP_JUNK_CLASS_MARKERS.some((marker) => normalized.includes(marker));
+}
+
+export function isRelatedHeading(headingText: string): boolean {
+  const normalized = normalizePhrase(headingText);
+  if (!normalized) {
+    return false;
+  }
+
+  if (
+    RELATED_HEADING_EXACT_PREFIXES.some((prefix) =>
+      normalized.startsWith(prefix),
+    )
+  ) {
+    return true;
+  }
+
+  if (normalized.startsWith("related ")) {
+    return true;
+  }
+
+  if (normalized.startsWith("also of interest") || normalized === "also read") {
+    return true;
+  }
+
+  return RELATED_HEADING_RELATED_PREFIXES.includes(
+    normalized as (typeof RELATED_HEADING_RELATED_PREFIXES)[number],
+  );
+}
 
 function parseDimension(value: string | undefined): number | null {
   if (!value) return null;
