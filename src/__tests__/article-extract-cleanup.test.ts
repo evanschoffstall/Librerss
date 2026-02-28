@@ -1,6 +1,7 @@
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
     clearArticleExtractCacheForTests,
+    extractArticleFromHtml,
     fetchHtml,
     fetchHtmlWithFingerprint,
     parseAndValidateArticleUrl,
@@ -16,7 +17,6 @@ import {
     stripCommentEngagementBoilerplate,
     toParagraphHtml,
 } from "@/lib/sanitize";
-import { extractFromHtml } from "@extractus/article-extractor";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -390,6 +390,7 @@ describe("article extract cleanup", () => {
       { name: "article-2" },
       { name: "article-3" },
       { name: "article-4" },
+      { name: "article-5" },
     ] as const;
 
     for (const fixture of fixtures) {
@@ -402,11 +403,12 @@ describe("article extract cleanup", () => {
 
       expect(expectedAfter.length).toBeGreaterThan(0);
 
-      const extracted = await extractFromHtml(before, fixtureUrl, {
+      const preCleaned = preCleanHtmlForExtraction(before);
+      const extracted = await extractArticleFromHtml(preCleaned, fixtureUrl, {
         contentLengthThreshold: 120,
       });
       const rawContent =
-        extracted?.content?.trim() || extracted?.description?.trim() || "";
+        extracted?.content?.trim() || extracted?.description?.trim() || preCleaned;
       const normalized = sanitizeExtractedContent(rawContent);
       const cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
 
