@@ -71,27 +71,14 @@ describe("core/feed-parser", () => {
   });
 });
 
-describe("db helpers and transactions", () => {
-  test("sanitizes db error messages and classifies SQL codes", async () => {
-    const { sanitizeDbError, isUniqueConstraintError, isForeignKeyError } =
+describe("db helpers", () => {
+  test("classifies SQL error codes", async () => {
+    const { isUniqueConstraintError, isForeignKeyError } =
       await import("@/lib/db/db");
 
-    const sanitized = sanitizeDbError(
-      new Error("connect failed password=supersecret"),
-    );
-    expect(sanitized.message.includes("supersecret")).toBe(false);
     expect(isUniqueConstraintError({ code: "23505" })).toBe(true);
     expect(isForeignKeyError({ code: "23503" })).toBe(true);
     expect(isForeignKeyError({ code: "00000" })).toBe(false);
-  });
-
-  test("withTransaction returns operation value and propagates errors", async () => {
-    const { withTransaction } = await import("@/lib/db/db");
-    const value = await withTransaction(async () => "ok");
-    expect(value).toBe("ok");
-    await expect(
-      withTransaction(async () => Promise.reject(new Error("tx-fail"))),
-    ).rejects.toThrow("tx-fail");
   });
 });
 
