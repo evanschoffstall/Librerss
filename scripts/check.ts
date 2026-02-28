@@ -67,8 +67,8 @@ const toTest = (a: Record<string, string>): TestResult => ({
 const where = ({ file, line, suite, name }: TestResult) =>
   `${file ?? "unknown-file"}${line ? `:${line}` : ""} - ${suite ? `${suite} > ` : ""}${name}`;
 
-function getConcurrency(fileCount: number): number {
-  if (fileCount < 1200) return 1;
+function getConcurrency(n: number): number {
+  if (n < 1200) return 1;
   const c =
     typeof availableParallelism === "function"
       ? availableParallelism()
@@ -82,24 +82,12 @@ function getConcurrency(fileCount: number): number {
 
 async function estLintFiles(): Promise<number> {
   const glob = new Bun.Glob("**/*.{js,mjs,cjs,ts,jsx,tsx}");
+  const skip = ["node_modules", ".next", "dist", "build", "coverage", ".cache"];
   let count = 0;
-  const ignore = [
-    "node_modules/",
-    "/.next/",
-    ".next/",
-    "/dist/",
-    "dist/",
-    "/build/",
-    "build/",
-    "/coverage/",
-    "coverage/",
-    "/.cache/",
-    ".cache/",
-  ];
   for await (const fp of glob.scan({ cwd: process.cwd(), absolute: false })) {
-    if (ignore.some((d) => fp.includes(d) || fp.startsWith(d))) continue;
-    count += 1;
-    if (count >= 5000) return count;
+    if (skip.some((d) => fp.startsWith(`${d}/`) || fp.includes(`/${d}/`)))
+      continue;
+    if (++count >= 5000) return count;
   }
   return count;
 }
@@ -194,26 +182,17 @@ function parseCoverage(path: string) {
     if (!map) continue;
     map.set(lineNo, Math.max(hit, map.get(lineNo) ?? 0));
   }
-  let covered = 0;
-  let found = 0;
-  for (const map of Array.from(hits.values()))
-    for (const hit of map.values()) {
-      found += 1;
-      if (hit > 0) covered += 1;
-    }
+  const allHits = [...hits.values()].flatMap((m) => [...m.values()]);
+  const found = allHits.length;
+  const covered = allHits.filter((h) => h > 0).length;
   if (!found) {
     console.error(
       `${paint("FAIL", ANSI.bold, ANSI.red)} No executable lines found in coverage report`,
     );
     return { covered, found: 0, pct: 0, ok: false };
   }
-  const coverage = found ? (covered / found) * 100 : 100;
-  return {
-    covered,
-    found,
-    pct: coverage,
-    ok: coverage >= LINE_COVERAGE_THRESHOLD,
-  };
+  const pct = (covered / found) * 100;
+  return { covered, found, pct, ok: pct >= LINE_COVERAGE_THRESHOLD };
 }
 
 function parseDetails(outputs: Record<string, Command>) {
@@ -244,13 +223,12 @@ function parseDetails(outputs: Record<string, Command>) {
     ? `${depM[1]} modules · ${depM[2]} dependencies cruised`
     : "dependency check completed";
   const madgeN = norm(outputs.madge.output);
-  let madge = "circular dependency check completed";
-  if (/No circular dependency found/i.test(madgeN))
-    madge = "0 circular dependencies";
-  else {
-    const madgeM = madgeN.match(/Found\s+(\d+)\s+circular\s+dependenc/i);
-    if (madgeM) madge = `${madgeM[1]} circular dependencies`;
-  }
+  const madgeM = madgeN.match(/Found\s+(\d+)\s+circular\s+dependenc/i);
+  const madge = /No circular dependency found/i.test(madgeN)
+    ? "0 circular dependencies"
+    : madgeM
+      ? `${madgeM[1]} circular dependencies`
+      : "circular dependency check completed";
   const typeCovM = regex(
     outputs.typeCoverage.output,
     /\((\d+)\s*\/\s*(\d+)\)\s*([\d.]+)%/,
@@ -259,13 +237,12 @@ function parseDetails(outputs: Record<string, Command>) {
     ? `${typeCovM[3]}% (${typeCovM[1]}/${typeCovM[2]}) · threshold 98%`
     : "type coverage completed";
   const auditN = norm(outputs.auditCi.output);
-  let auditCi = "dependency audit completed";
-  if (/No vulnerabilities found/i.test(auditN))
-    auditCi = "0 vulnerabilities found";
-  else {
-    const auditM = auditN.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
-    if (auditM) auditCi = `${auditM[1]} vulnerabilities found`;
-  }
+  const auditM = auditN.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
+  const auditCi = /No vulnerabilities found/i.test(auditN)
+    ? "0 vulnerabilities found"
+    : auditM
+      ? `${auditM[1]} vulnerabilities found`
+      : "dependency audit completed";
   const osvAudit = norm(outputs.osvAudit.output).includes("{}")
     ? "0 advisories"
     : "OSV audit completed";
@@ -384,89 +361,69 @@ async function runLint(extraArgs: string[]): Promise<Command> {
 }
 
 async function runTsPrune(argv: string[]): Promise<Command> {
-  let configPath = ".ts-prune.json";
+  const cfgIdx = argv.indexOf("--config");
+  const configPath =
+    cfgIdx >= 0
+      ? (argv[cfgIdx + 1] ??
+        (() => {
+          throw new Error("Missing value for --config");
+        })())
+      : (argv.find((a) => a.startsWith("--config="))?.slice(9) ??
+        ".ts-prune.json");
   try {
-    for (let i = 0; i < argv.length; i += 1) {
-      const arg = argv[i];
-      if (arg === "--config") {
-        const value = argv[i + 1];
-        if (!value) throw new Error("Missing value for --config");
-        configPath = value;
-        break;
-      }
-      if (arg?.startsWith("--config=")) {
-        const value = arg.slice("--config=".length);
-        if (!value) throw new Error("Missing value for --config");
-        configPath = value;
-        break;
-      }
-    }
     const absPath = join(process.cwd(), configPath);
-    if (!existsSync(absPath)) {
+    if (!existsSync(absPath))
       return {
         exitCode: 1,
         timedOut: false,
         output: `ts-prune config file not found: ${absPath}\n`,
       };
-    }
     const raw = JSON.parse(readFileSync(absPath, "utf8")) as unknown;
-    if (!raw || typeof raw !== "object") {
+    if (!raw || typeof raw !== "object")
       throw new Error(`Invalid config at ${absPath}: expected an object`);
-    }
     const { project, skip, ignore } = raw as Record<string, unknown>;
-    if (typeof project !== "string" || !project.trim()) {
+    if (typeof project !== "string" || !project.trim())
       throw new Error(
         `Invalid config at ${absPath}: "project" must be a non-empty string`,
       );
-    }
-    if (skip !== undefined && typeof skip !== "string") {
+    if (skip !== undefined && typeof skip !== "string")
       throw new Error(
         `Invalid config at ${absPath}: "skip" must be a string when provided`,
       );
-    }
-    if (ignore !== undefined && typeof ignore !== "string") {
+    if (ignore !== undefined && typeof ignore !== "string")
       throw new Error(
         `Invalid config at ${absPath}: "ignore" must be a string when provided`,
       );
-    }
-    let ignoreRegex: RegExp | null = null;
-    if (ignore && typeof ignore === "string") {
+    let ignoreRe: RegExp | null = null;
+    if (typeof ignore === "string") {
       try {
-        ignoreRegex = new RegExp(ignore);
-      } catch (error) {
+        ignoreRe = new RegExp(ignore);
+      } catch (e) {
         throw new Error(
-          `Invalid regex in ts-prune config: ${ignore} (${error instanceof Error ? error.message : "unknown error"})`,
+          `Invalid regex in ts-prune config: ${ignore} (${e instanceof Error ? e.message : "unknown error"})`,
         );
       }
     }
-    const args = ["ts-prune", "-p", project];
-    if (skip && typeof skip === "string") args.push("--skip", skip);
-    if (ignore && typeof ignore === "string") args.push("--ignore", ignore);
+    const args = ["ts-prune", "-p", project as string];
+    if (typeof skip === "string") args.push("--skip", skip);
+    if (typeof ignore === "string") args.push("--ignore", ignore);
     const result = await run("bunx", args);
     if (result.timedOut) return result;
-    const mergedLines = result.output
+    const actionable = result.output
       .split(/\r?\n/)
-      .map((line) => line.trimEnd())
-      .filter((line) => line.trim().length > 0);
-    const actionable = mergedLines.filter((line) => {
-      if (!/^\S.+:\d+\s-\s.+$/.test(line.trim())) return false;
-      if (ignoreRegex && ignoreRegex.test(line)) return false;
-      return true;
-    });
-    if (actionable.length > 0) {
+      .filter((l) => /^\S.+:\d+\s-\s.+$/.test(l.trim()) && !ignoreRe?.test(l));
+    if (actionable.length > 0)
       return {
         exitCode: 1,
         timedOut: false,
         output: `${actionable.join("\n")}\nts-prune found ${actionable.length} actionable unused export(s)\n`,
       };
-    }
     return result;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown error";
+  } catch (e) {
     return {
       exitCode: 1,
       timedOut: false,
-      output: `ts-prune failed to load config (${configPath}): ${message}\n`,
+      output: `ts-prune failed to load config (${configPath}): ${e instanceof Error ? e.message : "unknown error"}\n`,
     };
   }
 }
@@ -514,6 +471,8 @@ async function runCheckSuite() {
           "src",
           "--output-type",
           "err",
+          "--cache",
+          ".cache/depcruise",
         ]),
     },
     {
