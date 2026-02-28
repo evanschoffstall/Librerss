@@ -115,7 +115,9 @@ export function sanitizeArticleTitle(title: string | null | undefined): string {
   const cleaned =
     decodeHtmlEntities(stripped).replace(/\s+/g, " ").trim() || "Untitled";
   if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
-  return cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH).trim() + "...";
+  // Slice to MAX-1 to leave room for the ellipsis so the result stays within
+  // CONFIG.MAX_ARTICLE_TITLE_LENGTH.
+  return `${cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH - 1).trim()}\u2026`;
 }
 
 /**

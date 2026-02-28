@@ -4,24 +4,26 @@
  */
 
 import {
-  asTrimmedString,
-  getSearchParams,
-  parseDateInput,
-  parseFormOrQueryParams,
-  parseJsonBody,
-  parseJsonObjectBodyOrResponse,
-  parsePositiveInt,
- forbiddenResponse, jsonError } from "@/lib/api/http";
+    asTrimmedString,
+    forbiddenResponse,
+    getSearchParams,
+    jsonError,
+    parseDateInput,
+    parseFormOrQueryParams,
+    parseJsonBody,
+    parseJsonObjectBodyOrResponse,
+    parsePositiveInt
+} from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
-import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/logger";
 import {
-  sanitizeAndTruncateArticleContent,
-  sanitizeArticleHtml,
-  sanitizeArticleTitle,
-  stripOrphanedRelatedBlocks,
-  toPlainText,
+    sanitizeAndTruncateArticleContent,
+    sanitizeArticleHtml,
+    sanitizeArticleTitle,
+    stripOrphanedRelatedBlocks,
+    toPlainText,
 } from "@/lib/sanitize";
+import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { describe, expect, test } from "bun:test";
 
 // ─── sanitize.ts ──────────────────────────────────────────────────────────────
@@ -199,8 +201,10 @@ describe("sanitize – sanitizeArticleTitle", () => {
   test("truncates overlong titles", () => {
     const long = "A".repeat(600);
     const result = sanitizeArticleTitle(long);
-    expect(result.length).toBeLessThanOrEqual(505); // 500 + "..."
-    expect(result).toEndWith("...");
+    // Result must stay within MAX_ARTICLE_TITLE_LENGTH (500) — the ellipsis
+    // suffix is included in the budget, not added on top.
+    expect(result.length).toBeLessThanOrEqual(500);
+    expect(result).toEndWith("\u2026");
   });
 
   test("strips script tags from title", () => {
