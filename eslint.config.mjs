@@ -1,4 +1,5 @@
 import pluginJs from "@eslint/js";
+import pluginNoOnlyTests from "eslint-plugin-no-only-tests";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import pluginSonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
@@ -13,20 +14,12 @@ export default [
   },
   {
     ignores: [
-      "node_modules",
       "**/node_modules/**",
-      ".next",
-      ".next/**",
       "**/.next/**",
-      "dist",
-      "dist/**",
-      "build",
-      "build/**",
-      "coverage",
-      "coverage/**",
-      ".cache",
-      ".cache/**",
-      "drizzle/meta",
+      "**/dist/**",
+      "**/build/**",
+      "**/coverage/**",
+      "**/.cache/**",
       "drizzle/meta/**",
       "src/components/ui/**",
     ],
@@ -44,28 +37,34 @@ export default [
   ...tseslint.configs.recommended,
   {
     plugins: {
+      "no-only-tests": pluginNoOnlyTests,
       "react-hooks": pluginReactHooks,
       sonarjs: pluginSonarjs,
     },
     rules: {
+      "no-only-tests/no-only-tests": "error",
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
-      "sonarjs/no-identical-functions": "warn",
+      "react-hooks/exhaustive-deps": "error",
+      "sonarjs/no-identical-functions": "error",
+      eqeqeq: ["error", "always"],
+      "no-console": "off",
+      "no-throw-literal": "error",
+      "no-useless-return": "error",
     },
   },
   {
     rules: {
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
           ignoreRestSiblings: true,
         },
       ],
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/ban-ts-comment": [
-        "warn",
+        "error",
         {
           "ts-ignore": "allow-with-description",
           "ts-expect-error": "allow-with-description",
@@ -77,10 +76,45 @@ export default [
     },
   },
   {
+    files: ["src/lib/**/*.{ts,tsx}", "src/app/api/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-ignore": "allow-with-description",
+          "ts-expect-error": "allow-with-description",
+          "ts-nocheck": true,
+          "ts-check": false,
+          minimumDescriptionLength: 5,
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{js,mjs,cjs,ts,jsx,tsx}"],
+    rules: {
+      "no-console": [
+        "error",
+        {
+          allow: ["info", "warn", "error"],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/lib/logger.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
     files: ["src/__tests__/**/*.{ts,tsx}"],
     rules: {
+      "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/ban-ts-comment": "off",
+      "no-console": "off",
     },
   },
 ];

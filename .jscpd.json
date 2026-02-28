@@ -6,7 +6,6 @@
     "**/*.test.tsx",
     "**/*.spec.ts",
     "**/*.spec.tsx",
-    "components/ui/**",
     "**/components/ui/**"
   ],
   "reporters": ["console"],
