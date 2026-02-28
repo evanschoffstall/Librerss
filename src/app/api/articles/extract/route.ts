@@ -68,13 +68,9 @@ function createExtractRequestContext(
   request: NextRequest,
 ): ExtractRequestContext {
   const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const requestHeaders =
-    request && typeof request === "object" && "headers" in request
-      ? (request as { headers?: Headers }).headers
-      : undefined;
   const requestId =
-    requestHeaders?.get("x-request-id") ??
-    requestHeaders?.get("x-correlation-id") ??
+    request.headers?.get("x-request-id") ??
+    request.headers?.get("x-correlation-id") ??
     null;
 
   return {
