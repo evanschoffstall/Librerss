@@ -208,7 +208,10 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
 
   test("strips onerror event handlers", async () => {
     const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
-    const xss = '<img src="x" onerror="alert(1)">';
+    // Use a content-sized image so it survives the minimum-size filter.
+    // The key assertion is that onerror is stripped regardless.
+    const xss =
+      '<img src="https://example.com/photo.jpg" width="800" height="600" onerror="alert(1)">';
     const result = sanitizeArticleHtml(xss);
     expect(result).not.toContain("onerror");
     expect(result).toContain("<img");

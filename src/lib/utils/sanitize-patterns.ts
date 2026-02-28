@@ -23,6 +23,15 @@ function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
 
   const width = parseDimension(attribs.width);
   const height = parseDimension(attribs.height);
+  const hasSrcset = !!attribs.srcset?.trim();
+
+  // If the image carries no size signal at all (no width, no height, no srcset)
+  // we cannot verify it meets the minimum — discard it.  This catches author
+  // avatars, tracking pixels, and generic placeholders that lack dimension
+  // attributes and are not responsive images.
+  if (width === null && height === null && !hasSrcset) {
+    return true;
+  }
 
   if (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) {
     return true;

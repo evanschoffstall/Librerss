@@ -257,7 +257,8 @@ describe("lib/utils/sanitize comprehensive", () => {
     const { sanitizeAndTruncateArticleContent } =
       await import("@/lib/utils/sanitize");
 
-    const html = '<p><img src="http://example.com/image.jpg" alt="Test" /></p>';
+    const html =
+      '<p><img src="http://example.com/image.jpg" alt="Test" width="800" height="600" /></p>';
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).toContain("referrerpolicy");
@@ -319,7 +320,7 @@ describe("lib/utils/sanitize comprehensive", () => {
       await import("@/lib/utils/sanitize");
 
     const html =
-      "<figure><img src='test.jpg'/><figcaption>Image caption</figcaption></figure><p>Text</p>";
+      "<figure><img src='test.jpg' width='800' height='600'/><figcaption>Image caption</figcaption></figure><p>Text</p>";
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).toContain("<img");
@@ -332,7 +333,7 @@ describe("lib/utils/sanitize comprehensive", () => {
       await import("@/lib/utils/sanitize");
 
     const html =
-      '<figure><img data-src="/images/example.jpg" alt="Example" /></figure>';
+      '<figure><img data-src="/images/example.jpg" alt="Example" width="800" height="600" /></figure>';
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).toContain('src="/images/example.jpg"');
@@ -344,7 +345,7 @@ describe("lib/utils/sanitize comprehensive", () => {
       await import("@/lib/utils/sanitize");
 
     const html =
-      '<img data-original="https://example.com/original.jpg" alt="Original" />';
+      '<img data-original="https://example.com/original.jpg" alt="Original" width="800" height="600" />';
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).toContain('src="https://example.com/original.jpg"');
@@ -355,7 +356,7 @@ describe("lib/utils/sanitize comprehensive", () => {
       await import("@/lib/utils/sanitize");
 
     const html =
-      '<img data-lazy-src="https://example.com/lazy.jpg" alt="Lazy" />';
+      '<img data-lazy-src="https://example.com/lazy.jpg" alt="Lazy" width="800" height="600" />';
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).toContain('src="https://example.com/lazy.jpg"');

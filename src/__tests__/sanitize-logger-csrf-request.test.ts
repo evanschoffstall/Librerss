@@ -153,14 +153,14 @@ describe("sanitize – sanitizeArticleHtml", () => {
 
   test("enforces lazy loading on images", () => {
     const result = sanitizeArticleHtml(
-      '<img src="https://example.com/img.jpg">',
+      '<img src="https://example.com/img.jpg" width="800" height="600">',
     );
     expect(result).toContain('loading="lazy"');
   });
 
   test("enforces no-referrer on images", () => {
     const result = sanitizeArticleHtml(
-      '<img src="https://example.com/img.jpg">',
+      '<img src="https://example.com/img.jpg" width="800" height="600">',
     );
     expect(result).toContain('referrerpolicy="no-referrer"');
   });

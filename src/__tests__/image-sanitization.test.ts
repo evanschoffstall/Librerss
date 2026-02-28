@@ -3,7 +3,8 @@ import { sanitizeArticleHtml } from "../lib/utils/sanitize";
 
 describe("Image Sanitization", () => {
   test("should allow safe img tags", () => {
-    const input = '<img src="https://example.com/photo.jpg" alt="A photo">';
+    const input =
+      '<img src="https://example.com/photo.jpg" alt="A photo" width="800" height="600">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).toContain("<img");
@@ -12,14 +13,16 @@ describe("Image Sanitization", () => {
   });
 
   test("should enforce referrerpolicy=no-referrer by default", () => {
-    const input = '<img src="https://example.com/photo.jpg">';
+    const input =
+      '<img src="https://example.com/photo.jpg" width="800" height="600">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).toContain('referrerpolicy="no-referrer"');
   });
 
   test("should enforce loading=lazy by default", () => {
-    const input = '<img src="https://example.com/photo.jpg">';
+    const input =
+      '<img src="https://example.com/photo.jpg" width="800" height="600">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).toContain('loading="lazy"');
@@ -27,14 +30,15 @@ describe("Image Sanitization", () => {
 
   test("should preserve explicit referrerpolicy if provided", () => {
     const input =
-      '<img src="https://example.com/photo.jpg" referrerpolicy="no-referrer-when-downgrade">';
+      '<img src="https://example.com/photo.jpg" width="800" height="600" referrerpolicy="no-referrer-when-downgrade">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).toContain('referrerpolicy="no-referrer-when-downgrade"');
   });
 
   test("should preserve explicit loading if provided", () => {
-    const input = '<img src="https://example.com/photo.jpg" loading="eager">';
+    const input =
+      '<img src="https://example.com/photo.jpg" width="800" height="600" loading="eager">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).toContain('loading="eager"');
@@ -104,12 +108,42 @@ describe("Image Sanitization", () => {
     expect(result).not.toContain("short.jpg");
   });
 
-  test("should keep images when dimensions are not provided", () => {
+  test("should remove images with no size signal (no width, height, or srcset)", () => {
+    // No dimensions and no srcset = unverifiable — likely an avatar or icon.
     const input = '<img src="https://example.com/no-dims.jpg" alt="No dims">';
     const result = sanitizeArticleHtml(input);
 
+    expect(result).not.toContain("<img");
+    expect(result).not.toContain("no-dims.jpg");
+  });
+
+  test("should keep images that have srcset but no explicit width/height", () => {
+    // srcset is a sufficient size signal — responsive content images often omit
+    // fixed dimensions in favour of srcset + sizes.
+    const input =
+      '<img src="https://example.com/photo.jpg" srcset="https://example.com/photo-2x.jpg 2x" alt="Photo">';
+    const result = sanitizeArticleHtml(input);
+
     expect(result).toContain("<img");
-    expect(result).toContain('src="https://example.com/no-dims.jpg"');
+    expect(result).toContain("photo.jpg");
+  });
+
+  test("should keep images that have only width (above minimum)", () => {
+    const input =
+      '<img src="https://example.com/wide.jpg" width="800" alt="Wide">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).toContain("<img");
+    expect(result).toContain("wide.jpg");
+  });
+
+  test("should keep images that have only height (above minimum)", () => {
+    const input =
+      '<img src="https://example.com/tall.jpg" height="600" alt="Tall">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).toContain("<img");
+    expect(result).toContain("tall.jpg");
   });
 
   test("should remove unknown/unsafe attributes", () => {
