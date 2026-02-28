@@ -89,20 +89,18 @@ export async function renameFeedSourceForUser(
   const db = getDb();
   const normalizedUrl = normalizeFeedUrl(url);
 
-  const [existingSource] = await db
-    .select({
-      id: feedSources.id,
-      url: feedSources.url,
-    })
-    .from(feedSources)
-    .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-    .limit(1);
-
-  if (!existingSource) {
-    return null;
-  }
-
   const [updatedSource] = await db.transaction(async (tx) => {
+    // Lock the row inside the transaction so concurrent renames serialize and
+    // can't race between the URL read and the category transfer.
+    const [existingSource] = await tx
+      .select({ id: feedSources.id, url: feedSources.url })
+      .from(feedSources)
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+      .for("update")
+      .limit(1);
+
+    if (!existingSource) return [];
+
     if (existingSource.url !== normalizedUrl) {
       const nextFeed = await ensureFeedRecordByUrl(tx, normalizedUrl);
       const previousFeedId = await findFeedIdByUrl(tx, existingSource.url);
