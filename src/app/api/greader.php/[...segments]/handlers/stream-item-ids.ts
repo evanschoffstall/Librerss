@@ -1,20 +1,18 @@
 import { getSearchParams } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
-import {
-  canUseArticleStatusesTable,
-  isSafePositiveItemId,
-} from "@/lib/core/article-status";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
+import * as StreamIds from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { isSafePositiveItemId } from "@/lib/utils/validation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  FEED_STREAM_PREFIX,
-  READING_LIST_STREAM,
-  STARRED_STATE,
-} from "../constants";
+  buildUserArticleStatusJoin,
+  buildUserFeedJoin,
+} from "../services/stream-joins";
 import {
   parseOlderThanDate,
   parseStreamPaging,
@@ -37,9 +35,11 @@ export async function handleStreamItemIds(
   request: NextRequest,
 ): Promise<Response> {
   const searchParams = getSearchParams(request);
-  const streamId = searchParams.get("s") ?? READING_LIST_STREAM;
-  const isFeed = streamId.startsWith(FEED_STREAM_PREFIX);
-  const feedUrl = isFeed ? streamId.slice(FEED_STREAM_PREFIX.length) : null;
+  const streamId = searchParams.get("s") ?? StreamIds.READING_LIST_STREAM;
+  const isFeed = streamId.startsWith(StreamIds.FEED_STREAM_PREFIX);
+  const feedUrl = isFeed
+    ? streamId.slice(StreamIds.FEED_STREAM_PREFIX.length)
+    : null;
   const excludeRead = shouldExcludeReadFromStream(
     streamId,
     searchParams.getAll("xt"),
@@ -59,8 +59,10 @@ export async function handleStreamItemIds(
 
   const db = getDb();
   let useArticleStatuses = await canUseArticleStatusesTable();
+  const userFeedJoin = buildUserFeedJoin(user.userId);
+  const userStatusJoin = buildUserArticleStatusJoin(user.userId);
 
-  if (streamId === STARRED_STATE && !useArticleStatuses) {
+  if (streamId === StreamIds.STARRED_STATE && !useArticleStatuses) {
     return NextResponse.json({ itemRefs: [], continuation: undefined });
   }
 
@@ -75,7 +77,7 @@ export async function handleStreamItemIds(
       feedUrl,
       dateFilter,
       continuationId,
-      starredOnly: streamId === STARRED_STATE,
+      starredOnly: streamId === StreamIds.STARRED_STATE,
       excludeRead,
       useArticleStatuses,
     });
@@ -89,20 +91,8 @@ export async function handleStreamItemIds(
         })
         .from(articles)
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .leftJoin(
-          articleStatuses,
-          and(
-            eq(articleStatuses.userId, user.userId),
-            eq(articleStatuses.articleId, articles.id),
-          ),
-        )
+        .innerJoin(feedSources, userFeedJoin)
+        .leftJoin(articleStatuses, userStatusJoin)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(articles.id))
         .limit(limit)
@@ -117,13 +107,7 @@ export async function handleStreamItemIds(
       })
       .from(articles)
       .innerJoin(feeds, eq(feeds.id, articles.feedId))
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-        ),
-      )
+      .innerJoin(feedSources, userFeedJoin)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(articles.id))
       .limit(limit)

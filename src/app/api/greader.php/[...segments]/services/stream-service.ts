@@ -3,12 +3,11 @@ import {
   parsePositiveInt,
   parseUnixTimestampSeconds,
 } from "@/lib/api/http";
+import { READ_STATE, READING_LIST_STREAM } from "@/lib/core/stream-ids";
 import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,
   NETNEWSWIRE_MAX_STREAM_ITEMS,
-  READ_STATE,
-  READING_LIST_STREAM,
 } from "../constants";
 
 export function parseStreamPaging(

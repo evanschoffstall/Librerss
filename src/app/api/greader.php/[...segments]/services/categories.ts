@@ -9,6 +9,10 @@ type CategoryRow = {
   feedUrl: string;
 };
 
+type RowWithCategory = {
+  category?: string | null;
+};
+
 export function resolveCategoryWithFallback(
   category: string | null | undefined,
   feedUrl: string | null | undefined,
@@ -31,6 +35,31 @@ export async function maybeLoadCategoryFallback(
   return rows.some((row) => !toOptionalCategoryLabel(row.category))
     ? loadUserCategoryFallbackByFeedUrl(userId)
     : new Map<string, string>();
+}
+
+export async function withResolvedCategoryByUrl<T extends RowWithCategory>(
+  userId: number,
+  rows: T[],
+  getUrl: (row: T) => string | null | undefined,
+): Promise<Array<Omit<T, "category"> & { category: string | null }>> {
+  const categoryFallbackByUrl = await maybeLoadCategoryFallback(userId, rows);
+  return rows.map((row) => ({
+    ...row,
+    category: resolveCategoryWithFallback(
+      row.category,
+      getUrl(row),
+      categoryFallbackByUrl,
+    ),
+  }));
+}
+
+export async function resolveCategoryLabelsByUrl<T extends RowWithCategory>(
+  userId: number,
+  rows: T[],
+  getUrl: (row: T) => string | null | undefined,
+): Promise<Array<string | null>> {
+  const normalizedRows = await withResolvedCategoryByUrl(userId, rows, getUrl);
+  return normalizedRows.map((row) => row.category);
 }
 
 async function loadUserCategoryFallbackByFeedUrl(

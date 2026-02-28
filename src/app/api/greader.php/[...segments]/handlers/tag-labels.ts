@@ -1,56 +1,37 @@
-import { asTrimmedString, parseFormOrQueryParams } from "@/lib/api/http";
-import { textResponse } from "@/lib/api/http";
-import { type SessionUser } from "@/lib/auth/session";
-import { getDb } from "@/lib/db/db";
-import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import {
-  DEFAULT_CATEGORY_LABEL,
-  toOptionalCategoryLabel,
-} from "@/lib/utils/categories";
-import { logger } from "@/lib/logger";
-import { and, eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
+  asTrimmedString,
+  parseFormOrQueryParams,
+  textResponse,
+} from "@/lib/api/http";
+import { type SessionUser } from "@/lib/auth/session";
 import {
   parseUserLabel,
   READ_STATE,
   READING_LIST_STREAM,
   STARRED_STATE,
   USER_LABEL_PREFIX,
-} from "../constants";
+} from "@/lib/core/stream-ids";
+import { getDb } from "@/lib/db/db";
+import { feedCategories } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 import {
-  maybeLoadCategoryFallback,
-  resolveCategoryWithFallback,
-} from "../services/categories";
+  DEFAULT_CATEGORY_LABEL,
+  toOptionalCategoryLabel,
+} from "@/lib/utils/categories";
+import { and, eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+import { resolveCategoryLabelsByUrl } from "../services/categories";
+import { loadUserSubscriptionRows } from "../services/subscription-data";
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
-  const db = getDb();
-
-  // Query all FeedSources with their category assignments so we can both
-  // collect the distinct labels AND detect whether any feed is uncategorized.
-  // Include the URL so we can apply the same category fallback used by
-  // subscription/list — ensuring both responses agree on which categories exist.
-  const rows = await db
-    .select({ category: feedCategories.category, url: feedSources.url })
-    .from(feedSources)
-    .leftJoin(feeds, eq(feeds.url, feedSources.url))
-    .leftJoin(
-      feedCategories,
-      and(
-        eq(feedCategories.userId, feedSources.userId),
-        eq(feedCategories.feedId, feeds.id),
-      ),
-    )
-    .where(eq(feedSources.userId, user.userId));
+  const rows = await loadUserSubscriptionRows(user.userId);
 
   // Apply the same URL-normalisation fallback as subscription/list so that
   // the category IDs in tag/list always match what subscription/list emits.
-  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+  const resolvedCategories = await resolveCategoryLabelsByUrl(
     user.userId,
     rows,
-  );
-
-  const resolvedCategories = rows.map((row) =>
-    resolveCategoryWithFallback(row.category, row.url, categoryFallbackByUrl),
+    (row) => row.url,
   );
 
   const hasUncategorized = resolvedCategories.some(

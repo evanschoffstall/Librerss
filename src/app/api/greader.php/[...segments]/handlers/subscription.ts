@@ -1,7 +1,11 @@
-import { parseFormOrQueryParams } from "@/lib/api/http";
-import { textResponse } from "@/lib/api/http";
+import { parseFormOrQueryParams, textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
-import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
+import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
+import {
+  FEED_STREAM_PREFIX,
+  parseUserLabel,
+  USER_LABEL_PREFIX,
+} from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
 import {
   ensureFeedRecordByUrl,
@@ -9,49 +13,24 @@ import {
   removeUserFeedCategory,
   replaceUserFeedCategory,
 } from "@/lib/db/feed-records";
-import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
+import { feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  FEED_STREAM_PREFIX,
-  parseUserLabel,
-  USER_LABEL_PREFIX,
-} from "../constants";
-import {
-  maybeLoadCategoryFallback,
-  resolveCategoryWithFallback,
-} from "../services/categories";
+import { withResolvedCategoryByUrl } from "../services/categories";
 import { toReaderIconUrl } from "../services/mappers";
+import { loadUserSubscriptionRows } from "../services/subscription-data";
 
 export async function handleSubscriptionList(
   user: SessionUser,
 ): Promise<Response> {
-  const db = getDb();
+  const rows = await loadUserSubscriptionRows(user.userId);
 
-  const rows = await db
-    .select({
-      sourceId: feedSources.id,
-      title: feedSources.name,
-      url: feedSources.url,
-      feedId: feeds.id,
-      category: feedCategories.category,
-    })
-    .from(feedSources)
-    .leftJoin(feeds, eq(feeds.url, feedSources.url))
-    .leftJoin(
-      feedCategories,
-      and(
-        eq(feedCategories.userId, feedSources.userId),
-        eq(feedCategories.feedId, feeds.id),
-      ),
-    )
-    .where(eq(feedSources.userId, user.userId));
-
-  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+  const normalizedRows = await withResolvedCategoryByUrl(
     user.userId,
     rows,
+    (row) => row.url,
   );
 
   logger.info("[greader] subscription/list", {
@@ -60,14 +39,9 @@ export async function handleSubscriptionList(
   });
 
   return NextResponse.json({
-    subscriptions: rows.map((row) => {
+    subscriptions: normalizedRows.map((row) => {
       const iconUrl = toReaderIconUrl(row.url);
-      const resolvedCategory = resolveCategoryWithFallback(
-        row.category,
-        row.url,
-        categoryFallbackByUrl,
-      );
-      const categoryLabel = resolvedCategory?.trim() || null;
+      const categoryLabel = row.category?.trim() || null;
       return {
         id: `${FEED_STREAM_PREFIX}${row.url}`,
         title: row.title,

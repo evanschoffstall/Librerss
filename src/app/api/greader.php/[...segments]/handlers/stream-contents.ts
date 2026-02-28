@@ -2,6 +2,11 @@ import { getSearchParams } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import { canUseArticleStatusesTable } from "@/lib/core/article-status";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
+import {
+  FEED_STREAM_PREFIX,
+  READING_LIST_STREAM,
+  STARRED_STATE,
+} from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
 import {
   articleStatuses,
@@ -13,16 +18,13 @@ import {
 import { logger } from "@/lib/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  FEED_STREAM_PREFIX,
-  READING_LIST_STREAM,
-  STARRED_STATE,
-} from "../constants";
-import {
-  maybeLoadCategoryFallback,
-  resolveCategoryWithFallback,
-} from "../services/categories";
+import { withResolvedCategoryByUrl } from "../services/categories";
 import { ListedArticle, mapArticleAsItem } from "../services/mappers";
+import {
+  buildUserArticleStatusJoin,
+  buildUserCategoryJoin,
+  buildUserFeedJoin,
+} from "../services/stream-joins";
 import {
   parseOlderThanDate,
   parseStreamId,
@@ -60,6 +62,9 @@ export async function handleStreamContents(
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
+  const userFeedJoin = buildUserFeedJoin(user.userId);
+  const userCategoryJoin = buildUserCategoryJoin();
+  const userStatusJoin = buildUserArticleStatusJoin(user.userId);
 
   if (isStarredStream && !useArticleStatuses) {
     return NextResponse.json({
@@ -106,30 +111,12 @@ export async function handleStreamContents(
       )
       .from(articles)
       .innerJoin(feeds, eq(feeds.id, articles.feedId))
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-        ),
-      )
-      .leftJoin(
-        feedCategories,
-        and(
-          eq(feedCategories.userId, feedSources.userId),
-          eq(feedCategories.feedId, feeds.id),
-        ),
-      );
+      .innerJoin(feedSources, userFeedJoin)
+      .leftJoin(feedCategories, userCategoryJoin);
 
     if (useArticleStatuses) {
       return fromClause
-        .leftJoin(
-          articleStatuses,
-          and(
-            eq(articleStatuses.userId, user.userId),
-            eq(articleStatuses.articleId, articles.id),
-          ),
-        )
+        .leftJoin(articleStatuses, userStatusJoin)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(articles.id))
         .limit(limit)
@@ -167,19 +154,11 @@ export async function handleStreamContents(
     continuation: nextContinuationId ? String(nextContinuationId) : null,
   });
 
-  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+  const normalizedRows = await withResolvedCategoryByUrl(
     user.userId,
     rows,
+    (row) => row.sourceUrl,
   );
-
-  const normalizedRows = rows.map((row) => ({
-    ...row,
-    category: resolveCategoryWithFallback(
-      row.category,
-      row.sourceUrl,
-      categoryFallbackByUrl,
-    ),
-  }));
 
   return NextResponse.json({
     id: streamId,

@@ -1,21 +1,16 @@
-import { parseFormOrQueryParams } from "@/lib/api/http";
-import { textResponse } from "@/lib/api/http";
+import { parseFormOrQueryParams, textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
 } from "@/lib/core/article-status";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
+import { FEED_STREAM_PREFIX, READING_LIST_STREAM } from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
 import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  FEED_STREAM_PREFIX,
-  MAX_STREAM_ITEMS,
-  READING_LIST_STREAM,
-  TAG_MUTATIONS,
-} from "../constants";
+import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "../constants";
 import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
 
 export async function handleMarkAllAsRead(

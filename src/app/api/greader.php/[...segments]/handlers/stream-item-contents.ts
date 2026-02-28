@@ -1,6 +1,7 @@
 import { parseFormOrQueryParams } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
 import {
   articleStatuses,
@@ -10,15 +11,17 @@ import {
   feeds,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { MAX_STREAM_ITEMS, READING_LIST_STREAM } from "../constants";
-import {
-  maybeLoadCategoryFallback,
-  resolveCategoryWithFallback,
-} from "../services/categories";
+import { MAX_STREAM_ITEMS } from "../constants";
+import { withResolvedCategoryByUrl } from "../services/categories";
 import { mapArticleAsItem } from "../services/mappers";
 import { parseDistinctReaderArticleIds } from "../services/reader-item-params";
+import {
+  buildUserArticleStatusJoin,
+  buildUserCategoryJoin,
+  buildUserFeedJoin,
+} from "../services/stream-joins";
 
 export async function handleStreamItemContents(
   user: SessionUser,
@@ -49,6 +52,9 @@ export async function handleStreamItemContents(
 
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
+  const userFeedJoin = buildUserFeedJoin(user.userId);
+  const userCategoryJoin = buildUserCategoryJoin();
+  const userStatusJoin = buildUserArticleStatusJoin(user.userId);
 
   const baseSelect = {
     articleId: articles.id,
@@ -70,27 +76,9 @@ export async function handleStreamItemContents(
         })
         .from(articles)
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .leftJoin(
-          feedCategories,
-          and(
-            eq(feedCategories.userId, feedSources.userId),
-            eq(feedCategories.feedId, feeds.id),
-          ),
-        )
-        .leftJoin(
-          articleStatuses,
-          and(
-            eq(articleStatuses.userId, user.userId),
-            eq(articleStatuses.articleId, articles.id),
-          ),
-        )
+        .innerJoin(feedSources, userFeedJoin)
+        .leftJoin(feedCategories, userCategoryJoin)
+        .leftJoin(articleStatuses, userStatusJoin)
         .where(inArray(articles.id, articleIds))
     : db
         .select({
@@ -100,20 +88,8 @@ export async function handleStreamItemContents(
         })
         .from(articles)
         .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(
-          feedSources,
-          and(
-            eq(feedSources.url, feeds.url),
-            eq(feedSources.userId, user.userId),
-          ),
-        )
-        .leftJoin(
-          feedCategories,
-          and(
-            eq(feedCategories.userId, feedSources.userId),
-            eq(feedCategories.feedId, feeds.id),
-          ),
-        )
+        .innerJoin(feedSources, userFeedJoin)
+        .leftJoin(feedCategories, userCategoryJoin)
         .where(inArray(articles.id, articleIds)));
 
   const articleIndex = new Map<number, number>(
@@ -134,19 +110,11 @@ export async function handleStreamItemContents(
     returnedItemCount: rows.length,
   });
 
-  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+  const normalizedRows = await withResolvedCategoryByUrl(
     user.userId,
     rows,
+    (row) => row.sourceUrl,
   );
-
-  const normalizedRows = rows.map((row) => ({
-    ...row,
-    category: resolveCategoryWithFallback(
-      row.category,
-      row.sourceUrl,
-      categoryFallbackByUrl,
-    ),
-  }));
 
   return NextResponse.json({
     id: READING_LIST_STREAM,

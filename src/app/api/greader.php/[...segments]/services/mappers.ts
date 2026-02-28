@@ -1,14 +1,14 @@
-import { toReaderItemId } from "@/lib/core/stream-ids";
-import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
-import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
-import { tryGetUrlHostname } from "@/lib/utils/url";
 import {
   FEED_STREAM_PREFIX,
   READ_STATE,
   READING_LIST_STREAM,
   STARRED_STATE,
+  toReaderItemId,
   USER_LABEL_PREFIX,
-} from "../constants";
+} from "@/lib/core/stream-ids";
+import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
+import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
+import { tryGetUrlHostname } from "@/lib/utils/url";
 
 export type ListedArticle = {
   articleId: number;
