@@ -29,8 +29,6 @@ import {
   shouldRefreshFeed,
 } from "./feed-refresh";
 
-const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
-
 // ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Returned when the authenticated user doesn't own the requested feed source. */
@@ -86,7 +84,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 ): Promise<BatchFeedResult> {
   if (feedUrls.length === 0) return buildEmptyBatchResult();
 
-  if (DIAG) {
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
     logger.info("Batch feed fetch started", {
       userId,
       requestedUrlCount: feedUrls.length,
@@ -98,7 +96,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   const resolved = await resolveAuthorizedFeedRecords(db, userId, feedUrls);
   if (!resolved) {
-    if (DIAG)
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED)
       logger.warn("Batch feed fetch denied: no owned URLs", {
         userId,
         requestedUrlCount: feedUrls.length,
@@ -108,7 +106,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   const { allowedUrls, feedByUrl } = resolved;
 
-  if (DIAG) {
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
     logger.info("Batch feed refresh plan", {
       userId,
       requestSource,
@@ -128,7 +126,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       forceRefresh,
     );
 
-  if (DIAG && !skipRefresh) {
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED && !skipRefresh) {
     if (refreshedCount > 0) {
       logger.info("Batch feed upstream refresh executed", {
         userId,
@@ -181,7 +179,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   const rows = await queryTopArticlesPerFeed(db, userId, feedIds);
   const result = mapRowsToArticleMap(rows, feedByUrl, allowedUrls);
 
-  if (DIAG) {
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
     logger.info("Batch feed fetch completed", {
       userId,
       requestSource,
@@ -255,9 +253,11 @@ export async function fetchAndCacheFeedArticles(
   if (shouldRefreshFeed(feed.lastFetched)) {
     const result = await refreshFeedFromUpstream(db, feed);
     if (!result.ok) throw new UpstreamFeedError(feedUrl, result.error);
-    logger.info(`Single feed: 1 refreshed, 0 cached`);
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED)
+      logger.info(`Single feed refreshed`, { url: feedUrl });
   } else {
-    logger.info(`Single feed: 0 refreshed, 1 cached`);
+    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED)
+      logger.info(`Single feed cache hit`, { url: feedUrl });
   }
 
   return db
