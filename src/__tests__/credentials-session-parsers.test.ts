@@ -3,32 +3,32 @@
  * feed-repository helpers. No module mocking — tests exercise pure functions
  * and async crypto with real modules.
  */
-import { describe, expect, test } from "bun:test";
 import {
-  getRequestedFeedUrl,
-  parseCreateFeedPayload,
-  parseDeleteSourceId,
-  parseRenameFeedPayload,
-} from "@/app/api/feeds/services/parsers";
-import { toFeedSourceResponse } from "@/app/api/feeds/services/repository";
-import {
-  toggleReadStatus,
-  toggleStarredStatus,
+    toggleReadStatus,
+    toggleStarredStatus,
 } from "@/app/dashboard/hooks/useArticleActions";
 import {
-  normalizeEmailInput,
-  parseEmailPasswordFromFormData,
-  parseEmailPasswordFromRecord,
-  parseEmailPasswordFromSearchParams,
+    getRequestedFeedUrl,
+    parseCreateFeedPayload,
+    parseDeleteSourceId,
+    parseRenameFeedPayload,
+} from "@/lib/api/feeds/parsers";
+import { toFeedSourceResponse } from "@/lib/api/feeds/repository";
+import {
+    normalizeEmailInput,
+    parseEmailPasswordFromFormData,
+    parseEmailPasswordFromRecord,
+    parseEmailPasswordFromSearchParams,
 } from "@/lib/auth/credentials";
 import {
-  SESSION_COOKIE_NAME,
-  clearSessionCookie,
-  hashPassword,
-  setSessionCookie,
-  verifyPassword,
+    SESSION_COOKIE_NAME,
+    clearSessionCookie,
+    hashPassword,
+    setSessionCookie,
+    verifyPassword,
 } from "@/lib/auth/session";
 import * as schema from "@/lib/db/schema";
+import { describe, expect, test } from "bun:test";
 import { NextRequest, NextResponse } from "next/server";
 // ─── credentials: normalizeEmailInput ─────────────────────────────────────────
 

@@ -39,7 +39,7 @@ function registerModuleMocks() {
     }),
   }));
 
-  mock.module("@/app/api/feeds/services/read", () => ({
+  mock.module("@/lib/api/feeds/read", () => ({
     handleFeedRead: async () => Response.json([]),
   }));
 }
@@ -395,7 +395,7 @@ describe("Feeds API - Route branches with injected deps", () => {
 describe("feeds/services/access: requireMutableFeedAccess", () => {
   test("returns Response when auth guard fails (no CSRF)", async () => {
     const { requireMutableFeedAccess } =
-      await import("@/app/api/feeds/services/access");
+      await import("@/lib/api/feeds/access");
     // No sec-fetch-site → CSRF fails → requireMutableAuthenticatedUser returns Response
     const request = createMockRequest("https://example.com/api/feeds", {
       method: "POST",
@@ -407,7 +407,7 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
 
   test("passes rateLimit option through without throwing", async () => {
     const { requireMutableFeedAccess } =
-      await import("@/app/api/feeds/services/access");
+      await import("@/lib/api/feeds/access");
     // Verify the rateLimit option path is accepted (no throw).
     // In parallel suites, session may be mocked → auth may succeed or fail,
     // so we only assert the function completes and returns a defined result.
@@ -431,7 +431,7 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
       // In DB mode the function either returns a user or an auth-failure Response.
       // The ensureFeedManagementEnabled() null path is covered — just verify no throw.
       const { requireMutableFeedAccess } =
-        await import("@/app/api/feeds/services/access");
+        await import("@/lib/api/feeds/access");
       const request = createMockRequest("https://example.com/api/feeds", {
         method: "POST",
       });
