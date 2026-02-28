@@ -2,7 +2,7 @@ import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
   jsonError,
-  parseJsonBodyOrResponse,
+  parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
@@ -261,8 +261,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       return NextResponse.json(updatedSource);
     }
 
-    const payloadOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) return payloadOrResponse;
 
     const payload = payloadOrResponse;

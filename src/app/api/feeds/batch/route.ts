@@ -1,4 +1,4 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/http";
+import { parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
@@ -31,11 +31,10 @@ export async function POST(request: NextRequest) {
     });
     if (user instanceof Response) return user;
 
-    const bodyOrResponse =
-      await parseJsonBodyOrResponse<BatchRequestBody>(request);
+    const bodyOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (bodyOrResponse instanceof Response) return bodyOrResponse;
 
-    const body = bodyOrResponse;
+    const body = bodyOrResponse as BatchRequestBody;
     const urls = normalizeDistinctUrlList(body.urls);
     const skipRefresh = body.skipRefresh === true;
     const forceRefresh = body.forceRefresh === true;

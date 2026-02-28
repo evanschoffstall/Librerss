@@ -1,9 +1,5 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/http";
-import { jsonError } from "@/lib/api/http";
-import {
-  logAndRespondError,
-  requireMutableRequest,
-} from "@/lib/server";
+import { parseJsonObjectBodyOrResponse, jsonError } from "@/lib/api/http";
+import { logAndRespondError, requireMutableRequest } from "@/lib/server";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,
@@ -85,8 +81,7 @@ export async function POST(request: NextRequest) {
 
     const db = getDb();
 
-    const payloadOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) {
       return payloadOrResponse;
     }

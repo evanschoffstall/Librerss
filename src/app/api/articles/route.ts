@@ -2,7 +2,7 @@ import {
   asTrimmedString,
   jsonError,
   parseDateInput,
-  parseJsonBodyOrResponse,
+  parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
@@ -146,8 +146,7 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
       return user;
     }
 
-    const payloadOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) {
       return payloadOrResponse;
     }

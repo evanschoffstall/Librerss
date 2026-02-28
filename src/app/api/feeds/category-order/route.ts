@@ -1,9 +1,5 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/http";
-import { jsonError } from "@/lib/api/http";
-import {
-  logAndRespondError,
-  requireAuthenticatedUser,
-} from "@/lib/server";
+import { parseJsonObjectBodyOrResponse, jsonError } from "@/lib/api/http";
+import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
 import { getDb } from "@/lib/db/db";
 import { categoryOrders } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -52,8 +48,7 @@ export async function PUT(request: NextRequest) {
       return user;
     }
 
-    const bodyOrResponse =
-      await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+    const bodyOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (bodyOrResponse instanceof Response) {
       return bodyOrResponse;
     }

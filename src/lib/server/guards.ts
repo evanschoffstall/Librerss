@@ -1,4 +1,4 @@
-import { jsonError, parseJsonBodyOrResponse } from "@/lib/api/http";
+import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
@@ -121,12 +121,12 @@ export async function requireMutableUserAndJsonBody<
     return user;
   }
 
-  const body = await parseJsonBodyOrResponse<TBody>(request);
+  const body = await parseJsonObjectBodyOrResponse(request);
   if (body instanceof Response) {
     return body;
   }
 
-  return { user, body };
+  return { user, body: body as TBody };
 }
 
 export function logAndRespondError(

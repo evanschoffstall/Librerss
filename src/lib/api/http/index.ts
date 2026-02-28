@@ -8,6 +8,7 @@ export {
   parseDateInput,
   parseFormOrQueryParams,
   parseJsonBody,
+  parseJsonObjectBodyOrResponse,
   parseJsonBodyOrResponse,
   parseNonNegativeInt,
   parsePositiveInt,

@@ -2,7 +2,7 @@ import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
 import {
   asTrimmedString,
   jsonError,
-  parseJsonBodyOrResponse,
+  parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
@@ -30,8 +30,7 @@ export async function assertAllowedFeedUrl(
 export async function parseCreateFeedPayload(
   request: NextRequest,
 ): Promise<CreateFeedPayload | Response> {
-  const payloadOrResponse =
-    await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+  const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
   if (payloadOrResponse instanceof Response) {
     return payloadOrResponse;
   }
@@ -64,8 +63,7 @@ export async function parseCreateFeedPayload(
 export async function parseRenameFeedPayload(
   request: NextRequest,
 ): Promise<RenameFeedPayload | Response> {
-  const payloadOrResponse =
-    await parseJsonBodyOrResponse<Record<string, unknown>>(request);
+  const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
   if (payloadOrResponse instanceof Response) {
     return payloadOrResponse;
   }

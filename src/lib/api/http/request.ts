@@ -15,6 +15,10 @@ type ParsedJsonFailure = {
 
 type ParsedJsonResult<T> = ParsedJsonSuccess<T> | ParsedJsonFailure;
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export async function parseJsonBody<T>(
   request: Request,
   options?: { maxBytes?: number },
@@ -45,6 +49,22 @@ export async function parseJsonBody<T>(
       response: jsonError("Invalid JSON body", 400),
     };
   }
+}
+
+export async function parseJsonObjectBodyOrResponse(
+  request: Request,
+  options?: { maxBytes?: number },
+): Promise<Record<string, unknown> | Response> {
+  const parsed = await parseJsonBody<unknown>(request, options);
+  if (!parsed.ok) {
+    return parsed.response;
+  }
+
+  if (!isJsonObject(parsed.data)) {
+    return jsonError("JSON body must be an object", 400);
+  }
+
+  return parsed.data;
 }
 
 export async function parseJsonBodyOrResponse<T>(
