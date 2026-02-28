@@ -18,7 +18,7 @@ export function isVerboseLoggingEnabled(): boolean {
 
 // ── Header utilities ──────────────────────────────────────────────────────────
 
-export function toHeaderRecord(headers: unknown): Record<string, string> {
+function toHeaderRecord(headers: unknown): Record<string, string> {
   if (!headers || typeof headers !== "object") {
     return {};
   }
@@ -44,7 +44,7 @@ export function toHeaderRecord(headers: unknown): Record<string, string> {
   }, {});
 }
 
-export function pickAllowedHeaders(
+function pickAllowedHeaders(
   headers: unknown,
   allowed: readonly string[],
 ): Record<string, string> {
@@ -58,10 +58,7 @@ export function pickAllowedHeaders(
   }, {});
 }
 
-export function toBodySnippet(
-  data: unknown,
-  maxLength = 240,
-): string | undefined {
+function toBodySnippet(data: unknown, maxLength = 240): string | undefined {
   if (typeof data === "string") {
     const compact = data.replace(/\s+/g, " ").trim();
     if (!compact) return undefined;
@@ -89,7 +86,7 @@ export function toBodySnippet(
 
 // ── Axios diagnostics ─────────────────────────────────────────────────────────
 
-export const SAFE_UPSTREAM_RESPONSE_HEADERS = [
+const SAFE_UPSTREAM_RESPONSE_HEADERS = [
   "server",
   "cf-ray",
   "cf-cache-status",
@@ -101,7 +98,7 @@ export const SAFE_UPSTREAM_RESPONSE_HEADERS = [
   "x-datadome",
 ] as const;
 
-export const SAFE_UPSTREAM_REQUEST_HEADERS = [
+const SAFE_UPSTREAM_REQUEST_HEADERS = [
   "user-agent",
   "accept",
   "accept-language",

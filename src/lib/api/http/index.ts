@@ -1,11 +1,6 @@
 export {
-  SAFE_UPSTREAM_REQUEST_HEADERS,
-  SAFE_UPSTREAM_RESPONSE_HEADERS,
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
-  pickAllowedHeaders,
-  toBodySnippet,
-  toHeaderRecord,
 } from "./diagnostics";
 export {
   asTrimmedString,
