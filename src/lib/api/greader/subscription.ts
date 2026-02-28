@@ -76,6 +76,13 @@ export async function handleSubscriptionQuickAdd(
   }
   const quickAdd = params.get("quickadd")?.trim() ?? "";
 
+  if (quickAdd.length > 2048) {
+    return NextResponse.json(
+      { numResults: 0, error: "Invalid feed URL" },
+      { status: 400 },
+    );
+  }
+
   const normalizedUrl = tryNormalizeFeedUrl(quickAdd);
   if (!normalizedUrl || !(await isAllowedFeedUrl(normalizedUrl))) {
     return NextResponse.json(
@@ -150,60 +157,66 @@ export async function handleSubscriptionEdit(
   const db = getDb();
 
   if (action === "unsubscribe") {
-    await db
-      .delete(feedSources)
-      .where(
-        and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)),
-      );
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(feedSources)
+        .where(
+          and(
+            eq(feedSources.userId, user.userId),
+            eq(feedSources.url, feedUrl),
+          ),
+        );
 
-    const feedId = await findFeedIdByUrl(db, feedUrl);
-
-    if (feedId) {
-      await removeUserFeedCategory(db, {
-        userId: user.userId,
-        feedId,
-      });
-    }
+      const feedId = await findFeedIdByUrl(tx, feedUrl);
+      if (feedId) {
+        await removeUserFeedCategory(tx, { userId: user.userId, feedId });
+      }
+    });
 
     return textResponse("OK\n");
-  }
-
-  if (title) {
-    await db
-      .update(feedSources)
-      .set({ name: title })
-      .where(
-        and(eq(feedSources.userId, user.userId), eq(feedSources.url, feedUrl)),
-      );
   }
 
   const hasTagChange =
     addTag.startsWith(USER_LABEL_PREFIX) ||
     removeTag.startsWith(USER_LABEL_PREFIX);
 
-  if (hasTagChange) {
-    const feedId = await findFeedIdByUrl(db, feedUrl);
+  await db.transaction(async (tx) => {
+    if (title) {
+      await tx
+        .update(feedSources)
+        .set({ name: title })
+        .where(
+          and(
+            eq(feedSources.userId, user.userId),
+            eq(feedSources.url, feedUrl),
+          ),
+        );
+    }
 
-    if (feedId) {
-      const addLabel = parseUserLabel(addTag);
-      if (addLabel) {
-        await replaceUserFeedCategory(db, {
-          userId: user.userId,
-          feedId,
-          category: addLabel,
-        });
-      }
+    if (hasTagChange) {
+      const feedId = await findFeedIdByUrl(tx, feedUrl);
 
-      const removeLabel = parseUserLabel(removeTag);
-      if (removeLabel) {
-        await removeUserFeedCategory(db, {
-          userId: user.userId,
-          feedId,
-          category: removeLabel,
-        });
+      if (feedId) {
+        const addLabel = parseUserLabel(addTag);
+        if (addLabel) {
+          await replaceUserFeedCategory(tx, {
+            userId: user.userId,
+            feedId,
+            category: addLabel,
+          });
+        }
+
+        const removeLabel = parseUserLabel(removeTag);
+        if (removeLabel) {
+          await removeUserFeedCategory(tx, {
+            userId: user.userId,
+            feedId,
+            category: removeLabel,
+          });
+        }
       }
     }
-  }
+  });
 
   return textResponse("OK\n");
 }

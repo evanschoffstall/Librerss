@@ -20,6 +20,9 @@ import type {
   ToggleFeedEnabledPayload,
 } from "./types";
 
+// de-facto safe upper bound for stored URLs (RFC 2616 §3.2.1 guideline)
+const MAX_FEED_URL_LENGTH = 2048;
+
 export async function assertAllowedFeedUrl(
   url: string,
 ): Promise<Response | null> {
@@ -48,6 +51,13 @@ export async function parseCreateFeedPayload(
 
   if (!name || !url) {
     return jsonError("Both name and url are required", 400);
+  }
+
+  if (url.length > MAX_FEED_URL_LENGTH) {
+    return jsonError(
+      `url must be ${MAX_FEED_URL_LENGTH} characters or less`,
+      400,
+    );
   }
 
   if (
@@ -91,6 +101,13 @@ export function parseRenameFeedPayloadFromBody(
 
   if (!url) {
     return jsonError("url is required", 400);
+  }
+
+  if (url.length > MAX_FEED_URL_LENGTH) {
+    return jsonError(
+      `url must be ${MAX_FEED_URL_LENGTH} characters or less`,
+      400,
+    );
   }
 
   if (name.length > CONFIG.MAX_FEED_NAME_LENGTH) {
