@@ -1,5 +1,4 @@
-import { parseJsonObjectBodyOrResponse, jsonError } from "@/lib/api/http";
-import { logAndRespondError, requireMutableRequest } from "@/lib/server";
+import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,
@@ -8,9 +7,10 @@ import {
 } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
+import { getDb, isUniqueConstraintError } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { logAndRespondError, requireMutableRequest } from "@/lib/server";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -19,15 +19,6 @@ type SignupPayload = {
   email: string;
   password: string;
 };
-
-function isUniqueConstraintViolation(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const maybeCode = (error as { code?: unknown }).code;
-  return maybeCode === "23505";
-}
 
 function parseSignupPayload(
   payload: Record<string, unknown>,
@@ -134,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    if (isUniqueConstraintViolation(error)) {
+    if (isUniqueConstraintError(error)) {
       logger.warn("Signup attempt with existing email");
       return jsonError(
         "Unable to create account. Please try a different email or contact support.",
