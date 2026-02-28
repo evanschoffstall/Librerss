@@ -5,7 +5,7 @@ import { Moon, Sun } from "lucide-react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 
 /**
  * Renders either the full dashboard top bar or a standalone theme toggle,
@@ -50,6 +50,34 @@ function ThemedToaster() {
   const searchParams = useSearchParams();
   const dashboardView = searchParams?.get("view") || "dashboard";
   const shouldOffsetForDashboardBar = pathname === "/dashboard" && dashboardView === "dashboard";
+
+  useEffect(() => {
+    const handleToastClickToDismiss = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.closest("button, a, input, textarea, select, label, [role='button'], [data-button], [data-close-button]")) {
+        return;
+      }
+
+      const toastElement = target.closest<HTMLElement>("[data-sonner-toast][data-dismissible='true']");
+      if (!toastElement) {
+        return;
+      }
+
+      // Sonner renders each toast with a `data-id` attribute — use it directly
+      // rather than walking an internal toast store (which has no stable API).
+      const toastId = toastElement.dataset.id;
+      toast.dismiss(toastId);
+    };
+
+    document.addEventListener("click", handleToastClickToDismiss);
+    return () => {
+      document.removeEventListener("click", handleToastClickToDismiss);
+    };
+  }, []);
 
   return (
     <Toaster
