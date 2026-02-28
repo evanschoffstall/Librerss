@@ -4,56 +4,56 @@
  * All tested via real imports — no module mocking.
  */
 
-import { resolveCategoryWithFallback } from "@/app/api/greader.php/[...segments]/services/categories";
+import { resolveCategoryWithFallback } from "@/lib/api/greader/categories";
 import {
-  mapArticleAsItem,
-  toReaderIconUrl,
-} from "@/app/api/greader.php/[...segments]/services/mappers";
+    mapArticleAsItem,
+    toReaderIconUrl,
+} from "@/lib/api/greader/mappers";
 import {
-  parseOlderThanDate,
-  parseStreamId,
-  parseStreamPaging,
-  shouldExcludeReadFromStream,
-} from "@/app/api/greader.php/[...segments]/services/stream-service";
+    parseOlderThanDate,
+    parseStreamId,
+    parseStreamPaging,
+    shouldExcludeReadFromStream,
+} from "@/lib/api/greader/stream-service";
 import {
-  parseReaderStreamItems,
-  readerItemToArticle,
+    parseReaderStreamItems,
+    readerItemToArticle,
 } from "@/lib/api/reader-mappers";
 import { CONFIG, ENV } from "@/lib/config";
 import {
-  FEED_STREAM_PREFIX,
-  READING_LIST_STREAM,
-  READ_STATE,
-  STARRED_STATE,
-  USER_LABEL_PREFIX,
-  parseReaderItemId,
-  parseUserLabel,
-  toReaderItemId,
+    FEED_STREAM_PREFIX,
+    READING_LIST_STREAM,
+    READ_STATE,
+    STARRED_STATE,
+    USER_LABEL_PREFIX,
+    parseReaderItemId,
+    parseUserLabel,
+    toReaderItemId,
 } from "@/lib/core/stream-ids";
 import {
-  DEFAULT_CATEGORY_LABEL,
-  findCategoryByLabel,
-  includesCategoryLabel,
-  isSameCategoryLabel,
-  normalizeCategory,
-  normalizeCategoryLabelKey,
-  removeCategoryLabel,
-  replaceCategoryLabel,
+    DEFAULT_CATEGORY_LABEL,
+    findCategoryByLabel,
+    includesCategoryLabel,
+    isSameCategoryLabel,
+    normalizeCategory,
+    normalizeCategoryLabelKey,
+    removeCategoryLabel,
+    replaceCategoryLabel,
 } from "@/lib/utils/categories";
 import {
-  isBlockedHost,
-  isBlockedResolvedAddress,
-  normalizeHostname,
+    isBlockedHost,
+    isBlockedResolvedAddress,
+    normalizeHostname,
 } from "@/lib/utils/ssrf";
 import {
-  getUrlHostnameLabel,
-  isValidUrl,
-  normalizeDistinctUrlList,
-  normalizeFeedUrl,
-  redactUrlForLogs,
-  toCategoryLookupKey,
-  tryGetUrlHostname,
-  tryNormalizeFeedUrl,
+    getUrlHostnameLabel,
+    isValidUrl,
+    normalizeDistinctUrlList,
+    normalizeFeedUrl,
+    redactUrlForLogs,
+    toCategoryLookupKey,
+    tryGetUrlHostname,
+    tryNormalizeFeedUrl,
 } from "@/lib/utils/url";
 import { isSafePositiveItemId, isStrongPassword } from "@/lib/utils/validation";
 import { describe, expect, test } from "bun:test";
