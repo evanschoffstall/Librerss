@@ -28,7 +28,7 @@ export async function handleMarkAllAsRead(
     return textResponse("Error=MissingTimestamp\n", 400);
   }
 
-  await markStreamAsRead(user.userId, stream);
+  await markStreamAsRead(user.userId, stream, { beforeMs: ts / 1000 });
 
   return textResponse("OK\n");
 }
@@ -53,7 +53,12 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
             eq(articleStatuses.articleId, articles.id),
           ),
         )
-        .where(eq(feedSources.userId, user.userId))
+        .where(
+          and(
+            eq(feedSources.userId, user.userId),
+            eq(feedSources.enabled, true),
+          ),
+        )
         .groupBy(feedSources.url)
     : db
         .select({
@@ -63,7 +68,12 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
         .from(feedSources)
         .innerJoin(feeds, eq(feeds.url, feedSources.url))
         .leftJoin(articles, eq(articles.feedId, feeds.id))
-        .where(eq(feedSources.userId, user.userId))
+        .where(
+          and(
+            eq(feedSources.userId, user.userId),
+            eq(feedSources.enabled, true),
+          ),
+        )
         .groupBy(feedSources.url));
 
   const totalUnread = rows.reduce(

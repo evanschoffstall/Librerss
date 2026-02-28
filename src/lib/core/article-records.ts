@@ -26,6 +26,14 @@ const articleSelect = {
   feedId: articles.feedId,
 };
 
+function enabledFeedSourceJoin(userId: number) {
+  return and(
+    eq(feedSources.url, feeds.url),
+    eq(feedSources.userId, userId),
+    eq(feedSources.enabled, true),
+  );
+}
+
 export async function listUserOwnedArticles(
   db: ReturnType<typeof getDb>,
   userId: number,
@@ -35,10 +43,7 @@ export async function listUserOwnedArticles(
     .select(articleSelect)
     .from(articles)
     .innerJoin(feeds, eq(feeds.id, articles.feedId))
-    .innerJoin(
-      feedSources,
-      and(eq(feedSources.url, feeds.url), eq(feedSources.userId, userId)),
-    )
+    .innerJoin(feedSources, enabledFeedSourceJoin(userId))
     .orderBy(desc(articles.publicationDate))
     .limit(limit);
 }
@@ -52,10 +57,7 @@ export async function getUserOwnedArticleById(
     .select(articleSelect)
     .from(articles)
     .innerJoin(feeds, eq(feeds.id, articles.feedId))
-    .innerJoin(
-      feedSources,
-      and(eq(feedSources.url, feeds.url), eq(feedSources.userId, userId)),
-    )
+    .innerJoin(feedSources, enabledFeedSourceJoin(userId))
     .where(eq(articles.id, articleId))
     .limit(1);
 

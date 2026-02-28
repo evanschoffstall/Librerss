@@ -8,7 +8,11 @@ import {
 import { and, eq } from "drizzle-orm";
 
 export function buildUserFeedJoin(userId: number) {
-  return and(eq(feedSources.url, feeds.url), eq(feedSources.userId, userId));
+  return and(
+    eq(feedSources.url, feeds.url),
+    eq(feedSources.userId, userId),
+    eq(feedSources.enabled, true),
+  );
 }
 
 export function buildUserCategoryJoin() {
