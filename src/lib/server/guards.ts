@@ -101,10 +101,11 @@ export async function requireMutablePublicRequest(
       : undefined,
   });
   if (requestError) return requestError;
-  // Return a placeholder user identity since no real auth is required
+  // Return an anonymous identity — userId -1 is distinct from any real DB row
+  // and from PLACEHOLDER_ADMIN_USER.id (0).
   return {
-    sessionId: 0,
-    userId: 0,
+    sessionId: -1,
+    userId: -1,
     email: "anonymous",
     expiresAt: new Date(Date.now() + 86_400_000),
   };
