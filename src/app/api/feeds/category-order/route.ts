@@ -1,10 +1,10 @@
-import { parseJsonObjectBodyOrResponse, jsonError } from "@/lib/api/http";
-import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
+import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
+import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { getDb } from "@/lib/db/db";
 import { categoryOrders } from "@/lib/db/schema";
+import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { requireMutableFeedAccess } from "../services/access";
 
 export async function GET(request: NextRequest) {
   try {

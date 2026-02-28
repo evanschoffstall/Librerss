@@ -1,4 +1,3 @@
-import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
 import {
   asTrimmedString,
   jsonError,
@@ -10,12 +9,16 @@ import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-url-validator";
+import {
+  DEFAULT_CATEGORY_LABEL,
+  normalizeCategory,
+} from "@/lib/utils/categories";
 import type { NextRequest } from "next/server";
 import type {
   CreateFeedPayload,
   RenameFeedPayload,
   ToggleFeedEnabledPayload,
-} from "../types";
+} from "./types";
 
 export async function assertAllowedFeedUrl(
   url: string,

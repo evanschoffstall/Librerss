@@ -1,8 +1,3 @@
-import {
-  DEFAULT_CATEGORY_LABEL,
-  normalizeCategory,
-  toCategoryLabelOrDefault,
-} from "@/lib";
 import { getDb } from "@/lib/db/db";
 import {
   ensureFeedRecordByUrl,
@@ -11,6 +6,11 @@ import {
   replaceUserFeedCategory,
 } from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
+import {
+  DEFAULT_CATEGORY_LABEL,
+  normalizeCategory,
+  toCategoryLabelOrDefault,
+} from "@/lib/utils/categories";
 import { normalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import type {
@@ -19,7 +19,7 @@ import type {
   FeedSourceListRow,
   FeedSourceRecord,
   FeedTransaction,
-} from "../types";
+} from "./types";
 
 const feedSourceFields = {
   id: feedSources.id,

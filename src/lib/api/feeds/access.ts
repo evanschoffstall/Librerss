@@ -1,9 +1,9 @@
+import { jsonError } from "@/lib/api/http";
+import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import {
   type AuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
-import { jsonError } from "@/lib/api/http";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { NextRequest } from "next/server";
 
 const FEED_MANAGEMENT_DISABLED_ERROR =

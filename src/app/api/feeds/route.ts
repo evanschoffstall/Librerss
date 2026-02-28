@@ -1,3 +1,19 @@
+import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
+import {
+  assertAllowedFeedUrl,
+  getRequestedFeedUrl,
+  parseCreateFeedPayload,
+  parseDeleteSourceId,
+  parseRenameFeedPayloadFromBody,
+  parseToggleFeedEnabledPayloadFromBody,
+} from "@/lib/api/feeds/parsers";
+import { handleFeedRead } from "@/lib/api/feeds/read";
+import {
+  createOrUpdateFeedSource,
+  deleteFeedSourceForUser,
+  renameFeedSourceForUser,
+  setFeedSourceEnabledForUser,
+} from "@/lib/api/feeds/repository";
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -16,22 +32,6 @@ import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
-import { requireMutableFeedAccess } from "./services/access";
-import {
-  assertAllowedFeedUrl,
-  getRequestedFeedUrl,
-  parseCreateFeedPayload,
-  parseDeleteSourceId,
-  parseRenameFeedPayloadFromBody,
-  parseToggleFeedEnabledPayloadFromBody,
-} from "./services/parsers";
-import { handleFeedRead } from "./services/read";
-import {
-  createOrUpdateFeedSource,
-  deleteFeedSourceForUser,
-  renameFeedSourceForUser,
-  setFeedSourceEnabledForUser,
-} from "./services/repository";
 
 export const dynamic = "force-dynamic";
 
