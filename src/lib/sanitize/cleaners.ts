@@ -80,3 +80,20 @@ export function normalizeArticleHtmlSpacing(html: string): string {
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
     .trim();
 }
+
+export function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+export function toParagraphHtml(raw: string): string {
+  return raw
+    .split(/\n{2,}/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => `<p>${segment.replace(/\n/g, "<br />")}</p>`)
+    .join("\n");
+}

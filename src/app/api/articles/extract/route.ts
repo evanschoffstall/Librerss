@@ -4,47 +4,35 @@ import {
   jsonError,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
+import type {
+  ExtractRequestContext,
+  ExtractResponsePayload,
+} from "@/lib/extract";
 import {
-  logAndRespondError,
-  requireMutablePublicRequest,
-} from "@/lib/server";
+  ARTICLE_EXTRACTION_ERROR_MESSAGE,
+  ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
+  ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+  fetchHtml,
+  getCachedExtractPayload,
+  isExtractCacheEnabled,
+  parseAndValidateArticleUrl,
+  readPlaceholderSnapshotHtml,
+  setCachedExtractPayload,
+} from "@/lib/extract";
 import { logger } from "@/lib/logger";
+import {
+  buildMetadataImageFallbackHtml,
+  cleanExtractedArticleHtml,
+  hasReadableArticleBody,
+  preCleanHtmlForExtraction,
+  sanitizeExtractedContent,
+} from "@/lib/sanitize";
+import { logAndRespondError, requireMutablePublicRequest } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 import { extractFromHtml } from "@extractus/article-extractor";
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  clearArticleExtractCacheForTests,
-  getCachedExtractPayload,
-  isExtractCacheEnabled,
-  setCachedExtractPayload,
-} from "./cache";
-import type {
-  ExtractRequestContext,
-  ExtractResponsePayload,
-} from "./constants";
-import {
-  ARTICLE_EXTRACTION_ERROR_MESSAGE,
-  ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
-  ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
-} from "./constants";
-import { sanitizeExtractedContent } from "./content-sanitization";
-import {
-  cleanExtractedArticleHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  stripCommentEngagementBoilerplate,
-} from "./content-validation";
-import { toParagraphHtml } from "./html-entities";
-import { preCleanHtmlForExtraction } from "./html-pre-cleaning";
-import {
-  buildMetadataImageFallbackHtml,
-  normalizeExtractedHtmlSpacing,
-} from "./metadata-extraction";
-import { readPlaceholderSnapshotHtml } from "./placeholder-snapshot";
-import { fetchHtml } from "./upstream-fetch";
-import { parseAndValidateArticleUrl } from "./url-validation";
 
 // ─── Inlined helpers (from route-helpers.ts) ─────────────────────────────────
 
@@ -58,22 +46,6 @@ function mapUpstreamExtractStatus(upstreamStatus?: number): 422 | 502 {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-// Re-export functions needed by tests
-export {
-  buildMetadataImageFallbackHtml,
-  cleanExtractedArticleHtml,
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  normalizeExtractedHtmlSpacing,
-  parseAndValidateArticleUrl,
-  preCleanHtmlForExtraction,
-  sanitizeExtractedContent,
-  stripCommentEngagementBoilerplate,
-  toParagraphHtml,
-};
 
 type ExtractPostDeps = {
   requireMutableAuthenticatedUserFn?: typeof requireMutablePublicRequest;

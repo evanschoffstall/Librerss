@@ -1,7 +1,7 @@
 import {
   cleanExtractedArticleHtml,
   sanitizeExtractedContent,
-} from "@/app/api/articles/extract/route";
+} from "@/lib/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

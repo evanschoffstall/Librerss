@@ -7,9 +7,6 @@ export const ARTICLE_EXTRACTION_ERROR_MESSAGE =
 export const ARTICLE_EXTRACT_CACHE_TTL_MS = 10 * 60 * 1000;
 export const ARTICLE_EXTRACT_CACHE_MAX_ENTRIES = 500;
 
-export const BOOLEAN_TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
-export const BOOLEAN_FALSE_VALUES = new Set(["0", "false", "no", "off"]);
-
 // How many additional attempts to make after the initial try when a 403 is returned.
 // Total attempts = 1 + EXTRACT_403_RETRIES. Each retry uses a different UA fingerprint
 // and a fresh cookie jar — many bot systems pass the request through on retry once

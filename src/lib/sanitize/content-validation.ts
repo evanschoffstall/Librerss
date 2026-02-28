@@ -1,4 +1,4 @@
-import { toPlainText } from "@/lib/sanitize";
+import { toPlainText } from "./sanitize";
 
 export function stripCommentEngagementBoilerplate(content: string): string {
   return content

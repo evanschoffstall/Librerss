@@ -1,6 +1,5 @@
-import { sanitizeArticleHtml, toPlainText } from "@/lib/sanitize";
-import { toParagraphHtml } from "./html-entities";
-import { normalizeExtractedHtmlSpacing } from "./metadata-extraction";
+import { normalizeArticleHtmlSpacing, toParagraphHtml } from "./cleaners";
+import { sanitizeArticleHtml, toPlainText } from "./sanitize";
 
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
@@ -40,7 +39,7 @@ export function sanitizeExtractedContent(rawContent: string): string {
       recoveredImageHtml &&
       !/<img\b/i.test(sanitized)
     ) {
-      return normalizeExtractedHtmlSpacing(
+      return normalizeArticleHtmlSpacing(
         [recoveredImageHtml, sanitized].filter(Boolean).join("\n"),
       );
     }
@@ -58,7 +57,7 @@ export function sanitizeExtractedContent(rawContent: string): string {
     recoveredImageHtml &&
     !/<img\b/i.test(fallbackSanitized)
   ) {
-    return normalizeExtractedHtmlSpacing(
+    return normalizeArticleHtmlSpacing(
       [recoveredImageHtml, fallbackSanitized].filter(Boolean).join("\n"),
     );
   }

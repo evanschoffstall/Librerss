@@ -1,5 +1,5 @@
 import { CONFIG } from "@/lib/config";
-import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
+import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";

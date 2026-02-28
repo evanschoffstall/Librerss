@@ -1,19 +1,20 @@
+import { getHostname, POST } from "@/app/api/articles/extract/route";
+import {
+  clearArticleExtractCacheForTests,
+  fetchHtml,
+  parseAndValidateArticleUrl,
+} from "@/lib/extract";
 import {
   buildMetadataImageFallbackHtml,
   cleanExtractedArticleHtml,
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  getHostname,
   hasReadableArticleBody,
   isLikelyNavFooterBoilerplate,
-  normalizeExtractedHtmlSpacing,
-  parseAndValidateArticleUrl,
-  POST,
+  normalizeArticleHtmlSpacing,
   preCleanHtmlForExtraction,
   sanitizeExtractedContent,
   stripCommentEngagementBoilerplate,
   toParagraphHtml,
-} from "@/app/api/articles/extract/route";
+} from "@/lib/sanitize";
 import { extractFromHtml } from "@extractus/article-extractor";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -374,8 +375,8 @@ describe("article extract cleanup", () => {
     expect(unsafeImage).toBe("");
   });
 
-  test("normalizeExtractedHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
-    const cleaned = normalizeExtractedHtmlSpacing(
+  test("normalizeArticleHtmlSpacing removes empty paragraphs and inter-tag blank lines", () => {
+    const cleaned = normalizeArticleHtmlSpacing(
       "<p></p>\n\n<p>One</p>\n\n<p>Two</p>",
     );
 

@@ -1,3 +1,4 @@
+import { envBooleanOptional, isDevelopment } from "@/lib/config";
 import type {
   CachedExtractResponse,
   ExtractResponsePayload,
@@ -5,33 +6,15 @@ import type {
 import {
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,
   ARTICLE_EXTRACT_CACHE_TTL_MS,
-  BOOLEAN_FALSE_VALUES,
-  BOOLEAN_TRUE_VALUES,
 } from "./constants";
 
 const articleExtractCache = new Map<string, CachedExtractResponse>();
 
-function readBooleanEnvFlag(key: string, defaultValue: boolean): boolean {
-  const raw = process.env[key];
-  if (raw === undefined || raw.trim() === "") return defaultValue;
-
-  const normalized = raw.trim().toLowerCase();
-  if (BOOLEAN_TRUE_VALUES.has(normalized)) return true;
-  if (BOOLEAN_FALSE_VALUES.has(normalized)) return false;
-  return defaultValue;
-}
-
 export function isExtractCacheEnabled(): boolean {
-  const cacheEnabled = readBooleanEnvFlag(
-    "ARTICLE_EXTRACT_CACHE_ENABLED",
-    true,
-  );
-  if (!cacheEnabled) return false;
-
-  if (process.env.NODE_ENV === "development") {
-    return readBooleanEnvFlag("ARTICLE_EXTRACT_CACHE_DEV_ENABLED", true);
+  if (!envBooleanOptional("ARTICLE_EXTRACT_CACHE_ENABLED", true)) return false;
+  if (isDevelopment) {
+    return envBooleanOptional("ARTICLE_EXTRACT_CACHE_DEV_ENABLED", true);
   }
-
   return true;
 }
 

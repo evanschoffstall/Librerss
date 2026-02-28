@@ -82,6 +82,8 @@ function decodeHtmlEntities(value: string): string {
 
 export const __decodeHtmlEntitiesForTests = decodeHtmlEntities;
 
+export { decodeHtmlEntities };
+
 /**
  * Strips all HTML tags that are not in the allowed set and forces links to
  * open safely (`rel="noopener noreferrer nofollow"`, `target="_blank"`).

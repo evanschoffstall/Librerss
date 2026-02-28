@@ -1,14 +1,9 @@
 import {
-  normalizeArticleHtmlSpacing,
-  sanitizeArticleHtml,
-} from "@/lib/sanitize";
-import {
-  decodeBasicHtmlEntities,
   escapeHtmlAttribute,
+  normalizeArticleHtmlSpacing,
   toParagraphHtml,
-} from "./html-entities";
-
-export const normalizeExtractedHtmlSpacing = normalizeArticleHtmlSpacing;
+} from "./cleaners";
+import { decodeHtmlEntities, sanitizeArticleHtml } from "./sanitize";
 
 function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
@@ -29,7 +24,7 @@ function readMetaTagContent(rawHtml: string, keys: string[]): string {
     const key = (attributes.property || attributes.name || "").toLowerCase();
     const content = attributes.content;
     if (!key || !content) continue;
-    if (keySet.has(key)) return decodeBasicHtmlEntities(content);
+    if (keySet.has(key)) return decodeHtmlEntities(content);
   }
 
   return "";
@@ -76,7 +71,7 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
 
   const descriptionHtml = sanitizeArticleHtml(toParagraphHtml(description));
 
-  return normalizeExtractedHtmlSpacing(
+  return normalizeArticleHtmlSpacing(
     [imageHtml, descriptionHtml].filter(Boolean).join("\n"),
   );
 }

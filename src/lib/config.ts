@@ -51,16 +51,29 @@ function parseEnvBoolean(value: string, key: string): boolean {
 
 // ── Server env accessors (dynamic key lookup) ────────────────────────────────
 
-export const envString = (key: string): string =>
+const envString = (key: string): string =>
   requireEnvValue(process.env[key], key);
 
-export const envNumber = (key: string): number =>
-  parseEnvNumber(envString(key), key);
+const envNumber = (key: string): number => parseEnvNumber(envString(key), key);
 
-export const envBoolean = (key: string): boolean =>
+const envBoolean = (key: string): boolean =>
   parseEnvBoolean(envString(key), key);
 
-export const envEnum = <T extends string>(
+/**
+ * Reads an optional boolean env variable, returning `defaultValue` when the
+ * key is missing or empty.  Uses the same true/false vocabulary as
+ * {@link envBoolean} ("1", "true", "yes", "on" / "0", "false", "no", "off").
+ */
+export const envBooleanOptional = (
+  key: string,
+  defaultValue: boolean,
+): boolean => {
+  const raw = process.env[key];
+  if (raw === undefined || raw.trim() === "") return defaultValue;
+  return parseEnvBoolean(raw, key);
+};
+
+const envEnum = <T extends string>(
   key: string,
   allowedValues: readonly T[],
 ): T => {
@@ -75,7 +88,7 @@ export const envEnum = <T extends string>(
   return value as T;
 };
 
-export const getLogLevel = (): "none" | "error" | "warn" | "info" | "verbose" =>
+const getLogLevel = (): "none" | "error" | "warn" | "info" | "verbose" =>
   envEnum("LOG_LEVEL", ["none", "error", "warn", "info", "verbose"] as const);
 
 // ── Client env accessors (literal NEXT_PUBLIC_* references) ──────────────────
