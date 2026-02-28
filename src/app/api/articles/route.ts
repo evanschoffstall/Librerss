@@ -178,6 +178,7 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
         and(
           eq(feedSources.url, feeds.url),
           eq(feedSources.userId, user.userId),
+          eq(feedSources.enabled, true),
         ),
       )
       .where(eq(feeds.id, payload.feedId))

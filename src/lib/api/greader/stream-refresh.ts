@@ -8,7 +8,7 @@ import { getDb } from "@/lib/db/db";
 import { feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 async function resolveStreamFeedUrls(
   userId: number,
@@ -27,7 +27,7 @@ async function resolveStreamFeedUrls(
   const rows = await db
     .select({ url: feedSources.url })
     .from(feedSources)
-    .where(eq(feedSources.userId, userId));
+    .where(and(eq(feedSources.userId, userId), eq(feedSources.enabled, true)));
 
   return [...new Set(rows.map((row) => row.url).filter(Boolean))];
 }
