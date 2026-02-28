@@ -1,4 +1,22 @@
-import { toPlainText } from "./sanitize";
+import { normalizeArticleHtmlSpacing, toPlainText } from "./sanitize";
+
+function stripShareEngagementToolbars(content: string): string {
+  return content.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
+    const lower = ulBlock.toLowerCase();
+    const hasSocialShareLink =
+      /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|mailto:\?/i.test(
+        lower,
+      );
+    if (!hasSocialShareLink) return ulBlock;
+
+    const textContent = lower.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const hasEngagementLabel =
+      /\bshare\b|\bsave\s*for\s*later\b|\bcomment\b|\blisten\b/i.test(
+        textContent,
+      );
+    return hasEngagementLabel ? "" : ulBlock;
+  });
+}
 
 export function stripCommentEngagementBoilerplate(content: string): string {
   return content
@@ -89,13 +107,13 @@ export function cleanExtractedArticleHtml(
 ): string {
   if (!sanitizedContent.trim()) return "";
 
+  const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
   const withoutEngagementPrompts =
-    stripCommentEngagementBoilerplate(sanitizedContent);
+    stripCommentEngagementBoilerplate(withoutShareToolbars);
+  const normalized = normalizeArticleHtmlSpacing(withoutEngagementPrompts);
 
-  if (!withoutEngagementPrompts.trim()) return "";
+  if (!normalized.trim()) return "";
 
   // Discard entirely if the content still looks like a nav/footer block.
-  return isLikelyNavFooterBoilerplate(withoutEngagementPrompts)
-    ? ""
-    : withoutEngagementPrompts;
+  return isLikelyNavFooterBoilerplate(normalized) ? "" : normalized;
 }
