@@ -37,10 +37,7 @@ export async function handleStreamItemIds(
   const feedUrl = isFeed
     ? streamId.slice(StreamIds.FEED_STREAM_PREFIX.length)
     : null;
-  const excludeRead = shouldExcludeReadFromStream(
-    streamId,
-    searchParams.getAll("xt"),
-  );
+  const excludeRead = shouldExcludeReadFromStream(searchParams.getAll("xt"));
 
   const { limit, offset, continuationId, isNetNewsWire } = parseStreamPaging(
     searchParams,

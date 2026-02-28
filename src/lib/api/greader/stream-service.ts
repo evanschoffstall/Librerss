@@ -3,7 +3,7 @@ import {
   parsePositiveInt,
   parseUnixTimestampSeconds,
 } from "@/lib/api/http";
-import { READ_STATE, READING_LIST_STREAM } from "@/lib/core/stream-ids";
+import { READ_STATE } from "@/lib/core/stream-ids";
 import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,
@@ -69,15 +69,6 @@ export function parseOlderThanDate(searchParams: URLSearchParams): Date | null {
   return parseUnixTimestampSeconds(searchParams.get("ot"));
 }
 
-export function shouldExcludeReadFromStream(
-  streamId: string,
-  excludedTags: string[],
-): boolean {
-  const excludeReadRequested = excludedTags.includes(READ_STATE);
-
-  if (!excludeReadRequested) {
-    return false;
-  }
-
-  return streamId === READING_LIST_STREAM;
+export function shouldExcludeReadFromStream(excludedTags: string[]): boolean {
+  return excludedTags.includes(READ_STATE);
 }

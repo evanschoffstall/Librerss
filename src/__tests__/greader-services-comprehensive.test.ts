@@ -71,13 +71,9 @@ describe("greader services/stream-service", () => {
       parseOlderThanDate(new URLSearchParams("ot=not-a-number")),
     ).toBeNull();
 
-    expect(shouldExcludeReadFromStream(READING_LIST_STREAM, [READ_STATE])).toBe(
-      true,
-    );
-    expect(
-      shouldExcludeReadFromStream("feed/https://example.com", [READ_STATE]),
-    ).toBe(false);
-    expect(shouldExcludeReadFromStream(READING_LIST_STREAM, [])).toBe(false);
+    expect(shouldExcludeReadFromStream([READ_STATE])).toBe(true);
+    expect(shouldExcludeReadFromStream([READ_STATE])).toBe(true);
+    expect(shouldExcludeReadFromStream([])).toBe(false);
   });
 });
 

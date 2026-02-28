@@ -616,25 +616,20 @@ describe("greader reader-item hardening", () => {
     expect(parsed?.getTime()).toBe(1700000000 * 1000);
   });
 
-  test("shouldExcludeReadFromStream only applies read exclusion to reading-list", async () => {
+  test("shouldExcludeReadFromStream applies read exclusion to any stream", async () => {
     const { shouldExcludeReadFromStream } =
       await import("@/lib/api/greader/stream-service");
 
     expect(
-      shouldExcludeReadFromStream("user/-/state/com.google/reading-list", [
-        "user/-/state/com.google/read",
-      ]),
+      shouldExcludeReadFromStream(["user/-/state/com.google/read"]),
     ).toBe(true);
 
     expect(
-      shouldExcludeReadFromStream(
-        "feed/https://feeds.bbci.co.uk/news/world/rss.xml",
-        ["user/-/state/com.google/read"],
-      ),
-    ).toBe(false);
+      shouldExcludeReadFromStream(["user/-/state/com.google/read"]),
+    ).toBe(true);
 
     expect(
-      shouldExcludeReadFromStream("user/-/state/com.google/reading-list", []),
+      shouldExcludeReadFromStream([]),
     ).toBe(false);
   });
 

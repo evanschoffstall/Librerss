@@ -537,20 +537,16 @@ describe("greader stream – parseOlderThanDate", () => {
 });
 
 describe("greader stream – shouldExcludeReadFromStream", () => {
-  test("returns true for reading list with read excluded", () => {
-    expect(shouldExcludeReadFromStream(READING_LIST_STREAM, [READ_STATE])).toBe(
-      true,
-    );
+  test("returns true when read state is in excluded tags", () => {
+    expect(shouldExcludeReadFromStream([READ_STATE])).toBe(true);
   });
 
   test("returns false when read not in excluded tags", () => {
-    expect(shouldExcludeReadFromStream(READING_LIST_STREAM, [])).toBe(false);
+    expect(shouldExcludeReadFromStream([])).toBe(false);
   });
 
-  test("returns false for non-reading-list stream even with read excluded", () => {
-    expect(
-      shouldExcludeReadFromStream("feed/https://example.com", [READ_STATE]),
-    ).toBe(false);
+  test("returns true for any stream when read is excluded", () => {
+    expect(shouldExcludeReadFromStream([READ_STATE])).toBe(true);
   });
 });
 
