@@ -88,10 +88,6 @@ export async function canUseArticleStatusesTable(
   }
 }
 
-// ── Safe item ID validation ───────────────────────────────────────────────────
-// Canonical definition lives in @/lib/utils/validation (pure, no DB deps).
-export { isSafePositiveItemId } from "@/lib/utils/validation";
-
 // ── Batch upsert ──────────────────────────────────────────────────────────────
 
 export async function upsertArticleStatuses(

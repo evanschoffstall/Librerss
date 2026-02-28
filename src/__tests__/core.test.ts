@@ -79,7 +79,7 @@ describe("reader-item-id", () => {
 
 describe("article-status", () => {
   test("isSafePositiveItemId validates safe positive integers", async () => {
-    const { isSafePositiveItemId } = await import("@/lib/core/article-status");
+    const { isSafePositiveItemId } = await import("@/lib/utils/validation");
     expect(isSafePositiveItemId(1)).toBe(true);
     expect(isSafePositiveItemId(123_456)).toBe(true);
     expect(isSafePositiveItemId(0)).toBe(false);
@@ -1189,7 +1189,14 @@ describe("feed-batch-pipeline", () => {
       }
     } else {
       // Feed is already eligible for force-refresh — just assert plan is defined
-      expect(buildRefreshPlan(feedByUrl, ["https://cooldown.example.com/feed"], false, true)).toBeDefined();
+      expect(
+        buildRefreshPlan(
+          feedByUrl,
+          ["https://cooldown.example.com/feed"],
+          false,
+          true,
+        ),
+      ).toBeDefined();
     }
   });
 
@@ -1217,12 +1224,16 @@ describe("feed-batch-pipeline", () => {
     ]);
 
     const db = {
-      update: mock(() => ({ set: mock(() => ({ where: mock(async () => []) })) })),
+      update: mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
+      })),
       insert: mock(() => ({
         values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
       })),
       select: mock(() => ({
-        from: mock(() => ({ where: mock(() => ({ limit: mock(() => Promise.resolve([])) })) })),
+        from: mock(() => ({
+          where: mock(() => ({ limit: mock(() => Promise.resolve([])) })),
+        })),
       })),
     };
 
