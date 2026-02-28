@@ -159,6 +159,32 @@ describe("Auth API - Login extended branches", () => {
     expect(response.status).toBeGreaterThanOrEqual(400);
   });
 
+  test("POST /api/auth/login returns 400 when body is JSON null", async () => {
+    const { POST } = await import("@/app/api/auth/login/route");
+    const rawRequest = new Request("https://example.com/api/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "sec-fetch-site": "same-origin",
+        "x-forwarded-for": "203.0.113.77, 198.51.100.2",
+      },
+      body: "null",
+    }) as any;
+    rawRequest.cookies = {
+      get: () => undefined,
+      set: () => {},
+      delete: () => {},
+      has: () => false,
+      getAll: () => [],
+    };
+
+    const response = await POST(rawRequest);
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "JSON body must be an object",
+    });
+  });
+
   // NOTE: Testing the "wrong credentials → 401" path of authenticateCredentials is
   // not stable in the full suite because greader-route.contract.test.ts mocks
   // @/lib/auth/session with authenticateCredentials: async () => null, which makes

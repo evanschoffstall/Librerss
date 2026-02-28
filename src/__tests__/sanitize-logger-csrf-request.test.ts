@@ -9,9 +9,9 @@ import {
   parseDateInput,
   parseFormOrQueryParams,
   parseJsonBody,
+  parseJsonObjectBodyOrResponse,
   parsePositiveInt,
-} from "@/lib/api/http";
-import { forbiddenResponse, jsonError } from "@/lib/api/http";
+ forbiddenResponse, jsonError } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { logger } from "@/lib/logger";
@@ -565,6 +565,48 @@ describe("request – parseJsonBody", () => {
     });
     const result = await parseJsonBody(request);
     expect(result.ok).toBe(false);
+  });
+
+  test("parseJsonObjectBodyOrResponse rejects null payload", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: "null",
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseJsonObjectBodyOrResponse(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+      await expect(result.json()).resolves.toEqual({
+        error: "JSON body must be an object",
+      });
+    }
+  });
+
+  test("parseJsonObjectBodyOrResponse rejects array payload", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: JSON.stringify([1, 2, 3]),
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseJsonObjectBodyOrResponse(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+
+  test("parseJsonObjectBodyOrResponse accepts object payload", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: JSON.stringify({ name: "ok" }),
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseJsonObjectBodyOrResponse(request);
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) {
+      expect(result.name).toBe("ok");
+    }
   });
 });
 
