@@ -1,7 +1,15 @@
 import pluginJs from "@eslint/js";
+import pluginBoundaries from "eslint-plugin-boundaries";
+import pluginEslintComments from "eslint-plugin-eslint-comments";
+import pluginImport from "eslint-plugin-import";
 import pluginNoOnlyTests from "eslint-plugin-no-only-tests";
+import pluginPromise from "eslint-plugin-promise";
 import pluginReactHooks from "eslint-plugin-react-hooks";
+import pluginRegexp from "eslint-plugin-regexp";
+import pluginSecurity from "eslint-plugin-security";
 import pluginSonarjs from "eslint-plugin-sonarjs";
+import pluginUnicorn from "eslint-plugin-unicorn";
+import pluginUnusedImports from "eslint-plugin-unused-imports";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -37,19 +45,36 @@ export default [
   ...tseslint.configs.recommended,
   {
     plugins: {
+      boundaries: pluginBoundaries,
+      "eslint-comments": pluginEslintComments,
+      import: pluginImport,
       "no-only-tests": pluginNoOnlyTests,
+      promise: pluginPromise,
       "react-hooks": pluginReactHooks,
+      regexp: pluginRegexp,
+      security: pluginSecurity,
       sonarjs: pluginSonarjs,
+      unicorn: pluginUnicorn,
+      "unused-imports": pluginUnusedImports,
     },
     rules: {
+      "eslint-comments/no-unused-disable": "error",
+      "import/first": "error",
+      "import/newline-after-import": "error",
+      "import/no-duplicates": "error",
       "no-only-tests/no-only-tests": "error",
+      "promise/no-return-wrap": "error",
+      "regexp/no-dupe-disjunctions": "error",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
+      "security/detect-unsafe-regex": "warn",
       "sonarjs/no-identical-functions": "error",
+      "unicorn/no-abusive-eslint-disable": "error",
       eqeqeq: ["error", "always"],
       "no-console": "off",
       "no-throw-literal": "error",
       "no-useless-return": "error",
+      "unused-imports/no-unused-imports": "error",
     },
   },
   {
