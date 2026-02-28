@@ -94,7 +94,7 @@ export function stripOrphanedRelatedBlocks(html: string): string {
 export function normalizeArticleHtmlSpacing(html: string): string {
   return stripEmptyTagBlocks(stripEmptyTagBlocks(html, "figure"), "p")
     .replace(/\r\n?/g, "\n")
-    .replace(/\n[ \t]*\n+/g, "\n")
+    .replace(/\n([ \t]*\n)+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
     .trim();
 }

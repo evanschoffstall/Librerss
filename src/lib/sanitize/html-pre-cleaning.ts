@@ -43,11 +43,10 @@ function removeElementById(rawHtml: string, idValue: string): string {
  * body.
  *
  * Background — why pre-cleaning is necessary:
- * `@extractus/article-extractor` uses `@mozilla/readability` under the hood.
- * Readability scores candidate nodes by text density rather than semantic role,
- * so large, link-heavy site-chrome elements routinely outscore the real article
- * body when the article markup is lightly structured.  Pre-cleaning removes
- * those high-density non-article nodes so Readability never sees them.
+ * The article extractor uses heuristic selectors to find the article body
+ * container.  However, large non-article nodes (footers, comment widgets,
+ * link-heavy navigation) can interfere with correct selection when their
+ * byte size or density rivals the article body.
  *
  * Specific cases that drove each removal rule:
  *
@@ -137,6 +136,23 @@ export function preCleanHtmlForExtraction(rawHtml: string): string {
     /<aside\b[^>]*\bdata-nosnippet\b[^>]*>[\s\S]*?<\/aside>/gi,
     "",
   );
+
+  // Remove social share link blocks — <ul> blocks where every <li> contains
+  // only a social-sharing <a> (facebook sharer, twitter/x intent, whatsapp,
+  // mailto share links).  These are non-content widgets that pollute
+  // extraction when they appear inside article body containers.
+  html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
+    const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+    if (items.length === 0) return ulBlock;
+    const allShareLinks = items.every((m) => {
+      const inner = (m[1] ?? "").trim();
+      if (!/^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test(inner)) return false;
+      return /facebook\.com\/sharer|x\.com\/intent\/tweet|twitter\.com\/intent\/tweet|whatsapp(?:\.com|:\/\/)|mailto:\?/i.test(
+        inner,
+      );
+    });
+    return allShareLinks ? "" : ulBlock;
+  });
 
   return html;
 }
