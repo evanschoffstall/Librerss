@@ -24,18 +24,6 @@ import {
   type ReaderApiStreamResponse,
 } from "./reader-mappers";
 
-// Re-export for backwards compatibility
-export {
-  __resetApiClientForTesting,
-  __setApiClientForTesting,
-} from "./http-client";
-export {
-  parseReaderStreamItems,
-  readerItemToArticle,
-  type ReaderApiItem,
-  type ReaderApiStreamResponse,
-} from "./reader-mappers";
-
 // ── AuthService ───────────────────────────────────────────────────────────────
 
 export class AuthService {

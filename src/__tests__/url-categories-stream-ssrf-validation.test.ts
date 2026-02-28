@@ -18,7 +18,7 @@ import {
 import {
   parseReaderStreamItems,
   readerItemToArticle,
-} from "@/lib/api/services";
+} from "@/lib/api/reader-mappers";
 import { CONFIG, ENV } from "@/lib/config";
 import {
   FEED_STREAM_PREFIX,
