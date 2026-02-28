@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db/db";
 import { articleStatuses } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { sql } from "drizzle-orm";
 
 // ── ArticleStatus table availability ──────────────────────────────────────────

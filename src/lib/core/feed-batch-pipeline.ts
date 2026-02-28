@@ -7,8 +7,8 @@ import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { feedRecordFields } from "@/lib/db/feed-records";
 import { feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
-import { normalizeArticleHtmlSpacing } from "@/lib/utils/sanitize";
+import { logger } from "@/lib/logger";
+import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   type FeedRecord,

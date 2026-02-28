@@ -1,8 +1,5 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
-import {
-  AP_JUNK_CLASS_PATTERN,
-  RELATED_HEADING_PATTERN,
-} from "./sanitize-patterns";
+import { AP_JUNK_CLASS_PATTERN, RELATED_HEADING_PATTERN } from "./patterns";
 
 export function stripApJunkBlocks(html: string): string {
   return html

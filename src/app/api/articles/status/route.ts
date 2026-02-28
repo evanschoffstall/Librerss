@@ -1,9 +1,9 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
+import { parseJsonBodyOrResponse } from "@/lib/api/http";
+import { jsonError } from "@/lib/api/http";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/request-guards";
+} from "@/lib/server";
 import {
   isSafePositiveItemId,
   upsertArticleStatuses,

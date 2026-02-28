@@ -1,5 +1,5 @@
-import { asTrimmedString, parseFormOrQueryParams } from "@/lib/api/request";
-import { textResponse } from "@/lib/api/responses";
+import { asTrimmedString, parseFormOrQueryParams } from "@/lib/api/http";
+import { textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
@@ -7,7 +7,7 @@ import {
   DEFAULT_CATEGORY_LABEL,
   toOptionalCategoryLabel,
 } from "@/lib/utils/categories";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import {

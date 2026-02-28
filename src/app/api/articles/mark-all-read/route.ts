@@ -1,9 +1,9 @@
-import { asTrimmedString, parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
+import { asTrimmedString, parseJsonBodyOrResponse } from "@/lib/api/http";
+import { jsonError } from "@/lib/api/http";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/request-guards";
+} from "@/lib/server";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
 import { NextRequest, NextResponse } from "next/server";
 

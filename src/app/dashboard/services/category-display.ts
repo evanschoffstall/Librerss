@@ -1,9 +1,9 @@
 import { normalizeCategoryLabelKey, type CategoryTreeNode } from "@/lib";
 import {
   collectKnownCategoryLabels,
+  toCategoryKey,
   toDistinctCategoryLabels,
-} from "./category-labels";
-import { toCategoryKey } from "./category-tree";
+} from "./category-tree";
 
 export function buildDisplayCategories(
   categories: CategoryTreeNode[],

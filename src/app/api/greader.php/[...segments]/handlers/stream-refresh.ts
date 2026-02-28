@@ -2,7 +2,7 @@ import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { feedSources } from "@/lib/db/schema";
 import { toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { eq } from "drizzle-orm";
 import {
   FEED_STREAM_PREFIX,

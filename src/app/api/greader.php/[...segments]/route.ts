@@ -1,7 +1,10 @@
-import { getSearchParams } from "@/lib/api/request";
-import { notFoundResponse, textResponse } from "@/lib/api/responses";
+import {
+  getSearchParams,
+  notFoundResponse,
+  textResponse,
+} from "@/lib/api/http";
 import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import {
@@ -9,11 +12,9 @@ import {
   requireGReaderMutableUser,
   requireGReaderUser,
 } from "./handlers/auth";
-import {
-  handleStreamContents,
-  handleStreamItemContents,
-  handleStreamItemIds,
-} from "./handlers/stream-handlers";
+import { handleStreamContents } from "./handlers/stream-contents";
+import { handleStreamItemContents } from "./handlers/stream-item-contents";
+import { handleStreamItemIds } from "./handlers/stream-item-ids";
 import {
   handleSubscriptionEdit,
   handleSubscriptionList,

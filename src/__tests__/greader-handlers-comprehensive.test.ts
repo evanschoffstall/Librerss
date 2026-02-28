@@ -69,7 +69,7 @@ function registerBaseMocks() {
     upsertArticleStatuses: mock(async () => {}),
   }));
 
-  mock.module("@/lib/utils/logger", () => ({
+  mock.module("@/lib/logger", () => ({
     logger: {
       info: mock(() => {}),
       warn: mock(() => {}),

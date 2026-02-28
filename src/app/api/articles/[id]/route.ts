@@ -1,16 +1,16 @@
-import { parsePositiveInt } from "@/lib/api/request";
+import { parsePositiveInt } from "@/lib/api/http";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
-} from "@/lib/api/request-guards";
-import { jsonError } from "@/lib/api/responses";
+} from "@/lib/server";
+import { jsonError } from "@/lib/api/http";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import {
   normalizeArticleHtmlSpacing,
   stripOrphanedRelatedBlocks,
-} from "@/lib/utils/sanitize";
+} from "@/lib/sanitize";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 

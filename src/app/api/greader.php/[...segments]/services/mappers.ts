@@ -1,6 +1,6 @@
-import { toReaderItemId } from "@/lib/core/reader-item-id";
+import { toReaderItemId } from "@/lib/core/stream-ids";
 import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
-import { normalizeArticleHtmlSpacing } from "@/lib/utils/sanitize";
+import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
 import { tryGetUrlHostname } from "@/lib/utils/url";
 import {
   FEED_STREAM_PREFIX,

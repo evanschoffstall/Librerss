@@ -1,8 +1,8 @@
 import {
   type AuthenticatedUser,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/request-guards";
-import { jsonError } from "@/lib/api/responses";
+} from "@/lib/server";
+import { jsonError } from "@/lib/api/http";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { NextRequest } from "next/server";
 

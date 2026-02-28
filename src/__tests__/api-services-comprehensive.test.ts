@@ -9,7 +9,7 @@ import {
   ArticleService,
   AuthService,
   FeedService,
-} from "@/lib/api/service";
+} from "@/lib/api/services";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Create a mock axios instance

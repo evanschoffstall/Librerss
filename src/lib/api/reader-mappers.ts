@@ -1,14 +1,12 @@
-/**
- * Types and helpers for the GReader-compatible stream API responses
- * consumed by ArticleService.
- */
+import {
+  parseReaderItemId,
+  READ_STATE,
+  STARRED_STATE,
+} from "@/lib/core/stream-ids";
+import type { Article } from "@/lib/core/types";
+import { sanitizeArticleHtml } from "@/lib/sanitize";
 
-import { parseReaderItemId } from "../core/reader-item-id";
-import { READ_STATE, STARRED_STATE } from "../core/stream-ids";
-import type { Article } from "../core/types";
-import { sanitizeArticleHtml } from "../utils/sanitize";
-
-// ── Wire types ────────────────────────────────────────────────────────────────
+// ── Reader API wire types ────────────────────────────────────────────────────
 
 type ReaderApiLink = { href?: string };
 type ReaderApiOrigin = { streamId?: string; title?: string; htmlUrl?: string };
@@ -29,8 +27,6 @@ export type ReaderApiItem = {
 export type ReaderApiStreamResponse = {
   items?: ReaderApiItem[];
 };
-
-// ── Parsing helpers ───────────────────────────────────────────────────────────
 
 export function parseReaderStreamItems(
   data: ReaderApiStreamResponse | undefined,

@@ -9,9 +9,12 @@ import {
   type CategoryTreeNode,
 } from "@/lib";
 import { toast } from "sonner";
-import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-feeds";
-import { collectKnownCategoryLabels } from "./category-labels";
-import { toCategoryKey } from "./category-tree";
+import {
+  collectKnownCategoryLabels,
+  findFeedNodeByUrl,
+  getFeedUrlBySelectedKey,
+  toCategoryKey,
+} from "./category-tree";
 
 function updateCategoryLabelCollections(
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>,

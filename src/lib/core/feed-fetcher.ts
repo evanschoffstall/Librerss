@@ -13,7 +13,7 @@ import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
 import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   type ArticleRow,

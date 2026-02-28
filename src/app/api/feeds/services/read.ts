@@ -5,7 +5,7 @@ import {
 } from "@/lib/core/placeholder";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { NextResponse } from "next/server";
 import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";

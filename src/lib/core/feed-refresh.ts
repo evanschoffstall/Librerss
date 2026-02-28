@@ -8,7 +8,7 @@ import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { articles, feeds } from "@/lib/db/schema";
 import { toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { eq, sql } from "drizzle-orm";
 import Parser from "rss-parser";
 import { fetchFeedXml } from "./feed-http";

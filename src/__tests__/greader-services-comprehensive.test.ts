@@ -159,7 +159,7 @@ describe("greader utils/mappers", () => {
 
 describe("api/request helpers", () => {
   test("parseJsonBody validates body size and malformed json", async () => {
-    const { parseJsonBody } = await import("@/lib/api/request");
+    const { parseJsonBody } = await import("@/lib/api/http");
 
     const oversizedByHeader = new Request("https://example.com", {
       method: "POST",
@@ -185,7 +185,7 @@ describe("api/request helpers", () => {
       getSearchParams,
       asTrimmedString,
       parseDateInput,
-    } = await import("@/lib/api/request");
+    } = await import("@/lib/api/http");
 
     const getRequest = new Request("https://example.com/path?x=1&y=2");
     const getParams = await parseFormOrQueryParams(getRequest);

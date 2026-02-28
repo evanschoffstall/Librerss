@@ -1,5 +1,5 @@
-import { parseFormOrQueryParams } from "@/lib/api/request";
-import { textResponse } from "@/lib/api/responses";
+import { parseFormOrQueryParams } from "@/lib/api/http";
+import { textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
@@ -10,7 +10,7 @@ import {
   replaceUserFeedCategory,
 } from "@/lib/db/feed-records";
 import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";

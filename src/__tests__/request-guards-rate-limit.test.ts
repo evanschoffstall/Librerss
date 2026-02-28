@@ -1,10 +1,10 @@
-import { rateLimiter } from "@/lib/utils/rate-limit";
+import { rateLimiter } from "@/lib/server";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 import {
   requireMutableAuthenticatedUser,
   requireMutableRequest,
-} from "../lib/api/request-guards";
+} from "@/lib/server";
 
 beforeEach(() => {
   mock.restore();

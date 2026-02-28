@@ -5,8 +5,8 @@ import {
   stripApJunkBlocks,
   stripEmbeddedMediaBlocks,
   stripOrphanedRelatedBlocks,
-} from "./sanitize-cleaners";
-import { ARTICLE_SANITIZE_OPTIONS } from "./sanitize-patterns";
+} from "./cleaners";
+import { ARTICLE_SANITIZE_OPTIONS } from "./patterns";
 
 /**
  * Converts HTML to plain text by stripping tags and normalizing whitespace.

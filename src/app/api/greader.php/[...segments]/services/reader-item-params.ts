@@ -1,4 +1,4 @@
-import { parseReaderItemId } from "@/lib/core/reader-item-id";
+import { parseReaderItemId } from "@/lib/core/stream-ids";
 
 export function parseDistinctReaderArticleIds(
   values: string[],

@@ -3,13 +3,13 @@ import {
   parseDateInput,
   parseJsonBodyOrResponse,
   parsePositiveInt,
-} from "@/lib/api/request";
+} from "@/lib/api/http";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
-} from "@/lib/api/request-guards";
-import { jsonError } from "@/lib/api/responses";
+} from "@/lib/server";
+import { jsonError } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-fetcher";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
@@ -20,7 +20,7 @@ import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
   stripOrphanedRelatedBlocks,
-} from "@/lib/utils/sanitize";
+} from "@/lib/sanitize";
 import { isValidUrl } from "@/lib/utils/url";
 import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";

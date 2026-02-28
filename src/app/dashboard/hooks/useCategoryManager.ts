@@ -12,13 +12,13 @@ import {
   type CategoryTreeNode,
 } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { hasCategoryLabelInTree } from "../services/category-labels";
 import {
   addCategoryLabel,
   moveCategoryByDropInOrder,
   removeCategoryAndRefresh,
   renameCategoryAndRefresh,
 } from "../services/category-operations";
+import { hasCategoryLabelInTree } from "../services/category-tree";
 import type { FeedFetchOptions } from "../services/selection";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 

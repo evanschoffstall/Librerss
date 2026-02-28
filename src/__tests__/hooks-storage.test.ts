@@ -1,7 +1,7 @@
-import { useDebugState } from "@/hooks/useDebugState";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useSessionState } from "@/hooks/useSessionState";
-import { useWebStorage } from "@/hooks/useWebStorage";
+import { useDebugState } from "@/lib/hooks/useDebugState";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { useSessionState } from "@/lib/hooks/useSessionState";
+import { useWebStorage } from "@/lib/hooks/useWebStorage";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 

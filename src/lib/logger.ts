@@ -3,7 +3,7 @@
  * Prevents sensitive data leakage and provides better debugging
  */
 
-import { CONFIG } from "../config";
+import { CONFIG } from "@/lib/config";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
 

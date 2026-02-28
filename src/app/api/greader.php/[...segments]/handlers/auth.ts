@@ -2,8 +2,8 @@ import {
   getSearchParams,
   parseFormOrQueryParams,
   parseJsonBody,
-} from "@/lib/api/request";
-import { textResponse } from "@/lib/api/responses";
+} from "@/lib/api/http";
+import { textResponse } from "@/lib/api/http";
 import {
   parseEmailPasswordFromRecord,
   parseEmailPasswordFromSearchParams,
@@ -17,7 +17,7 @@ import {
   type SessionUser,
 } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
-import { rateLimiter } from "@/lib/utils/rate-limit";
+import { rateLimiter } from "@/lib/server";
 import { NextRequest } from "next/server";
 import { GOOGLE_LOGIN_PREFIX } from "../constants";
 

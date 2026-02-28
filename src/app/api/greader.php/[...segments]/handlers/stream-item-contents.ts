@@ -1,4 +1,4 @@
-import { parseFormOrQueryParams } from "@/lib/api/request";
+import { parseFormOrQueryParams } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import { canUseArticleStatusesTable } from "@/lib/core/article-status";
 import { getDb } from "@/lib/db/db";
@@ -9,7 +9,7 @@ import {
   feedSources,
   feeds,
 } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_STREAM_ITEMS, READING_LIST_STREAM } from "../constants";

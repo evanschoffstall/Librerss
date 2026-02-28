@@ -22,9 +22,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { type Article, formatRelativeDate } from "@/lib";
-import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/utils/sanitize";
+import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 import {
   ArrowUpRight,
   CalendarDays,

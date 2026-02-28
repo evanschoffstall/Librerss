@@ -1,8 +1,10 @@
 /**
  * Pure helpers for building and mutating the category tree.
+ * Also covers feed-node lookup and category-label utilities.
  */
 
 import {
+  includesCategoryLabel,
   normalizeCategory,
   normalizeCategoryLabelKey,
   type CategoryTreeNode,
@@ -169,4 +171,75 @@ export function relocateFeedInCategories(
   });
 
   return nextCategories;
+}
+
+// ─── Feed-node lookup (merged from category-feeds.ts) ────────────────────────
+
+export function getAllFeedNodes(
+  categories: CategoryTreeNode[],
+): CategoryTreeNode[] {
+  return flattenCategoryFeeds(categories);
+}
+
+export function findFeedNodeByKey(
+  categories: CategoryTreeNode[],
+  key: string,
+): CategoryTreeNode | undefined {
+  return getAllFeedNodes(categories).find((node) => node.key === key);
+}
+
+export function findFeedNodeByUrl(
+  categories: CategoryTreeNode[],
+  url: string,
+): CategoryTreeNode | undefined {
+  return getAllFeedNodes(categories).find((node) => node.data?.url === url);
+}
+
+export function getFeedUrlBySelectedKey(
+  categories: CategoryTreeNode[],
+  selectedKey: string,
+): string | undefined {
+  return findFeedNodeByKey(categories, selectedKey)?.data?.url;
+}
+
+export function getFirstFeedNode(
+  categories: CategoryTreeNode[],
+): CategoryTreeNode | undefined {
+  return getAllFeedNodes(categories)[0];
+}
+
+// ─── Category-label utilities (merged from category-labels.ts) ───────────────
+
+export function collectKnownCategoryLabels(
+  categories: CategoryTreeNode[],
+  customCategoryLabels: string[],
+): string[] {
+  return [...categories.map((node) => node.label), ...customCategoryLabels];
+}
+
+export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const uniqueLabels: string[] = [];
+
+  for (const label of labels) {
+    const key = normalizeCategoryLabelKey(label);
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    uniqueLabels.push(label);
+  }
+
+  return uniqueLabels;
+}
+
+export function hasCategoryLabelInTree(
+  categories: CategoryTreeNode[],
+  label: string,
+): boolean {
+  return includesCategoryLabel(
+    categories.map((category) => category.label),
+    label,
+  );
 }

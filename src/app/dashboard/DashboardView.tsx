@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
@@ -31,7 +31,7 @@ import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
-import { formatLastRefreshLabel } from "./services/refresh-time";
+import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
 
 type DashboardViewProps = {
   usePlaceholderData: boolean;

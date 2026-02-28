@@ -2,7 +2,7 @@ import {
   parseNonNegativeInt,
   parsePositiveInt,
   parseUnixTimestampSeconds,
-} from "@/lib/api/request";
+} from "@/lib/api/http";
 import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,

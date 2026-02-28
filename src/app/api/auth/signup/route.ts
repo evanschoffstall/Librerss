@@ -1,9 +1,9 @@
-import { parseJsonBodyOrResponse } from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
+import { parseJsonBodyOrResponse } from "@/lib/api/http";
+import { jsonError } from "@/lib/api/http";
 import {
   logAndRespondError,
   requireMutableRequest,
-} from "@/lib/api/request-guards";
+} from "@/lib/server";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,
@@ -14,7 +14,7 @@ import { CONFIG } from "@/lib/config";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";

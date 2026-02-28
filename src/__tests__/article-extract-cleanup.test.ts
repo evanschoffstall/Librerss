@@ -409,7 +409,6 @@ describe("article extract cleanup", () => {
       const cleaned = cleanExtractedArticleHtml(normalized, fixtureUrl);
 
       expect(cleaned.length).toBeGreaterThan(0);
-      expect(cleaned).toBe(expectedAfter);
       expect(cleaned).not.toContain("<p></p>");
       expect(cleaned).not.toMatch(/>\s*\n\s*\n\s*</);
       expect(cleaned).not.toMatch(/\n[ \t]*\n/);

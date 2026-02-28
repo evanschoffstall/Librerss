@@ -20,7 +20,7 @@ import {
   toReaderIconUrl,
 } from "@/app/api/greader.php/[...segments]/services/mappers";
 import { parseDistinctReaderArticleIds } from "@/app/api/greader.php/[...segments]/services/reader-item-params";
-import { notFoundResponse, textResponse } from "@/lib/api/responses";
+import { notFoundResponse, textResponse } from "@/lib/api/http";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { parseUserLabel } from "@/lib/core/stream-ids";
 import { toCategoryLookupKey } from "@/lib/utils/url";

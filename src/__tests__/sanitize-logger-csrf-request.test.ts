@@ -10,18 +10,18 @@ import {
   parseFormOrQueryParams,
   parseJsonBody,
   parsePositiveInt,
-} from "@/lib/api/request";
-import { forbiddenResponse, jsonError } from "@/lib/api/responses";
+} from "@/lib/api/http";
+import { forbiddenResponse, jsonError } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { toError, toErrorMessage } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
+import { logger } from "@/lib/logger";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleHtml,
   sanitizeArticleTitle,
   stripOrphanedRelatedBlocks,
   toPlainText,
-} from "@/lib/utils/sanitize";
+} from "@/lib/sanitize";
 import { describe, expect, test } from "bun:test";
 
 // ─── sanitize.ts ──────────────────────────────────────────────────────────────

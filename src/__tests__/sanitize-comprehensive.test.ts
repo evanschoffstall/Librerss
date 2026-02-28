@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 describe("lib/utils/sanitize comprehensive", () => {
   test("toPlainText strips HTML tags and normalizes whitespace", async () => {
-    const { toPlainText } = await import("@/lib/utils/sanitize");
+    const { toPlainText } = await import("@/lib/sanitize");
 
     const html = "<p>Hello <strong>world</strong>!</p><p>Second paragraph.</p>";
     const result = toPlainText(html);
@@ -14,7 +14,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("toPlainText converts figure tags to newlines", async () => {
-    const { toPlainText } = await import("@/lib/utils/sanitize");
+    const { toPlainText } = await import("@/lib/sanitize");
 
     const html = "<p>Text</p><figure><img src='test.jpg'/></figure><p>More</p>";
     const result = toPlainText(html);
@@ -26,7 +26,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("toPlainText converts br tags to newlines", async () => {
-    const { toPlainText } = await import("@/lib/utils/sanitize");
+    const { toPlainText } = await import("@/lib/sanitize");
 
     const html = "Line 1<br>Line 2<br/>Line 3";
     const result = toPlainText(html);
@@ -38,7 +38,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("toPlainText handles HTML entities", async () => {
-    const { toPlainText } = await import("@/lib/utils/sanitize");
+    const { toPlainText } = await import("@/lib/sanitize");
 
     const html = "Hello&nbsp;world&amp;more";
     const result = toPlainText(html);
@@ -51,7 +51,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("toPlainText handles block-level elements with newlines", async () => {
-    const { toPlainText } = await import("@/lib/utils/sanitize");
+    const { toPlainText } = await import("@/lib/sanitize");
 
     const html =
       "<div>Content</div><section>Section</section><article>Article</article>";
@@ -64,7 +64,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("normalizeArticleHtmlSpacing removes blank paragraphs and tag-gap blank lines", async () => {
     const { normalizeArticleHtmlSpacing } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const input = "<p></p>\n\n<p>A</p>\n\n\n<p>B</p>\n\n<p>\u00a0</p>";
     const result = normalizeArticleHtmlSpacing(input);
@@ -74,7 +74,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("normalizeArticleHtmlSpacing removes formatting-only empty paragraphs", async () => {
     const { normalizeArticleHtmlSpacing } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const input =
       "<p>One</p>\n\n<p><strong> </strong></p>\n\n<p><em>\u00a0</em></p>\n\n<p>Two</p>";
@@ -84,7 +84,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("sanitizeArticleTitle strips HTML from titles", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
     const title = "Breaking: <script>alert(1)</script> News!";
     const result = sanitizeArticleTitle(title);
@@ -96,7 +96,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("sanitizeArticleTitle strips HTML", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
     const title = "Title <b>with</b> tags";
     const result = sanitizeArticleTitle(title);
@@ -108,7 +108,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("sanitizeArticleTitle decodes named entities", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
     const title = "Cartoon: Stocks &amp; Bondis";
     const result = sanitizeArticleTitle(title);
@@ -118,7 +118,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("sanitizeArticleTitle decodes numeric entities", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
     const title = "Cartoon &#38; Politics &#x26; Markets";
     const result = sanitizeArticleTitle(title);
@@ -127,7 +127,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("sanitizeArticleTitle strips unknown entities", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
     const title = "Headline &doesnotexist; update";
     const result = sanitizeArticleTitle(title);
@@ -137,7 +137,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("decodeHtmlEntities handles decimal/hex entities and overflow safely", async () => {
     const { __decodeHtmlEntitiesForTests } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     expect(__decodeHtmlEntitiesForTests("A &#65; B")).toBe("A A B");
     expect(__decodeHtmlEntitiesForTests("A &#x41; B")).toBe("A A B");
@@ -145,7 +145,7 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("sanitizeArticleTitle handles empty input with fallback", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
     // The function returns "Untitled" for empty strings
     expect(sanitizeArticleTitle("")).toBe("Untitled");
@@ -154,7 +154,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent removes dangerous tags", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       "<p>Safe content</p><script>alert('xss')</script><p>More content</p>";
@@ -168,7 +168,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent preserves safe tags", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       "<p>Paragraph</p><strong>Bold</strong><em>Italic</em><a href='http://example.com'>Link</a>";
@@ -182,7 +182,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent strips AP junk blocks", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<p>Article content</p><div class="hub-peek"><h2>Related Stories</h2><ul><li>Story 1</li></ul></div><p>More content</p>';
@@ -196,7 +196,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent handles related-stories class variations", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html = `
       <p>Content</p>
@@ -216,7 +216,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent removes orphaned related headings", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       "<p>Article</p><h2>More on this topic</h2><ul><li>Related</li></ul><p>More</p>";
@@ -230,7 +230,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent handles 'Related' heading variations", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const variations = [
       "<h2>Related articles</h2><ul><li>Link</li></ul>",
@@ -255,7 +255,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent enforces referrerpolicy on images", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<p><img src="http://example.com/image.jpg" alt="Test" width="800" height="600" /></p>';
@@ -267,7 +267,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent removes tiny placeholder images below minimum dimensions", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<img src="https://static.example.com/placeholder.png" width="150" height="84" alt="placeholder" /><p>Body content</p>';
@@ -279,7 +279,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent removes known placeholder image URLs without dimensions", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="placeholder" /><p>Body content</p>';
@@ -291,7 +291,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent handles long content truncation", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     // Create very long content
     const longContent =
@@ -304,7 +304,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent collapses excessive newlines", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html = "<p>Line 1</p>\n\n\n\n\n<p>Line 2</p>";
     const result = sanitizeAndTruncateArticleContent(html);
@@ -317,7 +317,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent keeps figure image and caption text", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       "<figure><img src='test.jpg' width='800' height='600'/><figcaption>Image caption</figcaption></figure><p>Text</p>";
@@ -330,7 +330,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent promotes lazy image attributes to src", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<figure><img data-src="/images/example.jpg" alt="Example" width="800" height="600" /></figure>';
@@ -342,7 +342,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent promotes data-original to src", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<img data-original="https://example.com/original.jpg" alt="Original" width="800" height="600" />';
@@ -353,7 +353,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent promotes data-lazy-src to src", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<img data-lazy-src="https://example.com/lazy.jpg" alt="Lazy" width="800" height="600" />';
@@ -364,7 +364,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent allows target=_blank on links", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html = '<a href="https://example.com" target="_blank">Link</a>';
     const result = sanitizeAndTruncateArticleContent(html);
@@ -374,7 +374,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent blocks javascript: URLs", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html = '<a href="javascript:alert(1)">Bad Link</a>';
     const result = sanitizeAndTruncateArticleContent(html);
@@ -384,7 +384,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent blocks data: URLs", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html = '<a href="data:text/html,<script>alert(1)</script>">Bad</a>';
     const result = sanitizeAndTruncateArticleContent(html);
@@ -394,7 +394,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent allows http and https in href", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       '<a href="https://example.com">HTTPS</a><a href="http://example.com">HTTP</a>';
@@ -406,7 +406,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent preserves pre and code tags", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html =
       "<pre><code>const x = 42;\nconsole.log(x);</code></pre><p>Text</p>";
@@ -419,7 +419,7 @@ describe("lib/utils/sanitize comprehensive", () => {
 
   test("sanitizeAndTruncateArticleContent handles blockquote", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
 
     const html = "<blockquote>Quoted text here</blockquote><p>More text</p>";
     const result = sanitizeAndTruncateArticleContent(html);

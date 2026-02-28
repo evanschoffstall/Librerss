@@ -3,8 +3,8 @@ import {
   asTrimmedString,
   parseJsonBodyOrResponse,
   parsePositiveInt,
-} from "@/lib/api/request";
-import { jsonError } from "@/lib/api/responses";
+} from "@/lib/api/http";
+import { jsonError } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
   isAllowedFeedUrl,

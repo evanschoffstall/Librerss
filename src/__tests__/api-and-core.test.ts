@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 describe("lib/api/reader-api", () => {
   test("parseReaderStreamItems extracts items array from response", async () => {
-    const { parseReaderStreamItems } = await import("@/lib/api/reader-api");
+    const { parseReaderStreamItems } = await import("@/lib/api/services");
 
     const response = {
       items: [
@@ -17,21 +17,21 @@ describe("lib/api/reader-api", () => {
   });
 
   test("parseReaderStreamItems returns empty array for undefined response", async () => {
-    const { parseReaderStreamItems } = await import("@/lib/api/reader-api");
+    const { parseReaderStreamItems } = await import("@/lib/api/services");
 
     const result = parseReaderStreamItems(undefined);
     expect(result).toEqual([]);
   });
 
   test("parseReaderStreamItems returns empty array when items is not array", async () => {
-    const { parseReaderStreamItems } = await import("@/lib/api/reader-api");
+    const { parseReaderStreamItems } = await import("@/lib/api/services");
 
     const result = parseReaderStreamItems({ items: "not-an-array" } as any);
     expect(result).toEqual([]);
   });
 
   test("readerItemToArticle converts reader item to article format", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       id: "tag:google.com,2005:reader/item/abc123",
@@ -59,7 +59,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle uses alternate link when canonical is missing", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       alternate: [{ href: "https://example.com/alt" }],
@@ -70,7 +70,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle uses fallback link when both canonical and alternate missing", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {};
 
@@ -79,7 +79,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle uses updated timestamp when published is missing", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       updated: 1650000000,
@@ -90,7 +90,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle detects starred state from categories", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       categories: ["user/-/state/com.google/starred"],
@@ -102,7 +102,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle extracts feed URL from streamId", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       origin: {
@@ -115,7 +115,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle handles missing origin gracefully", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       title: "No Origin",
@@ -127,7 +127,7 @@ describe("lib/api/reader-api", () => {
   });
 
   test("readerItemToArticle sanitizes tiny placeholder images from summary content", async () => {
-    const { readerItemToArticle } = await import("@/lib/api/reader-api");
+    const { readerItemToArticle } = await import("@/lib/api/services");
 
     const item = {
       title: "Placeholder",

@@ -1,8 +1,7 @@
 import { type Article, type CategoryTreeNode } from "@/lib";
 import { filterArticlesByState, type ArticleFilter } from "./article-filters";
 import { buildDisplayCategories } from "./category-display";
-import { findFeedNodeByKey } from "./category-feeds";
-import { SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
+import { findFeedNodeByKey, SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
 
 type DashboardViewModelInput = {
   feed: Article[];

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 describe("core/reader-item-id", () => {
   test("encodes and decodes hex/decimal reader ids", async () => {
     const { toReaderItemId, parseReaderItemId } =
-      await import("@/lib/core/reader-item-id");
+      await import("@/lib/core/stream-ids");
 
     const encoded = toReaderItemId(255);
     expect(encoded.endsWith("ff")).toBe(true);
@@ -74,7 +74,7 @@ describe("core/feed-parser", () => {
 describe("db helpers and transactions", () => {
   test("sanitizes db error messages and classifies SQL codes", async () => {
     const { sanitizeDbError, isUniqueConstraintError, isForeignKeyError } =
-      await import("@/lib/db/db-errors");
+      await import("@/lib/db/db");
 
     const sanitized = sanitizeDbError(
       new Error("connect failed password=supersecret"),
@@ -86,7 +86,7 @@ describe("db helpers and transactions", () => {
   });
 
   test("withTransaction returns operation value and propagates errors", async () => {
-    const { withTransaction } = await import("@/lib/db/transactions");
+    const { withTransaction } = await import("@/lib/db/db");
     const value = await withTransaction(async () => "ok");
     expect(value).toBe("ok");
     await expect(
@@ -120,7 +120,7 @@ describe("core/runtime and utils/rate-limit", () => {
   });
 
   test("rate limiter enforces limits and supports trusted proxy extraction", async () => {
-    const { RateLimiter } = await import("@/lib/utils/rate-limit");
+    const { RateLimiter } = await import("@/lib/server");
     const limiter = new RateLimiter();
 
     try {

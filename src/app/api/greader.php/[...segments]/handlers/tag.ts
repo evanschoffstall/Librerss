@@ -1,5 +1,5 @@
-import { parseFormOrQueryParams } from "@/lib/api/request";
-import { textResponse } from "@/lib/api/responses";
+import { parseFormOrQueryParams } from "@/lib/api/http";
+import { textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import {
   canUseArticleStatusesTable,

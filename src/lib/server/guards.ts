@@ -1,11 +1,11 @@
+import { jsonError } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
+import { logger } from "@/lib/logger";
 import { toError } from "@/lib/utils/errors";
-import { logger } from "@/lib/utils/logger";
-import { rateLimiter } from "@/lib/utils/rate-limit";
 import { NextRequest } from "next/server";
-import { jsonError } from "./responses";
+import { rateLimiter } from "./rate-limit";
 
 export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>

@@ -1,4 +1,4 @@
-import { forbiddenResponse } from "@/lib/api/responses";
+import { forbiddenResponse } from "@/lib/api/http";
 import type { NextResponse } from "next/server";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

@@ -1,94 +1,40 @@
 // API service classes for LibreRSS
 
-import axios from "axios";
-import type { Article, AuthSession, AuthUser, FeedSource } from "../core/types";
-import { normalizeDistinctUrlList } from "../utils/url";
-import {
-  parseReaderStreamItems,
-  readerItemToArticle,
-  type ReaderApiStreamResponse,
-} from "./reader-api";
+import type {
+  Article,
+  AuthSession,
+  AuthUser,
+  FeedSource,
+} from "@/lib/core/types";
+import { normalizeDistinctUrlList } from "@/lib/utils/url";
 import {
   ensureArrayResponse,
   normalizeBatchItem,
   type BatchFeedResponseItem,
-} from "./response-normalizers";
+} from "./http";
+import {
+  createLinkedAbortController,
+  getApiClient,
+  REQUEST_TIMEOUT_MS,
+  withRequestDeadline,
+} from "./http-client";
+import {
+  parseReaderStreamItems,
+  readerItemToArticle,
+  type ReaderApiStreamResponse,
+} from "./reader-mappers";
 
-// ── HTTP infrastructure ───────────────────────────────────────────────────────
-
-const REQUEST_TIMEOUT_MS = 15_000;
-
-// No global timeout on the axios instance — individual calls use
-// withRequestDeadline() which provides a hard Promise.race-based deadline.
-// Having both would create a confusing double-timeout with unclear error
-// attribution.
-type ApiClient = Pick<
-  ReturnType<typeof axios.create>,
-  "get" | "post" | "put" | "patch" | "delete"
->;
-
-let api: ApiClient = axios.create();
-
-export function __setApiClientForTesting(client: ApiClient): void {
-  api = client;
-}
-
-export function __resetApiClientForTesting(): void {
-  api = axios.create();
-}
-
-async function withRequestDeadline<T>(
-  request: Promise<T>,
-  timeoutMs = REQUEST_TIMEOUT_MS,
-  onTimeout?: () => void,
-): Promise<T> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => {
-      onTimeout?.();
-      reject(new Error("Request timeout"));
-    }, timeoutMs);
-  });
-
-  try {
-    return await Promise.race([request, timeoutPromise]);
-  } finally {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-  }
-}
-
-function createLinkedAbortController(signal?: AbortSignal): {
-  controller: AbortController;
-  dispose: () => void;
-} {
-  const controller = new AbortController();
-
-  if (!signal) {
-    return {
-      controller,
-      dispose: () => {},
-    };
-  }
-
-  if (signal.aborted) {
-    controller.abort();
-    return {
-      controller,
-      dispose: () => {},
-    };
-  }
-
-  const handleAbort = () => controller.abort();
-  signal.addEventListener("abort", handleAbort, { once: true });
-
-  return {
-    controller,
-    dispose: () => {
-      signal.removeEventListener("abort", handleAbort);
-    },
-  };
-}
+// Re-export for backwards compatibility
+export {
+  __resetApiClientForTesting,
+  __setApiClientForTesting,
+} from "./http-client";
+export {
+  parseReaderStreamItems,
+  readerItemToArticle,
+  type ReaderApiItem,
+  type ReaderApiStreamResponse,
+} from "./reader-mappers";
 
 // ── AuthService ───────────────────────────────────────────────────────────────
 
@@ -96,12 +42,12 @@ export class AuthService {
   private static baseUrl = "/api/auth";
 
   static async getSession(): Promise<AuthSession> {
-    const response = await api.get(`${this.baseUrl}/session`);
+    const response = await getApiClient().get(`${this.baseUrl}/session`);
     return response.data;
   }
 
   static async login(email: string, password: string): Promise<AuthUser> {
-    const response = await api.post(`${this.baseUrl}/login`, {
+    const response = await getApiClient().post(`${this.baseUrl}/login`, {
       email,
       password,
     });
@@ -109,7 +55,7 @@ export class AuthService {
   }
 
   static async signup(email: string, password: string): Promise<AuthUser> {
-    const response = await api.post(`${this.baseUrl}/signup`, {
+    const response = await getApiClient().post(`${this.baseUrl}/signup`, {
       email,
       password,
     });
@@ -117,7 +63,7 @@ export class AuthService {
   }
 
   static async logout(): Promise<void> {
-    await api.post(`${this.baseUrl}/logout`);
+    await getApiClient().post(`${this.baseUrl}/logout`);
   }
 }
 
@@ -128,14 +74,16 @@ export class FeedService {
 
   static async getFeed(url: string): Promise<Article[]> {
     const response = await withRequestDeadline(
-      api.get(`${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`),
+      getApiClient().get(
+        `${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`,
+      ),
     );
     return ensureArrayResponse<Article>(response.data);
   }
 
   static async getFeedSources(): Promise<FeedSource[]> {
     const response = await withRequestDeadline(
-      api.get(`${this.baseUrl}/feeds`),
+      getApiClient().get(`${this.baseUrl}/feeds`),
     );
     return ensureArrayResponse<FeedSource>(response.data);
   }
@@ -161,7 +109,7 @@ export class FeedService {
 
     try {
       const response = await withRequestDeadline(
-        api.post(
+        getApiClient().post(
           `${this.baseUrl}/feeds/batch`,
           { urls: normalizedUrls, skipRefresh, forceRefresh, requestSource },
           { signal: controller.signal },
@@ -180,12 +128,14 @@ export class FeedService {
   static async createFeedSource(
     source: Pick<FeedSource, "name" | "url"> & { category?: string },
   ): Promise<FeedSource> {
-    const response = await api.post(`${this.baseUrl}/feeds`, source);
+    const response = await getApiClient().post(`${this.baseUrl}/feeds`, source);
     return response.data;
   }
 
   static async deleteFeedSource(id: number): Promise<FeedSource> {
-    const response = await api.delete(`${this.baseUrl}/feeds?id=${id}`);
+    const response = await getApiClient().delete(
+      `${this.baseUrl}/feeds?id=${id}`,
+    );
     return response.data;
   }
 
@@ -194,7 +144,7 @@ export class FeedService {
     name: string,
     url?: string,
   ): Promise<FeedSource> {
-    const response = await api.patch(`${this.baseUrl}/feeds`, {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
       id,
       name,
       url,
@@ -206,7 +156,7 @@ export class FeedService {
     id: number,
     enabled: boolean,
   ): Promise<FeedSource> {
-    const response = await api.patch(`${this.baseUrl}/feeds`, {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
       id,
       enabled,
     });
@@ -214,14 +164,18 @@ export class FeedService {
   }
 
   static async getCategoryOrder(): Promise<string[]> {
-    const response = await api.get(`${this.baseUrl}/feeds/category-order`);
+    const response = await getApiClient().get(
+      `${this.baseUrl}/feeds/category-order`,
+    );
     return Array.isArray(response.data?.orderedLabels)
       ? response.data.orderedLabels
       : [];
   }
 
   static async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
-    await api.put(`${this.baseUrl}/feeds/category-order`, { orderedLabels });
+    await getApiClient().put(`${this.baseUrl}/feeds/category-order`, {
+      orderedLabels,
+    });
   }
 }
 
@@ -236,21 +190,24 @@ export class ArticleService {
   }
 
   static async getArticles(): Promise<Article[]> {
-    const response = await api.get(`${this.baseUrl}/articles`);
+    const response = await getApiClient().get(`${this.baseUrl}/articles`);
     return response.data;
   }
 
   static async extractArticleContent(url: string): Promise<string> {
-    const response = await api.post(`${this.baseUrl}/articles/extract`, {
-      url,
-    });
+    const response = await getApiClient().post(
+      `${this.baseUrl}/articles/extract`,
+      {
+        url,
+      },
+    );
     return typeof response.data?.content === "string"
       ? response.data.content
       : "";
   }
 
   static async getReaderStream(streamId: string): Promise<Article[]> {
-    const response = await api.get<ReaderApiStreamResponse>(
+    const response = await getApiClient().get<ReaderApiStreamResponse>(
       this.streamContentsUrl(streamId),
     );
     const items = parseReaderStreamItems(response.data);
@@ -258,14 +215,16 @@ export class ArticleService {
   }
 
   static async markAllRead(streamId: string): Promise<void> {
-    await api.post(`${this.baseUrl}/articles/mark-all-read`, { streamId });
+    await getApiClient().post(`${this.baseUrl}/articles/mark-all-read`, {
+      streamId,
+    });
   }
 
   static async updateArticleStatus(
     articleId: number,
     updates: { isRead?: boolean; isStarred?: boolean },
   ): Promise<void> {
-    await api.post(`${this.baseUrl}/articles/status`, {
+    await getApiClient().post(`${this.baseUrl}/articles/status`, {
       articleId,
       ...updates,
     });

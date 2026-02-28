@@ -165,7 +165,7 @@ describe("isBlockedResolvedAddress", () => {
 
 describe("sanitizeArticleTitle", () => {
   test("strips script tags completely", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
     const result = sanitizeArticleTitle("<script>alert(1)</script>Title");
     expect(result).not.toContain("<script>");
     expect(result).not.toContain("alert");
@@ -173,13 +173,13 @@ describe("sanitizeArticleTitle", () => {
   });
 
   test("strips all HTML tags from a title", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
     const result = sanitizeArticleTitle("<b>Bold</b> <em>title</em>");
     expect(result).toBe("Bold title");
   });
 
   test("returns Untitled for empty input", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
     expect(sanitizeArticleTitle("")).toBe("Untitled");
     expect(sanitizeArticleTitle("   ")).toBe("Untitled");
     expect(sanitizeArticleTitle(null)).toBe("Untitled");
@@ -187,7 +187,7 @@ describe("sanitizeArticleTitle", () => {
   });
 
   test("truncates overlong titles", async () => {
-    const { sanitizeArticleTitle } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleTitle } = await import("@/lib/sanitize");
     const { CONFIG } = await import("@/lib/config");
     const long = "a".repeat(CONFIG.MAX_ARTICLE_TITLE_LENGTH + 50);
     const result = sanitizeArticleTitle(long);
@@ -199,7 +199,7 @@ describe("sanitizeArticleTitle", () => {
 
 describe("sanitizeArticleHtml – XSS vectors", () => {
   test("strips <script> tags", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const xss = '<p>Hello</p><script>alert("xss")</script>';
     const result = sanitizeArticleHtml(xss);
     expect(result).not.toContain("<script>");
@@ -207,7 +207,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("strips onerror event handlers", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     // Use a content-sized image so it survives the minimum-size filter.
     // The key assertion is that onerror is stripped regardless.
     const xss =
@@ -218,7 +218,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("preserves safe images", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const html =
       '<img src="https://example.com/image.jpg" alt="Example" width="800" height="600">';
     const result = sanitizeArticleHtml(html);
@@ -229,7 +229,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("preserves bullet lists", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const html = "<ul><li>First</li><li>Second</li></ul>";
     const result = sanitizeArticleHtml(html);
     expect(result).toContain("<ul>");
@@ -238,7 +238,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("strips javascript: href links", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const xss = '<a href="javascript:alert(1)">click</a>';
     const result = sanitizeArticleHtml(xss);
     // The link should be stripped or the href should not contain javascript:
@@ -246,14 +246,14 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("strips data: URI links", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const xss = '<a href="data:text/html,<script>alert(1)</script>">x</a>';
     const result = sanitizeArticleHtml(xss);
     expect(result).not.toContain("data:");
   });
 
   test("preserves safe <a> tags with rel and target attributes added", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const safe = '<a href="https://example.com">Click</a>';
     const result = sanitizeArticleHtml(safe);
     expect(result).toContain('href="https://example.com"');
@@ -262,21 +262,21 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("strips <iframe> tags", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const xss = '<iframe src="https://evil.com/pwned"></iframe>';
     const result = sanitizeArticleHtml(xss);
     expect(result).not.toContain("<iframe");
   });
 
   test("strips <style> tags", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const css = "<style>body { display: none }</style><p>Content</p>";
     const result = sanitizeArticleHtml(css);
     expect(result).not.toContain("<style>");
   });
 
   test("collapses excessive CRLF and whitespace-only blank lines", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const html = "<p>First</p>\r\n\r\n  \r\n\r\n\r\n<p>Second</p>";
     const result = sanitizeArticleHtml(html);
 
@@ -284,7 +284,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("collapses excessive nbsp-only blank paragraphs", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const html =
       "<p>First</p><p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p><p>Second</p>";
     const result = sanitizeArticleHtml(html);
@@ -293,7 +293,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
   });
 
   test("collapses excessive br-only blank paragraphs", async () => {
-    const { sanitizeArticleHtml } = await import("@/lib/utils/sanitize");
+    const { sanitizeArticleHtml } = await import("@/lib/sanitize");
     const html =
       "<p>First</p><p><br></p><p><br /></p><p><br></p><p><br></p><p>Second</p>";
     const result = sanitizeArticleHtml(html);
@@ -305,7 +305,7 @@ describe("sanitizeArticleHtml – XSS vectors", () => {
 describe("sanitizeAndTruncateArticleContent", () => {
   test("enforces MAX_ARTICLE_CONTENT_LENGTH", async () => {
     const { sanitizeAndTruncateArticleContent } =
-      await import("@/lib/utils/sanitize");
+      await import("@/lib/sanitize");
     const { CONFIG } = await import("@/lib/config");
     // Wrap content in <p> tags so the sanitizer doesn't strip it.
     const longContent =
@@ -507,7 +507,7 @@ describe("requireSameOrigin", () => {
 
 describe("parseJsonBody", () => {
   test("returns 413 when content-length exceeds configured max", async () => {
-    const { parseJsonBody } = await import("@/lib/api/request");
+    const { parseJsonBody } = await import("@/lib/api/http");
     const req = new Request("https://app.example.test/api/feeds", {
       method: "POST",
       headers: {
@@ -527,7 +527,7 @@ describe("parseJsonBody", () => {
   });
 
   test("returns 413 when UTF-8 body bytes exceed max", async () => {
-    const { parseJsonBody } = await import("@/lib/api/request");
+    const { parseJsonBody } = await import("@/lib/api/http");
     const payload = JSON.stringify({ data: "x".repeat(2048) });
     const req = new Request("https://app.example.test/api/feeds", {
       method: "POST",
@@ -549,7 +549,7 @@ describe("parseJsonBody", () => {
 
 describe("parseFormOrQueryParams", () => {
   test("returns 413 when content-length exceeds configured max", async () => {
-    const { parseFormOrQueryParams } = await import("@/lib/api/request");
+    const { parseFormOrQueryParams } = await import("@/lib/api/http");
     const request = new Request("https://app.example.test/api/greader.php", {
       method: "POST",
       headers: {
@@ -567,7 +567,7 @@ describe("parseFormOrQueryParams", () => {
   });
 
   test("returns 413 when UTF-8 body bytes exceed max", async () => {
-    const { parseFormOrQueryParams } = await import("@/lib/api/request");
+    const { parseFormOrQueryParams } = await import("@/lib/api/http");
     const body = `q=${"x".repeat(2048)}`;
     const request = new Request("https://app.example.test/api/greader.php", {
       method: "POST",
@@ -680,7 +680,7 @@ describe("logger redaction", () => {
     };
 
     try {
-      const { logger } = await import("@/lib/utils/logger");
+      const { logger } = await import("@/lib/logger");
       logger.info("security-log", {
         token: "secret-token",
         nested: { authorization: "Bearer abc", email: "admin@example.test" },
@@ -734,7 +734,7 @@ describe("RateLimiter trusted proxy extraction", () => {
     const previous = process.env.TRUSTED_PROXY_COUNT;
     process.env.TRUSTED_PROXY_COUNT = "1";
 
-    const { RateLimiter } = await import("@/lib/utils/rate-limit");
+    const { RateLimiter } = await import("@/lib/server");
     const limiter = new RateLimiter();
 
     try {

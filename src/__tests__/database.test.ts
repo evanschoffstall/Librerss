@@ -44,14 +44,14 @@ describe("schema", () => {
 
 describe("db-helpers", () => {
   test("sanitizeDbError removes sensitive info", async () => {
-    const { sanitizeDbError } = await import("@/lib/db/db-errors");
+    const { sanitizeDbError } = await import("@/lib/db/db");
     const error = new Error("connection failed: password=secret123");
     const sanitized = sanitizeDbError(error);
     expect(sanitized.message).not.toContain("secret123");
   });
 
   test("isUniqueConstraintError detects unique violations", async () => {
-    const { isUniqueConstraintError } = await import("@/lib/db/db-errors");
+    const { isUniqueConstraintError } = await import("@/lib/db/db");
     const uniqueError = { code: "23505" } as any;
     const otherError = { code: "23503" } as any;
 
@@ -60,7 +60,7 @@ describe("db-helpers", () => {
   });
 
   test("isForeignKeyError detects foreign key violations", async () => {
-    const { isForeignKeyError } = await import("@/lib/db/db-errors");
+    const { isForeignKeyError } = await import("@/lib/db/db");
     const fkError = { code: "23503" } as any;
     const otherError = { code: "23505" } as any;
 
@@ -73,13 +73,13 @@ describe("db-helpers", () => {
 
 describe("transactions", () => {
   test("withTransaction wraps operations", async () => {
-    const { withTransaction } = await import("@/lib/db/transactions");
+    const { withTransaction } = await import("@/lib/db/db");
     const value = await withTransaction(async () => "ok");
     expect(value).toBe("ok");
   });
 
   test("withTransaction handles errors", async () => {
-    const { withTransaction } = await import("@/lib/db/transactions");
+    const { withTransaction } = await import("@/lib/db/db");
 
     const operation = async () => {
       throw new Error("Test error");

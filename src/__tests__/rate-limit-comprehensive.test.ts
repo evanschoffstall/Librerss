@@ -1,4 +1,4 @@
-import { RateLimiter } from "@/lib/utils/rate-limit";
+import { RateLimiter } from "@/lib/server";
 import { describe, expect, test } from "bun:test";
 
 describe("RateLimiter", () => {
