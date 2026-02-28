@@ -7,9 +7,7 @@
 
 import {
   FeedService,
-  includesCategoryLabel,
-  type Article,
-  type CategoryTreeNode,
+  includesCategoryLabel
 } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -19,22 +17,10 @@ import {
   renameCategoryAndRefresh,
 } from "../services/category-operations";
 import { hasCategoryLabelInTree } from "../services/category-tree";
-import type { FeedFetchOptions } from "../services/selection";
+import type { FeedSourceActionState } from "./feedSourceActionTypes";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
-interface UseCategoryManagerOptions {
-  categories: CategoryTreeNode[];
-  selectedCategory: string;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+interface UseCategoryManagerOptions extends FeedSourceActionState {
   usePlaceholderData?: boolean;
 }
 

@@ -9,9 +9,7 @@ export type FeedFetchOptions = {
   keepExistingFeed?: boolean;
 };
 
-type InitializeDashboardSelectionOptions = {
-  selectedCategory: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+export type FeedSelectionFetchers = {
   fetchAllFeeds: (
     categories?: CategoryTreeNode[],
     options?: FeedFetchOptions,
@@ -21,6 +19,11 @@ type InitializeDashboardSelectionOptions = {
     category: CategoryTreeNode,
     options?: FeedFetchOptions,
   ) => Promise<void>;
+};
+
+type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
+  selectedCategory: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
   setSelectedCategory: (value: string) => void;
   setIsCategoriesLoading: (value: boolean) => void;
 };
@@ -71,19 +74,10 @@ export async function initializeDashboardSelection(
   await fetchAllFeeds(loadedCategories, initialFetchOptions);
 }
 
-type RefreshCurrentSelectionOptions = {
+type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   selectedCategory: string;
   selectedFeedUrl?: string;
   selectedCategoryNode?: CategoryTreeNode;
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  fetchCategoryFeeds: (
-    category: CategoryTreeNode,
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
   fallbackFeedUrl?: string;
   forceRefresh?: boolean;
   requestSource?: string;

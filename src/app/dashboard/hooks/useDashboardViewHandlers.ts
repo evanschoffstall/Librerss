@@ -4,25 +4,16 @@ import { type CategoryTreeNode } from "@/lib";
 import { useCallback } from "react";
 import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
-  type FeedFetchOptions,
+  type FeedSelectionFetchers,
   refreshCurrentSelection,
 } from "../services/selection";
 
-type UseDashboardViewHandlersOptions = {
+type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   selectedCategory: string;
   selectedFeedUrl?: string;
   selectedCategoryNode?: CategoryTreeNode;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  fetchCategoryFeeds: (
-    categoryNode: CategoryTreeNode,
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
 };
 
 export function useDashboardViewHandlers({
