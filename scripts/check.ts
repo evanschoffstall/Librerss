@@ -1,41 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
+import { availableParallelism, cpus } from "node:os";
 import { join } from "node:path";
 
 const LINE_COVERAGE_THRESHOLD = 80;
 const TEST_TIMEOUT_MS = 5_000;
-const DEFAULT_TEST_COMMAND_TIMEOUT_MS = 180_000;
-
-function parsePositiveIntEnv(
-  value: string | undefined,
-  fallback: number,
-): number {
-  if (!value) return fallback;
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-const TEST_COMMAND_TIMEOUT_MS = parsePositiveIntEnv(
-  process.env.CHECK_TEST_COMMAND_TIMEOUT_MS,
-  DEFAULT_TEST_COMMAND_TIMEOUT_MS,
+const TEST_COMMAND_TIMEOUT_MS = Number.parseInt(
+  process.env.CHECK_TEST_COMMAND_TIMEOUT_MS ?? "180000",
+  10,
 );
-
-function stripAnsiEscapeSequences(value: string): string {
-  let result = value;
-
-  for (;;) {
-    const start = result.indexOf("\u001B[");
-    if (start < 0) return result;
-
-    const remainder = result.slice(start + 2);
-    const match = remainder.match(/^[0-9;]*m/);
-    if (!match) return result;
-
-    result = result.slice(0, start) + remainder.slice(match[0].length);
-  }
-}
-
-// This should always be empty-- no exceptions.
 const COVERAGE_EXCLUDED_FILES: string[] = [];
 
 type TestResult = {
@@ -45,80 +17,7 @@ type TestResult = {
   name: string;
   message?: string;
 };
-type Summary = {
-  passedCount: number;
-  failedCount: number;
-  skippedCount: number;
-  failedTests: TestResult[];
-  skippedTests: TestResult[];
-  exitCode: number;
-};
-type Coverage = {
-  coveredLines: number;
-  foundLines: number;
-  lineCoverage: number;
-  exitCode: number;
-};
-type StaticAnalysis = {
-  tscPassing: boolean;
-  eslintPassing: boolean;
-  tscExitCode: number;
-  eslintExitCode: number;
-  exitCode: number;
-};
-type RedundancyChecks = {
-  jscpdPassing: boolean;
-  knipPassing: boolean;
-  tsPrunePassing: boolean;
-  jscpdExitCode: number;
-  knipExitCode: number;
-  tsPruneExitCode: number;
-  exitCode: number;
-};
-type ArchitectureChecks = {
-  depCruisePassing: boolean;
-  madgePassing: boolean;
-  typeCoveragePassing: boolean;
-  depCruiseExitCode: number;
-  madgeExitCode: number;
-  typeCoverageExitCode: number;
-  exitCode: number;
-};
-type AssuranceChecks = {
-  stylelintPassing: boolean;
-  tsdPassing: boolean;
-  secretlintPassing: boolean;
-  stylelintExitCode: number;
-  tsdExitCode: number;
-  secretlintExitCode: number;
-  exitCode: number;
-};
-type AdvisoryChecks = {
-  prettierCheckExitCode: number;
-  semgrepExitCode: number;
-  gitleaksExitCode: number;
-  auditCiExitCode: number;
-  osvAuditExitCode: number;
-};
 type Command = { exitCode: number; timedOut: boolean; output: string };
-type SummaryDetails = {
-  tsc: string;
-  eslint: string;
-  jscpd: string;
-  knip: string;
-  tsPrune: string;
-  depCruise: string;
-  madge: string;
-  typeCoverage: string;
-  stylelint: string;
-  tsd: string;
-  secretlint: string;
-  prettier: string;
-  semgrep: string;
-  gitleaks: string;
-  auditCi: string;
-  osvAudit: string;
-};
 
 const ANSI = {
   reset: "\x1b[0m",
@@ -128,15 +27,31 @@ const ANSI = {
   cyan: "\x1b[36m",
   gray: "\x1b[90m",
 } as const;
+
 const paint = (text: string, ...codes: string[]) =>
   `${codes.join("")}${text}${ANSI.reset}`;
-const divider = () => paint("────────────────────────────────", ANSI.gray);
 const passFail = (ok: boolean) =>
   paint(ok ? "PASS" : "FAIL", ANSI.bold, ok ? ANSI.green : ANSI.red);
 const row = (label: string, ok: boolean, details = "") =>
   `${passFail(ok)} ${paint(label.padEnd(13), ANSI.bold)} ${details}`;
-const pct = (covered: number, found: number) =>
-  found ? (covered / found) * 100 : 100;
+const divider = () => paint("────────────────────────────────", ANSI.gray);
+const stripAnsi = (v: string): string => {
+  let r = v;
+  for (;;) {
+    const s = r.indexOf("\u001B[");
+    if (s < 0) return r;
+    const rem = r.slice(s + 2);
+    const m = rem.match(/^[0-9;]*m/);
+    if (!m) return r;
+    r = r.slice(0, s) + rem.slice(m[0].length);
+  }
+};
+const norm = (v: string) => stripAnsi(v).replace(/\r/g, "").trim();
+const lines = (v: string) =>
+  norm(v)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 const attrs = (raw: string) =>
   Object.fromEntries(
     Array.from(raw.matchAll(/(\w+)="([^"]*)"/g)).flatMap((m) =>
@@ -151,272 +66,43 @@ const toTest = (a: Record<string, string>): TestResult => ({
 });
 const where = ({ file, line, suite, name }: TestResult) =>
   `${file ?? "unknown-file"}${line ? `:${line}` : ""} - ${suite ? `${suite} > ` : ""}${name}`;
-const staticSummary = (
-  tscExit: number,
-  eslintExit: number,
-): StaticAnalysis => ({
-  tscPassing: tscExit === 0,
-  eslintPassing: eslintExit === 0,
-  tscExitCode: tscExit,
-  eslintExitCode: eslintExit,
-  exitCode: tscExit === 0 && eslintExit === 0 ? 0 : 1,
-});
-const redundancySummary = (
-  jscpdExit: number,
-  knipExit: number,
-  tsPruneExit: number,
-): RedundancyChecks => ({
-  jscpdPassing: jscpdExit === 0,
-  knipPassing: knipExit === 0,
-  tsPrunePassing: tsPruneExit === 0,
-  jscpdExitCode: jscpdExit,
-  knipExitCode: knipExit,
-  tsPruneExitCode: tsPruneExit,
-  exitCode: jscpdExit === 0 && knipExit === 0 && tsPruneExit === 0 ? 0 : 1,
-});
-const architectureSummary = (
-  depCruiseExit: number,
-  madgeExit: number,
-  typeCoverageExit: number,
-): ArchitectureChecks => ({
-  depCruisePassing: depCruiseExit === 0,
-  madgePassing: madgeExit === 0,
-  typeCoveragePassing: typeCoverageExit === 0,
-  depCruiseExitCode: depCruiseExit,
-  madgeExitCode: madgeExit,
-  typeCoverageExitCode: typeCoverageExit,
-  exitCode:
-    depCruiseExit === 0 && madgeExit === 0 && typeCoverageExit === 0 ? 0 : 1,
-});
-const assuranceSummary = (
-  stylelintExit: number,
-  tsdExit: number,
-  secretlintExit: number,
-): AssuranceChecks => ({
-  stylelintPassing: stylelintExit === 0,
-  tsdPassing: tsdExit === 0,
-  secretlintPassing: secretlintExit === 0,
-  stylelintExitCode: stylelintExit,
-  tsdExitCode: tsdExit,
-  secretlintExitCode: secretlintExit,
-  exitCode:
-    stylelintExit === 0 && tsdExit === 0 && secretlintExit === 0 ? 0 : 1,
-});
-const advisorySummary = (
-  prettierCheckExit: number,
-  semgrepExit: number,
-  gitleaksExit: number,
-  auditCiExit: number,
-  osvAuditExit: number,
-): AdvisoryChecks => ({
-  prettierCheckExitCode: prettierCheckExit,
-  semgrepExitCode: semgrepExit,
-  gitleaksExitCode: gitleaksExit,
-  auditCiExitCode: auditCiExit,
-  osvAuditExitCode: osvAuditExit,
-});
 
-function normalizeOutput(value: string): string {
-  return stripAnsiEscapeSequences(value).replace(/\r/g, "").trim();
+function getConcurrency(fileCount: number): number {
+  if (fileCount < 1200) return 1;
+  const c =
+    typeof availableParallelism === "function"
+      ? availableParallelism()
+      : cpus().length;
+  return c <= 4
+    ? Math.max(2, c)
+    : c <= 8
+      ? c - 1
+      : Math.min(8, Math.max(4, Math.ceil(c / 2)));
 }
 
-function nonEmptyOutputLines(value: string): string[] {
-  return normalizeOutput(value)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
-function parseJscpdDetails(output: string): string {
-  const lines = nonEmptyOutputLines(output);
-  const totalRow = lines.find((line) => line.includes("│ Total:"));
-  const cloneMatch = normalizeOutput(output).match(/Found\s+(\d+)\s+clones?/i);
-
-  if (totalRow) {
-    const cells = totalRow
-      .split("│")
-      .map((cell) => cell.trim())
-      .filter(Boolean);
-    if (cells.length >= 7) {
-      const files = cells[1] ?? "?";
-      const cloned = cells[4] ?? "?";
-      const duplicatedLines = cells[5] ?? "?";
-      const duplicatedTokens = cells[6] ?? "?";
-      return `${cloned} clones · ${duplicatedLines} lines · ${duplicatedTokens} tokens · ${files} files`;
-    }
+async function estLintFiles(): Promise<number> {
+  const glob = new Bun.Glob("**/*.{js,mjs,cjs,ts,jsx,tsx}");
+  let count = 0;
+  const ignore = [
+    "node_modules/",
+    "/.next/",
+    ".next/",
+    "/dist/",
+    "dist/",
+    "/build/",
+    "build/",
+    "/coverage/",
+    "coverage/",
+    "/.cache/",
+    ".cache/",
+  ];
+  for await (const fp of glob.scan({ cwd: process.cwd(), absolute: false })) {
+    if (ignore.some((d) => fp.includes(d) || fp.startsWith(d))) continue;
+    count += 1;
+    if (count >= 5000) return count;
   }
-
-  if (cloneMatch) return `${cloneMatch[1]} clones`;
-  return "no duplicate stats detected";
+  return count;
 }
-
-function parseDepCruiseDetails(output: string): string {
-  const match = normalizeOutput(output).match(
-    /no dependency violations found \((\d+) modules,\s*(\d+) dependencies cruised\)/i,
-  );
-  if (match) return `${match[1]} modules · ${match[2]} dependencies cruised`;
-  return "dependency check completed";
-}
-
-function parseMadgeDetails(output: string): string {
-  const normalized = normalizeOutput(output);
-  if (/No circular dependency found/i.test(normalized))
-    return "0 circular dependencies";
-  const match = normalized.match(/Found\s+(\d+)\s+circular\s+dependenc/i);
-  if (match) return `${match[1]} circular dependencies`;
-  return "circular dependency check completed";
-}
-
-function parseTypeCoverageDetails(output: string): string {
-  const match = normalizeOutput(output).match(
-    /\((\d+)\s*\/\s*(\d+)\)\s*([\d.]+)%/,
-  );
-  if (!match) return "type coverage completed";
-  return `${match[3]}% (${match[1]}/${match[2]}) · threshold 98%`;
-}
-
-function parseAuditCiDetails(output: string): string {
-  const normalized = normalizeOutput(output);
-  if (/No vulnerabilities found/i.test(normalized))
-    return "0 vulnerabilities found";
-  const match = normalized.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
-  if (match) return `${match[1]} vulnerabilities found`;
-  return "dependency audit completed";
-}
-
-function parseOsvAuditDetails(output: string): string {
-  const normalized = normalizeOutput(output);
-  if (normalized.includes("{}")) return "0 advisories";
-  return "OSV audit completed";
-}
-
-function detailFromExit(
-  output: string,
-  exitCode: number,
-  passingText: string,
-  failingText: string,
-): string {
-  if (exitCode === 0) return passingText;
-  const lines = nonEmptyOutputLines(output);
-  const firstError = lines.find((line) => !line.startsWith("$ "));
-  return firstError ? `${failingText}: ${firstError}` : failingText;
-}
-
-function summaryDetailsFromOutputs(outputs: {
-  types: Command;
-  lint: Command;
-  jscpd: Command;
-  knip: Command;
-  tsPrune: Command;
-  depCruise: Command;
-  madge: Command;
-  typeCoverage: Command;
-  stylelint: Command;
-  tsd: Command;
-  secretlint: Command;
-  prettier: Command;
-  semgrep: Command;
-  gitleaks: Command;
-  auditCi: Command;
-  osvAudit: Command;
-}): SummaryDetails {
-  return {
-    tsc: detailFromExit(
-      outputs.types.output,
-      outputs.types.exitCode,
-      "typecheck clean",
-      "typecheck failed",
-    ),
-    eslint: detailFromExit(
-      outputs.lint.output,
-      outputs.lint.exitCode,
-      "lint clean",
-      "lint failed",
-    ),
-    jscpd: parseJscpdDetails(outputs.jscpd.output),
-    knip: detailFromExit(
-      outputs.knip.output,
-      outputs.knip.exitCode,
-      "unused dependency check clean",
-      "knip failed",
-    ),
-    tsPrune: detailFromExit(
-      outputs.tsPrune.output,
-      outputs.tsPrune.exitCode,
-      "unused export check clean",
-      "ts-prune failed",
-    ),
-    depCruise: parseDepCruiseDetails(outputs.depCruise.output),
-    madge: parseMadgeDetails(outputs.madge.output),
-    typeCoverage: parseTypeCoverageDetails(outputs.typeCoverage.output),
-    stylelint: detailFromExit(
-      outputs.stylelint.output,
-      outputs.stylelint.exitCode,
-      "stylelint clean",
-      "stylelint failed",
-    ),
-    tsd: detailFromExit(
-      outputs.tsd.output,
-      outputs.tsd.exitCode,
-      "type definition tests clean",
-      "tsd failed",
-    ),
-    secretlint: detailFromExit(
-      outputs.secretlint.output,
-      outputs.secretlint.exitCode,
-      "no secret findings",
-      "secretlint failed",
-    ),
-    prettier: detailFromExit(
-      outputs.prettier.output,
-      outputs.prettier.exitCode,
-      "formatting compliant",
-      "prettier check failed",
-    ),
-    semgrep: detailFromExit(
-      outputs.semgrep.output,
-      outputs.semgrep.exitCode,
-      "rule scan clean",
-      "semgrep failed",
-    ),
-    gitleaks: detailFromExit(
-      outputs.gitleaks.output,
-      outputs.gitleaks.exitCode,
-      "secret scan clean",
-      "gitleaks failed",
-    ),
-    auditCi: parseAuditCiDetails(outputs.auditCi.output),
-    osvAudit: parseOsvAuditDetails(outputs.osvAudit.output),
-  };
-}
-
-function printStepOutput(label: string, output: string) {
-  console.log(`\n${paint(label, ANSI.bold)}`);
-  if (!output.trim()) {
-    console.log(paint("(no output)", ANSI.gray));
-    return;
-  }
-  process.stdout.write(
-    output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
-  );
-}
-
-function filterMadgeWarnings(output: string): string {
-  return output
-    .split(/\r?\n/)
-    .filter((line) => {
-      const normalized = stripAnsiEscapeSequences(line);
-      return !/\b\d+\s+warnings?\b/i.test(normalized);
-    })
-    .join("\n")
-    .trimEnd();
-}
-
-const parseTestcases = (xml: string) =>
-  Array.from(
-    xml.matchAll(/<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g),
-    (m) => ({ rawAttrs: m[1] ?? "", body: m[2] ?? "" }),
-  );
 
 function printTests(label: string, color: string, tests: TestResult[]) {
   if (!tests.length) return;
@@ -427,7 +113,7 @@ function printTests(label: string, color: string, tests: TestResult[]) {
     );
 }
 
-function testSummary(reportPath: string): Summary {
+function parseTests(reportPath: string) {
   if (!existsSync(reportPath)) {
     console.error(
       paint(
@@ -437,9 +123,9 @@ function testSummary(reportPath: string): Summary {
       ),
     );
     return {
-      passedCount: 0,
-      failedCount: 1,
-      skippedCount: 0,
+      passed: 0,
+      failed: 1,
+      skipped: 0,
       failedTests: [
         {
           name: "JUnit report missing",
@@ -447,45 +133,52 @@ function testSummary(reportPath: string): Summary {
         },
       ],
       skippedTests: [],
-      exitCode: 1,
+      ok: false,
     };
   }
   const failed: TestResult[] = [];
   const skipped: TestResult[] = [];
-  let passedCount = 0;
-  for (const { rawAttrs, body } of parseTestcases(
-    readFileSync(reportPath, "utf8"),
-  )) {
-    const test = toTest(attrs(rawAttrs));
-    const isSkipped = /<skipped\b/.test(body);
-    const isFailed = body.includes("<failure") || body.includes("<error");
-    if (isSkipped) skipped.push(test);
-    if (isFailed)
+  let passed = 0;
+  const matches = Array.from(
+    readFileSync(reportPath, "utf8").matchAll(
+      /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g,
+    ),
+  );
+  for (const m of matches) {
+    const test = toTest(attrs(m[1] ?? ""));
+    const body = m[2] ?? "";
+    const isSkip = /<skipped\b/.test(body);
+    const isFail = body.includes("<failure") || body.includes("<error");
+    if (isSkip) skipped.push(test);
+    if (isFail)
       failed.push({
         ...test,
         message: attrs(body.match(/<(?:failure|error)\b([^>]*)>/)?.[1] ?? "")
           .message,
       });
-    if (!isSkipped && !isFailed) passedCount += 1;
+    if (!isSkip && !isFail) passed += 1;
   }
   return {
-    passedCount,
-    failedCount: failed.length,
-    skippedCount: skipped.length,
+    passed,
+    failed: failed.length,
+    skipped: skipped.length,
     failedTests: failed,
     skippedTests: skipped,
-    exitCode: failed.length ? 1 : 0,
+    ok: failed.length === 0,
   };
 }
 
-function lcovTotals(content: string): {
-  coveredLines: number;
-  foundLines: number;
-} {
+function parseCoverage(path: string) {
+  if (!existsSync(path)) {
+    console.error(
+      `${paint("FAIL", ANSI.bold, ANSI.red)} Coverage report not found at ${path}`,
+    );
+    return { covered: 0, found: 0, pct: 0, ok: false };
+  }
   const hits = new Map<string, Map<number, number>>();
   let file = "";
   let include = false;
-  for (const line of content.split(/\r?\n/)) {
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     if (line.startsWith("SF:")) {
       file = line.slice(3);
       include = !COVERAGE_EXCLUDED_FILES.includes(file);
@@ -501,181 +194,132 @@ function lcovTotals(content: string): {
     if (!map) continue;
     map.set(lineNo, Math.max(hit, map.get(lineNo) ?? 0));
   }
-  let coveredLines = 0;
-  let foundLines = 0;
-  for (const map of hits.values())
+  let covered = 0;
+  let found = 0;
+  for (const map of Array.from(hits.values()))
     for (const hit of map.values()) {
-      foundLines += 1;
-      if (hit > 0) coveredLines += 1;
+      found += 1;
+      if (hit > 0) covered += 1;
     }
-  return { coveredLines, foundLines };
-}
-
-function coverageSummary(path: string): Coverage {
-  if (!existsSync(path)) {
-    console.error(
-      `${paint("FAIL", ANSI.bold, ANSI.red)} Coverage report not found at ${path}`,
-    );
-    return { coveredLines: 0, foundLines: 0, lineCoverage: 0, exitCode: 1 };
-  }
-  const totals = lcovTotals(readFileSync(path, "utf8"));
-  if (!totals.foundLines) {
+  if (!found) {
     console.error(
       `${paint("FAIL", ANSI.bold, ANSI.red)} No executable lines found in coverage report`,
     );
-    return {
-      coveredLines: totals.coveredLines,
-      foundLines: 0,
-      lineCoverage: 0,
-      exitCode: 1,
-    };
+    return { covered, found: 0, pct: 0, ok: false };
   }
-  const lineCoverage = pct(totals.coveredLines, totals.foundLines);
+  const coverage = found ? (covered / found) * 100 : 100;
   return {
-    coveredLines: totals.coveredLines,
-    foundLines: totals.foundLines,
-    lineCoverage,
-    exitCode: lineCoverage >= LINE_COVERAGE_THRESHOLD ? 0 : 1,
+    covered,
+    found,
+    pct: coverage,
+    ok: coverage >= LINE_COVERAGE_THRESHOLD,
   };
 }
 
-function printSummary(results: {
-  staticAnalysis: StaticAnalysis;
-  redundancy: RedundancyChecks;
-  architecture: ArchitectureChecks;
-  assurance: AssuranceChecks;
-  advisory: AdvisoryChecks;
-  details: SummaryDetails;
-  tests: Summary;
-  coverage: Coverage;
-  testRunnerExitCode: number;
-}) {
-  const advisoryPassing =
-    results.advisory.prettierCheckExitCode === 0 &&
-    results.advisory.semgrepExitCode === 0 &&
-    results.advisory.gitleaksExitCode === 0 &&
-    results.advisory.auditCiExitCode === 0 &&
-    results.advisory.osvAuditExitCode === 0;
+function parseDetails(outputs: Record<string, Command>) {
+  const detail = (cmd: Command, pass: string, fail: string) => {
+    if (cmd.exitCode === 0) return pass;
+    const firstError = lines(cmd.output).find((l) => !l.startsWith("$ "));
+    return firstError ? `${fail}: ${firstError}` : fail;
+  };
+  const regex = (out: string, pattern: RegExp) => norm(out).match(pattern);
+  const jscpdM = regex(outputs.jscpd.output, /Found\s+(\d+)\s+clones?/i);
+  const jscpdRow = lines(outputs.jscpd.output).find((l) =>
+    l.includes("│ Total:"),
+  );
+  let jscpd = "no duplicate stats detected";
+  if (jscpdRow) {
+    const cells = jscpdRow
+      .split("│")
+      .map((c) => c.trim())
+      .filter(Boolean);
+    if (cells.length >= 7)
+      jscpd = `${cells[4]} clones · ${cells[5]} lines · ${cells[6]} tokens · ${cells[1]} files`;
+  } else if (jscpdM) jscpd = `${jscpdM[1]} clones`;
+  const depM = regex(
+    outputs.depCruise.output,
+    /no dependency violations found \((\d+) modules,\s*(\d+) dependencies cruised\)/i,
+  );
+  const depCruise = depM
+    ? `${depM[1]} modules · ${depM[2]} dependencies cruised`
+    : "dependency check completed";
+  const madgeN = norm(outputs.madge.output);
+  let madge = "circular dependency check completed";
+  if (/No circular dependency found/i.test(madgeN))
+    madge = "0 circular dependencies";
+  else {
+    const madgeM = madgeN.match(/Found\s+(\d+)\s+circular\s+dependenc/i);
+    if (madgeM) madge = `${madgeM[1]} circular dependencies`;
+  }
+  const typeCovM = regex(
+    outputs.typeCoverage.output,
+    /\((\d+)\s*\/\s*(\d+)\)\s*([\d.]+)%/,
+  );
+  const typeCoverage = typeCovM
+    ? `${typeCovM[3]}% (${typeCovM[1]}/${typeCovM[2]}) · threshold 98%`
+    : "type coverage completed";
+  const auditN = norm(outputs.auditCi.output);
+  let auditCi = "dependency audit completed";
+  if (/No vulnerabilities found/i.test(auditN))
+    auditCi = "0 vulnerabilities found";
+  else {
+    const auditM = auditN.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
+    if (auditM) auditCi = `${auditM[1]} vulnerabilities found`;
+  }
+  const osvAudit = norm(outputs.osvAudit.output).includes("{}")
+    ? "0 advisories"
+    : "OSV audit completed";
+  return {
+    tsc: detail(outputs.types, "typecheck clean", "typecheck failed"),
+    eslint: detail(outputs.lint, "lint clean", "lint failed"),
+    jscpd,
+    knip: detail(outputs.knip, "unused dependency check clean", "knip failed"),
+    tsPrune: detail(
+      outputs.tsPrune,
+      "unused export check clean",
+      "ts-prune failed",
+    ),
+    depCruise,
+    madge,
+    typeCoverage,
+    stylelint: detail(outputs.stylelint, "stylelint clean", "stylelint failed"),
+    tsd: detail(outputs.tsd, "type definition tests clean", "tsd failed"),
+    secretlint: detail(
+      outputs.secretlint,
+      "no secret findings",
+      "secretlint failed",
+    ),
+    prettier: detail(
+      outputs.prettier,
+      "formatting compliant",
+      "prettier check failed",
+    ),
+    semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
+    gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
+    auditCi,
+    osvAudit,
+  };
+}
 
-  const ok =
-    results.staticAnalysis.exitCode === 0 &&
-    results.redundancy.exitCode === 0 &&
-    results.architecture.exitCode === 0 &&
-    results.assurance.exitCode === 0 &&
-    advisoryPassing &&
-    results.tests.exitCode === 0 &&
-    results.coverage.exitCode === 0 &&
-    results.testRunnerExitCode === 0;
-  printTests("Failed tests", ANSI.red, results.tests.failedTests);
-  printTests("Skipped tests", ANSI.gray, results.tests.skippedTests);
-  console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
-  console.log(divider());
-  console.log(
-    row("tsc", results.staticAnalysis.tscPassing, results.details.tsc),
-  );
-  console.log(
-    row("eslint", results.staticAnalysis.eslintPassing, results.details.eslint),
-  );
-  console.log(
-    row("jscpd", results.redundancy.jscpdPassing, results.details.jscpd),
-  );
-  console.log(
-    row("knip", results.redundancy.knipPassing, results.details.knip),
-  );
-  console.log(
-    row("ts-prune", results.redundancy.tsPrunePassing, results.details.tsPrune),
-  );
-  console.log(
-    row(
-      "depcruise",
-      results.architecture.depCruisePassing,
-      results.details.depCruise,
-    ),
-  );
-  console.log(
-    row("madge", results.architecture.madgePassing, results.details.madge),
-  );
-  console.log(
-    row(
-      "type-coverage",
-      results.architecture.typeCoveragePassing,
-      results.details.typeCoverage,
-    ),
-  );
-  console.log(
-    row(
-      "stylelint",
-      results.assurance.stylelintPassing,
-      results.details.stylelint,
-    ),
-  );
-  console.log(row("tsd", results.assurance.tsdPassing, results.details.tsd));
-  console.log(
-    row(
-      "secretlint",
-      results.assurance.secretlintPassing,
-      results.details.secretlint,
-    ),
-  );
-  console.log(
-    row(
-      "prettier",
-      results.advisory.prettierCheckExitCode === 0,
-      results.details.prettier,
-    ),
-  );
-  console.log(
-    row(
-      "semgrep",
-      results.advisory.semgrepExitCode === 0,
-      results.details.semgrep,
-    ),
-  );
-  console.log(
-    row(
-      "gitleaks",
-      results.advisory.gitleaksExitCode === 0,
-      results.details.gitleaks,
-    ),
-  );
-  console.log(
-    row(
-      "audit-ci",
-      results.advisory.auditCiExitCode === 0,
-      results.details.auditCi,
-    ),
-  );
-  console.log(
-    row(
-      "osv-audit",
-      results.advisory.osvAuditExitCode === 0,
-      results.details.osvAudit,
-    ),
-  );
-  console.log(
-    row(
-      "Tests",
-      results.tests.exitCode === 0 && results.testRunnerExitCode === 0,
-      `${results.tests.passedCount} passed · ${results.tests.failedCount} failed · ${results.tests.skippedCount} skipped · runner exit ${results.testRunnerExitCode}`,
-    ),
-  );
-  console.log(
-    row(
-      "Coverage",
-      results.coverage.exitCode === 0,
-      `${results.coverage.lineCoverage.toFixed(2)}% (${results.coverage.coveredLines}/${results.coverage.foundLines}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
-    ),
-  );
-  console.log(divider());
-  console.log(
-    row("Overall", ok, ok ? "all checks passed" : "one or more checks failed"),
-  );
-  console.log(divider());
-  return ok ? 0 : 1;
+function printStepOutput(label: string, output: string) {
+  console.log(`\n${paint(label, ANSI.bold)}`);
+  if (!output.trim()) console.log(paint("(no output)", ANSI.gray));
+  else
+    process.stdout.write(
+      output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
+    );
+}
+
+function filterMadge(output: string): string {
+  return output
+    .split(/\r?\n/)
+    .filter((line) => !/\b\d+\s+warnings?\b/i.test(stripAnsi(line)))
+    .join("\n")
+    .trimEnd();
 }
 
 async function run(
-  command: string,
+  cmd: string,
   args: string[],
   timeoutMs?: number,
 ): Promise<Command> {
@@ -685,18 +329,17 @@ async function run(
     NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
   };
   delete env.NO_COLOR;
-
-  const child = Bun.spawn([command, ...args], {
+  const child = Bun.spawn([cmd, ...args], {
     cwd: process.cwd(),
     env,
     stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdoutPromise = child.stdout
+  const stdoutP = child.stdout
     ? new Response(child.stdout).text()
     : Promise.resolve("");
-  const stderrPromise = child.stderr
+  const stderrP = child.stderr
     ? new Response(child.stderr).text()
     : Promise.resolve("");
   let timedOut = false;
@@ -709,8 +352,8 @@ async function run(
       : null;
   const [exitCode, stdout, stderr] = await Promise.all([
     child.exited,
-    stdoutPromise,
-    stderrPromise,
+    stdoutP,
+    stderrP,
   ]);
   if (timeout) clearTimeout(timeout);
   const output = `${stdout}${stderr}`;
@@ -719,17 +362,117 @@ async function run(
     : { exitCode: exitCode ?? 1, timedOut: false, output };
 }
 
-const runStep = (
-  _label: string,
-  command: string,
-  args: string[],
-  timeoutMs?: number,
-  _details?: string,
-) => {
-  return run(command, args, timeoutMs);
-};
+async function runLint(extraArgs: string[]): Promise<Command> {
+  const envC = process.env.ESLINT_CONCURRENCY;
+  const fileCount = await estLintFiles();
+  const concurrency =
+    envC && /^\d+$/.test(envC)
+      ? Number.parseInt(envC, 10)
+      : getConcurrency(fileCount);
+  return run("bunx", [
+    "eslint",
+    ".",
+    "--cache",
+    "--cache-strategy",
+    "content",
+    "--cache-location",
+    ".cache/eslint",
+    "--concurrency",
+    String(concurrency),
+    ...extraArgs,
+  ]);
+}
 
-async function main() {
+async function runTsPrune(argv: string[]): Promise<Command> {
+  let configPath = ".ts-prune.json";
+  try {
+    for (let i = 0; i < argv.length; i += 1) {
+      const arg = argv[i];
+      if (arg === "--config") {
+        const value = argv[i + 1];
+        if (!value) throw new Error("Missing value for --config");
+        configPath = value;
+        break;
+      }
+      if (arg?.startsWith("--config=")) {
+        const value = arg.slice("--config=".length);
+        if (!value) throw new Error("Missing value for --config");
+        configPath = value;
+        break;
+      }
+    }
+    const absPath = join(process.cwd(), configPath);
+    if (!existsSync(absPath)) {
+      return {
+        exitCode: 1,
+        timedOut: false,
+        output: `ts-prune config file not found: ${absPath}\n`,
+      };
+    }
+    const raw = JSON.parse(readFileSync(absPath, "utf8")) as unknown;
+    if (!raw || typeof raw !== "object") {
+      throw new Error(`Invalid config at ${absPath}: expected an object`);
+    }
+    const { project, skip, ignore } = raw as Record<string, unknown>;
+    if (typeof project !== "string" || !project.trim()) {
+      throw new Error(
+        `Invalid config at ${absPath}: "project" must be a non-empty string`,
+      );
+    }
+    if (skip !== undefined && typeof skip !== "string") {
+      throw new Error(
+        `Invalid config at ${absPath}: "skip" must be a string when provided`,
+      );
+    }
+    if (ignore !== undefined && typeof ignore !== "string") {
+      throw new Error(
+        `Invalid config at ${absPath}: "ignore" must be a string when provided`,
+      );
+    }
+    let ignoreRegex: RegExp | null = null;
+    if (ignore && typeof ignore === "string") {
+      try {
+        ignoreRegex = new RegExp(ignore);
+      } catch (error) {
+        throw new Error(
+          `Invalid regex in ts-prune config: ${ignore} (${error instanceof Error ? error.message : "unknown error"})`,
+        );
+      }
+    }
+    const args = ["ts-prune", "-p", project];
+    if (skip && typeof skip === "string") args.push("--skip", skip);
+    if (ignore && typeof ignore === "string") args.push("--ignore", ignore);
+    const result = await run("bunx", args);
+    if (result.timedOut) return result;
+    const mergedLines = result.output
+      .split(/\r?\n/)
+      .map((line) => line.trimEnd())
+      .filter((line) => line.trim().length > 0);
+    const actionable = mergedLines.filter((line) => {
+      if (!/^\S.+:\d+\s-\s.+$/.test(line.trim())) return false;
+      if (ignoreRegex && ignoreRegex.test(line)) return false;
+      return true;
+    });
+    if (actionable.length > 0) {
+      return {
+        exitCode: 1,
+        timedOut: false,
+        output: `${actionable.join("\n")}\nts-prune found ${actionable.length} actionable unused export(s)\n`,
+      };
+    }
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    return {
+      exitCode: 1,
+      timedOut: false,
+      output: `ts-prune failed to load config (${configPath}): ${message}\n`,
+    };
+  }
+}
+
+async function runCheckSuite() {
+  const startedAtMs = Date.now();
   const junitPath = join(process.cwd(), "coverage", "test-results.xml");
   const lcovPath = join(process.cwd(), "coverage", "lcov.info");
   process.stdout.write(
@@ -739,198 +482,171 @@ async function main() {
       ANSI.cyan,
     ),
   );
-
-  const testRunPromise = runStep(
-    "Running tests",
-    "bun",
-    [
-      "test",
-      `--timeout=${TEST_TIMEOUT_MS}`,
-      "--reporter=junit",
-      `--reporter-outfile=${junitPath}`,
-    ],
-    TEST_COMMAND_TIMEOUT_MS,
-    `${TEST_TIMEOUT_MS / 1000}s per test, ${TEST_COMMAND_TIMEOUT_MS / 1000}s process failsafe`,
+  const steps = [
+    {
+      k: "test",
+      l: "Tests",
+      r: () =>
+        run(
+          "bun",
+          [
+            "test",
+            `--timeout=${TEST_TIMEOUT_MS}`,
+            "--reporter=junit",
+            `--reporter-outfile=${junitPath}`,
+          ],
+          TEST_COMMAND_TIMEOUT_MS,
+        ),
+    },
+    { k: "types", l: "Types", r: () => run("tsc", ["--noEmit"]) },
+    { k: "lint", l: "Lint", r: () => runLint([]) },
+    { k: "jscpd", l: "jscpd", r: () => run("bun", ["run", "dup"]) },
+    { k: "knip", l: "knip", r: () => run("bun", ["run", "redundancy"]) },
+    { k: "tsPrune", l: "ts-prune", r: () => runTsPrune([]) },
+    {
+      k: "depCruise",
+      l: "depcruise",
+      r: () =>
+        run("bunx", [
+          "depcruise",
+          "--config",
+          ".dependency-cruiser.cjs",
+          "src",
+          "--output-type",
+          "err",
+        ]),
+    },
+    {
+      k: "madge",
+      l: "madge",
+      r: () => run("bun", ["run", "depgraph"]),
+      t: filterMadge,
+    },
+    {
+      k: "typeCoverage",
+      l: "type-coverage",
+      r: () => run("bunx", ["type-coverage", "--at-least", "98"]),
+    },
+    {
+      k: "stylelint",
+      l: "stylelint",
+      r: () => run("bun", ["run", "lint:style"]),
+    },
+    { k: "tsd", l: "tsd", r: () => run("bun", ["run", "tsd"]) },
+    {
+      k: "secretlint",
+      l: "secretlint",
+      r: () => run("bun", ["run", "scan:secretlint"]),
+    },
+    {
+      k: "prettier",
+      l: "prettier-check",
+      r: () => run("bun", ["run", "format:check"]),
+    },
+    {
+      k: "semgrep",
+      l: "semgrep",
+      r: () => run("bun", ["run", "scan:semgrep"]),
+    },
+    {
+      k: "gitleaks",
+      l: "gitleaks",
+      r: () => run("bun", ["run", "scan:gitleaks"]),
+    },
+    { k: "auditCi", l: "audit-ci", r: () => run("bun", ["run", "scan:deps"]) },
+    { k: "osvAudit", l: "osv-audit", r: () => run("bun", ["run", "scan:osv"]) },
+  ];
+  const runs = Object.fromEntries(
+    await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
+  ) as Record<string, Command>;
+  const timedOut = Object.values(runs).some((result) => result.timedOut);
+  for (const step of steps)
+    printStepOutput(
+      step.l,
+      step.t ? step.t(runs[step.k].output) : runs[step.k].output,
+    );
+  const tests = parseTests(junitPath);
+  const coverage = parseCoverage(lcovPath);
+  const details = parseDetails(runs);
+  const checks = [
+    { k: "tsc", ok: runs.types.exitCode === 0, d: details.tsc },
+    { k: "eslint", ok: runs.lint.exitCode === 0, d: details.eslint },
+    { k: "jscpd", ok: runs.jscpd.exitCode === 0, d: details.jscpd },
+    { k: "knip", ok: runs.knip.exitCode === 0, d: details.knip },
+    { k: "ts-prune", ok: runs.tsPrune.exitCode === 0, d: details.tsPrune },
+    { k: "depcruise", ok: runs.depCruise.exitCode === 0, d: details.depCruise },
+    { k: "madge", ok: runs.madge.exitCode === 0, d: details.madge },
+    {
+      k: "type-coverage",
+      ok: runs.typeCoverage.exitCode === 0,
+      d: details.typeCoverage,
+    },
+    { k: "stylelint", ok: runs.stylelint.exitCode === 0, d: details.stylelint },
+    { k: "tsd", ok: runs.tsd.exitCode === 0, d: details.tsd },
+    {
+      k: "secretlint",
+      ok: runs.secretlint.exitCode === 0,
+      d: details.secretlint,
+    },
+    { k: "prettier", ok: runs.prettier.exitCode === 0, d: details.prettier },
+    { k: "semgrep", ok: runs.semgrep.exitCode === 0, d: details.semgrep },
+    { k: "gitleaks", ok: runs.gitleaks.exitCode === 0, d: details.gitleaks },
+    { k: "audit-ci", ok: runs.auditCi.exitCode === 0, d: details.auditCi },
+    { k: "osv-audit", ok: runs.osvAudit.exitCode === 0, d: details.osvAudit },
+    {
+      k: "Tests",
+      ok: tests.ok && runs.test.exitCode === 0,
+      d: `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${runs.test.exitCode}`,
+    },
+    {
+      k: "Coverage",
+      ok: coverage.ok,
+      d: `${coverage.pct.toFixed(2)}% (${coverage.covered}/${coverage.found}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
+    },
+  ];
+  printTests("Failed tests", ANSI.red, tests.failedTests);
+  printTests("Skipped tests", ANSI.gray, tests.skippedTests);
+  console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
+  console.log(divider());
+  for (const check of checks) console.log(row(check.k, check.ok, check.d));
+  console.log(divider());
+  const allOk = checks.every((c) => c.ok) && !timedOut;
+  const elapsedSeconds = ((Date.now() - startedAtMs) / 1000).toFixed(2);
+  console.log(
+    row(
+      "Overall",
+      allOk,
+      `${allOk ? "all checks passed" : "one or more checks failed"} (in ${elapsedSeconds} seconds)`,
+    ),
   );
-  const typesRunPromise = runStep("Running Types", "tsc", ["--noEmit"]);
-  const lintRunPromise = runStep("Running Lint", "bun", ["scripts/lint.ts"]);
-  const jscpdRunPromise = runStep("Running jscpd", "bun", ["run", "dup"]);
-  const knipRunPromise = runStep("Running knip", "bun", ["run", "redundancy"]);
-  const tsPruneRunPromise = runStep("Running ts-prune", "bun", [
-    "run",
-    "ts-prune",
-  ]);
-  const depCruiseRunPromise = runStep("Running depcruise", "bunx", [
-    "depcruise",
-    "--config",
-    ".dependency-cruiser.cjs",
-    "src",
-    "--output-type",
-    "err",
-  ]);
-  const madgeRunPromise = runStep("Running madge", "bun", ["run", "depgraph"]);
-  const typeCoverageRunPromise = runStep("Running type-coverage", "bunx", [
-    "type-coverage",
-    "--at-least",
-    "98",
-  ]);
-  const stylelintRunPromise = runStep("Running stylelint", "bun", [
-    "run",
-    "lint:style",
-  ]);
-  const tsdRunPromise = runStep("Running tsd", "bun", ["run", "tsd"]);
-  const secretlintRunPromise = runStep("Running secretlint", "bun", [
-    "run",
-    "scan:secretlint",
-  ]);
-  const prettierCheckRunPromise = runStep("Running prettier check", "bun", [
-    "run",
-    "format:check",
-  ]);
-  const semgrepRunPromise = runStep("Running semgrep", "bun", [
-    "run",
-    "scan:semgrep",
-  ]);
-  const gitleaksRunPromise = runStep("Running gitleaks", "bun", [
-    "run",
-    "scan:gitleaks",
-  ]);
-  const auditCiRunPromise = runStep("Running audit-ci", "bun", [
-    "run",
-    "scan:deps",
-  ]);
-  const osvAuditRunPromise = runStep("Running osv audit", "bun", [
-    "run",
-    "scan:osv",
-  ]);
-
-  const [
-    testRun,
-    typesRun,
-    lintRun,
-    jscpdRun,
-    knipRun,
-    tsPruneRun,
-    depCruiseRun,
-    madgeRun,
-    typeCoverageRun,
-    stylelintRun,
-    tsdRun,
-    secretlintRun,
-    prettierCheckRun,
-    semgrepRun,
-    gitleaksRun,
-    auditCiRun,
-    osvAuditRun,
-  ] = await Promise.all([
-    testRunPromise,
-    typesRunPromise,
-    lintRunPromise,
-    jscpdRunPromise,
-    knipRunPromise,
-    tsPruneRunPromise,
-    depCruiseRunPromise,
-    madgeRunPromise,
-    typeCoverageRunPromise,
-    stylelintRunPromise,
-    tsdRunPromise,
-    secretlintRunPromise,
-    prettierCheckRunPromise,
-    semgrepRunPromise,
-    gitleaksRunPromise,
-    auditCiRunPromise,
-    osvAuditRunPromise,
-  ]);
-  const timedOut =
-    testRun.timedOut ||
-    typesRun.timedOut ||
-    lintRun.timedOut ||
-    jscpdRun.timedOut ||
-    knipRun.timedOut ||
-    tsPruneRun.timedOut ||
-    depCruiseRun.timedOut ||
-    madgeRun.timedOut ||
-    typeCoverageRun.timedOut ||
-    stylelintRun.timedOut ||
-    tsdRun.timedOut ||
-    secretlintRun.timedOut ||
-    prettierCheckRun.timedOut ||
-    semgrepRun.timedOut ||
-    gitleaksRun.timedOut ||
-    auditCiRun.timedOut ||
-    osvAuditRun.timedOut;
-
-  printStepOutput("Tests", testRun.output);
-  printStepOutput("Types", typesRun.output);
-  printStepOutput("Lint", lintRun.output);
-  printStepOutput("jscpd", jscpdRun.output);
-  printStepOutput("knip", knipRun.output);
-  printStepOutput("ts-prune", tsPruneRun.output);
-  printStepOutput("depcruise", depCruiseRun.output);
-  printStepOutput("madge", filterMadgeWarnings(madgeRun.output));
-  printStepOutput("type-coverage", typeCoverageRun.output);
-  printStepOutput("stylelint", stylelintRun.output);
-  printStepOutput("tsd", tsdRun.output);
-  printStepOutput("secretlint", secretlintRun.output);
-  printStepOutput("prettier-check", prettierCheckRun.output);
-  printStepOutput("semgrep", semgrepRun.output);
-  printStepOutput("gitleaks", gitleaksRun.output);
-  printStepOutput("audit-ci", auditCiRun.output);
-  printStepOutput("osv-audit", osvAuditRun.output);
-
-  const qualityGateExit = printSummary({
-    staticAnalysis: staticSummary(typesRun.exitCode, lintRun.exitCode),
-    redundancy: redundancySummary(
-      jscpdRun.exitCode,
-      knipRun.exitCode,
-      tsPruneRun.exitCode,
-    ),
-    architecture: architectureSummary(
-      depCruiseRun.exitCode,
-      madgeRun.exitCode,
-      typeCoverageRun.exitCode,
-    ),
-    assurance: assuranceSummary(
-      stylelintRun.exitCode,
-      tsdRun.exitCode,
-      secretlintRun.exitCode,
-    ),
-    advisory: advisorySummary(
-      prettierCheckRun.exitCode,
-      semgrepRun.exitCode,
-      gitleaksRun.exitCode,
-      auditCiRun.exitCode,
-      osvAuditRun.exitCode,
-    ),
-    details: summaryDetailsFromOutputs({
-      types: typesRun,
-      lint: lintRun,
-      jscpd: jscpdRun,
-      knip: knipRun,
-      tsPrune: tsPruneRun,
-      depCruise: depCruiseRun,
-      madge: madgeRun,
-      typeCoverage: typeCoverageRun,
-      stylelint: stylelintRun,
-      tsd: tsdRun,
-      secretlint: secretlintRun,
-      prettier: prettierCheckRun,
-      semgrep: semgrepRun,
-      gitleaks: gitleaksRun,
-      auditCi: auditCiRun,
-      osvAudit: osvAuditRun,
-    }),
-    tests: testSummary(junitPath),
-    coverage: coverageSummary(lcovPath),
-    testRunnerExitCode: testRun.exitCode,
-  });
+  console.log(divider());
   if (timedOut) {
     console.error(
       `Check command failed: bun test exceeded the ${TEST_COMMAND_TIMEOUT_MS / 1000}-second failsafe timeout. Please try again.`,
     );
     process.exit(1);
   }
-  if (qualityGateExit !== 0) process.exit(1);
+  if (!allOk) process.exit(1);
+}
+
+async function main() {
+  const command = Bun.argv[2];
+  const args = Bun.argv.slice(3);
+  const writeOut = (output: string) =>
+    process.stdout.write(
+      output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
+    );
+  if (command === "lint") {
+    const result = await runLint(args);
+    writeOut(result.output);
+    process.exit(result.exitCode);
+  }
+  if (command === "ts-prune") {
+    const result = await runTsPrune(args);
+    writeOut(result.output);
+    process.exit(result.exitCode);
+  }
+  await runCheckSuite();
 }
 
 await main();
