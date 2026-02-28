@@ -391,6 +391,7 @@ describe("article extract cleanup", () => {
       { name: "article-3" },
       { name: "article-4" },
       { name: "article-5" },
+      { name: "article-7" },
     ] as const;
 
     for (const fixture of fixtures) {
