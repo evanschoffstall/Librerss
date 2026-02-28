@@ -29,9 +29,6 @@ import {
   shouldRefreshFeed,
 } from "./feed-refresh";
 
-// Re-export for callers that still reference these from here.
-export { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "./feed-url-validator";
-
 const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
 
 // ─── Error types ──────────────────────────────────────────────────────────────

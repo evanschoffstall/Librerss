@@ -1,15 +1,15 @@
 import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib";
 import {
   asTrimmedString,
+  jsonError,
   parseJsonBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
-import { jsonError } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core/feed-fetcher";
+} from "@/lib/core/feed-url-validator";
 import type { NextRequest } from "next/server";
 import type {
   CreateFeedPayload,
