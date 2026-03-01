@@ -3,6 +3,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
 import { Loader2 } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 
@@ -44,6 +46,18 @@ export function FeedList({
   onClearSearch,
   onRefresh,
 }: FeedListProps) {
+  const visibleFeed = useMemo(
+    () => filteredFeed.slice(0, visibleCount),
+    [filteredFeed, visibleCount],
+  );
+  const animatedItems = useAnimatedList(visibleFeed, getArticleKey);
+  const hasAnyVisible = animatedItems.length > 0;
+
+  const exitRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    el.style.setProperty("--exit-height", `${el.scrollHeight}px`);
+  }, []);
+
   return (
     <>
       {loading ? (
@@ -71,7 +85,7 @@ export function FeedList({
             </div>
           ))}
         </div>
-      ) : filteredFeed.length === 0 ? (
+      ) : !hasAnyVisible && filteredFeed.length === 0 ? (
         <div
           key="feed-empty"
           className="mx-auto flex w-full max-w-3xl items-center justify-center px-1 py-32 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
@@ -96,11 +110,18 @@ export function FeedList({
           key="feed-list"
           className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
         >
-          {filteredFeed.slice(0, visibleCount).map((article) => {
-            const cardKey = getArticleKey(article);
+          {animatedItems.map(({ item: article, key: cardKey, exiting }) => {
             const articleLink = article.link?.trim() ?? "";
             return (
-              <div key={cardKey}>
+              <div
+                key={cardKey}
+                ref={exiting ? exitRef : undefined}
+                className={
+                  exiting
+                    ? "article-exit pointer-events-none overflow-hidden"
+                    : undefined
+                }
+              >
                 <ArticleCard
                   articleKey={cardKey}
                   article={article}
