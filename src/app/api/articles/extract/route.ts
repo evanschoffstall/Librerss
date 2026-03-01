@@ -2,9 +2,13 @@ import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
   jsonError,
+  jsonErrorWithReason,
   parseJsonBodyOrResponse,
 } from "@/lib/api/http";
+import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
+import { getDb } from "@/lib/db/db";
+import { users } from "@/lib/db/schema";
 import type {
   ExtractedArticle,
   ExtractRequestContext,
@@ -34,6 +38,7 @@ import { logAndRespondError, requireMutablePublicRequest } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 import axios from "axios";
+import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 // ─── Inlined helpers (from route-helpers.ts) ─────────────────────────────────
@@ -96,11 +101,14 @@ function logExtractStart(
   info: typeof logger.info,
   articleUrl: string,
   context: ExtractRequestContext,
+  options?: { useProxy: boolean; proxyAddress?: string },
 ): void {
   info(`Article extract started`, {
     url: redactUrlForLogs(articleUrl),
     extractAttemptId: context.extractAttemptId,
     requestId: context.requestId,
+    connectionMode: options?.useProxy ? "proxy" : "direct",
+    proxyAddress: options?.useProxy ? (options.proxyAddress ?? null) : null,
   });
 }
 
@@ -240,9 +248,9 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
   const cleanContent =
     deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
-  const toJsonError = deps?.jsonErrorFn ?? jsonError;
+  const _toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
-  const respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+  const _respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   const info = deps?.infoFn ?? logger.info.bind(logger);
   const warn = deps?.warnFn ?? logger.warn.bind(logger);
@@ -253,6 +261,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
   let articleUrl: string | null = null;
   let useProxy = false;
+  let resolvedProxyUrl: string | undefined;
 
   try {
     const authResult = await requireAuth(request, {
@@ -272,6 +281,25 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     if (bodyResult instanceof Response) return bodyResult;
     useProxy = bodyResult.useProxy === true;
 
+    // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
+    let allowInsecureTls = false;
+    if (useProxy) {
+      const sessionUser = await getUserFromRequest(request);
+      if (sessionUser) {
+        const db = getDb();
+        const [row] = await db
+          .select({
+            proxyUrl: users.proxyUrl,
+            allowInsecureTls: users.allowInsecureTls,
+          })
+          .from(users)
+          .where(eq(users.id, sessionUser.userId))
+          .limit(1);
+        resolvedProxyUrl = row?.proxyUrl?.trim() || undefined;
+        allowInsecureTls = row?.allowInsecureTls ?? false;
+      }
+    }
+
     // Build a cloned request with the same body for parseAndValidateArticleUrl
     const clonedRequest = new NextRequest(request.url, {
       method: request.method,
@@ -283,7 +311,10 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     if (parsedUrl instanceof Response) return parsedUrl;
     articleUrl = parsedUrl;
 
-    logExtractStart(info, articleUrl, context);
+    logExtractStart(info, articleUrl, context, {
+      useProxy,
+      proxyAddress: resolvedProxyUrl,
+    });
 
     const cachedPayload = getCachedExtractResponse(
       articleUrl,
@@ -298,7 +329,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
     const html =
       localSnapshot?.html ??
-      (await fetchArticleHtml(articleUrl, undefined, { useProxy }));
+      (await fetchArticleHtml(articleUrl, undefined, {
+        useProxy,
+        proxyUrl: resolvedProxyUrl,
+        allowInsecureTls,
+      }));
     const safeUrl = redactUrlForLogs(articleUrl);
     info(`Article extract source`, {
       url: safeUrl,
@@ -383,16 +418,19 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
           url: safeArticleUrl,
           extractAttemptId: context.extractAttemptId,
           requestId: context.requestId,
+          connectionMode: useProxy ? "proxy" : "direct",
+          proxyAddress: useProxy ? (resolvedProxyUrl ?? null) : null,
           ...(verboseLoggingEnabled
             ? buildAxiosFailureDiagnostics(error, isAxiosError)
             : {}),
         },
       );
-      return toJsonError(
+      return jsonErrorWithReason(
         status === 422
           ? ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE
           : ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
         status,
+        toMessage(error),
       );
     }
 
@@ -402,11 +440,14 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         url: safeArticleUrl,
         extractAttemptId: context.extractAttemptId,
         requestId: context.requestId,
+        connectionMode: useProxy ? "proxy" : "direct",
+        proxyAddress: useProxy ? (resolvedProxyUrl ?? null) : null,
       },
     );
-    return respondError("Article extract error", error, {
-      status: 502,
-      publicMessage: ARTICLE_EXTRACTION_ERROR_MESSAGE,
-    });
+    return jsonErrorWithReason(
+      ARTICLE_EXTRACTION_ERROR_MESSAGE,
+      502,
+      toMessage(error),
+    );
   }
 }

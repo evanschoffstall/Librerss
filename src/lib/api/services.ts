@@ -195,7 +195,7 @@ export class ArticleService {
 
   static async extractArticleContent(
     url: string,
-    options?: { useProxy?: boolean },
+    options?: { useProxy?: boolean; signal?: AbortSignal },
   ): Promise<string> {
     const response = await getApiClient().post(
       `${this.baseUrl}/articles/extract`,
@@ -203,15 +203,48 @@ export class ArticleService {
         url,
         ...(options?.useProxy && { useProxy: true }),
       },
+      { signal: options?.signal },
     );
     return typeof response.data?.content === "string"
       ? response.data.content
       : "";
   }
 
-  static async getProxyStatus(): Promise<{ configured: boolean }> {
+  static async getProxyStatus(): Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+  }> {
     const response = await getApiClient().get(
       `${this.baseUrl}/articles/proxy-status`,
+    );
+    return response.data;
+  }
+
+  static async getProxySettings(): Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+    allowInsecureTls: boolean;
+    error?: string;
+  }> {
+    const response = await getApiClient().get(`${this.baseUrl}/settings/proxy`);
+    return response.data;
+  }
+
+  static async saveProxyUrl(
+    proxyUrl: string | null,
+    options?: { allowInsecureTls?: boolean },
+  ): Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+    allowInsecureTls: boolean;
+    error?: string;
+  }> {
+    const response = await getApiClient().put(
+      `${this.baseUrl}/settings/proxy`,
+      { proxyUrl, ...options },
     );
     return response.data;
   }
