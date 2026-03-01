@@ -28,6 +28,10 @@ interface UseSettingsModalStateOptions {
   onRemoveFeed: (key: string) => Promise<void>;
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
   onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
+  onUpdateFeedSettings: (
+    key: string,
+    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  ) => Promise<boolean>;
 }
 
 interface SharedFeedRowProps {
@@ -51,7 +55,10 @@ interface SharedFeedRowProps {
   onStartFeedEdit: (key: string, name: string, url: string) => void;
   onRemoveFeed: (key: string) => void;
   onToggleFeedEnabled: (key: string, enabled: boolean) => void;
+  onToggleExtractionDisabled: (key: string, disabled: boolean) => void;
+  onToggleProxyEnabled: (key: string, enabled: boolean) => void;
   togglingFeedKey: string | null;
+  updatingSettingsKey: string | null;
 }
 
 export function useSettingsModalState({
@@ -67,6 +74,7 @@ export function useSettingsModalState({
   onRemoveFeed,
   onRenameFeed,
   onSetFeedEnabled,
+  onUpdateFeedSettings,
 }: UseSettingsModalStateOptions) {
   // ── Add-feed form state ───────────────────────────────────────────────────
   const [newFeedName, setNewFeedName] = useState("");
@@ -94,6 +102,9 @@ export function useSettingsModalState({
   const [savingFeedKey, setSavingFeedKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [togglingFeedKey, setTogglingFeedKey] = useState<string | null>(null);
+  const [updatingSettingsKey, setUpdatingSettingsKey] = useState<string | null>(
+    null,
+  );
 
   // ── Drag state ────────────────────────────────────────────────────────────
   const drag = useSettingsDrag({ onDropFeed, onDropCategory });
@@ -203,6 +214,30 @@ export function useSettingsModalState({
     }
   };
 
+  const handleToggleExtractionDisabled = async (
+    feedKey: string,
+    disabled: boolean,
+  ) => {
+    setUpdatingSettingsKey(feedKey);
+    try {
+      await onUpdateFeedSettings(feedKey, { extractionDisabled: disabled });
+    } finally {
+      setUpdatingSettingsKey(null);
+    }
+  };
+
+  const handleToggleProxyEnabled = async (
+    feedKey: string,
+    enabled: boolean,
+  ) => {
+    setUpdatingSettingsKey(feedKey);
+    try {
+      await onUpdateFeedSettings(feedKey, { proxyEnabled: enabled });
+    } finally {
+      setUpdatingSettingsKey(null);
+    }
+  };
+
   // ── Category handlers ─────────────────────────────────────────────────────
 
   const handleAddCategory = () => {
@@ -279,7 +314,12 @@ export function useSettingsModalState({
     onRemoveFeed: (key: string) => void handleRemoveFeed(key),
     onToggleFeedEnabled: (key: string, enabled: boolean) =>
       void handleToggleFeedEnabled(key, enabled),
+    onToggleExtractionDisabled: (key: string, disabled: boolean) =>
+      void handleToggleExtractionDisabled(key, disabled),
+    onToggleProxyEnabled: (key: string, enabled: boolean) =>
+      void handleToggleProxyEnabled(key, enabled),
     togglingFeedKey,
+    updatingSettingsKey,
   };
 
   return {

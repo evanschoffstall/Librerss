@@ -1,7 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
-import { Eye, EyeOff, GripVertical, Loader2, Trash2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  FileSearch,
+  FileX,
+  GripVertical,
+  Loader2,
+  Shield,
+  ShieldOff,
+  Trash2,
+} from "lucide-react";
 import {
   SettingsIconButton,
   settingsDragHandleCls,
@@ -46,7 +56,10 @@ export interface SettingsFeedRowProps {
   ) => void;
   onRemove: (key: string) => void;
   onToggleEnabled: (key: string, enabled: boolean) => void;
+  onToggleExtractionDisabled: (key: string, disabled: boolean) => void;
+  onToggleProxyEnabled: (key: string, enabled: boolean) => void;
   togglingFeedKey: string | null;
+  updatingSettingsKey: string | null;
 }
 
 export function SettingsFeedRow({
@@ -73,10 +86,16 @@ export function SettingsFeedRow({
   onStartEditing,
   onRemove,
   onToggleEnabled,
+  onToggleExtractionDisabled,
+  onToggleProxyEnabled,
   togglingFeedKey,
+  updatingSettingsKey,
 }: SettingsFeedRowProps) {
   const isEnabled = feedNode.data?.enabled !== false;
+  const isExtractionDisabled = feedNode.data?.extractionDisabled === true;
+  const isProxyEnabled = feedNode.data?.proxyEnabled === true;
   const isTogglingEnabled = togglingFeedKey === feedNode.key;
+  const isUpdatingSettings = updatingSettingsKey === feedNode.key;
   const isEditing = editingFeedKey === feedNode.key;
   const isDropBefore =
     feedDropTarget?.categoryLabel === categoryLabel &&
@@ -213,6 +232,44 @@ export function SettingsFeedRow({
       )}
 
       <div className="flex shrink-0 items-center gap-1">
+        <SettingsIconButton
+          tip={
+            isExtractionDisabled ? "Enable extraction" : "Disable extraction"
+          }
+          onClick={() =>
+            onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled)
+          }
+          disabled={
+            isUpdatingSettings ||
+            isTogglingEnabled ||
+            deletingKey === feedNode.key
+          }
+        >
+          {isUpdatingSettings ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : isExtractionDisabled ? (
+            <FileX className="size-3.5" />
+          ) : (
+            <FileSearch className="size-3.5" />
+          )}
+        </SettingsIconButton>
+        <SettingsIconButton
+          tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
+          onClick={() => onToggleProxyEnabled(feedNode.key, !isProxyEnabled)}
+          disabled={
+            isUpdatingSettings ||
+            isTogglingEnabled ||
+            deletingKey === feedNode.key
+          }
+        >
+          {isUpdatingSettings ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : isProxyEnabled ? (
+            <Shield className="size-3.5" />
+          ) : (
+            <ShieldOff className="size-3.5" />
+          )}
+        </SettingsIconButton>
         <SettingsIconButton
           tip={isEnabled ? "Disable feed" : "Enable feed"}
           onClick={() => onToggleEnabled(feedNode.key, !isEnabled)}

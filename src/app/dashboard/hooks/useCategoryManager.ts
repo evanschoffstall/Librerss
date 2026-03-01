@@ -216,6 +216,7 @@ export function useCategoryManager({
     removeFeedSource: feedSourceActions.removeFeedSource,
     renameFeedSource: feedSourceActions.renameFeedSource,
     setFeedSourceEnabled: feedSourceActions.setFeedSourceEnabled,
+    updateFeedSettings: feedSourceActions.updateFeedSettings,
     moveFeedByDrop: feedSourceActions.moveFeedByDrop,
     selectFeedByKey: feedSourceActions.selectFeedByKey,
     importOpmlFeeds,

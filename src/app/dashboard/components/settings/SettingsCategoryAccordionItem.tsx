@@ -74,7 +74,10 @@ interface SettingsCategoryAccordionItemProps {
   onStartFeedEdit: SettingsFeedRowProps["onStartEditing"];
   onRemoveFeed: SettingsFeedRowProps["onRemove"];
   onToggleFeedEnabled: SettingsFeedRowProps["onToggleEnabled"];
+  onToggleExtractionDisabled: SettingsFeedRowProps["onToggleExtractionDisabled"];
+  onToggleProxyEnabled: SettingsFeedRowProps["onToggleProxyEnabled"];
   togglingFeedKey: SettingsFeedRowProps["togglingFeedKey"];
+  updatingSettingsKey: SettingsFeedRowProps["updatingSettingsKey"];
 }
 
 export function SettingsCategoryAccordionItem({
@@ -123,7 +126,10 @@ export function SettingsCategoryAccordionItem({
   onStartFeedEdit,
   onRemoveFeed,
   onToggleFeedEnabled,
+  onToggleExtractionDisabled,
+  onToggleProxyEnabled,
   togglingFeedKey,
+  updatingSettingsKey,
 }: SettingsCategoryAccordionItemProps) {
   const categoryFeeds = categoryNode.children ?? [];
   const isEditing = editingCategory === categoryNode.label;
@@ -360,7 +366,10 @@ export function SettingsCategoryAccordionItem({
                     onStartEditing={onStartFeedEdit}
                     onRemove={onRemoveFeed}
                     onToggleEnabled={onToggleFeedEnabled}
+                    onToggleExtractionDisabled={onToggleExtractionDisabled}
+                    onToggleProxyEnabled={onToggleProxyEnabled}
                     togglingFeedKey={togglingFeedKey}
+                    updatingSettingsKey={updatingSettingsKey}
                   />
                 ),
               )}

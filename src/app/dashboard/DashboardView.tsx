@@ -30,7 +30,10 @@ import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
 import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
-import { useSwipeUpToRefresh } from "./hooks/useSwipeUpToRefresh";
+import {
+  useSentinelScrollOffset,
+  useSwipeUpToRefresh,
+} from "./hooks/useSwipeUpToRefresh";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
@@ -122,6 +125,7 @@ export const DashboardView = ({
     setExpandedArticleKey,
     articleFilter,
     usePlaceholderData,
+    categories,
   });
 
   const customCategoryLabels = categoryManager.customCategoryLabels;
@@ -207,8 +211,9 @@ export const DashboardView = ({
 
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
+  const sentinelScrollOffset = useSentinelScrollOffset();
   const { ref: feedScrollRef, invalidate: invalidateFeedScroll } =
-    useScrollRestore(FEED_SCROLL_SESSION_KEY, 104);
+    useScrollRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
   const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
 
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
@@ -412,6 +417,7 @@ export const DashboardView = ({
           onRemoveFeed={categoryManager.removeFeedSource}
           onRenameFeed={categoryManager.renameFeedSource}
           onSetFeedEnabled={categoryManager.setFeedSourceEnabled}
+          onUpdateFeedSettings={categoryManager.updateFeedSettings}
         />
       )}
     </div>

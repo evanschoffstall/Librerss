@@ -14,6 +14,7 @@ import {
   renameFeedSourceAndRefresh,
   selectFeedByKeyFromCategories,
   setFeedSourceEnabledAndRefresh,
+  updateFeedSettingsAndRefresh,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
 import type { FeedSourceActionState } from "./feedSourceActionTypes";
@@ -162,12 +163,28 @@ export function useFeedSourceActions({
     ],
   );
 
+  const updateFeedSettings = useCallback(
+    async (
+      key: string,
+      settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+    ) => {
+      return updateFeedSettingsAndRefresh({
+        categories,
+        key,
+        settings,
+        loadFeedSources,
+      });
+    },
+    [categories, loadFeedSources],
+  );
+
   return {
     selectFeedByKey,
     addFeedSource,
     removeFeedSource,
     renameFeedSource,
     setFeedSourceEnabled,
+    updateFeedSettings,
     moveFeedByDrop,
     importOpmlFeeds,
   };
