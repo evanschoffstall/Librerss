@@ -1,9 +1,12 @@
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
+import { logger } from "@/lib/logger";
 import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
+import https from "node:https";
+import { SocksProxyAgent } from "socks-proxy-agent";
 import { CookieJar } from "tough-cookie";
 import {
   ARTICLE_EXTRACT_SEC_CH_UA,
@@ -19,37 +22,64 @@ type FetchHtmlDeps = {
 
 interface FetchHtmlOptions {
   useProxy?: boolean;
+  proxyUrl?: string;
+  allowInsecureTls?: boolean;
 }
 
-/** Resolves the user-configured proxy URL, if available. */
-function getExtractProxyUrl(): string | undefined {
-  const raw = process.env.ARTICLE_EXTRACT_PROXY_URL?.trim();
-  return raw || undefined;
-}
-
-/** Parse a proxy URL string into axios proxy config. */
-function buildAxiosProxy(proxyUrl: string):
+type ProxyConfig =
   | {
-      host: string;
-      port: number;
-      protocol: string;
-      auth?: { username: string; password: string };
+      mode: "http";
+      proxy: {
+        host: string;
+        port: number;
+        protocol: string;
+        auth?: { username: string; password: string };
+      };
     }
-  | false {
+  | { mode: "socks"; httpAgent: SocksProxyAgent; httpsAgent: SocksProxyAgent };
+
+const SOCKS_PROTOCOLS = new Set([
+  "socks:",
+  "socks4:",
+  "socks4a:",
+  "socks5:",
+  "socks5h:",
+]);
+
+/** Parse a proxy URL string into axios-compatible config (HTTP or SOCKS). */
+function buildProxyConfig(
+  proxyUrl: string,
+  allowInsecureTls = false,
+): ProxyConfig | false {
   try {
     const parsed = new URL(proxyUrl);
-    const result: {
-      host: string;
-      port: number;
-      protocol: string;
-      auth?: { username: string; password: string };
-    } = {
-      host: parsed.hostname,
-      port: Number(parsed.port) || (parsed.protocol === "https:" ? 443 : 8080),
-      protocol: parsed.protocol.replace(":", ""),
+    if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
+      const agent = new SocksProxyAgent(proxyUrl);
+      if (allowInsecureTls) {
+        // Override the connect method to inject rejectUnauthorized: false
+        // into the TLS upgrade options that socks-proxy-agent passes to
+        // tls.connect(). Cast required because AgentConnectOpts union
+        // doesn't expose TLS fields on the HTTP variant.
+        const origConnect = agent.connect.bind(agent);
+        agent.connect = (req, opts) =>
+          origConnect(req, {
+            ...opts,
+            rejectUnauthorized: false,
+          } as typeof opts);
+      }
+      return { mode: "socks", httpAgent: agent, httpsAgent: agent };
+    }
+    const result: ProxyConfig & { mode: "http" } = {
+      mode: "http",
+      proxy: {
+        host: parsed.hostname,
+        port:
+          Number(parsed.port) || (parsed.protocol === "https:" ? 443 : 8080),
+        protocol: parsed.protocol.replace(":", ""),
+      },
     };
     if (parsed.username)
-      result.auth = {
+      result.proxy.auth = {
         username: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
       };
@@ -65,9 +95,15 @@ function buildAxiosProxy(proxyUrl: string):
 // across all redirect hops within a single extraction attempt.
 const extractionAxios = cookieJarWrapper(axios.create());
 
+interface FingerprintFetchOptions {
+  proxyUrl?: string;
+  allowInsecureTls?: boolean;
+}
+
 export async function fetchHtmlWithFingerprint(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
+  options?: FingerprintFetchOptions,
 ): Promise<string> {
   const { gotScraping } = await import("got-scraping");
 
@@ -82,6 +118,22 @@ export async function fetchHtmlWithFingerprint(
     }
     isFirstValidation = false;
 
+    // got-scraping's built-in proxyUrl only supports HTTP/HTTPS proxies.
+    // For SOCKS proxies, pass a SocksProxyAgent as the agent instead.
+    const isSocksProxy =
+      options?.proxyUrl &&
+      SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol);
+    const proxyOpts = options?.proxyUrl
+      ? isSocksProxy
+        ? {
+            agent: {
+              http: new SocksProxyAgent(options.proxyUrl),
+              https: new SocksProxyAgent(options.proxyUrl),
+            },
+          }
+        : { proxyUrl: options.proxyUrl }
+      : {};
+
     const response = await gotScraping.get(currentUrl, {
       headerGeneratorOptions: {
         browsers: [{ name: "chrome", minVersion: 130, maxVersion: 130 }],
@@ -92,8 +144,11 @@ export async function fetchHtmlWithFingerprint(
       followRedirect: false,
       throwHttpErrors: false,
       timeout: { request: 25_000 },
-      https: { rejectUnauthorized: true },
+      https: {
+        rejectUnauthorized: options?.allowInsecureTls !== true,
+      },
       responseType: "text",
+      ...proxyOpts,
     });
 
     if (response.statusCode >= 300 && response.statusCode < 400) {
@@ -172,16 +227,53 @@ export async function fetchHtml(
     // cookies from a previous failed attempt don't pollute the retry.
     const jar = injectedGet ? undefined : new CookieJar();
     const proxyUrl =
-      options?.useProxy && !injectedGet ? getExtractProxyUrl() : undefined;
-    const proxyConfig = proxyUrl ? buildAxiosProxy(proxyUrl) : undefined;
+      options?.useProxy && !injectedGet ? options?.proxyUrl : undefined;
+    const insecureTls = options?.allowInsecureTls === true && !injectedGet;
+    const proxyConfig = proxyUrl
+      ? buildProxyConfig(proxyUrl, insecureTls)
+      : undefined;
+    const insecureHttpsAgent = insecureTls
+      ? new https.Agent({ rejectUnauthorized: false })
+      : undefined;
+    const proxyAxiosConfig =
+      proxyConfig && proxyConfig.mode === "socks"
+        ? {
+            proxy: false as const,
+            httpAgent: proxyConfig.httpAgent,
+            httpsAgent: proxyConfig.httpsAgent,
+          }
+        : proxyConfig && proxyConfig.mode === "http"
+          ? {
+              proxy: proxyConfig.proxy,
+              ...(insecureHttpsAgent && {
+                httpsAgent: insecureHttpsAgent,
+              }),
+            }
+          : insecureHttpsAgent
+            ? { httpsAgent: insecureHttpsAgent }
+            : {};
+    const usingSocksProxy =
+      proxyConfig !== undefined &&
+      proxyConfig !== false &&
+      proxyConfig.mode === "socks";
+    // axios-cookiejar-support rejects requests with custom http(s).Agent,
+    // so SOCKS proxy requests use a plain axios instance without jar support.
+    // Cookie persistence is less important through a proxy anyway — the proxy
+    // IP is the identity signal, not the cookie.
     const axiosGet: typeof axios.get = injectedGet
       ? injectedGet
-      : (reqUrl, config) =>
-          extractionAxios.get(reqUrl, {
-            ...config,
-            jar,
-            ...(proxyConfig && { proxy: proxyConfig }),
-          });
+      : usingSocksProxy
+        ? (reqUrl, config) =>
+            axios.get(reqUrl, {
+              ...config,
+              ...proxyAxiosConfig,
+            })
+        : (reqUrl, config) =>
+            extractionAxios.get(reqUrl, {
+              ...config,
+              jar,
+              ...proxyAxiosConfig,
+            });
 
     let got403 = false;
     let isFirstValidation = true;
@@ -289,11 +381,31 @@ export async function fetchHtml(
   // natively.  Injected callers (tests) always skip this path — they receive
   // the original error so existing test contracts are unchanged.
   if ((dataDomeDetected || perimeterXDetected) && !injectedGet) {
+    const provider = dataDomeDetected ? "DataDome" : "PerimeterX";
+    logger.info(`TLS fingerprint fallback started (${provider})`, {
+      url,
+      connectionMode: options?.useProxy ? "proxy" : "direct",
+      proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
+    });
     try {
-      return await fetchHtmlWithFingerprint(url, isAllowedUrl);
-    } catch {
-      // got-scraping also failed (IP reputation block or network error) —
-      // fall through and surface the original DataDome error to the caller.
+      const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+        proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
+        allowInsecureTls: options?.allowInsecureTls,
+      });
+      logger.info(`TLS fingerprint fallback succeeded (${provider})`, {
+        url,
+        bytes: html.length,
+      });
+      return html;
+    } catch (fallbackErr) {
+      logger.error(`TLS fingerprint fallback failed (${provider})`, {
+        url,
+        error:
+          fallbackErr instanceof Error
+            ? fallbackErr.message
+            : String(fallbackErr),
+      });
+      // Fall through and surface the original error to the caller.
     }
   }
 
