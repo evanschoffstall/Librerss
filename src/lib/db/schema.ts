@@ -18,6 +18,12 @@ export const users = pgTable("User", {
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
     .notNull()
     .defaultNow(),
+  lastForceRefreshedAt: timestamp("last_force_refreshed_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  proxyUrl: text("proxy_url"),
+  allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
 });
 
 export const sessions = pgTable(
