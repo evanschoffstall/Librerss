@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from "react";
 
 /** Height of the hidden pull zone above content. */
 export const SENTINEL_HEIGHT = 104;
-/** Tailwind `md:` breakpoint — sentinel is md:hidden. */
-const MD_BREAKPOINT = "(min-width: 768px)";
-/** Distance (px out of sentinel) user must pull to commit. */
+/** Distance (px into sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
 /** Hold height during refresh feedback. */
 const HOLD_PULL_PX = 44;
 /** Hold duration before snapping back. */
 const REFRESH_HOLD_MS = 650;
+/** Wheel inactivity ms before treating scroll as ended. */
+const WHEEL_END_DEBOUNCE_MS = 150;
 
 interface PullState {
   pulling: boolean;
@@ -28,10 +28,11 @@ const IDLE: PullState = { pulling: false, readyToRefresh: false };
  * invisible. Pulling down from the top naturally scrolls into the sentinel
  * zone — 100% native scroll compositor, zero transforms or layout writes.
  *
+ * Works on both touch (mobile) and wheel/trackpad (desktop).
  * Momentum-only scroll into the sentinel zone is snapped back immediately
- * so pull-to-refresh only triggers with the finger still on screen.
+ * so pull-to-refresh only triggers with active user input.
  */
-export function useSwipeUpToRefresh(
+export function usePullDownToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   onRefresh: () => void,
   disabled = false,
@@ -39,10 +40,14 @@ export function useSwipeUpToRefresh(
   const [state, setState] = useState<PullState>(IDLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const touchActiveRef = useRef(false);
+  const wheelActiveRef = useRef(false);
   const committedRef = useRef(false);
   const pullingRef = useRef(false);
   const holdingRef = useRef(false);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const wheelEndTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
   const disabledRef = useRef(disabled);
@@ -59,7 +64,7 @@ export function useSwipeUpToRefresh(
       root;
 
     const sentinel = sentinelRef.current;
-    /** Live-read sentinel height — handles md:hidden and late layout. */
+    /** Live-read sentinel height — handles late layout. */
     const sh = () => sentinel?.offsetHeight ?? 0;
 
     const resetPull = () => {
@@ -71,25 +76,19 @@ export function useSwipeUpToRefresh(
       setState(IDLE);
     };
 
-    // Hide sentinel on mount + prevent iOS from rubber-banding the page
+    // Prevent iOS from rubber-banding the page
     viewport.style.overscrollBehaviorY = "none";
 
     const wrapper = sentinel?.parentElement ?? null;
 
     /**
      * Ensures viewport.scrollHeight >= viewport.clientHeight + sentinelHeight
-     * so that setting scrollTop = sentinel height is never clamped to 0.
-     *
-     * Uses wrapper.offsetHeight (actual content, sans our padding) instead of
-     * viewport.scrollHeight - viewport.clientHeight: when content is shorter
-     * than the viewport, scrollHeight is clamped to clientHeight and the
-     * naive deficit formula produces a value too small to create real overflow.
+     * so that setting scrollTop = sentinelHeight is never clamped to 0.
      */
     const ensureMinOverflow = () => {
       const height = sh();
       if (height === 0 || !wrapper) return;
       wrapper.style.paddingBottom = "";
-      // offsetHeight forces a reflow and returns real content height
       const contentHeight = wrapper.offsetHeight;
       const needed = viewport.clientHeight + height - contentHeight;
       if (needed > 0) wrapper.style.paddingBottom = `${needed}px`;
@@ -98,7 +97,6 @@ export function useSwipeUpToRefresh(
     ensureMinOverflow();
     viewport.scrollTop = sh();
 
-    // rAF: re-check after first paint (content may not be laid out yet)
     const rafId = requestAnimationFrame(() => {
       ensureMinOverflow();
       const height = sh();
@@ -106,9 +104,6 @@ export function useSwipeUpToRefresh(
         viewport.scrollTop = height;
     });
 
-    // ResizeObserver: re-check whenever content height changes (articles load,
-    // images render, feed switches). Don't reset scrollTop unless we've
-    // drifted back into sentinel zone (content shrank below scrollTop).
     const resizeObserver =
       typeof ResizeObserver !== "undefined" && wrapper
         ? new ResizeObserver(() => {
@@ -118,6 +113,7 @@ export function useSwipeUpToRefresh(
               height > 0 &&
               viewport.scrollTop < height &&
               !touchActiveRef.current &&
+              !wheelActiveRef.current &&
               !holdingRef.current
             ) {
               viewport.scrollTop = height;
@@ -126,9 +122,35 @@ export function useSwipeUpToRefresh(
         : null;
     resizeObserver?.observe(wrapper!);
 
+    /** True when active user input (touch or wheel) is driving scroll. */
+    const isInputActive = () =>
+      touchActiveRef.current || wheelActiveRef.current;
+
+    const commitOrSnapBack = () => {
+      const height = sh();
+      const st = viewport.scrollTop;
+      if (st >= height) return;
+
+      if (committedRef.current && !disabledRef.current) {
+        holdingRef.current = true;
+        viewport.scrollTo({ top: height - HOLD_PULL_PX, behavior: "smooth" });
+        onRefreshRef.current();
+        snapTimerRef.current = setTimeout(() => {
+          resetPull();
+          const h = sh();
+          if (h > 0) viewport.scrollTo({ top: h, behavior: "smooth" });
+        }, REFRESH_HOLD_MS);
+      } else {
+        pullingRef.current = false;
+        viewport.scrollTo({ top: height, behavior: "smooth" });
+        setState(IDLE);
+      }
+      committedRef.current = false;
+    };
+
     const handleScroll = () => {
       const height = sh();
-      if (height === 0) return; // Sentinel hidden (desktop) or not rendered
+      if (height === 0) return;
 
       const st = viewport.scrollTop;
       if (st < 0) {
@@ -136,7 +158,6 @@ export function useSwipeUpToRefresh(
         return;
       }
 
-      // In normal content zone — nothing to do
       if (st >= height) {
         if (pullingRef.current && !holdingRef.current) {
           pullingRef.current = false;
@@ -145,13 +166,12 @@ export function useSwipeUpToRefresh(
         return;
       }
 
-      // During post-commit hold animation — don't interfere
       if (holdingRef.current) return;
 
       const pullDistance = height - st;
 
-      // Finger not on screen — momentum overshoot, snap back smoothly
-      if (!touchActiveRef.current) {
+      // No active input — momentum overshoot, snap back
+      if (!isInputActive()) {
         if (!snapTimerRef.current) {
           snapTimerRef.current = setTimeout(() => {
             snapTimerRef.current = undefined;
@@ -172,7 +192,6 @@ export function useSwipeUpToRefresh(
       const wasCommitted = committedRef.current;
       committedRef.current = committed;
 
-      // Only setState on actual transitions to avoid per-frame re-renders
       if (!pullingRef.current) {
         pullingRef.current = true;
         setState({ pulling: true, readyToRefresh: committed });
@@ -181,11 +200,12 @@ export function useSwipeUpToRefresh(
       }
     };
 
+    // ── Touch handlers ────────────────────────────────────────────────────
+
     const handleTouchStart = () => {
       touchActiveRef.current = true;
       clearTimeout(snapTimerRef.current);
       snapTimerRef.current = undefined;
-      // Touch during hold → cancel hold animation, snap back
       if (holdingRef.current) {
         resetPull();
         const h = sh();
@@ -195,36 +215,9 @@ export function useSwipeUpToRefresh(
 
     const handleTouchEnd = () => {
       touchActiveRef.current = false;
-      const height = sh();
-      const st = viewport.scrollTop;
-
-      // Was in normal scroll zone, nothing to do
-      if (st >= height) return;
-
-      if (committedRef.current && !disabledRef.current) {
-        // Snap to hold position and trigger refresh
-        holdingRef.current = true;
-        viewport.scrollTo({
-          top: height - HOLD_PULL_PX,
-          behavior: "smooth",
-        });
-        onRefreshRef.current();
-        // After hold, snap back fully
-        snapTimerRef.current = setTimeout(() => {
-          resetPull();
-          const h = sh();
-          if (h > 0) viewport.scrollTo({ top: h, behavior: "smooth" });
-        }, REFRESH_HOLD_MS);
-      } else {
-        // Not committed — snap back
-        pullingRef.current = false;
-        viewport.scrollTo({ top: height, behavior: "smooth" });
-        setState(IDLE);
-      }
-      committedRef.current = false;
+      commitOrSnapBack();
     };
 
-    // touchcancel = system-initiated cancellation — always snap back, never commit
     const handleTouchCancel = () => {
       touchActiveRef.current = false;
       resetPull();
@@ -234,24 +227,60 @@ export function useSwipeUpToRefresh(
       }
     };
 
+    // ── Wheel handlers (desktop / trackpad) ───────────────────────────────
+
+    const handleWheelEnd = () => {
+      wheelEndTimerRef.current = undefined;
+      wheelActiveRef.current = false;
+      commitOrSnapBack();
+    };
+
+    const handleWheel = () => {
+      // Cancel any pending snap from the momentum guard in handleScroll
+      clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = undefined;
+
+      if (!wheelActiveRef.current) {
+        wheelActiveRef.current = true;
+        if (holdingRef.current) {
+          resetPull();
+          const h = sh();
+          if (h > 0) viewport.scrollTo({ top: h, behavior: "smooth" });
+          return;
+        }
+      }
+
+      clearTimeout(wheelEndTimerRef.current);
+      wheelEndTimerRef.current = setTimeout(
+        handleWheelEnd,
+        WHEEL_END_DEBOUNCE_MS,
+      );
+    };
+
+    // ── Register listeners ────────────────────────────────────────────────
+
     viewport.addEventListener("scroll", handleScroll, { passive: true });
     viewport.addEventListener("touchstart", handleTouchStart, {
       passive: true,
     });
     viewport.addEventListener("touchend", handleTouchEnd);
     viewport.addEventListener("touchcancel", handleTouchCancel);
+    viewport.addEventListener("wheel", handleWheel, { passive: true });
 
     return () => {
       resizeObserver?.disconnect();
       cancelAnimationFrame(rafId);
       clearTimeout(snapTimerRef.current);
       snapTimerRef.current = undefined;
+      clearTimeout(wheelEndTimerRef.current);
+      wheelEndTimerRef.current = undefined;
       viewport.style.overscrollBehaviorY = "";
       if (wrapper) wrapper.style.paddingBottom = "";
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
       viewport.removeEventListener("touchcancel", handleTouchCancel);
+      viewport.removeEventListener("wheel", handleWheel);
     };
   }, [scrollRootRef]);
 
@@ -264,11 +293,14 @@ export function useSwipeUpToRefresh(
       root;
     viewport.scrollTop = sentinelRef.current?.offsetHeight ?? 0;
     touchActiveRef.current = false;
+    wheelActiveRef.current = false;
     committedRef.current = false;
     pullingRef.current = false;
     holdingRef.current = false;
     clearTimeout(snapTimerRef.current);
     snapTimerRef.current = undefined;
+    clearTimeout(wheelEndTimerRef.current);
+    wheelEndTimerRef.current = undefined;
     setState(IDLE);
   }, [disabled, scrollRootRef]);
 
@@ -276,20 +308,11 @@ export function useSwipeUpToRefresh(
     pulling: state.pulling,
     readyToRefresh: state.readyToRefresh,
     sentinelRef,
-    /** Offset px that scroll-restore must add to account for the sentinel. */
     sentinelHeight: SENTINEL_HEIGHT,
   };
 }
 
-/** Scroll-restore offset: SENTINEL_HEIGHT on mobile, 0 on desktop (sentinel is md:hidden). */
+/** Scroll-restore offset: always SENTINEL_HEIGHT since sentinel is always present. */
 export function useSentinelScrollOffset(): number {
-  const [offset, setOffset] = useState(SENTINEL_HEIGHT);
-  useEffect(() => {
-    const mql = window.matchMedia(MD_BREAKPOINT);
-    const sync = () => setOffset(mql.matches ? 0 : SENTINEL_HEIGHT);
-    sync();
-    mql.addEventListener("change", sync);
-    return () => mql.removeEventListener("change", sync);
-  }, []);
-  return offset;
+  return SENTINEL_HEIGHT;
 }
