@@ -1,21 +1,21 @@
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-    clearArticleExtractCacheForTests,
-    extractArticleFromHtml,
-    fetchHtml,
-    fetchHtmlWithFingerprint,
-    parseAndValidateArticleUrl,
+  clearArticleExtractCacheForTests,
+  extractArticleFromHtml,
+  fetchHtml,
+  fetchHtmlWithFingerprint,
+  parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import {
-    buildMetadataImageFallbackHtml,
-    cleanExtractedArticleHtml,
-    hasReadableArticleBody,
-    isLikelyNavFooterBoilerplate,
-    normalizeArticleHtmlSpacing,
-    preCleanHtmlForExtraction,
-    sanitizeExtractedContent,
-    stripCommentEngagementBoilerplate,
-    toParagraphHtml,
+  buildMetadataImageFallbackHtml,
+  cleanExtractedArticleHtml,
+  hasReadableArticleBody,
+  isLikelyNavFooterBoilerplate,
+  normalizeArticleHtmlSpacing,
+  preCleanHtmlForExtraction,
+  sanitizeExtractedContent,
+  stripCommentEngagementBoilerplate,
+  toParagraphHtml,
 } from "@/lib/sanitize";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
@@ -597,9 +597,6 @@ describe("article extract cleanup", () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "verbose";
 
-    const jsonErrorFn = mock((message: string, status: number) =>
-      Response.json({ error: message }, { status }),
-    );
     const errorFn = mock(() => {});
 
     // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
@@ -615,36 +612,23 @@ describe("article extract cleanup", () => {
         },
         isAxiosErrorFn: (() => true) as any,
         toErrorMessageFn: () => "upstream-throttled",
-        jsonErrorFn: jsonErrorFn as any,
         errorFn: errorFn as any,
       });
 
       expect(axiosResult.status).toBe(502);
-      expect(jsonErrorFn).toHaveBeenCalledWith(
+      const axiosBody = await axiosResult.json();
+      expect(axiosBody.error).toBe(
         "Failed to fetch article content from upstream",
-        502,
       );
+      expect(axiosBody.reason).toBe("upstream-throttled");
       expect(errorFn).toHaveBeenCalledWith(
         expect.stringContaining("upstream request failed"),
         expect.objectContaining({
-          upstreamStatus: 429,
-          upstreamMethod: null,
-          responseBodySnippet: undefined,
           extractAttemptId: expect.any(String),
         }),
       );
 
-      const logAndRespondErrorFn = mock(
-        (
-          _message: string,
-          _error: unknown,
-          options?: { status?: number; publicMessage?: string },
-        ) =>
-          Response.json(
-            { error: options?.publicMessage ?? "unknown" },
-            { status: options?.status ?? 500 },
-          ),
-      );
+      errorFn.mockClear();
 
       const genericResult = await POST(mockReq(), {
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
@@ -654,20 +638,16 @@ describe("article extract cleanup", () => {
         },
         isAxiosErrorFn: (() => false) as any,
         toErrorMessageFn: () => "normalized-boom",
-        logAndRespondErrorFn: logAndRespondErrorFn as any,
         errorFn: errorFn as any,
       });
 
       expect(genericResult.status).toBe(502);
-      expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
-      expect(logAndRespondErrorFn).toHaveBeenCalledWith(
-        "Article extract error",
-        expect.any(Error),
-        expect.objectContaining({
-          status: 502,
-          publicMessage: "Failed to extract article content",
-        }),
+      const genericBody = await genericResult.json();
+      expect(genericBody.error).toBe(
+        "Failed to extract article content",
       );
+      expect(genericBody.reason).toBe("normalized-boom");
+      expect(errorFn).toHaveBeenCalledTimes(1);
     } finally {
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;

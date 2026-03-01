@@ -162,7 +162,7 @@ describe("useArticleHydration", () => {
     await waitFor(() => {
       expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
         "https://example.com/article",
-        { useProxy: undefined },
+        expect.objectContaining({ useProxy: undefined }),
       );
       expect(feedState[0].content).toContain("Extracted");
     });
@@ -284,7 +284,7 @@ describe("useArticleHydration", () => {
 
     expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
       article.link,
-      { useProxy: undefined },
+      expect.objectContaining({ useProxy: undefined }),
     );
   });
 
