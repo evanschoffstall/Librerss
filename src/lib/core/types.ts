@@ -18,6 +18,8 @@ export interface FeedSource {
   url: string;
   category?: string;
   enabled?: boolean;
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
 }
 
 export interface Article {
@@ -43,5 +45,7 @@ export interface CategoryTreeNode {
     sourceId?: number;
     category?: string;
     enabled?: boolean;
+    extractionDisabled?: boolean;
+    proxyEnabled?: boolean;
   };
 }

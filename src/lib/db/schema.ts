@@ -89,6 +89,8 @@ export const feedSources = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     url: text("url").notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    extractionDisabled: boolean("extraction_disabled").notNull().default(false),
+    proxyEnabled: boolean("proxy_enabled").notNull().default(false),
   },
   (table) => ({
     userUrlIdx: uniqueIndex("feed_source_user_url_idx").on(

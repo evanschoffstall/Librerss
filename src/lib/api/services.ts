@@ -151,6 +151,17 @@ export class FeedService {
     return response.data;
   }
 
+  static async updateFeedSettings(
+    id: number,
+    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  ): Promise<FeedSource> {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
+      id,
+      ...settings,
+    });
+    return response.data;
+  }
+
   static async getCategoryOrder(): Promise<string[]> {
     const response = await getApiClient().get(
       `${this.baseUrl}/feeds/category-order`,
@@ -182,11 +193,22 @@ export class ArticleService {
     return response.data;
   }
 
-  static async extractArticleContent(url: string): Promise<string> {
+  static async getProxyStatus(): Promise<{ configured: boolean }> {
+    const response = await getApiClient().get(
+      `${this.baseUrl}/articles/proxy-status`,
+    );
+    return { configured: response.data?.configured === true };
+  }
+
+  static async extractArticleContent(
+    url: string,
+    options?: { useProxy?: boolean },
+  ): Promise<string> {
     const response = await getApiClient().post(
       `${this.baseUrl}/articles/extract`,
       {
         url,
+        ...(options?.useProxy && { useProxy: true }),
       },
     );
     return typeof response.data?.content === "string"

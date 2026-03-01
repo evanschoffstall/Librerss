@@ -21,11 +21,19 @@ export type ToggleFeedEnabledPayload = {
   enabled: boolean;
 };
 
+export type UpdateFeedSettingsPayload = {
+  sourceId: number;
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
+};
+
 export type FeedSourceRecord = {
   id: number;
   name: string;
   url: string;
   enabled?: boolean;
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
 };
 
 export type FeedSourceListRow = FeedSourceRecord & {

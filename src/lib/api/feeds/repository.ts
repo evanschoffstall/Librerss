@@ -26,6 +26,8 @@ const feedSourceFields = {
   name: feedSources.name,
   url: feedSources.url,
   enabled: feedSources.enabled,
+  extractionDisabled: feedSources.extractionDisabled,
+  proxyEnabled: feedSources.proxyEnabled,
 };
 
 export function toFeedSourceResponse(
@@ -48,6 +50,8 @@ export async function listFeedSourcesForUser(
       name: feedSources.name,
       url: feedSources.url,
       enabled: feedSources.enabled,
+      extractionDisabled: feedSources.extractionDisabled,
+      proxyEnabled: feedSources.proxyEnabled,
       category: feedCategories.category,
     })
     .from(feedSources)
@@ -198,6 +202,28 @@ export async function setFeedSourceEnabledForUser(
   const [updatedSource] = await db
     .update(feedSources)
     .set({ enabled })
+    .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+    .returning(feedSourceFields);
+
+  return updatedSource ?? null;
+}
+
+export async function updateFeedSettingsForUser(
+  userId: number,
+  sourceId: number,
+  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+): Promise<FeedSourceRecord | null> {
+  const db = getDb();
+  const setClause: Record<string, boolean> = {};
+  if (typeof settings.extractionDisabled === "boolean")
+    setClause.extractionDisabled = settings.extractionDisabled;
+  if (typeof settings.proxyEnabled === "boolean")
+    setClause.proxyEnabled = settings.proxyEnabled;
+  if (Object.keys(setClause).length === 0) return null;
+
+  const [updatedSource] = await db
+    .update(feedSources)
+    .set(setClause)
     .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
     .returning(feedSourceFields);
 
