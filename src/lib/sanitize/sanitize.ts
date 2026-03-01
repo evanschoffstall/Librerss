@@ -76,6 +76,7 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "nav",
     "section",
     "iframe",
+    "form",
   ],
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],

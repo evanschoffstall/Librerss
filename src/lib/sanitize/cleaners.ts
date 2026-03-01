@@ -216,6 +216,34 @@ function removeElementById(rawHtml: string, idValue: string): string {
     : rawHtml.slice(0, startMatch.index) + rawHtml.slice(endIdx);
 }
 
+function removeElementsByClassPattern(
+  html: string,
+  classPattern: RegExp,
+): string {
+  const openRe = /<([a-z][a-z0-9:-]*)\b[^>]*class=["']([^"']*)["'][^>]*>/gi;
+  let result = html;
+  let match: RegExpExecArray | null;
+  while ((match = openRe.exec(result)) !== null) {
+    if (!classPattern.test(match[2]!)) continue;
+    const tagName = match[1]!;
+    const afterOpen = match.index + match[0].length;
+    const closeRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+    closeRe.lastIndex = afterOpen;
+    let depth = 1;
+    let endIdx = -1;
+    let m: RegExpExecArray | null;
+    while (depth > 0 && (m = closeRe.exec(result)) !== null) {
+      if (m[0].startsWith("</")) depth--;
+      else depth++;
+      if (depth === 0) endIdx = m.index + m[0].length;
+    }
+    if (endIdx < 0) continue;
+    result = result.slice(0, match.index) + result.slice(endIdx);
+    openRe.lastIndex = match.index;
+  }
+  return result;
+}
+
 const COMMENT_WIDGET_IDS = [
   "viafoura-comments",
   "viafoura-comments-container",
@@ -240,6 +268,12 @@ export function preCleanHtmlForExtraction(rawHtml: string): string {
     .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "");
 
   for (const id of COMMENT_WIDGET_IDS) html = removeElementById(html, id);
+
+  // Strip signup/subscription widgets and CTA containers (depth-aware).
+  html = removeElementsByClassPattern(
+    html,
+    /sailthru|signup-widget|subscribe-widget|newsletter-signup|preferred-source|nlp-ignore-block/i,
+  );
 
   // Strip pure-link <ul> blocks (8+ items, all bare <a>) — tag clouds, nav panels.
   html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {

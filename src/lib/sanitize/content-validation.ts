@@ -202,7 +202,7 @@ function findFirstByClassContains(
   for (const pattern of patterns) {
     const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp(
-      `<([a-z][a-z0-9:-]*)\\b[^>]*(?:class|id)=["'][^"']*(?:^|\\s)${escaped}(?:\\s|--|$)[^"']*["'][^>]*>`,
+      `<([a-z][a-z0-9:-]*)\\b[^>]*(?:class|id)=["'][^"']*(?:(?<=["'])|\\s)${escaped}(?:\\s|--|(?=["']))[^"']*["'][^>]*>`,
       "i",
     );
     const match = re.exec(html);
