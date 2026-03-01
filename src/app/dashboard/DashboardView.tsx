@@ -241,7 +241,7 @@ export const DashboardView = ({
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
 
   const {
-    contentRef: pullContentRef,
+    sentinelRef: pullSentinelRef,
     pulling: isPulling,
     readyToRefresh,
   } = useSwipeUpToRefresh(feedScrollRootRef, refreshFeedList, loading);
@@ -325,29 +325,34 @@ export const DashboardView = ({
 
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
           <ScrollArea ref={mergedFeedScrollRef} className="h-full">
-            <div ref={pullContentRef} className="relative p-1">
-              {/* Pull-down area: sits above content, revealed by translateY */}
-              <div
-                className={`absolute inset-x-0 z-0 flex items-end justify-center rounded-b-lg pb-3 transition-colors duration-150 md:hidden ${
-                  readyToRefresh ? "bg-sky-500/25" : "bg-sky-500/10"
+            {/* Pull sentinel: fixed-height scroll item, hidden by scrollTop on mount.
+                Scrolling into it = native pull gesture. */}
+            <div
+              ref={pullSentinelRef}
+              className={`flex items-end justify-center transition-colors duration-150 md:hidden ${isPulling
+                  ? readyToRefresh
+                    ? "bg-sky-500/25"
+                    : "bg-sky-500/10"
+                  : ""
                 }`}
-                style={{ top: -104, height: 104 }}
-              >
-                <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+              style={{ height: 104 }}
+            >
+              {isPulling && (
+                <div className="flex items-center gap-1.5 pb-3 text-sky-600 dark:text-sky-400">
                   <ArrowDown
-                    className={`size-4 transition-transform duration-150 ${
-                      readyToRefresh ? "scale-110 rotate-180" : "scale-90 opacity-60"
-                    }`}
+                    className={`size-4 transition-transform duration-150 ${readyToRefresh ? "scale-110 rotate-180" : "scale-90 opacity-60"
+                      }`}
                   />
                   <span
-                    className={`text-xs font-medium transition-opacity duration-150 ${
-                      readyToRefresh ? "opacity-100" : "opacity-70"
-                    }`}
+                    className={`text-xs font-medium transition-opacity duration-150 ${readyToRefresh ? "opacity-100" : "opacity-70"
+                      }`}
                   >
                     {pullRefreshHint}
                   </span>
                 </div>
-              </div>
+              )}
+            </div>
+            <div className="p-1">
               <FeedList
                 loading={loading}
                 filteredFeed={filteredFeed}
