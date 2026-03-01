@@ -61,6 +61,12 @@ export function useSwipeUpToRefresh(
     const handleScroll = () => {
       const st = viewport.scrollTop;
 
+      // Cap: don't let user scroll above the sentinel top
+      if (st < 0) {
+        viewport.scrollTop = 0;
+        return;
+      }
+
       // In normal content zone — nothing to do
       if (st >= SENTINEL_HEIGHT) {
         if (pullingRef.current) {
