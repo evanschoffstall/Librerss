@@ -315,8 +315,9 @@ export const DashboardView = ({
           <div className="h-full rounded-xl bg-card/35 px-2 py-2">
             <ScrollArea
               ref={sidebarScrollRef}
-              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
-                }`}
+              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${
+                isSidebarVisible ? "opacity-100" : "opacity-0"
+              }`}
             >
               <DashboardSidebarContent {...sidebarProps} />
             </ScrollArea>
@@ -330,23 +331,28 @@ export const DashboardView = ({
                   Scrolling into it = native pull gesture. */}
               <div
                 ref={pullSentinelRef}
-                className={`flex items-end justify-center transition-colors duration-150 md:hidden ${isPulling
-                  ? readyToRefresh
-                    ? "bg-sky-500/25"
-                    : "bg-sky-500/10"
-                  : ""
-                  }`}
+                className={`flex items-end justify-center transition-colors duration-150 md:hidden ${
+                  isPulling
+                    ? readyToRefresh
+                      ? "bg-sky-500/25"
+                      : "bg-sky-500/10"
+                    : ""
+                }`}
                 style={{ height: 104 }}
               >
                 {isPulling && (
                   <div className="flex items-center gap-1.5 pb-3 text-sky-600 dark:text-sky-400">
                     <ArrowDown
-                      className={`size-4 transition-transform duration-150 ${readyToRefresh ? "scale-110 rotate-180" : "scale-90 opacity-60"
-                        }`}
+                      className={`size-4 transition-transform duration-150 ${
+                        readyToRefresh
+                          ? "scale-110 rotate-180"
+                          : "scale-90 opacity-60"
+                      }`}
                     />
                     <span
-                      className={`text-xs font-medium transition-opacity duration-150 ${readyToRefresh ? "opacity-100" : "opacity-70"
-                        }`}
+                      className={`text-xs font-medium transition-opacity duration-150 ${
+                        readyToRefresh ? "opacity-100" : "opacity-70"
+                      }`}
                     >
                       {pullRefreshHint}
                     </span>
