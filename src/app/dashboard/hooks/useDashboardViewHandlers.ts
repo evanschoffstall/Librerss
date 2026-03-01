@@ -2,11 +2,15 @@
 
 import { type CategoryTreeNode } from "@/lib";
 import { useCallback } from "react";
-import { ALL_FEEDS_NODE_KEY } from "../constants";
+import { ALL_FEEDS_NODE_KEY, FEED_SCROLL_SESSION_KEY } from "../constants";
 import {
   type FeedSelectionFetchers,
   refreshCurrentSelection,
 } from "../services/selection";
+
+function clearFeedScrollCache() {
+  try { sessionStorage.removeItem(FEED_SCROLL_SESSION_KEY); } catch { /* ignore */ }
+}
 
 type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   selectedCategory: string;
@@ -69,6 +73,7 @@ export function useDashboardViewHandlers({
 
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
+      clearFeedScrollCache();
       setSelectedCategory(feedNode.key);
       setIsMobileSidebarOpen(false);
       if (feedNode.data?.url && feedNode.data.enabled !== false) {
@@ -80,6 +85,7 @@ export function useDashboardViewHandlers({
 
   const handleCategoryClick = useCallback(
     (categoryNode: CategoryTreeNode) => {
+      clearFeedScrollCache();
       setSelectedCategory(categoryNode.key);
       setIsMobileSidebarOpen(false);
 
