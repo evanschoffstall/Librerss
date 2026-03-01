@@ -1,5 +1,9 @@
-import { normalizeArticleHtmlSpacing, toParagraphHtml } from "./cleaners";
-import { sanitizeArticleHtml, toPlainText } from "./sanitize";
+import {
+  normalizeArticleHtmlSpacing,
+  toParagraphHtml,
+  toPlainText,
+} from "./cleaners";
+import { sanitizeArticleHtml } from "./sanitize";
 
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];

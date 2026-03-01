@@ -28,6 +28,32 @@ export function stripEmbeddedMediaBlocks(html: string): string {
     .replace(/<(iframe|video|object|embed)\b[^>]*\/?>/gi, "\n");
 }
 
+/** Converts HTML to plain text by stripping tags and normalizing whitespace. */
+export function toPlainText(value: string): string {
+  const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
+  const minOverflowRun = maxConsecutiveBlankLines + 1;
+
+  return stripEmbeddedMediaBlocks(value)
+    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
+    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(
+      /<\/(?:p|div|section|article|blockquote|li|h[1-6]|ul|ol|pre)>/gi,
+      "\n",
+    )
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(
+      new RegExp(`(?:\\n){${minOverflowRun},}`, "g"),
+      "\n".repeat(maxConsecutiveBlankLines),
+    )
+    .trim();
+}
+
 function collapseExcessNewlines(html: string): string {
   const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
@@ -107,6 +133,55 @@ export function escapeHtmlAttribute(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  ldquo: "\u201C",
+  rdquo: "\u201D",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  hellip: "\u2026",
+  copy: "\u00A9",
+  reg: "\u00AE",
+  trade: "\u2122",
+  bull: "\u2022",
+  middot: "\u00B7",
+  laquo: "\u00AB",
+  raquo: "\u00BB",
+  emdash: "\u2014",
+  euro: "\u20AC",
+};
+
+function decodeNumericEntity(raw: string, radix: 10 | 16): string {
+  try {
+    return String.fromCodePoint(Number.parseInt(raw, radix));
+  } catch {
+    return "";
+  }
+}
+
+export function decodeHtmlEntities(value: string): string {
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
+    (_match, rawEntity: string) => {
+      const entity = rawEntity.toLowerCase();
+      if (entity.startsWith("#x"))
+        return decodeNumericEntity(entity.slice(2), 16);
+      if (entity.startsWith("#"))
+        return decodeNumericEntity(entity.slice(1), 10);
+      return NAMED_ENTITIES[entity] ?? "";
+    },
+  );
+}
+
+export const __decodeHtmlEntitiesForTests = decodeHtmlEntities;
+
 export function toParagraphHtml(raw: string): string {
   return raw
     .split(/\n{2,}/)
@@ -114,4 +189,88 @@ export function toParagraphHtml(raw: string): string {
     .filter(Boolean)
     .map((segment) => `<p>${segment.replace(/\n/g, "<br />")}</p>`)
     .join("\n");
+}
+
+function removeElementById(rawHtml: string, idValue: string): string {
+  const escaped = idValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const startRe = new RegExp(
+    `<([a-z][a-z0-9:-]*)\\b[^>]*\\bid=["']${escaped}["'][^>]*>`,
+    "i",
+  );
+  const startMatch = startRe.exec(rawHtml);
+  if (!startMatch?.[1]) return rawHtml;
+  const tagName = startMatch[1];
+  const afterOpenTag = startMatch.index + startMatch[0].length;
+  const tagRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+  tagRe.lastIndex = afterOpenTag;
+  let depth = 1;
+  let endIdx = -1;
+  let m: RegExpExecArray | null;
+  while (depth > 0 && (m = tagRe.exec(rawHtml)) !== null) {
+    if (m[0].startsWith("</")) depth--;
+    else depth++;
+    if (depth === 0) endIdx = m.index + m[0].length;
+  }
+  return endIdx < 0
+    ? rawHtml
+    : rawHtml.slice(0, startMatch.index) + rawHtml.slice(endIdx);
+}
+
+const COMMENT_WIDGET_IDS = [
+  "viafoura-comments",
+  "viafoura-comments-container",
+  "viafoura-comment-wrapper",
+  "kiosq-app-paywall-js",
+  "kiosq-app",
+  "coral-display-comments",
+  "comment-container",
+  "mj-comments-container",
+] as const;
+
+/**
+ * Strip noise containers (scripts, styles, headers, footers, comment widgets,
+ * pure-link lists, social share blocks, nosnippet asides) from raw HTML before
+ * passing to the content extractor.
+ */
+export function preCleanHtmlForExtraction(rawHtml: string): string {
+  let html = rawHtml
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "");
+
+  for (const id of COMMENT_WIDGET_IDS) html = removeElementById(html, id);
+
+  // Strip pure-link <ul> blocks (8+ items, all bare <a>) — tag clouds, nav panels.
+  html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
+    const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+    if (items.length < 8) return ulBlock;
+    return items.every((m) =>
+      /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
+    )
+      ? ""
+      : ulBlock;
+  });
+
+  html = html.replace(
+    /<aside\b[^>]*\bdata-nosnippet\b[^>]*>[\s\S]*?<\/aside>/gi,
+    "",
+  );
+
+  // Strip social share link blocks.
+  html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
+    const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+    if (items.length === 0) return ulBlock;
+    return items.every((m) => {
+      const inner = (m[1] ?? "").trim();
+      if (!/^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test(inner)) return false;
+      return /facebook\.com\/sharer|x\.com\/intent\/tweet|twitter\.com\/intent\/tweet|whatsapp(?:\.com|:\/\/)|mailto:\?/i.test(
+        inner,
+      );
+    })
+      ? ""
+      : ulBlock;
+  });
+
+  return html;
 }

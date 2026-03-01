@@ -1,9 +1,10 @@
 import {
+  decodeHtmlEntities,
   escapeHtmlAttribute,
   normalizeArticleHtmlSpacing,
   toParagraphHtml,
 } from "./cleaners";
-import { decodeHtmlEntities, sanitizeArticleHtml } from "./sanitize";
+import { sanitizeArticleHtml } from "./sanitize";
 
 export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
@@ -74,4 +75,32 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   return normalizeArticleHtmlSpacing(
     [imageHtml, descriptionHtml].filter(Boolean).join("\n"),
   );
+}
+
+/** Extract a page title from HTML via og:title, first `<h1>`, or `<title>`. */
+export function extractPageTitle(html: string): string | null {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+  for (const tag of metaTags) {
+    const propMatch = tag.match(
+      /property=["']og:title["'][^>]*content=["']([^"']+)["']/i,
+    );
+    if (propMatch?.[1]) return propMatch[1];
+    const reverseMatch = tag.match(
+      /content=["']([^"']+)["'][^>]*property=["']og:title["']/i,
+    );
+    if (reverseMatch?.[1]) return reverseMatch[1];
+  }
+
+  const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1) {
+    const text = h1[1].replace(/<[^>]*>/g, "").trim();
+    if (text) return text;
+  }
+
+  const titleTag = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleTag) {
+    const text = titleTag[1].replace(/<[^>]*>/g, "").trim();
+    if (text) return text;
+  }
+  return null;
 }

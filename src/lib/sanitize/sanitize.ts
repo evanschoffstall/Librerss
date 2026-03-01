@@ -1,110 +1,136 @@
-import { CONFIG, maxArticleConsecutiveBlankLines } from "@/lib/config";
+import { CONFIG } from "@/lib/config";
 import sanitizeHtml from "sanitize-html";
 import {
+  decodeHtmlEntities,
   normalizeArticleHtmlSpacing,
   stripApJunkBlocks,
   stripEmbeddedMediaBlocks,
   stripOrphanedRelatedBlocks,
 } from "./cleaners";
-import { ARTICLE_SANITIZE_OPTIONS } from "./patterns";
 
-/**
- * Converts HTML to plain text by stripping tags and normalizing whitespace.
- * Used for article preview generation.
- */
-export function toPlainText(value: string): string {
-  const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
-  const minOverflowRun = maxConsecutiveBlankLines + 1;
-
-  return stripEmbeddedMediaBlocks(value)
-    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
-    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(
-      /<\/(?:p|div|section|article|blockquote|li|h[1-6]|ul|ol|pre)>/gi,
-      "\n",
-    )
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/[ \t]*\n[ \t]*/g, "\n")
-    .replace(
-      new RegExp(`(?:\\n){${minOverflowRun},}`, "g"),
-      "\n".repeat(maxConsecutiveBlankLines),
-    )
-    .trim();
+function parseDimension(value: string | undefined): number | null {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (!normalized || normalized.includes("%")) return null;
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
-export { normalizeArticleHtmlSpacing, stripOrphanedRelatedBlocks };
+function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
+  if (!attribs) return false;
+  const width = parseDimension(attribs.width);
+  const height = parseDimension(attribs.height);
+  const hasSrcset = !!attribs.srcset?.trim();
+  if (width === null && height === null && !hasSrcset) return true;
+  if (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) return true;
+  if (height !== null && height < CONFIG.MIN_ARTICLE_IMAGE_HEIGHT_PX)
+    return true;
+  return false;
+}
 
-function decodeHtmlEntities(value: string): string {
-  const namedEntities: Record<string, string> = {
-    amp: "&",
-    lt: "<",
-    gt: ">",
-    quot: '"',
-    apos: "'",
-    nbsp: " ",
-    // Common typographic entities found in RSS feed titles and content
-    mdash: "\u2014",
-    ndash: "\u2013",
-    ldquo: "\u201C",
-    rdquo: "\u201D",
-    lsquo: "\u2018",
-    rsquo: "\u2019",
-    hellip: "\u2026",
-    copy: "\u00A9",
-    reg: "\u00AE",
-    trade: "\u2122",
-    bull: "\u2022",
-    middot: "\u00B7",
-    laquo: "\u00AB",
-    raquo: "\u00BB",
-    emdash: "\u2014",
-    euro: "\u20AC",
-  };
-
-  const decodeNumericEntity = (
-    rawCodePoint: string,
-    radix: 10 | 16,
-  ): string => {
-    try {
-      return String.fromCodePoint(Number.parseInt(rawCodePoint, radix));
-    } catch {
-      return "";
-    }
-  };
-
-  return value.replace(
-    /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
-    (match, rawEntity: string) => {
-      const entity = rawEntity.toLowerCase();
-
-      if (entity.startsWith("#x")) {
-        return decodeNumericEntity(entity.slice(2), 16);
-      }
-
-      if (entity.startsWith("#")) {
-        return decodeNumericEntity(entity.slice(1), 10);
-      }
-
-      return namedEntities[entity] ?? "";
-    },
+function isKnownPlaceholderImage(
+  attribs: Record<string, string> | undefined,
+): boolean {
+  if (!attribs) return false;
+  const source = (attribs.src || "").trim().toLowerCase();
+  if (!source) return false;
+  return (
+    source.includes("grey-placeholder") ||
+    source.includes("gray-placeholder") ||
+    source.includes("/placeholder") ||
+    source.includes("placeholder.")
   );
 }
 
-export const __decodeHtmlEntitiesForTests = decodeHtmlEntities;
+const ARTICLE_SANITIZE_OPTIONS = {
+  allowedTags: [
+    "p",
+    "br",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "pre",
+    "code",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "u",
+    "a",
+    "img",
+    "hr",
+  ],
+  nonTextTags: [
+    "style",
+    "script",
+    "textarea",
+    "aside",
+    "nav",
+    "section",
+    "iframe",
+  ],
+  allowedAttributes: {
+    a: ["href", "name", "target", "rel"],
+    img: [
+      "src",
+      "srcset",
+      "sizes",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "loading",
+      "decoding",
+      "referrerpolicy",
+    ],
+    code: ["class"],
+    pre: ["class"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesByTag: { img: ["http", "https"] },
+  exclusiveFilter: (frame: { tag: string; attribs?: Record<string, string> }) =>
+    frame.tag === "img" &&
+    (isTooSmallImage(frame.attribs) || isKnownPlaceholderImage(frame.attribs)),
+  transformTags: {
+    a: (tagName: string, attribs: Record<string, string>) => ({
+      tagName,
+      attribs: {
+        ...attribs,
+        rel: "noopener noreferrer nofollow",
+        target: "_blank",
+      },
+    }),
+    img: (tagName: string, attribs: Record<string, string>) => {
+      const trimmedSource = (
+        attribs.src ||
+        attribs["data-src"] ||
+        attribs["data-original"] ||
+        attribs["data-lazy-src"] ||
+        attribs["data-url"] ||
+        ""
+      ).trim();
+      return {
+        tagName,
+        attribs: {
+          ...attribs,
+          ...(trimmedSource ? { src: trimmedSource } : {}),
+          referrerpolicy: attribs.referrerpolicy || "no-referrer",
+          loading: attribs.loading || "lazy",
+        },
+      };
+    },
+  },
+};
 
-export { decodeHtmlEntities };
-
-/**
- * Strips all HTML tags that are not in the allowed set and forces links to
- * open safely (`rel="noopener noreferrer nofollow"`, `target="_blank"`).
- *
- * Returns an empty string for empty / whitespace-only input.
- */
+/** Strips non-allowed HTML tags; forces safe link attributes. */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
   const sanitized = sanitizeHtml(
