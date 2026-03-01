@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const EXIT_DURATION_MS = 300;
+export const EXIT_CLEANUP_MS = 340;
+const EXIT_DURATION_MS = EXIT_CLEANUP_MS;
 
 interface AnimatedItem<T> {
   item: T;
