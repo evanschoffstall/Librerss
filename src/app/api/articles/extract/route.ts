@@ -2,6 +2,7 @@ import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
   jsonError,
+  parseJsonBodyOrResponse,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import type {
@@ -251,6 +252,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const context = createExtractRequestContext(request);
 
   let articleUrl: string | null = null;
+  let useProxy = false;
 
   try {
     const authResult = await requireAuth(request, {
@@ -262,7 +264,22 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     });
     if (authResult instanceof Response) return authResult;
 
-    const parsedUrl = await parseArticleUrl(request);
+    // Parse body once and extract both url and useProxy flag
+    const bodyResult = await parseJsonBodyOrResponse<{
+      url?: string;
+      useProxy?: boolean;
+    }>(request);
+    if (bodyResult instanceof Response) return bodyResult;
+    useProxy = bodyResult.useProxy === true;
+
+    // Build a cloned request with the same body for parseAndValidateArticleUrl
+    const clonedRequest = new NextRequest(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: JSON.stringify(bodyResult),
+    });
+
+    const parsedUrl = await parseArticleUrl(clonedRequest);
     if (parsedUrl instanceof Response) return parsedUrl;
     articleUrl = parsedUrl;
 
@@ -279,7 +296,9 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     }
 
     const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
-    const html = localSnapshot?.html ?? (await fetchArticleHtml(articleUrl));
+    const html =
+      localSnapshot?.html ??
+      (await fetchArticleHtml(articleUrl, undefined, { useProxy }));
     const safeUrl = redactUrlForLogs(articleUrl);
     info(`Article extract source`, {
       url: safeUrl,

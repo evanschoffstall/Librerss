@@ -17,6 +17,48 @@ type FetchHtmlDeps = {
   isAxiosErrorFn?: typeof axios.isAxiosError;
 };
 
+interface FetchHtmlOptions {
+  useProxy?: boolean;
+}
+
+/** Resolves the user-configured proxy URL, if available. */
+function getExtractProxyUrl(): string | undefined {
+  const raw = process.env.ARTICLE_EXTRACT_PROXY_URL?.trim();
+  return raw || undefined;
+}
+
+/** Parse a proxy URL string into axios proxy config. */
+function buildAxiosProxy(proxyUrl: string):
+  | {
+      host: string;
+      port: number;
+      protocol: string;
+      auth?: { username: string; password: string };
+    }
+  | false {
+  try {
+    const parsed = new URL(proxyUrl);
+    const result: {
+      host: string;
+      port: number;
+      protocol: string;
+      auth?: { username: string; password: string };
+    } = {
+      host: parsed.hostname,
+      port: Number(parsed.port) || (parsed.protocol === "https:" ? 443 : 8080),
+      protocol: parsed.protocol.replace(":", ""),
+    };
+    if (parsed.username)
+      result.auth = {
+        username: decodeURIComponent(parsed.username),
+        password: decodeURIComponent(parsed.password),
+      };
+    return result;
+  } catch {
+    return false;
+  }
+}
+
 // Dedicated axios instance with cookie jar support for article extraction.
 // Using a separate instance avoids polluting the global axios used by feed fetching.
 // Cookie jar support persists challenge cookies (Cloudflare, DataDome, Akamai)
@@ -90,6 +132,7 @@ export async function fetchHtmlWithFingerprint(
 export async function fetchHtml(
   url: string,
   deps?: FetchHtmlDeps,
+  options?: FetchHtmlOptions,
 ): Promise<string> {
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
@@ -128,9 +171,17 @@ export async function fetchHtml(
     // on hop N are carried to hop N+1 within this attempt, but stale/blocked
     // cookies from a previous failed attempt don't pollute the retry.
     const jar = injectedGet ? undefined : new CookieJar();
+    const proxyUrl =
+      options?.useProxy && !injectedGet ? getExtractProxyUrl() : undefined;
+    const proxyConfig = proxyUrl ? buildAxiosProxy(proxyUrl) : undefined;
     const axiosGet: typeof axios.get = injectedGet
       ? injectedGet
-      : (reqUrl, config) => extractionAxios.get(reqUrl, { ...config, jar });
+      : (reqUrl, config) =>
+          extractionAxios.get(reqUrl, {
+            ...config,
+            jar,
+            ...(proxyConfig && { proxy: proxyConfig }),
+          });
 
     let got403 = false;
     let isFirstValidation = true;
