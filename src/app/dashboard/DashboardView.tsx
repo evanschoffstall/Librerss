@@ -31,9 +31,9 @@ import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
 import {
+  usePullDownToRefresh,
   useSentinelScrollOffset,
-  useSwipeUpToRefresh,
-} from "./hooks/useSwipeUpToRefresh";
+} from "./hooks/usePullDownToRefresh";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
@@ -249,7 +249,7 @@ export const DashboardView = ({
     sentinelRef: pullSentinelRef,
     pulling: isPulling,
     readyToRefresh,
-  } = useSwipeUpToRefresh(feedScrollRootRef, refreshFeedList, loading);
+  } = usePullDownToRefresh(feedScrollRootRef, refreshFeedList, loading);
 
   const pullRefreshHint = readyToRefresh
     ? "Release to refresh"
@@ -336,7 +336,7 @@ export const DashboardView = ({
                   Scrolling into it = native pull gesture. */}
               <div
                 ref={pullSentinelRef}
-                className={`flex items-end justify-center transition-colors duration-150 md:hidden ${
+                className={`flex items-end justify-center transition-colors duration-150 ${
                   isPulling
                     ? readyToRefresh
                       ? "bg-sky-500/25"
