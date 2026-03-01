@@ -193,13 +193,6 @@ export class ArticleService {
     return response.data;
   }
 
-  static async getProxyStatus(): Promise<{ configured: boolean }> {
-    const response = await getApiClient().get(
-      `${this.baseUrl}/articles/proxy-status`,
-    );
-    return { configured: response.data?.configured === true };
-  }
-
   static async extractArticleContent(
     url: string,
     options?: { useProxy?: boolean },
@@ -214,6 +207,13 @@ export class ArticleService {
     return typeof response.data?.content === "string"
       ? response.data.content
       : "";
+  }
+
+  static async getProxyStatus(): Promise<{ configured: boolean }> {
+    const response = await getApiClient().get(
+      `${this.baseUrl}/articles/proxy-status`,
+    );
+    return response.data;
   }
 
   static async getReaderStream(streamId: string): Promise<Article[]> {
