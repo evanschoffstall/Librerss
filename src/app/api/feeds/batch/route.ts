@@ -1,12 +1,12 @@
 import { parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import {
-  logAndRespondError,
-  requireMutableAuthenticatedUser,
-} from "@/lib/server";
 import { CONFIG } from "@/lib/config";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
+import {
+  logAndRespondError,
+  requireMutableAuthenticatedUser,
+} from "@/lib/server";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -53,7 +53,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (urls.length === 0) return NextResponse.json([]);
+    const intent = forceRefresh ? "force" : skipRefresh ? "skip" : "auto";
+
+    if (urls.length === 0) {
+      logger.info(`Batch [0 feeds]: client=${intent} | empty request`);
+      return NextResponse.json([]);
+    }
 
     if (urls.length > CONFIG.FEED_BATCH_MAX_URLS) {
       return NextResponse.json(
@@ -90,6 +95,8 @@ export async function POST(request: NextRequest) {
       errors: upstreamErrors,
       refreshedCount,
       cachedCount,
+      cooldownLimitedCount,
+      resolution,
       lastFetchedByUrl,
     } = await fetchAndCacheFeedArticlesBatch(db, user.userId, normalizedUrls, {
       skipRefresh,
@@ -116,12 +123,14 @@ export async function POST(request: NextRequest) {
     const hasUpstreamErrors = upstreamErrors.size > 0;
 
     // Always log cache/refresh breakdown for feed batch requests.
-    const flags = [forceRefresh && "force", skipRefresh && "skip refresh"]
-      .filter(Boolean)
-      .join(", ");
-    const flagStr = flags ? ` [${flags}]` : "";
+    const n = normalizedUrls.length;
+    const plural = n !== 1 ? "s" : "";
+    const cooldownNote =
+      cooldownLimitedCount > 0
+        ? `, ${cooldownLimitedCount === n ? "all" : cooldownLimitedCount} throttled`
+        : "";
     logger.info(
-      `Batch [${normalizedUrls.length} feed${normalizedUrls.length !== 1 ? "s" : ""}]: ${refreshedCount} refreshed, ${cachedCount} cached${flagStr}`,
+      `Batch [${n} feed${plural}]: client=${intent} resolved=${resolution} | ${refreshedCount} refreshed, ${cachedCount} cached${cooldownNote}`,
     );
 
     if (hasUpstreamErrors) {
