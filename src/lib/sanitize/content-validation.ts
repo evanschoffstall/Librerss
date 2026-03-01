@@ -1,7 +1,8 @@
-import { normalizeArticleHtmlSpacing, toPlainText } from "./cleaners";
-
-const SOCIAL_SHARE_LINK_RE =
-  /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|x\.com\/intent\/tweet|mailto:\?/i;
+import {
+  normalizeArticleHtmlSpacing,
+  SOCIAL_SHARE_LINK_RE,
+  toPlainText,
+} from "./cleaners";
 
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
