@@ -251,5 +251,16 @@ export function useScrollRestore(sessionKey: string) {
     };
   }, [restoreScrollIfNeeded, sessionKey]);
 
-  return attachRef;
+  const invalidate = useCallback(() => {
+    savedStateRef.current = null;
+    try {
+      sessionStorage.removeItem(sessionKey);
+    } catch {
+      /* ignore */
+    }
+    const viewport = viewportRef.current;
+    if (viewport) viewport.scrollTop = 0;
+  }, [sessionKey]);
+
+  return { ref: attachRef, invalidate };
 }

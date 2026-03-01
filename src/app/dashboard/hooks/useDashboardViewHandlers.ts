@@ -2,15 +2,11 @@
 
 import { type CategoryTreeNode } from "@/lib";
 import { useCallback } from "react";
-import { ALL_FEEDS_NODE_KEY, FEED_SCROLL_SESSION_KEY } from "../constants";
+import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
   type FeedSelectionFetchers,
   refreshCurrentSelection,
 } from "../services/selection";
-
-function clearFeedScrollCache() {
-  try { sessionStorage.removeItem(FEED_SCROLL_SESSION_KEY); } catch { /* ignore */ }
-}
 
 type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   selectedCategory: string;
@@ -18,6 +14,7 @@ type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   selectedCategoryNode?: CategoryTreeNode;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onFeedSwitch: () => void;
 };
 
 export function useDashboardViewHandlers({
@@ -29,6 +26,7 @@ export function useDashboardViewHandlers({
   fetchAllFeeds,
   fetchFeed,
   fetchCategoryFeeds,
+  onFeedSwitch,
 }: UseDashboardViewHandlersOptions) {
   const handleRefreshSelection = useCallback(() => {
     refreshCurrentSelection({
@@ -73,19 +71,19 @@ export function useDashboardViewHandlers({
 
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
-      clearFeedScrollCache();
+      onFeedSwitch();
       setSelectedCategory(feedNode.key);
       setIsMobileSidebarOpen(false);
       if (feedNode.data?.url && feedNode.data.enabled !== false) {
         void fetchFeed(feedNode.data.url);
       }
     },
-    [setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
+    [onFeedSwitch, setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
   );
 
   const handleCategoryClick = useCallback(
     (categoryNode: CategoryTreeNode) => {
-      clearFeedScrollCache();
+      onFeedSwitch();
       setSelectedCategory(categoryNode.key);
       setIsMobileSidebarOpen(false);
 
@@ -97,6 +95,7 @@ export function useDashboardViewHandlers({
       void fetchCategoryFeeds(categoryNode);
     },
     [
+      onFeedSwitch,
       setSelectedCategory,
       setIsMobileSidebarOpen,
       fetchAllFeeds,

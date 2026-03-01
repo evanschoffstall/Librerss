@@ -203,8 +203,9 @@ export const DashboardView = ({
 
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
-  const feedScrollRef = useScrollRestore(FEED_SCROLL_SESSION_KEY);
-  const sidebarScrollRef = useScrollRestore("librerss:scroll:sidebar");
+  const { ref: feedScrollRef, invalidate: invalidateFeedScroll } =
+    useScrollRestore(FEED_SCROLL_SESSION_KEY);
+  const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
 
   const {
     refreshFeedList,
@@ -221,6 +222,7 @@ export const DashboardView = ({
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
+    onFeedSwitch: invalidateFeedScroll,
   });
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
