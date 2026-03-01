@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const PULL_THRESHOLD = 80;
-const MAX_PULL = 140;
+const PULL_THRESHOLD = 56;
+const MAX_PULL = 104;
 const VERTICAL_LOCK_ANGLE = 45;
 const MIN_MOVE_PX = 8;
 const REFRESH_HOLD_MS = 650;
 const SNAP_BACK_MS = 220;
-const HOLD_PULL_PX = 64;
+const HOLD_PULL_PX = 44;
 
 /**
  * Reactive pull-to-refresh that moves the feed content with the finger.

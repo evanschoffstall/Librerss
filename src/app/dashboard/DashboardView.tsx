@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
+import { ArrowDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
@@ -243,11 +244,7 @@ export const DashboardView = ({
     contentRef: pullContentRef,
     pulling: isPulling,
     readyToRefresh,
-  } = useSwipeUpToRefresh(
-    feedScrollRootRef,
-    refreshFeedList,
-    loading,
-  );
+  } = useSwipeUpToRefresh(feedScrollRootRef, refreshFeedList, loading);
 
   const pullRefreshHint = readyToRefresh
     ? "Release to refresh"
@@ -328,14 +325,29 @@ export const DashboardView = ({
 
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
           <ScrollArea ref={mergedFeedScrollRef} className="h-full">
-            <div ref={pullContentRef} className="p-1">
-              {isPulling && (
-                <div className="mb-2 flex justify-center px-1 md:hidden">
-                  <p className="text-xs font-medium text-muted-foreground">
+            <div ref={pullContentRef} className="relative p-1">
+              {/* Pull-down area: sits above content, revealed by translateY */}
+              <div
+                className={`absolute inset-x-0 z-0 flex items-end justify-center rounded-b-lg pb-3 transition-colors duration-150 md:hidden ${
+                  readyToRefresh ? "bg-sky-500/25" : "bg-sky-500/10"
+                }`}
+                style={{ top: -104, height: 104 }}
+              >
+                <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+                  <ArrowDown
+                    className={`size-4 transition-transform duration-150 ${
+                      readyToRefresh ? "scale-110 rotate-180" : "scale-90 opacity-60"
+                    }`}
+                  />
+                  <span
+                    className={`text-xs font-medium transition-opacity duration-150 ${
+                      readyToRefresh ? "opacity-100" : "opacity-70"
+                    }`}
+                  >
                     {pullRefreshHint}
-                  </p>
+                  </span>
                 </div>
-              )}
+              </div>
               <FeedList
                 loading={loading}
                 filteredFeed={filteredFeed}
