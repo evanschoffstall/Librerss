@@ -4,8 +4,8 @@
  */
 
 import {
-  __resetApiClientForTesting,
-  __setApiClientForTesting,
+    __resetApiClientForTesting,
+    __setApiClientForTesting,
 } from "@/lib/api/http-client";
 import { ArticleService, AuthService, FeedService } from "@/lib/api/services";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -465,6 +465,7 @@ describe("ArticleService", () => {
       {
         url: "https://example.com/article",
       },
+      expect.objectContaining({}),
     );
     expect(content).toBe("<p>Article content</p>");
   });

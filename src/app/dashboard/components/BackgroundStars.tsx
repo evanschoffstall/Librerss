@@ -174,6 +174,7 @@ export default function BackgroundStars({
 
   const drawStars = useCallback(() => {
     clearContext();
+    stars.current.length = 0;
 
     for (let i = 0; i < quantity; i++) {
       drawStar(starParams());
@@ -186,7 +187,6 @@ export default function BackgroundStars({
     }
 
     const dpr = window.devicePixelRatio || 1;
-    stars.current.length = 0;
     canvasSize.current.w = canvasContainerRef.current.offsetWidth;
     canvasSize.current.h = canvasContainerRef.current.offsetHeight;
     canvasRef.current.width = canvasSize.current.w * dpr;
@@ -200,6 +200,52 @@ export default function BackgroundStars({
     resizeCanvas();
     drawStars();
   }, [drawStars, resizeCanvas]);
+
+  const starInRegion = useCallback(
+    (minX: number, minY: number, maxX: number, maxY: number): Star => {
+      const saved = { w: canvasSize.current.w, h: canvasSize.current.h };
+      canvasSize.current.w = maxX;
+      canvasSize.current.h = maxY;
+      const s = starParams();
+      canvasSize.current.w = saved.w;
+      canvasSize.current.h = saved.h;
+      s.x = Math.floor(Math.random() * (maxX - minX)) + minX;
+      s.y = Math.floor(Math.random() * (maxY - minY)) + minY;
+      return s;
+    },
+    [starParams],
+  );
+
+  const onResize = useCallback(() => {
+    if (!canvasContainerRef.current || !canvasRef.current || !context.current)
+      return;
+    const oldW = canvasSize.current.w;
+    const oldH = canvasSize.current.h;
+    resizeCanvas();
+    const newW = canvasSize.current.w;
+    const newH = canvasSize.current.h;
+    if (oldW <= 0 || oldH <= 0) return;
+
+    // Drop stars outside shrunk viewport
+    stars.current = stars.current.filter((s) => s.x < newW && s.y < newH);
+
+    // Compute density and fill newly exposed regions
+    const density = quantity / (oldW * oldH);
+    if (newW > oldW) {
+      const count = Math.round(density * (newW - oldW) * Math.min(newH, oldH));
+      for (let i = 0; i < count; i++) {
+        const s = starInRegion(oldW, 0, newW, Math.min(newH, oldH));
+        stars.current.push(s);
+      }
+    }
+    if (newH > oldH) {
+      const count = Math.round(density * newW * (newH - oldH));
+      for (let i = 0; i < count; i++) {
+        const s = starInRegion(0, oldH, newW, newH);
+        stars.current.push(s);
+      }
+    }
+  }, [quantity, resizeCanvas, starInRegion]);
 
   const animate = useCallback(() => {
     clearContext();
@@ -243,14 +289,13 @@ export default function BackgroundStars({
       animationId = requestAnimationFrame(animateLoop);
     });
 
-    const handleResize = () => initCanvas();
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", onResize);
 
     return () => {
       cancelAnimationFrame(animationId);
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", onResize);
     };
-  }, [animate, initCanvas]);
+  }, [animate, initCanvas, onResize]);
 
   useEffect(() => {
     initCanvas();

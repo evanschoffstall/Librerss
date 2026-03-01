@@ -8,6 +8,14 @@ export function jsonError(error: string, status: number): NextResponse {
   return NextResponse.json({ error }, { status });
 }
 
+export function jsonErrorWithReason(
+  error: string,
+  status: number,
+  reason?: string,
+): NextResponse {
+  return NextResponse.json({ error, ...(reason && { reason }) }, { status });
+}
+
 export function forbiddenResponse(message = "Forbidden"): NextResponse {
   return jsonError(message, 403);
 }

@@ -4,22 +4,22 @@
  */
 
 import {
-  escapeArticleKey,
-  useArticleHydration,
+    escapeArticleKey,
+    useArticleHydration,
 } from "@/app/dashboard/hooks/useArticleHydration";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import type { Article } from "@/lib";
 import { ArticleService } from "@/lib";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
+    afterAll,
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    mock,
+    test,
 } from "bun:test";
 import { toast } from "sonner";
 
@@ -162,6 +162,7 @@ describe("useArticleHydration", () => {
     await waitFor(() => {
       expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
         "https://example.com/article",
+        expect.objectContaining({ useProxy: undefined }),
       );
       expect(feedState[0].content).toContain("Extracted");
     });
@@ -283,6 +284,7 @@ describe("useArticleHydration", () => {
 
     expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
       article.link,
+      expect.objectContaining({ useProxy: undefined }),
     );
   });
 

@@ -42,6 +42,8 @@ export const buildCategoriesFromSources = (
     url: string;
     category?: string | null;
     enabled?: boolean;
+    extractionDisabled?: boolean;
+    proxyEnabled?: boolean;
   }>,
 ): CategoryTreeNode[] => {
   const grouped = new Map<string, CategoryTreeNode[]>();
@@ -58,6 +60,8 @@ export const buildCategoriesFromSources = (
         sourceId: source.id,
         category: categoryLabel,
         enabled: source.enabled !== false,
+        extractionDisabled: source.extractionDisabled === true,
+        proxyEnabled: source.proxyEnabled === true,
       },
     });
 

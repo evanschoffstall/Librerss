@@ -6,6 +6,7 @@ import {
   parseDeleteSourceId,
   parseRenameFeedPayloadFromBody,
   parseToggleFeedEnabledPayloadFromBody,
+  parseUpdateFeedSettingsPayloadFromBody,
 } from "@/lib/api/feeds/parsers";
 import { handleFeedRead } from "@/lib/api/feeds/read";
 import {
@@ -13,6 +14,7 @@ import {
   deleteFeedSourceForUser,
   renameFeedSourceForUser,
   setFeedSourceEnabledForUser,
+  updateFeedSettingsForUser,
 } from "@/lib/api/feeds/repository";
 import {
   buildAxiosFailureDiagnostics,
@@ -64,6 +66,8 @@ type FeedRouteDeps = {
   parseToggleFeedEnabledPayloadFromBodyFn?: typeof parseToggleFeedEnabledPayloadFromBody;
   renameFeedSourceForUserFn?: typeof renameFeedSourceForUser;
   setFeedSourceEnabledForUserFn?: typeof setFeedSourceEnabledForUser;
+  parseUpdateFeedSettingsPayloadFromBodyFn?: typeof parseUpdateFeedSettingsPayloadFromBody;
+  updateFeedSettingsForUserFn?: typeof updateFeedSettingsForUser;
   parseDeleteSourceIdFn?: typeof parseDeleteSourceId;
   deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
 };
@@ -232,11 +236,16 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
   const parseToggleEnabledPayloadFromBody =
     deps.parseToggleFeedEnabledPayloadFromBodyFn ??
     parseToggleFeedEnabledPayloadFromBody;
+  const parseUpdateSettingsFromBody =
+    deps.parseUpdateFeedSettingsPayloadFromBodyFn ??
+    parseUpdateFeedSettingsPayloadFromBody;
   const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
   const renameSource =
     deps.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
   const setSourceEnabled =
     deps.setFeedSourceEnabledForUserFn ?? setFeedSourceEnabledForUser;
+  const updateSettings =
+    deps.updateFeedSettingsForUserFn ?? updateFeedSettingsForUser;
   const toJsonError = deps.jsonErrorFn ?? jsonError;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
@@ -278,6 +287,27 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
         user.userId,
         parsedTogglePayload.sourceId,
         parsedTogglePayload.enabled,
+      );
+      if (!updatedSource) return toJsonError("Feed source not found", 404);
+
+      invalidateUserCache(user.userId);
+      return NextResponse.json(updatedSource);
+    }
+
+    if (
+      typeof payload.extractionDisabled === "boolean" ||
+      typeof payload.proxyEnabled === "boolean"
+    ) {
+      const parsedSettings = parseUpdateSettingsFromBody(payload);
+      if (parsedSettings instanceof Response) return parsedSettings;
+
+      const updatedSource = await updateSettings(
+        user.userId,
+        parsedSettings.sourceId,
+        {
+          extractionDisabled: parsedSettings.extractionDisabled,
+          proxyEnabled: parsedSettings.proxyEnabled,
+        },
       );
       if (!updatedSource) return toJsonError("Feed source not found", 404);
 

@@ -18,7 +18,7 @@
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
-import { articles, articleStatuses, feedSources } from "@/lib/db/schema";
+import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import {
@@ -109,6 +109,32 @@ export async function fetchAndCacheFeedArticlesBatch(
       forceRefresh,
       requestSource,
     });
+  }
+
+  // ── Per-user force-refresh cooldown (DB-backed, survives restarts) ───────
+  // Atomically check + claim: UPDATE returns a row only when the cooldown has
+  // elapsed, preventing concurrent requests from both passing the gate.
+  if (forceRefresh) {
+    const claimed = await db
+      .update(users)
+      .set({ lastForceRefreshedAt: new Date() })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`("last_force_refreshed_at" IS NULL OR "last_force_refreshed_at" < now() - make_interval(mins => ${sql.raw(String(CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES))}))`,
+        ),
+      )
+      .returning({ id: users.id });
+
+    if (claimed.length === 0) {
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+        logger.info("Force refresh blocked by per-user DB cooldown", {
+          userId,
+          requestSource,
+        });
+      }
+      forceRefresh = false;
+    }
   }
 
   // ── In-memory cache fast path (zero DB queries) ──────────────────────────

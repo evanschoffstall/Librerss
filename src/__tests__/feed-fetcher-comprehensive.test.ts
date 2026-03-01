@@ -5,27 +5,27 @@
 
 import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import {
-  fetchAndCacheFeedArticles,
-  fetchAndCacheFeedArticlesBatch,
-  isFeedSourceNotFoundError,
-  isUpstreamFeedError,
+    fetchAndCacheFeedArticles,
+    fetchAndCacheFeedArticlesBatch,
+    isFeedSourceNotFoundError,
+    isUpstreamFeedError,
 } from "@/lib/core/feed-fetcher";
 import * as realFeedRefreshModule from "@/lib/core/feed-refresh";
 import {
-  isAllowedFeedUrl,
-  PUBLIC_FEED_URL_ERROR,
+    isAllowedFeedUrl,
+    PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-url-validator";
 import type { getDb } from "@/lib/db/db";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    mock,
+    test,
 } from "bun:test";
 
 afterAll(() => {
@@ -64,6 +64,13 @@ const mockDb = {
         onConflictDoNothing: mock(() => ({
           returning: mock(() => Promise.resolve([])),
         })),
+      })),
+    })),
+  })),
+  update: mock(() => ({
+    set: mock(() => ({
+      where: mock(() => ({
+        returning: mock(() => Promise.resolve([{ id: 1 }])),
       })),
     })),
   })),

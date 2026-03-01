@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "allow_insecure_tls" boolean DEFAULT false NOT NULL;

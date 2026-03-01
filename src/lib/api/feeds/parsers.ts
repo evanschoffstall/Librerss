@@ -18,6 +18,7 @@ import type {
   CreateFeedPayload,
   RenameFeedPayload,
   ToggleFeedEnabledPayload,
+  UpdateFeedSettingsPayload,
 } from "./types";
 
 // de-facto safe upper bound for stored URLs (RFC 2616 §3.2.1 guideline)
@@ -133,6 +134,29 @@ export function parseToggleFeedEnabledPayloadFromBody(
   }
 
   return { sourceId, enabled: payload.enabled };
+}
+
+export function parseUpdateFeedSettingsPayloadFromBody(
+  payload: Record<string, unknown>,
+): UpdateFeedSettingsPayload | Response {
+  const sourceId = parsePositiveInt(payload.id);
+  if (!sourceId) return jsonError("A valid id is required", 400);
+
+  const hasExtraction = typeof payload.extractionDisabled === "boolean";
+  const hasProxy = typeof payload.proxyEnabled === "boolean";
+  if (!hasExtraction && !hasProxy)
+    return jsonError(
+      "At least one of extractionDisabled or proxyEnabled is required",
+      400,
+    );
+
+  return {
+    sourceId,
+    ...(hasExtraction && {
+      extractionDisabled: payload.extractionDisabled as boolean,
+    }),
+    ...(hasProxy && { proxyEnabled: payload.proxyEnabled as boolean }),
+  };
 }
 
 export function parseDeleteSourceId(request: NextRequest): number | Response {

@@ -6,7 +6,7 @@ import { DashboardRouter } from "./DashboardRouter";
 
 export default function Dashboard() {
   return (
-    <div className="h-screen min-h-[100svh] overflow-hidden md:h-[100dvh]">
+    <div className="h-dvh overflow-hidden">
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center overflow-hidden">

@@ -1,25 +1,33 @@
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-    clearArticleExtractCacheForTests,
-    extractArticleFromHtml,
-    fetchHtml,
-    fetchHtmlWithFingerprint,
-    parseAndValidateArticleUrl,
+  clearArticleExtractCacheForTests,
+  extractArticleFromHtml,
+  fetchHtml,
+  fetchHtmlWithFingerprint,
+  parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import {
-    buildMetadataImageFallbackHtml,
-    cleanExtractedArticleHtml,
-    hasReadableArticleBody,
-    isLikelyNavFooterBoilerplate,
-    normalizeArticleHtmlSpacing,
-    preCleanHtmlForExtraction,
-    sanitizeExtractedContent,
-    stripCommentEngagementBoilerplate,
-    toParagraphHtml,
+  buildMetadataImageFallbackHtml,
+  cleanExtractedArticleHtml,
+  hasReadableArticleBody,
+  isLikelyNavFooterBoilerplate,
+  normalizeArticleHtmlSpacing,
+  preCleanHtmlForExtraction,
+  sanitizeExtractedContent,
+  stripCommentEngagementBoilerplate,
+  toParagraphHtml,
 } from "@/lib/sanitize";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { NextRequest } from "next/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
+const mockReq = () =>
+  new NextRequest("http://localhost/api/articles/extract", {
+    method: "POST",
+    body: JSON.stringify({ url: "https://example.com/article" }),
+    headers: { "content-type": "application/json" },
+  });
 
 const FIXTURE_DIR = join(
   process.cwd(),
@@ -572,13 +580,13 @@ describe("article extract cleanup", () => {
 
   test("POST returns early auth/parse responses", async () => {
     const authResponse = new Response("unauthorized", { status: 401 });
-    const fromAuth = await POST({} as any, {
+    const fromAuth = await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => authResponse,
     });
     expect(fromAuth).toBe(authResponse);
 
     const parseResponse = new Response("bad payload", { status: 400 });
-    const fromParse = await POST({} as any, {
+    const fromParse = await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () => parseResponse,
     });
@@ -589,9 +597,6 @@ describe("article extract cleanup", () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "verbose";
 
-    const jsonErrorFn = mock((message: string, status: number) =>
-      Response.json({ error: message }, { status }),
-    );
     const errorFn = mock(() => {});
 
     // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
@@ -599,7 +604,7 @@ describe("article extract cleanup", () => {
     // is special-cased to 422 Unprocessable Content.
     const axiosError = { response: { status: 429 } };
     try {
-      const axiosResult = await POST({} as any, {
+      const axiosResult = await POST(mockReq(), {
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         parseAndValidateArticleUrlFn: async () => "https://example.com/article",
         fetchHtmlFn: async () => {
@@ -607,38 +612,25 @@ describe("article extract cleanup", () => {
         },
         isAxiosErrorFn: (() => true) as any,
         toErrorMessageFn: () => "upstream-throttled",
-        jsonErrorFn: jsonErrorFn as any,
         errorFn: errorFn as any,
       });
 
       expect(axiosResult.status).toBe(502);
-      expect(jsonErrorFn).toHaveBeenCalledWith(
+      const axiosBody = await axiosResult.json();
+      expect(axiosBody.error).toBe(
         "Failed to fetch article content from upstream",
-        502,
       );
+      expect(axiosBody.reason).toBe("upstream-throttled");
       expect(errorFn).toHaveBeenCalledWith(
         expect.stringContaining("upstream request failed"),
         expect.objectContaining({
-          upstreamStatus: 429,
-          upstreamMethod: null,
-          responseBodySnippet: undefined,
           extractAttemptId: expect.any(String),
         }),
       );
 
-      const logAndRespondErrorFn = mock(
-        (
-          _message: string,
-          _error: unknown,
-          options?: { status?: number; publicMessage?: string },
-        ) =>
-          Response.json(
-            { error: options?.publicMessage ?? "unknown" },
-            { status: options?.status ?? 500 },
-          ),
-      );
+      errorFn.mockClear();
 
-      const genericResult = await POST({} as any, {
+      const genericResult = await POST(mockReq(), {
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         parseAndValidateArticleUrlFn: async () => "https://example.com/article",
         fetchHtmlFn: async () => {
@@ -646,20 +638,16 @@ describe("article extract cleanup", () => {
         },
         isAxiosErrorFn: (() => false) as any,
         toErrorMessageFn: () => "normalized-boom",
-        logAndRespondErrorFn: logAndRespondErrorFn as any,
         errorFn: errorFn as any,
       });
 
       expect(genericResult.status).toBe(502);
-      expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
-      expect(logAndRespondErrorFn).toHaveBeenCalledWith(
-        "Article extract error",
-        expect.any(Error),
-        expect.objectContaining({
-          status: 502,
-          publicMessage: "Failed to extract article content",
-        }),
+      const genericBody = await genericResult.json();
+      expect(genericBody.error).toBe(
+        "Failed to extract article content",
       );
+      expect(genericBody.reason).toBe("normalized-boom");
+      expect(errorFn).toHaveBeenCalledTimes(1);
     } finally {
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;
@@ -832,7 +820,7 @@ describe("article extract cleanup", () => {
   test("POST fires info logs at start, after fetch, and on success", async () => {
     const infoFn = mock(() => {});
 
-    await POST({} as any, {
+    await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: async () => "<html />",
@@ -857,7 +845,7 @@ describe("article extract cleanup", () => {
   test("POST fires warn log when extractor returns no content", async () => {
     const warnFn = mock(() => {});
 
-    await POST({} as any, {
+    await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: async () => "<html />",
@@ -877,7 +865,7 @@ describe("article extract cleanup", () => {
   test("POST fires warn log when content is empty after full pipeline", async () => {
     const warnFn = mock(() => {});
 
-    await POST({} as any, {
+    await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: async () => "<html />",
@@ -918,7 +906,7 @@ describe("article extract cleanup", () => {
       </ul>
     `;
 
-    const response = await POST({} as any, {
+    const response = await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () =>
         "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
@@ -975,7 +963,7 @@ describe("article extract cleanup", () => {
       </ul>
     `;
 
-    const response = await POST({} as any, {
+    const response = await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () =>
         "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
@@ -1028,8 +1016,8 @@ describe("article extract cleanup", () => {
       shouldUseExtractCacheFn: () => true,
     };
 
-    const firstResponse = await POST({} as any, deps);
-    const secondResponse = await POST({} as any, deps);
+    const firstResponse = await POST(mockReq(), deps);
+    const secondResponse = await POST(mockReq(), deps);
 
     expect(firstResponse.status).toBe(200);
     expect(secondResponse.status).toBe(200);
@@ -1065,8 +1053,8 @@ describe("article extract cleanup", () => {
       shouldUseExtractCacheFn: () => false,
     };
 
-    const firstResponse = await POST({} as any, deps);
-    const secondResponse = await POST({} as any, deps);
+    const firstResponse = await POST(mockReq(), deps);
+    const secondResponse = await POST(mockReq(), deps);
 
     expect(firstResponse.status).toBe(200);
     expect(secondResponse.status).toBe(200);

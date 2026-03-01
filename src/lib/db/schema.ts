@@ -18,6 +18,12 @@ export const users = pgTable("User", {
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
     .notNull()
     .defaultNow(),
+  lastForceRefreshedAt: timestamp("last_force_refreshed_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  proxyUrl: text("proxy_url"),
+  allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
 });
 
 export const sessions = pgTable(
@@ -89,6 +95,8 @@ export const feedSources = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     url: text("url").notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    extractionDisabled: boolean("extraction_disabled").notNull().default(false),
+    proxyEnabled: boolean("proxy_enabled").notNull().default(false),
   },
   (table) => ({
     userUrlIdx: uniqueIndex("feed_source_user_url_idx").on(

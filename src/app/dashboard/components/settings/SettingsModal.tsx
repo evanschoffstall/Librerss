@@ -16,14 +16,15 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { Loader2, Plus, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import { SettingsCategoryList } from "./SettingsCategoryList";
 import { SettingsDisplaySection } from "./SettingsDisplaySection";
 import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
+import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
@@ -54,6 +55,10 @@ interface SettingsModalProps {
   onRemoveFeed: (key: string) => Promise<void>;
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
   onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
+  onUpdateFeedSettings: (
+    key: string,
+    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  ) => Promise<boolean>;
 }
 
 /** Shared body rendered inside both the Dialog and the Drawer. */
@@ -160,6 +165,8 @@ function SettingsBody({
           )}
         </TooltipProvider>
       </section>
+
+      <SettingsProxySection />
     </div>
   );
 }
@@ -186,6 +193,7 @@ export const SettingsModal = ({
   onRemoveFeed,
   onRenameFeed,
   onSetFeedEnabled,
+  onUpdateFeedSettings,
 }: SettingsModalProps) => {
   const isMobile = useIsMobile();
   const state = useSettingsModalState({
@@ -201,6 +209,7 @@ export const SettingsModal = ({
     onRemoveFeed,
     onRenameFeed,
     onSetFeedEnabled,
+    onUpdateFeedSettings,
   });
 
   const bodyProps = {

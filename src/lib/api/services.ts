@@ -151,6 +151,17 @@ export class FeedService {
     return response.data;
   }
 
+  static async updateFeedSettings(
+    id: number,
+    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  ): Promise<FeedSource> {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
+      id,
+      ...settings,
+    });
+    return response.data;
+  }
+
   static async getCategoryOrder(): Promise<string[]> {
     const response = await getApiClient().get(
       `${this.baseUrl}/feeds/category-order`,
@@ -182,16 +193,60 @@ export class ArticleService {
     return response.data;
   }
 
-  static async extractArticleContent(url: string): Promise<string> {
+  static async extractArticleContent(
+    url: string,
+    options?: { useProxy?: boolean; signal?: AbortSignal },
+  ): Promise<string> {
     const response = await getApiClient().post(
       `${this.baseUrl}/articles/extract`,
       {
         url,
+        ...(options?.useProxy && { useProxy: true }),
       },
+      { signal: options?.signal },
     );
     return typeof response.data?.content === "string"
       ? response.data.content
       : "";
+  }
+
+  static async getProxyStatus(): Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+  }> {
+    const response = await getApiClient().get(
+      `${this.baseUrl}/articles/proxy-status`,
+    );
+    return response.data;
+  }
+
+  static async getProxySettings(): Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+    allowInsecureTls: boolean;
+    error?: string;
+  }> {
+    const response = await getApiClient().get(`${this.baseUrl}/settings/proxy`);
+    return response.data;
+  }
+
+  static async saveProxyUrl(
+    proxyUrl: string | null,
+    options?: { allowInsecureTls?: boolean },
+  ): Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+    allowInsecureTls: boolean;
+    error?: string;
+  }> {
+    const response = await getApiClient().put(
+      `${this.baseUrl}/settings/proxy`,
+      { proxyUrl, ...options },
+    );
+    return response.data;
   }
 
   static async getReaderStream(streamId: string): Promise<Article[]> {

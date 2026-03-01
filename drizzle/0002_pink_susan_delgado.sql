@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "last_force_refreshed_at" timestamp with time zone;

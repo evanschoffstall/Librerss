@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "proxy_url" text;

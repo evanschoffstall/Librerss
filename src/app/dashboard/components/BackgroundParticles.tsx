@@ -64,27 +64,80 @@ export default function BackgroundParticles({
     [],
   );
 
-  const resizeAndReseed = useCallback(() => {
+  const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = canvasContainerRef.current;
     const ctx = ctxRef.current;
-    if (!canvas || !container || !ctx) {
-      return;
-    }
+    if (!canvas || !container || !ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-
     canvasSize.current = { width, height };
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }, []);
 
-    circles.current = seedParticles(quantity, width, height);
-  }, [quantity, seedParticles]);
+  const initParticles = useCallback(() => {
+    resizeCanvas();
+    circles.current = seedParticles(
+      quantity,
+      canvasSize.current.width,
+      canvasSize.current.height,
+    );
+  }, [quantity, resizeCanvas, seedParticles]);
+
+  const onResize = useCallback(() => {
+    const oldW = canvasSize.current.width;
+    const oldH = canvasSize.current.height;
+    resizeCanvas();
+    const newW = canvasSize.current.width;
+    const newH = canvasSize.current.height;
+    if (oldW <= 0 || oldH <= 0) return;
+
+    // Drop particles outside shrunk viewport
+    circles.current = circles.current.filter(
+      (c) => c.originX < newW && c.originY < newH,
+    );
+
+    // Fill newly exposed regions at same density
+    const density = quantity / (oldW * oldH);
+    const spawn = (
+      minX: number,
+      minY: number,
+      maxX: number,
+      maxY: number,
+      n: number,
+    ) => {
+      for (let i = 0; i < n; i++) {
+        circles.current.push({
+          originX: Math.random() * (maxX - minX) + minX,
+          originY: Math.random() * (maxY - minY) + minY,
+          size: Math.random() * 1.9 + 0.2,
+          alphaBase: Math.random() * 0.45 + 0.08,
+          alphaPhase: Math.random() * Math.PI * 2,
+          driftX: (Math.random() - 0.5) * 0.24,
+          driftY: (Math.random() - 0.5) * 0.24,
+          sway: Math.random() * 3.8 + 0.2,
+        });
+      }
+    };
+    if (newW > oldW) {
+      spawn(
+        oldW,
+        0,
+        newW,
+        Math.min(newH, oldH),
+        Math.round(density * (newW - oldW) * Math.min(newH, oldH)),
+      );
+    }
+    if (newH > oldH) {
+      spawn(0, oldH, newW, newH, Math.round(density * newW * (newH - oldH)));
+    }
+  }, [quantity, resizeCanvas]);
 
   const renderFrame = useCallback(
     (now: number) => {
@@ -145,11 +198,10 @@ export default function BackgroundParticles({
 
     ctxRef.current = context;
     startedAtRef.current = performance.now();
-    resizeAndReseed();
+    initParticles();
 
     frameRef.current = window.requestAnimationFrame(renderFrame);
 
-    const onResize = () => resizeAndReseed();
     window.addEventListener("resize", onResize);
 
     return () => {
@@ -159,7 +211,7 @@ export default function BackgroundParticles({
       frameRef.current = null;
       window.removeEventListener("resize", onResize);
     };
-  }, [renderFrame, resizeAndReseed]);
+  }, [renderFrame, initParticles, onResize]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -182,9 +234,9 @@ export default function BackgroundParticles({
 
   useEffect(() => {
     if (refresh) {
-      resizeAndReseed();
+      initParticles();
     }
-  }, [refresh, resizeAndReseed]);
+  }, [refresh, initParticles]);
 
   return (
     <div className={className} ref={canvasContainerRef} aria-hidden="true">

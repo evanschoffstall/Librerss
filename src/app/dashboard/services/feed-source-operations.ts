@@ -307,3 +307,46 @@ export async function setFeedSourceEnabledAndRefresh({
     return false;
   }
 }
+
+export async function updateFeedSettingsAndRefresh({
+  categories,
+  key,
+  settings,
+  loadFeedSources,
+}: {
+  categories: CategoryTreeNode[];
+  key: string;
+  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+}): Promise<boolean> {
+  const sourceNode = findFeedNodeByKey(categories, key);
+  const sourceId = sourceNode?.data?.sourceId;
+
+  if (!isSafePositiveItemId(sourceId)) {
+    toast.error("Unable to update this feed.");
+    return false;
+  }
+
+  try {
+    await FeedService.updateFeedSettings(sourceId, settings);
+    await loadFeedSources();
+
+    if (typeof settings.extractionDisabled === "boolean") {
+      toast.success(
+        settings.extractionDisabled
+          ? "Extraction disabled."
+          : "Extraction enabled.",
+      );
+    }
+    if (typeof settings.proxyEnabled === "boolean") {
+      toast.success(
+        settings.proxyEnabled ? "Proxy enabled." : "Proxy disabled.",
+      );
+    }
+    return true;
+  } catch (err) {
+    console.error("Update feed settings error:", err);
+    toast.error("Unable to update feed settings.");
+    return false;
+  }
+}
