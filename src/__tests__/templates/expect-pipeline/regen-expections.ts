@@ -1,11 +1,15 @@
-import { extractArticleFromHtml } from "@/lib/extract";
-import {
-    cleanExtractedArticleHtml,
-    preCleanHtmlForExtraction,
-    sanitizeExtractedContent,
-} from "@/lib/sanitize";
+import { POST } from "@/app/api/articles/extract/route";
+import type { AuthenticatedUser } from "@/lib/server";
+import { NextRequest } from "next/server";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+
+const ANONYMOUS_USER: AuthenticatedUser = {
+  sessionId: -1,
+  userId: -1,
+  email: "anonymous",
+  expiresAt: new Date(Date.now() + 86_400_000),
+};
 
 function extractCanonicalUrlFromHtml(
   html: string,
@@ -29,25 +33,52 @@ function resolveExpectedPath(dir: string, articleName: string): string {
   return join(dir, `article-expect-${articleNumber}.html`);
 }
 
+async function extractViaApiRoute(
+  articleUrl: string,
+  downloadedHtml: string,
+): Promise<string> {
+  const request = new NextRequest("http://localhost/api/articles/extract", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "http://localhost",
+    },
+    body: JSON.stringify({ url: articleUrl }),
+  });
+
+  const response = await POST(request, {
+    requireMutableAuthenticatedUserFn: async () => ANONYMOUS_USER,
+    parseAndValidateArticleUrlFn: async (incomingRequest) => {
+      const payload = (await incomingRequest.json()) as { url?: string };
+      return payload.url?.trim() ?? "";
+    },
+    fetchHtmlFn: async () => downloadedHtml,
+    shouldUseExtractCacheFn: () => false,
+    infoFn: () => {},
+    warnFn: () => {},
+    errorFn: () => {},
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(
+      `extract endpoint failed (${response.status}): ${body?.error ?? "unknown error"}`,
+    );
+  }
+
+  const payload = (await response.json()) as { content?: string };
+  return payload.content?.trim() ?? "";
+}
+
 async function regenerateExpectation(dir: string, articleName: string) {
   const inputPath = join(dir, `${articleName}.html`);
   const outputPath = resolveExpectedPath(dir, articleName);
 
   const downloadedHtml = readFileSync(inputPath, "utf8");
   const url = extractCanonicalUrlFromHtml(downloadedHtml, articleName);
-
-  const preCleaned = preCleanHtmlForExtraction(downloadedHtml);
-  const extracted = await extractArticleFromHtml(preCleaned, url, {
-    contentLengthThreshold: 120,
-  });
-
-  const rawContent =
-    extracted?.content?.trim() || extracted?.description?.trim() || preCleaned;
-
-  const cleaned = cleanExtractedArticleHtml(
-    sanitizeExtractedContent(rawContent),
-    url,
-  ).trim();
+  const cleaned = await extractViaApiRoute(url, downloadedHtml);
 
   if (!cleaned) {
     throw new Error(`${articleName} produced empty expectation output`);

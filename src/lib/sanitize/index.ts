@@ -1,29 +1,30 @@
 export {
   __decodeHtmlEntitiesForTests,
   normalizeArticleHtmlSpacing,
+  preCleanHtmlForExtraction,
+  stripOrphanedRelatedBlocks,
+  toParagraphHtml,
+  toPlainText,
+} from "./cleaners";
+
+export {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleHtml,
   sanitizeArticleTitle,
-  stripOrphanedRelatedBlocks,
-  toPlainText,
 } from "./sanitize";
-
-export { toParagraphHtml } from "./cleaners";
 
 export { sanitizeExtractedContent } from "./content-sanitization";
 
 export {
   cleanExtractedArticleHtml,
+  findArticleBody,
   hasReadableArticleBody,
   isLikelyNavFooterBoilerplate,
   stripCommentEngagementBoilerplate,
 } from "./content-validation";
 
-export { preCleanHtmlForExtraction } from "./html-pre-cleaning";
-
 export {
   buildMetadataImageFallbackHtml,
+  extractPageTitle,
   readMetaTagContent,
 } from "./metadata-extraction";
-
-export { extractPageTitle, findArticleBody } from "./body-selection";
