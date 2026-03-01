@@ -7,10 +7,9 @@ const MAX_PULL = 104;
 const VERTICAL_LOCK_ANGLE = 45;
 const MIN_MOVE_PX = 8;
 const REFRESH_HOLD_MS = 650;
-const SNAP_BACK_MS = 220;
+const SNAP_BACK_MS = 250;
 const HOLD_PULL_PX = 44;
-
-const EASE_OUT = "cubic-bezier(.25,.1,.25,1)";
+const SNAP_EASE = "cubic-bezier(0.2,0,0,1)";
 
 interface PullState {
   pulling: boolean;
@@ -19,11 +18,16 @@ interface PullState {
 
 const IDLE: PullState = { pulling: false, readyToRefresh: false };
 
+/** Rubber-band dampening — diminishing resistance like iOS. */
+function dampen(dy: number): number {
+  const ratio = Math.min(dy / (MAX_PULL * 2.5), 1);
+  return MAX_PULL * (1 - (1 - ratio) ** 2.2);
+}
+
 /**
- * Reactive pull-to-refresh that moves the feed content with the finger.
- * All visual updates during the gesture are synchronous direct DOM writes
- * (no rAF, no React state) — matching the swipe-to-read pattern for
- * stutter-free 1:1 finger tracking.
+ * Pull-to-refresh with 1:1 finger tracking.
+ * Mirrors the swipe-to-read pattern: direct inline style writes,
+ * `transition: none` during gesture, transition on release.
  */
 export function useSwipeUpToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
@@ -41,6 +45,15 @@ export function useSwipeUpToRefresh(
   disabledRef.current = disabled;
   onRefreshRef.current = onRefresh;
 
+  // Pre-promote compositor layer once on mount — avoids per-gesture jank
+  useEffect(() => {
+    const el = contentRef.current;
+    if (el) {
+      el.style.willChange = "transform";
+      el.style.transform = "translate3d(0,0,0)";
+    }
+  }, []);
+
   useEffect(() => {
     const root = scrollRootRef.current;
     if (!root) return;
@@ -51,23 +64,6 @@ export function useSwipeUpToRefresh(
 
     const isAtTop = () => viewport.scrollTop <= 0;
 
-    const setTransform = (el: HTMLElement, y: number) => {
-      el.style.transform = `translate3d(0,${y}px,0)`;
-    };
-
-    const snapBack = (el: HTMLElement, toY: number, cb?: () => void) => {
-      el.style.transition = `transform ${SNAP_BACK_MS}ms ${EASE_OUT}`;
-      setTransform(el, toY);
-      const onEnd = () => {
-        el.style.transition = "";
-        el.removeEventListener("transitionend", onEnd);
-        cb?.();
-      };
-      el.addEventListener("transitionend", onEnd, { once: true });
-      // Fallback in case transitionend doesn't fire
-      setTimeout(onEnd, SNAP_BACK_MS + 50);
-    };
-
     const handleTouchStart = (e: TouchEvent) => {
       if (disabledRef.current || !isAtTop()) return;
       const t = e.touches[0];
@@ -75,8 +71,6 @@ export function useSwipeUpToRefresh(
       lockedRef.current = null;
       committedRef.current = false;
       pullingRef.current = false;
-      const el = contentRef.current;
-      if (el) el.style.willChange = "transform";
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -102,16 +96,19 @@ export function useSwipeUpToRefresh(
 
       e.preventDefault();
 
-      const dampened = Math.min(dy * 0.5, MAX_PULL);
+      const dampened = dampen(dy);
       const committed = dampened >= PULL_THRESHOLD;
       const wasCommitted = committedRef.current;
       committedRef.current = committed;
 
-      // Immediate synchronous DOM write — no rAF, no React setState in hot path
+      // Synchronous inline style — transition:none for zero-lag finger tracking
       const el = contentRef.current;
-      if (el) setTransform(el, dampened);
+      if (el) {
+        el.style.transition = "none";
+        el.style.transform = `translate3d(0,${dampened}px,0)`;
+      }
 
-      // Only call setState on actual state transitions to avoid re-renders
+      // setState only on transitions, not every frame
       if (!pullingRef.current) {
         pullingRef.current = true;
         setState({ pulling: true, readyToRefresh: committed });
@@ -129,23 +126,27 @@ export function useSwipeUpToRefresh(
       committedRef.current = false;
 
       const el = contentRef.current;
-      if (el) el.style.willChange = "";
 
       if (wasPulling && wasCommitted && !disabledRef.current) {
+        // Snap to hold position, then refresh, then snap to zero
         if (el) {
-          snapBack(el, HOLD_PULL_PX, () => {
-            onRefreshRef.current();
-            setTimeout(() => {
-              setState(IDLE);
-              if (el) snapBack(el, 0);
-            }, REFRESH_HOLD_MS);
-          });
-        } else {
-          onRefreshRef.current();
-          setState(IDLE);
+          el.style.transition = `transform ${SNAP_BACK_MS}ms ${SNAP_EASE}`;
+          el.style.transform = `translate3d(0,${HOLD_PULL_PX}px,0)`;
         }
+        onRefreshRef.current();
+        setTimeout(() => {
+          setState(IDLE);
+          if (el) {
+            el.style.transition = `transform ${SNAP_BACK_MS}ms ${SNAP_EASE}`;
+            el.style.transform = "translate3d(0,0,0)";
+          }
+        }, REFRESH_HOLD_MS);
       } else if (wasPulling) {
-        if (el) snapBack(el, 0);
+        // Snap back to rest
+        if (el) {
+          el.style.transition = `transform ${SNAP_BACK_MS}ms ${SNAP_EASE}`;
+          el.style.transform = "translate3d(0,0,0)";
+        }
         setState(IDLE);
       }
     };
@@ -169,8 +170,8 @@ export function useSwipeUpToRefresh(
     if (!disabled) return;
     const el = contentRef.current;
     if (el) {
+      el.style.transition = "none";
       el.style.transform = "translate3d(0,0,0)";
-      el.style.transition = "";
     }
     startRef.current = null;
     lockedRef.current = null;
