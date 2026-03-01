@@ -1,5 +1,10 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
+import { logger } from "@/lib/logger";
 import { hasApJunkClass, isRelatedHeading } from "./patterns";
+
+function contentPreview(s: string, max = 500): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
 
 export function stripApJunkBlocks(html: string): string {
   const stripTags = ["div", "section", "aside", "nav", "ul", "figure"];
@@ -241,16 +246,32 @@ export const SOCIAL_SHARE_LINK_RE =
  * passing to the content extractor.
  */
 export function preCleanHtmlForExtraction(rawHtml: string): string {
+  logger.info(`[pre-clean] start`, { inputChars: rawHtml.length });
+
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
     .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "");
 
+  const afterTagStrip = html.length;
+  if (afterTagStrip !== rawHtml.length) {
+    logger.info(`[pre-clean] stripped script/style/header/footer`, {
+      removedChars: rawHtml.length - afterTagStrip,
+    });
+  }
+
   html = removeElementsByAttrPattern(html, "id", NON_CONTENT_ID_RE);
   html = removeElementsByAttrPattern(html, "class", NON_CONTENT_CLASS_RE);
 
-  // Strip <ul> blocks: nav panels (8+ all-link items) or social share lists.
+  const afterAttrStrip = html.length;
+  if (afterAttrStrip !== afterTagStrip) {
+    logger.info(`[pre-clean] stripped non-content id/class containers`, {
+      removedChars: afterTagStrip - afterAttrStrip,
+    });
+  }
+
+  const beforeUlStrip = html.length;
   html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
     const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
     if (items.length === 0) return ulBlock;
@@ -266,10 +287,22 @@ export function preCleanHtmlForExtraction(rawHtml: string): string {
     return ulBlock;
   });
 
+  if (html.length !== beforeUlStrip) {
+    logger.info(`[pre-clean] stripped nav/social <ul> blocks`, {
+      removedChars: beforeUlStrip - html.length,
+    });
+  }
+
   html = html.replace(
     /<aside\b[^>]*\bdata-nosnippet\b[^>]*>[\s\S]*?<\/aside>/gi,
     "",
   );
+
+  logger.info(`[pre-clean] done`, {
+    outputChars: html.length,
+    totalRemovedChars: rawHtml.length - html.length,
+    outputPreview: contentPreview(html),
+  });
 
   return html;
 }

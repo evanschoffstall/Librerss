@@ -1,8 +1,13 @@
+import { logger } from "@/lib/logger";
 import {
   normalizeArticleHtmlSpacing,
   SOCIAL_SHARE_LINK_RE,
   toPlainText,
 } from "./cleaners";
+
+function contentPreview(s: string, max = 500): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
 
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
@@ -129,17 +134,56 @@ export function cleanExtractedArticleHtml(
   sanitizedContent: string,
   _articleUrl: string,
 ): string {
-  if (!sanitizedContent.trim()) return "";
+  if (!sanitizedContent.trim()) {
+    logger.info(`[clean-html] input empty, returning ""`);
+    return "";
+  }
+
+  logger.info(`[clean-html] start`, {
+    inputChars: sanitizedContent.length,
+    inputPreview: contentPreview(sanitizedContent),
+  });
 
   const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
+  const shareToolbarsRemoved =
+    withoutShareToolbars.length !== sanitizedContent.length;
+  if (shareToolbarsRemoved) {
+    logger.info(`[clean-html] stripped share/engagement toolbars`, {
+      removedChars: sanitizedContent.length - withoutShareToolbars.length,
+    });
+  }
+
   const withoutEngagementPrompts =
     stripCommentEngagementBoilerplate(withoutShareToolbars);
+  const engagementRemoved =
+    withoutEngagementPrompts.length !== withoutShareToolbars.length;
+  if (engagementRemoved) {
+    logger.info(`[clean-html] stripped comment/engagement boilerplate`, {
+      removedChars:
+        withoutShareToolbars.length - withoutEngagementPrompts.length,
+    });
+  }
+
   const normalized = normalizeArticleHtmlSpacing(withoutEngagementPrompts);
 
-  if (!normalized.trim()) return "";
+  if (!normalized.trim()) {
+    logger.info(`[clean-html] content empty after normalization`);
+    return "";
+  }
 
-  // Discard entirely if the content still looks like a nav/footer block.
-  return isLikelyNavFooterBoilerplate(normalized) ? "" : normalized;
+  if (isLikelyNavFooterBoilerplate(normalized)) {
+    logger.info(`[clean-html] detected nav/footer boilerplate — discarding`, {
+      normalizedChars: normalized.length,
+      contentPreview: contentPreview(normalized),
+    });
+    return "";
+  }
+
+  logger.info(`[clean-html] done`, {
+    outputChars: normalized.length,
+    outputPreview: contentPreview(normalized),
+  });
+  return normalized;
 }
 
 const CONTENT_CLASS_PATTERNS = [
@@ -256,28 +300,61 @@ export function findArticleBody(
   html: string,
   minLength: number,
 ): string | null {
+  logger.info(`[find-body] searching for article body container`, {
+    htmlChars: html.length,
+    minLength,
+  });
+
   let body = findFirstByAttr(html, "itemprop", "articleBody");
-  if (body && body.trim().length >= minLength) return body;
+  if (body && body.trim().length >= minLength) {
+    logger.info(`[find-body] matched itemprop="articleBody"`, {
+      bodyChars: body.length,
+    });
+    return body;
+  }
 
   body = findFirstByClassContains(html, CONTENT_CLASS_PATTERNS, minLength);
-  if (body) return body;
+  if (body) {
+    logger.info(`[find-body] matched content class pattern`, {
+      bodyChars: body.length,
+    });
+    return body;
+  }
 
   const articles = findAllByTag(html, "article");
   if (articles.length > 0) {
     body = articles.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
+    if (body.trim().length >= minLength) {
+      logger.info(
+        `[find-body] matched <article> tag (largest of ${articles.length})`,
+        { bodyChars: body.length },
+      );
+      return body;
+    }
   }
 
   for (const role of ["main", "article"] as const) {
     body = findFirstByAttr(html, "role", role);
-    if (body && body.trim().length >= minLength) return body;
+    if (body && body.trim().length >= minLength) {
+      logger.info(`[find-body] matched role="${role}"`, {
+        bodyChars: body.length,
+      });
+      return body;
+    }
   }
 
   const mains = findAllByTag(html, "main");
   if (mains.length > 0) {
     body = mains.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
+    if (body.trim().length >= minLength) {
+      logger.info(
+        `[find-body] matched <main> tag (largest of ${mains.length})`,
+        { bodyChars: body.length },
+      );
+      return body;
+    }
   }
 
+  logger.info(`[find-body] no suitable container found`);
   return null;
 }

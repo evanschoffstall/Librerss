@@ -6,11 +6,16 @@
  * This module is pure orchestration + typed payload construction.
  */
 
+import { logger } from "@/lib/logger";
 import {
   extractPageTitle,
   findArticleBody,
   readMetaTagContent,
 } from "@/lib/sanitize";
+
+function contentPreview(s: string, max = 500): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
 
 export interface ExtractedArticle {
   content: string;
@@ -39,8 +44,26 @@ export async function extractArticleFromHtml(
   options?: ExtractOptions,
 ): Promise<ExtractedArticle | null> {
   const threshold = options?.contentLengthThreshold ?? DEFAULT_MIN_BODY_LENGTH;
+  logger.info(`[extract] findArticleBody start`, {
+    inputChars: html.length,
+    threshold,
+  });
+
   const body = findArticleBody(html, threshold);
-  if (!body) return null;
+  if (!body) {
+    logger.info(
+      `[extract] findArticleBody returned null — no suitable container found`,
+      {
+        inputChars: html.length,
+      },
+    );
+    return null;
+  }
+
+  logger.info(`[extract] findArticleBody matched`, {
+    bodyChars: body.length,
+    bodyPreview: contentPreview(body),
+  });
 
   const title = extractPageTitle(html);
   const description =
@@ -49,6 +72,12 @@ export async function extractArticleFromHtml(
       "twitter:description",
       "description",
     ]) || undefined;
+
+  logger.info(`[extract] extractArticleFromHtml result`, {
+    bodyChars: body.length,
+    title: title ?? null,
+    descriptionChars: description?.length ?? 0,
+  });
 
   return { content: body, title: title ?? undefined, description, source: url };
 }
