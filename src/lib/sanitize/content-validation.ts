@@ -1,20 +1,37 @@
 import { normalizeArticleHtmlSpacing, toPlainText } from "./cleaners";
 
+const SOCIAL_SHARE_LINK_RE =
+  /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|x\.com\/intent\/tweet|mailto:\?/i;
+
+function isSocialShareListItem(li: string): boolean {
+  const lower = li.toLowerCase();
+  if (SOCIAL_SHARE_LINK_RE.test(lower)) return true;
+  const text = lower
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /^(copy\s*link|facebook|twitter|whatsapp|reddit|x|email|linkedin|flipboard|pinterest)$/i.test(
+    text,
+  );
+}
+
 function stripShareEngagementToolbars(content: string): string {
   return content.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
-    const lower = ulBlock.toLowerCase();
-    const hasSocialShareLink =
-      /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|mailto:\?/i.test(
-        lower,
-      );
-    if (!hasSocialShareLink) return ulBlock;
+    const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+    if (items.length === 0) return ulBlock;
+    const socialCount = items.filter((m) =>
+      isSocialShareListItem(m[1] ?? ""),
+    ).length;
+    if (socialCount >= 2 && socialCount >= items.length / 2) return "";
 
+    const lower = ulBlock.toLowerCase();
+    if (!SOCIAL_SHARE_LINK_RE.test(lower)) return ulBlock;
     const textContent = lower.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    const hasEngagementLabel =
-      /\bshare\b|\bsave\s*for\s*later\b|\bcomment\b|\blisten\b/i.test(
-        textContent,
-      );
-    return hasEngagementLabel ? "" : ulBlock;
+    return /\bshare\b|\bsave\s*for\s*later\b|\bcomment\b|\blisten\b/i.test(
+      textContent,
+    )
+      ? ""
+      : ulBlock;
   });
 }
 
@@ -57,6 +74,12 @@ export function isLikelyNavFooterBoilerplate(content: string): boolean {
 
   const linkCount = (content.match(/<a\b/gi) ?? []).length;
   const listItemCount = (content.match(/<li\b/gi) ?? []).length;
+
+  // Long prose bodies are not boilerplate even if they contain footer keywords.
+  const plainTextLength = toPlainText(content)
+    .replace(/\s+/g, " ")
+    .trim().length;
+  if (plainTextLength > 2000) return false;
 
   // Require all three signals to fire together to avoid false positives.
   return markerHits >= 2 && linkCount >= 6 && listItemCount >= 4;
