@@ -88,6 +88,9 @@ type RefreshDecision = {
  * Verifies ownership of the requested URLs, loads (or creates) their Feed
  * records, and returns the allowed URL list with the feed-by-URL map.
  * Returns null when no URLs are owned by the user.
+ *
+ * Uses a single JOIN query to resolve both ownership and feed records in one
+ * DB round-trip (previously two separate queries).
  */
 export async function resolveAuthorizedFeedRecords(
   db: ReturnType<typeof getDb>,
@@ -97,9 +100,17 @@ export async function resolveAuthorizedFeedRecords(
   allowedUrls: string[];
   feedByUrl: Map<string, FeedRecord>;
 } | null> {
-  const ownedRows = await db
-    .select({ url: feedSources.url })
+  // Single query: ownership check + feed record load via LEFT JOIN.
+  const joinedRows = await db
+    .select({
+      sourceUrl: feedSources.url,
+      feedId: feeds.id,
+      feedUrl: feeds.url,
+      lastFetched: feeds.lastFetched,
+      lastFetchError: feeds.lastFetchError,
+    })
     .from(feedSources)
+    .leftJoin(feeds, eq(feeds.url, feedSources.url))
     .where(
       and(
         eq(feedSources.userId, userId),
@@ -108,18 +119,28 @@ export async function resolveAuthorizedFeedRecords(
       ),
     );
 
-  const ownedUrlSet = new Set(ownedRows.map((r) => r.url));
-  const allowedUrls = feedUrls.filter((u) => ownedUrlSet.has(u));
+  if (joinedRows.length === 0) return null;
+
+  const allowedUrls = feedUrls.filter((u) =>
+    joinedRows.some((r) => r.sourceUrl === u),
+  );
   if (allowedUrls.length === 0) return null;
 
-  const existingFeeds = await db
-    .select(feedRecordFields)
-    .from(feeds)
-    .where(inArray(feeds.url, allowedUrls));
-
-  const feedByUrl = new Map<string, FeedRecord>(
-    existingFeeds.map((f) => [f.url, f]),
-  );
+  const feedByUrl = new Map<string, FeedRecord>();
+  for (const row of joinedRows) {
+    if (
+      row.feedId !== null &&
+      row.feedUrl !== null &&
+      row.lastFetched !== null
+    ) {
+      feedByUrl.set(row.sourceUrl, {
+        id: row.feedId,
+        url: row.feedUrl,
+        lastFetched: row.lastFetched,
+        lastFetchError: row.lastFetchError,
+      });
+    }
+  }
 
   const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
   if (missingUrls.length > 0) {
@@ -252,36 +273,31 @@ export async function queryTopArticlesPerFeed(
   userId: number,
   feedIds: number[],
 ): Promise<RankedRow[]> {
+  // LATERAL JOIN lets PostgreSQL use the (feed_id, publication_date) composite
+  // index to grab only the top-N rows per feed via an index scan, instead of
+  // the ROW_NUMBER() window function which scans ALL rows before filtering.
   const queryResult = await db.execute<RankedRow>(sql`
-    SELECT id, title, link, content,
-           publication_date AS "publicationDate",
-           feed_id          AS "feedId",
-           last_checked     AS "lastChecked",
-           "isRead",
-           "isStarred"
-    FROM (
-      SELECT a.id,
-             a.title,
-             a.link,
-             a.content,
-             a.publication_date,
-             a.feed_id,
-             a.last_checked,
-             COALESCE(s.is_read, false) AS "isRead",
-             COALESCE(s.is_starred, false) AS "isStarred",
-             ROW_NUMBER() OVER (
-               PARTITION BY a.feed_id ORDER BY a.publication_date DESC
-             ) AS rn
-      FROM "Article" a
-      LEFT JOIN "ArticleStatus" s
-        ON s.article_id = a.id AND s.user_id = ${userId}
-      WHERE a.feed_id IN (${sql.join(
-        feedIds.map((id) => sql`${id}`),
-        sql`, `,
-      )})
-    ) ranked
-    WHERE rn <= ${CONFIG.MAX_ARTICLES_PER_FEED}
-    ORDER BY publication_date DESC
+    SELECT a.id, a.title, a.link, a.content,
+           a.publication_date AS "publicationDate",
+           a.feed_id          AS "feedId",
+           a.last_checked     AS "lastChecked",
+           COALESCE(s.is_read, false)    AS "isRead",
+           COALESCE(s.is_starred, false) AS "isStarred"
+    FROM unnest(ARRAY[${sql.join(
+      feedIds.map((id) => sql`${id}`),
+      sql`, `,
+    )}]::int[]) AS fid(id)
+    CROSS JOIN LATERAL (
+      SELECT sub.id, sub.title, sub.link, sub.content,
+             sub.publication_date, sub.feed_id, sub.last_checked
+      FROM "Article" sub
+      WHERE sub.feed_id = fid.id
+      ORDER BY sub.publication_date DESC
+      LIMIT ${CONFIG.MAX_ARTICLES_PER_FEED}
+    ) a
+    LEFT JOIN "ArticleStatus" s
+      ON s.article_id = a.id AND s.user_id = ${userId}
+    ORDER BY a.publication_date DESC
   `);
 
   return Array.isArray(queryResult)
