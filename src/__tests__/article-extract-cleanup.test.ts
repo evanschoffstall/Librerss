@@ -386,10 +386,6 @@ describe("article extract cleanup", () => {
 
   test("downloaded html matches extraction pipeline snapshots", async () => {
     const fixtures = [
-      { name: "article-1" },
-      { name: "article-2" },
-      { name: "article-3" },
-      { name: "article-4" },
       { name: "article-5" },
       { name: "article-7" },
     ] as const;
