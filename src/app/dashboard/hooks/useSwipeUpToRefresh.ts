@@ -55,8 +55,9 @@ export function useSwipeUpToRefresh(
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
 
-    // Hide sentinel on mount by scrolling past it
+    // Hide sentinel on mount + prevent iOS from rubber-banding the page
     viewport.scrollTop = SENTINEL_HEIGHT;
+    viewport.style.overscrollBehaviorY = "none";
 
     const handleScroll = () => {
       const st = viewport.scrollTop;
@@ -78,9 +79,16 @@ export function useSwipeUpToRefresh(
 
       const pullDistance = SENTINEL_HEIGHT - st;
 
-      // Finger not on screen — momentum overshoot, snap back immediately
+      // Finger not on screen — momentum overshoot, snap back smoothly
       if (!touchActiveRef.current) {
-        viewport.scrollTop = SENTINEL_HEIGHT;
+        if (!snapTimerRef.current) {
+          snapTimerRef.current = setTimeout(() => {
+            snapTimerRef.current = undefined;
+            if (viewport.scrollTop < SENTINEL_HEIGHT) {
+              viewport.scrollTo({ top: SENTINEL_HEIGHT, behavior: "smooth" });
+            }
+          }, 80);
+        }
         if (pullingRef.current) {
           pullingRef.current = false;
           setState(IDLE);
@@ -89,9 +97,16 @@ export function useSwipeUpToRefresh(
       }
 
       const committed = pullDistance >= PULL_THRESHOLD;
+      const wasCommitted = committedRef.current;
       committedRef.current = committed;
-      pullingRef.current = true;
-      setState({ pulling: true, readyToRefresh: committed });
+
+      // Only setState on actual transitions to avoid per-frame re-renders
+      if (!pullingRef.current) {
+        pullingRef.current = true;
+        setState({ pulling: true, readyToRefresh: committed });
+      } else if (committed !== wasCommitted) {
+        setState({ pulling: true, readyToRefresh: committed });
+      }
     };
 
     const handleTouchStart = () => {
@@ -135,6 +150,7 @@ export function useSwipeUpToRefresh(
 
     return () => {
       clearTimeout(snapTimerRef.current);
+      viewport.style.overscrollBehaviorY = "";
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
