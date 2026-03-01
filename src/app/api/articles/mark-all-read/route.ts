@@ -1,4 +1,5 @@
 import { asTrimmedString, jsonError } from "@/lib/api/http";
+import { invalidateUserCache } from "@/lib/core/feed-cache";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
 import {
   logAndRespondError,
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest) {
     }
 
     await markStreamAsRead(parsedRequest.user.userId, streamId);
+
+    invalidateUserCache(parsedRequest.user.userId);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

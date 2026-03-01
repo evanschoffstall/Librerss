@@ -21,6 +21,7 @@ import {
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
+import { invalidateUserCache } from "@/lib/core/feed-cache";
 import {
   isFeedSourceNotFoundError,
   isUpstreamFeedError,
@@ -211,6 +212,8 @@ export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
       createOrUpdate(tx, user.userId, parsedPayload),
     );
 
+    invalidateUserCache(user.userId);
+
     return NextResponse.json(
       { ...sourceRecord, category: parsedPayload.category },
       { status: isNew ? 201 : 200 },
@@ -258,6 +261,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       );
       if (!updatedSource) return toJsonError("Feed source not found", 404);
 
+      invalidateUserCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -277,6 +281,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       );
       if (!updatedSource) return toJsonError("Feed source not found", 404);
 
+      invalidateUserCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -291,6 +296,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
     const updatedSource = await renameSource(user.userId, sourceId, name, url);
     if (!updatedSource) return toJsonError("Feed source not found", 404);
 
+    invalidateUserCache(user.userId);
     return NextResponse.json(updatedSource);
   } catch (error) {
     return respondError("Error renaming feed source", error);
@@ -320,6 +326,7 @@ export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
       return toJsonError("Feed source not found", 404);
     }
 
+    invalidateUserCache(user.userId);
     return NextResponse.json(deletedSource);
   } catch (error) {
     return respondError("Error deleting feed source", error);

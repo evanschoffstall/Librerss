@@ -7,14 +7,20 @@
  *   3. If any Feed records are missing: one INSERT + one SELECT to resolve them.
  *   4. All stale upstream HTTP refreshes run in parallel (Promise.allSettled).
  *   5. One window-function SELECT to retrieve top-N articles per feed.
+ *
+ * In-memory cache (feed-cache.ts) short-circuits the entire pipeline when:
+ *   - All feeds are within TTL (nothing to refresh)
+ *   - No force-refresh was requested
+ *   - A cached result exists for the same user + URL set
+ * In that case: zero DB queries.
  */
 
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
-import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
+import { articles, articleStatuses, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   type ArticleRow,
   buildRefreshPlan,
@@ -23,6 +29,11 @@ import {
   queryTopArticlesPerFeed,
   resolveAuthorizedFeedRecords,
 } from "./feed-batch-pipeline";
+import {
+  getCachedBatch,
+  invalidateUserCache,
+  setCachedBatch,
+} from "./feed-cache";
 import {
   type FeedRecord,
   refreshFeedFromUpstream,
@@ -94,6 +105,35 @@ export async function fetchAndCacheFeedArticlesBatch(
     });
   }
 
+  // ── In-memory cache fast path (zero DB queries) ──────────────────────────
+  // Serve from memory when:  not a force-refresh, and a cached result exists.
+  // The cache TTL matches the feed refresh TTL so we never serve staler data
+  // than the server would have returned from the DB anyway.
+  if (!forceRefresh) {
+    const cached = getCachedBatch(userId, feedUrls);
+    if (cached) {
+      const cachedCount = feedUrls.length;
+      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
+        logger.info("Batch feed fetch served from memory cache", {
+          userId,
+          requestSource,
+          feedCount: cachedCount,
+        });
+      }
+      logger.info(
+        `Batch [${cachedCount} feed${cachedCount !== 1 ? "s" : ""}]: 0 refreshed, ${cachedCount} cached [memory]`,
+      );
+      return {
+        articles: cached.articles,
+        errors: cached.errors,
+        refreshedCount: 0,
+        cachedCount,
+        lastFetchedByUrl: cached.lastFetchedByUrl,
+      };
+    }
+  }
+
+  // ── DB path: resolve ownership + feed records ────────────────────────────
   const resolved = await resolveAuthorizedFeedRecords(db, userId, feedUrls);
   if (!resolved) {
     if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED)
@@ -158,35 +198,29 @@ export async function fetchAndCacheFeedArticlesBatch(
     };
   }
 
-  const rawLastFetchedRows = await db
-    .select({ url: feeds.url, lastFetched: feeds.lastFetched })
-    .from(feeds)
-    .where(inArray(feeds.url, allowedUrls));
-
-  // Drizzle returns an array; some test mocks return { rows: [...] }.
-  const lastFetchedRows: Array<{ url: string; lastFetched: Date }> =
-    Array.isArray(rawLastFetchedRows)
-      ? rawLastFetchedRows
-      : (((rawLastFetchedRows as { rows?: unknown }).rows as Array<{
-          url: string;
-          lastFetched: Date;
-        }>) ?? []);
-
+  // Derive lastFetchedByUrl from the feed records we already loaded in step 2.
+  // This eliminates the redundant SELECT that previously re-queried the same
+  // feeds table just for lastFetched timestamps.
   const lastFetchedByUrl = new Map<string, Date>(
-    lastFetchedRows.map((row) => [row.url, row.lastFetched]),
+    allowedUrls
+      .map((u): [string, Date] | null => {
+        const feed = feedByUrl.get(u);
+        return feed ? [u, feed.lastFetched] : null;
+      })
+      .filter((e): e is [string, Date] => e !== null),
   );
 
   const rows = await queryTopArticlesPerFeed(db, userId, feedIds);
-  const result = mapRowsToArticleMap(rows, feedByUrl, allowedUrls);
+  const articleMap = mapRowsToArticleMap(rows, feedByUrl, allowedUrls);
 
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
     logger.info("Batch feed fetch completed", {
       userId,
       requestSource,
-      feedCount: result.size,
+      feedCount: articleMap.size,
       totalArticles: rows.length,
       upstreamErrorCount: upstreamErrors.size,
-      articlesByUrl: [...result.entries()].map(([url, items]) => ({
+      articlesByUrl: [...articleMap.entries()].map(([url, items]) => ({
         url,
         articleCount: items.length,
         newestReturnedPublicationDate:
@@ -196,8 +230,19 @@ export async function fetchAndCacheFeedArticlesBatch(
     });
   }
 
+  // ── Populate in-memory cache ─────────────────────────────────────────────
+  // When feeds were refreshed upstream, other cached URL-set entries for this
+  // user may contain stale article data. Invalidate everything first, then
+  // store the fresh result so subsequent requests hit the cache.
+  if (refreshedCount > 0) invalidateUserCache(userId);
+  setCachedBatch(userId, allowedUrls, {
+    articles: articleMap,
+    errors: upstreamErrors,
+    lastFetchedByUrl,
+  });
+
   return {
-    articles: result,
+    articles: articleMap,
     errors: upstreamErrors,
     refreshedCount,
     cachedCount: allowedUrls.length - refreshedCount,

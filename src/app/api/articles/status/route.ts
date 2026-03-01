@@ -1,5 +1,6 @@
 import { jsonError } from "@/lib/api/http";
 import { upsertArticleStatuses } from "@/lib/core/article-status";
+import { invalidateUserCache } from "@/lib/core/feed-cache";
 import {
   logAndRespondError,
   requireMutableUserAndJsonBody,
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
       isRead: payload.isRead,
       isStarred: payload.isStarred,
     });
+
+    invalidateUserCache(user.userId);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
