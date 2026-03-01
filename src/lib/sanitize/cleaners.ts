@@ -253,6 +253,7 @@ const COMMENT_WIDGET_IDS = [
   "coral-display-comments",
   "comment-container",
   "mj-comments-container",
+  "utility-bar",
 ] as const;
 
 /**
@@ -272,7 +273,7 @@ export function preCleanHtmlForExtraction(rawHtml: string): string {
   // Strip signup/subscription widgets and CTA containers (depth-aware).
   html = removeElementsByClassPattern(
     html,
-    /sailthru|signup-widget|subscribe-widget|newsletter-signup|preferred-source|nlp-ignore-block/i,
+    /sailthru|signup-widget|subscribe-widget|newsletter-signup|preferred-source|nlp-ignore-block|newsletter-form|utility-bar|UtilityBar|social-share|sharethrough/i,
   );
 
   // Strip pure-link <ul> blocks (8+ items, all bare <a>) — tag clouds, nav panels.
