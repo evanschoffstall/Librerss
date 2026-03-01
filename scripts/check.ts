@@ -236,16 +236,13 @@ function parseDetails(outputs: Record<string, Command>) {
   const typeCoverage = typeCovM
     ? `${typeCovM[3]}% (${typeCovM[1]}/${typeCovM[2]}) · threshold 98%`
     : "type coverage completed";
-  const auditN = norm(outputs.auditCi.output);
-  const auditM = auditN.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
-  const auditCi = /No vulnerabilities found/i.test(auditN)
+  const depAuditN = norm(outputs.depAudit.output);
+  const depAuditM = depAuditN.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
+  const depAudit = /No vulnerabilities found/i.test(depAuditN)
     ? "0 vulnerabilities found"
-    : auditM
-      ? `${auditM[1]} vulnerabilities found`
+    : depAuditM
+      ? `${depAuditM[1]} vulnerabilities found`
       : "dependency audit completed";
-  const osvAudit = norm(outputs.osvAudit.output).includes("{}")
-    ? "0 advisories"
-    : "OSV audit completed";
   return {
     tsc: detail(outputs.types, "typecheck clean", "typecheck failed"),
     eslint: detail(outputs.lint, "lint clean", "lint failed"),
@@ -273,8 +270,7 @@ function parseDetails(outputs: Record<string, Command>) {
     ),
     semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
     gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
-    auditCi,
-    osvAudit,
+    depAudit,
   };
 }
 
@@ -455,8 +451,8 @@ async function runCheckSuite() {
           TEST_COMMAND_TIMEOUT_MS,
         ),
     },
-    { k: "types", l: "Types", r: () => run("tsc", ["--noEmit"]) },
-    { k: "lint", l: "Lint", r: () => runLint([]) },
+    { k: "types", l: "tsc", r: () => run("tsc", ["--noEmit"]) },
+    { k: "lint", l: "eslint", r: () => runLint([]) },
     { k: "jscpd", l: "jscpd", r: () => run("bun", ["run", "dup"]) },
     { k: "knip", l: "knip", r: () => run("bun", ["run", "redundancy"]) },
     { k: "tsPrune", l: "ts-prune", r: () => runTsPrune([]) },
@@ -512,8 +508,11 @@ async function runCheckSuite() {
       l: "gitleaks",
       r: () => run("bun", ["run", "scan:gitleaks"]),
     },
-    { k: "auditCi", l: "audit-ci", r: () => run("bun", ["run", "scan:deps"]) },
-    { k: "osvAudit", l: "osv-audit", r: () => run("bun", ["run", "scan:osv"]) },
+    {
+      k: "depAudit",
+      l: "dep-audit",
+      r: () => run("bun", ["run", "scan:deps"]),
+    },
   ];
   const runs = Object.fromEntries(
     await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
@@ -550,8 +549,7 @@ async function runCheckSuite() {
     { k: "prettier", ok: runs.prettier.exitCode === 0, d: details.prettier },
     { k: "semgrep", ok: runs.semgrep.exitCode === 0, d: details.semgrep },
     { k: "gitleaks", ok: runs.gitleaks.exitCode === 0, d: details.gitleaks },
-    { k: "audit-ci", ok: runs.auditCi.exitCode === 0, d: details.auditCi },
-    { k: "osv-audit", ok: runs.osvAudit.exitCode === 0, d: details.osvAudit },
+    { k: "dep-audit", ok: runs.depAudit.exitCode === 0, d: details.depAudit },
     {
       k: "Tests",
       ok: tests.ok && runs.test.exitCode === 0,

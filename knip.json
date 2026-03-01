@@ -1,7 +1,8 @@
 {
   "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.ts"],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
-  "ignore": ["src/__tests__/**", "src/components/ui/**"],
+  "ignore": ["src/components/ui/**"],
+  "ignoreBinaries": ["semgrep"],
   "ignoreDependencies": [
     "@lexical/code",
     "@lexical/link",
