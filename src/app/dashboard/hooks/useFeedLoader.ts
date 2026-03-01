@@ -85,6 +85,7 @@ export function useFeedLoader({
   const activeRequestSignatureRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [loading, setLocalLoading] = useState(false);
+  const [loadingEpoch, setLoadingEpoch] = useState(0);
 
   const logRefreshDiagnostics = useCallback(
     (event: string, details: Record<string, unknown>) => {
@@ -92,7 +93,7 @@ export function useFeedLoader({
         return;
       }
 
-      console.info(`[dashboard] ${event}`, details);
+      console.info("[dashboard]", event, details);
     },
     [],
   );
@@ -235,6 +236,7 @@ export function useFeedLoader({
 
       activeRequestSignatureRef.current = requestSignature;
       syncLoading(true);
+      setLoadingEpoch((e) => e + 1);
       if (!options?.keepExistingFeed) {
         setFeed([]);
       }
@@ -370,6 +372,7 @@ export function useFeedLoader({
 
   return {
     loading,
+    loadingEpoch,
     loadFeedSources,
     fetchFeed,
     fetchCategoryFeeds,

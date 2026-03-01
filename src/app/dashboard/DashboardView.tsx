@@ -29,6 +29,7 @@ import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
 import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
+import { useSwipeUpToRefresh } from "./hooks/useSwipeUpToRefresh";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
@@ -93,6 +94,7 @@ export const DashboardView = ({
 
   const {
     loadFeedSources,
+    loadingEpoch,
     fetchFeed,
     fetchCategoryFeeds,
     fetchAllFeeds,
@@ -147,6 +149,7 @@ export const DashboardView = ({
 
   useFeedLoadingTimeout({
     loading,
+    loadingEpoch,
     timeoutMs: FEED_LOADING_FAILSAFE_MS,
     setLoading,
   });
@@ -207,6 +210,15 @@ export const DashboardView = ({
     useScrollRestore(FEED_SCROLL_SESSION_KEY);
   const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
 
+  const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  const mergedFeedScrollRef = useCallback(
+    (node: HTMLElement | null) => {
+      feedScrollRootRef.current = node;
+      feedScrollRef(node);
+    },
+    [feedScrollRef],
+  );
+
   const {
     refreshFeedList,
     autoRefreshFeedList,
@@ -226,6 +238,25 @@ export const DashboardView = ({
   });
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
+
+  const {
+    contentRef: pullContentRef,
+    refreshing: isPullRefreshing,
+    pulling: isPulling,
+    readyToRefresh,
+  } = useSwipeUpToRefresh(
+    feedScrollRootRef,
+    refreshFeedList,
+    loading,
+  );
+
+  const pullRefreshHint = isPullRefreshing
+    ? "Refreshing..."
+    : isPulling
+      ? readyToRefresh
+        ? "Release to refresh"
+        : "Pull down to refresh"
+      : "Pull down to refresh";
 
   const lastRefreshLabel = formatLastRefreshLabel(lastRefreshedAt);
 
@@ -292,9 +323,8 @@ export const DashboardView = ({
           <div className="h-full rounded-xl bg-card/35 px-2 py-2">
             <ScrollArea
               ref={sidebarScrollRef}
-              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${
-                isSidebarVisible ? "opacity-100" : "opacity-0"
-              }`}
+              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${isSidebarVisible ? "opacity-100" : "opacity-0"
+                }`}
             >
               <DashboardSidebarContent {...sidebarProps} />
             </ScrollArea>
@@ -302,8 +332,19 @@ export const DashboardView = ({
         </aside>
 
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
-          <ScrollArea ref={feedScrollRef} className="h-full">
-            <div className="p-1">
+          <ScrollArea ref={mergedFeedScrollRef} className="h-full">
+            <div ref={pullContentRef} className="p-1">
+              <div className="mb-2 flex justify-center px-1 md:hidden">
+                <div
+                  className={`rounded-md border px-3 py-1 text-xs font-medium transition-colors ${
+                    readyToRefresh
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border bg-card text-muted-foreground"
+                  }`}
+                >
+                  {pullRefreshHint}
+                </div>
+              </div>
               <FeedList
                 loading={loading}
                 filteredFeed={filteredFeed}

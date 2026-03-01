@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SWIPE_THRESHOLD = 0.45;
+const SWIPE_THRESHOLD = 0.3;
 const VERTICAL_LOCK_ANGLE = 30;
 const MIN_SWIPE_PX = 10;
 
