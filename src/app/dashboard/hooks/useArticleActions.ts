@@ -1,10 +1,14 @@
 "use client";
 
-import { ArticleService, type Article } from "@/lib";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArticleService, type Article, type CategoryTreeNode } from "@/lib";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getArticleKey } from "../services/article-collection";
-import { escapeArticleKey, useArticleHydration } from "./useArticleHydration";
+import {
+  escapeArticleKey,
+  useArticleHydration,
+  type FeedExtractionSettings,
+} from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
@@ -19,6 +23,7 @@ interface UseArticleActionsOptions {
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
   articleFilter: "all" | "unread" | "read" | "starred";
   usePlaceholderData?: boolean;
+  categories?: CategoryTreeNode[];
 }
 
 export function useArticleActions({
@@ -28,6 +33,7 @@ export function useArticleActions({
   setExpandedArticleKey,
   articleFilter,
   usePlaceholderData = false,
+  categories,
 }: UseArticleActionsOptions) {
   const {
     updatingArticleState,
@@ -36,8 +42,24 @@ export function useArticleActions({
     handleToggleReadState,
   } = useArticleReadState({ setFeed, usePlaceholderData });
 
+  // Build a feedUrl → settings lookup from the category tree
+  const getFeedSettings = useMemo(() => {
+    const settingsMap = new Map<string, FeedExtractionSettings>();
+    for (const cat of categories ?? []) {
+      for (const child of cat.children ?? []) {
+        if (child.data?.url) {
+          settingsMap.set(child.data.url, {
+            extractionDisabled: child.data.extractionDisabled,
+            proxyEnabled: child.data.proxyEnabled,
+          });
+        }
+      }
+    }
+    return (feedUrl: string) => settingsMap.get(feedUrl);
+  }, [categories]);
+
   const { hydratedArticleLinks, hydratingArticleLinks, hydrateArticleContent } =
-    useArticleHydration({ setFeed });
+    useArticleHydration({ setFeed, getFeedSettings });
   const autoHydratedExpandedKeyRef = useRef<string | null>(null);
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey

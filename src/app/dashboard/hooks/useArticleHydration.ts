@@ -4,8 +4,14 @@ import { ArticleService, isValidUrl, type Article } from "@/lib";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
+export interface FeedExtractionSettings {
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
+}
+
 interface UseArticleHydrationOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  getFeedSettings?: (feedUrl: string) => FeedExtractionSettings | undefined;
 }
 
 interface HydrateArticleContentOptions {
@@ -19,7 +25,10 @@ export function escapeArticleKey(articleKey: string): string {
     : articleKey.replace(/[\\"]/g, "\\$&");
 }
 
-export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
+export function useArticleHydration({
+  setFeed,
+  getFeedSettings,
+}: UseArticleHydrationOptions) {
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
     Record<string, boolean>
   >({});
@@ -62,6 +71,12 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
       const forceHydration = options?.force ?? false;
       const link = article.link?.trim();
       if (!link || !isValidUrl(link)) return;
+
+      // Check per-feed extraction settings
+      const feedUrl = article.feedUrl?.trim();
+      const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
+      if (settings?.extractionDisabled) return;
+
       const inFlightCount = articleHydrationInFlightRef.current.get(link) ?? 0;
 
       if (!forceHydration && hydratedArticleLinks[link]) {
@@ -74,8 +89,12 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
       setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
 
       try {
-        const extractedContent =
-          await ArticleService.extractArticleContent(link);
+        const extractedContent = await ArticleService.extractArticleContent(
+          link,
+          {
+            useProxy: settings?.proxyEnabled,
+          },
+        );
 
         if (!extractedContent) {
           setHydratedArticleLinks((current) => {
@@ -118,7 +137,7 @@ export function useArticleHydration({ setFeed }: UseArticleHydrationOptions) {
         }
       }
     },
-    [hydratedArticleLinks, setFeed],
+    [hydratedArticleLinks, setFeed, getFeedSettings],
   );
 
   return {

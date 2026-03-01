@@ -78,6 +78,7 @@ describe("Article Hydration Fixtures", () => {
       await waitFor(() => {
         expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
           "https://example.com/article",
+          { useProxy: undefined },
         );
         expect(feedState[0].content).toBe(extractedContent);
         expect(
