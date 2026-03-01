@@ -6,7 +6,7 @@ import {
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
 
-function contentPreview(s: string, max = 500): string {
+function contentPreview(s: string, max = 200): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
 }
 
