@@ -18,6 +18,32 @@ import {
   shouldRefreshFeed,
 } from "./feed-refresh";
 
+// ─── Concurrency helper ──────────────────────────────────────────────────────
+
+async function settledWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const i = nextIndex++;
+      try {
+        results[i] = { status: "fulfilled", value: await tasks[i]!() };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()),
+  );
+  return results;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ArticleRow = {
@@ -181,8 +207,10 @@ export async function executeParallelRefreshes(
     refreshedCount = staleFeeds.length;
 
     if (staleFeeds.length > 0) {
-      const results = await Promise.allSettled(
-        staleFeeds.map((feed) => refreshFeedFromUpstream(db, feed)),
+      const concurrency: number = CONFIG.FEED_BATCH_CONCURRENCY ?? 8;
+      const results = await settledWithConcurrency(
+        staleFeeds.map((feed) => () => refreshFeedFromUpstream(db, feed)),
+        concurrency,
       );
 
       for (const [index, settlement] of results.entries()) {
