@@ -3,6 +3,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
 import { Loader2 } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 
@@ -44,6 +46,70 @@ export function FeedList({
   onClearSearch,
   onRefresh,
 }: FeedListProps) {
+  const visibleFeed = useMemo(
+    () => filteredFeed.slice(0, visibleCount),
+    [filteredFeed, visibleCount],
+  );
+  const animatedItems = useAnimatedList(visibleFeed, getArticleKey);
+  const hasAnyVisible = animatedItems.length > 0;
+
+  const exitRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const parent = el.parentElement;
+    if (!parent) return;
+
+    const rect = el.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    const gap = parseFloat(getComputedStyle(parent).rowGap) || 0;
+    const offset = rect.height + gap;
+
+    // Collect siblings after the exiting element
+    const siblings: HTMLElement[] = [];
+    let found = false;
+    for (const child of parent.children) {
+      if (child === el) {
+        found = true;
+        continue;
+      }
+      if (found && child instanceof HTMLElement) siblings.push(child);
+    }
+
+    // FLIP: pre-apply inverse translateY so siblings stay visually in place
+    // when the exiting element leaves flow
+    for (const sib of siblings) sib.style.transform = `translateY(${offset}px)`;
+
+    // Take exiting element out of grid flow
+    el.style.position = "absolute";
+    el.style.top = `${rect.top - parentRect.top + parent.scrollTop}px`;
+    el.style.left = "0";
+    el.style.right = "0";
+    el.style.height = `${rect.height}px`;
+    el.style.zIndex = "10";
+
+    // Force layout so positions are applied before animation frame
+    void el.offsetHeight;
+
+    // Animate: only transform + opacity (GPU-composited, no layout reflow)
+    requestAnimationFrame(() => {
+      el.style.transition = "opacity 180ms ease-out, transform 180ms ease-out";
+      el.style.opacity = "0";
+      el.style.transform = "scale(0.97) translateX(16px)";
+
+      for (const sib of siblings) {
+        sib.style.transition = "transform 280ms cubic-bezier(0.25,0.1,0.25,1)";
+        sib.style.transform = "translateY(0)";
+      }
+    });
+
+    // Clean up inline styles after animation completes
+    setTimeout(() => {
+      for (const sib of siblings) {
+        sib.style.transform = "";
+        sib.style.transition = "";
+      }
+    }, EXIT_CLEANUP_MS);
+  }, []);
+
   return (
     <>
       {loading ? (
@@ -71,7 +137,7 @@ export function FeedList({
             </div>
           ))}
         </div>
-      ) : filteredFeed.length === 0 ? (
+      ) : !hasAnyVisible && filteredFeed.length === 0 ? (
         <div
           key="feed-empty"
           className="mx-auto flex w-full max-w-3xl items-center justify-center px-1 py-32 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
@@ -94,13 +160,20 @@ export function FeedList({
       ) : (
         <div
           key="feed-list"
-          className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
+          className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
         >
-          {filteredFeed.slice(0, visibleCount).map((article) => {
-            const cardKey = getArticleKey(article);
+          {animatedItems.map(({ item: article, key: cardKey, exiting }) => {
             const articleLink = article.link?.trim() ?? "";
             return (
-              <div key={cardKey}>
+              <div
+                key={cardKey}
+                ref={exiting ? exitRef : undefined}
+                className={
+                  exiting
+                    ? "article-exit pointer-events-none overflow-hidden"
+                    : undefined
+                }
+              >
                 <ArticleCard
                   articleKey={cardKey}
                   article={article}
