@@ -84,6 +84,7 @@ export function useFeedLoader({
   const currentRequestIdRef = useRef(0);
   const activeRequestSignatureRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingRef = useRef(false);
   const [loading, setLocalLoading] = useState(false);
   const [loadingEpoch, setLoadingEpoch] = useState(0);
 
@@ -100,6 +101,7 @@ export function useFeedLoader({
 
   const syncLoading = useCallback(
     (value: boolean) => {
+      loadingRef.current = value;
       setLocalLoading(value);
       setLoading(value);
     },
@@ -223,7 +225,7 @@ export function useFeedLoader({
       const requestSignature = buildBatchRequestSignature(normalizedSources);
 
       if (
-        loading &&
+        loadingRef.current &&
         activeRequestSignatureRef.current === requestSignature &&
         options?.forceRefresh !== true
       ) {
@@ -328,7 +330,6 @@ export function useFeedLoader({
       }
     },
     [
-      loading,
       usePlaceholderData,
       setFeed,
       setExpandedArticleKey,
