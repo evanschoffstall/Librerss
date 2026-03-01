@@ -208,7 +208,7 @@ export const DashboardView = ({
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
   const { ref: feedScrollRef, invalidate: invalidateFeedScroll } =
-    useScrollRestore(FEED_SCROLL_SESSION_KEY);
+    useScrollRestore(FEED_SCROLL_SESSION_KEY, 104);
   const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
 
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
