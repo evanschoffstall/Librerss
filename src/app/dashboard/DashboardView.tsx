@@ -241,7 +241,6 @@ export const DashboardView = ({
 
   const {
     contentRef: pullContentRef,
-    refreshing: isPullRefreshing,
     pulling: isPulling,
     readyToRefresh,
   } = useSwipeUpToRefresh(
@@ -250,13 +249,9 @@ export const DashboardView = ({
     loading,
   );
 
-  const pullRefreshHint = isPullRefreshing
-    ? "Refreshing..."
-    : isPulling
-      ? readyToRefresh
-        ? "Release to refresh"
-        : "Pull down to refresh"
-      : "Pull down to refresh";
+  const pullRefreshHint = readyToRefresh
+    ? "Release to refresh"
+    : "Pull down to refresh";
 
   const lastRefreshLabel = formatLastRefreshLabel(lastRefreshedAt);
 
@@ -334,17 +329,13 @@ export const DashboardView = ({
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
           <ScrollArea ref={mergedFeedScrollRef} className="h-full">
             <div ref={pullContentRef} className="p-1">
-              <div className="mb-2 flex justify-center px-1 md:hidden">
-                <div
-                  className={`rounded-md border px-3 py-1 text-xs font-medium transition-colors ${
-                    readyToRefresh
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border bg-card text-muted-foreground"
-                  }`}
-                >
-                  {pullRefreshHint}
+              {isPulling && (
+                <div className="mb-2 flex justify-center px-1 md:hidden">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {pullRefreshHint}
+                  </p>
                 </div>
-              </div>
+              )}
               <FeedList
                 loading={loading}
                 filteredFeed={filteredFeed}
