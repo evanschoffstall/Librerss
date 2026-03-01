@@ -56,7 +56,8 @@ export function useSwipeUpToRefresh(
       root;
 
     // Hide sentinel on mount + prevent iOS from rubber-banding the page
-    viewport.scrollTop = SENTINEL_HEIGHT;
+    const measuredHeight = sentinelRef.current?.offsetHeight ?? 0;
+    viewport.scrollTop = measuredHeight;
     viewport.style.overscrollBehaviorY = "none";
 
     const handleScroll = () => {
@@ -69,7 +70,7 @@ export function useSwipeUpToRefresh(
       }
 
       // In normal content zone — nothing to do
-      if (st >= SENTINEL_HEIGHT) {
+      if (st >= measuredHeight) {
         if (pullingRef.current) {
           pullingRef.current = false;
           setState(IDLE);
@@ -77,15 +78,15 @@ export function useSwipeUpToRefresh(
         return;
       }
 
-      const pullDistance = SENTINEL_HEIGHT - st;
+      const pullDistance = measuredHeight - st;
 
       // Finger not on screen — momentum overshoot, snap back smoothly
       if (!touchActiveRef.current) {
         if (!snapTimerRef.current) {
           snapTimerRef.current = setTimeout(() => {
             snapTimerRef.current = undefined;
-            if (viewport.scrollTop < SENTINEL_HEIGHT) {
-              viewport.scrollTo({ top: SENTINEL_HEIGHT, behavior: "smooth" });
+            if (viewport.scrollTop < measuredHeight) {
+              viewport.scrollTo({ top: measuredHeight, behavior: "smooth" });
             }
           }, 80);
         }
@@ -119,23 +120,23 @@ export function useSwipeUpToRefresh(
       const st = viewport.scrollTop;
 
       // Was in normal scroll zone, nothing to do
-      if (st >= SENTINEL_HEIGHT) return;
+      if (st >= measuredHeight) return;
 
       if (committedRef.current && !disabledRef.current) {
         // Snap to hold position
         viewport.scrollTo({
-          top: SENTINEL_HEIGHT - HOLD_PULL_PX,
+          top: measuredHeight - HOLD_PULL_PX,
           behavior: "smooth",
         });
         onRefreshRef.current();
         // After hold, snap back fully
         snapTimerRef.current = setTimeout(() => {
           setState(IDLE);
-          viewport.scrollTo({ top: SENTINEL_HEIGHT, behavior: "smooth" });
+          viewport.scrollTo({ top: measuredHeight, behavior: "smooth" });
         }, REFRESH_HOLD_MS);
       } else {
         // Not committed — snap back
-        viewport.scrollTo({ top: SENTINEL_HEIGHT, behavior: "smooth" });
+        viewport.scrollTo({ top: measuredHeight, behavior: "smooth" });
         setState(IDLE);
       }
       committedRef.current = false;
@@ -165,7 +166,7 @@ export function useSwipeUpToRefresh(
     const viewport =
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
-    viewport.scrollTop = SENTINEL_HEIGHT;
+    viewport.scrollTop = sentinelRef.current?.offsetHeight ?? 0;
     touchActiveRef.current = false;
     committedRef.current = false;
     pullingRef.current = false;
