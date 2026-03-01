@@ -4,6 +4,7 @@ import {
   SOCIAL_SHARE_LINK_RE,
   toPlainText,
 } from "./cleaners";
+import { extractAttrValue } from "./patterns";
 
 function contentPreview(s: string, max = 200): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
@@ -218,30 +219,28 @@ function extractInnerHtml(
   tagName: string,
 ): string | null {
   const afterOpen = startIdx + openTagLength;
-  const closeRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
-  closeRe.lastIndex = afterOpen;
+  const lowerTag = tagName.toLowerCase();
+  const re = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
+  re.lastIndex = afterOpen;
   let depth = 1;
-  let endIdx = -1;
   let m: RegExpExecArray | null;
-  while (depth > 0 && (m = closeRe.exec(html)) !== null) {
+  while (depth > 0 && (m = re.exec(html)) !== null) {
+    if (m[1]?.toLowerCase() !== lowerTag) continue;
     if (m[0].startsWith("</")) depth--;
     else depth++;
-    if (depth === 0) endIdx = m.index;
+    if (depth === 0) return html.slice(afterOpen, m.index);
   }
-  return endIdx >= 0 ? html.slice(afterOpen, endIdx) : null;
+  return null;
 }
 
 function findAllByTag(html: string, tagName: string): string[] {
   const results: string[] = [];
-  const openRe = new RegExp(`<${tagName}\\b[^>]*>`, "gi");
-  let openMatch: RegExpExecArray | null;
-  while ((openMatch = openRe.exec(html)) !== null) {
-    const inner = extractInnerHtml(
-      html,
-      openMatch.index,
-      openMatch[0].length,
-      tagName,
-    );
+  const lowerTag = tagName.toLowerCase();
+  const re = /<([a-z][a-z0-9:-]*)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (m[1]?.toLowerCase() !== lowerTag) continue;
+    const inner = extractInnerHtml(html, m.index, m[0].length, tagName);
     if (inner !== null) results.push(inner);
   }
   return results;
@@ -252,14 +251,36 @@ function findFirstByAttr(
   attr: string,
   value: string,
 ): string | null {
-  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    `<([a-z][a-z0-9:-]*)\\b[^>]*\\b${attr}=["']${escaped}["'][^>]*>`,
-    "i",
-  );
-  const match = re.exec(html);
-  if (!match?.[1]) return null;
-  return extractInnerHtml(html, match.index, match[0].length, match[1]);
+  const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (extractAttrValue(m[2] ?? "", attr) !== value) continue;
+    return extractInnerHtml(html, m.index, m[0].length, m[1]!);
+  }
+  return null;
+}
+
+function classOrIdContains(attrsStr: string, segment: string): boolean {
+  const classVal = extractAttrValue(attrsStr, "class") ?? "";
+  const idVal = extractAttrValue(attrsStr, "id") ?? "";
+  return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
+}
+
+function segmentMatch(attrValue: string, segment: string): boolean {
+  let start = 0;
+  while (start <= attrValue.length - segment.length) {
+    const idx = attrValue.indexOf(segment, start);
+    if (idx < 0) return false;
+    const leftOk = idx === 0 || /\s/.test(attrValue[idx - 1]!);
+    const end = idx + segment.length;
+    const rightOk =
+      end >= attrValue.length ||
+      /\s/.test(attrValue[end]!) ||
+      attrValue.startsWith("--", end);
+    if (leftOk && rightOk) return true;
+    start = idx + 1;
+  }
+  return false;
 }
 
 function findFirstByClassContains(
@@ -268,20 +289,13 @@ function findFirstByClassContains(
   minLength: number,
 ): string | null {
   for (const pattern of patterns) {
-    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(
-      `<([a-z][a-z0-9:-]*)\\b[^>]*(?:class|id)=["'][^"']*(?:(?<=["'])|\\s)${escaped}(?:\\s|--|(?=["']))[^"']*["'][^>]*>`,
-      "i",
-    );
-    const match = re.exec(html);
-    if (!match?.[1]) continue;
-    const content = extractInnerHtml(
-      html,
-      match.index,
-      match[0].length,
-      match[1],
-    );
-    if (content && content.trim().length >= minLength) return content;
+    const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      if (!classOrIdContains(m[2] ?? "", pattern)) continue;
+      const content = extractInnerHtml(html, m.index, m[0].length, m[1]!);
+      if (content && content.trim().length >= minLength) return content;
+    }
   }
   return null;
 }

@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
+import { ArrowDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
@@ -29,6 +30,7 @@ import { useDashboardViewHandlers } from "./hooks/useDashboardViewHandlers";
 import { useDashboardViewState } from "./hooks/useDashboardViewState";
 import { useFeedLoader } from "./hooks/useFeedLoader";
 import { useFeedVisibilityObserver } from "./hooks/useFeedVisibilityObserver";
+import { useSwipeUpToRefresh } from "./hooks/useSwipeUpToRefresh";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
@@ -93,6 +95,7 @@ export const DashboardView = ({
 
   const {
     loadFeedSources,
+    loadingEpoch,
     fetchFeed,
     fetchCategoryFeeds,
     fetchAllFeeds,
@@ -147,6 +150,7 @@ export const DashboardView = ({
 
   useFeedLoadingTimeout({
     loading,
+    loadingEpoch,
     timeoutMs: FEED_LOADING_FAILSAFE_MS,
     setLoading,
   });
@@ -204,8 +208,17 @@ export const DashboardView = ({
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
   const { ref: feedScrollRef, invalidate: invalidateFeedScroll } =
-    useScrollRestore(FEED_SCROLL_SESSION_KEY);
+    useScrollRestore(FEED_SCROLL_SESSION_KEY, 104);
   const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
+
+  const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  const mergedFeedScrollRef = useCallback(
+    (node: HTMLElement | null) => {
+      feedScrollRootRef.current = node;
+      feedScrollRef(node);
+    },
+    [feedScrollRef],
+  );
 
   const {
     refreshFeedList,
@@ -226,6 +239,16 @@ export const DashboardView = ({
   });
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
+
+  const {
+    sentinelRef: pullSentinelRef,
+    pulling: isPulling,
+    readyToRefresh,
+  } = useSwipeUpToRefresh(feedScrollRootRef, refreshFeedList, loading);
+
+  const pullRefreshHint = readyToRefresh
+    ? "Release to refresh"
+    : "Pull down to refresh";
 
   const lastRefreshLabel = formatLastRefreshLabel(lastRefreshedAt);
 
@@ -302,8 +325,40 @@ export const DashboardView = ({
         </aside>
 
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
-          <ScrollArea ref={feedScrollRef} className="h-full">
+          <ScrollArea ref={mergedFeedScrollRef} className="h-full">
             <div className="p-1">
+              {/* Pull sentinel: fixed-height scroll item, hidden by scrollTop on mount.
+                  Scrolling into it = native pull gesture. */}
+              <div
+                ref={pullSentinelRef}
+                className={`flex items-end justify-center transition-colors duration-150 md:hidden ${
+                  isPulling
+                    ? readyToRefresh
+                      ? "bg-sky-500/25"
+                      : "bg-sky-500/10"
+                    : ""
+                }`}
+                style={{ height: 104 }}
+              >
+                {isPulling && (
+                  <div className="flex items-center gap-1.5 pb-3 text-sky-600 dark:text-sky-400">
+                    <ArrowDown
+                      className={`size-4 transition-transform duration-150 ${
+                        readyToRefresh
+                          ? "scale-110 rotate-180"
+                          : "scale-90 opacity-60"
+                      }`}
+                    />
+                    <span
+                      className={`text-xs font-medium transition-opacity duration-150 ${
+                        readyToRefresh ? "opacity-100" : "opacity-70"
+                      }`}
+                    >
+                      {pullRefreshHint}
+                    </span>
+                  </div>
+                )}
+              </div>
               <FeedList
                 loading={loading}
                 filteredFeed={filteredFeed}

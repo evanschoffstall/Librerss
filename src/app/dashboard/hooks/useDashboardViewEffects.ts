@@ -11,12 +11,14 @@ import {
 
 type UseFeedLoadingTimeoutOptions = {
   loading: boolean;
+  loadingEpoch: number;
   timeoutMs: number;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export function useFeedLoadingTimeout({
   loading,
+  loadingEpoch,
   timeoutMs,
   setLoading,
 }: UseFeedLoadingTimeoutOptions) {
@@ -33,7 +35,7 @@ export function useFeedLoadingTimeout({
     }, timeoutMs);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loading, timeoutMs, setLoading]);
+  }, [loading, loadingEpoch, timeoutMs, setLoading]);
 }
 
 export function useLockDocumentScroll() {

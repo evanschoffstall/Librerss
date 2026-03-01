@@ -1,0 +1,6 @@
+[allowlist]
+  description = "Test fixtures and test setup — not real secrets"
+  paths = [
+    '''src/__tests__/templates/''',
+    '''src/__tests__/setup\.ts''',
+  ]

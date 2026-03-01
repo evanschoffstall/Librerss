@@ -23,10 +23,9 @@
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "scan:secretlint": "secretlint \"**/*\" --secretlintignore .secretlintignore",
     "scan:tooling": "node scripts/security-tooling.mjs",
-    "scan:semgrep": "bun run scan:secretlint",
-    "scan:gitleaks": "bunx @0xts/gitleaks-cli --version",
-    "scan:deps": "bun audit --audit-level=moderate",
-    "scan:osv": "bun audit --json",
+    "scan:semgrep": "semgrep scan --config auto --error --exclude='src/__tests__' --exclude='src/components/ui' --exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml --exclude-rule=typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml --quiet src",
+    "scan:gitleaks": "bunx @0xts/gitleaks-cli detect -s src --no-git -c .gitleaks.toml",
+    "scan:deps": "bun audit",
     "db:provision": "bun scripts/provision-db.ts",
     "create-user": "bun scripts/create-user.ts",
     "db:generate": "bunx drizzle-kit generate",
@@ -39,7 +38,7 @@
     "redundancy": "knip --config knip.json --cache",
     "quality:dup": "bun run dup && bun run redundancy && bun run ts-prune",
     "quality:format": "bun run format:check && bun run lint:style",
-    "quality:security": "bun run scan:secretlint && bun run scan:deps && bun run scan:osv"
+    "quality:security": "bun run scan:secretlint && bun run scan:semgrep && bun run scan:gitleaks && bun run scan:deps"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,ts,tsx,jsx,json,md,yml,yaml}": [
@@ -58,7 +57,6 @@
     ]
   },
   "dependencies": {
-    "@extractus/article-extractor": "^8.0.20",
     "@lexical/code": "^0.41.0",
     "@lexical/link": "^0.41.0",
     "@lexical/list": "^0.41.0",

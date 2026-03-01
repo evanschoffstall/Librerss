@@ -756,20 +756,33 @@ describe("feed-batch-pipeline", () => {
       lastFetchError: string | null;
     }[];
   }) {
+    // The new resolveAuthorizedFeedRecords uses a single JOIN query:
+    //   select({sourceUrl, feedId, feedUrl, lastFetched, lastFetchError})
+    //     .from(feedSources).leftJoin(feeds, ...).where(...)
+    // Then optionally: insert().values().onConflictDoNothing()
+    //   + select(feedRecordFields).from(feeds).where(...) for missing feeds.
     let selectWhereCalls = 0;
+
+    const joinedRows = options.ownedRows.map((owned) => {
+      const feed = options.existingFeeds.find((f) => f.url === owned.url);
+      return {
+        sourceUrl: owned.url,
+        feedId: feed?.id ?? null,
+        feedUrl: feed?.url ?? null,
+        lastFetched: feed?.lastFetched ?? null,
+        lastFetchError: feed?.lastFetchError ?? null,
+      };
+    });
 
     const where = mock(async () => {
       selectWhereCalls += 1;
-      if (selectWhereCalls === 1) {
-        return options.ownedRows;
-      }
-      if (selectWhereCalls === 2) {
-        return options.existingFeeds;
-      }
+      if (selectWhereCalls === 1) return joinedRows;
+      // Subsequent where() calls return resolved feeds (after insert)
       return options.resolvedFeeds ?? [];
     });
 
-    const from = mock(() => ({ where }));
+    const leftJoin = mock(() => ({ where }));
+    const from = mock(() => ({ where, leftJoin }));
     const select = mock(() => ({ from }));
 
     const onConflictDoNothing = mock(async () => []);

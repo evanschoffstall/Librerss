@@ -38,6 +38,7 @@ export function useDashboardViewHandlers({
       fetchCategoryFeeds,
       forceRefresh: true,
       requestSource: "manual-refresh",
+      keepExistingFeed: true,
     });
   }, [
     selectedCategory,

@@ -115,6 +115,8 @@ function registerModuleMocks() {
     executeParallelRefreshes: mock(async () => ({
       errors: new Map(),
       refreshedCount: 1,
+      cooldownLimitedCount: 0,
+      refreshedUrls: new Set(["https://example.com/feed"]),
     })),
     queryTopArticlesPerFeed: mock(async () => []),
     mapRowsToArticleMap: mock(() => new Map()),
@@ -278,6 +280,8 @@ describe("Feed Fetcher - Batch Operations", () => {
       executeParallelRefreshes: mock(async () => ({
         errors: new Map(),
         refreshedCount: 2,
+        cooldownLimitedCount: 0,
+        refreshedUrls: new Set(["https://example.com/feed1", "https://example.com/feed2"]),
       })),
       queryTopArticlesPerFeed: mock(async () => []),
       mapRowsToArticleMap: mock(() => new Map()),
@@ -298,6 +302,8 @@ describe("Feed Fetcher - Batch Operations", () => {
       executeParallelRefreshes: mock(async () => ({
         errors: new Map(),
         refreshedCount: 0,
+        cooldownLimitedCount: 0,
+        refreshedUrls: new Set(),
       })),
       queryTopArticlesPerFeed: mock(async () => []),
       mapRowsToArticleMap: mock(() => new Map()),
@@ -329,6 +335,8 @@ describe("Feed Fetcher - Batch Operations", () => {
       executeParallelRefreshes: mock(async () => ({
         errors: new Map([["https://example.com/feed", "Network error"]]),
         refreshedCount: 0,
+        cooldownLimitedCount: 0,
+        refreshedUrls: new Set(),
       })),
       queryTopArticlesPerFeed: mock(async () => []),
       mapRowsToArticleMap: mock(() => new Map()),
@@ -351,6 +359,8 @@ describe("Feed Fetcher - Batch Operations", () => {
       executeParallelRefreshes: mock(async () => ({
         errors: new Map(),
         refreshedCount: 0,
+        cooldownLimitedCount: 0,
+        refreshedUrls: new Set(),
       })),
       queryTopArticlesPerFeed: mock(async () => []),
       mapRowsToArticleMap: mock(() => new Map()),

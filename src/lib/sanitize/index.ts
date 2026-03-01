@@ -1,5 +1,5 @@
 export {
-  __decodeHtmlEntitiesForTests,
+  decodeHtmlEntities,
   normalizeArticleHtmlSpacing,
   preCleanHtmlForExtraction,
   stripOrphanedRelatedBlocks,

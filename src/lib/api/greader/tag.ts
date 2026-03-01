@@ -4,11 +4,11 @@ import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
 } from "@/lib/core/article-status";
+import { invalidateUserCache } from "@/lib/core/feed-cache";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
 import { FEED_STREAM_PREFIX, READING_LIST_STREAM } from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
-import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "./constants";
 import { parseDistinctReaderArticleIds } from "./reader-item-params";
@@ -30,6 +30,7 @@ export async function handleMarkAllAsRead(
 
   await markStreamAsRead(user.userId, stream, { beforeMs: ts / 1000 });
 
+  invalidateUserCache(user.userId);
   return textResponse("OK\n");
 }
 
@@ -37,44 +38,45 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
   const db = getDb();
   const useArticleStatuses = await canUseArticleStatusesTable();
 
-  const rows = await (useArticleStatuses
-    ? db
-        .select({
-          sourceUrl: feedSources.url,
-          unreadCount: sql<number>`sum(case when coalesce(${articleStatuses.isRead}, false) = false then 1 else 0 end)`,
-        })
-        .from(feedSources)
-        .innerJoin(feeds, eq(feeds.url, feedSources.url))
-        .leftJoin(articles, eq(articles.feedId, feeds.id))
-        .leftJoin(
-          articleStatuses,
-          and(
-            eq(articleStatuses.userId, user.userId),
-            eq(articleStatuses.articleId, articles.id),
-          ),
+  // Use correlated subqueries instead of a 4-table LEFT JOIN + GROUP BY.
+  // The old query joined feedSources→feeds→articles→articleStatuses for every
+  // article row, then aggregated. The correlated approach lets PostgreSQL use
+  // per-feed indexes (article_feed_id_idx) and per-user-article indexes
+  // (article_status_user_article_idx) independently per feed.
+  type UnreadRow = { sourceUrl: string; unreadCount: number };
+  const rows: UnreadRow[] = useArticleStatuses
+    ? await db
+        .execute<UnreadRow>(
+          sql`
+        SELECT fs.url AS "sourceUrl",
+          (SELECT count(*)::int FROM "Article" a WHERE a.feed_id = f.id) -
+          COALESCE((
+            SELECT count(*)::int FROM "ArticleStatus" s
+            WHERE s.user_id = ${user.userId}
+              AND s.is_read = true
+              AND s.article_id IN (
+                SELECT a2.id FROM "Article" a2 WHERE a2.feed_id = f.id
+              )
+          ), 0) AS "unreadCount"
+        FROM "FeedSource" fs
+        INNER JOIN "Feed" f ON f.url = fs.url
+        WHERE fs.user_id = ${user.userId} AND fs.enabled = true
+      `,
         )
-        .where(
-          and(
-            eq(feedSources.userId, user.userId),
-            eq(feedSources.enabled, true),
-          ),
+        .then((r) => (Array.isArray(r) ? r : (r as { rows: UnreadRow[] }).rows))
+    : await db
+        .execute<UnreadRow>(
+          sql`
+        SELECT fs.url AS "sourceUrl",
+          (SELECT count(*)::int FROM "Article" a WHERE a.feed_id = f.id) AS "unreadCount"
+        FROM "FeedSource" fs
+        INNER JOIN "Feed" f ON f.url = fs.url
+        WHERE fs.user_id = ${user.userId} AND fs.enabled = true
+      `,
         )
-        .groupBy(feedSources.url)
-    : db
-        .select({
-          sourceUrl: feedSources.url,
-          unreadCount: sql<number>`count(${articles.id})`,
-        })
-        .from(feedSources)
-        .innerJoin(feeds, eq(feeds.url, feedSources.url))
-        .leftJoin(articles, eq(articles.feedId, feeds.id))
-        .where(
-          and(
-            eq(feedSources.userId, user.userId),
-            eq(feedSources.enabled, true),
-          ),
-        )
-        .groupBy(feedSources.url));
+        .then((r) =>
+          Array.isArray(r) ? r : (r as { rows: UnreadRow[] }).rows,
+        );
 
   const totalUnread = rows.reduce(
     (acc, row) => acc + Number(row.unreadCount ?? 0),
@@ -123,5 +125,6 @@ export async function handleEditTag(
     await upsertArticleStatuses(user.userId, articleIds, mutation.patch);
   }
 
+  invalidateUserCache(user.userId);
   return textResponse("OK\n");
 }

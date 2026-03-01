@@ -14,6 +14,10 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "LibreRSS",
   description: "Free cloud RSS Service",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export const viewport: Viewport = {

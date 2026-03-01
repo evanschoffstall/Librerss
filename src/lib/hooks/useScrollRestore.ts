@@ -56,13 +56,20 @@ function elementOffsetInContent(el: Element, viewport: HTMLElement): number {
  * Returns a ref-callback to attach to the ScrollArea *root*. The hook
  * internally finds the `[data-radix-scroll-area-viewport]` child.
  */
-export function useScrollRestore(sessionKey: string) {
+export function useScrollRestore(
+  sessionKey: string,
+  /** Fixed pixel offset at the top of the scroll container to ignore
+   *  (e.g. a pull-to-refresh sentinel hidden via scrollTop). */
+  scrollTopOffset = 0,
+) {
   const viewportRef = useRef<HTMLElement | null>(null);
   const rafId = useRef<number>(0);
   const restoreScrollEventRafId = useRef<number>(0);
   const savedStateRef = useRef<SavedState | null>(null);
   const restoreDeadlineRef = useRef<number>(0);
   const isApplyingRestoreScrollRef = useRef(false);
+  const offsetRef = useRef(scrollTopOffset);
+  offsetRef.current = scrollTopOffset;
 
   const applyRestoredScrollTop = useCallback(
     (viewport: HTMLElement, targetScrollTop: number) => {
@@ -196,7 +203,10 @@ export function useScrollRestore(sessionKey: string) {
       cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(() => {
         const top = viewport.scrollTop;
-        if (top === 0) {
+        const offset = offsetRef.current;
+
+        // In the sentinel / pull-to-refresh zone — treat as "at top"
+        if (top <= offset) {
           try {
             sessionStorage.removeItem(sessionKey);
           } catch {
@@ -259,7 +269,7 @@ export function useScrollRestore(sessionKey: string) {
       /* ignore */
     }
     const viewport = viewportRef.current;
-    if (viewport) viewport.scrollTop = 0;
+    if (viewport) viewport.scrollTop = offsetRef.current;
   }, [sessionKey]);
 
   return { ref: attachRef, invalidate };

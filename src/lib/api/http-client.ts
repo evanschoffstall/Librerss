@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+export const BATCH_REQUEST_TIMEOUT_MS = 60_000;
 
 // No global timeout on the axios instance — individual calls use
 // withRequestDeadline() which provides a hard Promise.race-based deadline.

@@ -136,12 +136,12 @@ describe("lib/utils/sanitize comprehensive", () => {
   });
 
   test("decodeHtmlEntities handles decimal/hex entities and overflow safely", async () => {
-    const { __decodeHtmlEntitiesForTests } =
+    const { decodeHtmlEntities } =
       await import("@/lib/sanitize");
 
-    expect(__decodeHtmlEntitiesForTests("A &#65; B")).toBe("A A B");
-    expect(__decodeHtmlEntitiesForTests("A &#x41; B")).toBe("A A B");
-    expect(__decodeHtmlEntitiesForTests("A &#x110000; B")).toBe("A  B");
+    expect(decodeHtmlEntities("A &#65; B")).toBe("A A B");
+    expect(decodeHtmlEntities("A &#x41; B")).toBe("A A B");
+    expect(decodeHtmlEntities("A &#x110000; B")).toBe("A  B");
   });
 
   test("sanitizeArticleTitle handles empty input with fallback", async () => {
