@@ -1,26 +1,19 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
 import { logger } from "@/lib/logger";
-import { hasApJunkClass, isRelatedHeading } from "./patterns";
+import { extractAttrValue, hasApJunkClass, isRelatedHeading } from "./patterns";
 
 function contentPreview(s: string, max = 200): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
 }
 
 export function stripApJunkBlocks(html: string): string {
-  const stripTags = ["div", "section", "aside", "nav", "ul", "figure"];
-
-  const marked = stripTags.reduce((currentHtml, tagName) => {
-    const openTagPattern = new RegExp(`<${tagName}\\b[^>]*>`, "gi");
-
-    return currentHtml.replace(openTagPattern, (openTag) => {
-      if (!hasApJunkClass(openTag)) {
-        return openTag;
-      }
-
-      return `<!--STRIP_${tagName.toUpperCase()}-->`;
-    });
-  }, html);
-
+  const marked = html.replace(
+    /<(div|section|aside|nav|ul|figure)\b[^>]*>/gi,
+    (openTag, tagName: string) =>
+      hasApJunkClass(openTag)
+        ? `<!--STRIP_${tagName.toUpperCase()}-->`
+        : openTag,
+  );
   return marked.replace(
     /<!--STRIP_(DIV|SECTION|ASIDE|NAV|UL|FIGURE)-->(?:[\s\S]*?)<\/\1>/gi,
     "",
@@ -99,10 +92,10 @@ function isEmptyInlineHtml(content: string): boolean {
   return withoutNbspEntities.trim().length === 0;
 }
 
-function stripEmptyTagBlocks(html: string, tagName: "p" | "figure"): string {
+function stripEmptyTagBlocks(html: string): string {
   return html.replace(
-    new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>\\s*`, "gi"),
-    (match, content: string) => (isEmptyInlineHtml(content) ? "" : match),
+    /<(p|figure)>([\s\S]*?)<\/\1>\s*/gi,
+    (match, _tag, content: string) => (isEmptyInlineHtml(content) ? "" : match),
   );
 }
 
@@ -123,7 +116,7 @@ export function stripOrphanedRelatedBlocks(html: string): string {
 }
 
 export function normalizeArticleHtmlSpacing(html: string): string {
-  return stripEmptyTagBlocks(stripEmptyTagBlocks(html, "figure"), "p")
+  return stripEmptyTagBlocks(html)
     .replace(/\r\n?/g, "\n")
     .replace(/\n([ \t]*\n)+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
@@ -185,8 +178,6 @@ export function decodeHtmlEntities(value: string): string {
   );
 }
 
-export const __decodeHtmlEntitiesForTests = decodeHtmlEntities;
-
 export function toParagraphHtml(raw: string): string {
   return raw
     .split(/\n{2,}/)
@@ -201,22 +192,21 @@ function removeElementsByAttrPattern(
   attr: string,
   pattern: RegExp,
 ): string {
-  const openRe = new RegExp(
-    `<([a-z][a-z0-9:-]*)\\b[^>]*\\b${attr}=["']([^"']*)["'][^>]*>`,
-    "gi",
-  );
+  const openRe = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
   let result = html;
   let match: RegExpExecArray | null;
   while ((match = openRe.exec(result)) !== null) {
-    if (!pattern.test(match[2]!)) continue;
-    const tagName = match[1]!;
+    const attrValue = extractAttrValue(match[2] ?? "", attr);
+    if (attrValue === null || !pattern.test(attrValue)) continue;
+    const tagName = match[1]!.toLowerCase();
     const afterOpen = match.index + match[0].length;
-    const closeRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
+    const closeRe = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
     closeRe.lastIndex = afterOpen;
     let depth = 1;
     let endIdx = -1;
     let m: RegExpExecArray | null;
     while (depth > 0 && (m = closeRe.exec(result)) !== null) {
+      if (m[1]?.toLowerCase() !== tagName) continue;
       if (m[0].startsWith("</")) depth--;
       else depth++;
       if (depth === 0) endIdx = m.index + m[0].length;

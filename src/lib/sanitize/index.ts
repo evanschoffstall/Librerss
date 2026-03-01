@@ -1,16 +1,16 @@
 export {
-  __decodeHtmlEntitiesForTests,
+  decodeHtmlEntities,
   normalizeArticleHtmlSpacing,
   preCleanHtmlForExtraction,
   stripOrphanedRelatedBlocks,
   toParagraphHtml,
-  toPlainText,
+  toPlainText
 } from "./cleaners";
 
 export {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleHtml,
-  sanitizeArticleTitle,
+  sanitizeArticleTitle
 } from "./sanitize";
 
 export { sanitizeExtractedContent } from "./content-sanitization";
@@ -20,11 +20,12 @@ export {
   findArticleBody,
   hasReadableArticleBody,
   isLikelyNavFooterBoilerplate,
-  stripCommentEngagementBoilerplate,
+  stripCommentEngagementBoilerplate
 } from "./content-validation";
 
 export {
   buildMetadataImageFallbackHtml,
   extractPageTitle,
-  readMetaTagContent,
+  readMetaTagContent
 } from "./metadata-extraction";
+
