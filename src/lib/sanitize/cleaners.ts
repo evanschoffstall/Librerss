@@ -1,5 +1,10 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
+import { logger } from "@/lib/logger";
 import { hasApJunkClass, isRelatedHeading } from "./patterns";
+
+function contentPreview(s: string, max = 500): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
 
 export function stripApJunkBlocks(html: string): string {
   const stripTags = ["div", "section", "aside", "nav", "ul", "figure"];
@@ -191,40 +196,19 @@ export function toParagraphHtml(raw: string): string {
     .join("\n");
 }
 
-function removeElementById(rawHtml: string, idValue: string): string {
-  const escaped = idValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const startRe = new RegExp(
-    `<([a-z][a-z0-9:-]*)\\b[^>]*\\bid=["']${escaped}["'][^>]*>`,
-    "i",
-  );
-  const startMatch = startRe.exec(rawHtml);
-  if (!startMatch?.[1]) return rawHtml;
-  const tagName = startMatch[1];
-  const afterOpenTag = startMatch.index + startMatch[0].length;
-  const tagRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
-  tagRe.lastIndex = afterOpenTag;
-  let depth = 1;
-  let endIdx = -1;
-  let m: RegExpExecArray | null;
-  while (depth > 0 && (m = tagRe.exec(rawHtml)) !== null) {
-    if (m[0].startsWith("</")) depth--;
-    else depth++;
-    if (depth === 0) endIdx = m.index + m[0].length;
-  }
-  return endIdx < 0
-    ? rawHtml
-    : rawHtml.slice(0, startMatch.index) + rawHtml.slice(endIdx);
-}
-
-function removeElementsByClassPattern(
+function removeElementsByAttrPattern(
   html: string,
-  classPattern: RegExp,
+  attr: string,
+  pattern: RegExp,
 ): string {
-  const openRe = /<([a-z][a-z0-9:-]*)\b[^>]*class=["']([^"']*)["'][^>]*>/gi;
+  const openRe = new RegExp(
+    `<([a-z][a-z0-9:-]*)\\b[^>]*\\b${attr}=["']([^"']*)["'][^>]*>`,
+    "gi",
+  );
   let result = html;
   let match: RegExpExecArray | null;
   while ((match = openRe.exec(result)) !== null) {
-    if (!classPattern.test(match[2]!)) continue;
+    if (!pattern.test(match[2]!)) continue;
     const tagName = match[1]!;
     const afterOpen = match.index + match[0].length;
     const closeRe = new RegExp(`<\\/?${tagName}\\b[^>]*>`, "gi");
@@ -244,16 +228,17 @@ function removeElementsByClassPattern(
   return result;
 }
 
-const COMMENT_WIDGET_IDS = [
-  "viafoura-comments",
-  "viafoura-comments-container",
-  "viafoura-comment-wrapper",
-  "kiosq-app-paywall-js",
-  "kiosq-app",
-  "coral-display-comments",
-  "comment-container",
-  "mj-comments-container",
-] as const;
+/** Semantic purpose words in element IDs indicating non-content containers. */
+const NON_CONTENT_ID_RE =
+  /comment(?!.*count)|paywall|social[-_]?share|share[-_]?bar|utility[-_]?bar/i;
+
+/** Semantic purpose words in CSS classes indicating non-content containers. */
+const NON_CONTENT_CLASS_RE =
+  /sign[-_]?up|subscrib|newsletter|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)/i;
+
+/** Social platform share-intent URL patterns (cross-site generic). */
+export const SOCIAL_SHARE_LINK_RE =
+  /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|x\.com\/intent\/tweet|mailto:\?/i;
 
 /**
  * Strip noise containers (scripts, styles, headers, footers, comment widgets,
@@ -261,49 +246,62 @@ const COMMENT_WIDGET_IDS = [
  * passing to the content extractor.
  */
 export function preCleanHtmlForExtraction(rawHtml: string): string {
+  logger.info(`[pre-clean] start`, { inputChars: rawHtml.length });
+
   let html = rawHtml
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
     .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "");
 
-  for (const id of COMMENT_WIDGET_IDS) html = removeElementById(html, id);
+  const afterTagStrip = html.length;
+  if (afterTagStrip !== rawHtml.length) {
+    logger.info(`[pre-clean] stripped script/style/header/footer`, {
+      removedChars: rawHtml.length - afterTagStrip,
+    });
+  }
 
-  // Strip signup/subscription widgets and CTA containers (depth-aware).
-  html = removeElementsByClassPattern(
-    html,
-    /sailthru|signup-widget|subscribe-widget|newsletter-signup|preferred-source|nlp-ignore-block/i,
-  );
+  html = removeElementsByAttrPattern(html, "id", NON_CONTENT_ID_RE);
+  html = removeElementsByAttrPattern(html, "class", NON_CONTENT_CLASS_RE);
 
-  // Strip pure-link <ul> blocks (8+ items, all bare <a>) — tag clouds, nav panels.
+  const afterAttrStrip = html.length;
+  if (afterAttrStrip !== afterTagStrip) {
+    logger.info(`[pre-clean] stripped non-content id/class containers`, {
+      removedChars: afterTagStrip - afterAttrStrip,
+    });
+  }
+
+  const beforeUlStrip = html.length;
   html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
     const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
-    if (items.length < 8) return ulBlock;
-    return items.every((m) =>
+    if (items.length === 0) return ulBlock;
+    const allBareLinks = items.every((m) =>
       /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
+    );
+    if (allBareLinks && items.length >= 8) return "";
+    if (
+      allBareLinks &&
+      items.every((m) => SOCIAL_SHARE_LINK_RE.test(m[1] ?? ""))
     )
-      ? ""
-      : ulBlock;
+      return "";
+    return ulBlock;
   });
+
+  if (html.length !== beforeUlStrip) {
+    logger.info(`[pre-clean] stripped nav/social <ul> blocks`, {
+      removedChars: beforeUlStrip - html.length,
+    });
+  }
 
   html = html.replace(
     /<aside\b[^>]*\bdata-nosnippet\b[^>]*>[\s\S]*?<\/aside>/gi,
     "",
   );
 
-  // Strip social share link blocks.
-  html = html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
-    const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
-    if (items.length === 0) return ulBlock;
-    return items.every((m) => {
-      const inner = (m[1] ?? "").trim();
-      if (!/^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test(inner)) return false;
-      return /facebook\.com\/sharer|x\.com\/intent\/tweet|twitter\.com\/intent\/tweet|whatsapp(?:\.com|:\/\/)|mailto:\?/i.test(
-        inner,
-      );
-    })
-      ? ""
-      : ulBlock;
+  logger.info(`[pre-clean] done`, {
+    outputChars: html.length,
+    totalRemovedChars: rawHtml.length - html.length,
+    outputPreview: contentPreview(html),
   });
 
   return html;

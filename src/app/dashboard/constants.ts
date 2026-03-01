@@ -19,6 +19,7 @@ export const DASHBOARD_EVENTS = {
 } as const;
 
 export const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
+export const FEED_SCROLL_SESSION_KEY = "librerss:scroll:feed";
 
 export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   {

@@ -14,6 +14,7 @@ type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   selectedCategoryNode?: CategoryTreeNode;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onFeedSwitch: () => void;
 };
 
 export function useDashboardViewHandlers({
@@ -25,6 +26,7 @@ export function useDashboardViewHandlers({
   fetchAllFeeds,
   fetchFeed,
   fetchCategoryFeeds,
+  onFeedSwitch,
 }: UseDashboardViewHandlersOptions) {
   const handleRefreshSelection = useCallback(() => {
     refreshCurrentSelection({
@@ -69,17 +71,19 @@ export function useDashboardViewHandlers({
 
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
+      onFeedSwitch();
       setSelectedCategory(feedNode.key);
       setIsMobileSidebarOpen(false);
       if (feedNode.data?.url && feedNode.data.enabled !== false) {
         void fetchFeed(feedNode.data.url);
       }
     },
-    [setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
+    [onFeedSwitch, setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
   );
 
   const handleCategoryClick = useCallback(
     (categoryNode: CategoryTreeNode) => {
+      onFeedSwitch();
       setSelectedCategory(categoryNode.key);
       setIsMobileSidebarOpen(false);
 
@@ -91,6 +95,7 @@ export function useDashboardViewHandlers({
       void fetchCategoryFeeds(categoryNode);
     },
     [
+      onFeedSwitch,
       setSelectedCategory,
       setIsMobileSidebarOpen,
       fetchAllFeeds,

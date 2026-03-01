@@ -13,7 +13,7 @@ import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
-import type { BackgroundMode } from "./constants";
+import { FEED_SCROLL_SESSION_KEY, type BackgroundMode } from "./constants";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
@@ -203,8 +203,9 @@ export const DashboardView = ({
 
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
-  const feedScrollRef = useScrollRestore("librerss:scroll:feed");
-  const sidebarScrollRef = useScrollRestore("librerss:scroll:sidebar");
+  const { ref: feedScrollRef, invalidate: invalidateFeedScroll } =
+    useScrollRestore(FEED_SCROLL_SESSION_KEY);
+  const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
 
   const {
     refreshFeedList,
@@ -221,6 +222,7 @@ export const DashboardView = ({
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
+    onFeedSwitch: invalidateFeedScroll,
   });
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });

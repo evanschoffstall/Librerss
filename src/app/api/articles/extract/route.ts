@@ -140,14 +140,53 @@ async function resolveExtractedContent(
   // 1. Sanitize the extracted article body container (if found)
   const rawContent =
     extracted?.content?.trim() || extracted?.description?.trim() || "";
+  info(`[resolve] step 1 — sanitize extracted body`, {
+    url: redactUrlForLogs(articleUrl),
+    rawContentChars: rawContent.length,
+    extractAttemptId: context.extractAttemptId,
+  });
+
   const sanitizedContent = sanitizeContent(rawContent);
+  info(`[resolve] step 1 — after sanitizeContent`, {
+    url: redactUrlForLogs(articleUrl),
+    sanitizedChars: sanitizedContent.length,
+    extractAttemptId: context.extractAttemptId,
+  });
+
   let content = cleanContent(sanitizedContent, articleUrl);
+  info(`[resolve] step 1 — after cleanContent`, {
+    url: redactUrlForLogs(articleUrl),
+    cleanedChars: content.length,
+    hasContent: !!content.trim(),
+    extractAttemptId: context.extractAttemptId,
+  });
 
   // 2. Fall back to direct sanitize of entire pre-cleaned page
   if (!content.trim()) {
+    info(`[resolve] step 2 — trying direct sanitize fallback`, {
+      url: redactUrlForLogs(articleUrl),
+      extractableHtmlChars: extractableHtml.length,
+      extractAttemptId: context.extractAttemptId,
+    });
+
     const directlySanitized = sanitizeContent(extractableHtml);
+    info(`[resolve] step 2 — after sanitizeContent (full page)`, {
+      url: redactUrlForLogs(articleUrl),
+      directlySanitizedChars: directlySanitized.length,
+      extractAttemptId: context.extractAttemptId,
+    });
+
     const directlyCleaned = cleanContent(directlySanitized, articleUrl);
-    if (directlyCleaned.trim() && hasReadableArticleBody(directlyCleaned)) {
+    const isReadable =
+      directlyCleaned.trim() && hasReadableArticleBody(directlyCleaned);
+    info(`[resolve] step 2 — direct sanitize readability check`, {
+      url: redactUrlForLogs(articleUrl),
+      directlyCleanedChars: directlyCleaned.length,
+      isReadable,
+      extractAttemptId: context.extractAttemptId,
+    });
+
+    if (isReadable) {
       content = directlyCleaned;
       info(`Article extract applied direct sanitize fallback`, {
         url: redactUrlForLogs(articleUrl),
@@ -159,8 +198,20 @@ async function resolveExtractedContent(
 
   // 3. Fall back to og:image + og:description metadata
   if (!content.trim()) {
+    info(`[resolve] step 3 — trying metadata image fallback`, {
+      url: redactUrlForLogs(articleUrl),
+      extractAttemptId: context.extractAttemptId,
+    });
+
     const metadataFallbackContent =
       buildMetadataImageFallbackHtml(originalHtml);
+    info(`[resolve] step 3 — metadata fallback result`, {
+      url: redactUrlForLogs(articleUrl),
+      hasMetadataContent: !!metadataFallbackContent,
+      metadataContentChars: metadataFallbackContent?.length ?? 0,
+      extractAttemptId: context.extractAttemptId,
+    });
+
     if (metadataFallbackContent) {
       const fallbackCleaned = cleanContent(metadataFallbackContent, articleUrl);
       if (fallbackCleaned.trim()) {
@@ -240,8 +291,24 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
 
     const extractableHtml = preCleanHtmlForExtraction(html);
+    info(`Article pre-cleaned HTML`, {
+      url: safeUrl,
+      preCleanedChars: extractableHtml.length,
+      extractAttemptId: context.extractAttemptId,
+    });
+
     const extracted = await extractArticle(extractableHtml, articleUrl, {
       contentLengthThreshold: 120,
+    });
+
+    info(`Article extractor result`, {
+      url: safeUrl,
+      hasContent: !!extracted?.content?.trim(),
+      contentChars: extracted?.content?.length ?? 0,
+      hasDescription: !!extracted?.description?.trim(),
+      descriptionChars: extracted?.description?.length ?? 0,
+      title: extracted?.title ?? null,
+      extractAttemptId: context.extractAttemptId,
     });
 
     if (

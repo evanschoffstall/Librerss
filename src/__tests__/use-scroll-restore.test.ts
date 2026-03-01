@@ -71,7 +71,7 @@ describe("useScrollRestore", () => {
     let anchorBaseOffset = 400;
 
     function Harness() {
-      const attachRef = useScrollRestore("librerss:test:scroll");
+      const { ref: attachRef } = useScrollRestore("librerss:test:scroll");
 
       const rootRef: RefCallback<HTMLDivElement> = (root) => {
         attachRef(root);
@@ -183,7 +183,7 @@ describe("useScrollRestore", () => {
     delete globalAny.MutationObserver;
 
     function Harness() {
-      const attachRef = useScrollRestore("librerss:test:legacy");
+      const { ref: attachRef } = useScrollRestore("librerss:test:legacy");
 
       const rootRef: RefCallback<HTMLDivElement> = (root) => {
         attachRef(root);
@@ -256,7 +256,7 @@ describe("useScrollRestore", () => {
     delete globalAny.MutationObserver;
 
     function Harness() {
-      const attachRef = useScrollRestore("librerss:test:clamp");
+      const { ref: attachRef } = useScrollRestore("librerss:test:clamp");
 
       const rootRef: RefCallback<HTMLDivElement> = (root) => {
         attachRef(root);
@@ -320,7 +320,7 @@ describe("useScrollRestore", () => {
     delete globalAny.MutationObserver;
 
     function Harness() {
-      const attachRef = useScrollRestore("librerss:test:malformed");
+      const { ref: attachRef } = useScrollRestore("librerss:test:malformed");
       return createElement(
         "div",
         { ref: attachRef as RefCallback<HTMLDivElement> },
@@ -337,7 +337,7 @@ describe("useScrollRestore", () => {
     delete globalAny.MutationObserver;
 
     function Harness() {
-      const attachRef = useScrollRestore("librerss:test:persist");
+      const { ref: attachRef } = useScrollRestore("librerss:test:persist");
 
       const rootRef: RefCallback<HTMLDivElement> = (root) => {
         attachRef(root);

@@ -1,9 +1,14 @@
+import { logger } from "@/lib/logger";
 import {
   normalizeArticleHtmlSpacing,
   toParagraphHtml,
   toPlainText,
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
+
+function contentPreview(s: string, max = 500): string {
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+}
 
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
@@ -18,24 +23,45 @@ function recoverSanitizedImageHtml(rawHtml: string): string {
 
 export function sanitizeExtractedContent(rawContent: string): string {
   const normalized = rawContent.trim();
-  if (!normalized) return "";
+  if (!normalized) {
+    logger.info(`[sanitize-content] input empty, returning ""`);
+    return "";
+  }
+
+  logger.info(`[sanitize-content] start`, {
+    inputChars: normalized.length,
+    inputPreview: contentPreview(normalized),
+  });
 
   const containsHtml = /<\/?[a-z][\s\S]*>/i.test(normalized);
-  // `section` is in nonTextTags so sanitize-html discards its children entirely.
-  // The extractor often wraps content in <section> legitimately, so we strip
-  // only the section open/close tags here (unwrap, not discard) before the
-  // general sanitizer runs. This does not affect <aside> or <nav> which are
-  // also nonTextTags and should still be discarded.
   const unwrapped = containsHtml
     ? normalized.replace(/<\/?section\b[^>]*>/gi, "")
     : normalized;
   const htmlCandidate = containsHtml ? unwrapped : toParagraphHtml(unwrapped);
+
+  logger.info(`[sanitize-content] prepared htmlCandidate`, {
+    containsHtml,
+    unwrappedSections: containsHtml && unwrapped.length !== normalized.length,
+    candidateChars: htmlCandidate.length,
+  });
+
   const sanitized = sanitizeArticleHtml(htmlCandidate);
+  logger.info(`[sanitize-content] after sanitizeArticleHtml`, {
+    sanitizedChars: sanitized.length,
+    sanitizedPreview: contentPreview(sanitized),
+  });
+
   const recoveredImageHtml = containsHtml
     ? recoverSanitizedImageHtml(htmlCandidate)
     : "";
   const recoveredImageCount = (recoveredImageHtml.match(/<img\b/gi) ?? [])
     .length;
+
+  if (recoveredImageCount > 0) {
+    logger.info(`[sanitize-content] recovered images from raw HTML`, {
+      recoveredImageCount,
+    });
+  }
 
   if (sanitized.trim()) {
     if (
@@ -43,28 +69,56 @@ export function sanitizeExtractedContent(rawContent: string): string {
       recoveredImageHtml &&
       !/<img\b/i.test(sanitized)
     ) {
-      return normalizeArticleHtmlSpacing(
+      const merged = normalizeArticleHtmlSpacing(
         [recoveredImageHtml, sanitized].filter(Boolean).join("\n"),
       );
+      logger.info(`[sanitize-content] returning sanitized + recovered images`, {
+        outputChars: merged.length,
+      });
+      return merged;
     }
 
+    logger.info(`[sanitize-content] returning sanitized content`, {
+      outputChars: sanitized.length,
+    });
     return sanitized;
   }
 
+  logger.info(
+    `[sanitize-content] sanitized was empty, falling back to plainText`,
+  );
   const plainText = containsHtml ? toPlainText(normalized) : normalized;
-  if (!plainText.trim()) return "";
+  if (!plainText.trim()) {
+    logger.info(`[sanitize-content] plainText fallback also empty`);
+    return "";
+  }
 
   const fallbackSanitized = sanitizeArticleHtml(toParagraphHtml(plainText));
+  logger.info(`[sanitize-content] plainText fallback sanitized`, {
+    plainTextChars: plainText.length,
+    fallbackSanitizedChars: fallbackSanitized.length,
+    fallbackPreview: contentPreview(fallbackSanitized),
+  });
 
   if (
     recoveredImageCount > 0 &&
     recoveredImageHtml &&
     !/<img\b/i.test(fallbackSanitized)
   ) {
-    return normalizeArticleHtmlSpacing(
+    const merged = normalizeArticleHtmlSpacing(
       [recoveredImageHtml, fallbackSanitized].filter(Boolean).join("\n"),
     );
+    logger.info(
+      `[sanitize-content] returning plainText fallback + recovered images`,
+      {
+        outputChars: merged.length,
+      },
+    );
+    return merged;
   }
 
+  logger.info(`[sanitize-content] returning plainText fallback`, {
+    outputChars: fallbackSanitized.length,
+  });
   return fallbackSanitized;
 }
