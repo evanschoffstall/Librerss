@@ -13,9 +13,9 @@ import {
   type BatchFeedResponseItem,
 } from "./http";
 import {
+  BATCH_REQUEST_TIMEOUT_MS,
   createLinkedAbortController,
   getApiClient,
-  REQUEST_TIMEOUT_MS,
   withRequestDeadline,
 } from "./http-client";
 import {
@@ -102,7 +102,7 @@ export class FeedService {
           { urls: normalizedUrls, skipRefresh, forceRefresh, requestSource },
           { signal: controller.signal },
         ),
-        REQUEST_TIMEOUT_MS,
+        BATCH_REQUEST_TIMEOUT_MS,
         () => controller.abort(),
       );
 
