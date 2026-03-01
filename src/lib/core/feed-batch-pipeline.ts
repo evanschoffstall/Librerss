@@ -207,9 +207,15 @@ export async function executeParallelRefreshes(
   allowedUrls: string[],
   skipRefresh: boolean,
   forceRefresh: boolean,
-): Promise<{ errors: Map<string, string>; refreshedCount: number }> {
+): Promise<{
+  errors: Map<string, string>;
+  refreshedCount: number;
+  cooldownLimitedCount: number;
+  refreshedUrls: Set<string>;
+}> {
   const upstreamErrors = new Map<string, string>();
-  let refreshedCount = 0;
+  const refreshedUrls = new Set<string>();
+  let cooldownLimitedCount = 0;
 
   if (!skipRefresh) {
     const staleFeeds = allowedUrls
@@ -225,7 +231,18 @@ export async function executeParallelRefreshes(
           : false,
       );
 
-    refreshedCount = staleFeeds.length;
+    for (const f of staleFeeds) refreshedUrls.add(f.url);
+
+    if (forceRefresh) {
+      cooldownLimitedCount = allowedUrls.filter((u) => {
+        const f = feedByUrl.get(u);
+        return (
+          f &&
+          !shouldForceRefreshFeed(f.lastFetched) &&
+          f.lastFetchError === null
+        );
+      }).length;
+    }
 
     if (staleFeeds.length > 0) {
       const concurrency: number = CONFIG.FEED_BATCH_CONCURRENCY ?? 8;
@@ -263,7 +280,12 @@ export async function executeParallelRefreshes(
     if (feed?.lastFetchError) upstreamErrors.set(url, feed.lastFetchError);
   }
 
-  return { errors: upstreamErrors, refreshedCount };
+  return {
+    errors: upstreamErrors,
+    refreshedCount: refreshedUrls.size,
+    cooldownLimitedCount,
+    refreshedUrls,
+  };
 }
 
 // ─── Step 5: Query articles ───────────────────────────────────────────────────

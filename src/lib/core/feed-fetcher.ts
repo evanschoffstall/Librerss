@@ -37,6 +37,7 @@ import {
 import {
   type FeedRecord,
   refreshFeedFromUpstream,
+  shouldForceRefreshFeed,
   shouldRefreshFeed,
 } from "./feed-refresh";
 
@@ -66,6 +67,9 @@ type BatchFeedResult = {
   errors: Map<string, string>;
   refreshedCount: number;
   cachedCount: number;
+  cooldownLimitedCount: number;
+  /** How the system resolved the request: memory cache, DB cache, or upstream fetch. */
+  resolution: "memory" | "cache" | "upstream";
   lastFetchedByUrl: Map<string, Date>;
 };
 
@@ -75,6 +79,8 @@ function buildEmptyBatchResult(): BatchFeedResult {
     errors: new Map(),
     refreshedCount: 0,
     cachedCount: 0,
+    cooldownLimitedCount: 0,
+    resolution: "cache",
     lastFetchedByUrl: new Map(),
   };
 }
@@ -106,28 +112,34 @@ export async function fetchAndCacheFeedArticlesBatch(
   }
 
   // ── In-memory cache fast path (zero DB queries) ──────────────────────────
-  // Serve from memory when:  not a force-refresh, and a cached result exists.
-  // The cache TTL matches the feed refresh TTL so we never serve staler data
-  // than the server would have returned from the DB anyway.
-  if (!forceRefresh) {
-    const cached = getCachedBatch(userId, feedUrls);
-    if (cached) {
+  // Non-force requests: serve from memory if a cached result exists.
+  // Force requests: serve from memory only when every feed is still within
+  // the force-refresh cooldown — going to DB would produce the same result.
+  const cached = getCachedBatch(userId, feedUrls);
+  if (cached) {
+    const allWithinCooldown =
+      forceRefresh &&
+      [...cached.lastFetchedByUrl.values()].every(
+        (d) => !shouldForceRefreshFeed(d),
+      );
+
+    if (!forceRefresh || allWithinCooldown) {
       const cachedCount = feedUrls.length;
       if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
         logger.info("Batch feed fetch served from memory cache", {
           userId,
           requestSource,
           feedCount: cachedCount,
+          forceRefreshCooldownHit: allWithinCooldown,
         });
       }
-      logger.info(
-        `Batch [${cachedCount} feed${cachedCount !== 1 ? "s" : ""}]: 0 refreshed, ${cachedCount} cached [memory]`,
-      );
       return {
         articles: cached.articles,
         errors: cached.errors,
         refreshedCount: 0,
         cachedCount,
+        cooldownLimitedCount: allWithinCooldown ? cachedCount : 0,
+        resolution: "memory" as const,
         lastFetchedByUrl: cached.lastFetchedByUrl,
       };
     }
@@ -157,14 +169,18 @@ export async function fetchAndCacheFeedArticlesBatch(
     });
   }
 
-  const { errors: upstreamErrors, refreshedCount } =
-    await executeParallelRefreshes(
-      db,
-      feedByUrl,
-      allowedUrls,
-      skipRefresh,
-      forceRefresh,
-    );
+  const {
+    errors: upstreamErrors,
+    refreshedCount,
+    cooldownLimitedCount,
+    refreshedUrls,
+  } = await executeParallelRefreshes(
+    db,
+    feedByUrl,
+    allowedUrls,
+    skipRefresh,
+    forceRefresh,
+  );
 
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED && !skipRefresh) {
     if (refreshedCount > 0) {
@@ -194,16 +210,21 @@ export async function fetchAndCacheFeedArticlesBatch(
       errors: upstreamErrors,
       refreshedCount,
       cachedCount: allowedUrls.length - refreshedCount,
+      cooldownLimitedCount,
+      resolution:
+        refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
       lastFetchedByUrl: new Map(),
     };
   }
 
-  // Derive lastFetchedByUrl from the feed records we already loaded in step 2.
-  // This eliminates the redundant SELECT that previously re-queried the same
-  // feeds table just for lastFetched timestamps.
+  // Derive lastFetchedByUrl from feed records. For feeds refreshed this cycle,
+  // use current time instead of stale pre-refresh timestamps so the memory
+  // cache stores accurate values for subsequent cooldown checks.
+  const now = new Date();
   const lastFetchedByUrl = new Map<string, Date>(
     allowedUrls
       .map((u): [string, Date] | null => {
+        if (refreshedUrls.has(u)) return [u, now];
         const feed = feedByUrl.get(u);
         return feed ? [u, feed.lastFetched] : null;
       })
@@ -246,6 +267,8 @@ export async function fetchAndCacheFeedArticlesBatch(
     errors: upstreamErrors,
     refreshedCount,
     cachedCount: allowedUrls.length - refreshedCount,
+    cooldownLimitedCount,
+    resolution: refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
     lastFetchedByUrl,
   };
 }
