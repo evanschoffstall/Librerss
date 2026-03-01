@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/** Height of the hidden pull zone above content. */
+const SENTINEL_HEIGHT = 104;
+/** Distance (px out of sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
-const MAX_PULL = 104;
-const VERTICAL_LOCK_ANGLE = 45;
-const MIN_MOVE_PX = 8;
-const REFRESH_HOLD_MS = 650;
-const SNAP_BACK_MS = 250;
+/** Hold height during refresh feedback. */
 const HOLD_PULL_PX = 44;
-const SNAP_EASE = "cubic-bezier(0.2,0,0,1)";
+/** Hold duration before snapping back. */
+const REFRESH_HOLD_MS = 650;
 
 interface PullState {
   pulling: boolean;
@@ -18,16 +18,16 @@ interface PullState {
 
 const IDLE: PullState = { pulling: false, readyToRefresh: false };
 
-/** Rubber-band dampening — diminishing resistance like iOS. */
-function dampen(dy: number): number {
-  const ratio = Math.min(dy / (MAX_PULL * 2.5), 1);
-  return MAX_PULL * (1 - (1 - ratio) ** 2.2);
-}
-
 /**
- * Pull-to-refresh with 1:1 finger tracking.
- * Mirrors the swipe-to-read pattern: direct inline style writes,
- * `transition: none` during gesture, transition on release.
+ * Pull-to-refresh using a hidden sentinel div inside the ScrollArea.
+ *
+ * The sentinel is a real scroll item (SENTINEL_HEIGHT px tall) placed
+ * before the feed content. On mount the viewport scrolls past it so it's
+ * invisible. Pulling down from the top naturally scrolls into the sentinel
+ * zone — 100% native scroll compositor, zero transforms or layout writes.
+ *
+ * Momentum-only scroll into the sentinel zone is snapped back immediately
+ * so pull-to-refresh only triggers with the finger still on screen.
  */
 export function useSwipeUpToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
@@ -35,24 +35,17 @@ export function useSwipeUpToRefresh(
   disabled = false,
 ) {
   const [state, setState] = useState<PullState>(IDLE);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
-  const lockedRef = useRef<"vertical" | "horizontal" | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const touchActiveRef = useRef(false);
   const committedRef = useRef(false);
   const pullingRef = useRef(false);
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const disabledRef = useRef(disabled);
   const onRefreshRef = useRef(onRefresh);
   disabledRef.current = disabled;
   onRefreshRef.current = onRefresh;
-
-  // Pre-promote compositor layer once on mount — avoids per-gesture jank
-  useEffect(() => {
-    const el = contentRef.current;
-    if (el) {
-      el.style.willChange = "transform";
-      el.style.transform = "translate3d(0,0,0)";
-    }
-  }, []);
 
   useEffect(() => {
     const root = scrollRootRef.current;
@@ -62,105 +55,82 @@ export function useSwipeUpToRefresh(
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
 
-    const isAtTop = () => viewport.scrollTop <= 0;
+    // Hide sentinel on mount by scrolling past it
+    viewport.scrollTop = SENTINEL_HEIGHT;
 
-    const handleTouchStart = (e: TouchEvent) => {
-      if (disabledRef.current || !isAtTop()) return;
-      const t = e.touches[0];
-      startRef.current = { x: t.clientX, y: t.clientY };
-      lockedRef.current = null;
-      committedRef.current = false;
-      pullingRef.current = false;
-    };
+    const handleScroll = () => {
+      const st = viewport.scrollTop;
 
-    const handleTouchMove = (e: TouchEvent) => {
-      const start = startRef.current;
-      if (!start || disabledRef.current) return;
-
-      const t = e.touches[0];
-      const dx = t.clientX - start.x;
-      const dy = t.clientY - start.y;
-
-      if (!lockedRef.current) {
-        if (Math.abs(dx) < MIN_MOVE_PX && Math.abs(dy) < MIN_MOVE_PX) return;
-        const angle = Math.abs(Math.atan2(dx, dy) * (180 / Math.PI));
-        lockedRef.current =
-          angle < VERTICAL_LOCK_ANGLE ? "vertical" : "horizontal";
-      }
-
-      if (lockedRef.current !== "vertical" || dy <= 0) return;
-      if (!isAtTop()) {
-        startRef.current = null;
+      // In normal content zone — nothing to do
+      if (st >= SENTINEL_HEIGHT) {
+        if (pullingRef.current) {
+          pullingRef.current = false;
+          setState(IDLE);
+        }
         return;
       }
 
-      e.preventDefault();
+      const pullDistance = SENTINEL_HEIGHT - st;
 
-      const dampened = dampen(dy);
-      const committed = dampened >= PULL_THRESHOLD;
-      const wasCommitted = committedRef.current;
+      // Finger not on screen — momentum overshoot, snap back immediately
+      if (!touchActiveRef.current) {
+        viewport.scrollTop = SENTINEL_HEIGHT;
+        if (pullingRef.current) {
+          pullingRef.current = false;
+          setState(IDLE);
+        }
+        return;
+      }
+
+      const committed = pullDistance >= PULL_THRESHOLD;
       committedRef.current = committed;
+      pullingRef.current = true;
+      setState({ pulling: true, readyToRefresh: committed });
+    };
 
-      // Synchronous inline style — transition:none for zero-lag finger tracking
-      const el = contentRef.current;
-      if (el) {
-        el.style.transition = "none";
-        el.style.transform = `translate3d(0,${dampened}px,0)`;
-      }
-
-      // setState only on transitions, not every frame
-      if (!pullingRef.current) {
-        pullingRef.current = true;
-        setState({ pulling: true, readyToRefresh: committed });
-      } else if (committed !== wasCommitted) {
-        setState({ pulling: true, readyToRefresh: committed });
-      }
+    const handleTouchStart = () => {
+      touchActiveRef.current = true;
+      clearTimeout(snapTimerRef.current);
     };
 
     const handleTouchEnd = () => {
-      const wasPulling = pullingRef.current;
-      const wasCommitted = committedRef.current;
-      pullingRef.current = false;
-      startRef.current = null;
-      lockedRef.current = null;
-      committedRef.current = false;
+      touchActiveRef.current = false;
+      const st = viewport.scrollTop;
 
-      const el = contentRef.current;
+      // Was in normal scroll zone, nothing to do
+      if (st >= SENTINEL_HEIGHT) return;
 
-      if (wasPulling && wasCommitted && !disabledRef.current) {
-        // Snap to hold position, then refresh, then snap to zero
-        if (el) {
-          el.style.transition = `transform ${SNAP_BACK_MS}ms ${SNAP_EASE}`;
-          el.style.transform = `translate3d(0,${HOLD_PULL_PX}px,0)`;
-        }
+      if (committedRef.current && !disabledRef.current) {
+        // Snap to hold position
+        viewport.scrollTo({
+          top: SENTINEL_HEIGHT - HOLD_PULL_PX,
+          behavior: "smooth",
+        });
         onRefreshRef.current();
-        setTimeout(() => {
+        // After hold, snap back fully
+        snapTimerRef.current = setTimeout(() => {
           setState(IDLE);
-          if (el) {
-            el.style.transition = `transform ${SNAP_BACK_MS}ms ${SNAP_EASE}`;
-            el.style.transform = "translate3d(0,0,0)";
-          }
+          viewport.scrollTo({ top: SENTINEL_HEIGHT, behavior: "smooth" });
         }, REFRESH_HOLD_MS);
-      } else if (wasPulling) {
-        // Snap back to rest
-        if (el) {
-          el.style.transition = `transform ${SNAP_BACK_MS}ms ${SNAP_EASE}`;
-          el.style.transform = "translate3d(0,0,0)";
-        }
+      } else {
+        // Not committed — snap back
+        viewport.scrollTo({ top: SENTINEL_HEIGHT, behavior: "smooth" });
         setState(IDLE);
       }
+      committedRef.current = false;
     };
 
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
     viewport.addEventListener("touchstart", handleTouchStart, {
       passive: true,
     });
-    viewport.addEventListener("touchmove", handleTouchMove, { passive: false });
     viewport.addEventListener("touchend", handleTouchEnd);
     viewport.addEventListener("touchcancel", handleTouchEnd);
 
     return () => {
+      clearTimeout(snapTimerRef.current);
+      viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
-      viewport.removeEventListener("touchmove", handleTouchMove);
       viewport.removeEventListener("touchend", handleTouchEnd);
       viewport.removeEventListener("touchcancel", handleTouchEnd);
     };
@@ -168,21 +138,24 @@ export function useSwipeUpToRefresh(
 
   useEffect(() => {
     if (!disabled) return;
-    const el = contentRef.current;
-    if (el) {
-      el.style.transition = "none";
-      el.style.transform = "translate3d(0,0,0)";
-    }
-    startRef.current = null;
-    lockedRef.current = null;
-    pullingRef.current = false;
+    const root = scrollRootRef.current;
+    if (!root) return;
+    const viewport =
+      root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+      root;
+    viewport.scrollTop = SENTINEL_HEIGHT;
+    touchActiveRef.current = false;
     committedRef.current = false;
+    pullingRef.current = false;
+    clearTimeout(snapTimerRef.current);
     setState(IDLE);
-  }, [disabled]);
+  }, [disabled, scrollRootRef]);
 
   return {
     pulling: state.pulling,
     readyToRefresh: state.readyToRefresh,
-    contentRef,
+    sentinelRef,
+    /** Offset px that scroll-restore must add to account for the sentinel. */
+    sentinelHeight: SENTINEL_HEIGHT,
   };
 }
