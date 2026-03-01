@@ -58,8 +58,9 @@ export function useSwipeUpToRefresh(
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
 
+    const sentinel = sentinelRef.current;
     /** Live-read sentinel height — handles md:hidden and late layout. */
-    const sh = () => sentinelRef.current?.offsetHeight ?? 0;
+    const sh = () => sentinel?.offsetHeight ?? 0;
 
     const resetPull = () => {
       holdingRef.current = false;
@@ -71,8 +72,59 @@ export function useSwipeUpToRefresh(
     };
 
     // Hide sentinel on mount + prevent iOS from rubber-banding the page
-    viewport.scrollTop = sh();
     viewport.style.overscrollBehaviorY = "none";
+
+    const wrapper = sentinel?.parentElement ?? null;
+
+    /**
+     * Ensures viewport.scrollHeight >= viewport.clientHeight + sentinelHeight
+     * so that setting scrollTop = sentinel height is never clamped to 0.
+     *
+     * Uses wrapper.offsetHeight (actual content, sans our padding) instead of
+     * viewport.scrollHeight - viewport.clientHeight: when content is shorter
+     * than the viewport, scrollHeight is clamped to clientHeight and the
+     * naive deficit formula produces a value too small to create real overflow.
+     */
+    const ensureMinOverflow = () => {
+      const height = sh();
+      if (height === 0 || !wrapper) return;
+      wrapper.style.paddingBottom = "";
+      // offsetHeight forces a reflow and returns real content height
+      const contentHeight = wrapper.offsetHeight;
+      const needed = viewport.clientHeight + height - contentHeight;
+      if (needed > 0) wrapper.style.paddingBottom = `${needed}px`;
+    };
+
+    ensureMinOverflow();
+    viewport.scrollTop = sh();
+
+    // rAF: re-check after first paint (content may not be laid out yet)
+    const rafId = requestAnimationFrame(() => {
+      ensureMinOverflow();
+      const height = sh();
+      if (height > 0 && viewport.scrollTop < height)
+        viewport.scrollTop = height;
+    });
+
+    // ResizeObserver: re-check whenever content height changes (articles load,
+    // images render, feed switches). Don't reset scrollTop unless we've
+    // drifted back into sentinel zone (content shrank below scrollTop).
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && wrapper
+        ? new ResizeObserver(() => {
+            ensureMinOverflow();
+            const height = sh();
+            if (
+              height > 0 &&
+              viewport.scrollTop < height &&
+              !touchActiveRef.current &&
+              !holdingRef.current
+            ) {
+              viewport.scrollTop = height;
+            }
+          })
+        : null;
+    resizeObserver?.observe(wrapper!);
 
     const handleScroll = () => {
       const height = sh();
@@ -190,9 +242,12 @@ export function useSwipeUpToRefresh(
     viewport.addEventListener("touchcancel", handleTouchCancel);
 
     return () => {
+      resizeObserver?.disconnect();
+      cancelAnimationFrame(rafId);
       clearTimeout(snapTimerRef.current);
       snapTimerRef.current = undefined;
       viewport.style.overscrollBehaviorY = "";
+      if (wrapper) wrapper.style.paddingBottom = "";
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
