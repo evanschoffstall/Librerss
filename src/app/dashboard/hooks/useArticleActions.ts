@@ -58,8 +58,12 @@ export function useArticleActions({
     return (feedUrl: string) => settingsMap.get(feedUrl);
   }, [categories]);
 
-  const { hydratedArticleLinks, hydratingArticleLinks, hydrateArticleContent } =
-    useArticleHydration({ setFeed, getFeedSettings });
+  const {
+    hydratedArticleLinks,
+    hydratingArticleLinks,
+    hydrateArticleContent,
+    cancelHydration,
+  } = useArticleHydration({ setFeed, getFeedSettings });
   const autoHydratedExpandedKeyRef = useRef<string | null>(null);
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
@@ -192,6 +196,10 @@ export function useArticleActions({
       );
 
       if (isCollapsing) {
+        // Cancel any pending extract request for this article
+        const link = article.link?.trim();
+        if (link) cancelHydration(link);
+
         if (collapseScrollTimeoutRef.current !== null) {
           window.clearTimeout(collapseScrollTimeoutRef.current);
         }
@@ -235,6 +243,7 @@ export function useArticleActions({
     },
     [
       articleFilter,
+      cancelHydration,
       expandedArticleKey,
       updatingArticleState,
       setExpandedArticleKey,

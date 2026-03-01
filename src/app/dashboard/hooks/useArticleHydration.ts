@@ -1,6 +1,7 @@
 "use client";
 
 import { ArticleService, isValidUrl, type Article } from "@/lib";
+import axios from "axios";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,6 +37,7 @@ export function useArticleHydration({
     Record<string, boolean>
   >({});
   const articleHydrationInFlightRef = useRef(new Map<string, number>());
+  const hydrationAbortRef = useRef(new Map<string, AbortController>());
 
   const scrollArticleIntoView = useCallback((articleKey: string) => {
     let el: HTMLElement | null = null;
@@ -88,11 +90,15 @@ export function useArticleHydration({
       articleHydrationInFlightRef.current.set(link, inFlightCount + 1);
       setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
 
+      const abortController = new AbortController();
+      hydrationAbortRef.current.set(link, abortController);
+
       try {
         const extractedContent = await ArticleService.extractArticleContent(
           link,
           {
             useProxy: settings?.proxyEnabled,
+            signal: abortController.signal,
           },
         );
 
@@ -114,14 +120,23 @@ export function useArticleHydration({
 
         setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
       } catch (error) {
+        if (abortController.signal.aborted) return;
         console.error("Article hydration error:", error);
         setHydratedArticleLinks((current) => {
           if (!current[link]) return current;
           const { [link]: _, ...rest } = current;
           return rest;
         });
-        toast.error("Unable to extract article content right now.");
+        const serverReason = axios.isAxiosError(error)
+          ? (error.response?.data?.reason ?? error.response?.data?.error)
+          : undefined;
+        toast.error(
+          serverReason
+            ? `Unable to extract article: ${serverReason}`
+            : "Unable to extract article content right now.",
+        );
       } finally {
+        hydrationAbortRef.current.delete(link);
         const remainingInFlight =
           (articleHydrationInFlightRef.current.get(link) ?? 1) - 1;
 
@@ -140,10 +155,24 @@ export function useArticleHydration({
     [hydratedArticleLinks, setFeed, getFeedSettings],
   );
 
+  const cancelHydration = useCallback((link: string) => {
+    const controller = hydrationAbortRef.current.get(link);
+    if (!controller) return;
+    controller.abort();
+    hydrationAbortRef.current.delete(link);
+    articleHydrationInFlightRef.current.delete(link);
+    setHydratingArticleLinks((current) => {
+      if (!current[link]) return current;
+      const { [link]: _, ...rest } = current;
+      return rest;
+    });
+  }, []);
+
   return {
     hydratedArticleLinks,
     hydratingArticleLinks,
     scrollArticleIntoView,
     hydrateArticleContent,
+    cancelHydration,
   };
 }
