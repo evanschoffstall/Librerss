@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 
 /** Height of the hidden pull zone above content. */
-const SENTINEL_HEIGHT = 104;
+export const SENTINEL_HEIGHT = 104;
+/** Tailwind `md:` breakpoint — sentinel is md:hidden. */
+const MD_BREAKPOINT = "(min-width: 768px)";
 /** Distance (px out of sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
 /** Hold height during refresh feedback. */
@@ -39,6 +41,7 @@ export function useSwipeUpToRefresh(
   const touchActiveRef = useRef(false);
   const committedRef = useRef(false);
   const pullingRef = useRef(false);
+  const holdingRef = useRef(false);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -55,38 +58,54 @@ export function useSwipeUpToRefresh(
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
 
+    /** Live-read sentinel height — handles md:hidden and late layout. */
+    const sh = () => sentinelRef.current?.offsetHeight ?? 0;
+
+    const resetPull = () => {
+      holdingRef.current = false;
+      pullingRef.current = false;
+      committedRef.current = false;
+      clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = undefined;
+      setState(IDLE);
+    };
+
     // Hide sentinel on mount + prevent iOS from rubber-banding the page
-    const measuredHeight = sentinelRef.current?.offsetHeight ?? 0;
-    viewport.scrollTop = measuredHeight;
+    viewport.scrollTop = sh();
     viewport.style.overscrollBehaviorY = "none";
 
     const handleScroll = () => {
-      const st = viewport.scrollTop;
+      const height = sh();
+      if (height === 0) return; // Sentinel hidden (desktop) or not rendered
 
-      // Cap: don't let user scroll above the sentinel top
+      const st = viewport.scrollTop;
       if (st < 0) {
         viewport.scrollTop = 0;
         return;
       }
 
       // In normal content zone — nothing to do
-      if (st >= measuredHeight) {
-        if (pullingRef.current) {
+      if (st >= height) {
+        if (pullingRef.current && !holdingRef.current) {
           pullingRef.current = false;
           setState(IDLE);
         }
         return;
       }
 
-      const pullDistance = measuredHeight - st;
+      // During post-commit hold animation — don't interfere
+      if (holdingRef.current) return;
+
+      const pullDistance = height - st;
 
       // Finger not on screen — momentum overshoot, snap back smoothly
       if (!touchActiveRef.current) {
         if (!snapTimerRef.current) {
           snapTimerRef.current = setTimeout(() => {
             snapTimerRef.current = undefined;
-            if (viewport.scrollTop < measuredHeight) {
-              viewport.scrollTo({ top: measuredHeight, behavior: "smooth" });
+            const h = sh();
+            if (h > 0 && viewport.scrollTop < h) {
+              viewport.scrollTo({ top: h, behavior: "smooth" });
             }
           }, 80);
         }
@@ -113,33 +132,54 @@ export function useSwipeUpToRefresh(
     const handleTouchStart = () => {
       touchActiveRef.current = true;
       clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = undefined;
+      // Touch during hold → cancel hold animation, snap back
+      if (holdingRef.current) {
+        resetPull();
+        const h = sh();
+        if (h > 0) viewport.scrollTo({ top: h, behavior: "smooth" });
+      }
     };
 
     const handleTouchEnd = () => {
       touchActiveRef.current = false;
+      const height = sh();
       const st = viewport.scrollTop;
 
       // Was in normal scroll zone, nothing to do
-      if (st >= measuredHeight) return;
+      if (st >= height) return;
 
       if (committedRef.current && !disabledRef.current) {
-        // Snap to hold position
+        // Snap to hold position and trigger refresh
+        holdingRef.current = true;
         viewport.scrollTo({
-          top: measuredHeight - HOLD_PULL_PX,
+          top: height - HOLD_PULL_PX,
           behavior: "smooth",
         });
         onRefreshRef.current();
         // After hold, snap back fully
         snapTimerRef.current = setTimeout(() => {
-          setState(IDLE);
-          viewport.scrollTo({ top: measuredHeight, behavior: "smooth" });
+          resetPull();
+          const h = sh();
+          if (h > 0) viewport.scrollTo({ top: h, behavior: "smooth" });
         }, REFRESH_HOLD_MS);
       } else {
         // Not committed — snap back
-        viewport.scrollTo({ top: measuredHeight, behavior: "smooth" });
+        pullingRef.current = false;
+        viewport.scrollTo({ top: height, behavior: "smooth" });
         setState(IDLE);
       }
       committedRef.current = false;
+    };
+
+    // touchcancel = system-initiated cancellation — always snap back, never commit
+    const handleTouchCancel = () => {
+      touchActiveRef.current = false;
+      resetPull();
+      const height = sh();
+      if (height > 0 && viewport.scrollTop < height) {
+        viewport.scrollTo({ top: height, behavior: "smooth" });
+      }
     };
 
     viewport.addEventListener("scroll", handleScroll, { passive: true });
@@ -147,15 +187,16 @@ export function useSwipeUpToRefresh(
       passive: true,
     });
     viewport.addEventListener("touchend", handleTouchEnd);
-    viewport.addEventListener("touchcancel", handleTouchEnd);
+    viewport.addEventListener("touchcancel", handleTouchCancel);
 
     return () => {
       clearTimeout(snapTimerRef.current);
+      snapTimerRef.current = undefined;
       viewport.style.overscrollBehaviorY = "";
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
-      viewport.removeEventListener("touchcancel", handleTouchEnd);
+      viewport.removeEventListener("touchcancel", handleTouchCancel);
     };
   }, [scrollRootRef]);
 
@@ -170,7 +211,9 @@ export function useSwipeUpToRefresh(
     touchActiveRef.current = false;
     committedRef.current = false;
     pullingRef.current = false;
+    holdingRef.current = false;
     clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = undefined;
     setState(IDLE);
   }, [disabled, scrollRootRef]);
 
@@ -181,4 +224,17 @@ export function useSwipeUpToRefresh(
     /** Offset px that scroll-restore must add to account for the sentinel. */
     sentinelHeight: SENTINEL_HEIGHT,
   };
+}
+
+/** Scroll-restore offset: SENTINEL_HEIGHT on mobile, 0 on desktop (sentinel is md:hidden). */
+export function useSentinelScrollOffset(): number {
+  const [offset, setOffset] = useState(SENTINEL_HEIGHT);
+  useEffect(() => {
+    const mql = window.matchMedia(MD_BREAKPOINT);
+    const sync = () => setOffset(mql.matches ? 0 : SENTINEL_HEIGHT);
+    sync();
+    mql.addEventListener("change", sync);
+    return () => mql.removeEventListener("change", sync);
+  }, []);
+  return offset;
 }
