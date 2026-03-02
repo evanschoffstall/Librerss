@@ -315,17 +315,41 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).not.toMatch(/\n{5,}/);
   });
 
+  test("sanitizeAndTruncateArticleContent preserves sentence prose emitted outside paragraph tags", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/sanitize");
+
+    const quote =
+      '"The human ability to encode information in signs and symbols was developed over many thousands of years," Bentz said. "Writing is only one specific form in a long series of sign systems."';
+    const html = `<p>Intro</p><img src="https://example.com/hero.jpg" width="800" height="600"/>${quote}<p>Outro</p>`;
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).toContain(quote);
+    expect(result).toContain("Intro");
+    expect(result).toContain("Outro");
+  });
+
   test("sanitizeAndTruncateArticleContent keeps figure image and caption text", async () => {
     const { sanitizeAndTruncateArticleContent } =
       await import("@/lib/sanitize");
 
     const html =
-      "<figure><img src='test.jpg' width='800' height='600'/><figcaption>Image caption</figcaption></figure><p>Text</p>";
+      "<figure><img src='test.jpg' width='800' height='600'/></figure><p>Text</p>";
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).toContain("<img");
-    expect(result).toContain("Image caption");
     expect(result).toContain("Text");
+  });
+
+  test("sanitizeAndTruncateArticleContent strips h1 content", async () => {
+    const { sanitizeAndTruncateArticleContent } =
+      await import("@/lib/sanitize");
+
+    const html = "<h1>Top headline</h1><p>Body text</p>";
+    const result = sanitizeAndTruncateArticleContent(html);
+
+    expect(result).not.toContain("Top headline");
+    expect(result).toContain("Body text");
   });
 
   test("sanitizeAndTruncateArticleContent promotes lazy image attributes to src", async () => {

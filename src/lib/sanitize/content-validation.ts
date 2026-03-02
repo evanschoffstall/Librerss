@@ -31,6 +31,15 @@ function stripShareEngagementToolbars(content: string): string {
     ).length;
     if (socialCount >= 2 && socialCount >= items.length / 2) return "";
 
+    // Strip sidebar-style nav lists where every item is a single bare link
+    const allBareLinks =
+      items.length >= 2 &&
+      items.length <= 6 &&
+      items.every((m) =>
+        /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
+      );
+    if (allBareLinks) return "";
+
     const lower = ulBlock.toLowerCase();
     if (!SOCIAL_SHARE_LINK_RE.test(lower)) return ulBlock;
     const textContent = lower.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -40,6 +49,34 @@ function stripShareEngagementToolbars(content: string): string {
       ? ""
       : ulBlock;
   });
+}
+
+/** Promotional / call-to-action pattern (cross-site generic). */
+const PROMO_CTA_RE =
+  /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google/i;
+
+function isPromoCta(inner: string): boolean {
+  const text = inner
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return PROMO_CTA_RE.test(text);
+}
+
+/**
+ * Strip promotional CTA paragraphs and links (e.g. "Add as preferred source on
+ * Google", "Follow X on WhatsApp", "You need javascript enabled").
+ */
+function stripPromotionalCtaBlocks(content: string): string {
+  return content
+    .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (m, inner: string) =>
+      isPromoCta(inner) ? "" : m,
+    )
+    .replace(
+      // eslint-disable-next-line security/detect-unsafe-regex -- Pre-sanitized HTML input; lazy quantifiers prevent excessive backtracking
+      /(?:<br\s*\/?>\s*)*<a\b[^>]*>([\s\S]*?)<\/a>(?:\s*<br\s*\/?>\s*)*/gi,
+      (m, inner: string) => (isPromoCta(inner) ? "" : m),
+    );
 }
 
 export function stripCommentEngagementBoilerplate(content: string): string {
@@ -145,6 +182,15 @@ export function cleanExtractedArticleHtml(
     inputPreview: contentPreview(sanitizedContent),
   });
 
+  // Check boilerplate on original input before stripping removes detection markers.
+  if (isLikelyNavFooterBoilerplate(sanitizedContent)) {
+    logger.info(`[clean-html] detected nav/footer boilerplate — discarding`, {
+      inputChars: sanitizedContent.length,
+      contentPreview: contentPreview(sanitizedContent),
+    });
+    return "";
+  }
+
   const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
   const shareToolbarsRemoved =
     withoutShareToolbars.length !== sanitizedContent.length;
@@ -165,7 +211,14 @@ export function cleanExtractedArticleHtml(
     });
   }
 
-  const normalized = normalizeArticleHtmlSpacing(withoutEngagementPrompts);
+  const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
+  if (withoutPromos.length !== withoutEngagementPrompts.length) {
+    logger.info(`[clean-html] stripped promotional CTA blocks`, {
+      removedChars: withoutEngagementPrompts.length - withoutPromos.length,
+    });
+  }
+
+  const normalized = normalizeArticleHtmlSpacing(withoutPromos);
 
   if (!normalized.trim()) {
     logger.info(`[clean-html] content empty after normalization`);

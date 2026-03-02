@@ -6,6 +6,22 @@ function contentPreview(s: string, max = 200): string {
   return s.length <= max ? s : `${s.slice(0, max)}…`;
 }
 
+function normalizeNoscriptForExtraction(rawHtml: string): string {
+  return rawHtml.replace(
+    /<noscript\b[^>]*>([\s\S]*?)<\/noscript>/gi,
+    (_match, innerHtml: string) => {
+      const plainText = toPlainText(innerHtml).replace(/\s+/g, " ").trim();
+      const blockElementCount = (
+        innerHtml.match(/<(?:p|h[1-6]|li|blockquote|figure|img)\b/gi) ?? []
+      ).length;
+      const isLikelyArticleFallback =
+        blockElementCount >= 3 && plainText.length >= 220;
+
+      return isLikelyArticleFallback ? innerHtml : "";
+    },
+  );
+}
+
 export function stripApJunkBlocks(html: string): string {
   const marked = html.replace(
     /<(div|section|aside|nav|ul|figure)\b[^>]*>/gi,
@@ -118,9 +134,92 @@ export function stripOrphanedRelatedBlocks(html: string): string {
 export function normalizeArticleHtmlSpacing(html: string): string {
   return stripEmptyTagBlocks(html)
     .replace(/\r\n?/g, "\n")
-    .replace(/\n(?:[ \t]*\n)+/g, "\n")
+    .replace(/\n[ \t]*\n+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
     .trim();
+}
+
+/**
+ * Strip short inline content that appears between block-level elements at the
+ * top level of the document.  After sanitize-html strips non-allowed tags
+ * (div, span, figure, time, etc.), their text content is left as orphaned
+ * inline nodes — bylines, image credits, UI labels, timestamps, etc.
+ *
+ * Only segments whose plain-text length is under {@link maxTextLength} are
+ * removed.  Content inside block elements is never touched.
+ */
+export function stripOrphanedInlineContent(
+  html: string,
+  maxTextLength = 200,
+): string {
+  const blockBoundaryRe =
+    /<\/?(?:p|h[1-6]|ul|ol|li|blockquote|pre)\b[^>]*>|<(?:hr|img)\b[^>]*\/?>/gi;
+
+  const parts: { type: "tag" | "gap"; content: string }[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = blockBoundaryRe.exec(html)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "gap", content: html.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: "tag", content: match[0] });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < html.length) {
+    parts.push({ type: "gap", content: html.slice(lastIndex) });
+  }
+
+  // If no block boundaries were found, the content is purely inline — return as-is.
+  if (parts.every((p) => p.type === "gap")) return html;
+
+  // Track block-element nesting depth to identify top-level gaps.
+  let depth = 0;
+  let prevTagIsImg = false;
+  return parts
+    .map((part) => {
+      if (part.type === "tag") {
+        const tag = part.content;
+        prevTagIsImg = /^<img\b/i.test(tag);
+        if (/^<(?:hr|img)\b/i.test(tag)) {
+          /* self-closing — depth unchanged */
+        } else if (/^<\//i.test(tag)) {
+          depth = Math.max(0, depth - 1);
+        } else {
+          depth++;
+        }
+        return part.content;
+      }
+
+      // Gap at top level (depth === 0): strip if plain text is short AND
+      // the gap contains no semantic inline elements AND does not follow <img>
+      // (text after images is likely a caption).
+      if (depth === 0 && !prevTagIsImg) {
+        const hasSemanticInline = /<(?:a|strong|em|b|i|u|code)\b/i.test(
+          part.content,
+        );
+        if (!hasSemanticInline) {
+          const plainText = part.content
+            .replace(/<[^>]*>/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+          const looksLikeProse = wordCount >= 12 || /[.?!"“”]/.test(plainText);
+          if (
+            plainText.length > 0 &&
+            plainText.length <= maxTextLength &&
+            !looksLikeProse
+          ) {
+            return "";
+          }
+        }
+      }
+      prevTagIsImg = false;
+
+      return part.content;
+    })
+    .join("");
 }
 
 export function escapeHtmlAttribute(value: string): string {
@@ -224,7 +323,7 @@ const NON_CONTENT_ID_RE =
 
 /** Semantic purpose words in CSS classes indicating non-content containers. */
 const NON_CONTENT_CLASS_RE =
-  /sign[-_]?up|subscrib|newsletter|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)/i;
+  /sign[-_]?up|subscrib|newsletter|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)|promo(?:tion)?[-_]?(?:bar|banner|block|card)|cta[-_](?:bar|banner|block)|call[-_]?to[-_]?action|follow[-_]?(?:us|bar)|whatsapp[-_]?(?:bar|link|share)/i;
 
 /** Social platform share-intent URL patterns (cross-site generic). */
 export const SOCIAL_SHARE_LINK_RE =
@@ -238,17 +337,21 @@ export const SOCIAL_SHARE_LINK_RE =
 export function preCleanHtmlForExtraction(rawHtml: string): string {
   logger.info(`[pre-clean] start`, { inputChars: rawHtml.length });
 
-  let html = rawHtml
+  let html = normalizeNoscriptForExtraction(rawHtml)
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
-    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "");
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, "")
+    .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "");
 
   const afterTagStrip = html.length;
   if (afterTagStrip !== rawHtml.length) {
-    logger.info(`[pre-clean] stripped script/style/header/footer`, {
-      removedChars: rawHtml.length - afterTagStrip,
-    });
+    logger.info(
+      `[pre-clean] stripped script/style/header/footer/figcaption and normalized noscript`,
+      {
+        removedChars: rawHtml.length - afterTagStrip,
+      },
+    );
   }
 
   html = removeElementsByAttrPattern(html, "id", NON_CONTENT_ID_RE);

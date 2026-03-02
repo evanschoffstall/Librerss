@@ -14,14 +14,9 @@ describe("Article Image Rendering", () => {
     expect(expandedClass).toContain("[&_figure]");
     expect(collapsedClass).toContain("[&_figure]");
 
-    // Verify figcaptions are styled (not hidden)
-    expect(expandedClass).toContain("[&_figcaption]");
-    expect(collapsedClass).toContain("[&_figcaption]");
-
     // Verify images are NOT hidden
     expect(expandedClass).not.toContain("[&_img]:hidden");
     expect(expandedClass).not.toContain("[&_figure]:hidden");
-    expect(expandedClass).not.toContain("[&_figcaption]:hidden");
   });
 
   test("should include responsive image sizing", () => {

@@ -5,6 +5,7 @@ import {
   normalizeArticleHtmlSpacing,
   stripApJunkBlocks,
   stripEmbeddedMediaBlocks,
+  stripOrphanedInlineContent,
   stripOrphanedRelatedBlocks,
 } from "./cleaners";
 
@@ -47,7 +48,6 @@ const ARTICLE_SANITIZE_OPTIONS = {
   allowedTags: [
     "p",
     "br",
-    "h1",
     "h2",
     "h3",
     "h4",
@@ -69,6 +69,7 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "hr",
   ],
   nonTextTags: [
+    "h1",
     "style",
     "script",
     "textarea",
@@ -77,6 +78,13 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "section",
     "iframe",
     "form",
+    "button",
+    "noscript",
+    "label",
+    "summary",
+    "details",
+    "dialog",
+    "select",
   ],
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
@@ -138,7 +146,9 @@ export function sanitizeArticleHtml(raw: string): string {
     stripEmbeddedMediaBlocks(stripApJunkBlocks(raw)),
     ARTICLE_SANITIZE_OPTIONS,
   );
-  return normalizeArticleHtmlSpacing(stripOrphanedRelatedBlocks(sanitized));
+  return normalizeArticleHtmlSpacing(
+    stripOrphanedInlineContent(stripOrphanedRelatedBlocks(sanitized)),
+  );
 }
 
 /**
