@@ -122,6 +122,9 @@ export async function handleStreamItemIds(
     }
 
     useArticleStatuses = false;
+    if (streamId === StreamIds.STARRED_STATE) {
+      return NextResponse.json({ itemRefs: [], continuation: undefined });
+    }
     rows = await queryRows(sinceDate);
   }
   let usedOtFallback = false;

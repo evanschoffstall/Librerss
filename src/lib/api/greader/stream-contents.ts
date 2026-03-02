@@ -30,6 +30,7 @@ import {
   parseOlderThanDate,
   parseStreamId,
   parseStreamPaging,
+  shouldExcludeReadFromStream,
 } from "./stream-service";
 
 export async function handleStreamContents(
@@ -53,6 +54,7 @@ export async function handleStreamContents(
     request.headers.get("user-agent") ?? "",
   );
   const sinceDate = parseOlderThanDate(searchParams);
+  const excludeRead = shouldExcludeReadFromStream(searchParams.getAll("xt"));
 
   await maybeRefreshGReaderStreamFeeds(
     user.userId,
@@ -81,6 +83,7 @@ export async function handleStreamContents(
       dateFilter,
       continuationId,
       starredOnly: isStarredStream,
+      excludeRead,
       useArticleStatuses,
     });
 
