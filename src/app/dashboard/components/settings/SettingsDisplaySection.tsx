@@ -35,10 +35,6 @@ export function SettingsDisplaySection({
         </p>
       </div>
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="auto-refresh">Auto-refresh</Label>
-          <Switch id="auto-refresh" defaultChecked />
-        </div>
         <div className="flex items-center justify-between gap-4">
           <Label>Items per page</Label>
           <Select
