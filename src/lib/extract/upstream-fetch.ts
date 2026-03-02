@@ -196,6 +196,16 @@ export async function fetchHtml(
   // original single-attempt behaviour — cookie jar and retry are production-only.
   const injectedGet = deps?.axiosGetFn;
 
+  // Proxy mode is explicitly single-attempt using got-scraping. This avoids
+  // mixed axios->fallback behavior and sends the request once with browser-like
+  // TLS fingerprinting from the start.
+  if (options?.useProxy && options.proxyUrl && !injectedGet) {
+    return fetchHtmlWithFingerprint(url, isAllowedUrl, {
+      proxyUrl: options.proxyUrl,
+      allowInsecureTls: options.allowInsecureTls,
+    });
+  }
+
   let lastError: unknown;
   // Set to true when DataDome (x-datadome: protected) is detected on a 403.
   // Rotating axios fingerprints won't help — the block is at TLS/IP level.

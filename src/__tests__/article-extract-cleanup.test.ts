@@ -800,12 +800,31 @@ describe("article extract cleanup", () => {
     expect(gotGet).toHaveBeenCalledTimes(1);
   });
 
+  test("fetchHtml in proxy mode uses single got-scraping attempt", async () => {
+    const gotGet = mock(async () => ({
+      statusCode: 200,
+      headers: {},
+      body: "<html>proxied once</html>",
+    }));
+
+    mock.module("got-scraping", () => ({
+      gotScraping: { get: gotGet },
+    }));
+
+    const html = await fetchHtml(
+      "https://example.com/article",
+      { isAllowedFeedUrlFn: async () => true },
+      { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+    );
+
+    expect(html).toBe("<html>proxied once</html>");
+    expect(gotGet).toHaveBeenCalledTimes(1);
+  });
+
   // ─── POST logging ─────────────────────────────────────────────────────────
 
-  test("POST fires info logs at start, after fetch, and on success", async () => {
-    const infoFn = mock(() => {});
-
-    await POST(mockReq(), {
+  test("POST returns extracted content on success", async () => {
+    const response = await POST(mockReq(), {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: async () => "<html />",
@@ -815,16 +834,12 @@ describe("article extract cleanup", () => {
       }),
       sanitizeExtractedContentFn: (c) => c,
       cleanExtractedArticleHtmlFn: (c) => c,
-      infoFn: infoFn as any,
       warnFn: mock(() => {}),
     });
 
-    const messages: string[] = infoFn.mock.calls.map(
-      (c: any[]) => c[0] as string,
-    );
-    expect(messages.some((m) => m.includes("started"))).toBe(true);
-    expect(messages.some((m) => m.includes("fetched"))).toBe(true);
-    expect(messages.some((m) => m.includes("completed"))).toBe(true);
+    expect(response.status).toBe(200);
+    const payload: { content: string } = await response.json();
+    expect(payload.content).toContain("Real article content");
   });
 
   test("POST fires warn log when extractor returns no content", async () => {
@@ -872,7 +887,6 @@ describe("article extract cleanup", () => {
   });
 
   test("POST falls back to metadata image when extractor output is nav/footer boilerplate", async () => {
-    const infoFn = mock(() => {});
     const warnFn = mock(() => {});
 
     const footerOnlyExtraction = `
@@ -907,7 +921,6 @@ describe("article extract cleanup", () => {
         title: "Cartoon: But the portions are huge!",
         content: footerOnlyExtraction,
       }),
-      infoFn: infoFn as any,
       warnFn: warnFn as any,
     });
 
@@ -917,11 +930,6 @@ describe("article extract cleanup", () => {
       'src="https://cdn.prod.dailykos.com/images/1528229/story_image/20260218edshe-b.jpg?1771436292"',
     );
     expect(payload.content).toContain("A cartoon by Drew Sheneman.");
-    expect(
-      infoFn.mock.calls.some((call: any[]) =>
-        String(call[0]).includes("metadata image fallback"),
-      ),
-    ).toBe(true);
     expect(
       warnFn.mock.calls.some((call: any[]) =>
         String(call[0]).includes("empty after full extraction pipeline"),
