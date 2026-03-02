@@ -24,7 +24,6 @@ import {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
   isCanceledBatchRequest,
-  mapSourcesToPlaceholderArticles,
   resolveExpandedArticleKey,
   summarizeBatchResults,
   type FeedBatchResult,
@@ -173,20 +172,14 @@ export function useFeedLoader({
           return null;
         }
 
-        if (usePlaceholderData) {
-          const fallbackArticles =
-            mapSourcesToPlaceholderArticles(normalizedSources);
-          setFeed(fallbackArticles);
-        } else {
-          console.error("Batch feed fetch error:", error);
-          toast.error("Unable to load this feed right now.", {
-            description: "Please try refreshing the selected source again.",
-          });
-        }
+        console.error("Batch feed fetch error:", error);
+        toast.error("Unable to load this feed right now.", {
+          description: "Please try refreshing the selected source again.",
+        });
         return null;
       }
     },
-    [usePlaceholderData, setFeed],
+    [usePlaceholderData],
   );
 
   const handleEmptyBatchResult = useCallback(() => {
