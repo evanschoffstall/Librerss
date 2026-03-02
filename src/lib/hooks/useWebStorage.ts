@@ -54,9 +54,16 @@ export function useWebStorage<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // Write-through: persist every value change.
+  // Write-through: persist every value change. Skip when the key just changed
+  // to avoid clobbering the new key's stored value with the stale value from
+  // the previous key.
+  const prevKeyRef = useRef(key);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (prevKeyRef.current !== key) {
+      prevKeyRef.current = key;
+      return;
+    }
     try {
       getStorage().setItem(key, JSON.stringify(value));
     } catch {

@@ -19,9 +19,11 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   );
   const [isCollapsing, setIsCollapsing] = useState(false);
   const [expandTransitionDone, setExpandTransitionDone] = useState(isExpanded);
+  const collapseRafRef = useRef(0);
 
   // isExpanded / isHydrating → phase transitions
   useEffect(() => {
+    cancelAnimationFrame(collapseRafRef.current);
     if (isExpanded) {
       if (isHydrating) {
         setPhase("loading");
@@ -35,7 +37,7 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
         if (current === "expanded") {
           setIsCollapsing(true);
           setExpandTransitionDone(false);
-          requestAnimationFrame(() => {
+          collapseRafRef.current = requestAnimationFrame(() => {
             setPhase("collapsed");
             setIsCollapsing(false);
           });
@@ -46,6 +48,7 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
         return "collapsed";
       });
     }
+    return () => cancelAnimationFrame(collapseRafRef.current);
   }, [isExpanded, isHydrating]);
 
   // ready → expanded: one frame after browser paints collapsed content
