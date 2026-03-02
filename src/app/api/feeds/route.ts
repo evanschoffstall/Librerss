@@ -39,7 +39,6 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const UPSTREAM_FEED_ERROR_MESSAGE = "Failed to fetch feed from upstream";
-const UPSTREAM_REQUEST_ERROR_MESSAGE = "Upstream request failed";
 
 // ─── Dependency injection types (for testability) ─────────────────────────────
 
@@ -113,12 +112,8 @@ function handleUpstreamFeedError(
   }
 
   if (isAxiosError(error)) {
-    const upstreamStatus = error.response?.status;
-    const status =
-      typeof upstreamStatus === "number" && upstreamStatus >= 400
-        ? upstreamStatus
-        : 502;
-    const label = status === 502 ? "Bad Gateway" : "Upstream Error";
+    const status = 502;
+    const label = "Bad Gateway";
     warn(
       `Returning ${status} ${label} — upstream feed request failed${urlSuffix}: ${toMessage(error)}`,
       {
@@ -130,12 +125,7 @@ function handleUpstreamFeedError(
           : {}),
       },
     );
-    return toJsonError(
-      status === 502
-        ? UPSTREAM_FEED_ERROR_MESSAGE
-        : UPSTREAM_REQUEST_ERROR_MESSAGE,
-      status,
-    );
+    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, status);
   }
 
   return null;
