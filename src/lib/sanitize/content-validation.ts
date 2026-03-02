@@ -1,14 +1,9 @@
-import { logger } from "@/lib/logger";
 import {
   normalizeArticleHtmlSpacing,
   SOCIAL_SHARE_LINK_RE,
   toPlainText,
 } from "./cleaners";
 import { extractAttrValue } from "./patterns";
-
-function contentPreview(s: string, max = 200): string {
-  return s.length <= max ? s : `${s.slice(0, max)}…`;
-}
 
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
@@ -172,71 +167,27 @@ export function cleanExtractedArticleHtml(
   sanitizedContent: string,
   _articleUrl: string,
 ): string {
-  if (!sanitizedContent.trim()) {
-    logger.info(`[clean-html] input empty, returning ""`);
-    return "";
-  }
-
-  logger.info(`[clean-html] start`, {
-    inputChars: sanitizedContent.length,
-    inputPreview: contentPreview(sanitizedContent),
-  });
+  if (!sanitizedContent.trim()) return "";
 
   // Check boilerplate on original input before stripping removes detection markers.
   if (isLikelyNavFooterBoilerplate(sanitizedContent)) {
-    logger.info(`[clean-html] detected nav/footer boilerplate — discarding`, {
-      inputChars: sanitizedContent.length,
-      contentPreview: contentPreview(sanitizedContent),
-    });
     return "";
   }
 
   const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
-  const shareToolbarsRemoved =
-    withoutShareToolbars.length !== sanitizedContent.length;
-  if (shareToolbarsRemoved) {
-    logger.info(`[clean-html] stripped share/engagement toolbars`, {
-      removedChars: sanitizedContent.length - withoutShareToolbars.length,
-    });
-  }
 
   const withoutEngagementPrompts =
     stripCommentEngagementBoilerplate(withoutShareToolbars);
-  const engagementRemoved =
-    withoutEngagementPrompts.length !== withoutShareToolbars.length;
-  if (engagementRemoved) {
-    logger.info(`[clean-html] stripped comment/engagement boilerplate`, {
-      removedChars:
-        withoutShareToolbars.length - withoutEngagementPrompts.length,
-    });
-  }
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
-  if (withoutPromos.length !== withoutEngagementPrompts.length) {
-    logger.info(`[clean-html] stripped promotional CTA blocks`, {
-      removedChars: withoutEngagementPrompts.length - withoutPromos.length,
-    });
-  }
 
   const normalized = normalizeArticleHtmlSpacing(withoutPromos);
 
-  if (!normalized.trim()) {
-    logger.info(`[clean-html] content empty after normalization`);
-    return "";
-  }
+  if (!normalized.trim()) return "";
 
   if (isLikelyNavFooterBoilerplate(normalized)) {
-    logger.info(`[clean-html] detected nav/footer boilerplate — discarding`, {
-      normalizedChars: normalized.length,
-      contentPreview: contentPreview(normalized),
-    });
     return "";
   }
-
-  logger.info(`[clean-html] done`, {
-    outputChars: normalized.length,
-    outputPreview: contentPreview(normalized),
-  });
   return normalized;
 }
 
@@ -367,61 +318,30 @@ export function findArticleBody(
   html: string,
   minLength: number,
 ): string | null {
-  logger.info(`[find-body] searching for article body container`, {
-    htmlChars: html.length,
-    minLength,
-  });
-
   let body = findFirstByAttr(html, "itemprop", "articleBody");
   if (body && body.trim().length >= minLength) {
-    logger.info(`[find-body] matched itemprop="articleBody"`, {
-      bodyChars: body.length,
-    });
     return body;
   }
 
   body = findFirstByClassContains(html, CONTENT_CLASS_PATTERNS, minLength);
-  if (body) {
-    logger.info(`[find-body] matched content class pattern`, {
-      bodyChars: body.length,
-    });
-    return body;
-  }
+  if (body) return body;
 
   const articles = findAllByTag(html, "article");
   if (articles.length > 0) {
     body = articles.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) {
-      logger.info(
-        `[find-body] matched <article> tag (largest of ${articles.length})`,
-        { bodyChars: body.length },
-      );
-      return body;
-    }
+    if (body.trim().length >= minLength) return body;
   }
 
   for (const role of ["main", "article"] as const) {
     body = findFirstByAttr(html, "role", role);
-    if (body && body.trim().length >= minLength) {
-      logger.info(`[find-body] matched role="${role}"`, {
-        bodyChars: body.length,
-      });
-      return body;
-    }
+    if (body && body.trim().length >= minLength) return body;
   }
 
   const mains = findAllByTag(html, "main");
   if (mains.length > 0) {
     body = mains.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) {
-      logger.info(
-        `[find-body] matched <main> tag (largest of ${mains.length})`,
-        { bodyChars: body.length },
-      );
-      return body;
-    }
+    if (body.trim().length >= minLength) return body;
   }
 
-  logger.info(`[find-body] no suitable container found`);
   return null;
 }
