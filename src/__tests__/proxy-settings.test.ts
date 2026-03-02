@@ -105,7 +105,7 @@ describe("proxy settings API route", () => {
     const res = await GET(req, unreachableDeps);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.configured).toBe(false);
+    expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
     expect(body.status).toBe("unreachable");
   });
@@ -239,7 +239,7 @@ describe("proxy settings API route", () => {
     const res = await PUT(req, unreachableDeps);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.configured).toBe(false);
+    expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
     expect(body.status).toBe("unreachable");
   });

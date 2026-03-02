@@ -232,7 +232,7 @@ async function probeAndRespond(
   if (!reachable) logger.error(logLabel, { proxyUrl });
   return NextResponse.json({
     proxyUrl,
-    configured: reachable,
+    configured: true,
     status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
     allowInsecureTls,
   });

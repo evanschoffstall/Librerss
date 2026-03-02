@@ -171,9 +171,11 @@ export function SettingsProxySection() {
           checked={allowInsecureTls}
           disabled={saving}
           onCheckedChange={async (checked) => {
+            const currentUrl = proxyUrl.trim();
+            if (!currentUrl) return;
             setAllowInsecureTls(checked);
             try {
-              await ArticleService.saveProxyUrl(proxyUrl.trim() || null, {
+              await ArticleService.saveProxyUrl(currentUrl, {
                 allowInsecureTls: checked,
               });
             } catch {
