@@ -67,7 +67,7 @@ export default [
       "regexp/no-dupe-disjunctions": "error",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
-      "security/detect-unsafe-regex": "warn",
+      "security/detect-unsafe-regex": "error",
       "sonarjs/no-identical-functions": "error",
       "unicorn/no-abusive-eslint-disable": "error",
       eqeqeq: ["error", "always"],

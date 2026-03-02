@@ -9,7 +9,15 @@
  *   5. URL validation (MEDIUM)
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+beforeEach(() => {
+  mock.restore();
+});
+
+afterEach(() => {
+  mock.restore();
+});
 
 // ─── 1. Placeholder session token ────────────────────────────────────────────
 
@@ -668,20 +676,35 @@ describe("logger redaction", () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "info";
 
+    // Import Logger class directly to create a fresh instance
+    const { Logger } = await import("@/lib/logger");
+    const logger = new Logger();
+
     const logs: string[] = [];
-    const originalInfo = console.log;
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    // Override all console methods that the logger might use
     console.log = (message?: unknown) => {
       logs.push(String(message ?? ""));
     };
+    console.warn = (message?: unknown) => {
+      logs.push(String(message ?? ""));
+    };
+    console.error = (message?: unknown) => {
+      logs.push(String(message  ?? ""));
+    };
 
     try {
-      const { logger } = await import("@/lib/logger");
       logger.info("security-log", {
         token: "secret-token",
         nested: { authorization: "Bearer abc", email: "admin@example.test" },
       });
     } finally {
-      console.log = originalInfo;
+      console.log = originalLog;
+      console.warn = originalWarn;
+      console.error = originalError;
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;
       } else {

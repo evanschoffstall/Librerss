@@ -16,8 +16,8 @@ const BLOCKED_HOST_PATTERNS = [
   /^192\.168\./,
   /^172\.(1[6-9]|2\d|3[0-1])\./,
   /^::1$/i,
-  /^fc/i,
-  /^fd/i,
+  /^fc[0-9a-f]{2}:/i,
+  /^fd[0-9a-f]{2}:/i,
   /^fe80:/i,
 ] as const;
 

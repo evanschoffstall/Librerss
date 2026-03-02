@@ -159,11 +159,9 @@ function isBodyTooLargeByUtf8Length(raw: string, maxBytes: number): boolean {
 }
 
 export function parseNonNegativeInt(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    return null;
-  }
-
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
   return parsed;
 }
 

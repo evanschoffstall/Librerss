@@ -11,7 +11,7 @@ function getExpectedOrigin(request: Request): string | null {
   }
 
   const requestUrl = new URL(request.url);
-  return `${requestUrl.protocol}//${host}`.toLowerCase();
+  return new URL(`${requestUrl.protocol}//${host}`).origin.toLowerCase();
 }
 
 function isSameOrigin(value: string, expectedOrigin: string): boolean {
