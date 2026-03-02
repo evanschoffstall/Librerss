@@ -183,6 +183,13 @@ export class FeedService {
 export class ArticleService {
   private static baseUrl = "/api";
   private static greaderBaseUrl = "/api/greader.php/reader/api/0";
+  private static proxySettingsRequest: Promise<{
+    configured: boolean;
+    proxyUrl: string | null;
+    status: "reachable" | "unreachable" | "checking";
+    allowInsecureTls: boolean;
+    error?: string;
+  }> | null = null;
 
   private static streamContentsUrl(streamId: string): string {
     return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
@@ -228,8 +235,16 @@ export class ArticleService {
     allowInsecureTls: boolean;
     error?: string;
   }> {
-    const response = await getApiClient().get(`${this.baseUrl}/settings/proxy`);
-    return response.data;
+    if (!this.proxySettingsRequest) {
+      this.proxySettingsRequest = getApiClient()
+        .get(`${this.baseUrl}/settings/proxy`)
+        .then((response) => response.data)
+        .finally(() => {
+          this.proxySettingsRequest = null;
+        });
+    }
+
+    return this.proxySettingsRequest;
   }
 
   static async saveProxyUrl(

@@ -302,6 +302,29 @@ describe("ArticleService proxy methods", () => {
     expect(result.proxyUrl).toBe("http://proxy:8080");
   });
 
+  test("getProxySettings deduplicates concurrent requests", async () => {
+    let resolveRequest: (value: { data: { configured: boolean } }) => void =
+      () => {};
+
+    mockAxios.get = mock(
+      () =>
+        new Promise<{ data: { configured: boolean } }>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const first = ArticleService.getProxySettings();
+    const second = ArticleService.getProxySettings();
+
+    expect(mockAxios.get).toHaveBeenCalledTimes(1);
+
+    resolveRequest({ data: { configured: true } });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(firstResult.configured).toBe(true);
+    expect(secondResult.configured).toBe(true);
+  });
+
   test("saveProxyUrl calls PUT /api/settings/proxy with url", async () => {
     mockAxios.put = mock(async () => ({
       data: { configured: true, proxyUrl: "socks5://proxy:1080" },
