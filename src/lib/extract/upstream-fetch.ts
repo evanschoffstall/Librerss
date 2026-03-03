@@ -1,3 +1,4 @@
+import { toBodySnippet } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
@@ -12,6 +13,7 @@ import {
   ARTICLE_EXTRACT_SEC_CH_UA,
   EXTRACT_403_RETRIES,
   EXTRACT_FINGERPRINT_POOL,
+  PROXY_FINGERPRINT_POOL,
 } from "./constants";
 
 type FetchHtmlDeps = {
@@ -101,6 +103,65 @@ interface FingerprintFetchOptions {
   allowInsecureTls?: boolean;
   operatingSystem?: "windows" | "macos" | "linux";
   browserVersion?: number;
+  // Persistent cookie jar for this attempt — carries challenge cookies across
+  // redirect hops (PerimeterX/Cloudflare challenge→redirect→content flows).
+  cookieJar?: CookieJar;
+  // Per-version sec-ch-ua brand string override (each Chrome release changes
+  // the "not-a-brand" token format; explicit value avoids generator drift).
+  secChUa?: string;
+  // Navigation Accept header sent by this Chrome version (includes signed-exchange).
+  accept?: string;
+  // Referer header — signals organic navigation (search result click).
+  // DataDome's behavioral scorer treats zero-Referer direct GETs as high-risk.
+  referer?: string;
+}
+
+// Carries full got-scraping response context up to the retry loop so all
+// fields land in one consolidated error log rather than a separate non-2xx log.
+class GotScrapingError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly responseBody: string,
+    readonly proxyMode: string,
+    readonly proxyAddress: string | null,
+    readonly browserVersion: number,
+    readonly os: string,
+    readonly allowInsecureTls: boolean,
+    readonly redirectHop: number,
+    readonly responseHeaders: Record<string, string | string[] | undefined>,
+  ) {
+    super(`Upstream responded with status ${statusCode}`);
+  }
+}
+
+/**
+ * Extract a trimmed set of headers useful for diagnosing bot-detection blocks.
+ * Includes common CDN/WAF signals without leaking sensitive values.
+ */
+function pickDiagnosticHeaders(
+  headers: Record<string, string | string[] | undefined>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const KEEP = new Set([
+    "server",
+    "via",
+    "x-cache",
+    "cf-ray",
+    "x-datadome",
+    "retry-after",
+    "content-type",
+  ]);
+  for (const [k, v] of Object.entries(headers)) {
+    const lower = k.toLowerCase();
+    if (KEEP.has(lower) || lower.startsWith("x-px-")) {
+      out[lower] = v;
+    }
+  }
+  // Report set-cookie as a count only — values contain session tokens.
+  const sc = headers["set-cookie"];
+  const scCount = Array.isArray(sc) ? sc.length : sc ? 1 : 0;
+  if (scCount > 0) out["set-cookie-count"] = scCount;
+  return out;
 }
 
 export async function fetchHtmlWithFingerprint(
@@ -162,10 +223,6 @@ export async function fetchHtmlWithFingerprint(
         : "direct";
     const requestOs = options?.operatingSystem ?? "windows";
 
-    logger.info(
-      `got-scraping request: ${currentUrl} (${proxyMode}, ${requestOs}, chrome ${chromeVer})`,
-    );
-
     const response = await gotScraping.get(currentUrl, {
       headerGeneratorOptions: {
         browsers: [
@@ -175,6 +232,22 @@ export async function fetchHtmlWithFingerprint(
         locales: ["en-US"],
         operatingSystems: [options?.operatingSystem ?? "windows"],
       },
+      // Explicit header overrides: take precedence over generator output.
+      // sec-ch-ua: version-accurate brand string (format changes per major release).
+      // Accept: include signed-exchange which all Chrome navigation requests carry.
+      // Priority: navigation fetch priority sent by Chrome 116+.
+      ...(options?.secChUa || options?.accept || options?.referer
+        ? {
+            headers: {
+              ...(options.secChUa && { "sec-ch-ua": options.secChUa }),
+              ...(options.accept && { Accept: options.accept }),
+              ...(options.referer && { Referer: options.referer }),
+              Priority: "u=0, i",
+            },
+          }
+        : {}),
+      // Cookie jar: persists cookies set by challenge pages across redirect hops.
+      ...(options?.cookieJar ? { cookieJar: options.cookieJar } : {}),
       followRedirect: false,
       throwHttpErrors: false,
       timeout: { request: 25_000 },
@@ -186,10 +259,6 @@ export async function fetchHtmlWithFingerprint(
     });
 
     const responseBody = typeof response.body === "string" ? response.body : "";
-
-    logger.info(
-      `got-scraping response: ${response.statusCode} (${responseBody.length} bytes)`,
-    );
 
     if (response.statusCode >= 300 && response.statusCode < 400) {
       if (redirects === 5) {
@@ -210,26 +279,17 @@ export async function fetchHtmlWithFingerprint(
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      // Log full response body with complete request context for debugging
-      logger.error("got-scraping non-2xx response", {
-        url: currentUrl,
-        statusCode: response.statusCode,
-        redirectHop: redirects,
+      throw new GotScrapingError(
+        response.statusCode,
+        responseBody,
         proxyMode,
-        proxyAddress: options?.proxyUrl ?? null,
-        browserVersion: chromeVer,
-        os: requestOs,
-        allowInsecureTls: options?.allowInsecureTls ?? false,
-        body: responseBody,
-        bodyLength: responseBody.length,
-        remoteAddress:
-          (response as unknown as { socket?: { remoteAddress?: string } })
-            .socket?.remoteAddress ?? null,
-        remotePort:
-          (response as unknown as { socket?: { remotePort?: number } }).socket
-            ?.remotePort ?? null,
-      });
-      throw new Error(`Upstream responded with status ${response.statusCode}`);
+        options?.proxyUrl ?? null,
+        chromeVer,
+        requestOs,
+        options?.allowInsecureTls ?? false,
+        redirects,
+        response.headers as Record<string, string | string[] | undefined>,
+      );
     }
 
     if (
@@ -263,76 +323,87 @@ export async function fetchHtml(
   if (options?.useProxy && options.proxyUrl && !injectedGet) {
     let lastError: unknown;
     const attempts = 1 + EXTRACT_403_RETRIES;
-    // Use consistent Chrome version across attempts, vary OS only.
-    // Linux first - tends to bypass bot detection better (less bot traffic).
-    // Version 130 is stable and widely deployed (matches EXTRACT_FINGERPRINT_POOL).
-    const fingerprints: Array<{
-      os: "windows" | "macos" | "linux";
-      chromeVersion: number;
-    }> = [
-      { os: "linux", chromeVersion: 130 },
-      { os: "macos", chromeVersion: 130 },
-      { os: "windows", chromeVersion: 130 },
-    ];
 
     for (let attempt = 0; attempt < attempts; attempt++) {
       // Human-like delay between retries: base delay + random jitter.
+      let delayMs = 0;
       if (attempt > 0) {
-        const baseDelayMs = 800 * attempt;
-        const jitterMs = Math.floor(Math.random() * 400);
-        const delayMs = baseDelayMs + jitterMs;
-        logger.info(
-          `Proxy extraction retry ${attempt + 1}/${attempts} after ${delayMs}ms delay`,
-        );
+        delayMs = 800 * attempt + Math.floor(Math.random() * 400);
         await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
       }
 
-      const fp = fingerprints[attempt % fingerprints.length];
-      if (attempt === 0) {
-        logger.info(
-          `Proxy extraction attempt ${attempt + 1}/${attempts} (${fp.os}, chrome ${fp.chromeVersion})`,
-        );
-      }
+      const fp =
+        PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
 
       try {
-        return await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+        const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
           proxyUrl: options.proxyUrl,
           allowInsecureTls: options.allowInsecureTls,
           operatingSystem: fp.os,
           browserVersion: fp.chromeVersion,
+          cookieJar: new CookieJar(),
+          secChUa: fp.secChUa,
+          accept: fp.accept,
         });
+        logger.info(
+          `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
+          {
+            url,
+            attempt: attempt + 1,
+            attempts,
+            delayMs: attempt > 0 ? delayMs : undefined,
+            operatingSystem: fp.os,
+            chromeVersion: fp.chromeVersion,
+            proxyMode: SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
+              ? "socks"
+              : "http",
+            proxyAddress: options.proxyUrl,
+            allowInsecureTls: options.allowInsecureTls ?? false,
+            secChUa: fp.secChUa,
+            accept: fp.accept,
+            responseBodyLength: html.length,
+          },
+        );
+        return html;
       } catch (err) {
         lastError = err;
         const is403 =
           err instanceof Error &&
           /upstream responded with status 403/i.test(err.message);
-
         const willRetry = is403 && attempt < attempts - 1;
+        const gsErr = err instanceof GotScrapingError ? err : null;
 
         logger.error(
           `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
           {
             url,
-            proxyAddress: options.proxyUrl,
+            attempt: attempt + 1,
+            attempts,
+            delayMs: attempt > 0 ? delayMs : undefined,
             operatingSystem: fp.os,
             chromeVersion: fp.chromeVersion,
+            proxyMode: gsErr?.proxyMode,
+            proxyAddress: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls ?? false,
+            secChUa: fp.secChUa,
+            accept: fp.accept,
+            ...(gsErr && {
+              statusCode: gsErr.statusCode,
+              redirectHop: gsErr.redirectHop,
+              responseBodyLength: gsErr.responseBody.length,
+              responseBodySnippet: toBodySnippet(gsErr.responseBody),
+              responseHeaders: pickDiagnosticHeaders(gsErr.responseHeaders),
+            }),
             error: err instanceof Error ? err.message : String(err),
-            previousError:
-              attempt > 0 && lastError instanceof Error
-                ? lastError.message
-                : undefined,
-            note:
-              !willRetry && is403
-                ? "Site may be blocking proxy IP or requires manual access"
-                : undefined,
+            ...(!willRetry &&
+              is403 && {
+                note: "Site may be blocking proxy IP or requires manual access",
+              }),
           },
         );
 
         // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
-        if (willRetry) {
-          continue;
-        }
+        if (willRetry) continue;
         throw err;
       }
     }
@@ -344,6 +415,10 @@ export async function fetchHtml(
   // Rotating axios fingerprints won't help — the block is at TLS/IP level.
   // The browser fallback runs after the loop exits.
   let dataDomeDetected = false;
+  // Cookies captured from a DataDome 403 response. DataDome's challenge flow sets
+  // a `datadome` cookie on the 403 — the follow-up request must carry it or the
+  // TLS-fallback will receive the same 403 despite the improved fingerprint.
+  let dataDomeChallengeSetCookies: string[] = [];
   // Set to true when PerimeterX (px-captcha challenge page or x-px-* headers) is
   // detected on a 403.  Same reasoning as DataDome — TLS fingerprint is the
   // distinguishing signal; UA rotation alone won't bypass it.
@@ -434,7 +509,7 @@ export async function fetchHtml(
             "User-Agent": ua,
             // Chrome 130 Accept header with modern image format support.
             Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "en-US,en;q=0.9",
             // Chrome 130 supports zstd in addition to gzip/deflate/br.
             "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -476,6 +551,14 @@ export async function fetchHtml(
                 // operates at TLS (JA3) and IP-reputation level. Mark the flag so
                 // the catch block exits the loop and the browser fallback runs.
                 dataDomeDetected = true;
+                // Capture any cookies DataDome set on this 403 — they must be
+                // carried to the got-scraping fallback so the challenge is satisfied.
+                const setCookie = error.response?.headers?.["set-cookie"];
+                if (Array.isArray(setCookie)) {
+                  dataDomeChallengeSetCookies = setCookie;
+                } else if (typeof setCookie === "string") {
+                  dataDomeChallengeSetCookies = [setCookie];
+                }
                 throw new Error(
                   "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
                 );
@@ -530,9 +613,45 @@ export async function fetchHtml(
       `TLS fingerprint fallback started (${provider}, ${connectionMode})`,
     );
     try {
+      // Pre-seed the cookie jar with any cookies from the DataDome challenge
+      // response so the follow-up got-scraping request carries them.
+      const fallbackJar = new CookieJar();
+      for (const raw of dataDomeChallengeSetCookies) {
+        try {
+          fallbackJar.setCookieSync(raw, url);
+        } catch {
+          // Malformed Set-Cookie — skip silently.
+        }
+      }
+      // Derive a search query from the URL slug — approximates the article
+      // title without requiring it to be threaded through the call stack.
+      const ddgQuery = (() => {
+        try {
+          const segments = new URL(url).pathname.split("/").filter(Boolean);
+          const slug = segments[segments.length - 1] ?? "";
+          return (
+            slug
+              .replace(/\.[^.]+$/, "") // strip extension
+              .replace(/[-_]/g, " ")
+              .trim() || "news right now"
+          );
+        } catch {
+          return "news right now";
+        }
+      })();
       const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
         proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
         allowInsecureTls: options?.allowInsecureTls,
+        // Use the best fingerprint entry from the proxy pool for TLS spoofing.
+        operatingSystem: PROXY_FINGERPRINT_POOL[0].os,
+        browserVersion: PROXY_FINGERPRINT_POOL[0].chromeVersion,
+        secChUa: PROXY_FINGERPRINT_POOL[0].secChUa,
+        accept: PROXY_FINGERPRINT_POOL[0].accept,
+        cookieJar: fallbackJar,
+        // Mimic a search-result click — DataDome scores zero-Referer direct
+        // GETs as high-risk bots; a referrer from a DDG results page for the
+        // article title lowers the behavioral risk score.
+        referer: `https://duckduckgo.com/?q=${encodeURIComponent(ddgQuery)}&ia=web`,
       });
       logger.info(
         `TLS fingerprint fallback succeeded (${provider}, ${html.length} bytes)`,
