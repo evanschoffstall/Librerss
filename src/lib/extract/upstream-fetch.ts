@@ -85,6 +85,7 @@ function buildProxyConfig(
       };
     return result;
   } catch {
+    // Invalid proxy URL - return false
     return false;
   }
 }
@@ -98,6 +99,8 @@ const extractionAxios = cookieJarWrapper(axios.create());
 interface FingerprintFetchOptions {
   proxyUrl?: string;
   allowInsecureTls?: boolean;
+  operatingSystem?: "windows" | "macos" | "linux";
+  browserVersion?: number;
 }
 
 export async function fetchHtmlWithFingerprint(
@@ -125,21 +128,52 @@ export async function fetchHtmlWithFingerprint(
       SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol);
     const proxyOpts = options?.proxyUrl
       ? isSocksProxy
-        ? {
-            agent: {
-              http: new SocksProxyAgent(options.proxyUrl),
-              https: new SocksProxyAgent(options.proxyUrl),
-            },
-          }
+        ? (() => {
+            const httpAgent = new SocksProxyAgent(options.proxyUrl!);
+            const httpsAgent = new SocksProxyAgent(options.proxyUrl!);
+            // Apply allowInsecureTls override to SOCKS agents.
+            // When the agent establishes the TLS connection, got-scraping's
+            // https.rejectUnauthorized option has no effect, so we must
+            // override the agent's connect method directly.
+            if (options.allowInsecureTls === true) {
+              const origConnectHttp = httpAgent.connect.bind(httpAgent);
+              httpAgent.connect = (req, opts) =>
+                origConnectHttp(req, {
+                  ...opts,
+                  rejectUnauthorized: false,
+                } as typeof opts);
+              const origConnectHttps = httpsAgent.connect.bind(httpsAgent);
+              httpsAgent.connect = (req, opts) =>
+                origConnectHttps(req, {
+                  ...opts,
+                  rejectUnauthorized: false,
+                } as typeof opts);
+            }
+            return { agent: { http: httpAgent, https: httpsAgent } };
+          })()
         : { proxyUrl: options.proxyUrl }
       : {};
 
+    const chromeVer = options?.browserVersion ?? 130;
+    const proxyMode = isSocksProxy
+      ? "socks"
+      : options?.proxyUrl
+        ? "http"
+        : "direct";
+    const requestOs = options?.operatingSystem ?? "windows";
+
+    logger.info(
+      `got-scraping request: ${currentUrl} (${proxyMode}, ${requestOs}, chrome ${chromeVer})`,
+    );
+
     const response = await gotScraping.get(currentUrl, {
       headerGeneratorOptions: {
-        browsers: [{ name: "chrome", minVersion: 130, maxVersion: 130 }],
+        browsers: [
+          { name: "chrome", minVersion: chromeVer, maxVersion: chromeVer },
+        ],
         devices: ["desktop"],
         locales: ["en-US"],
-        operatingSystems: ["windows"],
+        operatingSystems: [options?.operatingSystem ?? "windows"],
       },
       followRedirect: false,
       throwHttpErrors: false,
@@ -150,6 +184,12 @@ export async function fetchHtmlWithFingerprint(
       responseType: "text",
       ...proxyOpts,
     });
+
+    const responseBody = typeof response.body === "string" ? response.body : "";
+
+    logger.info(
+      `got-scraping response: ${response.statusCode} (${responseBody.length} bytes)`,
+    );
 
     if (response.statusCode >= 300 && response.statusCode < 400) {
       if (redirects === 5) {
@@ -170,15 +210,36 @@ export async function fetchHtmlWithFingerprint(
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      // Log full response body with complete request context for debugging
+      logger.error("got-scraping non-2xx response", {
+        url: currentUrl,
+        statusCode: response.statusCode,
+        redirectHop: redirects,
+        proxyMode,
+        proxyAddress: options?.proxyUrl ?? null,
+        browserVersion: chromeVer,
+        os: requestOs,
+        allowInsecureTls: options?.allowInsecureTls ?? false,
+        body: responseBody,
+        bodyLength: responseBody.length,
+        remoteAddress:
+          (response as unknown as { socket?: { remoteAddress?: string } })
+            .socket?.remoteAddress ?? null,
+        remotePort:
+          (response as unknown as { socket?: { remotePort?: number } }).socket
+            ?.remotePort ?? null,
+      });
       throw new Error(`Upstream responded with status ${response.statusCode}`);
     }
 
-    const body = typeof response.body === "string" ? response.body : "";
-    if (Buffer.byteLength(body, "utf8") > CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES) {
+    if (
+      Buffer.byteLength(responseBody, "utf8") >
+      CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
+    ) {
       throw new Error("Upstream response too large");
     }
 
-    return body;
+    return responseBody;
   }
 
   throw new Error("Too many redirects");
@@ -196,14 +257,86 @@ export async function fetchHtml(
   // original single-attempt behaviour — cookie jar and retry are production-only.
   const injectedGet = deps?.axiosGetFn;
 
-  // Proxy mode is explicitly single-attempt using got-scraping. This avoids
-  // mixed axios->fallback behavior and sends the request once with browser-like
-  // TLS fingerprinting from the start.
+  // Proxy mode with retry logic: got-scraping provides browser-like TLS fingerprinting
+  // from the start, but we still need multiple attempts with different OS/browser fingerprints
+  // to handle sites that block based on proxy IP reputation or require multiple probes.
   if (options?.useProxy && options.proxyUrl && !injectedGet) {
-    return fetchHtmlWithFingerprint(url, isAllowedUrl, {
-      proxyUrl: options.proxyUrl,
-      allowInsecureTls: options.allowInsecureTls,
-    });
+    let lastError: unknown;
+    const attempts = 1 + EXTRACT_403_RETRIES;
+    // Use consistent Chrome version across attempts, vary OS only.
+    // Linux first - tends to bypass bot detection better (less bot traffic).
+    // Version 130 is stable and widely deployed (matches EXTRACT_FINGERPRINT_POOL).
+    const fingerprints: Array<{
+      os: "windows" | "macos" | "linux";
+      chromeVersion: number;
+    }> = [
+      { os: "linux", chromeVersion: 130 },
+      { os: "macos", chromeVersion: 130 },
+      { os: "windows", chromeVersion: 130 },
+    ];
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      // Human-like delay between retries: base delay + random jitter.
+      if (attempt > 0) {
+        const baseDelayMs = 800 * attempt;
+        const jitterMs = Math.floor(Math.random() * 400);
+        const delayMs = baseDelayMs + jitterMs;
+        logger.info(
+          `Proxy extraction retry ${attempt + 1}/${attempts} after ${delayMs}ms delay`,
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      const fp = fingerprints[attempt % fingerprints.length];
+      if (attempt === 0) {
+        logger.info(
+          `Proxy extraction attempt ${attempt + 1}/${attempts} (${fp.os}, chrome ${fp.chromeVersion})`,
+        );
+      }
+
+      try {
+        return await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+          proxyUrl: options.proxyUrl,
+          allowInsecureTls: options.allowInsecureTls,
+          operatingSystem: fp.os,
+          browserVersion: fp.chromeVersion,
+        });
+      } catch (err) {
+        lastError = err;
+        const is403 =
+          err instanceof Error &&
+          /upstream responded with status 403/i.test(err.message);
+
+        const willRetry = is403 && attempt < attempts - 1;
+
+        logger.error(
+          `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
+          {
+            url,
+            proxyAddress: options.proxyUrl,
+            operatingSystem: fp.os,
+            chromeVersion: fp.chromeVersion,
+            allowInsecureTls: options.allowInsecureTls ?? false,
+            error: err instanceof Error ? err.message : String(err),
+            previousError:
+              attempt > 0 && lastError instanceof Error
+                ? lastError.message
+                : undefined,
+            note:
+              !willRetry && is403
+                ? "Site may be blocking proxy IP or requires manual access"
+                : undefined,
+          },
+        );
+
+        // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
+        if (willRetry) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError;
   }
 
   let lastError: unknown;
@@ -392,24 +525,25 @@ export async function fetchHtml(
   // the original error so existing test contracts are unchanged.
   if ((dataDomeDetected || perimeterXDetected) && !injectedGet) {
     const provider = dataDomeDetected ? "DataDome" : "PerimeterX";
-    logger.info(`TLS fingerprint fallback started (${provider})`, {
-      url,
-      connectionMode: options?.useProxy ? "proxy" : "direct",
-      proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
-    });
+    const connectionMode = options?.useProxy ? "proxy" : "direct";
+    logger.info(
+      `TLS fingerprint fallback started (${provider}, ${connectionMode})`,
+    );
     try {
       const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
         proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
         allowInsecureTls: options?.allowInsecureTls,
       });
-      logger.info(`TLS fingerprint fallback succeeded (${provider})`, {
-        url,
-        bytes: html.length,
-      });
+      logger.info(
+        `TLS fingerprint fallback succeeded (${provider}, ${html.length} bytes)`,
+      );
       return html;
     } catch (fallbackErr) {
       logger.error(`TLS fingerprint fallback failed (${provider})`, {
         url,
+        connectionMode,
+        proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
+        allowInsecureTls: options?.allowInsecureTls ?? false,
         error:
           fallbackErr instanceof Error
             ? fallbackErr.message

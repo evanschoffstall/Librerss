@@ -7,12 +7,12 @@ import {
 } from "@/lib/extract";
 import {
   buildMetadataImageFallbackHtml,
-  cleanExtractedArticleHtml,
+  cleanSanitizedHtml,
   hasReadableArticleBody,
   isLikelyNavFooterBoilerplate,
   normalizeArticleHtmlSpacing,
-  preCleanHtmlForExtraction,
-  sanitizeExtractedContent,
+  preCleanHtml,
+  sanitizeRawContent,
   stripCommentEngagementBoilerplate,
   toParagraphHtml,
 } from "@/lib/sanitize";
@@ -98,7 +98,7 @@ describe("article extract cleanup", () => {
       </ul>
     `;
 
-    const cleaned = cleanExtractedArticleHtml(input, SPECIAL_CASE_STORY_URL);
+    const cleaned = cleanSanitizedHtml(input, SPECIAL_CASE_STORY_URL);
 
     // Generic pipeline keeps mixed content when nav/footer threshold is not reached.
     expect(cleaned).toContain("Real article paragraph one");
@@ -122,7 +122,7 @@ describe("article extract cleanup", () => {
       </ul>
     `;
 
-    const cleaned = cleanExtractedArticleHtml(
+    const cleaned = cleanSanitizedHtml(
       footerOnly,
       SPECIAL_CASE_STORY_URL,
     );
@@ -139,7 +139,7 @@ describe("article extract cleanup", () => {
       <p>Normal content</p>
     `;
 
-    const cleaned = cleanExtractedArticleHtml(
+    const cleaned = cleanSanitizedHtml(
       input,
       "https://example.com/article",
     );
@@ -148,11 +148,11 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("<p>About</p>");
   });
 
-  describe("preCleanHtmlForExtraction", () => {
+  describe("preCleanHtml", () => {
     test("removes <script> and <style> blocks", () => {
       const html =
         "<p>article</p><script>alert(1)</script><style>.x{}</style><p>more</p>";
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
       expect(result).not.toContain("<script>");
       expect(result).not.toContain("<style>");
       expect(result).toContain("article");
@@ -166,7 +166,7 @@ describe("article extract cleanup", () => {
         "<li><a href='/privacy'>Privacy</a></li>" +
         "<li><a href='/terms'>Terms</a></li></ul></nav>" +
         "<p>© 2025 Publisher Inc.</p></footer>";
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
       expect(result).toContain("Article body.");
       expect(result).not.toContain("Privacy");
       expect(result).not.toContain("© 2025");
@@ -177,7 +177,7 @@ describe("article extract cleanup", () => {
         "<header><nav><a href='/'>Home</a><a href='/about'>About</a></nav>" +
         "<div class='site-masthead'>Publisher Name</div></header>" +
         "<p>Article paragraph one.</p><p>Article paragraph two.</p>";
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
       expect(result).toContain("Article paragraph one.");
       expect(result).not.toContain("site-masthead");
       expect(result).not.toContain("Publisher Name");
@@ -188,7 +188,7 @@ describe("article extract cleanup", () => {
         "<header><a href='/'>Home</a></header>" +
         "<p>Real content here.</p>" +
         "<footer><p>Copyright notice</p></footer>";
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
       expect(result).toContain("Real content here.");
       expect(result).not.toContain("Copyright notice");
       expect(result).not.toContain("<header");
@@ -197,7 +197,7 @@ describe("article extract cleanup", () => {
 
     test("handles HTML without header or footer unchanged in structure", () => {
       const html = "<div><p>Just an article.</p></div>";
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
       expect(result).toContain("Just an article.");
     });
 
@@ -205,7 +205,7 @@ describe("article extract cleanup", () => {
       const html =
         "<p>Article text.</p>" +
         '<div id="viafoura-comments"><p>Leave a comment</p></div>';
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
       expect(result).toContain("Article text.");
       expect(result).not.toContain("Leave a comment");
     });
@@ -222,7 +222,7 @@ describe("article extract cleanup", () => {
         "</noscript>" +
         "<noscript><a href='/privacy'>Privacy</a></noscript>";
 
-      const result = preCleanHtmlForExtraction(html);
+      const result = preCleanHtml(html);
 
       expect(result).toContain("President Donald Trump");
       expect(result).toContain("would-be dictator");
@@ -236,27 +236,27 @@ describe("article extract cleanup", () => {
     expect(html).toContain("<p>Two</p>");
   });
 
-  test("sanitizeExtractedContent returns empty for blank content", () => {
-    expect(sanitizeExtractedContent("   ")).toBe("");
+  test("sanitizeRawContent returns empty for blank content", () => {
+    expect(sanitizeRawContent("   ")).toBe("");
   });
 
-  test("sanitizeExtractedContent wraps plain text and keeps safe markup", () => {
-    const cleaned = sanitizeExtractedContent("Headline\n\nSecond paragraph");
+  test("sanitizeRawContent wraps plain text and keeps safe markup", () => {
+    const cleaned = sanitizeRawContent("Headline\n\nSecond paragraph");
     expect(cleaned).toContain("<p>");
     expect(cleaned).toContain("Headline");
     expect(cleaned).toContain("Second paragraph");
   });
 
-  test("sanitizeExtractedContent sanitizes existing html input", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent sanitizes existing html input", () => {
+    const cleaned = sanitizeRawContent(
       "<p>Safe</p><script>alert(1)</script>",
     );
     expect(cleaned).toContain("Safe");
     expect(cleaned).not.toContain("<script>");
   });
 
-  test("sanitizeExtractedContent preserves figures and promotes lazy image sources", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent preserves figures and promotes lazy image sources", () => {
+    const cleaned = sanitizeRawContent(
       '<figure><img data-src="/images/article.jpg" alt="Hero" width="800" height="600" /></figure>',
     );
 
@@ -264,8 +264,8 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain('src="/images/article.jpg"');
   });
 
-  test("sanitizeExtractedContent keeps image content wrapped by section containers", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent keeps image content wrapped by section containers", () => {
+    const cleaned = sanitizeRawContent(
       '<section><article><div><p><img src="https://example.com/hero.jpg" alt="Hero" width="800" height="600" /></p></div></article></section><p>Body text</p>',
     );
 
@@ -273,8 +273,8 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body text");
   });
 
-  test("sanitizeExtractedContent recovers exactly one section-wrapped image when sanitizer drops wrappers", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent recovers exactly one section-wrapped image when sanitizer drops wrappers", () => {
+    const cleaned = sanitizeRawContent(
       '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" width="800" height="600" /></p></article></section><p>Story body.</p>',
     );
 
@@ -284,8 +284,8 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Story body.");
   });
 
-  test("sanitizeExtractedContent recovers multiple safe section-wrapped images when none survive sanitizer output", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent recovers multiple safe section-wrapped images when none survive sanitizer output", () => {
+    const cleaned = sanitizeRawContent(
       '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" width="800" height="600" /></p><p><img src="https://example.com/cartoon.jpg" alt="Cartoon" width="800" height="600" /></p></article></section><p>Story body.</p>',
     );
 
@@ -296,8 +296,8 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Story body.");
   });
 
-  test("sanitizeExtractedContent does not duplicate image when one is already preserved", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent does not duplicate image when one is already preserved", () => {
+    const cleaned = sanitizeRawContent(
       '<p><img src="https://example.com/inline.jpg" alt="Inline" width="800" height="600" /></p><p>Body copy.</p>',
     );
 
@@ -307,8 +307,8 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body copy.");
   });
 
-  test("sanitizeExtractedContent removes direct tiny placeholder images below minimum size", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent removes direct tiny placeholder images below minimum size", () => {
+    const cleaned = sanitizeRawContent(
       '<img src="https://static.example.com/grey-placeholder.png" width="150" height="84" alt="placeholder" /><p>Article body.</p>',
     );
 
@@ -316,8 +316,8 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Article body.");
   });
 
-  test("sanitizeExtractedContent filters recovered tiny images below minimum size", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent filters recovered tiny images below minimum size", () => {
+    const cleaned = sanitizeRawContent(
       '<section><article><p><img src="https://example.com/tiny.jpg" width="24" height="24" alt="Tiny" /></p></article></section><p>Body text remains.</p>',
     );
 
@@ -340,14 +340,14 @@ describe("article extract cleanup", () => {
     expect(cleaned.toLowerCase()).not.toContain("please logout");
   });
 
-  test("cleanExtractedArticleHtml removes leaked comment-gate paragraphs for non-special domains", () => {
+  test("cleanSanitizedHtml removes leaked comment-gate paragraphs for non-special domains", () => {
     const input =
       "<p>Lead paragraph.</p>" +
       "<p>You must confirm your public display name before commenting</p>" +
       "<p>Please logout and then login again, you will then be prompted to enter your display name.</p>" +
       "<p>Second paragraph.</p>";
 
-    const cleaned = cleanExtractedArticleHtml(
+    const cleaned = cleanSanitizedHtml(
       input,
       "https://www.livescience.com/archaeology/neanderthal-human-interbreeding",
     );
@@ -358,8 +358,8 @@ describe("article extract cleanup", () => {
     expect(cleaned.toLowerCase()).not.toContain("please logout");
   });
 
-  test("sanitizeExtractedContent removes known placeholder image URLs without dimensions", () => {
-    const cleaned = sanitizeExtractedContent(
+  test("sanitizeRawContent removes known placeholder image URLs without dimensions", () => {
+    const cleaned = sanitizeRawContent(
       '<section><article><p><img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="Placeholder" /></p></article></section><p>Body text remains.</p>',
     );
 
@@ -832,8 +832,8 @@ describe("article extract cleanup", () => {
         title: "Title",
         content: "<p>Real article content here that is long enough.</p>",
       }),
-      sanitizeExtractedContentFn: (c) => c,
-      cleanExtractedArticleHtmlFn: (c) => c,
+      sanitizeRawContentFn: (c) => c,
+      cleanSanitizedHtmlFn: (c) => c,
       warnFn: mock(() => {}),
     });
 
@@ -850,8 +850,8 @@ describe("article extract cleanup", () => {
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: async () => "<html />",
       extractFromHtmlFn: async () => null,
-      sanitizeExtractedContentFn: (c) => c,
-      cleanExtractedArticleHtmlFn: (c) => c,
+      sanitizeRawContentFn: (c) => c,
+      cleanSanitizedHtmlFn: (c) => c,
       infoFn: mock(() => {}),
       warnFn: warnFn as any,
     });
@@ -870,8 +870,8 @@ describe("article extract cleanup", () => {
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: async () => "<html />",
       extractFromHtmlFn: async () => ({ title: "T", content: "<p>stuff</p>" }),
-      sanitizeExtractedContentFn: () => "",
-      cleanExtractedArticleHtmlFn: () => "",
+      sanitizeRawContentFn: () => "",
+      cleanSanitizedHtmlFn: () => "",
       infoFn: mock(() => {}),
       warnFn: warnFn as any,
     });
@@ -1001,8 +1001,8 @@ describe("article extract cleanup", () => {
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: fetchHtmlFn as any,
       extractFromHtmlFn: extractFromHtmlFn as any,
-      sanitizeExtractedContentFn: (content: string) => content,
-      cleanExtractedArticleHtmlFn: (content: string) => content,
+      sanitizeRawContentFn: (content: string) => content,
+      cleanSanitizedHtmlFn: (content: string) => content,
       getHostnameFn: () => "example.com",
       infoFn: infoFn as any,
       warnFn: warnFn as any,
@@ -1038,8 +1038,8 @@ describe("article extract cleanup", () => {
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       fetchHtmlFn: fetchHtmlFn as any,
       extractFromHtmlFn: extractFromHtmlFn as any,
-      sanitizeExtractedContentFn: (content: string) => content,
-      cleanExtractedArticleHtmlFn: (content: string) => content,
+      sanitizeRawContentFn: (content: string) => content,
+      cleanSanitizedHtmlFn: (content: string) => content,
       getHostnameFn: () => "example.com",
       infoFn: infoFn as any,
       warnFn: warnFn as any,

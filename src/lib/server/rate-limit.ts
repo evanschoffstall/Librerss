@@ -42,7 +42,8 @@ export class RateLimiter {
 
   private cleanup(): void {
     const now = Date.now();
-    for (const [key, entry] of this.store.entries()) {
+    // Snapshot entries to avoid mutation-during-iteration edge cases
+    for (const [key, entry] of Array.from(this.store.entries())) {
       if (entry.resetAt < now) {
         this.store.delete(key);
       }
@@ -57,10 +58,13 @@ export class RateLimiter {
     // TRUSTED_PROXY_COUNT (default: 1) — number of proxy hops you control.
     // Set to 0 in direct-to-internet deployments where no proxy header is
     // present; all clients will share a single "unknown" bucket in that case.
-    const trustedProxies = Math.max(
-      0,
-      Number(process.env.TRUSTED_PROXY_COUNT ?? "1"),
-    );
+    const rawTrustedProxies = Number(process.env.TRUSTED_PROXY_COUNT ?? "1");
+    if (!Number.isFinite(rawTrustedProxies)) {
+      throw new Error(
+        `Invalid TRUSTED_PROXY_COUNT: "${process.env.TRUSTED_PROXY_COUNT}". Must be a number.`,
+      );
+    }
+    const trustedProxies = Math.max(0, rawTrustedProxies);
 
     if (trustedProxies > 0) {
       const forwarded = request.headers.get("x-forwarded-for");

@@ -16,7 +16,7 @@ function recoverSanitizedImageHtml(rawHtml: string): string {
   return recovered.join("\n");
 }
 
-export function sanitizeExtractedContent(rawContent: string): string {
+export function sanitizeRawContent(rawContent: string): string {
   const normalized = rawContent.trim();
   if (!normalized) return "";
 

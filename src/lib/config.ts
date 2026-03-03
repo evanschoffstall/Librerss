@@ -140,14 +140,70 @@ const resolveConfigValue = (key: string): unknown => {
   return envNumber(key);
 };
 
-// CONFIG is typed `any` because this is a dynamic Proxy: each key returns a
-// different type (number | boolean | string) based on the key name suffix, and
-// TypeScript cannot express per-key types on a runtime Proxy trap. The parse/
-// validate guarantees happen inside `resolveConfigValue`; call sites rely on
-// conventional key naming (e.g. _MAX_, _ENABLED) for correctness.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const CONFIG: any = new Proxy<Record<string, unknown>>(
-  {},
+// CONFIG uses a Proxy for dynamic env key resolution. Each key returns a type
+// based on its suffix convention (_ENABLED → boolean, _MAX_ → number, etc.).
+// TypeScript cannot express per-key return types on runtime Proxy traps, so we
+// use a mapped type with known keys + an index signature fallback. This
+// satisfies the no-boundary-any requirement while preserving runtime flexibility.
+
+type ConfigKeys = {
+  // ── Booleans (suffix _ENABLED) ──
+  FEED_REFRESH_DIAGNOSTICS_ENABLED: boolean;
+
+  // ── Numbers (various suffixes) ──
+  MAX_JSON_BODY_BYTES: number;
+  MAX_FEED_NAME_LENGTH: number;
+  MAX_CATEGORY_NAME_LENGTH: number;
+  PASSWORD_MAX_LENGTH: number;
+  PASSWORD_MIN_LENGTH: number;
+  PASSWORD_COMPLEXITY_REQUIRED_TYPES: number;
+  MAX_EMAIL_LENGTH: number;
+  SESSION_DURATION_DAYS: number;
+  MAX_SESSIONS_PER_USER: number;
+  RATE_LIMIT_FEED_WINDOW_MS: number;
+  RATE_LIMIT_FEED_MAX_REQUESTS: number;
+  RATE_LIMIT_AUTH_WINDOW_MS: number;
+  RATE_LIMIT_AUTH_MAX_REQUESTS: number;
+  RATE_LIMIT_LOGIN_WINDOW_MS: number;
+  RATE_LIMIT_LOGIN_MAX_ATTEMPTS: number;
+  RATE_LIMIT_SIGNUP_WINDOW_MS: number;
+  RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: number;
+  RATE_LIMIT_EXTRACT_WINDOW_MS: number;
+  RATE_LIMIT_EXTRACT_MAX_REQUESTS: number;
+  RATE_LIMIT_FEED_BATCH_WINDOW_MS: number;
+  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: number;
+  FEED_CACHE_TTL_MINUTES: number;
+  FEED_FORCE_REFRESH_TTL_MINUTES: number;
+  FEED_REQUEST_TIMEOUT_MS: number;
+  FEED_MAX_REDIRECTS: number;
+  FEED_BATCH_CONCURRENCY: number;
+  FEED_BATCH_MAX_URLS: number;
+  MAX_ARTICLES_PER_FEED: number;
+  MAX_ALL_ARTICLES_LIMIT: number;
+  MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: number;
+  MAX_ARTICLE_TITLE_LENGTH: number;
+  MAX_ARTICLE_CONTENT_LENGTH: number;
+  MAX_FEED_RESPONSE_SIZE_BYTES: number;
+  MIN_ARTICLE_IMAGE_WIDTH_PX: number;
+  MIN_ARTICLE_IMAGE_HEIGHT_PX: number;
+  DNS_LOOKUP_TIMEOUT_MS: number;
+  DNS_CACHE_TTL_MS: number;
+  DNS_CACHE_MAX_ENTRIES: number;
+  GREADER_MAX_STREAM_ITEMS: number;
+  GREADER_DEFAULT_STREAM_ITEMS: number;
+  GREADER_NETNEWSWIRE_MAX_ITEMS: number;
+  OPML_MAX_IMPORT_ENTRIES: number;
+
+  // ── Strings (user agent, accept headers) ──
+  FEED_REQUEST_USER_AGENT: string;
+  FEED_REQUEST_ACCEPT: string;
+
+  // ── Enum ──
+  LOG_LEVEL: "none" | "error" | "warn" | "info" | "verbose";
+};
+
+export const CONFIG = new Proxy<ConfigKeys & Record<string, unknown>>(
+  {} as ConfigKeys & Record<string, unknown>,
   {
     get: (_target, property) => {
       if (typeof property !== "string") {
@@ -157,4 +213,4 @@ export const CONFIG: any = new Proxy<Record<string, unknown>>(
       return resolveConfigValue(property);
     },
   },
-);
+) as ConfigKeys;

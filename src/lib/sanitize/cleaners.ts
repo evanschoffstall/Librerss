@@ -1,7 +1,12 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
-import { extractAttrValue, hasApJunkClass, isRelatedHeading } from "./patterns";
+import {
+  hasApJunkClass,
+  isRelatedHeading,
+  manipulateAttrValue,
+} from "./patterns";
+import { purifyRawHtml } from "./purify";
 
-function normalizeNoscriptForExtraction(rawHtml: string): string {
+function normalizeNoscriptForManipulation(rawHtml: string): string {
   return rawHtml.replace(
     /<noscript\b[^>]*>([\s\S]*?)<\/noscript>/gi,
     (_match, innerHtml: string) => {
@@ -290,7 +295,7 @@ function removeElementsByAttrPattern(
   let result = html;
   let match: RegExpExecArray | null;
   while ((match = openRe.exec(result)) !== null) {
-    const attrValue = extractAttrValue(match[2] ?? "", attr);
+    const attrValue = manipulateAttrValue(match[2] ?? "", attr);
     if (attrValue === null || !pattern.test(attrValue)) continue;
     const tagName = match[1]!.toLowerCase();
     const afterOpen = match.index + match[0].length;
@@ -327,10 +332,17 @@ export const SOCIAL_SHARE_LINK_RE =
 /**
  * Strip noise containers (scripts, styles, headers, footers, comment widgets,
  * pure-link lists, social share blocks, nosnippet asides) from raw HTML before
- * passing to the content extractor.
+ * passing to the content manipulator.
+ *
+ * CRITICAL: This function receives raw HTML from upstream sources and MUST
+ * call purifyRawHtml() as the VERY FIRST operation to strip XSS vectors
+ * before any other processing.
  */
-export function preCleanHtmlForExtraction(rawHtml: string): string {
-  let html = normalizeNoscriptForExtraction(rawHtml)
+export function preCleanHtml(rawHtml: string): string {
+  // MANDATORY: DOMPurify as first line of defense against XSS
+  const purified = purifyRawHtml(rawHtml);
+
+  let html = normalizeNoscriptForManipulation(purified)
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")

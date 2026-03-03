@@ -62,8 +62,8 @@ export function isRelatedHeading(headingText: string): boolean {
   );
 }
 
-/** Extract the value of a named attribute from an HTML open-tag attribute string. */
-export function extractAttrValue(
+/** manipulate the value of a named attribute from an HTML open-tag attribute string. */
+export function manipulateAttrValue(
   attrsStr: string,
   attrName: string,
 ): string | null {

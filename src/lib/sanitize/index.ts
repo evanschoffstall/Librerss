@@ -1,7 +1,9 @@
+export { purifyRawHtml } from "./purify";
+
 export {
   decodeHtmlEntities,
   normalizeArticleHtmlSpacing,
-  preCleanHtmlForExtraction,
+  preCleanHtml,
   stripOrphanedRelatedBlocks,
   toParagraphHtml,
   toPlainText,
@@ -13,10 +15,10 @@ export {
   sanitizeArticleTitle,
 } from "./sanitize";
 
-export { sanitizeExtractedContent } from "./content-sanitization";
+export { sanitizeRawContent } from "./content-sanitization";
 
 export {
-  cleanExtractedArticleHtml,
+  cleanSanitizedHtml,
   findArticleBody,
   hasReadableArticleBody,
   isLikelyNavFooterBoilerplate,
@@ -25,6 +27,6 @@ export {
 
 export {
   buildMetadataImageFallbackHtml,
-  extractPageTitle,
+  parsePageTitle,
   readMetaTagContent,
 } from "./metadata-extraction";

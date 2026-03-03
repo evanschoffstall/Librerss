@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
       try {
         return [normalizeFeedUrl(url)];
       } catch {
-        return []; // Malformed URL — skip silently.
+        // Malformed URL — skip silently; client will see empty result for this URL
+        return [];
       }
     });
 

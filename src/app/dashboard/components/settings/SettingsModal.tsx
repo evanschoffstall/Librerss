@@ -237,9 +237,9 @@ export const SettingsModal = ({
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
-          <div className="flex-1 overflow-y-auto px-4 pb-6">
+          <ScrollArea className="flex-1 px-4 pb-6">
             <SettingsBody {...bodyProps} />
-          </div>
+          </ScrollArea>
         </DrawerContent>
       </Drawer>
     );

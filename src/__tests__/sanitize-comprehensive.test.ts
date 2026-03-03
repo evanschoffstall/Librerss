@@ -1,5 +1,64 @@
 import { describe, expect, test } from "bun:test";
 
+describe("lib/sanitize/purify – DOMPurify entry point", () => {
+  test("purifyRawHtml strips script tags", async () => {
+    const { purifyRawHtml } = await import("@/lib/sanitize");
+
+    const malicious = '<p>Hello</p><script>alert("xss")</script><p>World</p>';
+    const result = purifyRawHtml(malicious);
+
+    expect(result).toContain("Hello");
+    expect(result).toContain("World");
+    expect(result).not.toContain("<script>");
+    expect(result).not.toContain("alert");
+  });
+
+  test("purifyRawHtml strips event handler attributes", async () => {
+    const { purifyRawHtml } = await import("@/lib/sanitize");
+
+    const malicious = '<img src="x" onerror="alert(1)" /><a href="#" onclick="evil()">Link</a>';
+    const result = purifyRawHtml(malicious);
+
+    expect(result).not.toContain("onerror");
+    expect(result).not.toContain("onclick");
+    expect(result).not.toContain("alert");
+    expect(result).not.toContain("evil");
+  });
+
+  test("purifyRawHtml blocks javascript: protocol", async () => {
+    const { purifyRawHtml } = await import("@/lib/sanitize");
+
+    const malicious = '<a href="javascript:alert(1)">Click</a>';
+    const result = purifyRawHtml(malicious);
+
+    expect(result).not.toContain("javascript:");
+    expect(result).not.toContain("alert");
+  });
+
+  test("purifyRawHtml preserves safe HTML for extraction", async () => {
+    const { purifyRawHtml } = await import("@/lib/sanitize");
+
+    const safe = '<article><h1>Title</h1><p>Content</p><img src="https://example.com/image.jpg" alt="test" /></article>';
+    const result = purifyRawHtml(safe);
+
+    expect(result).toContain("<article>");
+    expect(result).toContain("<h1>");
+    expect(result).toContain("Title");
+    expect(result).toContain("<p>");
+    expect(result).toContain("Content");
+    expect(result).toContain("<img");
+    expect(result).toContain('src="https://example.com/image.jpg"');
+  });
+
+  test("purifyRawHtml returns empty string for invalid input", async () => {
+    const { purifyRawHtml } = await import("@/lib/sanitize");
+
+    expect(purifyRawHtml("")).toBe("");
+    expect(purifyRawHtml(null as any)).toBe("");
+    expect(purifyRawHtml(undefined as any)).toBe("");
+  });
+});
+
 describe("lib/utils/sanitize comprehensive", () => {
   test("toPlainText strips HTML tags and normalizes whitespace", async () => {
     const { toPlainText } = await import("@/lib/sanitize");

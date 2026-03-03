@@ -41,17 +41,13 @@ export function parseReaderItemId(rawId: string): number | null {
 
   if (/^[0-9a-f]+$/i.test(lastSegment)) {
     const hexValue = Number.parseInt(lastSegment, 16);
-    if (!Number.isNaN(hexValue) && Number.isInteger(hexValue) && hexValue > 0) {
+    if (!Number.isNaN(hexValue) && hexValue > 0) {
       return hexValue;
     }
   }
 
   const decimalValue = Number.parseInt(lastSegment, 10);
-  if (
-    !Number.isNaN(decimalValue) &&
-    Number.isInteger(decimalValue) &&
-    decimalValue > 0
-  ) {
+  if (!Number.isNaN(decimalValue) && decimalValue > 0) {
     return decimalValue;
   }
 

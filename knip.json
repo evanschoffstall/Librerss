@@ -3,6 +3,7 @@
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
   "ignore": ["src/components/ui/**"],
   "ignoreBinaries": ["semgrep"],
+  "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
     "@lexical/code",
     "@lexical/link",
