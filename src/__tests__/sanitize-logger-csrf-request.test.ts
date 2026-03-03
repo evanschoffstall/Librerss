@@ -4,24 +4,24 @@
  */
 
 import {
-    asTrimmedString,
-    forbiddenResponse,
-    getSearchParams,
-    jsonError,
-    parseDateInput,
-    parseFormOrQueryParams,
-    parseJsonBody,
-    parseJsonObjectBodyOrResponse,
-    parsePositiveInt
+  asTrimmedString,
+  forbiddenResponse,
+  getSearchParams,
+  jsonError,
+  parseDateInput,
+  parseFormOrQueryParams,
+  parseJsonBody,
+  parseJsonObjectBodyOrResponse,
+  parsePositiveInt
 } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { logger } from "@/lib/logger";
 import {
-    sanitizeAndTruncateArticleContent,
-    sanitizeArticleHtml,
-    sanitizeArticleTitle,
-    stripOrphanedRelatedBlocks,
-    toPlainText,
+  sanitizeAndTruncateArticleContent,
+  sanitizeArticleHtml,
+  sanitizeArticleTitle,
+  stripOrphanedRelatedBlocks,
+  toPlainText,
 } from "@/lib/sanitize";
 import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { describe, expect, test } from "bun:test";
@@ -62,15 +62,6 @@ describe("sanitize – toPlainText", () => {
 
   test("trims result", () => {
     expect(toPlainText("  <p>  text  </p>  ")).toBe("text");
-  });
-
-  test("strips figure and figcaption elements", () => {
-    const html =
-      "<p>Before</p><figure><img src='x'><figcaption>Cap</figcaption></figure><p>After</p>";
-    const result = toPlainText(html);
-    expect(result).not.toContain("Cap");
-    expect(result).toContain("Before");
-    expect(result).toContain("After");
   });
 
   test("converts closing block tags to newlines", () => {

@@ -105,7 +105,7 @@ describe("proxy settings API route", () => {
     const res = await GET(req, unreachableDeps);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.configured).toBe(false);
+    expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
     expect(body.status).toBe("unreachable");
   });
@@ -239,7 +239,7 @@ describe("proxy settings API route", () => {
     const res = await PUT(req, unreachableDeps);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.configured).toBe(false);
+    expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
     expect(body.status).toBe("unreachable");
   });
@@ -300,6 +300,29 @@ describe("ArticleService proxy methods", () => {
     expect(mockAxios.get).toHaveBeenCalledWith("/api/settings/proxy");
     expect(result.configured).toBe(true);
     expect(result.proxyUrl).toBe("http://proxy:8080");
+  });
+
+  test("getProxySettings deduplicates concurrent requests", async () => {
+    let resolveRequest: (value: { data: { configured: boolean } }) => void =
+      () => {};
+
+    mockAxios.get = mock(
+      () =>
+        new Promise<{ data: { configured: boolean } }>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const first = ArticleService.getProxySettings();
+    const second = ArticleService.getProxySettings();
+
+    expect(mockAxios.get).toHaveBeenCalledTimes(1);
+
+    resolveRequest({ data: { configured: true } });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(firstResult.configured).toBe(true);
+    expect(secondResult.configured).toBe(true);
   });
 
   test("saveProxyUrl calls PUT /api/settings/proxy with url", async () => {

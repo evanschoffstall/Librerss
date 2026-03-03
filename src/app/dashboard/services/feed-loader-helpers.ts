@@ -1,9 +1,5 @@
 import type { Article } from "@/lib";
-import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
-import {
-  dedupeAndSortArticles,
-  getArticleKey,
-} from "../services/article-collection";
+import { getArticleKey } from "../services/article-collection";
 import type { FeedBatchSource } from "../services/feed-batch";
 
 type FeedBatchResult = {
@@ -68,20 +64,6 @@ export function summarizeBatchResults(batchResults: FeedBatchResult[]) {
     errorCount,
     articlesByUrl,
   };
-}
-
-export function mapSourcesToPlaceholderArticles(
-  sources: FeedBatchSource[],
-): Article[] {
-  return dedupeAndSortArticles(
-    sources.flatMap((source) =>
-      getPlaceholderArticlesForSource(source.url).map((article) => ({
-        ...article,
-        feedName: source.name,
-        feedUrl: source.url,
-      })),
-    ),
-  );
 }
 
 export function resolveExpandedArticleKey(

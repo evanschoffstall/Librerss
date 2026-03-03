@@ -65,14 +65,21 @@ export function useArticleActions({
     cancelHydration,
   } = useArticleHydration({ setFeed, getFeedSettings });
   const autoHydratedExpandedKeyRef = useRef<string | null>(null);
+  const awaitingExpandedSyncKeyRef = useRef<string | null>(null);
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
   // is restored from sessionStorage but hydratedArticleLinks is in-memory only.
   // Re-trigger hydration so the article gets its rich content back automatically.
   useEffect(() => {
     if (!expandedArticleKey) {
-      autoHydratedExpandedKeyRef.current = null;
+      if (!awaitingExpandedSyncKeyRef.current) {
+        autoHydratedExpandedKeyRef.current = null;
+      }
       return;
+    }
+
+    if (awaitingExpandedSyncKeyRef.current === expandedArticleKey) {
+      awaitingExpandedSyncKeyRef.current = null;
     }
 
     if (autoHydratedExpandedKeyRef.current === expandedArticleKey) {
@@ -196,6 +203,8 @@ export function useArticleActions({
       );
 
       if (isCollapsing) {
+        awaitingExpandedSyncKeyRef.current = null;
+        autoHydratedExpandedKeyRef.current = null;
         // Cancel any pending extract request for this article
         const link = article.link?.trim();
         if (link) cancelHydration(link);
@@ -239,6 +248,11 @@ export function useArticleActions({
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
+
+      // Manual expand already triggers hydration; mark this key as handled so
+      // the auto-hydration effect does not schedule a second extraction request.
+      awaitingExpandedSyncKeyRef.current = nextArticleKey;
+      autoHydratedExpandedKeyRef.current = nextArticleKey;
       await hydrateArticleContent(article);
     },
     [

@@ -56,7 +56,8 @@ export function useSwipeToRead(onMarkRead: () => void, disabled = false) {
         if (Math.abs(dx) < MIN_SWIPE_PX && Math.abs(dy) < MIN_SWIPE_PX) return;
         const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
         lockedRef.current =
-          angle < VERTICAL_LOCK_ANGLE || angle > 180 - VERTICAL_LOCK_ANGLE
+          (angle < VERTICAL_LOCK_ANGLE || angle > 180 - VERTICAL_LOCK_ANGLE) &&
+          dx > 0
             ? "horizontal"
             : "vertical";
       }
@@ -83,11 +84,13 @@ export function useSwipeToRead(onMarkRead: () => void, disabled = false) {
     el.addEventListener("touchstart", handleTouchStart, { passive: true });
     el.addEventListener("touchmove", handleTouchMove, { passive: false });
     el.addEventListener("touchend", handleTouchEnd);
+    el.addEventListener("touchcancel", handleTouchEnd);
 
     return () => {
       el.removeEventListener("touchstart", handleTouchStart);
       el.removeEventListener("touchmove", handleTouchMove);
       el.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("touchcancel", handleTouchEnd);
     };
   }, []);
 

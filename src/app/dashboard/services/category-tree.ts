@@ -156,15 +156,15 @@ export function relocateFeedInCategories(
   const destinationFeeds = destinationCategory.children ?? [];
   destinationCategory.children = destinationFeeds;
 
-  const safeTargetIndex = Math.max(
-    0,
-    Math.min(targetIndex, destinationFeeds.length),
-  );
-  const insertionIndex =
+  const adjusted =
     sourceCategoryIndex === destinationCategoryIndex &&
-    sourceFeedIndex < safeTargetIndex
-      ? safeTargetIndex - 1
-      : safeTargetIndex;
+    sourceFeedIndex < targetIndex
+      ? targetIndex - 1
+      : targetIndex;
+  const insertionIndex = Math.max(
+    0,
+    Math.min(adjusted, destinationFeeds.length),
+  );
 
   destinationFeeds.splice(insertionIndex, 0, {
     ...movedSource,

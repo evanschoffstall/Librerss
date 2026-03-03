@@ -723,4 +723,45 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
   });
+
+  test("manual expand does not trigger duplicate extract on failure", async () => {
+    const article = createMockArticle({
+      id: 99,
+      link: "https://example.com/fail-once",
+    });
+
+    (ArticleService.extractArticleContent as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(async () => {
+        throw new Error("blocked");
+      });
+
+    let expandedArticleKey: string | null = null;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: any) => {
+      expandedArticleKey =
+        typeof updater === "function" ? updater(expandedArticleKey) : updater;
+    });
+
+    const { result, rerender } = renderHook(
+      ({ expandedKey }) =>
+        useArticleActions({
+          feed: [article],
+          setFeed,
+          expandedArticleKey: expandedKey,
+          setExpandedArticleKey,
+          articleFilter: "all",
+        }),
+      { initialProps: { expandedKey: expandedArticleKey } },
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
+
+    rerender({ expandedKey: expandedArticleKey });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+  });
 });

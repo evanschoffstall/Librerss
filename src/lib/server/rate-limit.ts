@@ -142,7 +142,7 @@ export class RateLimiter {
             "Retry-After": String(resetInSeconds),
             "X-RateLimit-Limit": String(config.maxAttempts),
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(entry.resetAt),
+            "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
           },
         },
       );

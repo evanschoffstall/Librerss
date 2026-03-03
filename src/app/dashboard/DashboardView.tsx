@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { ArrowDown } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
@@ -132,15 +132,7 @@ export const DashboardView = ({
   const orderedCategoryLabels = categoryManager.orderedCategoryLabels;
   const setOrderedCategoryLabels = categoryManager.setOrderedCategoryLabels;
 
-  const {
-    filteredFeed,
-    displayCategories,
-    sidebarCategories,
-    selectedCategoryNode,
-    selectedFeedUrl,
-    selectedFeed,
-    categoryOptions,
-  } = buildDashboardViewModel({
+  const dashboardViewModel = buildDashboardViewModel({
     feed,
     articleFilter,
     expandedArticleKey,
@@ -151,6 +143,23 @@ export const DashboardView = ({
     orderedCategoryLabels,
     selectedCategory,
   });
+
+  const {
+    filteredFeed,
+    displayCategories,
+    sidebarCategories,
+    selectedFeedUrl,
+    selectedFeed,
+    categoryOptions,
+  } = dashboardViewModel;
+
+  // Memoize by identity key to prevent new object refs from resetting
+  // the auto-refresh interval on every render.
+  const selectedCategoryNode = useMemo(
+    () => dashboardViewModel.selectedCategoryNode,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedCategory, categories],
+  );
 
   useFeedLoadingTimeout({
     loading,

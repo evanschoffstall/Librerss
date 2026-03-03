@@ -171,41 +171,27 @@ export function probeProxy(proxyUrl: string): Promise<boolean> {
     });
     return Promise.resolve(false);
   }
-  logger.info("Proxy probe started", {
-    proxyUrl,
-    host: hp.host,
-    port: hp.port,
-  });
+  logger.info(`Proxy probe started. (proxyUrl=${proxyUrl})`);
   return new Promise<boolean>((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
     socket.on("connect", () => {
       socket.destroy();
-      logger.info("Proxy probe succeeded: port open", {
-        proxyUrl,
-        host: hp.host,
-        port: hp.port,
-      });
+      logger.info(`Proxy probe succeeded. (proxyUrl=${proxyUrl})`);
       resolve(true);
     });
     socket.on("timeout", () => {
       socket.destroy();
-      logger.error("Proxy probe failed: timeout", {
-        proxyUrl,
-        host: hp.host,
-        port: hp.port,
-        timeoutMs: PROBE_TIMEOUT_MS,
-      });
+      logger.error(
+        `Proxy probe failed: timeout (proxyUrl=${proxyUrl} timeoutMs=${PROBE_TIMEOUT_MS})`,
+      );
       resolve(false);
     });
     socket.on("error", (err) => {
       socket.destroy();
-      logger.error("Proxy probe failed: socket error", {
-        proxyUrl,
-        host: hp.host,
-        port: hp.port,
-        error: (err as Error).message,
-      });
+      logger.error(
+        `Proxy probe failed: socket error (proxyUrl=${proxyUrl} error=${(err as Error).message})`,
+      );
       resolve(false);
     });
     socket.connect(hp.port, hp.host);
@@ -232,7 +218,7 @@ async function probeAndRespond(
   if (!reachable) logger.error(logLabel, { proxyUrl });
   return NextResponse.json({
     proxyUrl,
-    configured: reachable,
+    configured: true,
     status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
     allowInsecureTls,
   });

@@ -24,7 +24,6 @@ import {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
   isCanceledBatchRequest,
-  mapSourcesToPlaceholderArticles,
   resolveExpandedArticleKey,
   summarizeBatchResults,
   type FeedBatchResult,
@@ -84,6 +83,7 @@ export function useFeedLoader({
   const currentRequestIdRef = useRef(0);
   const activeRequestSignatureRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingRef = useRef(false);
   const [loading, setLocalLoading] = useState(false);
   const [loadingEpoch, setLoadingEpoch] = useState(0);
 
@@ -100,6 +100,7 @@ export function useFeedLoader({
 
   const syncLoading = useCallback(
     (value: boolean) => {
+      loadingRef.current = value;
       setLocalLoading(value);
       setLoading(value);
     },
@@ -171,20 +172,14 @@ export function useFeedLoader({
           return null;
         }
 
-        if (usePlaceholderData) {
-          const fallbackArticles =
-            mapSourcesToPlaceholderArticles(normalizedSources);
-          setFeed(fallbackArticles);
-        } else {
-          console.error("Batch feed fetch error:", error);
-          toast.error("Unable to load this feed right now.", {
-            description: "Please try refreshing the selected source again.",
-          });
-        }
+        console.error("Batch feed fetch error:", error);
+        toast.error("Unable to load this feed right now.", {
+          description: "Please try refreshing the selected source again.",
+        });
         return null;
       }
     },
-    [usePlaceholderData, setFeed],
+    [usePlaceholderData],
   );
 
   const handleEmptyBatchResult = useCallback(() => {
@@ -223,7 +218,7 @@ export function useFeedLoader({
       const requestSignature = buildBatchRequestSignature(normalizedSources);
 
       if (
-        loading &&
+        loadingRef.current &&
         activeRequestSignatureRef.current === requestSignature &&
         options?.forceRefresh !== true
       ) {
@@ -328,7 +323,6 @@ export function useFeedLoader({
       }
     },
     [
-      loading,
       usePlaceholderData,
       setFeed,
       setExpandedArticleKey,

@@ -1,14 +1,9 @@
-import { logger } from "@/lib/logger";
 import {
   normalizeArticleHtmlSpacing,
   SOCIAL_SHARE_LINK_RE,
   toPlainText,
 } from "./cleaners";
 import { extractAttrValue } from "./patterns";
-
-function contentPreview(s: string, max = 200): string {
-  return s.length <= max ? s : `${s.slice(0, max)}…`;
-}
 
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
@@ -31,6 +26,15 @@ function stripShareEngagementToolbars(content: string): string {
     ).length;
     if (socialCount >= 2 && socialCount >= items.length / 2) return "";
 
+    // Strip sidebar-style nav lists where every item is a single bare link
+    const allBareLinks =
+      items.length >= 2 &&
+      items.length <= 6 &&
+      items.every((m) =>
+        /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
+      );
+    if (allBareLinks) return "";
+
     const lower = ulBlock.toLowerCase();
     if (!SOCIAL_SHARE_LINK_RE.test(lower)) return ulBlock;
     const textContent = lower.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -40,6 +44,34 @@ function stripShareEngagementToolbars(content: string): string {
       ? ""
       : ulBlock;
   });
+}
+
+/** Promotional / call-to-action pattern (cross-site generic). */
+const PROMO_CTA_RE =
+  /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google/i;
+
+function isPromoCta(inner: string): boolean {
+  const text = inner
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return PROMO_CTA_RE.test(text);
+}
+
+/**
+ * Strip promotional CTA paragraphs and links (e.g. "Add as preferred source on
+ * Google", "Follow X on WhatsApp", "You need javascript enabled").
+ */
+function stripPromotionalCtaBlocks(content: string): string {
+  return content
+    .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (m, inner: string) =>
+      isPromoCta(inner) ? "" : m,
+    )
+    .replace(
+      // eslint-disable-next-line security/detect-unsafe-regex -- Pre-sanitized HTML input; lazy quantifiers prevent excessive backtracking
+      /(?:<br\s*\/?>\s*)*<a\b[^>]*>([\s\S]*?)<\/a>(?:\s*<br\s*\/?>\s*)*/gi,
+      (m, inner: string) => (isPromoCta(inner) ? "" : m),
+    );
 }
 
 export function stripCommentEngagementBoilerplate(content: string): string {
@@ -135,55 +167,27 @@ export function cleanExtractedArticleHtml(
   sanitizedContent: string,
   _articleUrl: string,
 ): string {
-  if (!sanitizedContent.trim()) {
-    logger.info(`[clean-html] input empty, returning ""`);
+  if (!sanitizedContent.trim()) return "";
+
+  // Check boilerplate on original input before stripping removes detection markers.
+  if (isLikelyNavFooterBoilerplate(sanitizedContent)) {
     return "";
   }
 
-  logger.info(`[clean-html] start`, {
-    inputChars: sanitizedContent.length,
-    inputPreview: contentPreview(sanitizedContent),
-  });
-
   const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
-  const shareToolbarsRemoved =
-    withoutShareToolbars.length !== sanitizedContent.length;
-  if (shareToolbarsRemoved) {
-    logger.info(`[clean-html] stripped share/engagement toolbars`, {
-      removedChars: sanitizedContent.length - withoutShareToolbars.length,
-    });
-  }
 
   const withoutEngagementPrompts =
     stripCommentEngagementBoilerplate(withoutShareToolbars);
-  const engagementRemoved =
-    withoutEngagementPrompts.length !== withoutShareToolbars.length;
-  if (engagementRemoved) {
-    logger.info(`[clean-html] stripped comment/engagement boilerplate`, {
-      removedChars:
-        withoutShareToolbars.length - withoutEngagementPrompts.length,
-    });
-  }
 
-  const normalized = normalizeArticleHtmlSpacing(withoutEngagementPrompts);
+  const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 
-  if (!normalized.trim()) {
-    logger.info(`[clean-html] content empty after normalization`);
-    return "";
-  }
+  const normalized = normalizeArticleHtmlSpacing(withoutPromos);
+
+  if (!normalized.trim()) return "";
 
   if (isLikelyNavFooterBoilerplate(normalized)) {
-    logger.info(`[clean-html] detected nav/footer boilerplate — discarding`, {
-      normalizedChars: normalized.length,
-      contentPreview: contentPreview(normalized),
-    });
     return "";
   }
-
-  logger.info(`[clean-html] done`, {
-    outputChars: normalized.length,
-    outputPreview: contentPreview(normalized),
-  });
   return normalized;
 }
 
@@ -314,61 +318,30 @@ export function findArticleBody(
   html: string,
   minLength: number,
 ): string | null {
-  logger.info(`[find-body] searching for article body container`, {
-    htmlChars: html.length,
-    minLength,
-  });
-
   let body = findFirstByAttr(html, "itemprop", "articleBody");
   if (body && body.trim().length >= minLength) {
-    logger.info(`[find-body] matched itemprop="articleBody"`, {
-      bodyChars: body.length,
-    });
     return body;
   }
 
   body = findFirstByClassContains(html, CONTENT_CLASS_PATTERNS, minLength);
-  if (body) {
-    logger.info(`[find-body] matched content class pattern`, {
-      bodyChars: body.length,
-    });
-    return body;
-  }
+  if (body) return body;
 
   const articles = findAllByTag(html, "article");
   if (articles.length > 0) {
     body = articles.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) {
-      logger.info(
-        `[find-body] matched <article> tag (largest of ${articles.length})`,
-        { bodyChars: body.length },
-      );
-      return body;
-    }
+    if (body.trim().length >= minLength) return body;
   }
 
   for (const role of ["main", "article"] as const) {
     body = findFirstByAttr(html, "role", role);
-    if (body && body.trim().length >= minLength) {
-      logger.info(`[find-body] matched role="${role}"`, {
-        bodyChars: body.length,
-      });
-      return body;
-    }
+    if (body && body.trim().length >= minLength) return body;
   }
 
   const mains = findAllByTag(html, "main");
   if (mains.length > 0) {
     body = mains.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) {
-      logger.info(
-        `[find-body] matched <main> tag (largest of ${mains.length})`,
-        { bodyChars: body.length },
-      );
-      return body;
-    }
+    if (body.trim().length >= minLength) return body;
   }
 
-  logger.info(`[find-body] no suitable container found`);
   return null;
 }

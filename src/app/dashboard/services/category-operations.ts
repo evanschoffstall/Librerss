@@ -267,9 +267,8 @@ export function moveCategoryByDropInOrder(
 
   const next = [...current];
   const [moved] = next.splice(currentIndex, 1);
-  const safeTargetIndex = Math.max(0, Math.min(targetIndex, next.length));
-  const insertionIndex =
-    currentIndex < safeTargetIndex ? safeTargetIndex - 1 : safeTargetIndex;
+  const adjusted = currentIndex < targetIndex ? targetIndex - 1 : targetIndex;
+  const insertionIndex = Math.max(0, Math.min(adjusted, next.length));
   next.splice(insertionIndex, 0, moved);
   return next;
 }

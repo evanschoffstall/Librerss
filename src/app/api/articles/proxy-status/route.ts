@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   }
   return NextResponse.json({
     proxyUrl,
-    configured: reachable,
+    configured: true,
     status,
   });
 }

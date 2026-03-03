@@ -97,26 +97,9 @@ function buildExtractPayload(
   };
 }
 
-function logExtractStart(
-  info: typeof logger.info,
-  articleUrl: string,
-  context: ExtractRequestContext,
-  options?: { useProxy: boolean; proxyAddress?: string },
-): void {
-  info(`Article extract started`, {
-    url: redactUrlForLogs(articleUrl),
-    extractAttemptId: context.extractAttemptId,
-    requestId: context.requestId,
-    connectionMode: options?.useProxy ? "proxy" : "direct",
-    proxyAddress: options?.useProxy ? (options.proxyAddress ?? null) : null,
-  });
-}
-
 function getCachedExtractResponse(
   articleUrl: string,
   shouldUseCache: () => boolean,
-  info: typeof logger.info,
-  context: ExtractRequestContext,
 ): ExtractResponsePayload | null {
   if (!shouldUseCache()) {
     return null;
@@ -126,12 +109,6 @@ function getCachedExtractResponse(
   if (!cachedPayload) {
     return null;
   }
-
-  info(`Article extract cache hit`, {
-    url: redactUrlForLogs(articleUrl),
-    extractAttemptId: context.extractAttemptId,
-    requestId: context.requestId,
-  });
 
   return cachedPayload;
 }
@@ -143,94 +120,33 @@ async function resolveExtractedContent(
   extracted: ExtractedArticle | null | undefined,
   sanitizeContent: (rawContent: string) => string,
   cleanContent: (sanitizedContent: string, articleUrl: string) => string,
-  info: typeof logger.info,
-  context: ExtractRequestContext,
 ): Promise<string> {
   // 1. Sanitize the extracted article body container (if found)
   const rawContent =
     extracted?.content?.trim() || extracted?.description?.trim() || "";
-  info(`[resolve] step 1 — sanitize extracted body`, {
-    url: redactUrlForLogs(articleUrl),
-    rawContentChars: rawContent.length,
-    extractAttemptId: context.extractAttemptId,
-  });
 
   const sanitizedContent = sanitizeContent(rawContent);
-  info(`[resolve] step 1 — after sanitizeContent`, {
-    url: redactUrlForLogs(articleUrl),
-    sanitizedChars: sanitizedContent.length,
-    extractAttemptId: context.extractAttemptId,
-  });
 
   let content = cleanContent(sanitizedContent, articleUrl);
-  info(`[resolve] step 1 — after cleanContent`, {
-    url: redactUrlForLogs(articleUrl),
-    cleanedChars: content.length,
-    hasContent: !!content.trim(),
-    extractAttemptId: context.extractAttemptId,
-  });
 
   // 2. Fall back to direct sanitize of entire pre-cleaned page
   if (!content.trim()) {
-    info(`[resolve] step 2 — trying direct sanitize fallback`, {
-      url: redactUrlForLogs(articleUrl),
-      extractableHtmlChars: extractableHtml.length,
-      extractAttemptId: context.extractAttemptId,
-    });
-
     const directlySanitized = sanitizeContent(extractableHtml);
-    info(`[resolve] step 2 — after sanitizeContent (full page)`, {
-      url: redactUrlForLogs(articleUrl),
-      directlySanitizedChars: directlySanitized.length,
-      extractAttemptId: context.extractAttemptId,
-    });
 
     const directlyCleaned = cleanContent(directlySanitized, articleUrl);
     const isReadable =
       directlyCleaned.trim() && hasReadableArticleBody(directlyCleaned);
-    info(`[resolve] step 2 — direct sanitize readability check`, {
-      url: redactUrlForLogs(articleUrl),
-      directlyCleanedChars: directlyCleaned.length,
-      isReadable,
-      extractAttemptId: context.extractAttemptId,
-    });
-
-    if (isReadable) {
-      content = directlyCleaned;
-      info(`Article extract applied direct sanitize fallback`, {
-        url: redactUrlForLogs(articleUrl),
-        extractAttemptId: context.extractAttemptId,
-        requestId: context.requestId,
-      });
-    }
+    if (isReadable) content = directlyCleaned;
   }
 
   // 3. Fall back to og:image + og:description metadata
   if (!content.trim()) {
-    info(`[resolve] step 3 — trying metadata image fallback`, {
-      url: redactUrlForLogs(articleUrl),
-      extractAttemptId: context.extractAttemptId,
-    });
-
     const metadataFallbackContent =
       buildMetadataImageFallbackHtml(originalHtml);
-    info(`[resolve] step 3 — metadata fallback result`, {
-      url: redactUrlForLogs(articleUrl),
-      hasMetadataContent: !!metadataFallbackContent,
-      metadataContentChars: metadataFallbackContent?.length ?? 0,
-      extractAttemptId: context.extractAttemptId,
-    });
 
     if (metadataFallbackContent) {
       const fallbackCleaned = cleanContent(metadataFallbackContent, articleUrl);
-      if (fallbackCleaned.trim()) {
-        content = fallbackCleaned;
-        info(`Article extract applied metadata image fallback`, {
-          url: redactUrlForLogs(articleUrl),
-          extractAttemptId: context.extractAttemptId,
-          requestId: context.requestId,
-        });
-      }
+      if (fallbackCleaned.trim()) content = fallbackCleaned;
     }
   }
 
@@ -248,11 +164,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
   const cleanContent =
     deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
+  const _info = deps?.infoFn ?? logger.info.bind(logger);
   const _toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
   const _respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
-  const info = deps?.infoFn ?? logger.info.bind(logger);
   const warn = deps?.warnFn ?? logger.warn.bind(logger);
   const errorLog = deps?.errorFn ?? logger.error.bind(logger);
   const shouldUseCache = deps?.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
@@ -311,17 +227,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     if (parsedUrl instanceof Response) return parsedUrl;
     articleUrl = parsedUrl;
 
-    logExtractStart(info, articleUrl, context, {
-      useProxy,
-      proxyAddress: resolvedProxyUrl,
-    });
-
-    const cachedPayload = getCachedExtractResponse(
-      articleUrl,
-      shouldUseCache,
-      info,
-      context,
-    );
+    const cachedPayload = getCachedExtractResponse(articleUrl, shouldUseCache);
     if (cachedPayload) {
       return NextResponse.json(cachedPayload);
     }
@@ -335,34 +241,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         allowInsecureTls,
       }));
     const safeUrl = redactUrlForLogs(articleUrl);
-    info(`Article extract source`, {
-      url: safeUrl,
-      source: localSnapshot ? "local-snapshot" : "upstream-url",
-      snapshotPath: localSnapshot?.snapshotPath ?? null,
-      extractAttemptId: context.extractAttemptId,
-      requestId: context.requestId,
-    });
-    info(`Article HTML fetched`, { url: safeUrl, bytes: html.length });
 
     const extractableHtml = preCleanHtmlForExtraction(html);
-    info(`Article pre-cleaned HTML`, {
-      url: safeUrl,
-      preCleanedChars: extractableHtml.length,
-      extractAttemptId: context.extractAttemptId,
-    });
 
     const extracted = await extractArticle(extractableHtml, articleUrl, {
       contentLengthThreshold: 120,
-    });
-
-    info(`Article extractor result`, {
-      url: safeUrl,
-      hasContent: !!extracted?.content?.trim(),
-      contentChars: extracted?.content?.length ?? 0,
-      hasDescription: !!extracted?.description?.trim(),
-      descriptionChars: extracted?.description?.length ?? 0,
-      title: extracted?.title ?? null,
-      extractAttemptId: context.extractAttemptId,
     });
 
     if (
@@ -379,19 +262,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       extracted,
       sanitizeContent,
       cleanContent,
-      info,
-      context,
     );
 
     if (!content.trim()) {
       warn(`Article content empty after full extraction pipeline`, {
         url: safeUrl,
-      });
-    } else {
-      info(`Article extract completed`, {
-        url: safeUrl,
-        contentLength: content.length,
-        hasTitle: !!extracted?.title,
       });
     }
 

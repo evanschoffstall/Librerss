@@ -1,11 +1,21 @@
 import { getDb } from "@/lib/db/db";
-import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
+import {
+  articleStatuses,
+  articles,
+  feedCategories,
+  feedSources,
+  feeds,
+} from "@/lib/db/schema";
 import { and, eq, lt } from "drizzle-orm";
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
 } from "./article-status";
-import { FEED_STREAM_PREFIX, STARRED_STATE } from "./stream-ids";
+import {
+  FEED_STREAM_PREFIX,
+  parseUserLabel,
+  STARRED_STATE,
+} from "./stream-ids";
 
 // Upper bound for mark-all-as-read to prevent unbounded queries.
 const MARK_ALL_READ_LIMIT = 10_000;
@@ -76,15 +86,37 @@ export async function markStreamAsRead(
           .limit(MARK_ALL_READ_LIMIT)
       : stream === STARRED_STATE
         ? []
-        : await db
-            .select({ articleId: articles.id })
-            .from(articles)
-            .innerJoin(feeds, eq(feeds.id, articles.feedId))
-            .innerJoin(feedSources, enabledJoin)
-            .where(
-              beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
-            )
-            .limit(MARK_ALL_READ_LIMIT);
+        : parseUserLabel(stream) !== null
+          ? await db
+              .select({ articleId: articles.id })
+              .from(articles)
+              .innerJoin(feeds, eq(feeds.id, articles.feedId))
+              .innerJoin(feedSources, enabledJoin)
+              .innerJoin(
+                feedCategories,
+                and(
+                  eq(feedCategories.feedId, feeds.id),
+                  eq(feedCategories.userId, userId),
+                  eq(feedCategories.category, parseUserLabel(stream)!),
+                ),
+              )
+              .where(
+                beforeDate
+                  ? lt(articles.publicationDate, beforeDate)
+                  : undefined,
+              )
+              .limit(MARK_ALL_READ_LIMIT)
+          : await db
+              .select({ articleId: articles.id })
+              .from(articles)
+              .innerJoin(feeds, eq(feeds.id, articles.feedId))
+              .innerJoin(feedSources, enabledJoin)
+              .where(
+                beforeDate
+                  ? lt(articles.publicationDate, beforeDate)
+                  : undefined,
+              )
+              .limit(MARK_ALL_READ_LIMIT);
 
   await upsertStatuses(
     userId,

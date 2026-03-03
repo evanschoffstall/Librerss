@@ -30,7 +30,7 @@ function extractCanonicalUrlFromHtml(
 
 function resolveExpectedPath(dir: string, articleName: string): string {
   const articleNumber = articleName.split("-")[1];
-  return join(dir, `article-expect-${articleNumber}.html`);
+  return join(dir, `article-results-${articleNumber}.html`);
 }
 
 async function extractViaApiRoute(
@@ -89,7 +89,10 @@ async function regenerateExpectation(dir: string, articleName: string) {
 }
 
 async function main() {
-  const dir = __dirname;
+  const dir = join(
+    process.cwd(),
+    "src/__tests__/templates/extract-sanitize-hydrate-pipline",
+  );
 
   const articleFiles = readdirSync(dir)
     .filter((name) => /^article-\d+\.html$/.test(name))
