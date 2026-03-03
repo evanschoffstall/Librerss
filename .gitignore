@@ -67,6 +67,7 @@ Thumbs.db
 *.pem
 .tsc-out/
 .cache/
+/src/__tests__/templates/extract-sanitize-hydrate-pipline/*
 
 # Affinity
 *.ignored
