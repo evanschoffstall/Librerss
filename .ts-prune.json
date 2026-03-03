@@ -1,5 +1,5 @@
 {
   "project": "tsconfig.json",
   "skip": "(node_modules|\\.next|coverage|dist|build|src/components/ui)",
-  "ignore": "(\\(used in module\\)$|^src/lib/index\\.ts:\\d+ - (ENV|useDebugState)$|^src/lib/utils/index\\.ts:\\d+ - cn$|^src/lib/(?:api/http|extract)/index\\.ts:\\d+ - .+$| - (default|metadata|viewport|GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|dynamic|runtime|revalidate|fetchCache|preferredRegion|maxDuration|config|generateMetadata|generateStaticParams)$)"
+  "ignore": "(\\(used in module\\)$|^src/lib/index\\.ts:\\d+ - (ENV|useDebugState)$|^src/lib/utils/index\\.ts:\\d+ - cn$|^src/lib/(?:api/http|extract)/index\\.ts:\\d+ - .+$| - (default|metadata|viewport|GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|dynamic|runtime|revalidate|fetchCache|preferredRegion|maxDuration|config|generateMetadata|generateStaticParams|middleware|proxy)$)"
 }

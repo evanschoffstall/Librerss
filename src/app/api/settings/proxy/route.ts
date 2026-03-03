@@ -60,6 +60,7 @@ function parseHostPort(
             : 8080),
     };
   } catch {
+    // Invalid URL format — return null to indicate parse failure
     return null;
   }
 }

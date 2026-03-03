@@ -447,37 +447,44 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
 
 // ─── 7. CSP includes form-action and worker-src ───────────────────────────────
 
-describe("next.config.ts CSP headers", () => {
+describe("buildCspHeader from lib/server/csp", () => {
   test("CSP includes form-action 'self'", async () => {
-    const { default: nextConfig } = await import("../../next.config");
-    const headersFn = nextConfig.headers;
-    expect(typeof headersFn).toBe("function");
-    const entries = await (headersFn as () => Promise<unknown[]>)();
-    const allValues = (
-      entries as { headers: { key: string; value: string }[] }[]
-    )
-      .flatMap((e) => e.headers)
-      .filter((h) => h.key === "Content-Security-Policy")
-      .map((h) => h.value);
-    expect(allValues.length).toBeGreaterThan(0);
-    for (const csp of allValues) {
-      expect(csp).toContain("form-action 'self'");
-    }
+    const { buildCspHeader } = await import("@/lib/server");
+    const scriptNonce = "test-script-nonce";
+    const styleNonce = "test-style-nonce";
+    const cspValue = buildCspHeader(scriptNonce, styleNonce);
+
+    expect(cspValue).toContain("form-action 'self'");
   });
 
   test("CSP includes worker-src 'self'", async () => {
-    const { default: nextConfig } = await import("../../next.config");
-    const headersFn = nextConfig.headers;
-    const entries = await (headersFn as () => Promise<unknown[]>)();
-    const allValues = (
-      entries as { headers: { key: string; value: string }[] }[]
-    )
-      .flatMap((e) => e.headers)
-      .filter((h) => h.key === "Content-Security-Policy")
-      .map((h) => h.value);
-    for (const csp of allValues) {
-      expect(csp).toContain("worker-src 'self'");
-    }
+    const { buildCspHeader } = await import("@/lib/server");
+    const scriptNonce = "test-script-nonce";
+    const styleNonce = "test-style-nonce";
+    const cspValue = buildCspHeader(scriptNonce, styleNonce);
+
+    expect(cspValue).toContain("worker-src 'self'");
+  });
+
+  test("CSP uses nonces for script-src and style-src", async () => {
+    const { buildCspHeader } = await import("@/lib/server");
+    const scriptNonce = "test-script-nonce-123";
+    const styleNonce = "test-style-nonce-456";
+    const cspValue = buildCspHeader(scriptNonce, styleNonce);
+
+    expect(cspValue).toContain(`script-src 'self' 'nonce-${scriptNonce}'`);
+    expect(cspValue).toContain(
+      `style-src 'self' 'nonce-${styleNonce}' 'unsafe-inline'`,
+    );
+  });
+
+  test("CSP includes strict-dynamic for script-src", async () => {
+    const { buildCspHeader } = await import("@/lib/server");
+    const scriptNonce = "test-script-nonce";
+    const styleNonce = "test-style-nonce";
+    const cspValue = buildCspHeader(scriptNonce, styleNonce);
+
+    expect(cspValue).toContain("'strict-dynamic'");
   });
 });
 

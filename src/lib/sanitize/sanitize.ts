@@ -8,6 +8,7 @@ import {
   stripOrphanedInlineContent,
   stripOrphanedRelatedBlocks,
 } from "./cleaners";
+import { purifyRawHtml } from "./purify";
 
 function parseDimension(value: string | undefined): number | null {
   if (!value) return null;
@@ -109,6 +110,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
       "loading",
       "decoding",
       "referrerpolicy",
+      "data-src",
+      "data-original",
+      "data-lazy-src",
+      "data-url",
     ],
     code: ["class"],
     pre: ["class"],
@@ -149,11 +154,21 @@ const ARTICLE_SANITIZE_OPTIONS = {
   },
 };
 
-/** Strips non-allowed HTML tags; forces safe link attributes. */
+/**
+ * Strips non-allowed HTML tags; forces safe link attributes.
+ *
+ * CRITICAL: This function may receive raw HTML from RSS feeds or other
+ * external sources. DOMPurify is applied FIRST as mandatory XSS protection
+ * before any downstream sanitization or transformation.
+ */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
+
+  // MANDATORY: DOMPurify as first line of defense against XSS
+  const purified = purifyRawHtml(raw);
+
   const sanitized = sanitizeHtml(
-    stripEmbeddedMediaBlocks(stripApJunkBlocks(raw)),
+    stripEmbeddedMediaBlocks(stripApJunkBlocks(purified)),
     ARTICLE_SANITIZE_OPTIONS,
   );
   return normalizeArticleHtmlSpacing(

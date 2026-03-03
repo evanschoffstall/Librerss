@@ -7,8 +7,8 @@
  */
 
 import {
-  extractPageTitle,
   findArticleBody,
+  parsePageTitle,
   readMetaTagContent,
 } from "@/lib/sanitize";
 
@@ -43,7 +43,7 @@ export async function extractArticleFromHtml(
   const body = findArticleBody(html, threshold);
   if (!body) return null;
 
-  const title = extractPageTitle(html);
+  const title = parsePageTitle(html);
   const description =
     readMetaTagContent(html, [
       "og:description",

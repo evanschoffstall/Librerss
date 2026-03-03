@@ -13,6 +13,7 @@ export function isValidUrl(url: string): boolean {
     const { protocol } = new URL(url);
     return protocol === "http:" || protocol === "https:";
   } catch {
+    // Invalid URL - return false
     return false;
   }
 }
@@ -34,7 +35,7 @@ export function stripUrlFragment(url: string): string {
       return parsed.toString();
     }
   } catch {
-    // Unparseable — return as-is.
+    // Unparseable — return as-is
   }
   return url;
 }
@@ -61,6 +62,7 @@ export function tryNormalizeFeedUrl(raw: string): string {
   try {
     return normalizeFeedUrl(raw);
   } catch {
+    // Invalid URL - return trimmed fallback
     return raw.trim().replace(/\/+$/, "");
   }
 }

@@ -37,6 +37,7 @@ function safeParseLabelArray(raw: string): string[] {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((item): item is string => typeof item === "string");
   } catch {
+    // Intentionally return empty array for malformed JSON
     return [];
   }
 }

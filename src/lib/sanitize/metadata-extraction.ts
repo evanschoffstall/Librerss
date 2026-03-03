@@ -77,8 +77,8 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   );
 }
 
-/** Extract a page title from HTML via og:title, first `<h1>`, or `<title>`. */
-export function extractPageTitle(html: string): string | null {
+/** Parse page title from HTML via og:title, first `<h1>`, or `<title>`. */
+export function parsePageTitle(html: string): string | null {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
   for (const tag of metaTags) {
     const propMatch = tag.match(

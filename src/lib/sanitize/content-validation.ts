@@ -3,7 +3,7 @@ import {
   SOCIAL_SHARE_LINK_RE,
   toPlainText,
 } from "./cleaners";
-import { extractAttrValue } from "./patterns";
+import { manipulateAttrValue } from "./patterns";
 
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
@@ -155,7 +155,7 @@ export function hasReadableArticleBody(content: string): boolean {
  * or returned to the client.  Two things are removed in sequence:
  *
  * 1. Comment-engagement boilerplate — login prompts, "before commenting"
- *    notices, etc. that extractors sometimes pull in from the comment section.
+ *    notices, etc. that manipulators sometimes pull in from the comment section.
  * 2. Nav/footer boilerplate guard — if the whole remaining content still looks
  *    like site chrome (high link density + site-chrome keywords), discard it
  *    entirely so the caller can fall through to a better fallback.
@@ -163,7 +163,7 @@ export function hasReadableArticleBody(content: string): boolean {
  * `_articleUrl` is reserved for future per-origin cleaning rules but is
  * intentionally unused today to keep the logic domain-agnostic.
  */
-export function cleanExtractedArticleHtml(
+export function cleanSanitizedHtml(
   sanitizedContent: string,
   _articleUrl: string,
 ): string {
@@ -216,7 +216,7 @@ const CONTENT_CLASS_PATTERNS = [
   "rich-text",
 ] as const;
 
-function extractInnerHtml(
+function manipulateInnerHtml(
   html: string,
   startIdx: number,
   openTagLength: number,
@@ -244,7 +244,7 @@ function findAllByTag(html: string, tagName: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     if (m[1]?.toLowerCase() !== lowerTag) continue;
-    const inner = extractInnerHtml(html, m.index, m[0].length, tagName);
+    const inner = manipulateInnerHtml(html, m.index, m[0].length, tagName);
     if (inner !== null) results.push(inner);
   }
   return results;
@@ -258,15 +258,15 @@ function findFirstByAttr(
   const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
-    if (extractAttrValue(m[2] ?? "", attr) !== value) continue;
-    return extractInnerHtml(html, m.index, m[0].length, m[1]!);
+    if (manipulateAttrValue(m[2] ?? "", attr) !== value) continue;
+    return manipulateInnerHtml(html, m.index, m[0].length, m[1]!);
   }
   return null;
 }
 
 function classOrIdContains(attrsStr: string, segment: string): boolean {
-  const classVal = extractAttrValue(attrsStr, "class") ?? "";
-  const idVal = extractAttrValue(attrsStr, "id") ?? "";
+  const classVal = manipulateAttrValue(attrsStr, "class") ?? "";
+  const idVal = manipulateAttrValue(attrsStr, "id") ?? "";
   return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
 }
 
@@ -297,7 +297,7 @@ function findFirstByClassContains(
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
       if (!classOrIdContains(m[2] ?? "", pattern)) continue;
-      const content = extractInnerHtml(html, m.index, m[0].length, m[1]!);
+      const content = manipulateInnerHtml(html, m.index, m[0].length, m[1]!);
       if (content && content.trim().length >= minLength) return content;
     }
   }

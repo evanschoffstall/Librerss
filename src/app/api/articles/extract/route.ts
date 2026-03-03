@@ -29,10 +29,10 @@ import {
 import { logger } from "@/lib/logger";
 import {
   buildMetadataImageFallbackHtml,
-  cleanExtractedArticleHtml,
+  cleanSanitizedHtml,
   hasReadableArticleBody,
-  preCleanHtmlForExtraction,
-  sanitizeExtractedContent,
+  preCleanHtml,
+  sanitizeRawContent,
 } from "@/lib/sanitize";
 import { logAndRespondError, requireMutablePublicRequest } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
@@ -59,8 +59,8 @@ type ExtractPostDeps = {
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   fetchHtmlFn?: typeof fetchHtml;
   extractFromHtmlFn?: typeof extractArticleFromHtml;
-  sanitizeExtractedContentFn?: typeof sanitizeExtractedContent;
-  cleanExtractedArticleHtmlFn?: typeof cleanExtractedArticleHtml;
+  sanitizeRawContentFn?: typeof sanitizeRawContent;
+  cleanSanitizedHtmlFn?: typeof cleanSanitizedHtml;
   jsonErrorFn?: typeof jsonError;
   toErrorMessageFn?: typeof toErrorMessage;
   logAndRespondErrorFn?: typeof logAndRespondError;
@@ -160,10 +160,8 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
   const extractArticle = deps?.extractFromHtmlFn ?? extractArticleFromHtml;
-  const sanitizeContent =
-    deps?.sanitizeExtractedContentFn ?? sanitizeExtractedContent;
-  const cleanContent =
-    deps?.cleanExtractedArticleHtmlFn ?? cleanExtractedArticleHtml;
+  const sanitizeContent = deps?.sanitizeRawContentFn ?? sanitizeRawContent;
+  const cleanContent = deps?.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
   const _info = deps?.infoFn ?? logger.info.bind(logger);
   const _toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
@@ -242,7 +240,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       }));
     const safeUrl = redactUrlForLogs(articleUrl);
 
-    const extractableHtml = preCleanHtmlForExtraction(html);
+    const extractableHtml = preCleanHtml(html);
 
     const extracted = await extractArticle(extractableHtml, articleUrl, {
       contentLengthThreshold: 120,
