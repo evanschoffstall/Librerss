@@ -364,6 +364,17 @@ export function useFeedLoader({
     [fetchFeedBatch, categoriesRef],
   );
 
+  const cancelPendingRequest = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    activeRequestSignatureRef.current = null;
+    currentRequestIdRef.current += 1;
+    syncLoading(false);
+    logRefreshDiagnostics("refresh:forced-reset", {
+      requestId: currentRequestIdRef.current,
+    });
+  }, [logRefreshDiagnostics, syncLoading]);
+
   return {
     loading,
     loadingEpoch,
@@ -371,6 +382,7 @@ export function useFeedLoader({
     fetchFeed,
     fetchCategoryFeeds,
     fetchAllFeeds,
+    cancelPendingRequest,
     FEED_LOADING_FAILSAFE_MS,
   };
 }

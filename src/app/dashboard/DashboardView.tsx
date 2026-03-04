@@ -102,6 +102,7 @@ export const DashboardView = ({
     fetchFeed,
     fetchCategoryFeeds,
     fetchAllFeeds,
+    cancelPendingRequest,
     FEED_LOADING_FAILSAFE_MS,
   } = feedLoader;
 
@@ -166,6 +167,7 @@ export const DashboardView = ({
     loadingEpoch,
     timeoutMs: FEED_LOADING_FAILSAFE_MS,
     setLoading,
+    onTimeout: cancelPendingRequest,
   });
   useLockDocumentScroll();
   useRevealSidebarOnMount(setIsSidebarVisible);
@@ -173,22 +175,6 @@ export const DashboardView = ({
   useEffect(() => {
     setVisibleCount(pageSize);
   }, [selectedCategory, searchTerm, pageSize, articleFilter, setVisibleCount]);
-
-  const previousSelectedCategoryRef = useRef(selectedCategory);
-  const previousArticleFilterRef = useRef(articleFilter);
-
-  useEffect(() => {
-    const categoryChanged =
-      previousSelectedCategoryRef.current !== selectedCategory;
-    const filterChanged = previousArticleFilterRef.current !== articleFilter;
-
-    if (categoryChanged || filterChanged) {
-      setExpandedArticleKey(null);
-    }
-
-    previousSelectedCategoryRef.current = selectedCategory;
-    previousArticleFilterRef.current = articleFilter;
-  }, [selectedCategory, articleFilter, setExpandedArticleKey]);
 
   useFeedVisibilityObserver({
     sentinelRef,
@@ -221,9 +207,34 @@ export const DashboardView = ({
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
   const sentinelScrollOffset = useSentinelScrollOffset();
-  const { ref: feedScrollRef, invalidate: invalidateFeedScroll } =
-    useScrollRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
+  const {
+    ref: feedScrollRef,
+    invalidate: invalidateFeedScroll,
+    capture: captureFeedScroll,
+  } = useScrollRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
   const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
+
+  const previousSelectedCategoryRef = useRef(selectedCategory);
+  const previousArticleFilterRef = useRef(articleFilter);
+
+  useEffect(() => {
+    const categoryChanged =
+      previousSelectedCategoryRef.current !== selectedCategory;
+    const filterChanged = previousArticleFilterRef.current !== articleFilter;
+
+    if (categoryChanged || filterChanged) {
+      setExpandedArticleKey(null);
+      invalidateFeedScroll();
+    }
+
+    previousSelectedCategoryRef.current = selectedCategory;
+    previousArticleFilterRef.current = articleFilter;
+  }, [
+    selectedCategory,
+    articleFilter,
+    setExpandedArticleKey,
+    invalidateFeedScroll,
+  ]);
 
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
   const mergedFeedScrollRef = useCallback(
@@ -250,6 +261,7 @@ export const DashboardView = ({
     fetchFeed,
     fetchCategoryFeeds,
     onFeedSwitch: invalidateFeedScroll,
+    onBeforeRefresh: captureFeedScroll,
   });
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
