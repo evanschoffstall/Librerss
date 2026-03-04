@@ -49,6 +49,40 @@ function elementOffsetInContent(el: Element, viewport: HTMLElement): number {
   );
 }
 
+function buildSavedState(
+  viewport: HTMLElement,
+  scrollTopOffset: number,
+): SavedState | null {
+  const top = viewport.scrollTop;
+  if (top <= scrollTopOffset) {
+    return null;
+  }
+
+  const contentWrapper = viewport.firstElementChild;
+  let anchorIndex = -1;
+  let anchorOffset = 0;
+
+  if (contentWrapper) {
+    const viewportTop = viewport.getBoundingClientRect().top;
+    const children = Array.from(contentWrapper.children);
+    for (let i = 0; i < children.length; i++) {
+      const childTop = children[i].getBoundingClientRect().top - viewportTop;
+      if (childTop >= -1) {
+        anchorIndex = i;
+        anchorOffset = childTop;
+        break;
+      }
+    }
+    if (anchorIndex === -1 && children.length > 0) {
+      anchorIndex = children.length - 1;
+      anchorOffset =
+        children[anchorIndex].getBoundingClientRect().top - viewportTop;
+    }
+  }
+
+  return { t: top, ai: anchorIndex, ao: anchorOffset };
+}
+
 /**
  * Persists & restores the scroll position of a Radix ScrollArea viewport to
  * sessionStorage so it survives HMR reloads and full-page refreshes.
@@ -272,5 +306,32 @@ export function useScrollRestore(
     if (viewport) viewport.scrollTop = offsetRef.current;
   }, [sessionKey]);
 
-  return { ref: attachRef, invalidate };
+  const capture = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const state = buildSavedState(viewport, offsetRef.current);
+    if (!state) {
+      savedStateRef.current = null;
+      try {
+        sessionStorage.removeItem(sessionKey);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
+    savedStateRef.current = state;
+    restoreDeadlineRef.current = Date.now() + RESTORE_WINDOW_MS;
+    try {
+      sessionStorage.setItem(sessionKey, JSON.stringify(state));
+    } catch {
+      /* ignore */
+    }
+    requestAnimationFrame(() => restoreScrollIfNeeded());
+  }, [restoreScrollIfNeeded, sessionKey]);
+
+  return { ref: attachRef, invalidate, capture };
 }
