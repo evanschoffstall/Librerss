@@ -109,9 +109,20 @@ const LandingView = () => {
       </div>
 
       {/* Bottom tagline */}
-      <p className="landing-tagline absolute bottom-8 text-xs text-muted-foreground/40">
-        Open source &middot; Self-hostable &middot; GReader compatible
-      </p>
+      <div className="landing-tagline absolute bottom-8 text-center text-xs text-muted-foreground/40">
+        <p>Open source &middot; Self-hostable &middot; GReader compatible</p>
+        <p>
+          Made with ❤️ by{" "}
+          <a
+            href="https://github.com/evanschoffstall"
+            target="_blank"
+            rel="noreferrer"
+            className="underline-offset-2 hover:underline"
+          >
+            Evan Schoffstall
+          </a>
+        </p>
+      </div>
     </div>
   );
 };
