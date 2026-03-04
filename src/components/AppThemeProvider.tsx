@@ -5,7 +5,7 @@ import { Moon, Sun } from "lucide-react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { Toaster, toast } from "sonner";
+import { Toaster } from "sonner";
 
 /**
  * Renders either the full dashboard top bar or a standalone theme toggle,
@@ -78,10 +78,10 @@ function ThemedToaster() {
         return;
       }
 
-      // Sonner renders each toast with a `data-id` attribute — use it directly
-      // rather than walking an internal toast store (which has no stable API).
-      const toastId = toastElement.dataset.id;
-      toast.dismiss(toastId);
+      const closeButton = toastElement.querySelector<HTMLElement>(
+        "[data-close-button]",
+      );
+      closeButton?.click();
     };
 
     document.addEventListener("click", handleToastClickToDismiss);
