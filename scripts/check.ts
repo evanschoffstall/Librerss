@@ -271,6 +271,7 @@ function parseDetails(outputs: Record<string, Command>) {
     semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
     gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
     depAudit,
+    build: detail(outputs.build, "build clean", "build failed"),
   };
 }
 
@@ -521,6 +522,11 @@ async function runCheckSuite() {
       l: "dep-audit",
       r: () => run("bun", ["run", "scan:deps"]),
     },
+    {
+      k: "build",
+      l: "build",
+      r: () => run("bun", ["run", "build"]),
+    },
   ];
   const runs = Object.fromEntries(
     await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
@@ -558,6 +564,7 @@ async function runCheckSuite() {
     { k: "semgrep", ok: runs.semgrep.exitCode === 0, d: details.semgrep },
     { k: "gitleaks", ok: runs.gitleaks.exitCode === 0, d: details.gitleaks },
     { k: "dep-audit", ok: runs.depAudit.exitCode === 0, d: details.depAudit },
+    { k: "build", ok: runs.build.exitCode === 0, d: details.build },
     {
       k: "Tests",
       ok: tests.ok && runs.test.exitCode === 0,
