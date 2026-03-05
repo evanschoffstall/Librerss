@@ -663,26 +663,18 @@ describe("Feed Repository - Delete Operations", () => {
   test("deleteFeedSourceForUser deletes feed source", async () => {
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            where: mock(() => ({
-              limit: mock(() =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    name: "Feed",
-                    url: "https://example.com/feed",
-                  },
-                ]),
-              ),
-            })),
-          })),
-        })),
         transaction: mock(async (callback: any) => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
                 where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([
+                        { id: 1, name: "Feed", url: "https://example.com/feed" },
+                      ]),
+                    ),
+                  })),
                   limit: mock(() => Promise.resolve([{ id: 1 }])),
                 })),
               })),
@@ -715,13 +707,21 @@ describe("Feed Repository - Delete Operations", () => {
   test("deleteFeedSourceForUser returns null for non-existent source", async () => {
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            where: mock(() => ({
-              limit: mock(() => Promise.resolve([])),
+        transaction: mock(async (callback: any) => {
+          const mockTx = {
+            select: mock(() => ({
+              from: mock(() => ({
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() => Promise.resolve([])),
+                  })),
+                  limit: mock(() => Promise.resolve([])),
+                })),
+              })),
             })),
-          })),
-        })),
+          };
+          return callback(mockTx);
+        }),
       }),
     }));
 
@@ -733,26 +733,18 @@ describe("Feed Repository - Delete Operations", () => {
   test("deleteFeedSourceForUser removes category associations", async () => {
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            where: mock(() => ({
-              limit: mock(() =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    name: "Feed",
-                    url: "https://example.com/feed",
-                  },
-                ]),
-              ),
-            })),
-          })),
-        })),
         transaction: mock(async (callback: any) => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
                 where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([
+                        { id: 1, name: "Feed", url: "https://example.com/feed" },
+                      ]),
+                    ),
+                  })),
                   limit: mock(() => Promise.resolve([{ id: 1 }])),
                 })),
               })),
@@ -806,6 +798,20 @@ describe("Feed Repository - Delete Operations", () => {
         })),
         transaction: mock(async (callback: any) => {
           const mockTx = {
+            select: mock(() => ({
+              from: mock(() => ({
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([
+                        { id: 1, name: "Feed", url: "https://example.com/feed" },
+                      ]),
+                    ),
+                  })),
+                  limit: mock(() => Promise.resolve([])),
+                })),
+              })),
+            })),
             delete: mock(() => ({
               where: mock(() => ({
                 returning: mock(() =>
