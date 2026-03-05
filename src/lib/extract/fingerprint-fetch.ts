@@ -11,7 +11,7 @@ import { SOCKS_PROTOCOLS } from "./proxy-config";
 // across all redirect hops within a single extraction attempt.
 export const extractionAxios = cookieJarWrapper(axios.create());
 
-export interface FingerprintFetchOptions {
+interface FingerprintFetchOptions {
   proxyUrl?: string;
   allowInsecureTls?: boolean;
   operatingSystem?: "windows" | "macos" | "linux";

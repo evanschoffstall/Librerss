@@ -1,6 +1,6 @@
 import { SocksProxyAgent } from "socks-proxy-agent";
 
-export type ProxyConfig =
+type ProxyConfig =
   | {
       mode: "http";
       proxy: {
