@@ -44,7 +44,8 @@ function buildDdgReferer(url: string): string {
         .replace(/\.[^.]+$/, "")
         .replace(/[-_]/g, " ")
         .trim() || "news right now";
-    return `https://duckduckgo.com/?q=${encodeURIComponent(q)}&ia=web`;
+    // DDG form-encodes spaces as '+', not '%20' — browsers use application/x-www-form-urlencoded.
+    return `https://duckduckgo.com/?q=${encodeURIComponent(q).replace(/%20/g, "+")}&ia=web`;
   } catch {
     return "https://duckduckgo.com/?q=news+right+now&ia=web";
   }
@@ -195,7 +196,9 @@ export async function fetchHtml(
       "Upgrade-Insecure-Requests": "1",
       "Sec-Fetch-Dest": "document",
       "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
+      // "none" when no referer (direct navigation); "cross-site" when a DDG
+      // referer is present — sending both simultaneously is a detectable bot tell.
+      "Sec-Fetch-Site": directReferer ? "cross-site" : "none",
       "Sec-Fetch-User": "?1",
       "sec-ch-ua": secChUa,
       "sec-ch-ua-mobile": "?0",

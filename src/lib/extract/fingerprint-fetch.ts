@@ -126,7 +126,7 @@ export async function fetchHtmlWithFingerprint(
         : { proxyUrl: options.proxyUrl }
       : {};
 
-    const chromeVer = options?.browserVersion ?? 130;
+    const chromeVer = options?.browserVersion ?? 131;
     const proxyMode = isSocksProxy
       ? "socks"
       : options?.proxyUrl
@@ -143,22 +143,26 @@ export async function fetchHtmlWithFingerprint(
         locales: ["en-US"],
         operatingSystems: [options?.operatingSystem ?? "windows"],
       },
-      ...(options?.secChUa || options?.accept || options?.referer
-        ? {
-            headers: {
-              ...(options.secChUa && { "sec-ch-ua": options.secChUa }),
-              ...(options.accept && { Accept: options.accept }),
-              ...(options.referer && {
-                Referer: options.referer,
-                // Cross-site navigation signal: header-generator defaults to
-                // "same-site" but a DDG referral is always cross-site.
-                // Bot detectors (DataDome, PerimeterX) check this for consistency.
-                "Sec-Fetch-Site": "cross-site",
-              }),
-              Priority: "u=0, i",
-            },
-          }
-        : {}),
+      headers: {
+        // Chrome 131 always sends the q-value fallback — header-generator
+        // drops it when only one locale is configured.
+        "accept-language": "en-US,en;q=0.9",
+        // Chrome 119+ negotiates zstd; omitting it is a fingerprinting gap
+        // that DataDome and PerimeterX track as a bot signal.
+        "accept-encoding": "gzip, deflate, br, zstd",
+        // Explicit baseline — header-generator may vary; direct path always sends these.
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        ...(options?.secChUa && { "sec-ch-ua": options.secChUa }),
+        ...(options?.accept && { Accept: options.accept }),
+        ...(options?.referer && {
+          Referer: options.referer,
+          // Cross-site navigation signal: overrides the "none" baseline above.
+          // Bot detectors (DataDome, PerimeterX) check this for consistency.
+          "sec-fetch-site": "cross-site",
+        }),
+        Priority: "u=0, i",
+      },
       ...(options?.cookieJar ? { cookieJar: options.cookieJar } : {}),
       followRedirect: false,
       throwHttpErrors: false,
