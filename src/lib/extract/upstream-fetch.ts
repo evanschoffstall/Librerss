@@ -115,11 +115,35 @@ export async function fetchHtml(
         return html;
       } catch (err) {
         lastError = err;
-        const isRetryable =
-          err instanceof GotScrapingError &&
-          (err.statusCode === 403 || err.statusCode === 429);
-        const willRetry = isRetryable && attempt < attempts - 1;
         const gsErr = err instanceof GotScrapingError ? err : null;
+        const is403 = gsErr?.statusCode === 403;
+        const is429 = gsErr?.statusCode === 429;
+
+        // Detect IP-level bot-protection blocks. When PerimeterX or DataDome
+        // block a proxy IP, UA/fingerprint rotation across retries won't help —
+        // the block is at the proxy egress IP reputation level, not the TLS
+        // fingerprint level. Abort immediately to avoid burning retries.
+        const proxyPxDetected =
+          is403 &&
+          gsErr !== null &&
+          (/px[-_]captcha|perimeterx|\/_px\//i.test(gsErr.responseBody) ||
+            Object.keys(gsErr.responseHeaders).some((h) =>
+              h.toLowerCase().startsWith("x-px-"),
+            ));
+        const proxyDdDetected =
+          is403 &&
+          gsErr !== null &&
+          String(gsErr.responseHeaders["x-datadome"] ?? "").toLowerCase() ===
+            "protected";
+        const ipBlocked = proxyPxDetected || proxyDdDetected;
+        const botProvider = proxyPxDetected
+          ? "PerimeterX"
+          : proxyDdDetected
+            ? "DataDome"
+            : null;
+
+        const isRetryable = (is403 || is429) && !ipBlocked;
+        const willRetry = isRetryable && attempt < attempts - 1;
 
         logger.error(
           `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
@@ -140,14 +164,19 @@ export async function fetchHtml(
               responseHeaders: pickDiagnosticHeaders(gsErr.responseHeaders),
             }),
             error: err instanceof Error ? err.message : String(err),
+            ...(ipBlocked && {
+              note: `Proxy IP blocked by ${botProvider} — fingerprint rotation cannot bypass IP-reputation block`,
+            }),
             ...(!willRetry &&
-              isRetryable && {
+              !ipBlocked &&
+              (is403 || is429) && {
                 note: "Site may be blocking proxy IP or requires manual access",
               }),
           },
         );
 
         // Only retry on 403/429 — other errors (network, timeout, 404, 5xx) are final.
+        // IP-level bot blocks also skip retries — proxy egress IP is flagged.
         if (willRetry) continue;
         throw err;
       }
