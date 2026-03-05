@@ -33,20 +33,25 @@ import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
-// Stable across worker restarts/processes — derived from AUTH_SECRET so it
-// is consistent in multi-worker deployments without requiring shared state.
+// Lazily computed on first request — avoids module-init throws at build time.
 // AUTH_SECRET MUST be set — an empty fallback would produce a predictable,
 // offline-computable token, making edit-token authentication meaningless.
-const authSecret = process.env.AUTH_SECRET;
-if (!authSecret) {
-  throw new Error(
-    "[greader] AUTH_SECRET environment variable is required but not set.",
-  );
+let _editToken: string | undefined;
+function getEditToken(): string {
+  if (!_editToken) {
+    const secret = process.env.AUTH_SECRET;
+    if (!secret) {
+      throw new Error(
+        "[greader] AUTH_SECRET environment variable is required but not set.",
+      );
+    }
+    _editToken = createHash("sha256")
+      .update(`greader-edit-token:${secret}`)
+      .digest("hex")
+      .slice(0, 48);
+  }
+  return _editToken;
 }
-const READER_API_EDIT_TOKEN = createHash("sha256")
-  .update(`greader-edit-token:${authSecret}`)
-  .digest("hex")
-  .slice(0, 48);
 
 type RouteContext = {
   params: Promise<{ segments: string[] }>;
@@ -66,7 +71,7 @@ async function handleUserInfo(user: SessionUser): Promise<Response> {
 
 async function handleToken(): Promise<Response> {
   logger.info("[greader] token requested");
-  return textResponse(`${READER_API_EDIT_TOKEN}\n`);
+  return textResponse(`${getEditToken()}\n`);
 }
 
 function createReaderResourceHandlers(
@@ -166,7 +171,7 @@ async function dispatch(
             .then((fd) => fd.get("T") as string | null)
             .catch(() => null));
 
-        if (editToken !== READER_API_EDIT_TOKEN) {
+        if (editToken !== getEditToken()) {
           return textResponse("Error=InvalidToken\n", 403);
         }
       }
