@@ -40,6 +40,8 @@ export class GotScrapingError extends Error {
     readonly allowInsecureTls: boolean,
     readonly redirectHop: number,
     readonly responseHeaders: Record<string, string | string[] | undefined>,
+    // Actual headers sent by got-scraping on the wire (post header-generator merge).
+    readonly requestHeaders: Record<string, string | string[] | undefined>,
   ) {
     super(`Upstream responded with status ${statusCode}`);
   }
@@ -78,7 +80,10 @@ export async function fetchHtmlWithFingerprint(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
   options?: FingerprintFetchOptions,
-): Promise<string> {
+): Promise<{
+  html: string;
+  requestHeaders: Record<string, string | string[] | undefined>;
+}> {
   const { gotScraping } = await import("got-scraping");
 
   let currentUrl = stripUrlFragment(url);
@@ -143,7 +148,13 @@ export async function fetchHtmlWithFingerprint(
             headers: {
               ...(options.secChUa && { "sec-ch-ua": options.secChUa }),
               ...(options.accept && { Accept: options.accept }),
-              ...(options.referer && { Referer: options.referer }),
+              ...(options.referer && {
+                Referer: options.referer,
+                // Cross-site navigation signal: header-generator defaults to
+                // "same-site" but a DDG referral is always cross-site.
+                // Bot detectors (DataDome, PerimeterX) check this for consistency.
+                "Sec-Fetch-Site": "cross-site",
+              }),
               Priority: "u=0, i",
             },
           }
@@ -160,6 +171,14 @@ export async function fetchHtmlWithFingerprint(
     });
 
     const responseBody = typeof response.body === "string" ? response.body : "";
+    // Actual headers sent on the wire — captured post-hook so the full
+    // browser-fingerprint set (from header-generator) is included.
+    const sentHeaders = ((
+      response as { request?: { options?: { headers?: unknown } } }
+    ).request?.options?.headers ?? {}) as Record<
+      string,
+      string | string[] | undefined
+    >;
 
     if (response.statusCode >= 300 && response.statusCode < 400) {
       if (redirects === 5) throw new Error("Too many redirects");
@@ -188,6 +207,7 @@ export async function fetchHtmlWithFingerprint(
         options?.allowInsecureTls ?? false,
         redirects,
         response.headers as Record<string, string | string[] | undefined>,
+        sentHeaders,
       );
     }
 
@@ -198,7 +218,7 @@ export async function fetchHtmlWithFingerprint(
       throw new Error("Upstream response too large");
     }
 
-    return responseBody;
+    return { html: responseBody, requestHeaders: sentHeaders };
   }
 
   throw new Error("Too many redirects");
