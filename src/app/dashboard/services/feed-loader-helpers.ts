@@ -1,14 +1,7 @@
 import type { Article } from "@/lib";
+import type { BatchFeedResponseItem } from "@/lib/api/http";
 import { getArticleKey } from "../services/article-collection";
 import type { FeedBatchSource } from "../services/feed-batch";
-
-type FeedBatchResult = {
-  url: string;
-  articles: Article[];
-  ok: boolean;
-  error?: string;
-  lastFetchedAt?: Date;
-};
 
 export function isCanceledBatchRequest(error: unknown): boolean {
   return (
@@ -18,7 +11,7 @@ export function isCanceledBatchRequest(error: unknown): boolean {
 }
 
 export function getNewestLastFetchedAt(
-  batchResults: FeedBatchResult[],
+  batchResults: BatchFeedResponseItem[],
 ): Date | null {
   return batchResults.reduce<Date | null>((latest, item) => {
     if (!item.lastFetchedAt) {
@@ -33,7 +26,7 @@ export function getNewestLastFetchedAt(
   }, null);
 }
 
-export function summarizeBatchResults(batchResults: FeedBatchResult[]) {
+export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
   let okCount = 0;
   let missingCount = 0;
   let errorCount = 0;
@@ -87,7 +80,7 @@ export function getSourceNamesByUrl(
   return new Map(sources.map((source) => [source.url, source.name] as const));
 }
 
-export type { FeedBatchResult };
+export type { BatchFeedResponseItem as FeedBatchResult };
 
 // ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────
 

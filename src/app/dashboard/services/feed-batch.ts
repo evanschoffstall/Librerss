@@ -3,18 +3,12 @@
  */
 
 import { type Article, type CategoryTreeNode } from "@/lib";
+import type { BatchFeedResponseItem } from "@/lib/api/http";
 import { dedupeAndSortArticles } from "./article-collection";
 
 export interface FeedBatchSource {
   url: string;
   name: string | undefined;
-}
-
-interface BatchResultItem {
-  url: string;
-  articles: Article[];
-  ok: boolean;
-  error?: string;
 }
 
 function enrichFeedArticles(
@@ -36,7 +30,7 @@ function enrichFeedArticles(
  * Falls back to placeholder data when `usePlaceholderData` is true.
  */
 export function mapBatchResultsToArticles(
-  batchResults: BatchResultItem[],
+  batchResults: BatchFeedResponseItem[],
   sourceNameByUrl: Map<string, string | undefined>,
   usePlaceholderData: boolean,
   getPlaceholderArticles: (url: string) => Article[],
