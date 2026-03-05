@@ -3,11 +3,8 @@ import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import { logger } from "@/lib/logger";
-import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
-import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 import https from "node:https";
-import { SocksProxyAgent } from "socks-proxy-agent";
 import { CookieJar } from "tough-cookie";
 import {
   ARTICLE_EXTRACT_SEC_CH_UA,
@@ -15,6 +12,15 @@ import {
   EXTRACT_FINGERPRINT_POOL,
   PROXY_FINGERPRINT_POOL,
 } from "./constants";
+import {
+  extractionAxios,
+  fetchHtmlWithFingerprint,
+  GotScrapingError,
+  pickDiagnosticHeaders,
+} from "./fingerprint-fetch";
+import { buildProxyConfig, SOCKS_PROTOCOLS } from "./proxy-config";
+
+export { fetchHtmlWithFingerprint } from "./fingerprint-fetch";
 
 type FetchHtmlDeps = {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
@@ -26,283 +32,6 @@ interface FetchHtmlOptions {
   useProxy?: boolean;
   proxyUrl?: string;
   allowInsecureTls?: boolean;
-}
-
-type ProxyConfig =
-  | {
-      mode: "http";
-      proxy: {
-        host: string;
-        port: number;
-        protocol: string;
-        auth?: { username: string; password: string };
-      };
-    }
-  | { mode: "socks"; httpAgent: SocksProxyAgent; httpsAgent: SocksProxyAgent };
-
-const SOCKS_PROTOCOLS = new Set([
-  "socks:",
-  "socks4:",
-  "socks4a:",
-  "socks5:",
-  "socks5h:",
-]);
-
-/** Parse a proxy URL string into axios-compatible config (HTTP or SOCKS). */
-function buildProxyConfig(
-  proxyUrl: string,
-  allowInsecureTls = false,
-): ProxyConfig | false {
-  try {
-    const parsed = new URL(proxyUrl);
-    if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
-      const agent = new SocksProxyAgent(proxyUrl);
-      if (allowInsecureTls) {
-        // Override the connect method to inject rejectUnauthorized: false
-        // into the TLS upgrade options that socks-proxy-agent passes to
-        // tls.connect(). Cast required because AgentConnectOpts union
-        // doesn't expose TLS fields on the HTTP variant.
-        const origConnect = agent.connect.bind(agent);
-        agent.connect = (req, opts) =>
-          origConnect(req, {
-            ...opts,
-            rejectUnauthorized: false,
-          } as typeof opts);
-      }
-      return { mode: "socks", httpAgent: agent, httpsAgent: agent };
-    }
-    const result: ProxyConfig & { mode: "http" } = {
-      mode: "http",
-      proxy: {
-        host: parsed.hostname,
-        port:
-          Number(parsed.port) || (parsed.protocol === "https:" ? 443 : 8080),
-        protocol: parsed.protocol.replace(":", ""),
-      },
-    };
-    if (parsed.username)
-      result.proxy.auth = {
-        username: decodeURIComponent(parsed.username),
-        password: decodeURIComponent(parsed.password),
-      };
-    return result;
-  } catch {
-    // Invalid proxy URL - return false
-    return false;
-  }
-}
-
-// Dedicated axios instance with cookie jar support for article extraction.
-// Using a separate instance avoids polluting the global axios used by feed fetching.
-// Cookie jar support persists challenge cookies (Cloudflare, DataDome, Akamai)
-// across all redirect hops within a single extraction attempt.
-const extractionAxios = cookieJarWrapper(axios.create());
-
-interface FingerprintFetchOptions {
-  proxyUrl?: string;
-  allowInsecureTls?: boolean;
-  operatingSystem?: "windows" | "macos" | "linux";
-  browserVersion?: number;
-  // Persistent cookie jar for this attempt — carries challenge cookies across
-  // redirect hops (PerimeterX/Cloudflare challenge→redirect→content flows).
-  cookieJar?: CookieJar;
-  // Per-version sec-ch-ua brand string override (each Chrome release changes
-  // the "not-a-brand" token format; explicit value avoids generator drift).
-  secChUa?: string;
-  // Navigation Accept header sent by this Chrome version (includes signed-exchange).
-  accept?: string;
-  // Referer header — signals organic navigation (search result click).
-  // DataDome's behavioral scorer treats zero-Referer direct GETs as high-risk.
-  referer?: string;
-}
-
-// Carries full got-scraping response context up to the retry loop so all
-// fields land in one consolidated error log rather than a separate non-2xx log.
-class GotScrapingError extends Error {
-  constructor(
-    readonly statusCode: number,
-    readonly responseBody: string,
-    readonly proxyMode: string,
-    readonly proxyAddress: string | null,
-    readonly browserVersion: number,
-    readonly os: string,
-    readonly allowInsecureTls: boolean,
-    readonly redirectHop: number,
-    readonly responseHeaders: Record<string, string | string[] | undefined>,
-  ) {
-    super(`Upstream responded with status ${statusCode}`);
-  }
-}
-
-/**
- * Extract a trimmed set of headers useful for diagnosing bot-detection blocks.
- * Includes common CDN/WAF signals without leaking sensitive values.
- */
-function pickDiagnosticHeaders(
-  headers: Record<string, string | string[] | undefined>,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  const KEEP = new Set([
-    "server",
-    "via",
-    "x-cache",
-    "cf-ray",
-    "x-datadome",
-    "retry-after",
-    "content-type",
-  ]);
-  for (const [k, v] of Object.entries(headers)) {
-    const lower = k.toLowerCase();
-    if (KEEP.has(lower) || lower.startsWith("x-px-")) {
-      out[lower] = v;
-    }
-  }
-  // Report set-cookie as a count only — values contain session tokens.
-  const sc = headers["set-cookie"];
-  const scCount = Array.isArray(sc) ? sc.length : sc ? 1 : 0;
-  if (scCount > 0) out["set-cookie-count"] = scCount;
-  return out;
-}
-
-export async function fetchHtmlWithFingerprint(
-  url: string,
-  isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
-  options?: FingerprintFetchOptions,
-): Promise<string> {
-  const { gotScraping } = await import("got-scraping");
-
-  let currentUrl = stripUrlFragment(url);
-  let isFirstValidation = true;
-
-  for (let redirects = 0; redirects <= 5; redirects += 1) {
-    if (!(await isAllowedUrl(currentUrl))) {
-      throw new Error(
-        isFirstValidation ? "Blocked URL" : "Blocked redirect target",
-      );
-    }
-    isFirstValidation = false;
-
-    // got-scraping's built-in proxyUrl only supports HTTP/HTTPS proxies.
-    // For SOCKS proxies, pass a SocksProxyAgent as the agent instead.
-    const isSocksProxy =
-      options?.proxyUrl &&
-      SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol);
-    const proxyOpts = options?.proxyUrl
-      ? isSocksProxy
-        ? (() => {
-            const httpAgent = new SocksProxyAgent(options.proxyUrl!);
-            const httpsAgent = new SocksProxyAgent(options.proxyUrl!);
-            // Apply allowInsecureTls override to SOCKS agents.
-            // When the agent establishes the TLS connection, got-scraping's
-            // https.rejectUnauthorized option has no effect, so we must
-            // override the agent's connect method directly.
-            if (options.allowInsecureTls === true) {
-              const origConnectHttp = httpAgent.connect.bind(httpAgent);
-              httpAgent.connect = (req, opts) =>
-                origConnectHttp(req, {
-                  ...opts,
-                  rejectUnauthorized: false,
-                } as typeof opts);
-              const origConnectHttps = httpsAgent.connect.bind(httpsAgent);
-              httpsAgent.connect = (req, opts) =>
-                origConnectHttps(req, {
-                  ...opts,
-                  rejectUnauthorized: false,
-                } as typeof opts);
-            }
-            return { agent: { http: httpAgent, https: httpsAgent } };
-          })()
-        : { proxyUrl: options.proxyUrl }
-      : {};
-
-    const chromeVer = options?.browserVersion ?? 130;
-    const proxyMode = isSocksProxy
-      ? "socks"
-      : options?.proxyUrl
-        ? "http"
-        : "direct";
-    const requestOs = options?.operatingSystem ?? "windows";
-
-    const response = await gotScraping.get(currentUrl, {
-      headerGeneratorOptions: {
-        browsers: [
-          { name: "chrome", minVersion: chromeVer, maxVersion: chromeVer },
-        ],
-        devices: ["desktop"],
-        locales: ["en-US"],
-        operatingSystems: [options?.operatingSystem ?? "windows"],
-      },
-      // Explicit header overrides: take precedence over generator output.
-      // sec-ch-ua: version-accurate brand string (format changes per major release).
-      // Accept: include signed-exchange which all Chrome navigation requests carry.
-      // Priority: navigation fetch priority sent by Chrome 116+.
-      ...(options?.secChUa || options?.accept || options?.referer
-        ? {
-            headers: {
-              ...(options.secChUa && { "sec-ch-ua": options.secChUa }),
-              ...(options.accept && { Accept: options.accept }),
-              ...(options.referer && { Referer: options.referer }),
-              Priority: "u=0, i",
-            },
-          }
-        : {}),
-      // Cookie jar: persists cookies set by challenge pages across redirect hops.
-      ...(options?.cookieJar ? { cookieJar: options.cookieJar } : {}),
-      followRedirect: false,
-      throwHttpErrors: false,
-      timeout: { request: 25_000 },
-      https: {
-        rejectUnauthorized: options?.allowInsecureTls !== true,
-      },
-      responseType: "text",
-      ...proxyOpts,
-    });
-
-    const responseBody = typeof response.body === "string" ? response.body : "";
-
-    if (response.statusCode >= 300 && response.statusCode < 400) {
-      if (redirects === 5) {
-        throw new Error("Too many redirects");
-      }
-
-      const locationHeader = response.headers.location;
-      const location = Array.isArray(locationHeader)
-        ? locationHeader[0]
-        : locationHeader;
-
-      if (typeof location !== "string" || !location.trim()) {
-        throw new Error("Redirect without Location header");
-      }
-
-      currentUrl = stripUrlFragment(new URL(location, currentUrl).toString());
-      continue;
-    }
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw new GotScrapingError(
-        response.statusCode,
-        responseBody,
-        proxyMode,
-        options?.proxyUrl ?? null,
-        chromeVer,
-        requestOs,
-        options?.allowInsecureTls ?? false,
-        redirects,
-        response.headers as Record<string, string | string[] | undefined>,
-      );
-    }
-
-    if (
-      Buffer.byteLength(responseBody, "utf8") >
-      CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
-    ) {
-      throw new Error("Upstream response too large");
-    }
-
-    return responseBody;
-  }
-
-  throw new Error("Too many redirects");
 }
 
 export async function fetchHtml(
