@@ -3,6 +3,7 @@ import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import { logger } from "@/lib/logger";
+import { toErrorMessage } from "@/lib/utils/errors";
 import axios from "axios";
 import https from "node:https";
 import { CookieJar } from "tough-cookie";
@@ -90,6 +91,15 @@ export async function fetchHtml(
             ? '"Linux"'
             : '"Windows"';
 
+      const fpRequestHeaders = {
+        "User-Agent": fp.ua,
+        "sec-ch-ua": fp.secChUa,
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": fpPlatform,
+        Accept: fp.accept,
+        Referer: proxyReferer,
+      };
+
       try {
         const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
           proxyUrl: options.proxyUrl,
@@ -111,14 +121,7 @@ export async function fetchHtml(
             proxyMode,
             proxyAddress: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls ?? false,
-            headers: {
-              "User-Agent": fp.ua,
-              "sec-ch-ua": fp.secChUa,
-              "sec-ch-ua-mobile": "?0",
-              "sec-ch-ua-platform": fpPlatform,
-              Accept: fp.accept,
-              Referer: proxyReferer,
-            },
+            headers: fpRequestHeaders,
             responseBodyLength: html.length,
           },
         );
@@ -141,14 +144,7 @@ export async function fetchHtml(
             proxyMode: gsErr?.proxyMode ?? proxyMode,
             proxyAddress: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls ?? false,
-            headers: {
-              "User-Agent": fp.ua,
-              "sec-ch-ua": fp.secChUa,
-              "sec-ch-ua-mobile": "?0",
-              "sec-ch-ua-platform": fpPlatform,
-              Accept: fp.accept,
-              Referer: proxyReferer,
-            },
+            headers: fpRequestHeaders,
             ...(gsErr && {
               statusCode: gsErr.statusCode,
               redirectHop: gsErr.redirectHop,
@@ -391,7 +387,7 @@ export async function fetchHtml(
             proxyAddress: proxyUrl ?? null,
             allowInsecureTls: insecureTls,
             headers: requestHeaders,
-            error: err instanceof Error ? err.message : String(err),
+            error: toErrorMessage(err),
           },
         );
       }
@@ -463,10 +459,7 @@ export async function fetchHtml(
     } catch (fallbackErr) {
       logger.error(`TLS fingerprint fallback failed (${provider})`, {
         ...fallbackLogCtx,
-        error:
-          fallbackErr instanceof Error
-            ? fallbackErr.message
-            : String(fallbackErr),
+        error: toErrorMessage(fallbackErr),
       });
       // Fall through and surface the original error to the caller.
     }
