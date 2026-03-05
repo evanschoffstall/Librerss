@@ -34,6 +34,21 @@ interface FetchHtmlOptions {
   allowInsecureTls?: boolean;
 }
 
+function buildDdgReferer(url: string): string {
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    const slug = segments[segments.length - 1] ?? "";
+    const q =
+      slug
+        .replace(/\.[^.]+$/, "")
+        .replace(/[-_]/g, " ")
+        .trim() || "news right now";
+    return `https://duckduckgo.com/?q=${encodeURIComponent(q)}&ia=web`;
+  } catch {
+    return "https://duckduckgo.com/?q=news+right+now&ia=web";
+  }
+}
+
 export async function fetchHtml(
   url: string,
   deps?: FetchHtmlDeps,
@@ -52,23 +67,10 @@ export async function fetchHtml(
   if (options?.useProxy && options.proxyUrl && !injectedGet) {
     let lastError: unknown;
     const attempts = 1 + EXTRACT_403_RETRIES;
-
-    // Derive a search query from the URL slug for a DDG referer on every attempt.
-    const proxyDdgQuery = (() => {
-      try {
-        const segments = new URL(url).pathname.split("/").filter(Boolean);
-        const slug = segments[segments.length - 1] ?? "";
-        return (
-          slug
-            .replace(/\.[^.]+$/, "")
-            .replace(/[-_]/g, " ")
-            .trim() || "news right now"
-        );
-      } catch {
-        return "news right now";
-      }
-    })();
-    const proxyReferer = `https://duckduckgo.com/?q=${encodeURIComponent(proxyDdgQuery)}&ia=web`;
+    const proxyReferer = buildDdgReferer(url);
+    const proxyMode = SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
+      ? "socks"
+      : "http";
 
     for (let attempt = 0; attempt < attempts; attempt++) {
       // Human-like delay between retries: base delay + random jitter.
@@ -81,9 +83,6 @@ export async function fetchHtml(
       const fp =
         PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
 
-      const proxyMode = SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
-        ? "socks"
-        : "http";
       const fpPlatform =
         fp.os === "macos"
           ? '"macOS"'
@@ -376,23 +375,7 @@ export async function fetchHtml(
     const provider = dataDomeDetected ? "DataDome" : "PerimeterX";
     const connectionMode = options?.useProxy ? "proxy" : "direct";
     const fallbackFp = PROXY_FINGERPRINT_POOL[0];
-    // Derive a search query from the URL slug — approximates the article
-    // title without requiring it to be threaded through the call stack.
-    const ddgQuery = (() => {
-      try {
-        const segments = new URL(url).pathname.split("/").filter(Boolean);
-        const slug = segments[segments.length - 1] ?? "";
-        return (
-          slug
-            .replace(/\.[^.]+$/, "") // strip extension
-            .replace(/[-_]/g, " ")
-            .trim() || "news right now"
-        );
-      } catch {
-        return "news right now";
-      }
-    })();
-    const fallbackReferer = `https://duckduckgo.com/?q=${encodeURIComponent(ddgQuery)}&ia=web`;
+    const fallbackReferer = buildDdgReferer(url);
     const fallbackHeaders = {
       "User-Agent": fallbackFp.ua,
       "sec-ch-ua": fallbackFp.secChUa,
