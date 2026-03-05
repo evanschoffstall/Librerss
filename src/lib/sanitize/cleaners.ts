@@ -323,7 +323,7 @@ const NON_CONTENT_ID_RE =
 
 /** Semantic purpose words in CSS classes indicating non-content containers. */
 const NON_CONTENT_CLASS_RE =
-  /sign[-_]?up|subscrib|newsletter|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)|promo(?:tion)?[-_]?(?:bar|banner|block|card)|cta[-_](?:bar|banner|block)|call[-_]?to[-_]?action|follow[-_]?(?:us|bar)|whatsapp[-_]?(?:bar|link|share)/i;
+  /sign[-_]?up|subscrib(?:e[-_]?(?:widget|form|bar|banner|button|cta|prompt|modal|popup|overlay)|tion[-_]?(?:widget|form|bar|banner))|newsletter[-_]?(?:sign|sub|widget|form|bar|banner|popup|modal|overlay|cta|promo|prompt|optin)|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)|promo(?:tion)?[-_]?(?:bar|banner|block|card)|cta[-_](?:bar|banner|block)|call[-_]?to[-_]?action|follow[-_]?(?:us|bar)|whatsapp[-_]?(?:bar|link|share)/i;
 
 /** Social platform share-intent URL patterns (cross-site generic). */
 export const SOCIAL_SHARE_LINK_RE =
