@@ -35,8 +35,16 @@ export const dynamic = "force-dynamic";
 
 // Stable across worker restarts/processes — derived from AUTH_SECRET so it
 // is consistent in multi-worker deployments without requiring shared state.
+// AUTH_SECRET MUST be set — an empty fallback would produce a predictable,
+// offline-computable token, making edit-token authentication meaningless.
+const authSecret = process.env.AUTH_SECRET;
+if (!authSecret) {
+  throw new Error(
+    "[greader] AUTH_SECRET environment variable is required but not set.",
+  );
+}
 const READER_API_EDIT_TOKEN = createHash("sha256")
-  .update(`greader-edit-token:${process.env.AUTH_SECRET ?? ""}`)
+  .update(`greader-edit-token:${authSecret}`)
   .digest("hex")
   .slice(0, 48);
 

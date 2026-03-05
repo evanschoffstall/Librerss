@@ -45,6 +45,9 @@ if (!process.env.SESSION_SECRET) {
 if (!process.env.CSRF_SECRET) {
   process.env.CSRF_SECRET = "test-csrf-secret-min-32-chars";
 }
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = "test-auth-secret-min-32-chars-long-value";
+}
 
 afterEach(() => {
   document.body.innerHTML = "";
