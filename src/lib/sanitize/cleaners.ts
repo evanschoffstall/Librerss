@@ -6,6 +6,13 @@ import {
 } from "./patterns";
 import { purifyRawHtml } from "./purify";
 
+// Cached at first call — env does not change at runtime in a Node.js server
+// process, and this value is read on every article parse invocation.
+let _maxConsecutiveBlankLines: number | undefined;
+function getMaxConsecutiveBlankLines(): number {
+  return (_maxConsecutiveBlankLines ??= maxArticleConsecutiveBlankLines());
+}
+
 function normalizeNoscriptForManipulation(rawHtml: string): string {
   return rawHtml.replace(
     /<noscript\b[^>]*>([\s\S]*?)<\/noscript>/gi,
@@ -44,7 +51,7 @@ export function stripEmbeddedMediaBlocks(html: string): string {
 
 /** Converts HTML to plain text by stripping tags and normalizing whitespace. */
 export function toPlainText(value: string): string {
-  const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
+  const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
 
   return stripEmbeddedMediaBlocks(value)
@@ -69,7 +76,7 @@ export function toPlainText(value: string): string {
 }
 
 function collapseExcessNewlines(html: string): string {
-  const maxConsecutiveBlankLines = maxArticleConsecutiveBlankLines();
+  const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
 
   return html
