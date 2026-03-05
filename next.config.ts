@@ -1,7 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["got-scraping", "header-generator"],
+  serverExternalPackages: [
+    "got-scraping",
+    "header-generator",
+    "generative-bayesian-network",
+  ],
+  outputFileTracingIncludes: {
+    // header-generator loads its bayesian network definitions from zip files at
+    // runtime via __dirname.  Next.js standalone file tracing does not discover
+    // these data files automatically, so they must be explicitly included so the
+    // module can initialise correctly in production.
+    "/api/**": [
+      "./node_modules/header-generator/data_files/**",
+      "./node_modules/generative-bayesian-network/**",
+    ],
+  },
   async headers() {
     return [
       {
@@ -43,7 +57,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'",
+              "script-src 'self' 'unsafe-inline'", //strict does not permit the app to work as is.
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",

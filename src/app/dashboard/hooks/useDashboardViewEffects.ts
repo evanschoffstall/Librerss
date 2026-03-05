@@ -14,6 +14,7 @@ type UseFeedLoadingTimeoutOptions = {
   loadingEpoch: number;
   timeoutMs: number;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  onTimeout?: () => void;
 };
 
 export function useFeedLoadingTimeout({
@@ -21,6 +22,7 @@ export function useFeedLoadingTimeout({
   loadingEpoch,
   timeoutMs,
   setLoading,
+  onTimeout,
 }: UseFeedLoadingTimeoutOptions) {
   useEffect(() => {
     if (!loading) {
@@ -28,14 +30,18 @@ export function useFeedLoadingTimeout({
     }
 
     const timeoutId = window.setTimeout(() => {
-      setLoading(false);
+      if (onTimeout) {
+        onTimeout();
+      } else {
+        setLoading(false);
+      }
       toast.error("Feed loading timed out.", {
         description: "Please try refreshing the selected source again.",
       });
     }, timeoutMs);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loading, loadingEpoch, timeoutMs, setLoading]);
+  }, [loading, loadingEpoch, timeoutMs, setLoading, onTimeout]);
 }
 
 export function useLockDocumentScroll() {

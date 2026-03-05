@@ -30,7 +30,7 @@ export const toCategoryKey = (label: string) =>
   }`;
 // ─── Tree traversal ───────────────────────────────────────────────────────────
 
-export const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
+const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
   nodes.flatMap((category) => category.children ?? []);
 
 // ─── Tree construction ────────────────────────────────────────────────────────

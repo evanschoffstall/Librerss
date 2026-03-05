@@ -3,7 +3,6 @@ export {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
-  requireMutablePublicRequest,
   requireMutableRequest,
   requireMutableUserAndJsonBody,
   type AuthenticatedUser,

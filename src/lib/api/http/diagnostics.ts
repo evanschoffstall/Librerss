@@ -58,7 +58,10 @@ function pickAllowedHeaders(
   }, {});
 }
 
-function toBodySnippet(data: unknown, maxLength = 240): string | undefined {
+export function toBodySnippet(
+  data: unknown,
+  maxLength = 240,
+): string | undefined {
   if (typeof data === "string") {
     const compact = data.replace(/\s+/g, " ").trim();
     if (!compact) return undefined;

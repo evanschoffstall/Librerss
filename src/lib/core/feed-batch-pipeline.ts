@@ -329,6 +329,25 @@ export async function queryTopArticlesPerFeed(
 
 // ─── Step 5b: Result assembly ─────────────────────────────────────────────────
 
+function isValidRankedRow(row: RankedRow): boolean {
+  return (
+    (typeof row.id === "number" || typeof row.id === "string") &&
+    (typeof row.title === "string" || row.title === null) &&
+    (typeof row.link === "string" || row.link === null) &&
+    (typeof row.content === "string" || row.content === null) &&
+    (typeof row.publicationDate === "string" ||
+      row.publicationDate instanceof Date) &&
+    (typeof row.feedId === "number" || typeof row.feedId === "string") &&
+    (typeof row.lastChecked === "string" || row.lastChecked instanceof Date) &&
+    (typeof row.isRead === "boolean" ||
+      row.isRead === null ||
+      typeof row.isRead === "number") &&
+    (typeof row.isStarred === "boolean" ||
+      row.isStarred === null ||
+      typeof row.isStarred === "number")
+  );
+}
+
 export function mapRowsToArticleMap(
   rows: RankedRow[],
   feedByUrl: Map<string, FeedRecord>,
@@ -346,15 +365,36 @@ export function mapRowsToArticleMap(
   const result = new Map<string, ArticleRow[]>(allowedUrls.map((u) => [u, []]));
 
   for (const row of rows) {
+    // SECURITY: Validate row shape before coercion to prevent NaN/undefined injection
+    if (!isValidRankedRow(row)) {
+      logger.warn("Skipping malformed article row from database", {
+        rowKeys: Object.keys(row),
+      });
+      continue;
+    }
+
     const url = idToUrl.get(Number(row.feedId));
     if (!url) continue;
+
+    const id = Number(row.id);
+    const feedId = Number(row.feedId);
+
+    // Additional safety: reject NaN after coercion
+    if (!Number.isFinite(id) || !Number.isFinite(feedId)) {
+      logger.warn("Skipping article with invalid numeric ID", {
+        id: row.id,
+        feedId: row.feedId,
+      });
+      continue;
+    }
+
     result.get(url)!.push({
-      id: Number(row.id),
-      title: String(row.title),
-      link: String(row.link),
-      content: normalizeArticleHtmlSpacing(String(row.content)),
+      id,
+      title: String(row.title ?? ""),
+      link: String(row.link ?? ""),
+      content: normalizeArticleHtmlSpacing(String(row.content ?? "")),
       publicationDate: new Date(row.publicationDate as string | Date),
-      feedId: Number(row.feedId),
+      feedId,
       lastChecked: new Date(row.lastChecked as string | Date),
       isRead: Boolean(row.isRead),
       isStarred: Boolean(row.isStarred),

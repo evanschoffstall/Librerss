@@ -613,6 +613,22 @@ export const ArticleCard = ({
             <div
               className="overflow-hidden transition-[max-height] anim-duration-ui anim-ease-ui"
               onTransitionEnd={onContentTransitionEnd}
+              onClick={
+                visuallyExpanded
+                  ? (e) => {
+                      // Stop propagation only for interactive elements / text selection; blank areas toggle collapse
+                      const el = e.target as HTMLElement;
+                      if (
+                        el.closest(
+                          "a, button, input, textarea, select, [role='button']",
+                        )
+                      )
+                        return e.stopPropagation();
+                      if (window.getSelection()?.toString())
+                        return e.stopPropagation();
+                    }
+                  : undefined
+              }
               style={{
                 maxHeight: expandTransitionDone
                   ? "none"

@@ -15,6 +15,7 @@ type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   onFeedSwitch: () => void;
+  onBeforeRefresh?: () => void;
 };
 
 export function useDashboardViewHandlers({
@@ -27,8 +28,10 @@ export function useDashboardViewHandlers({
   fetchFeed,
   fetchCategoryFeeds,
   onFeedSwitch,
+  onBeforeRefresh,
 }: UseDashboardViewHandlersOptions) {
   const handleRefreshSelection = useCallback(() => {
+    onBeforeRefresh?.();
     refreshCurrentSelection({
       selectedCategory,
       selectedFeedUrl,
@@ -41,6 +44,7 @@ export function useDashboardViewHandlers({
       keepExistingFeed: true,
     });
   }, [
+    onBeforeRefresh,
     selectedCategory,
     selectedFeedUrl,
     selectedCategoryNode,
@@ -50,6 +54,7 @@ export function useDashboardViewHandlers({
   ]);
 
   const handleAutoRefreshSelection = useCallback(() => {
+    onBeforeRefresh?.();
     refreshCurrentSelection({
       selectedCategory,
       selectedFeedUrl,
@@ -62,6 +67,7 @@ export function useDashboardViewHandlers({
       keepExistingFeed: true,
     });
   }, [
+    onBeforeRefresh,
     selectedCategory,
     selectedFeedUrl,
     selectedCategoryNode,

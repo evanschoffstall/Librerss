@@ -1,4 +1,5 @@
 import { parseJsonBodyOrResponse } from "@/lib/api/http";
+import { resolvesToBlockedAddress } from "@/lib/core/dns-cache";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -6,6 +7,7 @@ import {
   requireMutableAuthenticatedUser,
   type AuthenticatedUser,
 } from "@/lib/server";
+import { isBlockedHost } from "@/lib/utils/ssrf";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import net from "node:net";
@@ -28,6 +30,7 @@ export type ProxyRouteDeps = {
   ) => Promise<AuthenticatedUser | Response>;
   probeFn?: (proxyUrl: string) => Promise<boolean>;
   detectFn?: (host: string, port: number) => Promise<"socks5" | "http">;
+  dnsCheckFn?: (host: string) => Promise<boolean>;
 };
 
 const MAX_PROXY_URL_LENGTH = 2048;
@@ -73,6 +76,14 @@ export function detectProxyProtocol(
   host: string,
   port: number,
 ): Promise<"socks5" | "http"> {
+  // SSRF guard: refuse to probe internal/private hosts.
+  if (isBlockedHost(host)) {
+    logger.error("Proxy protocol detection blocked: internal hostname", {
+      host,
+      port,
+    });
+    return Promise.resolve("http");
+  }
   const ctx = { host, port };
   logger.info("Proxy protocol detection started", ctx);
   return new Promise((resolve) => {
@@ -120,6 +131,7 @@ export function detectProxyProtocol(
 export async function normalizeProxyUrl(
   raw: string,
   probeFn?: (host: string, port: number) => Promise<"socks5" | "http">,
+  dnsCheckFn?: (host: string) => Promise<boolean>,
 ): Promise<string | null> {
   const needsScheme = BARE_HOST_PORT_RE.test(raw);
   const input = needsScheme ? `http://${raw}` : raw;
@@ -139,8 +151,26 @@ export async function normalizeProxyUrl(
     return null;
   }
 
-  // Already explicitly SOCKS — trust the user.
+  // Already explicitly SOCKS — apply SSRF guards before accepting.
   if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
+    if (isBlockedHost(parsed.hostname)) {
+      logger.error("Proxy URL rejected: internal hostname (SOCKS)", {
+        raw,
+        host: parsed.hostname,
+      });
+      return null;
+    }
+    const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
+    if (await dnsCheck(parsed.hostname)) {
+      logger.error(
+        "Proxy URL rejected: hostname resolves to blocked address (SOCKS)",
+        {
+          raw,
+          host: parsed.hostname,
+        },
+      );
+      return null;
+    }
     logger.info(
       "Proxy URL normalization: explicit SOCKS scheme, skipping detection",
       { input },
@@ -151,6 +181,22 @@ export async function normalizeProxyUrl(
   // http/https or bare — auto-detect.
   const hp = parseHostPort(input);
   if (!hp) return null;
+  // SSRF guard: block internal/private hostnames before any TCP probe.
+  if (isBlockedHost(hp.host)) {
+    logger.error("Proxy URL rejected: internal hostname", {
+      raw,
+      host: hp.host,
+    });
+    return null;
+  }
+  const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
+  if (await dnsCheck(hp.host)) {
+    logger.error("Proxy URL rejected: hostname resolves to blocked address", {
+      raw,
+      host: hp.host,
+    });
+    return null;
+  }
   const detect = probeFn ?? detectProxyProtocol;
   const proto = await detect(hp.host, hp.port);
   const normalized =
@@ -170,6 +216,11 @@ export function probeProxy(proxyUrl: string): Promise<boolean> {
     logger.error("Proxy probe skipped: could not parse host/port", {
       proxyUrl,
     });
+    return Promise.resolve(false);
+  }
+  // SSRF guard: refuse to probe internal/private hosts.
+  if (isBlockedHost(hp.host)) {
+    logger.error("Proxy probe blocked: internal hostname", { proxyUrl });
     return Promise.resolve(false);
   }
   logger.info(`Proxy probe started. (proxyUrl=${proxyUrl})`);
@@ -233,6 +284,7 @@ async function resolveAuth(
       auth: AuthenticatedUser;
       probe: (url: string) => Promise<boolean>;
       detect: (host: string, port: number) => Promise<"socks5" | "http">;
+      dnsCheck: (host: string) => Promise<boolean>;
     }
   | Response
 > {
@@ -243,6 +295,7 @@ async function resolveAuth(
     auth,
     probe: deps.probeFn ?? probeProxy,
     detect: deps.detectFn ?? detectProxyProtocol,
+    dnsCheck: deps.dnsCheckFn ?? resolvesToBlockedAddress,
   };
 }
 
@@ -296,7 +349,11 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
 
   let proxyUrl: string | null = null;
   if (raw) {
-    const normalized = await normalizeProxyUrl(raw, result.detect);
+    const normalized = await normalizeProxyUrl(
+      raw,
+      result.detect,
+      result.dnsCheck,
+    );
     if (!normalized) {
       logger.error("Invalid proxy URL submitted", { raw });
       return unconfiguredResponse(
@@ -307,24 +364,16 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   }
 
   const db = getDb();
-  await db
+  const [updated] = await db
     .update(users)
     .set({
       proxyUrl,
       ...(allowInsecureTls !== undefined && { allowInsecureTls }),
     })
-    .where(eq(users.id, result.auth.userId));
+    .where(eq(users.id, result.auth.userId))
+    .returning({ allowInsecureTls: users.allowInsecureTls });
 
-  const effectiveTls =
-    allowInsecureTls ??
-    (
-      await db
-        .select({ allowInsecureTls: users.allowInsecureTls })
-        .from(users)
-        .where(eq(users.id, result.auth.userId))
-        .limit(1)
-    )[0]?.allowInsecureTls ??
-    false;
+  const effectiveTls = updated?.allowInsecureTls ?? false;
 
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(

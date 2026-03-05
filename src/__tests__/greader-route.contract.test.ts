@@ -1,6 +1,6 @@
 import {
-  hashPassword as realHashPassword,
-  verifyPassword as realVerifyPassword,
+    hashPassword as realHashPassword,
+    verifyPassword as realVerifyPassword,
 } from "@/lib/auth/session";
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
@@ -86,7 +86,7 @@ function registerModuleMocks() {
       email: "test@example.com",
     }),
     getUserFromSessionToken: async () => null,
-    authenticateCredentials: async () => null,
+    authenticateCredentials: async () => ({ ok: false as const }),
     setSessionCookie: () => {},
     SESSION_COOKIE_NAME: "librerss_session",
     hashPassword: realHashPassword,

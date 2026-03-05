@@ -155,23 +155,22 @@ export async function deleteFeedSourceForUser(
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
 
-  const [sourceToDelete] = await db
-    .select(feedSourceFields)
-    .from(feedSources)
-    .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-    .limit(1);
-
-  if (!sourceToDelete) {
-    return null;
-  }
-
-  const [feedForSource] = await db
-    .select({ id: feeds.id })
-    .from(feeds)
-    .where(eq(feeds.url, sourceToDelete.url))
-    .limit(1);
-
   const [deletedSource] = await db.transaction(async (tx) => {
+    const [sourceToDelete] = await tx
+      .select(feedSourceFields)
+      .from(feedSources)
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+      .for("update")
+      .limit(1);
+
+    if (!sourceToDelete) return [];
+
+    const [feedForSource] = await tx
+      .select({ id: feeds.id })
+      .from(feeds)
+      .where(eq(feeds.url, sourceToDelete.url))
+      .limit(1);
+
     if (feedForSource) {
       await tx
         .delete(feedCategories)

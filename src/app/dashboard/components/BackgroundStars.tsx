@@ -140,9 +140,16 @@ export default function BackgroundStars({
       return;
     }
 
-    const dpr = window.devicePixelRatio || 1;
+    const ctx = context.current;
     const glowRadius = star.size * 4.2;
-    const glowGradient = context.current.createRadialGradient(
+
+    ctx.save();
+    ctx.translate(star.translateX, star.translateY);
+
+    // Gradient must be created after translate so its coordinates are in the
+    // same space as the arc — otherwise the glow center drifts from the dot
+    // under mouse parallax, producing degenerate gradient artifacts (red flash).
+    const glowGradient = ctx.createRadialGradient(
       star.x,
       star.y,
       0,
@@ -156,16 +163,16 @@ export default function BackgroundStars({
     );
     glowGradient.addColorStop(1, `rgba(${star.colorRgb}, 0)`);
 
-    context.current.translate(star.translateX, star.translateY);
-    context.current.beginPath();
-    context.current.arc(star.x, star.y, glowRadius, 0, 2 * Math.PI);
-    context.current.fillStyle = glowGradient;
-    context.current.fill();
-    context.current.beginPath();
-    context.current.arc(star.x, star.y, star.size, 0, 2 * Math.PI);
-    context.current.fillStyle = `rgba(${star.colorRgb}, ${star.alpha})`;
-    context.current.fill();
-    context.current.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, glowRadius, 0, 2 * Math.PI);
+    ctx.fillStyle = glowGradient;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgba(${star.colorRgb}, ${star.alpha})`;
+    ctx.fill();
+
+    ctx.restore();
 
     if (!update) {
       stars.current.push(star);

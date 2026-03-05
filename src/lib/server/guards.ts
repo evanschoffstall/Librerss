@@ -85,32 +85,6 @@ export async function requireMutableAuthenticatedUser(
   return user;
 }
 
-/**
- * Like requireMutableAuthenticatedUser but skips the user auth check.
- * Use for read-only proxy endpoints (e.g. article extraction) that are safe
- * to expose publicly — CSRF origin check and IP-based rate limiting still apply.
- */
-export async function requireMutablePublicRequest(
-  request: NextRequest,
-  options?: MutationRequestOptions,
-): Promise<AuthenticatedUser | Response> {
-  const requestError = requireMutableRequest(request, {
-    ...options,
-    rateLimit: options?.rateLimit
-      ? { ...options.rateLimit, scope: "request" as const }
-      : undefined,
-  });
-  if (requestError) return requestError;
-  // Return an anonymous identity — userId -1 is distinct from any real DB row
-  // and from PLACEHOLDER_ADMIN_USER.id (0).
-  return {
-    sessionId: -1,
-    userId: -1,
-    email: "anonymous",
-    expiresAt: new Date(Date.now() + 86_400_000),
-  };
-}
-
 export async function requireMutableUserAndJsonBody<
   TBody extends Record<string, unknown>,
 >(

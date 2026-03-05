@@ -20,6 +20,13 @@ export class Logger {
   private readonly isDevelopment = process.env.NODE_ENV === "development";
   private readonly sensitiveKeyPattern =
     /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
+  // Exact-match redaction for proxy keys that may contain credentials in the value
+  private readonly sensitiveKeys = new Set([
+    "proxyurl",
+    "proxyaddress",
+    "proxy_url",
+    "proxy-url",
+  ]);
 
   private readonly reset = "\u001b[0m";
 
@@ -139,7 +146,10 @@ export class Logger {
       for (const [key, nestedValue] of Object.entries(
         value as Record<string, unknown>,
       )) {
-        if (this.sensitiveKeyPattern.test(key)) {
+        if (
+          this.sensitiveKeyPattern.test(key) ||
+          this.sensitiveKeys.has(key.toLowerCase())
+        ) {
           output[key] = "[redacted]";
           continue;
         }

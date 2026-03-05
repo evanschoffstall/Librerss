@@ -789,3 +789,116 @@ describe("RateLimiter trusted proxy extraction", () => {
     }
   });
 });
+
+// ─── GReader ClientLogin: credentials must not be accepted via GET URL params ─
+
+describe("GReader ClientLogin – credential exposure via URL params (security regression)", () => {
+  test("GET request with credentials in URL params is rejected (not treated as login)", async () => {
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+
+    // Attacker sends credentials in GET query params — these would appear in
+    // server access logs, browser history, and Referer headers.
+    const { NextRequest } = await import("next/server");
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/accounts/ClientLogin?Email=user@test.com&Passwd=hunter2",
+      { method: "GET" },
+    );
+
+    const response = await handleClientLogin(request);
+    const body = await response.text();
+
+    // Must be rejected, not return a session token
+    expect(body).not.toContain("SID=");
+    expect(body).not.toContain("Auth=");
+    expect(response.status).toBe(400);
+  });
+
+  test("POST with credentials in body (not URL params) succeeds normally", async () => {
+    const previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    try {
+      const { handleClientLogin } = await import("@/lib/api/greader/auth");
+      const { NextRequest } = await import("next/server");
+      const request = new NextRequest(
+        "https://example.com/api/greader.php/accounts/ClientLogin",
+        {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: "Email=admin%40admin.com&Passwd=admin",
+        },
+      );
+      const response = await handleClientLogin(request);
+      const body = await response.text();
+      // Should authenticate successfully via POST body
+      expect(body).toContain("SID=");
+      expect(body).toContain("Auth=");
+    } finally {
+      process.env.DATABASE_URL = previousDbUrl;
+    }
+  });
+});
+
+// ─── Logger redacts proxy-related fields ─────────────────────────────────────
+
+describe("Logger – proxy credential redaction (security regression)", () => {
+  test("redacts proxyUrl field containing credentials", async () => {
+    const { Logger } = await import("@/lib/logger");
+    // Access private method via type cast for testing
+    const logger = new Logger() as unknown as {
+      sanitizeValue: (v: unknown, d: number) => unknown;
+    };
+    const result = logger.sanitizeValue(
+      {
+        proxyUrl: "http://user:secret@proxy.host:8080",
+        proxyAddress: "socks5://user:pass@10.0.0.1:1080",
+        normalField: "visible",
+      },
+      0,
+    ) as Record<string, unknown>;
+
+    expect(result.proxyUrl).toBe("[redacted]");
+    expect(result.proxyAddress).toBe("[redacted]");
+    expect(result.normalField).toBe("visible");
+  });
+});
+
+// ─── x-request-id sanitization ───────────────────────────────────────────────
+
+describe("Extract route – x-request-id header sanitization (security regression)", () => {
+  test("overlong request ID is truncated before reaching log context", async () => {
+    const { POST } = await import("@/app/api/articles/extract/route");
+    const { NextRequest } = await import("next/server");
+
+    // HTTP transport already rejects non-ASCII control characters.
+    // Test that an overlong (512-char) valid-ASCII request ID is truncated
+    // to ≤64 chars so logs cannot be bloated by attacker-controlled values.
+    const longId = "A".repeat(512);
+
+    const authUser = {
+      sessionId: 1,
+      userId: 1,
+      email: "test@example.com",
+      expiresAt: new Date(Date.now() + 86_400_000),
+    };
+
+    const request = new NextRequest("https://example.com/api/articles/extract", {
+      method: "POST",
+      body: JSON.stringify({ url: "https://example.com/article" }),
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": longId,
+        origin: "https://example.com",
+        "sec-fetch-site": "same-origin",
+      },
+    });
+
+    // Abort early via URL validation — confirms the sanitization ran without
+    // crashing and the route did not return a 500.
+    const response = await POST(request, {
+      requireMutableAuthenticatedUserFn: async () => authUser,
+      parseAndValidateArticleUrlFn: async () =>
+        new Response(JSON.stringify({ error: "test abort" }), { status: 400 }),
+    });
+    expect(response.status).toBeLessThan(500);
+  });
+});

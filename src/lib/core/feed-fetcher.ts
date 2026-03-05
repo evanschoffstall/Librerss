@@ -121,7 +121,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       .where(
         and(
           eq(users.id, userId),
-          sql`("last_force_refreshed_at" IS NULL OR "last_force_refreshed_at" < now() - make_interval(mins => ${sql.raw(String(CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES))}))`,
+          sql`("last_force_refreshed_at" IS NULL OR "last_force_refreshed_at" < now() - (${CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES} * interval '1 minute'))`,
         ),
       )
       .returning({ id: users.id });
