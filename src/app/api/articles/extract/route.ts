@@ -5,7 +5,6 @@ import {
   jsonErrorWithReason,
   parseJsonBodyOrResponse,
 } from "@/lib/api/http";
-import { getUserFromRequest } from "@/lib/auth/session";
 import { CONFIG } from "@/lib/config";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
@@ -209,20 +208,17 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
     let allowInsecureTls = false;
     if (useProxy) {
-      const sessionUser = await getUserFromRequest(request);
-      if (sessionUser) {
-        const db = getDb();
-        const [row] = await db
-          .select({
-            proxyUrl: users.proxyUrl,
-            allowInsecureTls: users.allowInsecureTls,
-          })
-          .from(users)
-          .where(eq(users.id, sessionUser.userId))
-          .limit(1);
-        resolvedProxyUrl = row?.proxyUrl?.trim() || undefined;
-        allowInsecureTls = row?.allowInsecureTls ?? false;
-      }
+      const db = getDb();
+      const [row] = await db
+        .select({
+          proxyUrl: users.proxyUrl,
+          allowInsecureTls: users.allowInsecureTls,
+        })
+        .from(users)
+        .where(eq(users.id, authResult.userId))
+        .limit(1);
+      resolvedProxyUrl = row?.proxyUrl?.trim() || undefined;
+      allowInsecureTls = row?.allowInsecureTls ?? false;
     }
 
     // Build a cloned request with the same body for parseAndValidateArticleUrl

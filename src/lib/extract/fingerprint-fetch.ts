@@ -40,6 +40,8 @@ export class GotScrapingError extends Error {
     readonly allowInsecureTls: boolean,
     readonly redirectHop: number,
     readonly responseHeaders: Record<string, string | string[] | undefined>,
+    // Actual headers sent by got-scraping on the wire (post header-generator merge).
+    readonly requestHeaders: Record<string, string | string[] | undefined>,
   ) {
     super(`Upstream responded with status ${statusCode}`);
   }
@@ -78,7 +80,10 @@ export async function fetchHtmlWithFingerprint(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
   options?: FingerprintFetchOptions,
-): Promise<string> {
+): Promise<{
+  html: string;
+  requestHeaders: Record<string, string | string[] | undefined>;
+}> {
   const { gotScraping } = await import("got-scraping");
 
   let currentUrl = stripUrlFragment(url);
@@ -121,7 +126,7 @@ export async function fetchHtmlWithFingerprint(
         : { proxyUrl: options.proxyUrl }
       : {};
 
-    const chromeVer = options?.browserVersion ?? 130;
+    const chromeVer = options?.browserVersion ?? 131;
     const proxyMode = isSocksProxy
       ? "socks"
       : options?.proxyUrl
@@ -138,16 +143,26 @@ export async function fetchHtmlWithFingerprint(
         locales: ["en-US"],
         operatingSystems: [options?.operatingSystem ?? "windows"],
       },
-      ...(options?.secChUa || options?.accept || options?.referer
-        ? {
-            headers: {
-              ...(options.secChUa && { "sec-ch-ua": options.secChUa }),
-              ...(options.accept && { Accept: options.accept }),
-              ...(options.referer && { Referer: options.referer }),
-              Priority: "u=0, i",
-            },
-          }
-        : {}),
+      headers: {
+        // Chrome 131 always sends the q-value fallback — header-generator
+        // drops it when only one locale is configured.
+        "accept-language": "en-US,en;q=0.9",
+        // Chrome 119+ negotiates zstd; omitting it is a fingerprinting gap
+        // that DataDome and PerimeterX track as a bot signal.
+        "accept-encoding": "gzip, deflate, br, zstd",
+        // Explicit baseline — header-generator may vary; direct path always sends these.
+        "sec-fetch-site": "none",
+        "sec-fetch-user": "?1",
+        ...(options?.secChUa && { "sec-ch-ua": options.secChUa }),
+        ...(options?.accept && { Accept: options.accept }),
+        ...(options?.referer && {
+          Referer: options.referer,
+          // Cross-site navigation signal: overrides the "none" baseline above.
+          // Bot detectors (DataDome, PerimeterX) check this for consistency.
+          "sec-fetch-site": "cross-site",
+        }),
+        Priority: "u=0, i",
+      },
       ...(options?.cookieJar ? { cookieJar: options.cookieJar } : {}),
       followRedirect: false,
       throwHttpErrors: false,
@@ -160,6 +175,14 @@ export async function fetchHtmlWithFingerprint(
     });
 
     const responseBody = typeof response.body === "string" ? response.body : "";
+    // Actual headers sent on the wire — captured post-hook so the full
+    // browser-fingerprint set (from header-generator) is included.
+    const sentHeaders = ((
+      response as { request?: { options?: { headers?: unknown } } }
+    ).request?.options?.headers ?? {}) as Record<
+      string,
+      string | string[] | undefined
+    >;
 
     if (response.statusCode >= 300 && response.statusCode < 400) {
       if (redirects === 5) throw new Error("Too many redirects");
@@ -188,6 +211,7 @@ export async function fetchHtmlWithFingerprint(
         options?.allowInsecureTls ?? false,
         redirects,
         response.headers as Record<string, string | string[] | undefined>,
+        sentHeaders,
       );
     }
 
@@ -198,7 +222,7 @@ export async function fetchHtmlWithFingerprint(
       throw new Error("Upstream response too large");
     }
 
-    return responseBody;
+    return { html: responseBody, requestHeaders: sentHeaders };
   }
 
   throw new Error("Too many redirects");

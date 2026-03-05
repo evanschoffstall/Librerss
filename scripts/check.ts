@@ -271,6 +271,7 @@ function parseDetails(outputs: Record<string, Command>) {
     semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
     gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
     depAudit,
+    build: detail(outputs.build, "build clean", "build failed"),
   };
 }
 
@@ -295,11 +296,13 @@ async function run(
   cmd: string,
   args: string[],
   timeoutMs?: number,
+  extraEnv?: Record<string, string>,
 ): Promise<Command> {
   const env: Record<string, string | undefined> = {
     ...process.env,
     FORCE_COLOR: process.env.FORCE_COLOR ?? "1",
     NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
+    ...extraEnv,
   };
   delete env.NO_COLOR;
   const child = Bun.spawn([cmd, ...args], {
@@ -407,7 +410,11 @@ async function runTsPrune(argv: string[]): Promise<Command> {
     if (result.timedOut) return result;
     const actionable = result.output
       .split(/\r?\n/)
-      .filter((l) => /^\S.+:\d+\s-\s.+$/.test(l.trim()) && !ignoreRe?.test(l));
+      .filter(
+        (l) =>
+          /^\S.+:\d+\s-\s.+$/.test(l.trim()) &&
+          (l.includes("(used in tests)") || !ignoreRe?.test(l)),
+      );
     if (actionable.length > 0)
       return {
         exitCode: 1,
@@ -517,6 +524,15 @@ async function runCheckSuite() {
       l: "dep-audit",
       r: () => run("bun", ["run", "scan:deps"]),
     },
+    {
+      k: "build",
+      l: "build",
+      r: () => {
+        return run("bun", ["run", "build"], undefined, {
+          NODE_ENV: "production",
+        });
+      },
+    },
   ];
   const runs = Object.fromEntries(
     await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
@@ -554,6 +570,7 @@ async function runCheckSuite() {
     { k: "semgrep", ok: runs.semgrep.exitCode === 0, d: details.semgrep },
     { k: "gitleaks", ok: runs.gitleaks.exitCode === 0, d: details.gitleaks },
     { k: "dep-audit", ok: runs.depAudit.exitCode === 0, d: details.depAudit },
+    { k: "build", ok: runs.build.exitCode === 0, d: details.build },
     {
       k: "Tests",
       ok: tests.ok && runs.test.exitCode === 0,

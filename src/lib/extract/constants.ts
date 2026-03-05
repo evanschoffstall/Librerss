@@ -16,23 +16,23 @@ export const EXTRACT_403_RETRIES = 2;
 // Chrome 130 fingerprint pool — Windows, macOS, and Linux variants.
 // Rotated on each retry attempt so successive requests look like different users.
 // All three share the same sec-ch-ua brand list (only sec-ch-ua-platform differs).
+// Chrome 131 pool — Windows, macOS, Linux variants. Aligned with PROXY_FINGERPRINT_POOL
+// lead version so both paths present the same generation to bot detectors.
+// Chrome 131 uses the "Not A(Brand";v="8" brand token format.
 export const EXTRACT_FINGERPRINT_POOL = [
   {
-    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    secChUa:
-      '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    secChUa: '"Chromium";v="131", "Google Chrome";v="131", "Not A(Brand";v="8"',
     secChUaPlatform: '"Windows"',
   },
   {
-    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    secChUa:
-      '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    secChUa: '"Chromium";v="131", "Google Chrome";v="131", "Not A(Brand";v="8"',
     secChUaPlatform: '"macOS"',
   },
   {
-    ua: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    secChUa:
-      '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    ua: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    secChUa: '"Chromium";v="131", "Google Chrome";v="131", "Not A(Brand";v="8"',
     secChUaPlatform: '"Linux"',
   },
 ] as const;

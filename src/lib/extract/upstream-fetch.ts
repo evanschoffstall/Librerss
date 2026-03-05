@@ -4,6 +4,7 @@ import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
+import { redactUrlForLogs } from "@/lib/utils/url";
 import axios from "axios";
 import https from "node:https";
 import { CookieJar } from "tough-cookie";
@@ -44,7 +45,8 @@ function buildDdgReferer(url: string): string {
         .replace(/\.[^.]+$/, "")
         .replace(/[-_]/g, " ")
         .trim() || "news right now";
-    return `https://duckduckgo.com/?q=${encodeURIComponent(q)}&ia=web`;
+    // DDG form-encodes spaces as '+', not '%20' — browsers use application/x-www-form-urlencoded.
+    return `https://duckduckgo.com/?q=${encodeURIComponent(q).replace(/%20/g, "+")}&ia=web`;
   } catch {
     return "https://duckduckgo.com/?q=news+right+now&ia=web";
   }
@@ -84,33 +86,18 @@ export async function fetchHtml(
       const fp =
         PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
 
-      const fpPlatform =
-        fp.os === "macos"
-          ? '"macOS"'
-          : fp.os === "linux"
-            ? '"Linux"'
-            : '"Windows"';
-
-      const fpRequestHeaders = {
-        "User-Agent": fp.ua,
-        "sec-ch-ua": fp.secChUa,
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": fpPlatform,
-        Accept: fp.accept,
-        Referer: proxyReferer,
-      };
-
       try {
-        const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
-          proxyUrl: options.proxyUrl,
-          allowInsecureTls: options.allowInsecureTls,
-          operatingSystem: fp.os,
-          browserVersion: fp.chromeVersion,
-          cookieJar: new CookieJar(),
-          secChUa: fp.secChUa,
-          accept: fp.accept,
-          referer: proxyReferer,
-        });
+        const { html, requestHeaders: sentHeaders } =
+          await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+            proxyUrl: options.proxyUrl,
+            allowInsecureTls: options.allowInsecureTls,
+            operatingSystem: fp.os,
+            browserVersion: fp.chromeVersion,
+            cookieJar: new CookieJar(),
+            secChUa: fp.secChUa,
+            accept: fp.accept,
+            referer: proxyReferer,
+          });
         logger.info(
           `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
           {
@@ -119,9 +106,9 @@ export async function fetchHtml(
             attempts,
             delayMs: attempt > 0 ? delayMs : undefined,
             proxyMode,
-            proxyAddress: options.proxyUrl,
+            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
             allowInsecureTls: options.allowInsecureTls ?? false,
-            headers: fpRequestHeaders,
+            headers: sentHeaders,
             responseBodyLength: html.length,
           },
         );
@@ -142,9 +129,9 @@ export async function fetchHtml(
             attempts,
             delayMs: attempt > 0 ? delayMs : undefined,
             proxyMode: gsErr?.proxyMode ?? proxyMode,
-            proxyAddress: options.proxyUrl,
+            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
             allowInsecureTls: options.allowInsecureTls ?? false,
-            headers: fpRequestHeaders,
+            headers: gsErr?.requestHeaders,
             ...(gsErr && {
               statusCode: gsErr.statusCode,
               redirectHop: gsErr.redirectHop,
@@ -210,7 +197,9 @@ export async function fetchHtml(
       "Upgrade-Insecure-Requests": "1",
       "Sec-Fetch-Dest": "document",
       "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
+      // "none" when no referer (direct navigation); "cross-site" when a DDG
+      // referer is present — sending both simultaneously is a detectable bot tell.
+      "Sec-Fetch-Site": directReferer ? "cross-site" : "none",
       "Sec-Fetch-User": "?1",
       "sec-ch-ua": secChUa,
       "sec-ch-ua-mobile": "?0",
@@ -354,7 +343,7 @@ export async function fetchHtml(
             attempt: attempt + 1,
             attempts,
             proxyMode: axiosProxyMode,
-            proxyAddress: proxyUrl ?? null,
+            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
             allowInsecureTls: insecureTls,
             headers: requestHeaders,
             responseBodyLength: html.length,
@@ -384,7 +373,7 @@ export async function fetchHtml(
             attempt: attempt + 1,
             attempts,
             proxyMode: axiosProxyMode,
-            proxyAddress: proxyUrl ?? null,
+            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
             allowInsecureTls: insecureTls,
             headers: requestHeaders,
             error: toErrorMessage(err),
@@ -405,22 +394,14 @@ export async function fetchHtml(
     const connectionMode = options?.useProxy ? "proxy" : "direct";
     const fallbackFp = PROXY_FINGERPRINT_POOL[0];
     const fallbackReferer = buildDdgReferer(url);
-    const fallbackHeaders = {
-      "User-Agent": fallbackFp.ua,
-      "sec-ch-ua": fallbackFp.secChUa,
-      "sec-ch-ua-mobile": "?0",
-      // fallbackFp.os is "windows" — Windows is also least bot-flagged by PerimeterX/Cloudflare.
-      "sec-ch-ua-platform": '"Windows"',
-      Accept: fallbackFp.accept,
-      Referer: fallbackReferer,
-    };
     const fallbackLogCtx = {
       url,
       provider,
       connectionMode,
-      proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
+      proxyAddress: options?.useProxy
+        ? redactUrlForLogs(options?.proxyUrl ?? "")
+        : null,
       allowInsecureTls: options?.allowInsecureTls ?? false,
-      headers: fallbackHeaders,
     };
     logger.info(
       `TLS fingerprint fallback started (${provider}, ${connectionMode})`,
@@ -437,28 +418,36 @@ export async function fetchHtml(
           // Malformed Set-Cookie — skip silently.
         }
       }
-      const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
-        proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
-        allowInsecureTls: options?.allowInsecureTls,
-        // Use the best fingerprint entry from the proxy pool for TLS spoofing.
-        operatingSystem: fallbackFp.os,
-        browserVersion: fallbackFp.chromeVersion,
-        secChUa: fallbackFp.secChUa,
-        accept: fallbackFp.accept,
-        cookieJar: fallbackJar,
-        // Mimic a search-result click — DataDome scores zero-Referer direct
-        // GETs as high-risk bots; a referrer from a DDG results page for the
-        // article title lowers the behavioral risk score.
-        referer: fallbackReferer,
-      });
+      const { html: fallbackHtml, requestHeaders: fallbackSentHeaders } =
+        await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+          proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
+          allowInsecureTls: options?.allowInsecureTls,
+          // Use the best fingerprint entry from the proxy pool for TLS spoofing.
+          operatingSystem: fallbackFp.os,
+          browserVersion: fallbackFp.chromeVersion,
+          secChUa: fallbackFp.secChUa,
+          accept: fallbackFp.accept,
+          cookieJar: fallbackJar,
+          // Mimic a search-result click — DataDome scores zero-Referer direct
+          // GETs as high-risk bots; a referrer from a DDG results page for the
+          // article title lowers the behavioral risk score.
+          referer: fallbackReferer,
+        });
       logger.info(
-        `TLS fingerprint fallback succeeded (${provider}, ${html.length} bytes)`,
-        { ...fallbackLogCtx, responseBodyLength: html.length },
+        `TLS fingerprint fallback succeeded (${provider}, ${fallbackHtml.length} bytes)`,
+        {
+          ...fallbackLogCtx,
+          headers: fallbackSentHeaders,
+          responseBodyLength: fallbackHtml.length,
+        },
       );
-      return html;
+      return fallbackHtml;
     } catch (fallbackErr) {
+      const fallbackGsErr =
+        fallbackErr instanceof GotScrapingError ? fallbackErr : null;
       logger.error(`TLS fingerprint fallback failed (${provider})`, {
         ...fallbackLogCtx,
+        headers: fallbackGsErr?.requestHeaders,
         error: toErrorMessage(fallbackErr),
       });
       // Fall through and surface the original error to the caller.

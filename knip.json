@@ -1,6 +1,6 @@
 {
   "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.ts"],
-  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "!src/__tests__/**"],
   "ignore": ["src/components/ui/**"],
   "ignoreBinaries": ["semgrep"],
   "ignoreExportsUsedInFile": true,
