@@ -12,9 +12,13 @@ interface RateLimitEntry {
   resetAt: number;
 }
 
+// SECURITY: Prevent memory exhaustion during sustained attacks
+const MAX_RATE_LIMIT_ENTRIES = 100000;
+
 /**
- * In-memory rate limiter
- * For production with multiple servers, use Redis-based rate limiting
+ * In-memory rate limiter with bounded size.
+ * Evicts expired entries immediately during check() and limits total size.
+ * For production with multiple servers, use Redis-based rate limiting.
  */
 export class RateLimiter {
   private store = new Map<string, RateLimitEntry>();
@@ -47,6 +51,41 @@ export class RateLimiter {
       if (entry.resetAt < now) {
         this.store.delete(key);
       }
+    }
+  }
+
+  /** Enforce max size by evicting oldest expired entries first, then random */
+  private enforceBound(): void {
+    if (this.store.size <= MAX_RATE_LIMIT_ENTRIES) return;
+
+    const now = Date.now();
+    const entries = Array.from(this.store.entries());
+
+    // First pass: remove all expired
+    let removed = 0;
+    for (const [key, entry] of entries) {
+      if (entry.resetAt < now) {
+        this.store.delete(key);
+        removed++;
+      }
+    }
+
+    // Second pass: if still over limit, evict oldest resetAt entries
+    if (this.store.size > MAX_RATE_LIMIT_ENTRIES) {
+      const remaining = Array.from(this.store.entries()).sort(
+        (a, b) => a[1].resetAt - b[1].resetAt,
+      );
+      const toRemove = remaining.slice(
+        0,
+        this.store.size - MAX_RATE_LIMIT_ENTRIES,
+      );
+      for (const [key] of toRemove) {
+        this.store.delete(key);
+      }
+      logger.warn("Rate limiter evicted entries to enforce size bound", {
+        evicted: toRemove.length,
+        expiredRemoved: removed,
+      });
     }
   }
 
@@ -113,12 +152,19 @@ export class RateLimiter {
 
     const entry = this.store.get(rateLimitKey);
 
+    // Evict expired entry immediately (don't wait for periodic cleanup)
+    if (entry && entry.resetAt < now) {
+      this.store.delete(rateLimitKey);
+    }
+
     // No entry or expired entry
     if (!entry || entry.resetAt < now) {
       this.store.set(rateLimitKey, {
         count: 1,
         resetAt: now + config.windowMs,
       });
+      // SECURITY: Enforce bound after every insertion to prevent OOM
+      this.enforceBound();
       return null;
     }
 
