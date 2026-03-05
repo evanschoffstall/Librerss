@@ -134,6 +134,20 @@ export async function fetchHtmlWithFingerprint(
         : "direct";
     const requestOs = options?.operatingSystem ?? "windows";
 
+    // For SOCKS proxies we pass a custom agent rather than got-scraping's
+    // native proxyUrl, so got-scraping's context.proxyUrl is unset.
+    // Without it, got-scraping's ALPN negotiation probe (browserHeadersHook →
+    // getResolveProtocolFunction) falls back to a direct TLS connection to the
+    // target host — bypassing the SOCKS proxy and leaking the real server IP.
+    // On production (datacenter IP) this direct probe is flagged by PerimeterX
+    // before the actual request even arrives from the proxy.
+    // Fix: stub resolveProtocol to return http/1.1 unconditionally, eliminating
+    // the direct outbound probe entirely. HTTP/1.1 is universally supported and
+    // the header-generator output is equally valid for both HTTP versions.
+    const resolveProtocolStub = isSocksProxy
+      ? async () => ({ alpnProtocol: "http/1.1" as const })
+      : undefined;
+
     const response = await gotScraping.get(currentUrl, {
       headerGeneratorOptions: {
         browsers: [
@@ -143,6 +157,7 @@ export async function fetchHtmlWithFingerprint(
         locales: ["en-US"],
         operatingSystems: [options?.operatingSystem ?? "windows"],
       },
+      ...(resolveProtocolStub ? { resolveProtocol: resolveProtocolStub } : {}),
       headers: {
         // Chrome 131 always sends the q-value fallback — header-generator
         // drops it when only one locale is configured.
@@ -150,16 +165,14 @@ export async function fetchHtmlWithFingerprint(
         // Chrome 119+ negotiates zstd; omitting it is a fingerprinting gap
         // that DataDome and PerimeterX track as a bot signal.
         "accept-encoding": "gzip, deflate, br, zstd",
-        // Explicit baseline — header-generator may vary; direct path always sends these.
-        "sec-fetch-site": "none",
-        "sec-fetch-user": "?1",
         ...(options?.secChUa && { "sec-ch-ua": options.secChUa }),
         ...(options?.accept && { Accept: options.accept }),
         ...(options?.referer && {
           Referer: options.referer,
-          // Cross-site navigation signal: overrides the "none" baseline above.
+          // Cross-site navigation signal: header-generator defaults to
+          // "same-site" but a DDG referral is always cross-site.
           // Bot detectors (DataDome, PerimeterX) check this for consistency.
-          "sec-fetch-site": "cross-site",
+          "Sec-Fetch-Site": "cross-site",
         }),
         Priority: "u=0, i",
       },

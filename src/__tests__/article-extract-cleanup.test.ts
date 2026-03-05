@@ -821,6 +821,315 @@ describe("article extract cleanup", () => {
     expect(gotGet).toHaveBeenCalledTimes(1);
   });
 
+  // ─── SOCKS proxy ALPN leak prevention ─────────────────────────────────────
+  // Regression tests for: got-scraping's browserHeadersHook performs a direct
+  // outbound TLS probe (ALPN negotiation) when context.proxyUrl is absent.
+  // For SOCKS proxies we use a custom agent instead of got-scraping's native
+  // proxyUrl field, leaving context.proxyUrl unset — causing the probe to
+  // bypass the proxy and expose the real server IP to the target.  The fix
+  // stubs resolveProtocol to http/1.1 so no direct outbound probe is made.
+
+  describe("SOCKS proxy ALPN no-leak", () => {
+    test("passes resolveProtocol stub for socks5 proxy", async () => {
+      let capturedOpts: Record<string, unknown> | undefined;
+
+      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
+        capturedOpts = opts;
+        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await fetchHtml(
+        "https://example.com/article",
+        { isAllowedFeedUrlFn: async () => true },
+        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+      );
+
+      expect(typeof capturedOpts?.resolveProtocol).toBe("function");
+    });
+
+    test("resolveProtocol stub returns http/1.1 without network call", async () => {
+      let capturedOpts: Record<string, unknown> | undefined;
+
+      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
+        capturedOpts = opts;
+        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await fetchHtml(
+        "https://example.com/article",
+        { isAllowedFeedUrlFn: async () => true },
+        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+      );
+
+      const stub = capturedOpts?.resolveProtocol as
+        | ((...args: unknown[]) => Promise<{ alpnProtocol: string }>)
+        | undefined;
+      expect(stub).toBeDefined();
+      // Must resolve synchronously-ish with http/1.1 and make zero network calls.
+      const result = await stub!();
+      expect(result.alpnProtocol).toBe("http/1.1");
+    });
+
+    test("passes resolveProtocol stub for socks4 proxy", async () => {
+      let capturedOpts: Record<string, unknown> | undefined;
+
+      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
+        capturedOpts = opts;
+        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await fetchHtml(
+        "https://example.com/article",
+        { isAllowedFeedUrlFn: async () => true },
+        { useProxy: true, proxyUrl: "socks4://127.0.0.1:1080" },
+      );
+
+      expect(typeof capturedOpts?.resolveProtocol).toBe("function");
+    });
+
+    test("does NOT pass resolveProtocol stub for http proxy (uses native proxyUrl)", async () => {
+      let capturedOpts: Record<string, unknown> | undefined;
+
+      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
+        capturedOpts = opts;
+        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await fetchHtml(
+        "https://example.com/article",
+        { isAllowedFeedUrlFn: async () => true },
+        { useProxy: true, proxyUrl: "http://127.0.0.1:8080" },
+      );
+
+      // HTTP proxy uses got-scraping's native proxyUrl routing, which handles
+      // ALPN through the proxy tunnel — no stub needed or wanted.
+      expect(capturedOpts?.resolveProtocol).toBeUndefined();
+    });
+
+    test("sets Sec-Fetch-Site cross-site when referer is provided", async () => {
+      let capturedOpts: Record<string, unknown> | undefined;
+
+      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
+        capturedOpts = opts;
+        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await fetchHtml(
+        "https://example.com/some-article-title",
+        { isAllowedFeedUrlFn: async () => true },
+        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+      );
+
+      const headers = capturedOpts?.headers as Record<string, string> | undefined;
+      expect(headers?.["Sec-Fetch-Site"]).toBe("cross-site");
+      expect(typeof headers?.["Referer"]).toBe("string");
+      expect(headers?.["Referer"]).toContain("duckduckgo.com");
+    });
+  });
+
+  // ─── Proxy loop bot-detection abort ───────────────────────────────────────
+  // When PerimeterX or DataDome block the proxy egress IP, the block is at IP
+  // reputation level — UA/fingerprint rotation cannot bypass it.  The proxy
+  // loop must abort immediately on the first detected attempt rather than
+  // burning all retry slots and delaying the caller by ~3 seconds.
+
+  describe("proxy loop bot-detection abort", () => {
+    const pxBody =
+      '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /></head></html>';
+
+    test("aborts after 1 attempt on PerimeterX body detection (px-captcha)", async () => {
+      let callCount = 0;
+
+      const gotGet = mock(async () => {
+        callCount++;
+        return { statusCode: 403, headers: {}, body: pxBody };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await expect(
+        fetchHtml(
+          "https://example.com/article",
+          { isAllowedFeedUrlFn: async () => true },
+          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        ),
+      ).rejects.toThrow("403");
+
+      expect(callCount).toBe(1);
+    });
+
+    test("aborts after 1 attempt on PerimeterX x-px-* response header", async () => {
+      let callCount = 0;
+
+      const gotGet = mock(async () => {
+        callCount++;
+        return {
+          statusCode: 403,
+          headers: { "x-px-vid": "some-vid-value" },
+          body: "",
+        };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await expect(
+        fetchHtml(
+          "https://example.com/article",
+          { isAllowedFeedUrlFn: async () => true },
+          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        ),
+      ).rejects.toThrow("403");
+
+      expect(callCount).toBe(1);
+    });
+
+    test("aborts after 1 attempt on DataDome x-datadome: protected header", async () => {
+      let callCount = 0;
+
+      const gotGet = mock(async () => {
+        callCount++;
+        return {
+          statusCode: 403,
+          headers: { "x-datadome": "protected" },
+          body: "",
+        };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await expect(
+        fetchHtml(
+          "https://example.com/article",
+          { isAllowedFeedUrlFn: async () => true },
+          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        ),
+      ).rejects.toThrow("403");
+
+      expect(callCount).toBe(1);
+    });
+
+    test("retries all 3 attempts on generic 403 (no bot-detection signal)", async () => {
+      let callCount = 0;
+
+      const gotGet = mock(async () => {
+        callCount++;
+        return { statusCode: 403, headers: {}, body: "<html>generic 403</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await expect(
+        fetchHtml(
+          "https://example.com/article",
+          { isAllowedFeedUrlFn: async () => true },
+          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        ),
+      ).rejects.toThrow("403");
+
+      // 3 total: 1 initial + 2 retries (EXTRACT_403_RETRIES = 2)
+      expect(callCount).toBe(3);
+    });
+
+    test("retries all 3 attempts on 429 rate-limit (no bot signal)", async () => {
+      let callCount = 0;
+
+      const gotGet = mock(async () => {
+        callCount++;
+        return { statusCode: 429, headers: {}, body: "" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await expect(
+        fetchHtml(
+          "https://example.com/article",
+          { isAllowedFeedUrlFn: async () => true },
+          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        ),
+      ).rejects.toThrow("429");
+
+      expect(callCount).toBe(3);
+    });
+
+    test("succeeds on first attempt and makes exactly 1 got-scraping call", async () => {
+      let callCount = 0;
+
+      const gotGet = mock(async () => {
+        callCount++;
+        return { statusCode: 200, headers: {}, body: "<html>success</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      const html = await fetchHtml(
+        "https://example.com/article",
+        { isAllowedFeedUrlFn: async () => true },
+        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+      );
+
+      expect(html).toBe("<html>success</html>");
+      expect(callCount).toBe(1);
+    });
+
+    test("rotates fingerprint pool on each proxy retry", async () => {
+      const capturedSecChUas: string[] = [];
+
+      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
+        const h = opts?.headers as Record<string, string> | undefined;
+        if (h?.["sec-ch-ua"]) capturedSecChUas.push(h["sec-ch-ua"]);
+        return { statusCode: 403, headers: {}, body: "<html>blocked</html>" };
+      });
+
+      mock.module("got-scraping", () => ({
+        gotScraping: { get: gotGet },
+      }));
+
+      await expect(
+        fetchHtml(
+          "https://example.com/article",
+          { isAllowedFeedUrlFn: async () => true },
+          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        ),
+      ).rejects.toThrow("403");
+
+      // All 3 attempts must have run, each with a distinct sec-ch-ua (pool has 3 entries)
+      expect(capturedSecChUas.length).toBe(3);
+      expect(new Set(capturedSecChUas).size).toBe(3);
+    });
+  });
+
   // ─── POST logging ─────────────────────────────────────────────────────────
 
   test("POST returns extracted content on success", async () => {
