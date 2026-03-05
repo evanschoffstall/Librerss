@@ -91,7 +91,7 @@ async function regenerateExpectation(dir: string, articleName: string) {
 async function main() {
   const dir = join(
     process.cwd(),
-    "src/__tests__/templates/extract-sanitize-hydrate-pipline",
+    "src/__tests__/templates/extract-sanitize-hydrate-pipeline",
   );
 
   const articleFiles = readdirSync(dir)
