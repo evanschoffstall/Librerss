@@ -201,6 +201,27 @@ export async function fetchHtml(
     const ua = injectedGet ? EXTRACT_FINGERPRINT_POOL[0].ua : fp.ua;
     const secChUa = injectedGet ? ARTICLE_EXTRACT_SEC_CH_UA : fp.secChUa;
     const secChUaPlatform = injectedGet ? '"Windows"' : fp.secChUaPlatform;
+    const directReferer = injectedGet ? undefined : buildDdgReferer(url);
+
+    // Build request headers once so they can be passed to the fetch and logged.
+    const requestHeaders: Record<string, string> = {
+      "User-Agent": ua,
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Cache-Control": "max-age=0",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "sec-ch-ua": secChUa,
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": secChUaPlatform,
+      Priority: "u=0, i",
+      ...(directReferer ? { Referer: directReferer } : {}),
+    };
 
     // Fresh cookie jar per attempt so challenge cookies issued by the bot-check
     // on hop N are carried to hop N+1 within this attempt, but stale/blocked
@@ -212,6 +233,11 @@ export async function fetchHtml(
     const proxyConfig = proxyUrl
       ? buildProxyConfig(proxyUrl, insecureTls)
       : undefined;
+    const axiosProxyMode = proxyConfig
+      ? proxyConfig.mode === "socks"
+        ? "socks"
+        : "http"
+      : "direct";
     const insecureHttpsAgent = insecureTls
       ? new https.Agent({ rejectUnauthorized: false })
       : undefined;
@@ -259,7 +285,7 @@ export async function fetchHtml(
     let isFirstValidation = true;
 
     try {
-      return await fetchTextWithValidatedRedirects(
+      const html = await fetchTextWithValidatedRedirects(
         {
           url,
           // 5 hops matches feed fetching. Article URLs from RSS often route through
@@ -267,31 +293,7 @@ export async function fetchHtml(
           maxRedirects: 5,
           timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
           maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-          headers: {
-            "User-Agent": ua,
-            // Chrome 130 Accept header with modern image format support.
-            Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Language": "en-US,en;q=0.9",
-            // Chrome 130 supports zstd in addition to gzip/deflate/br.
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Cache-Control": "max-age=0",
-            "Upgrade-Insecure-Requests": "1",
-            // Sec-Fetch-* direct-navigation policy (bookmark / typed URL).
-            // Sec-Fetch-Site MUST be "none" — claiming same-origin while
-            // arriving from an external IP is a top bot-detection signal.
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            // Chrome Client Hints — absence alongside a Chrome UA is an
-            // immediate bot fingerprint flag.
-            "sec-ch-ua": secChUa,
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": secChUaPlatform,
-            // Navigation fetch priority (Chrome 130).
-            Priority: "u=0, i",
-          },
+          headers: requestHeaders,
           assertAllowedUrl: async (candidateUrl) => {
             if (!(await isAllowedUrl(candidateUrl))) {
               throw new Error(
@@ -348,6 +350,22 @@ export async function fetchHtml(
         },
         { axiosGetFn: axiosGet, isAxiosErrorFn: isAxiosError },
       );
+      if (!injectedGet) {
+        logger.info(
+          `Direct extraction attempt ${attempt + 1}/${attempts} succeeded`,
+          {
+            url,
+            attempt: attempt + 1,
+            attempts,
+            proxyMode: axiosProxyMode,
+            proxyAddress: proxyUrl ?? null,
+            allowInsecureTls: insecureTls,
+            headers: requestHeaders,
+            responseBodyLength: html.length,
+          },
+        );
+      }
+      return html;
     } catch (err) {
       lastError = err;
       if (dataDomeDetected || perimeterXDetected) {
@@ -361,6 +379,21 @@ export async function fetchHtml(
       // Only retry on 403/429 — other errors (network, timeout, 404, 5xx) are final.
       if (gotRetryable && attempt < attempts - 1) {
         continue;
+      }
+      if (!injectedGet) {
+        logger.error(
+          `Direct extraction attempt ${attempt + 1}/${attempts} failed (final)`,
+          {
+            url,
+            attempt: attempt + 1,
+            attempts,
+            proxyMode: axiosProxyMode,
+            proxyAddress: proxyUrl ?? null,
+            allowInsecureTls: insecureTls,
+            headers: requestHeaders,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        );
       }
       throw err;
     }
