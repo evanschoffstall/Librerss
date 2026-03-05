@@ -9,8 +9,8 @@
 
 import type { ProxyRouteDeps } from "@/app/api/settings/proxy/route";
 import {
-  __resetApiClientForTesting,
-  __setApiClientForTesting,
+    __resetApiClientForTesting,
+    __setApiClientForTesting,
 } from "@/lib/api/http-client";
 import { ArticleService } from "@/lib/api/services";
 import { fetchHtml } from "@/lib/extract";
@@ -40,16 +40,19 @@ describe("proxy settings API route", () => {
     requireAuthFn: async () => authenticatedUser,
     probeFn: async () => true,
     detectFn: async () => "http",
+    dnsCheckFn: async () => false,
   };
 
   const unreachableDeps: ProxyRouteDeps = {
     requireAuthFn: async () => authenticatedUser,
     probeFn: async () => false,
     detectFn: async () => "http",
+    dnsCheckFn: async () => false,
   };
 
   function mockDb(proxyUrl: string | null = null) {
     let storedProxyUrl = proxyUrl;
+    let storedAllowInsecureTls = false;
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
         select: () => ({
@@ -60,10 +63,20 @@ describe("proxy settings API route", () => {
           }),
         }),
         update: () => ({
-          set: (values: { proxyUrl: string | null }) => {
-            storedProxyUrl = values.proxyUrl;
+          set: (values: {
+            proxyUrl?: string | null;
+            allowInsecureTls?: boolean;
+          }) => {
+            if (values.proxyUrl !== undefined) storedProxyUrl = values.proxyUrl;
+            if (values.allowInsecureTls !== undefined)
+              storedAllowInsecureTls = values.allowInsecureTls;
             return {
-              where: () => Promise.resolve([]),
+              where: () => ({
+                returning: () =>
+                  Promise.resolve([
+                    { allowInsecureTls: storedAllowInsecureTls },
+                  ]),
+              }),
             };
           },
         }),
@@ -213,6 +226,7 @@ describe("proxy settings API route", () => {
       requireAuthFn: async () => authenticatedUser,
       probeFn: async () => true,
       detectFn: async () => "socks5",
+      dnsCheckFn: async () => false,
     };
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
@@ -273,6 +287,34 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.proxyUrl).toBe("http://proxy:8080");
   });
+
+  // SSRF regression: internal/private hosts must be rejected before any TCP probe
+  test.each([
+    ["loopback IP", "http://127.0.0.1:8080"],
+    ["localhost hostname", "http://localhost:8080"],
+    ["private 10.x range", "http://10.0.0.1:3128"],
+    ["private 192.168.x range", "http://192.168.1.1:8080"],
+    ["private 172.16.x range", "http://172.16.0.1:8080"],
+    ["link-local metadata IP", "http://169.254.169.254:80"],
+    ["bare loopback IP:port", "127.0.0.1:9050"],
+  ])(
+    "PUT rejects internal/private proxy URL: %s",
+    async (_label, proxyUrl) => {
+      mockDb(null);
+      const { PUT } = await import("@/app/api/settings/proxy/route");
+      const req = new NextRequest("http://localhost/api/settings/proxy", {
+        method: "PUT",
+        body: JSON.stringify({ proxyUrl }),
+        headers: { "content-type": "application/json" },
+      });
+      const res = await PUT(req, routeDeps);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.configured).toBe(false);
+      expect(body.proxyUrl).toBeNull();
+      expect(body.error).toBeDefined();
+    },
+  );
 });
 
 // ── Client Service Methods ──────────────────────────────────────────────────
@@ -400,5 +442,142 @@ describe("fetchHtml proxy passthrough", () => {
         { useProxy: true, proxyUrl: "http://proxy:8080" },
       ),
     ).rejects.toThrow("Blocked URL");
+  });
+});
+
+// ── Direct SSRF Guard Function Tests ───────────────────────────────────────
+
+describe("proxy SSRF guard functions (direct)", () => {
+  function mockLogger() {
+    mock.module("@/lib/logger", () => ({
+      logger: { error: mock(), warn: mock(), info: mock(), debug: mock() },
+    }));
+  }
+
+  test("probeProxy returns false for loopback IP without TCP connect", async () => {
+    mockLogger();
+    const { probeProxy } = await import("@/app/api/settings/proxy/route");
+    expect(await probeProxy("http://127.0.0.1:8080")).toBe(false);
+  });
+
+  test("probeProxy returns false for private 10.x IP", async () => {
+    mockLogger();
+    const { probeProxy } = await import("@/app/api/settings/proxy/route");
+    expect(await probeProxy("http://10.0.0.1:3128")).toBe(false);
+  });
+
+  test("detectProxyProtocol returns 'http' for localhost without TCP connect", async () => {
+    mockLogger();
+    const { detectProxyProtocol } = await import(
+      "@/app/api/settings/proxy/route"
+    );
+    expect(await detectProxyProtocol("localhost", 1080)).toBe("http");
+  });
+
+  test("detectProxyProtocol returns 'http' for 192.168.x without TCP connect", async () => {
+    mockLogger();
+    const { detectProxyProtocol } = await import(
+      "@/app/api/settings/proxy/route"
+    );
+    expect(await detectProxyProtocol("192.168.0.1", 8080)).toBe("http");
+  });
+
+  test("normalizeProxyUrl returns null for private 192.168.x (http scheme)", async () => {
+    mockLogger();
+    const { normalizeProxyUrl } = await import(
+      "@/app/api/settings/proxy/route"
+    );
+    expect(
+      await normalizeProxyUrl(
+        "http://192.168.0.1:8080",
+        undefined,
+        async () => false,
+      ),
+    ).toBeNull();
+  });
+
+  test("normalizeProxyUrl returns null for explicit SOCKS to internal IP", async () => {
+    mockLogger();
+    const { normalizeProxyUrl } = await import(
+      "@/app/api/settings/proxy/route"
+    );
+    expect(
+      await normalizeProxyUrl(
+        "socks5://127.0.0.1:1080",
+        undefined,
+        async () => false,
+      ),
+    ).toBeNull();
+  });
+
+  test("normalizeProxyUrl returns null when DNS resolves to blocked address (http)", async () => {
+    mockLogger();
+    const { normalizeProxyUrl } = await import(
+      "@/app/api/settings/proxy/route"
+    );
+    expect(
+      await normalizeProxyUrl(
+        "http://internal-proxy.example.com:8080",
+        async () => "http",
+        async () => true, // simulate DNS → 10.0.0.1
+      ),
+    ).toBeNull();
+  });
+
+  test("normalizeProxyUrl returns null when DNS resolves to blocked address (SOCKS)", async () => {
+    mockLogger();
+    const { normalizeProxyUrl } = await import(
+      "@/app/api/settings/proxy/route"
+    );
+    expect(
+      await normalizeProxyUrl(
+        "socks5://internal-proxy.example.com:1080",
+        undefined,
+        async () => true, // simulate DNS → 10.0.0.1
+      ),
+    ).toBeNull();
+  });
+
+  test("PUT rejects proxy URL whose hostname resolves to blocked address", async () => {
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ proxyUrl: null }]),
+            }),
+          }),
+        }),
+        update: () => ({
+          set: () => ({
+            where: () => ({
+              returning: () => Promise.resolve([{ allowInsecureTls: false }]),
+            }),
+          }),
+        }),
+      }),
+    }));
+    mockLogger();
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      method: "PUT",
+      body: JSON.stringify({ proxyUrl: "http://external-proxy.example.com:8080" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await PUT(req, {
+      requireAuthFn: async () => ({
+        sessionId: 1,
+        userId: 1,
+        email: "test@example.com",
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+      }),
+      probeFn: async () => true,
+      detectFn: async () => "http",
+      dnsCheckFn: async () => true, // simulate DNS → blocked address
+    });
+    const body = await res.json();
+    expect(body.configured).toBe(false);
+    expect(body.proxyUrl).toBeNull();
+    expect(body.error).toBeDefined();
   });
 });
