@@ -72,6 +72,8 @@ export async function refreshFeedFromUpstream(
   feed: FeedRecord,
   deps?: RefreshDeps,
 ): Promise<UpstreamRefreshResult> {
+  const now = deps?.nowFn?.() ?? new Date();
+
   try {
     if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
       logger.info("Upstream refresh started", {
@@ -87,7 +89,6 @@ export async function refreshFeedFromUpstream(
     const toPending = deps?.toPendingArticleFn ?? toPendingArticle;
     const dedupe = deps?.dedupePendingArticlesFn ?? dedupePendingArticles;
     const getRange = deps?.getPublicationDateRangeFn ?? getPublicationDateRange;
-    const now = deps?.nowFn?.() ?? new Date();
 
     const feedXml = await fetchXml(feed.url);
     const parsed = await parseFeedXml(feedXml);
@@ -169,7 +170,7 @@ export async function refreshFeedFromUpstream(
     try {
       await db
         .update(feeds)
-        .set({ lastFetched: new Date(), lastFetchError: errorMessage })
+        .set({ lastFetched: now, lastFetchError: errorMessage })
         .where(eq(feeds.id, feed.id));
 
       if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
