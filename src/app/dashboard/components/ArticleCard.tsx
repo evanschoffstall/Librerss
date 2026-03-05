@@ -613,6 +613,9 @@ export const ArticleCard = ({
             <div
               className="overflow-hidden transition-[max-height] anim-duration-ui anim-ease-ui"
               onTransitionEnd={onContentTransitionEnd}
+              onClick={
+                visuallyExpanded ? (e) => e.stopPropagation() : undefined // Mitigate accidental clicks when trying to interact with the content while expanded
+              }
               style={{
                 maxHeight: expandTransitionDone
                   ? "none"
