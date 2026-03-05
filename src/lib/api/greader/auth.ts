@@ -43,11 +43,9 @@ function parseClientLoginParams(
 async function parseClientLoginPayload(
   request: NextRequest,
 ): Promise<ClientLoginPayload | Response | null> {
-  const urlPayload = parseClientLoginParams(getSearchParams(request));
-  if (urlPayload) {
-    return urlPayload;
-  }
-
+  // SECURITY: Do not read credentials from URL query parameters.
+  // URL params are logged by servers/proxies, visible in browser history,
+  // and leaked via Referer headers. ClientLogin must be a POST with body.
   if (request.method !== "POST") {
     return null;
   }
