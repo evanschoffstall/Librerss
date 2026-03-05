@@ -48,7 +48,7 @@ function stripShareEngagementToolbars(content: string): string {
 
 /** Promotional / call-to-action pattern (cross-site generic). */
 const PROMO_CTA_RE =
-  /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google/i;
+  /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google|reader[-\s]supported\s+publication|to\s+receive\s+new\s+posts|consider\s+becoming\s+a\s+subscriber/i;
 
 function isPromoCta(inner: string): boolean {
   const text = inner
@@ -198,6 +198,7 @@ const CONTENT_CLASS_PATTERNS = [
   "article__content",
   "entry-content",
   "entry__content",
+  "entry-body",
   "post-content",
   "post-body",
   "post__content",
@@ -214,6 +215,12 @@ const CONTENT_CLASS_PATTERNS = [
   "wp-block-post-content",
   "the-content",
   "rich-text",
+  // Drupal standard body field (used across all Drupal 7/8/9/10 sites)
+  "field-name-body",
+  "field--name-body",
+  // Generic article text container used across various CMSes
+  "article-text",
+  "post-text",
 ] as const;
 
 function manipulateInnerHtml(

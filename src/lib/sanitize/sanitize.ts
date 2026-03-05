@@ -19,15 +19,29 @@ function parseDimension(value: string | undefined): number | null {
   return parsed;
 }
 
+function maxSrcsetWidth(srcset: string): number {
+  const widths = [...srcset.matchAll(/\b(\d+)w\b/gi)].map((m) =>
+    parseInt(m[1]!, 10),
+  );
+  return widths.length > 0 ? Math.max(...widths) : Infinity;
+}
+
 function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
   if (!attribs) return false;
   const width = parseDimension(attribs.width);
   const height = parseDimension(attribs.height);
-  const hasSrcset = !!attribs.srcset?.trim();
+  const srcset = attribs.srcset?.trim() ?? "";
+  const hasSrcset = !!srcset;
   if (width === null && height === null && !hasSrcset) return true;
   if (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) return true;
   if (height !== null && height < CONFIG.MIN_ARTICLE_IMAGE_HEIGHT_PX)
     return true;
+  // Reject images where every srcset width descriptor is below threshold
+  // (catches small author avatars/icons that have srcset but no explicit dimensions).
+  if (hasSrcset && width === null && height === null) {
+    const maxW = maxSrcsetWidth(srcset);
+    if (maxW < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) return true;
+  }
   return false;
 }
 
