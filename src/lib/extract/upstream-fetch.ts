@@ -4,6 +4,7 @@ import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
+import { redactUrlForLogs } from "@/lib/utils/url";
 import axios from "axios";
 import https from "node:https";
 import { CookieJar } from "tough-cookie";
@@ -105,7 +106,7 @@ export async function fetchHtml(
             attempts,
             delayMs: attempt > 0 ? delayMs : undefined,
             proxyMode,
-            proxyAddress: options.proxyUrl,
+            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
             allowInsecureTls: options.allowInsecureTls ?? false,
             headers: sentHeaders,
             responseBodyLength: html.length,
@@ -128,7 +129,7 @@ export async function fetchHtml(
             attempts,
             delayMs: attempt > 0 ? delayMs : undefined,
             proxyMode: gsErr?.proxyMode ?? proxyMode,
-            proxyAddress: options.proxyUrl,
+            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
             allowInsecureTls: options.allowInsecureTls ?? false,
             headers: gsErr?.requestHeaders,
             ...(gsErr && {
@@ -342,7 +343,7 @@ export async function fetchHtml(
             attempt: attempt + 1,
             attempts,
             proxyMode: axiosProxyMode,
-            proxyAddress: proxyUrl ?? null,
+            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
             allowInsecureTls: insecureTls,
             headers: requestHeaders,
             responseBodyLength: html.length,
@@ -372,7 +373,7 @@ export async function fetchHtml(
             attempt: attempt + 1,
             attempts,
             proxyMode: axiosProxyMode,
-            proxyAddress: proxyUrl ?? null,
+            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
             allowInsecureTls: insecureTls,
             headers: requestHeaders,
             error: toErrorMessage(err),
@@ -397,7 +398,9 @@ export async function fetchHtml(
       url,
       provider,
       connectionMode,
-      proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
+      proxyAddress: options?.useProxy
+        ? redactUrlForLogs(options?.proxyUrl ?? "")
+        : null,
       allowInsecureTls: options?.allowInsecureTls ?? false,
     };
     logger.info(

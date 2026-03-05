@@ -8,6 +8,7 @@ import {
   type AuthenticatedUser,
 } from "@/lib/server";
 import { isBlockedHost } from "@/lib/utils/ssrf";
+import { redactUrlForLogs } from "@/lib/utils/url";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import net from "node:net";
@@ -135,12 +136,18 @@ export async function normalizeProxyUrl(
 ): Promise<string | null> {
   const needsScheme = BARE_HOST_PORT_RE.test(raw);
   const input = needsScheme ? `http://${raw}` : raw;
-  logger.info("Proxy URL normalization started", { raw, input, needsScheme });
+  logger.info("Proxy URL normalization started", {
+    raw: redactUrlForLogs(raw),
+    input: redactUrlForLogs(input),
+    needsScheme,
+  });
   let parsed: URL;
   try {
     parsed = new URL(input);
   } catch {
-    logger.error("Proxy URL normalization failed: unparseable URL", { raw });
+    logger.error("Proxy URL normalization failed: unparseable URL", {
+      raw: redactUrlForLogs(raw),
+    });
     return null;
   }
   if (!VALID_PROTOCOLS.has(parsed.protocol)) {
@@ -155,7 +162,7 @@ export async function normalizeProxyUrl(
   if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
     if (isBlockedHost(parsed.hostname)) {
       logger.error("Proxy URL rejected: internal hostname (SOCKS)", {
-        raw,
+        raw: redactUrlForLogs(raw),
         host: parsed.hostname,
       });
       return null;
@@ -165,7 +172,7 @@ export async function normalizeProxyUrl(
       logger.error(
         "Proxy URL rejected: hostname resolves to blocked address (SOCKS)",
         {
-          raw,
+          raw: redactUrlForLogs(raw),
           host: parsed.hostname,
         },
       );
@@ -173,7 +180,7 @@ export async function normalizeProxyUrl(
     }
     logger.info(
       "Proxy URL normalization: explicit SOCKS scheme, skipping detection",
-      { input },
+      { input: redactUrlForLogs(input) },
     );
     return input;
   }
@@ -184,7 +191,7 @@ export async function normalizeProxyUrl(
   // SSRF guard: block internal/private hostnames before any TCP probe.
   if (isBlockedHost(hp.host)) {
     logger.error("Proxy URL rejected: internal hostname", {
-      raw,
+      raw: redactUrlForLogs(raw),
       host: hp.host,
     });
     return null;
@@ -192,7 +199,7 @@ export async function normalizeProxyUrl(
   const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
   if (await dnsCheck(hp.host)) {
     logger.error("Proxy URL rejected: hostname resolves to blocked address", {
-      raw,
+      raw: redactUrlForLogs(raw),
       host: hp.host,
     });
     return null;
@@ -202,8 +209,8 @@ export async function normalizeProxyUrl(
   const normalized =
     proto === "socks5" ? `socks5://${hp.host}:${hp.port}` : input;
   logger.info("Proxy URL normalization completed", {
-    raw,
-    normalized,
+    raw: redactUrlForLogs(raw),
+    normalized: redactUrlForLogs(normalized),
     detectedProtocol: proto,
   });
   return normalized;
@@ -212,37 +219,40 @@ export async function normalizeProxyUrl(
 /** TCP connect probe — resolves true if port is open, false on timeout/error. */
 export function probeProxy(proxyUrl: string): Promise<boolean> {
   const hp = parseHostPort(proxyUrl);
+  const safeProxyUrl = redactUrlForLogs(proxyUrl);
   if (!hp) {
     logger.error("Proxy probe skipped: could not parse host/port", {
-      proxyUrl,
+      proxyUrl: safeProxyUrl,
     });
     return Promise.resolve(false);
   }
   // SSRF guard: refuse to probe internal/private hosts.
   if (isBlockedHost(hp.host)) {
-    logger.error("Proxy probe blocked: internal hostname", { proxyUrl });
+    logger.error("Proxy probe blocked: internal hostname", {
+      proxyUrl: safeProxyUrl,
+    });
     return Promise.resolve(false);
   }
-  logger.info(`Proxy probe started. (proxyUrl=${proxyUrl})`);
+  logger.info(`Proxy probe started. (proxyUrl=${safeProxyUrl})`);
   return new Promise<boolean>((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
     socket.on("connect", () => {
       socket.destroy();
-      logger.info(`Proxy probe succeeded. (proxyUrl=${proxyUrl})`);
+      logger.info(`Proxy probe succeeded. (proxyUrl=${safeProxyUrl})`);
       resolve(true);
     });
     socket.on("timeout", () => {
       socket.destroy();
       logger.error(
-        `Proxy probe failed: timeout (proxyUrl=${proxyUrl} timeoutMs=${PROBE_TIMEOUT_MS})`,
+        `Proxy probe failed: timeout (proxyUrl=${safeProxyUrl} timeoutMs=${PROBE_TIMEOUT_MS})`,
       );
       resolve(false);
     });
     socket.on("error", (err) => {
       socket.destroy();
       logger.error(
-        `Proxy probe failed: socket error (proxyUrl=${proxyUrl} error=${(err as Error).message})`,
+        `Proxy probe failed: socket error (proxyUrl=${safeProxyUrl} error=${(err as Error).message})`,
       );
       resolve(false);
     });
@@ -267,7 +277,8 @@ async function probeAndRespond(
   allowInsecureTls = false,
 ): Promise<Response> {
   const reachable = await probe(proxyUrl);
-  if (!reachable) logger.error(logLabel, { proxyUrl });
+  if (!reachable)
+    logger.error(logLabel, { proxyUrl: redactUrlForLogs(proxyUrl) });
   return NextResponse.json({
     proxyUrl,
     configured: true,
@@ -355,7 +366,9 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
       result.dnsCheck,
     );
     if (!normalized) {
-      logger.error("Invalid proxy URL submitted", { raw });
+      logger.error("Invalid proxy URL submitted", {
+        raw: redactUrlForLogs(raw),
+      });
       return unconfiguredResponse(
         "Invalid proxy URL. Accepted formats: http://host:port, socks5://host:port, or bare host:port",
       );
