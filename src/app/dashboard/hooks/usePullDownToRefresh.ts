@@ -81,9 +81,36 @@ export function usePullDownToRefresh(
 
     const wrapper = sentinel?.parentElement ?? null;
 
+    /** Find the Radix scrollbar element (conditionally mounted by Presence). */
+    const findScrollbar = () =>
+      root.querySelector<HTMLElement>(':scope > [data-orientation="vertical"]');
+
+    /** Apply or clear inset styles on the scrollbar to hide the sentinel zone. */
+    const syncScrollbar = () => {
+      const sb = findScrollbar();
+      if (!sb) return;
+      const height = sh();
+      const H = viewport.scrollHeight;
+      // Real content overflows only when scrollHeight > clientHeight + sentinel.
+      // The padding added by ensureMinOverflow is exactly enough to not exceed that.
+      const realOverflow = H - height > viewport.clientHeight;
+      if (!realOverflow || height === 0) {
+        sb.style.display = "none";
+        return;
+      }
+      sb.style.display = "";
+      // D = S·C/(H−S) makes translate3d(0, D, 0) land at the visible top edge.
+      const inset =
+        H > height ? (height * viewport.clientHeight) / (H - height) : 0;
+      sb.style.marginTop = `-${inset.toFixed(2)}px`;
+      sb.style.height = `calc(100% + ${inset.toFixed(2)}px)`;
+    };
+
     /**
      * Ensures viewport.scrollHeight >= viewport.clientHeight + sentinelHeight
      * so that setting scrollTop = sentinelHeight is never clamped to 0.
+     * Also offsets the scrollbar track so the thumb is flush at top when
+     * the sentinel is scrolled out of view.
      */
     const ensureMinOverflow = () => {
       const height = sh();
@@ -92,7 +119,15 @@ export function usePullDownToRefresh(
       const contentHeight = wrapper.offsetHeight;
       const needed = viewport.clientHeight + height - contentHeight;
       if (needed > 0) wrapper.style.paddingBottom = `${needed}px`;
+      syncScrollbar();
     };
+
+    // Watch for Radix mounting/unmounting the scrollbar element via Presence.
+    const mutObserver =
+      typeof MutationObserver !== "undefined"
+        ? new MutationObserver(syncScrollbar)
+        : null;
+    mutObserver?.observe(root, { childList: true, subtree: false });
 
     ensureMinOverflow();
     viewport.scrollTop = sh();
@@ -269,6 +304,7 @@ export function usePullDownToRefresh(
 
     return () => {
       resizeObserver?.disconnect();
+      mutObserver?.disconnect();
       cancelAnimationFrame(rafId);
       clearTimeout(snapTimerRef.current);
       snapTimerRef.current = undefined;
@@ -276,6 +312,12 @@ export function usePullDownToRefresh(
       wheelEndTimerRef.current = undefined;
       viewport.style.overscrollBehaviorY = "";
       if (wrapper) wrapper.style.paddingBottom = "";
+      const sb = findScrollbar();
+      if (sb) {
+        sb.style.marginTop = "";
+        sb.style.height = "";
+        sb.style.display = "";
+      }
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
