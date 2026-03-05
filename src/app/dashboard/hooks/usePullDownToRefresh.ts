@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /** Height of the hidden pull zone above content. */
-export const SENTINEL_HEIGHT = 104;
+const SENTINEL_HEIGHT = 104;
 /** Distance (px into sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
 /** Hold height during refresh feedback. */

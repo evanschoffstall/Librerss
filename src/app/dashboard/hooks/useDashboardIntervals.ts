@@ -61,6 +61,5 @@ export function useDashboardIntervals({
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // stable — must not depend on autoRefreshFeedList
 }
