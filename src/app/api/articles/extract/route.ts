@@ -34,7 +34,10 @@ import {
   preCleanHtml,
   sanitizeRawContent,
 } from "@/lib/sanitize";
-import { logAndRespondError, requireMutablePublicRequest } from "@/lib/server";
+import {
+  logAndRespondError,
+  requireMutableAuthenticatedUser,
+} from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 import axios from "axios";
@@ -55,7 +58,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type ExtractPostDeps = {
-  requireMutableAuthenticatedUserFn?: typeof requireMutablePublicRequest;
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   fetchHtmlFn?: typeof fetchHtml;
   extractFromHtmlFn?: typeof extractArticleFromHtml;
@@ -71,14 +74,20 @@ type ExtractPostDeps = {
   shouldUseExtractCacheFn?: () => boolean;
 };
 
+function sanitizeHeaderValue(value: string | null, maxLen = 64): string | null {
+  if (!value) return null;
+  // Strip non-ASCII and control characters; truncate to prevent log bloat.
+  return value.replace(/[^\x20-\x7E]/g, "").slice(0, maxLen) || null;
+}
+
 function createExtractRequestContext(
   request: NextRequest,
 ): ExtractRequestContext {
   const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const requestId =
+  const requestId = sanitizeHeaderValue(
     request.headers?.get("x-request-id") ??
-    request.headers?.get("x-correlation-id") ??
-    null;
+      request.headers?.get("x-correlation-id"),
+  );
 
   return {
     extractAttemptId,
@@ -154,8 +163,10 @@ async function resolveExtractedContent(
 }
 
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
+  // SECURITY: Require authentication — unauthenticated callers must not be
+  // able to trigger arbitrary outbound HTTP fetches from the server.
   const requireAuth =
-    deps?.requireMutableAuthenticatedUserFn ?? requireMutablePublicRequest;
+    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
   const parseArticleUrl =
     deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
@@ -292,7 +303,12 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
           extractAttemptId: context.extractAttemptId,
           requestId: context.requestId,
           connectionMode: useProxy ? "proxy" : "direct",
-          proxyAddress: useProxy ? (resolvedProxyUrl ?? null) : null,
+          // SECURITY: redact credentials from proxy URL before logging
+          proxyAddress: useProxy
+            ? resolvedProxyUrl
+              ? redactUrlForLogs(resolvedProxyUrl)
+              : null
+            : null,
           ...(verboseLoggingEnabled
             ? buildAxiosFailureDiagnostics(error, isAxiosError)
             : {}),
@@ -314,7 +330,12 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         extractAttemptId: context.extractAttemptId,
         requestId: context.requestId,
         connectionMode: useProxy ? "proxy" : "direct",
-        proxyAddress: useProxy ? (resolvedProxyUrl ?? null) : null,
+        // SECURITY: redact credentials from proxy URL before logging
+        proxyAddress: useProxy
+          ? resolvedProxyUrl
+            ? redactUrlForLogs(resolvedProxyUrl)
+            : null
+          : null,
       },
     );
     return jsonErrorWithReason(
