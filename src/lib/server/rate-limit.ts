@@ -23,6 +23,8 @@ const MAX_RATE_LIMIT_ENTRIES = 100000;
 export class RateLimiter {
   private store = new Map<string, RateLimitEntry>();
   private readonly cleanupTimer: ReturnType<typeof setInterval>;
+  /** Cached once per instance so env is not re-read on every request. */
+  private _trustedProxyCount: number | undefined;
 
   // Clean up expired entries every 5 minutes
   constructor() {
@@ -97,13 +99,16 @@ export class RateLimiter {
     // TRUSTED_PROXY_COUNT (default: 1) — number of proxy hops you control.
     // Set to 0 in direct-to-internet deployments where no proxy header is
     // present; all clients will share a single "unknown" bucket in that case.
-    const rawTrustedProxies = Number(process.env.TRUSTED_PROXY_COUNT ?? "1");
-    if (!Number.isFinite(rawTrustedProxies)) {
-      throw new Error(
-        `Invalid TRUSTED_PROXY_COUNT: "${process.env.TRUSTED_PROXY_COUNT}". Must be a number.`,
-      );
+    if (this._trustedProxyCount === undefined) {
+      const raw = Number(process.env.TRUSTED_PROXY_COUNT ?? "1");
+      if (!Number.isFinite(raw)) {
+        throw new Error(
+          `Invalid TRUSTED_PROXY_COUNT: "${process.env.TRUSTED_PROXY_COUNT}". Must be a number.`,
+        );
+      }
+      this._trustedProxyCount = Math.max(0, raw);
     }
-    const trustedProxies = Math.max(0, rawTrustedProxies);
+    const trustedProxies = this._trustedProxyCount;
 
     if (trustedProxies > 0) {
       const forwarded = request.headers.get("x-forwarded-for");
