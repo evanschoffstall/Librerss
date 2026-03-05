@@ -296,11 +296,13 @@ async function run(
   cmd: string,
   args: string[],
   timeoutMs?: number,
+  extraEnv?: Record<string, string>,
 ): Promise<Command> {
   const env: Record<string, string | undefined> = {
     ...process.env,
     FORCE_COLOR: process.env.FORCE_COLOR ?? "1",
     NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
+    ...extraEnv,
   };
   delete env.NO_COLOR;
   const child = Bun.spawn([cmd, ...args], {
@@ -525,7 +527,11 @@ async function runCheckSuite() {
     {
       k: "build",
       l: "build",
-      r: () => run("bun", ["run", "build"]),
+      r: () => {
+        return run("bun", ["run", "build"], undefined, {
+          NODE_ENV: "production",
+        });
+      },
     },
   ];
   const runs = Object.fromEntries(
