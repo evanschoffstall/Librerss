@@ -407,7 +407,11 @@ async function runTsPrune(argv: string[]): Promise<Command> {
     if (result.timedOut) return result;
     const actionable = result.output
       .split(/\r?\n/)
-      .filter((l) => /^\S.+:\d+\s-\s.+$/.test(l.trim()) && !ignoreRe?.test(l));
+      .filter(
+        (l) =>
+          /^\S.+:\d+\s-\s.+$/.test(l.trim()) &&
+          (l.includes("(used in tests)") || !ignoreRe?.test(l)),
+      );
     if (actionable.length > 0)
       return {
         exitCode: 1,
