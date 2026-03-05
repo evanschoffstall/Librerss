@@ -56,6 +56,7 @@ export const PROXY_FINGERPRINT_POOL = [
   {
     os: "windows" as const,
     chromeVersion: 131,
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     secChUa: '"Chromium";v="131", "Google Chrome";v="131", "Not A(Brand";v="8"',
     accept:
       "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -63,6 +64,7 @@ export const PROXY_FINGERPRINT_POOL = [
   {
     os: "macos" as const,
     chromeVersion: 130,
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
     secChUa:
       '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
     accept:
@@ -71,6 +73,7 @@ export const PROXY_FINGERPRINT_POOL = [
   {
     os: "linux" as const,
     chromeVersion: 128,
+    ua: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
     secChUa:
       '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
     accept:

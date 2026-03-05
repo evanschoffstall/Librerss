@@ -53,6 +53,23 @@ export async function fetchHtml(
     let lastError: unknown;
     const attempts = 1 + EXTRACT_403_RETRIES;
 
+    // Derive a search query from the URL slug for a DDG referer on every attempt.
+    const proxyDdgQuery = (() => {
+      try {
+        const segments = new URL(url).pathname.split("/").filter(Boolean);
+        const slug = segments[segments.length - 1] ?? "";
+        return (
+          slug
+            .replace(/\.[^.]+$/, "")
+            .replace(/[-_]/g, " ")
+            .trim() || "news right now"
+        );
+      } catch {
+        return "news right now";
+      }
+    })();
+    const proxyReferer = `https://duckduckgo.com/?q=${encodeURIComponent(proxyDdgQuery)}&ia=web`;
+
     for (let attempt = 0; attempt < attempts; attempt++) {
       // Human-like delay between retries: base delay + random jitter.
       let delayMs = 0;
@@ -64,6 +81,16 @@ export async function fetchHtml(
       const fp =
         PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
 
+      const proxyMode = SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
+        ? "socks"
+        : "http";
+      const fpPlatform =
+        fp.os === "macos"
+          ? '"macOS"'
+          : fp.os === "linux"
+            ? '"Linux"'
+            : '"Windows"';
+
       try {
         const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
           proxyUrl: options.proxyUrl,
@@ -73,6 +100,7 @@ export async function fetchHtml(
           cookieJar: new CookieJar(),
           secChUa: fp.secChUa,
           accept: fp.accept,
+          referer: proxyReferer,
         });
         logger.info(
           `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
@@ -81,15 +109,17 @@ export async function fetchHtml(
             attempt: attempt + 1,
             attempts,
             delayMs: attempt > 0 ? delayMs : undefined,
-            operatingSystem: fp.os,
-            chromeVersion: fp.chromeVersion,
-            proxyMode: SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
-              ? "socks"
-              : "http",
+            proxyMode,
             proxyAddress: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls ?? false,
-            secChUa: fp.secChUa,
-            accept: fp.accept,
+            headers: {
+              "User-Agent": fp.ua,
+              "sec-ch-ua": fp.secChUa,
+              "sec-ch-ua-mobile": "?0",
+              "sec-ch-ua-platform": fpPlatform,
+              Accept: fp.accept,
+              Referer: proxyReferer,
+            },
             responseBodyLength: html.length,
           },
         );
@@ -109,13 +139,17 @@ export async function fetchHtml(
             attempt: attempt + 1,
             attempts,
             delayMs: attempt > 0 ? delayMs : undefined,
-            operatingSystem: fp.os,
-            chromeVersion: fp.chromeVersion,
-            proxyMode: gsErr?.proxyMode,
+            proxyMode: gsErr?.proxyMode ?? proxyMode,
             proxyAddress: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls ?? false,
-            secChUa: fp.secChUa,
-            accept: fp.accept,
+            headers: {
+              "User-Agent": fp.ua,
+              "sec-ch-ua": fp.secChUa,
+              "sec-ch-ua-mobile": "?0",
+              "sec-ch-ua-platform": fpPlatform,
+              Accept: fp.accept,
+              Referer: proxyReferer,
+            },
             ...(gsErr && {
               statusCode: gsErr.statusCode,
               redirectHop: gsErr.redirectHop,
@@ -341,8 +375,44 @@ export async function fetchHtml(
   if ((dataDomeDetected || perimeterXDetected) && !injectedGet) {
     const provider = dataDomeDetected ? "DataDome" : "PerimeterX";
     const connectionMode = options?.useProxy ? "proxy" : "direct";
+    const fallbackFp = PROXY_FINGERPRINT_POOL[0];
+    // Derive a search query from the URL slug — approximates the article
+    // title without requiring it to be threaded through the call stack.
+    const ddgQuery = (() => {
+      try {
+        const segments = new URL(url).pathname.split("/").filter(Boolean);
+        const slug = segments[segments.length - 1] ?? "";
+        return (
+          slug
+            .replace(/\.[^.]+$/, "") // strip extension
+            .replace(/[-_]/g, " ")
+            .trim() || "news right now"
+        );
+      } catch {
+        return "news right now";
+      }
+    })();
+    const fallbackReferer = `https://duckduckgo.com/?q=${encodeURIComponent(ddgQuery)}&ia=web`;
+    const fallbackHeaders = {
+      "User-Agent": fallbackFp.ua,
+      "sec-ch-ua": fallbackFp.secChUa,
+      "sec-ch-ua-mobile": "?0",
+      // fallbackFp.os is "windows" — Windows is also least bot-flagged by PerimeterX/Cloudflare.
+      "sec-ch-ua-platform": '"Windows"',
+      Accept: fallbackFp.accept,
+      Referer: fallbackReferer,
+    };
+    const fallbackLogCtx = {
+      url,
+      provider,
+      connectionMode,
+      proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
+      allowInsecureTls: options?.allowInsecureTls ?? false,
+      headers: fallbackHeaders,
+    };
     logger.info(
       `TLS fingerprint fallback started (${provider}, ${connectionMode})`,
+      fallbackLogCtx,
     );
     try {
       // Pre-seed the cookie jar with any cookies from the DataDome challenge
@@ -355,46 +425,28 @@ export async function fetchHtml(
           // Malformed Set-Cookie — skip silently.
         }
       }
-      // Derive a search query from the URL slug — approximates the article
-      // title without requiring it to be threaded through the call stack.
-      const ddgQuery = (() => {
-        try {
-          const segments = new URL(url).pathname.split("/").filter(Boolean);
-          const slug = segments[segments.length - 1] ?? "";
-          return (
-            slug
-              .replace(/\.[^.]+$/, "") // strip extension
-              .replace(/[-_]/g, " ")
-              .trim() || "news right now"
-          );
-        } catch {
-          return "news right now";
-        }
-      })();
       const html = await fetchHtmlWithFingerprint(url, isAllowedUrl, {
         proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
         allowInsecureTls: options?.allowInsecureTls,
         // Use the best fingerprint entry from the proxy pool for TLS spoofing.
-        operatingSystem: PROXY_FINGERPRINT_POOL[0].os,
-        browserVersion: PROXY_FINGERPRINT_POOL[0].chromeVersion,
-        secChUa: PROXY_FINGERPRINT_POOL[0].secChUa,
-        accept: PROXY_FINGERPRINT_POOL[0].accept,
+        operatingSystem: fallbackFp.os,
+        browserVersion: fallbackFp.chromeVersion,
+        secChUa: fallbackFp.secChUa,
+        accept: fallbackFp.accept,
         cookieJar: fallbackJar,
         // Mimic a search-result click — DataDome scores zero-Referer direct
         // GETs as high-risk bots; a referrer from a DDG results page for the
         // article title lowers the behavioral risk score.
-        referer: `https://duckduckgo.com/?q=${encodeURIComponent(ddgQuery)}&ia=web`,
+        referer: fallbackReferer,
       });
       logger.info(
         `TLS fingerprint fallback succeeded (${provider}, ${html.length} bytes)`,
+        { ...fallbackLogCtx, responseBodyLength: html.length },
       );
       return html;
     } catch (fallbackErr) {
       logger.error(`TLS fingerprint fallback failed (${provider})`, {
-        url,
-        connectionMode,
-        proxyAddress: options?.useProxy ? (options?.proxyUrl ?? null) : null,
-        allowInsecureTls: options?.allowInsecureTls ?? false,
+        ...fallbackLogCtx,
         error:
           fallbackErr instanceof Error
             ? fallbackErr.message
