@@ -96,10 +96,10 @@ export async function fetchHtml(
         return html;
       } catch (err) {
         lastError = err;
-        const is403 =
-          err instanceof Error &&
-          /upstream responded with status 403/i.test(err.message);
-        const willRetry = is403 && attempt < attempts - 1;
+        const isRetryable =
+          err instanceof GotScrapingError &&
+          (err.statusCode === 403 || err.statusCode === 429);
+        const willRetry = isRetryable && attempt < attempts - 1;
         const gsErr = err instanceof GotScrapingError ? err : null;
 
         logger.error(
@@ -125,13 +125,13 @@ export async function fetchHtml(
             }),
             error: err instanceof Error ? err.message : String(err),
             ...(!willRetry &&
-              is403 && {
+              isRetryable && {
                 note: "Site may be blocking proxy IP or requires manual access",
               }),
           },
         );
 
-        // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
+        // Only retry on 403/429 — other errors (network, timeout, 404, 5xx) are final.
         if (willRetry) continue;
         throw err;
       }
@@ -222,7 +222,7 @@ export async function fetchHtml(
               ...proxyAxiosConfig,
             });
 
-    let got403 = false;
+    let gotRetryable = false;
     let isFirstValidation = true;
 
     try {
@@ -271,7 +271,7 @@ export async function fetchHtml(
             if (!isAxios(error)) return;
             const status = error.response?.status;
             if (status === 403) {
-              got403 = true;
+              gotRetryable = true;
               const dataDomeHeader = String(
                 error.response?.headers?.["x-datadome"] ?? "",
               ).toLowerCase();
@@ -307,6 +307,9 @@ export async function fetchHtml(
                 );
               }
               // Other 403s: let the error propagate so the retry loop can catch it.
+            } else if (status === 429) {
+              // Rate-limited: retry with backoff, same as 403.
+              gotRetryable = true;
             }
           },
         },
@@ -322,8 +325,8 @@ export async function fetchHtml(
         // JA3 hash.
         break;
       }
-      // Only retry on 403 — other errors (network, timeout, 404, 5xx) are final.
-      if (got403 && attempt < attempts - 1) {
+      // Only retry on 403/429 — other errors (network, timeout, 404, 5xx) are final.
+      if (gotRetryable && attempt < attempts - 1) {
         continue;
       }
       throw err;
