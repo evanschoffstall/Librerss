@@ -2,7 +2,9 @@ import { CONFIG } from "@/lib/config";
 import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
+import { SocksClient } from "socks";
 import { SocksProxyAgent } from "socks-proxy-agent";
+import * as tls from "tls";
 import { CookieJar } from "tough-cookie";
 import { SOCKS_PROTOCOLS } from "./proxy-config";
 
@@ -76,6 +78,60 @@ export function pickDiagnosticHeaders(
   return out;
 }
 
+/**
+ * Perform an ALPN negotiation (h2 / http/1.1) against targetHost:targetPort
+ * tunnelled entirely through the SOCKS proxy, so the real server IP never
+ * contacts the target directly.  Falls back to http/1.1 on any error.
+ */
+async function resolveAlpnViaSocks(
+  proxyUrl: string,
+  targetHost: string,
+  targetPort: number,
+): Promise<"h2" | "http/1.1"> {
+  const proxy = new URL(proxyUrl);
+  const socksType = proxy.protocol === "socks4:" ? 4 : 5;
+  let rawSocket: import("net").Socket | undefined;
+  try {
+    const { socket } = await SocksClient.createConnection({
+      proxy: {
+        host: proxy.hostname,
+        port: Number(proxy.port) || 1080,
+        type: socksType,
+        ...(proxy.username
+          ? { userId: decodeURIComponent(proxy.username) }
+          : {}),
+        ...(proxy.password
+          ? { password: decodeURIComponent(proxy.password) }
+          : {}),
+      },
+      command: "connect",
+      destination: { host: targetHost, port: targetPort },
+    });
+    rawSocket = socket;
+    return await new Promise<"h2" | "http/1.1">((resolve) => {
+      const tlsSocket = tls.connect({
+        socket,
+        servername: targetHost,
+        ALPNProtocols: ["h2", "http/1.1"],
+        // Probe only — no data exchanged, cert validity irrelevant.
+        rejectUnauthorized: false,
+      });
+      const cleanup = (proto: "h2" | "http/1.1") => {
+        tlsSocket.destroy();
+        socket.destroy();
+        resolve(proto);
+      };
+      tlsSocket.once("secureConnect", () =>
+        cleanup(tlsSocket.alpnProtocol === "h2" ? "h2" : "http/1.1"),
+      );
+      tlsSocket.once("error", () => cleanup("http/1.1"));
+    });
+  } catch {
+    rawSocket?.destroy();
+    return "http/1.1";
+  }
+}
+
 export async function fetchHtmlWithFingerprint(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -137,26 +193,28 @@ export async function fetchHtmlWithFingerprint(
     // For SOCKS proxies we pass a custom agent rather than got-scraping's
     // native proxyUrl, so got-scraping's context.proxyUrl is unset.
     // Without it, got-scraping's browserHeadersHook → getResolveProtocolFunction
-    // falls back to a direct TLS connection to the target host — bypassing the
-    // SOCKS proxy and leaking the real server IP. On production (datacenter IP)
-    // this direct ALPN probe is flagged by PerimeterX before the actual request
-    // even arrives from the proxy.
+    // falls back to a direct TLS connection to the target — leaking the real
+    // server IP to PerimeterX/DataDome before the proxied request even arrives.
     //
-    // We cannot pass `resolveProtocol` as a top-level gotScraping option because
-    // got's Options.assign() validates all keys with `key in this` and throws
-    // "Unexpected option" for unknown keys. The same mechanism got-scraping itself
-    // uses (http2Hook line ~720 in dist/index.js) injects resolveProtocol directly
-    // onto the requestOptions object inside a hook, bypassing assignment validation.
+    // Cannot use a top-level `resolveProtocol` option — got's Options.assign()
+    // throws "Unexpected option" for unknown keys. Instead, inject via a
+    // beforeRequest hook (same pattern got-scraping uses internally at ~line 720).
     //
-    // Fix: inject a stub via beforeRequest hook that short-circuits to http/1.1
-    // with no network probe, eliminating the direct outbound connection entirely.
+    // Fix: perform a real ALPN probe tunnelled through the SOCKS proxy so the
+    // negotiated protocol is correct for both http/1.1 and h2-capable sites.
     const socksAlpnHook = isSocksProxy
       ? [
-          (opts: Record<string, unknown>) => {
-            // Runs after Options.assign() — writing directly bypasses validation.
-            opts.resolveProtocol = async () => ({
-              alpnProtocol: "http/1.1" as const,
-            });
+          async (opts: Record<string, unknown>) => {
+            const target = new URL(currentUrl);
+            const port =
+              Number(target.port) || (target.protocol === "http:" ? 80 : 443);
+            const proto = await resolveAlpnViaSocks(
+              options!.proxyUrl!,
+              target.hostname,
+              port,
+            );
+            // Write directly — bypasses got's Options.assign() key validation.
+            opts.resolveProtocol = async () => ({ alpnProtocol: proto });
           },
         ]
       : [];

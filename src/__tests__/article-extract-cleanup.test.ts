@@ -821,25 +821,48 @@ describe("article extract cleanup", () => {
     expect(gotGet).toHaveBeenCalledTimes(1);
   });
 
-  // ─── SOCKS proxy ALPN leak prevention ─────────────────────────────────────
+  // ─── SOCKS proxy ALPN no-leak prevention ──────────────────────────────────
   // Regression tests for: got-scraping's browserHeadersHook performs a direct
-  // outbound TLS probe (ALPN negotiation) when context.proxyUrl is absent.
-  // For SOCKS proxies we use a custom agent instead of got-scraping's native
-  // proxyUrl field, leaving context.proxyUrl unset — causing the probe to
-  // bypass the proxy and expose the real server IP to the target.  The fix
-  // stubs resolveProtocol to http/1.1 so no direct outbound probe is made.
+  // outbound TLS ALPN probe when context.proxyUrl is absent. For SOCKS proxies
+  // we use a SocksProxyAgent (agent:) instead of got-scraping's native proxyUrl,
+  // leaving context.proxyUrl unset — the probe bypassed the proxy and exposed
+  // the real server IP. Fix: inject a beforeRequest hook that performs the ALPN
+  // negotiation tunnelled through the SOCKS proxy via SocksClient.
 
   describe("SOCKS proxy ALPN no-leak", () => {
-    test("injects ALPN stub via beforeRequest hook for socks5 proxy", async () => {
+    // Mock SocksClient + tls so no real network calls are made in tests.
+    // The mock returns "h2" to validate the hook plumbs the result through.
+    const mockSocket = {
+      destroy: mock(() => {}),
+      on: mock(() => mockSocket),
+      once: mock((event: string, cb: (arg?: unknown) => void) => {
+        if (event === "secureConnect") setTimeout(() => cb(), 0);
+        return mockSocket;
+      }),
+      alpnProtocol: "h2",
+    };
+
+    beforeEach(() => {
+      mock.module("socks", () => ({
+        SocksClient: {
+          createConnection: mock(async () => ({ socket: mockSocket })),
+        },
+      }));
+      mock.module("tls", () => ({
+        connect: mock(() => mockSocket),
+      }));
+    });
+
+    test("injects ALPN beforeRequest hook for socks5 proxy", async () => {
       let capturedOpts: Record<string, unknown> | undefined;
 
-      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
-        capturedOpts = opts;
-        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-      });
-
       mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
+        gotScraping: {
+          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
+            capturedOpts = opts;
+            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+          }),
+        },
       }));
 
       await fetchHtml(
@@ -848,24 +871,23 @@ describe("article extract cleanup", () => {
         { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
       );
 
-      // resolveProtocol is injected via a beforeRequest hook to bypass got's
-      // Options.assign() key validation (which throws "Unexpected option" for
-      // unknown keys). Check the hook is present and wires resolveProtocol.
+      // resolveProtocol injected via beforeRequest hook — bypasses got's
+      // Options.assign() validation which throws on unknown keys.
       const hooks = capturedOpts?.hooks as { beforeRequest?: unknown[] } | undefined;
       expect(Array.isArray(hooks?.beforeRequest)).toBe(true);
       expect(hooks!.beforeRequest!.length).toBeGreaterThan(0);
     });
 
-    test("ALPN beforeRequest hook sets resolveProtocol to http/1.1 stub", async () => {
+    test("beforeRequest hook resolves ALPN and wires resolveProtocol onto opts", async () => {
       let capturedOpts: Record<string, unknown> | undefined;
 
-      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
-        capturedOpts = opts;
-        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-      });
-
       mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
+        gotScraping: {
+          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
+            capturedOpts = opts;
+            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+          }),
+        },
       }));
 
       await fetchHtml(
@@ -874,33 +896,36 @@ describe("article extract cleanup", () => {
         { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
       );
 
-      const hooks = capturedOpts?.hooks as { beforeRequest?: ((o: Record<string, unknown>) => void)[] } | undefined;
+      const hooks = capturedOpts?.hooks as {
+        beforeRequest?: ((o: Record<string, unknown>) => Promise<void>)[];
+      } | undefined;
       const hook = hooks?.beforeRequest?.[0];
       expect(typeof hook).toBe("function");
 
-      // Simulate got calling the hook with an options object.
+      // Invoke the hook — it performs the tunnelled ALPN probe (mocked above)
+      // and writes resolveProtocol onto the options object it receives.
       const fakeOpts: Record<string, unknown> = {};
-      hook!(fakeOpts);
+      await hook!(fakeOpts);
 
       const resolveProtocol = fakeOpts.resolveProtocol as
         | (() => Promise<{ alpnProtocol: string }>)
         | undefined;
       expect(typeof resolveProtocol).toBe("function");
-      // Must return http/1.1 with zero network I/O.
+      // Must reflect what the ALPN probe returned (mocked to "h2").
       const result = await resolveProtocol!();
-      expect(result.alpnProtocol).toBe("http/1.1");
+      expect(result.alpnProtocol).toBe("h2");
     });
 
-    test("injects ALPN stub via beforeRequest hook for socks4 proxy", async () => {
+    test("injects ALPN beforeRequest hook for socks4 proxy", async () => {
       let capturedOpts: Record<string, unknown> | undefined;
 
-      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
-        capturedOpts = opts;
-        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-      });
-
       mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
+        gotScraping: {
+          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
+            capturedOpts = opts;
+            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+          }),
+        },
       }));
 
       await fetchHtml(
@@ -917,13 +942,13 @@ describe("article extract cleanup", () => {
     test("does NOT inject ALPN hook for http proxy (native proxyUrl handles ALPN)", async () => {
       let capturedOpts: Record<string, unknown> | undefined;
 
-      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
-        capturedOpts = opts;
-        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-      });
-
       mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
+        gotScraping: {
+          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
+            capturedOpts = opts;
+            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+          }),
+        },
       }));
 
       await fetchHtml(
@@ -932,11 +957,10 @@ describe("article extract cleanup", () => {
         { useProxy: true, proxyUrl: "http://127.0.0.1:8080" },
       );
 
-      // HTTP proxy uses got-scraping's native proxyUrl routing which routes
-      // the ALPN probe through the proxy tunnel — no beforeRequest hook needed.
+      // HTTP proxy uses got-scraping's native proxyUrl — ALPN probe tunnels
+      // through it automatically, no beforeRequest hook needed.
       const hooks = capturedOpts?.hooks as { beforeRequest?: unknown[] } | undefined;
-      const hookCount = hooks?.beforeRequest?.length ?? 0;
-      expect(hookCount).toBe(0);
+      expect(hooks?.beforeRequest?.length ?? 0).toBe(0);
     });
 
     test("sets Sec-Fetch-Site cross-site when referer is provided", async () => {
