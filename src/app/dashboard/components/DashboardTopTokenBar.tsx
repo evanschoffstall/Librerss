@@ -35,7 +35,7 @@ export function DashboardTopTokenBar({
                     onClick={() => onArticleFilterChange(value)}
                     className={`rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${
                       articleFilter === value
-                        ? "bg-muted text-foreground"
+                        ? "bg-muted font-semibold text-foreground ring-1 ring-inset ring-border/40"
                         : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground"
                     }`}
                   >
