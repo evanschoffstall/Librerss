@@ -1157,6 +1157,7 @@ describe("fetchHtml", () => {
           TEST_URL,
           {
             fingerprintFetchFn: mockFingerprintFetch,
+            delayFn: async () => {}, // No-op delay for tests
           },
           {
             useProxy: true,
@@ -1187,6 +1188,7 @@ describe("fetchHtml", () => {
           TEST_URL,
           {
             fingerprintFetchFn: mockFingerprintFetch,
+            delayFn: async () => {}, // No-op delay for tests
           },
           {
             useProxy: true,
