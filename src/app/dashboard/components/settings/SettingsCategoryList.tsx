@@ -2,7 +2,7 @@ import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
-import { Plus } from "lucide-react";
+import { Layers, Plus } from "lucide-react";
 import { type UseSettingsDragReturn } from "../../hooks/useSettingsDrag";
 import { SettingsCategoryAccordionItem } from "./SettingsCategoryAccordionItem";
 import { type SettingsFeedRowProps } from "./SettingsFeedRow";
@@ -95,20 +95,35 @@ export function SettingsCategoryList({
 }: SettingsCategoryListProps) {
   if (categories.length === 0) {
     return (
-      <div className="py-8 text-center">
-        <p className="text-sm text-muted-foreground">No categories yet.</p>
-        <div className="mt-3 flex items-center justify-center gap-2">
+      <div className="flex flex-col items-center gap-4 py-10 text-center">
+        <div className="relative flex items-center justify-center">
+          <div
+            className="absolute size-16 rounded-xl border border-border/15"
+            aria-hidden="true"
+          />
+          <div className="relative flex size-10 items-center justify-center rounded-lg border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm">
+            <Layers className="size-4 text-muted-foreground" />
+          </div>
+        </div>
+        <div>
+          <p className="text-sm font-medium">No categories</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Add a category to start organizing your feeds.
+          </p>
+        </div>
+        <div className="flex w-full max-w-xs items-center gap-2">
           <Input
             value={newCategoryName}
             onChange={(e) => onNewCategoryNameChange(e.target.value)}
-            placeholder="Category name..."
-            className="max-w-[200px]"
+            placeholder="Category name…"
+            className="h-8 text-sm"
             onKeyDown={(e) => e.key === "Enter" && onAddCategory()}
           />
           <Button
             size="sm"
             onClick={onAddCategory}
             disabled={!newCategoryName.trim()}
+            className="shrink-0"
           >
             <Plus className="mr-1.5 size-3.5" />
             Add
