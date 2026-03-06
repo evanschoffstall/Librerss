@@ -603,13 +603,17 @@ export const ArticleCard = ({
             </div>
 
             <h3
-              className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.05rem] leading-6" : "text-[0.96rem] leading-6 line-clamp-2"}`}
+              className={`font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
             >
               {article.title}
             </h3>
           </div>
 
-          <div className="mt-2">
+          <div
+            className={
+              visuallyExpanded ? "mt-3 border-t border-border/20 pt-3" : "mt-2"
+            }
+          >
             <div
               className="overflow-hidden transition-[max-height] anim-duration-ui anim-ease-ui"
               onTransitionEnd={onContentTransitionEnd}
