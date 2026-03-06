@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { AuthService, type AuthUser } from "@/lib";
 import axios from "axios";
-import { Loader2 } from "lucide-react";
+import { Loader2, Rss } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -84,9 +84,24 @@ export const LoginView = ({
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 pt-14">
-      <Card className="w-full max-w-md">
-        <CardHeader>
+    <div className="relative flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 pt-14">
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <div className="absolute left-1/2 top-1/3 size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl" />
+      </div>
+      <Card className="anim-fade-in-load-slow relative w-full max-w-md">
+        <CardHeader className="items-center pb-2 text-center">
+          <div className="relative mb-3 flex size-14 items-center justify-center">
+            <div
+              className="absolute size-[4.5rem] rounded-2xl border border-border/20"
+              aria-hidden="true"
+            />
+            <div className="relative flex size-14 items-center justify-center rounded-2xl border border-border/50 bg-card/70 shadow-md backdrop-blur-sm">
+              <Rss className="size-6 text-primary" />
+            </div>
+          </div>
           <CardTitle>
             {mode === "signup" ? "Create your account" : "Sign in to LibreRSS"}
           </CardTitle>
