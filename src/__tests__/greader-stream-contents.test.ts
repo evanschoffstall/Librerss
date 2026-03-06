@@ -5,6 +5,7 @@
  * Coverage: Main handler flow, stream types, pagination, filtering, query paths
  */
 
+import { __resetArticleStatusesTableStateForTests } from "@/lib/core/article-status";
 import type { SessionUser } from "@/lib/auth/session";
 import {
   afterEach,
@@ -18,6 +19,7 @@ import { NextRequest } from "next/server";
 
 beforeEach(() => {
   mock.restore();
+  __resetArticleStatusesTableStateForTests();
 });
 
 afterEach(() => {
@@ -45,14 +47,20 @@ const createMockArticle = (id: number, overrides = {}) => ({
   ...overrides,
 });
 
-function createMockDb(mockRows: unknown[] = []) {
-  const queryBuilder = {
+function createMockDb(mockRows: unknown[] = [], probeShouldFail = false) {
+  const missingErr = probeShouldFail
+    ? Object.assign(new Error('relation "ArticleStatus" does not exist'), { code: "42P01" })
+    : null;
+  const queryBuilder: Record<string, unknown> = {
     innerJoin: mock(() => queryBuilder),
     leftJoin: mock(() => queryBuilder),
     where: mock(() => queryBuilder),
     orderBy: mock(() => queryBuilder),
     limit: mock(() => queryBuilder),
     offset: mock(() => Promise.resolve(mockRows)),
+    then: missingErr
+      ? (_: unknown, reject: (e: Error) => void) => reject(missingErr)
+      : (resolve: (v: unknown[]) => void) => resolve([]),
   };
 
   return {
@@ -65,22 +73,16 @@ function createMockDb(mockRows: unknown[] = []) {
 function setupMocks(options: {
   dbRows?: unknown[];
   useArticleStatuses?: boolean;
-  categoryResolvedRows?: unknown[];
 } = {}) {
   const {
     dbRows = [],
     useArticleStatuses = true,
-    categoryResolvedRows,
   } = options;
 
-  const mockDb = createMockDb(dbRows);
+  const mockDb = createMockDb(dbRows, !useArticleStatuses);
 
   mock.module("@/lib/db/db", () => ({
     getDb: () => mockDb,
-  }));
-
-  mock.module("@/lib/core/article-status", () => ({
-    canUseArticleStatusesTable: mock(async () => useArticleStatuses),
   }));
 
   mock.module("@/lib/logger", () => ({
@@ -93,12 +95,6 @@ function setupMocks(options: {
 
   mock.module("@/lib/api/greader/stream-refresh", () => ({
     maybeRefreshGReaderStreamFeeds: mock(async () => {}),
-  }));
-
-  mock.module("@/lib/api/greader/categories", () => ({
-    withResolvedCategoryByUrl: mock(async (_userId: number, rows: unknown[]) =>
-      categoryResolvedRows ?? rows,
-    ),
   }));
 
   return mockDb;
@@ -507,6 +503,7 @@ describe("handleStreamContents", () => {
       const mockDb = {
         select: mock(() => ({
           from: mock(() => ({
+            limit: mock(() => ({ then: (resolve: (v: unknown[]) => void) => resolve([]) })), // probe path
             innerJoin: mock(() => ({
               innerJoin: mock(() => ({
                 leftJoin: mock(() => ({
@@ -539,10 +536,6 @@ describe("handleStreamContents", () => {
         getDb: () => mockDb,
       }));
 
-      mock.module("@/lib/core/article-status", () => ({
-        canUseArticleStatusesTable: mock(async () => true),
-      }));
-
       mock.module("@/lib/logger", () => ({
         logger: {
           info: mock(() => {}),
@@ -553,12 +546,6 @@ describe("handleStreamContents", () => {
 
       mock.module("@/lib/api/greader/stream-refresh", () => ({
         maybeRefreshGReaderStreamFeeds: mock(async () => {}),
-      }));
-
-      mock.module("@/lib/api/greader/categories", () => ({
-        withResolvedCategoryByUrl: mock(
-          async (_userId: number, rows: unknown[]) => rows,
-        ),
       }));
 
       const { handleStreamContents } = await import(
@@ -720,12 +707,8 @@ describe("handleStreamContents", () => {
   describe("Category Resolution", () => {
     test("resolves categories via withResolvedCategoryByUrl", async () => {
       const mockArticles = [createMockArticle(1, { category: null })];
-      const resolvedArticles = [
-        createMockArticle(1, { category: "Resolved Category" }),
-      ];
       setupMocks({
         dbRows: mockArticles,
-        categoryResolvedRows: resolvedArticles,
       });
 
       const { handleStreamContents } = await import(
