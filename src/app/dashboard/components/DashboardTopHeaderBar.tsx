@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 
 const toolbarBtnClass =
-  "cursor-pointer transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300";
+  "cursor-pointer transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
 
 export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -134,7 +134,7 @@ export function DashboardTopHeaderBar() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 pointer-events-auto border-b border-border/60 bg-background/95">
+    <div className="fixed inset-x-0 top-0 z-50 pointer-events-auto border-b border-border/50 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] md:px-6">
         <button
           type="button"
@@ -169,7 +169,7 @@ export function DashboardTopHeaderBar() {
             <button
               type="button"
               aria-label="Open actions menu"
-              className={`${toolbarBtnClass} h-4 w-4 shrink-0 p-0 md:hidden`}
+              className={`${toolbarBtnClass} shrink-0 md:hidden`}
             >
               <EllipsisVertical className="h-4 w-4" />
             </button>
@@ -272,7 +272,7 @@ export function DashboardTopHeaderBar() {
             <LogOut className="h-4 w-4" />
           </button>
 
-          <span className="h-3 w-px bg-zinc-800" />
+          <span className="h-3 w-px bg-border" />
 
           <button
             type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { RefreshCw } from "lucide-react";
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
@@ -20,7 +21,7 @@ export function DashboardTopTokenBar({
   loading,
 }: DashboardTopTokenBarProps) {
   return (
-    <div className="sticky z-40 shrink-0 py-1">
+    <div className="sticky top-0 z-40 shrink-0 py-1">
       <div className="flex items-center gap-0">
         <div className="hidden lg:block lg:w-[220px] lg:shrink-0" />
         <div className="flex-1 lg:min-w-0">
@@ -43,10 +44,10 @@ export function DashboardTopTokenBar({
                 ))}
 
                 <span
-                  className="ml-auto whitespace-nowrap text-right text-[11px] text-muted-foreground/70"
+                  className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-right text-[11px] text-muted-foreground/50"
                   aria-live="polite"
                 >
-                  Last refreshed:{" "}
+                  <RefreshCw className="size-2.5 shrink-0" />
                   {loading ? (
                     <Skeleton
                       className="inline-block h-[11px] w-12 rounded-sm align-middle"
