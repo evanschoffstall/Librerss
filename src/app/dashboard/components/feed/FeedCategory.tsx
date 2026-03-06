@@ -31,10 +31,10 @@ export const FeedCategory = ({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+      className={`flex w-full items-center justify-between gap-2 rounded-lg border-l-2 px-2 py-2 text-left transition-colors ${
         isActive
-          ? "bg-muted/80 text-foreground"
-          : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+          ? "border-primary/60 bg-muted/70 text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
       }`}
     >
       <div className="min-w-0">
