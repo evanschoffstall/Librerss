@@ -258,6 +258,38 @@ describe("proxy settings API route", () => {
     expect(body.status).toBe("unreachable");
   });
 
+  test("PUT treats string 'null' as unconfigured", async () => {
+    mockDb(null);
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      method: "PUT",
+      body: JSON.stringify({ proxyUrl: "null" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await PUT(req, routeDeps);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.configured).toBe(false);
+    expect(body.proxyUrl).toBeNull();
+    expect(body.status).toBe("unreachable");
+  });
+
+  test("PUT treats string 'undefined' as unconfigured", async () => {
+    mockDb(null);
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      method: "PUT",
+      body: JSON.stringify({ proxyUrl: "undefined" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await PUT(req, routeDeps);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.configured).toBe(false);
+    expect(body.proxyUrl).toBeNull();
+    expect(body.status).toBe("unreachable");
+  });
+
   test("PUT clears proxy URL when null", async () => {
     mockDb("http://proxy:8080");
     const { PUT } = await import("@/app/api/settings/proxy/route");

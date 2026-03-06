@@ -28,6 +28,7 @@ type FetchHtmlDeps = {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
   axiosGetFn?: typeof axios.get;
   isAxiosErrorFn?: typeof axios.isAxiosError;
+  fingerprintFetchFn?: typeof fetchHtmlWithFingerprint;
 };
 
 interface FetchHtmlOptions {
@@ -64,9 +65,9 @@ export async function fetchHtml(
   // original single-attempt behaviour — cookie jar and retry are production-only.
   const injectedGet = deps?.axiosGetFn;
 
-  // Proxy mode with retry logic: got-scraping provides browser-like TLS fingerprinting
-  // from the start, but we still need multiple attempts with different OS/browser fingerprints
-  // to handle sites that block based on proxy IP reputation or require multiple probes.
+  // Proxy mode with retry logic: the fingerprint fetcher provides browser-like TLS
+  // fingerprinting from the start, but we still need multiple attempts with different
+  // OS/browser fingerprints to handle sites that block on proxy IP reputation.
   if (options?.useProxy && options.proxyUrl && !injectedGet) {
     let lastError: unknown;
     const attempts = 1 + EXTRACT_403_RETRIES;
@@ -74,6 +75,7 @@ export async function fetchHtml(
     const proxyMode = SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
       ? "socks"
       : "http";
+    const fpFetch = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
 
     for (let attempt = 0; attempt < attempts; attempt++) {
       // Human-like delay between retries: base delay + random jitter.
@@ -87,8 +89,10 @@ export async function fetchHtml(
         PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
 
       try {
-        const { html, requestHeaders: sentHeaders } =
-          await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+        const { html, requestHeaders: sentHeaders } = await fpFetch(
+          url,
+          isAllowedUrl,
+          {
             proxyUrl: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls,
             operatingSystem: fp.os,
@@ -97,7 +101,8 @@ export async function fetchHtml(
             secChUa: fp.secChUa,
             accept: fp.accept,
             referer: proxyReferer,
-          });
+          },
+        );
         logger.info(
           `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
           {
@@ -115,11 +120,36 @@ export async function fetchHtml(
         return html;
       } catch (err) {
         lastError = err;
-        const isRetryable =
-          err instanceof GotScrapingError &&
-          (err.statusCode === 403 || err.statusCode === 429);
-        const willRetry = isRetryable && attempt < attempts - 1;
         const gsErr = err instanceof GotScrapingError ? err : null;
+        const is403 = gsErr?.statusCode === 403;
+        const is429 = gsErr?.statusCode === 429;
+
+        // Detect bot-protection challenges (DataDome, PerimeterX). Even if the
+        // block is fingerprint-based rather than pure IP-rep, retrying the same
+        // proxy IP with a fresh fingerprint won't help — DataDome requires JS
+        // execution to solve its challenge, and PerimeterX needs captcha completion.
+        // Abort immediately to avoid burning retries on futile attempts.
+        const proxyPxDetected =
+          is403 &&
+          gsErr !== null &&
+          (/px[-_]captcha|perimeterx|\/_px\//i.test(gsErr.responseBody) ||
+            Object.keys(gsErr.responseHeaders).some((h) =>
+              h.toLowerCase().startsWith("x-px-"),
+            ));
+        const proxyDdDetected =
+          is403 &&
+          gsErr !== null &&
+          String(gsErr.responseHeaders["x-datadome"] ?? "").toLowerCase() ===
+            "protected";
+        const ipBlocked = proxyPxDetected || proxyDdDetected;
+        const botProvider = proxyPxDetected
+          ? "PerimeterX"
+          : proxyDdDetected
+            ? "DataDome"
+            : null;
+
+        const isRetryable = (is403 || is429) && !ipBlocked;
+        const willRetry = isRetryable && attempt < attempts - 1;
 
         logger.error(
           `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
@@ -140,14 +170,19 @@ export async function fetchHtml(
               responseHeaders: pickDiagnosticHeaders(gsErr.responseHeaders),
             }),
             error: err instanceof Error ? err.message : String(err),
+            ...(ipBlocked && {
+              note: `${botProvider} challenge detected — requires JS execution or residential proxy to bypass`,
+            }),
             ...(!willRetry &&
-              isRetryable && {
+              !ipBlocked &&
+              (is403 || is429) && {
                 note: "Site may be blocking proxy IP or requires manual access",
               }),
           },
         );
 
         // Only retry on 403/429 — other errors (network, timeout, 404, 5xx) are final.
+        // IP-level bot blocks also skip retries — proxy egress IP is flagged.
         if (willRetry) continue;
         throw err;
       }
@@ -157,8 +192,8 @@ export async function fetchHtml(
 
   let lastError: unknown;
   // Set to true when DataDome (x-datadome: protected) is detected on a 403.
-  // Rotating axios fingerprints won't help — the block is at TLS/IP level.
-  // The browser fallback runs after the loop exits.
+  // Exits the axios fingerprint-rotation loop so the Chrome JA3 fingerprint-fetch
+  // TLS fallback can attempt the request with a proper browser ClientHello.
   let dataDomeDetected = false;
   // Cookies captured from a DataDome 403 response. DataDome's challenge flow sets
   // a `datadome` cookie on the 403 — the follow-up request must carry it or the
@@ -296,12 +331,14 @@ export async function fetchHtml(
                 error.response?.headers?.["x-datadome"] ?? "",
               ).toLowerCase();
               if (dataDomeHeader === "protected") {
-                // DataDome detected: fingerprint rotation won't help — the block
-                // operates at TLS (JA3) and IP-reputation level. Mark the flag so
-                // the catch block exits the loop and the browser fallback runs.
+                // DataDome JS challenge detected. Exit the axios loop and fall
+                // through to the fingerprint-fetch TLS fallback which sends a
+                // proper Chrome JA3 ClientHello — may bypass fingerprint-based
+                // challenges but cannot solve JS execution challenges or bypass
+                // datacenter IP reputation blocks.
                 dataDomeDetected = true;
                 // Capture any cookies DataDome set on this 403 — they must be
-                // carried to the got-scraping fallback so the challenge is satisfied.
+                // carried to the fingerprint-fetch fallback so the challenge is satisfied.
                 const setCookie = error.response?.headers?.["set-cookie"];
                 if (Array.isArray(setCookie)) {
                   dataDomeChallengeSetCookies = setCookie;
@@ -314,7 +351,7 @@ export async function fetchHtml(
               }
               // PerimeterX detection: challenge pages embed "px-captcha" in the
               // body; some enforcer configs also set x-px-* response headers.
-              // TLS fingerprint rotation (got-scraping) is the correct bypass.
+              // TLS fingerprint rotation (fingerprint-fetch) is the correct bypass.
               const responseBody = String(error.response?.data ?? "");
               const resPxHeaders = Object.keys(error.response?.headers ?? {});
               const isPerimeterX =
@@ -356,7 +393,7 @@ export async function fetchHtml(
       if (dataDomeDetected || perimeterXDetected) {
         // Exit the fingerprint-rotation loop immediately: additional axios
         // requests from the same server IP won't bypass DataDome/PerimeterX —
-        // the block is at the TLS/JA3 fingerprint level.  The got-scraping
+        // the block is at the TLS/JA3 fingerprint level.  The fingerprint-fetch
         // fallback below sends a proper Chrome TLS hello which changes the
         // JA3 hash.
         break;
@@ -385,8 +422,8 @@ export async function fetchHtml(
   }
 
   // TLS fingerprint fallback: when DataDome or PerimeterX is detected by axios,
-  // retry the request with got-scraping which spoofs the JA3/HTTP2 fingerprint
-  // to match Chrome 130 at the TLS layer — something axios/Node.js cannot do
+  // retry with fetchHtmlWithFingerprint which spoofs the JA3/HTTP2 fingerprint
+  // to match Chrome at the TLS layer — something axios/Node.js cannot do
   // natively.  Injected callers (tests) always skip this path — they receive
   // the original error so existing test contracts are unchanged.
   if ((dataDomeDetected || perimeterXDetected) && !injectedGet) {
@@ -394,6 +431,7 @@ export async function fetchHtml(
     const connectionMode = options?.useProxy ? "proxy" : "direct";
     const fallbackFp = PROXY_FINGERPRINT_POOL[0];
     const fallbackReferer = buildDdgReferer(url);
+    const fpFallback = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
     const fallbackLogCtx = {
       url,
       provider,
@@ -409,7 +447,7 @@ export async function fetchHtml(
     );
     try {
       // Pre-seed the cookie jar with any cookies from the DataDome challenge
-      // response so the follow-up got-scraping request carries them.
+      // response so the follow-up fingerprint-fetch request carries them.
       const fallbackJar = new CookieJar();
       for (const raw of dataDomeChallengeSetCookies) {
         try {
@@ -419,7 +457,7 @@ export async function fetchHtml(
         }
       }
       const { html: fallbackHtml, requestHeaders: fallbackSentHeaders } =
-        await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+        await fpFallback(url, isAllowedUrl, {
           proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
           allowInsecureTls: options?.allowInsecureTls,
           // Use the best fingerprint entry from the proxy pool for TLS spoofing.

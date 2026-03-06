@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
     "got-scraping",
     "header-generator",
     "generative-bayesian-network",
+    "node-tls-client",
+    "koffi",
   ],
   outputFileTracingIncludes: {
     // header-generator loads its bayesian network definitions from zip files at

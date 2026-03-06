@@ -344,7 +344,10 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   }>(request);
   if (body instanceof Response) return body;
 
-  const raw = typeof body.proxyUrl === "string" ? body.proxyUrl.trim() : null;
+  const trimmed =
+    typeof body.proxyUrl === "string" ? body.proxyUrl.trim() : null;
+  const raw =
+    trimmed && trimmed !== "null" && trimmed !== "undefined" ? trimmed : null;
   const allowInsecureTls =
     typeof body.allowInsecureTls === "boolean"
       ? body.allowInsecureTls
