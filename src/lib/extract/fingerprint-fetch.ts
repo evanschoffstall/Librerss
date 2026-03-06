@@ -613,11 +613,75 @@ async function tunnelFetch(
 // Header generation via header-generator (no got-scraping dependency)
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip browser-extension and non-Chrome product tokens from a User-Agent so
+ * it matches a stock Chrome installation. header-generator's UA pool includes
+ * profiles collected from browsers with extensions (SiderAI, Brave, Opera, …)
+ * that are instant bot-detection signals.
+ */
+function sanitizeUserAgent(ua: string, chromeVer: number): string {
+  // Truncate after the canonical Chrome/Safari suffix.
+  const safariIdx = ua.indexOf("Safari/537.36");
+  if (safariIdx !== -1) ua = ua.slice(0, safariIdx + "Safari/537.36".length);
+  // Ensure Chrome/VERSION is present (some pool UAs drop it).
+  const chromeToken = `Chrome/${chromeVer}.0.0.0`;
+  if (!ua.includes(chromeToken)) ua = ua.replace(/Chrome\/[\d.]+/, chromeToken);
+  return ua;
+}
+
+/** Correct sec-ch-ua-platform value for each OS. */
+const PLATFORM_MAP: Record<string, string> = {
+  windows: '"Windows"',
+  macos: '"macOS"',
+  linux: '"Linux"',
+};
+
+/**
+ * Chrome's canonical header order for a navigation GET.
+ * WAFs like DataDome fingerprint header ordering independently of TLS — an
+ * out-of-order header set is a strong non-browser signal even when every
+ * individual value is correct.
+ */
+const CHROME_HEADER_ORDER = [
+  "host",
+  "connection",
+  "sec-ch-ua",
+  "sec-ch-ua-mobile",
+  "sec-ch-ua-platform",
+  "upgrade-insecure-requests",
+  "user-agent",
+  "accept",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-user",
+  "sec-fetch-dest",
+  "referer",
+  "accept-encoding",
+  "accept-language",
+  "cookie",
+  "priority",
+];
+
+/** Re-order a header map to match Chrome's canonical order. */
+function orderChromeHeaders(
+  src: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of CHROME_HEADER_ORDER) {
+    if (key in src) out[key] = src[key];
+  }
+  // Append any remaining headers not in the canonical list.
+  for (const key of Object.keys(src)) {
+    if (!(key in out)) out[key] = src[key];
+  }
+  return out;
+}
+
 export function generateBrowserHeaders(
   alpnHint: "1" | "2",
   opts?: FingerprintFetchOptions,
 ): Record<string, string> {
-  const chromeVer = opts?.browserVersion ?? 131;
+  const chromeVer = opts?.browserVersion ?? 135;
   const os = opts?.operatingSystem ?? "windows";
 
   const generated = headerGen.getHeaders({
@@ -636,6 +700,14 @@ export function generateBrowserHeaders(
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(generated))
     headers[k.toLowerCase()] = typeof v === "string" ? v : String(v);
+
+  // Strip extension/addon tokens from UA (e.g. SiderAI, Brave, Opera).
+  if (headers["user-agent"])
+    headers["user-agent"] = sanitizeUserAgent(headers["user-agent"], chromeVer);
+
+  // Enforce correct platform — header-generator sometimes mismatches OS.
+  headers["sec-ch-ua-platform"] = PLATFORM_MAP[os] ?? '"Windows"';
+
   headers["accept-language"] = "en-US,en;q=0.9";
   headers["accept-encoding"] = "gzip, deflate, br, zstd";
   if (opts?.secChUa) headers["sec-ch-ua"] = opts.secChUa;
@@ -643,6 +715,9 @@ export function generateBrowserHeaders(
   if (opts?.referer) {
     headers["referer"] = opts.referer;
     headers["sec-fetch-site"] = "cross-site";
+  } else {
+    // Direct navigation with no referrer — Chrome sends "none", not omitting.
+    headers["sec-fetch-site"] = "none";
   }
   headers["priority"] = "u=0, i";
 
@@ -650,7 +725,7 @@ export function generateBrowserHeaders(
   for (const k of Object.keys(headers)) {
     if (k.startsWith(":")) delete headers[k];
   }
-  return headers;
+  return orderChromeHeaders(headers);
 }
 
 // ---------------------------------------------------------------------------
