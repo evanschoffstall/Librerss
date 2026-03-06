@@ -117,29 +117,26 @@ async function socksTunnel(
 }
 
 /**
- * Chrome 131 JA3-matched TLS parameters.
+ * Chrome 135 JA3-matched TLS parameters.
  * Cipher order, curves, and sig algs must match Chrome exactly — WAFs like
  * DataDome fingerprint the TLS ClientHello independent of HTTP headers.
  */
 const CHROME_TLS = {
-  // TLS 1.2 cipher order matching Chrome 131 ClientHello.
   ciphers: [
     "ECDHE-ECDSA-AES128-GCM-SHA256",
     "ECDHE-RSA-AES128-GCM-SHA256",
-    "ECDHE-ECDSA-AES256-GCM-SHA384",
-    "ECDHE-RSA-AES256-GCM-SHA384",
     "ECDHE-ECDSA-CHACHA20-POLY1305",
     "ECDHE-RSA-CHACHA20-POLY1305",
+    "ECDHE-ECDSA-AES256-GCM-SHA384",
+    "ECDHE-RSA-AES256-GCM-SHA384",
     "ECDHE-RSA-AES128-SHA",
     "ECDHE-RSA-AES256-SHA",
     "AES128-GCM-SHA256",
     "AES256-GCM-SHA384",
-    "AES128-SHA",
-    "AES256-SHA",
   ].join(":"),
-  // Named groups in Chrome's preference order.
+
   ecdhCurve: "X25519:P-256:P-384",
-  // Signature algorithms matching Chrome's extension.
+
   sigalgs: [
     "ecdsa_secp256r1_sha256",
     "rsa_pss_rsae_sha256",
@@ -149,6 +146,8 @@ const CHROME_TLS = {
     "rsa_pkcs1_sha384",
     "rsa_pss_rsae_sha512",
     "rsa_pkcs1_sha512",
+    "ecdsa_secp521r1_sha512",
+    "ed25519",
   ].join(":"),
   minVersion: "TLSv1.2" as const,
 } satisfies tls.SecureContextOptions & { minVersion: tls.SecureVersion };
@@ -682,7 +681,7 @@ export async function fetchHtmlWithFingerprint(
   let currentUrl = stripUrlFragment(url);
   let isFirstValidation = true;
 
-  const chromeVer = options?.browserVersion ?? 131;
+  const chromeVer = options?.browserVersion ?? 135;
   const requestOs = options?.operatingSystem ?? "windows";
   const isSocksProxy =
     !!options?.proxyUrl &&
