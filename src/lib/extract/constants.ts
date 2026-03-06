@@ -40,10 +40,9 @@ export const EXTRACT_FINGERPRINT_POOL = [
 // Fingerprint pool index 0 is the canonical default used by injected callers (tests/overrides).
 export const ARTICLE_EXTRACT_SEC_CH_UA = EXTRACT_FINGERPRINT_POOL[0].secChUa;
 
-// Fingerprint pool used by the proxy extraction path (got-scraping).
-// Each entry pairs an OS with a Chrome version — got-scraping uses both to generate
-// browser-like TLS (JA3) and HTTP/2 fingerprints, giving each attempt a distinct
-// network identity.
+// Fingerprint pool used by the proxy extraction path.
+// Each entry pairs an OS with a Chrome version — used to generate browser-like
+// TLS (JA3) and HTTP/2 fingerprints, giving each attempt a distinct identity.
 // Windows first: largest desktop population, least bot-flagged by PerimeterX/Cloudflare
 // IP heuristics. Chrome versions are deliberately varied so successive attempts produce
 // different JA3 hashes — TLS-level fingerprint rotation rather than UA-only rotation.
