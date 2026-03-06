@@ -1,8 +1,8 @@
 import {
-    hashPassword as realHashPassword,
-    verifyPassword as realVerifyPassword,
+  hashPassword as realHashPassword,
+  verifyPassword as realVerifyPassword,
 } from "@/lib/auth/session";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
 type SelectBehavior = {
@@ -112,19 +112,19 @@ let routeModulePromise: Promise<
   typeof import("@/app/api/greader.php/[...segments]/route")
 >;
 
-beforeAll(() => {
-  registerModuleMocks();
-  routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
-});
-
-afterAll(() => {
-  mock.restore();
-});
-
 describe("greader route compatibility contracts", () => {
-  test("rejects cross-site cookie-authenticated mutation requests", async () => {
+  beforeEach(() => {
     selectBehaviors.length = 0;
+    mock.restore();
+    registerModuleMocks();
+    routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
+  });
 
+  afterEach(() => {
+    mock.restore();
+  });
+
+  test("rejects cross-site cookie-authenticated mutation requests", async () => {
     const { POST } = await routeModulePromise;
 
     const request = new NextRequest(
@@ -150,8 +150,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("token endpoint returns plain alphanumeric token", async () => {
-    selectBehaviors.length = 0;
-
     const { GET } = await routeModulePromise;
 
     const request = new NextRequest(
@@ -174,8 +172,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("ClientLogin rejects oversized request bodies", async () => {
-    selectBehaviors.length = 0;
-
     const { POST } = await routeModulePromise;
 
     const request = new NextRequest(
@@ -201,7 +197,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("stream/items/ids returns decimal ids for Reader API clients", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       {
         whereResult: [{ url: "https://one.example/rss.xml" }],
@@ -253,7 +248,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("subscription/list returns all user subscriptions even if feed join is missing", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       {
         whereResult: [
@@ -324,7 +318,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("subscription/list falls back to canonical URL category mapping", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       {
         whereResult: [
@@ -376,7 +369,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("tag/list omits My Feeds when all feeds have explicit categories", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push({
       whereResult: [
         { category: "World" },
@@ -412,7 +404,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("tag/list includes My Feeds when at least one feed has no category", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       // First query: raw JOIN — one feed has no category assignment
       {

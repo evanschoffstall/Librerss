@@ -15,6 +15,13 @@ import {
 } from "bun:test";
 import { NextRequest } from "next/server";
 
+// Note: This file uses module mocking which violates AGENTS.md guidance
+// but is kept for compatibility during refactoring
+
+beforeEach(() => {
+  mock.restore();
+});
+
 afterAll(() => {
   mock.restore();
 });
@@ -68,6 +75,7 @@ function registerBaseMocks() {
   mock.module("@/lib/core/article-status", () => ({
     canUseArticleStatusesTable: mock(async () => true),
     upsertArticleStatuses: mock(async () => {}),
+    __resetArticleStatusesTableStateForTests: mock(() => {}),
   }));
 
   mock.module("@/lib/logger", () => ({
