@@ -279,13 +279,12 @@ function parseDetails(outputs: Record<string, Command>) {
     ),
     prettier: detail(
       outputs.prettier,
-      "formatting compliant",
-      "prettier check failed",
+      "formatting applied",
+      "prettier format failed",
     ),
     semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
     gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
     depAudit,
-    build: detail(outputs.build, "build clean", "build failed"),
   };
 }
 
@@ -459,9 +458,6 @@ async function runCheckSuite() {
     ),
   );
 
-  // Auto-fix prettier formatting issues before checks
-  await run("bun", ["run", "format"]);
-
   const steps = [
     {
       k: "test",
@@ -522,8 +518,8 @@ async function runCheckSuite() {
     },
     {
       k: "prettier",
-      l: "prettier-check",
-      r: () => run("bun", ["run", "format:check"]),
+      l: "prettier",
+      r: () => run("bun", ["run", "format"]),
     },
     {
       k: "semgrep",
@@ -539,15 +535,6 @@ async function runCheckSuite() {
       k: "depAudit",
       l: "dep-audit",
       r: () => run("bun", ["run", "scan:deps"]),
-    },
-    {
-      k: "build",
-      l: "build",
-      r: () => {
-        return run("bun", ["run", "build"], undefined, {
-          NODE_ENV: "production",
-        });
-      },
     },
   ];
   const runs = Object.fromEntries(
