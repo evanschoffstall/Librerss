@@ -136,17 +136,30 @@ export async function fetchHtmlWithFingerprint(
 
     // For SOCKS proxies we pass a custom agent rather than got-scraping's
     // native proxyUrl, so got-scraping's context.proxyUrl is unset.
-    // Without it, got-scraping's ALPN negotiation probe (browserHeadersHook →
-    // getResolveProtocolFunction) falls back to a direct TLS connection to the
-    // target host — bypassing the SOCKS proxy and leaking the real server IP.
-    // On production (datacenter IP) this direct probe is flagged by PerimeterX
-    // before the actual request even arrives from the proxy.
-    // Fix: stub resolveProtocol to return http/1.1 unconditionally, eliminating
-    // the direct outbound probe entirely. HTTP/1.1 is universally supported and
-    // the header-generator output is equally valid for both HTTP versions.
-    const resolveProtocolStub = isSocksProxy
-      ? async () => ({ alpnProtocol: "http/1.1" as const })
-      : undefined;
+    // Without it, got-scraping's browserHeadersHook → getResolveProtocolFunction
+    // falls back to a direct TLS connection to the target host — bypassing the
+    // SOCKS proxy and leaking the real server IP. On production (datacenter IP)
+    // this direct ALPN probe is flagged by PerimeterX before the actual request
+    // even arrives from the proxy.
+    //
+    // We cannot pass `resolveProtocol` as a top-level gotScraping option because
+    // got's Options.assign() validates all keys with `key in this` and throws
+    // "Unexpected option" for unknown keys. The same mechanism got-scraping itself
+    // uses (http2Hook line ~720 in dist/index.js) injects resolveProtocol directly
+    // onto the requestOptions object inside a hook, bypassing assignment validation.
+    //
+    // Fix: inject a stub via beforeRequest hook that short-circuits to http/1.1
+    // with no network probe, eliminating the direct outbound connection entirely.
+    const socksAlpnHook = isSocksProxy
+      ? [
+          (opts: Record<string, unknown>) => {
+            // Runs after Options.assign() — writing directly bypasses validation.
+            opts.resolveProtocol = async () => ({
+              alpnProtocol: "http/1.1" as const,
+            });
+          },
+        ]
+      : [];
 
     const response = await gotScraping.get(currentUrl, {
       headerGeneratorOptions: {
@@ -157,7 +170,9 @@ export async function fetchHtmlWithFingerprint(
         locales: ["en-US"],
         operatingSystems: [options?.operatingSystem ?? "windows"],
       },
-      ...(resolveProtocolStub ? { resolveProtocol: resolveProtocolStub } : {}),
+      ...(socksAlpnHook.length > 0
+        ? { hooks: { beforeRequest: socksAlpnHook } }
+        : {}),
       headers: {
         // Chrome 131 always sends the q-value fallback — header-generator
         // drops it when only one locale is configured.
