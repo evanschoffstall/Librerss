@@ -279,8 +279,8 @@ function parseDetails(outputs: Record<string, Command>) {
     ),
     prettier: detail(
       outputs.prettier,
-      "formatting applied",
-      "prettier format failed",
+      "formatting compliant",
+      "prettier check failed",
     ),
     semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
     gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
@@ -458,6 +458,9 @@ async function runCheckSuite() {
     ),
   );
 
+  // Auto-fix prettier formatting issues before checks
+  await run("bun", ["run", "format"]);
+
   const steps = [
     {
       k: "test",
@@ -518,8 +521,8 @@ async function runCheckSuite() {
     },
     {
       k: "prettier",
-      l: "prettier",
-      r: () => run("bun", ["run", "format"]),
+      l: "prettier-check",
+      r: () => run("bun", ["run", "format:check"]),
     },
     {
       k: "semgrep",
