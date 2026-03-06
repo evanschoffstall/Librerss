@@ -1,7 +1,4 @@
-import {
-  hashPassword as realHashPassword,
-  verifyPassword as realVerifyPassword,
-} from "@/lib/auth/session";
+import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
@@ -69,7 +66,7 @@ function createSelectBuilder(behavior: SelectBehavior) {
   return builder;
 }
 
-function registerModuleMocks() {
+function registerDbMock() {
   mock.module("@/lib/db/db", () => ({
     getDb: () => ({
       select: () => {
@@ -78,49 +75,26 @@ function registerModuleMocks() {
       },
     }),
   }));
-
-  mock.module("@/lib/auth/session", () => ({
-    createSession: async () => "session-token",
-    getUserFromRequest: async () => ({
-      userId: 1,
-      email: "test@example.com",
-    }),
-    getUserFromSessionToken: async () => null,
-    authenticateCredentials: async () => ({ ok: false as const }),
-    setSessionCookie: () => {},
-    SESSION_COOKIE_NAME: "librerss_session",
-    hashPassword: realHashPassword,
-    verifyPassword: realVerifyPassword,
-  }));
-
-  mock.module("@/lib/core/runtime", () => ({
-    PLACEHOLDER_ADMIN_USER: {
-      id: 1,
-      email: "placeholder@example.com",
-      passwordHash: "",
-      sessionToken: "a".repeat(64),
-    },
-    RUNTIME_FLAGS: {
-      hasDatabaseUrl: true,
-      usePlaceholderData: false,
-      allowSignup: true,
-    },
-  }));
 }
 
 let routeModulePromise: Promise<
   typeof import("@/app/api/greader.php/[...segments]/route")
 >;
 
+let previousDbUrl: string | undefined;
+
 describe("greader route compatibility contracts", () => {
   beforeEach(() => {
     selectBehaviors.length = 0;
+    previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
     mock.restore();
-    registerModuleMocks();
+    registerDbMock();
     routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
   });
 
   afterEach(() => {
+    process.env.DATABASE_URL = previousDbUrl;
     mock.restore();
   });
 
@@ -154,6 +128,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/token",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -223,6 +202,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&output=json&n=2",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -277,6 +261,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -344,6 +333,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -382,6 +376,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/tag/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -419,6 +418,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/tag/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
