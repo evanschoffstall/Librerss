@@ -260,7 +260,10 @@ export const DashboardView = ({
     fetchAllFeeds,
     fetchFeed,
     fetchCategoryFeeds,
-    onFeedSwitch: invalidateFeedScroll,
+    onFeedSwitch: useCallback(() => {
+      invalidateFeedScroll();
+      setArticleFilter("unread");
+    }, [invalidateFeedScroll, setArticleFilter]),
     onBeforeRefresh: captureFeedScroll,
   });
 

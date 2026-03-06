@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
+import { Rss } from "lucide-react";
 import { FeedCategory } from "./feed/FeedCategory";
 
 const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
@@ -42,8 +43,14 @@ export function DashboardSidebarContent({
       ) : (
         <div key="sidebar-content" className={sidebarPanelCls}>
           {sidebarCategories.length === 0 ? (
-            <div className="px-2 py-8 font-sans text-sm leading-6 text-muted-foreground/75">
-              No feed sources yet.
+            <div className="flex flex-col items-center gap-2.5 px-2 py-10 text-center">
+              <div className="flex size-9 items-center justify-center rounded-lg border border-border/30 bg-card/50">
+                <Rss
+                  className="size-4 text-muted-foreground/40"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground/55">No feeds yet</p>
             </div>
           ) : (
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
@@ -57,7 +64,7 @@ export function DashboardSidebarContent({
                   transitionDelay: `${index * 35}ms`,
                 }}
               >
-                <div className="px-1.5 font-sans text-[0.74rem] font-semibold tracking-[0.02em] text-muted-foreground/70">
+                <div className="px-1.5">
                   <button
                     type="button"
                     className={`w-full rounded px-1.5 py-1 text-left font-sans text-[0.76rem] font-semibold tracking-[0.01em] transition-colors ${

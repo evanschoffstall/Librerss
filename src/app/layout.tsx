@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geist.variable} font-sans motion-profile-luxurious min-h-screen bg-background text-foreground antialiased`}
+        className={`${geist.variable} font-sans motion-profile-luxurious min-h-dvh bg-background text-foreground antialiased`}
       >
         {ENV.isDevelopment && (
           <>

@@ -20,7 +20,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
@@ -378,7 +377,6 @@ export const ArticleCard = ({
         onMouseDown={handleMouseDown}
         onMouseLeave={() => setIsCardHovered(false)}
         style={{
-          boxShadow: isDark ? undefined : "none",
           transform: swipeState.swiping
             ? `translateX(${swipeState.offsetX}px)`
             : undefined,
@@ -386,14 +384,9 @@ export const ArticleCard = ({
             ? "none"
             : "transform 0.25s cubic-bezier(0.2,0,0,1)",
         }}
-        className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border duration-700 transition-[padding,background-color,max-height,border-color] anim-duration-ui anim-ease-ui md:gap-8 ${
-          isDark
-            ? "border-border bg-card/70 shadow-2xl shadow-zinc-900/50"
-            : "border-border bg-white/70"
-        } ${visuallyExpanded ? "p-4" : "p-3"}`}
+        className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border border-border bg-card/70 dark:shadow-2xl dark:shadow-zinc-900/50 transition-[padding,background-color,max-height,border-color] duration-700 anim-ease-ui md:gap-8 ${article.isRead && !visuallyExpanded ? "opacity-55 transition-opacity duration-200 hover:opacity-100" : ""} ${visuallyExpanded ? "p-4" : "p-3"}`}
       >
         <div className="pointer-events-none absolute inset-0 rounded-xl">
-          <div className="absolute inset-0 z-0 rounded-xl transition duration-1000 [mask-image:linear-gradient(black,transparent)]" />
           <div
             className={`absolute inset-0 z-10 rounded-xl bg-gradient-to-br transition duration-1000 ${
               isDark
@@ -413,7 +406,10 @@ export const ArticleCard = ({
                 {formatRelativeDate(
                   new Date(article.publicationDate ?? Date.now()),
                 )}
-                <span className="text-border">|</span>
+                <span
+                  className="size-1 shrink-0 rounded-full bg-border/80"
+                  aria-hidden="true"
+                />
               </div>
               <div className="flex min-w-0 items-center gap-2">
                 {showFavicon ? (
@@ -455,7 +451,9 @@ export const ArticleCard = ({
                 </span>
               </div>
 
-              <div className="-mr-1 ml-auto flex shrink-0 items-center gap-1">
+              <div
+                className={`-mr-1 ml-auto flex shrink-0 items-center gap-1 transition-opacity duration-150 ${visuallyExpanded || isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              >
                 <button
                   type="button"
                   onClick={(event) => {
@@ -601,15 +599,13 @@ export const ArticleCard = ({
             </div>
 
             <h3
-              className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.03rem] leading-6" : "text-[0.96rem] leading-6 line-clamp-2"}`}
+              className={`font-sans font-semibold antialiased tracking-[-0.012em] text-foreground ${visuallyExpanded ? "text-[1.05rem] leading-6" : "text-[0.96rem] leading-6 line-clamp-2"}`}
             >
               {article.title}
             </h3>
-
-            <Separator className="my-1.5" />
           </div>
 
-          <div>
+          <div className="mt-2">
             <div
               className="overflow-hidden transition-[max-height] anim-duration-ui anim-ease-ui"
               onTransitionEnd={onContentTransitionEnd}
