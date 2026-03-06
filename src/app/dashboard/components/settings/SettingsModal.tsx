@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, Rss, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import { SettingsCategoryList } from "./SettingsCategoryList";
@@ -99,8 +99,11 @@ function SettingsBody({
       <section className="rounded-lg border bg-card p-4 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="font-semibold">Feeds</h3>
-            <p className="text-xs text-muted-foreground mt-1">
+            <h3 className="flex items-center gap-2 font-semibold">
+              <Rss className="size-3.5 text-muted-foreground" />
+              Feeds
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
               Add, edit, organize, and import feed sources.
             </p>
           </div>

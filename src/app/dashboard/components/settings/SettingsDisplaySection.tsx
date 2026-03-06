@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Monitor } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 
 interface SettingsDisplaySectionProps {
@@ -29,8 +30,11 @@ export function SettingsDisplaySection({
   return (
     <section className="rounded-lg border bg-card p-4 space-y-4">
       <div>
-        <h3 className="font-semibold">Display</h3>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h3 className="flex items-center gap-2 font-semibold">
+          <Monitor className="size-3.5 text-muted-foreground" />
+          Display
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Customize how articles are displayed in the list.
         </p>
       </div>
