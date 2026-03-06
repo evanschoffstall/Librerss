@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import { Loader2, Plus, Rss, X } from "lucide-react";
+import { Loader2, Plus, Rss, Settings2, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import { SettingsCategoryList } from "./SettingsCategoryList";
@@ -233,7 +233,10 @@ export const SettingsModal = ({
       <Drawer open onOpenChange={(open) => !open && onClose()}>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="relative">
-            <DrawerTitle>{TITLE}</DrawerTitle>
+            <DrawerTitle className="flex items-center gap-2 text-left">
+              <Settings2 className="size-4 shrink-0 text-muted-foreground" />
+              {TITLE}
+            </DrawerTitle>
             <DrawerDescription>{DESCRIPTION}</DrawerDescription>
             <DrawerClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
               <X className="h-4 w-4" />
@@ -252,7 +255,10 @@ export const SettingsModal = ({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="h-[90vh] max-h-[90vh] max-w-3xl overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>{TITLE}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings2 className="size-4 shrink-0 text-muted-foreground" />
+            {TITLE}
+          </DialogTitle>
           <DialogDescription>{DESCRIPTION}</DialogDescription>
         </DialogHeader>
 
