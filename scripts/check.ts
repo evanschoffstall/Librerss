@@ -459,7 +459,7 @@ async function runCheckSuite() {
   );
 
   // Auto-fix prettier formatting issues before checks
-  await run("bun", ["run", "format"]);
+  await run("bunx", ["prettier", "--write", "."]);
 
   const steps = [
     {
@@ -479,8 +479,16 @@ async function runCheckSuite() {
     },
     { k: "types", l: "tsc", r: () => run("tsc", ["--noEmit"]) },
     { k: "lint", l: "eslint", r: () => runLint([]) },
-    { k: "jscpd", l: "jscpd", r: () => run("bun", ["run", "dup"]) },
-    { k: "knip", l: "knip", r: () => run("bun", ["run", "redundancy"]) },
+    {
+      k: "jscpd",
+      l: "jscpd",
+      r: () => run("bunx", ["jscpd", "--config", ".jscpd.json"]),
+    },
+    {
+      k: "knip",
+      l: "knip",
+      r: () => run("bunx", ["knip", "--config", "knip.json", "--cache"]),
+    },
     { k: "tsPrune", l: "ts-prune", r: () => runTsPrune([]) },
     {
       k: "depCruise",
@@ -500,7 +508,8 @@ async function runCheckSuite() {
     {
       k: "madge",
       l: "madge",
-      r: () => run("bun", ["run", "depgraph"]),
+      r: () =>
+        run("bunx", ["madge@8", "--circular", "--extensions", "ts,tsx", "src"]),
       t: filterMadge,
     },
     {
@@ -511,34 +520,79 @@ async function runCheckSuite() {
     {
       k: "stylelint",
       l: "stylelint",
-      r: () => run("bun", ["run", "lint:style"]),
+      r: () =>
+        run("bunx", [
+          "stylelint",
+          "src/**/*.{css,scss}",
+          "--cache",
+          "--cache-location",
+          ".cache/stylelint",
+          "--cache-strategy",
+          "content",
+        ]),
     },
-    { k: "tsd", l: "tsd", r: () => run("bun", ["run", "tsd"]) },
+    {
+      k: "tsd",
+      l: "tsd",
+      r: () => run("bunx", ["tsd", "--typings", "next-env.d.ts"]),
+    },
     {
       k: "secretlint",
       l: "secretlint",
-      r: () => run("bun", ["run", "scan:secretlint"]),
+      r: () =>
+        run("bunx", [
+          "secretlint",
+          "**/*",
+          "--secretlintignore",
+          ".secretlintignore",
+        ]),
     },
     {
       k: "prettier",
       l: "prettier-check",
-      r: () => run("bun", ["run", "format:check"]),
+      r: () =>
+        run("bunx", [
+          "prettier",
+          "--check",
+          ".",
+          "--cache",
+          "--cache-location",
+          ".cache/prettier",
+        ]),
     },
     {
       k: "semgrep",
       l: "semgrep",
-      r: () => run("bun", ["run", "scan:semgrep"]),
+      r: () =>
+        run("semgrep", [
+          "scan",
+          "--config",
+          "auto",
+          "--error",
+          "--exclude=src/__tests__",
+          "--exclude=src/components/ui",
+          "--exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
+          "--exclude-rule=typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
+          "--exclude-rule=problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification",
+          "--quiet",
+          "src",
+        ]),
     },
     {
       k: "gitleaks",
       l: "gitleaks",
-      r: () => run("bun", ["run", "scan:gitleaks"]),
+      r: () =>
+        run("bunx", [
+          "@0xts/gitleaks-cli",
+          "detect",
+          "-s",
+          "src",
+          "--no-git",
+          "-c",
+          ".gitleaks.toml",
+        ]),
     },
-    {
-      k: "depAudit",
-      l: "dep-audit",
-      r: () => run("bun", ["run", "scan:deps"]),
-    },
+    { k: "depAudit", l: "dep-audit", r: () => run("bun", ["audit"]) },
   ];
   const runs = Object.fromEntries(
     await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
