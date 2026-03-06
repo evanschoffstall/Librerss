@@ -9,9 +9,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AuthService, type AuthUser } from "@/lib";
 import axios from "axios";
-import { Loader2, Rss } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -99,7 +100,7 @@ export const LoginView = ({
               aria-hidden="true"
             />
             <div className="relative flex size-14 items-center justify-center rounded-2xl border border-border/50 bg-card/70 shadow-md backdrop-blur-sm">
-              <Rss className="size-6 text-primary" />
+              <img src="/favicon.svg" alt="LibreRSS" className="size-6" />
             </div>
           </div>
           <CardTitle>
@@ -112,28 +113,55 @@ export const LoginView = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          {mode === "signup" && (
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="auth-email"
+              className="text-xs text-muted-foreground"
+            >
+              Email
+            </Label>
             <Input
-              type="password"
-              placeholder="Confirm password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              id="auth-email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               onKeyDown={handleKeyDown}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="auth-password"
+              className="text-xs text-muted-foreground"
+            >
+              Password
+            </Label>
+            <Input
+              id="auth-password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+          {mode === "signup" && (
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="auth-confirm"
+                className="text-xs text-muted-foreground"
+              >
+                Confirm password
+              </Label>
+              <Input
+                id="auth-confirm"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
           )}
           <Button
             className="w-full"
