@@ -92,17 +92,23 @@ export function ThemeNoticeDialog() {
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="gap-3">
-          <div className="flex items-center justify-center w-12 h-12 mx-auto rounded-full bg-primary/10">
-            <Palette className="h-6 w-6 text-primary" />
+          <div className="mx-auto flex items-center justify-center">
+            <div className="relative flex size-12 items-center justify-center">
+              <div
+                className="absolute size-[4.5rem] rounded-full border border-border/15"
+                aria-hidden="true"
+              />
+              <div className="relative flex size-12 items-center justify-center rounded-full border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm">
+                <Palette className="size-5 text-primary" />
+              </div>
+            </div>
           </div>
           <DialogTitle className="text-center">
             Native Theme Support
           </DialogTitle>
           <DialogDescription className="text-center">
-            This website leverages carefully crafted beautiful dark and light
-            themes. For the best intended experience, please feel free to
-            disable any visibility adjustments (such as Dark Reader or similar
-            extensions) and utilize our native theme support.
+            LibreRSS ships carefully crafted dark and light themes. Disable Dark
+            Reader or similar extensions for the best experience.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-center">
