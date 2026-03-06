@@ -467,7 +467,7 @@ export const ArticleCard = ({
                   className={iconBtnCls}
                 >
                   {article.isRead ? (
-                    <CircleCheck className="size-3.5" />
+                    <CircleCheck className="size-3.5 text-emerald-500/70 dark:text-emerald-400/60" />
                   ) : (
                     <Circle className="size-3.5" />
                   )}
@@ -486,7 +486,11 @@ export const ArticleCard = ({
                   className={iconBtnCls}
                 >
                   <Star
-                    className={`size-3.5 ${article.isStarred ? "fill-current" : ""}`}
+                    className={`size-3.5 ${
+                      article.isStarred
+                        ? "fill-current text-amber-400/90 dark:text-amber-300/80"
+                        : ""
+                    }`}
                   />
                 </button>
 
