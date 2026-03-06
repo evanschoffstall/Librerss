@@ -17,7 +17,12 @@ type TestResult = {
   name: string;
   message?: string;
 };
-type Command = { exitCode: number; timedOut: boolean; output: string };
+type Command = {
+  exitCode: number;
+  timedOut: boolean;
+  output: string;
+  durationMs?: number;
+};
 
 const ANSI = {
   reset: "\x1b[0m",
@@ -32,8 +37,17 @@ const paint = (text: string, ...codes: string[]) =>
   `${codes.join("")}${text}${ANSI.reset}`;
 const passFail = (ok: boolean) =>
   paint(ok ? "PASS" : "FAIL", ANSI.bold, ok ? ANSI.green : ANSI.red);
-const row = (label: string, ok: boolean, details = "") =>
-  `${passFail(ok)} ${paint(label.padEnd(13), ANSI.bold)} ${details}`;
+const formatDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms.toFixed(0)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+};
+const row = (label: string, ok: boolean, details = "", durationMs?: number) => {
+  const timing =
+    durationMs !== undefined
+      ? ` ${paint(formatDuration(durationMs), ANSI.gray)}`
+      : "";
+  return `${passFail(ok)} ${paint(label.padEnd(13), ANSI.bold)} ${details}${timing}`;
+};
 const divider = () => paint("────────────────────────────────", ANSI.gray);
 const stripAnsi = (v: string): string => {
   let r = v;
@@ -298,6 +312,7 @@ async function run(
   timeoutMs?: number,
   extraEnv?: Record<string, string>,
 ): Promise<Command> {
+  const startMs = Date.now();
   const env: Record<string, string | undefined> = {
     ...process.env,
     FORCE_COLOR: process.env.FORCE_COLOR ?? "1",
@@ -332,10 +347,11 @@ async function run(
     stderrP,
   ]);
   if (timeout) clearTimeout(timeout);
+  const durationMs = Date.now() - startMs;
   const output = `${stdout}${stderr}`;
   return timedOut
-    ? { exitCode: 124, timedOut: true, output }
-    : { exitCode: exitCode ?? 1, timedOut: false, output };
+    ? { exitCode: 124, timedOut: true, output, durationMs }
+    : { exitCode: exitCode ?? 1, timedOut: false, output, durationMs };
 }
 
 async function runLint(extraArgs: string[]): Promise<Command> {
@@ -547,34 +563,101 @@ async function runCheckSuite() {
   const coverage = parseCoverage(lcovPath);
   const details = parseDetails(runs);
   const checks = [
-    { k: "tsc", ok: runs.types.exitCode === 0, d: details.tsc },
-    { k: "eslint", ok: runs.lint.exitCode === 0, d: details.eslint },
-    { k: "jscpd", ok: runs.jscpd.exitCode === 0, d: details.jscpd },
-    { k: "knip", ok: runs.knip.exitCode === 0, d: details.knip },
-    { k: "ts-prune", ok: runs.tsPrune.exitCode === 0, d: details.tsPrune },
-    { k: "depcruise", ok: runs.depCruise.exitCode === 0, d: details.depCruise },
-    { k: "madge", ok: runs.madge.exitCode === 0, d: details.madge },
+    {
+      k: "tsc",
+      ok: runs.types.exitCode === 0,
+      d: details.tsc,
+      ms: runs.types.durationMs,
+    },
+    {
+      k: "eslint",
+      ok: runs.lint.exitCode === 0,
+      d: details.eslint,
+      ms: runs.lint.durationMs,
+    },
+    {
+      k: "jscpd",
+      ok: runs.jscpd.exitCode === 0,
+      d: details.jscpd,
+      ms: runs.jscpd.durationMs,
+    },
+    {
+      k: "knip",
+      ok: runs.knip.exitCode === 0,
+      d: details.knip,
+      ms: runs.knip.durationMs,
+    },
+    {
+      k: "ts-prune",
+      ok: runs.tsPrune.exitCode === 0,
+      d: details.tsPrune,
+      ms: runs.tsPrune.durationMs,
+    },
+    {
+      k: "depcruise",
+      ok: runs.depCruise.exitCode === 0,
+      d: details.depCruise,
+      ms: runs.depCruise.durationMs,
+    },
+    {
+      k: "madge",
+      ok: runs.madge.exitCode === 0,
+      d: details.madge,
+      ms: runs.madge.durationMs,
+    },
     {
       k: "type-coverage",
       ok: runs.typeCoverage.exitCode === 0,
       d: details.typeCoverage,
+      ms: runs.typeCoverage.durationMs,
     },
-    { k: "stylelint", ok: runs.stylelint.exitCode === 0, d: details.stylelint },
-    { k: "tsd", ok: runs.tsd.exitCode === 0, d: details.tsd },
+    {
+      k: "stylelint",
+      ok: runs.stylelint.exitCode === 0,
+      d: details.stylelint,
+      ms: runs.stylelint.durationMs,
+    },
+    {
+      k: "tsd",
+      ok: runs.tsd.exitCode === 0,
+      d: details.tsd,
+      ms: runs.tsd.durationMs,
+    },
     {
       k: "secretlint",
       ok: runs.secretlint.exitCode === 0,
       d: details.secretlint,
+      ms: runs.secretlint.durationMs,
     },
-    { k: "prettier", ok: runs.prettier.exitCode === 0, d: details.prettier },
-    { k: "semgrep", ok: runs.semgrep.exitCode === 0, d: details.semgrep },
-    { k: "gitleaks", ok: runs.gitleaks.exitCode === 0, d: details.gitleaks },
-    { k: "dep-audit", ok: runs.depAudit.exitCode === 0, d: details.depAudit },
-    { k: "build", ok: runs.build.exitCode === 0, d: details.build },
+    {
+      k: "prettier",
+      ok: runs.prettier.exitCode === 0,
+      d: details.prettier,
+      ms: runs.prettier.durationMs,
+    },
+    {
+      k: "semgrep",
+      ok: runs.semgrep.exitCode === 0,
+      d: details.semgrep,
+      ms: runs.semgrep.durationMs,
+    },
+    {
+      k: "gitleaks",
+      ok: runs.gitleaks.exitCode === 0,
+      d: details.gitleaks,
+      ms: runs.gitleaks.durationMs,
+    },
+    {
+      k: "dep-audit",
+      ok: runs.depAudit.exitCode === 0,
+      d: details.depAudit,
+      ms: runs.depAudit.durationMs,
+    },
     {
       k: "Tests",
       ok: tests.ok && runs.test.exitCode === 0,
       d: `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${runs.test.exitCode}`,
+      ms: runs.test.durationMs,
     },
     {
       k: "Coverage",
@@ -586,7 +669,8 @@ async function runCheckSuite() {
   printTests("Skipped tests", ANSI.gray, tests.skippedTests);
   console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
   console.log(divider());
-  for (const check of checks) console.log(row(check.k, check.ok, check.d));
+  for (const check of checks)
+    console.log(row(check.k, check.ok, check.d, check.ms));
   console.log(divider());
   const allOk = checks.every((c) => c.ok) && !timedOut;
   const elapsedSeconds = ((Date.now() - startedAtMs) / 1000).toFixed(2);
