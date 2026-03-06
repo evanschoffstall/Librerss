@@ -36,7 +36,13 @@ import {
   Star,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   useArticleExpansion,
@@ -129,6 +135,8 @@ export const ArticleCard = ({
   const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
+  const headerZoneRef = useRef<HTMLDivElement | null>(null);
+  const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const pointerPosRef = useRef<{ x: number; y: number } | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
@@ -311,6 +319,56 @@ export const ArticleCard = ({
     return () => window.clearTimeout(timer);
   }, [isRawHtmlOpen]);
 
+  // Gradient coordinate measurement for split header/content overlays
+  const [gradientCoords, setGradientCoords] = useState({
+    cw: 0,
+    ch: 0,
+    hy: 0,
+    cy: 0,
+  });
+
+  const measureGradient = useCallback(() => {
+    const a = articleRef.current;
+    const h = headerZoneRef.current;
+    const c = contentZoneRef.current;
+    if (!a || !h || !c) return;
+    setGradientCoords({
+      cw: a.offsetWidth,
+      ch: a.offsetHeight,
+      hy: h.offsetTop,
+      cy: c.offsetTop,
+    });
+  }, []);
+
+  useEffect(() => {
+    const a = articleRef.current;
+    const h = headerZoneRef.current;
+    const c = contentZoneRef.current;
+    if (!a || !h || !c) return;
+    measureGradient();
+    const ro = new ResizeObserver(measureGradient);
+    ro.observe(a);
+    ro.observe(h);
+    ro.observe(c);
+    return () => ro.disconnect();
+  }, [measureGradient]);
+
+  const { cw, ch, hy, cy } = gradientCoords;
+  const gradientReady = cw > 0 && ch > 0;
+
+  const headerGradientStyle: React.CSSProperties = gradientReady
+    ? { backgroundSize: `${cw}px ${ch}px`, backgroundPosition: `0px -${hy}px` }
+    : {};
+  const contentGradientStyle: React.CSSProperties = gradientReady
+    ? { backgroundSize: `${cw}px ${ch}px`, backgroundPosition: `0px -${cy}px` }
+    : {};
+
+  const gradientCls = `absolute inset-0 bg-gradient-to-br transition duration-1000 ${
+    isDark
+      ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
+      : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
+  } ${isCardHovered ? "opacity-100" : "opacity-0"}`;
+
   const copyLinkInputBlock = (
     <div className="rounded-md border bg-muted/30 p-2">
       <Input
@@ -341,7 +399,7 @@ export const ArticleCard = ({
   return (
     <div
       ref={swipeContainerRef}
-      className="relative overflow-hidden rounded-xl"
+      className={`relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl`}
     >
       {/* Swipe-to-read background indicator */}
       {swipeState.swiping && (
@@ -384,22 +442,17 @@ export const ArticleCard = ({
             ? "none"
             : "transform 0.25s cubic-bezier(0.2,0,0,1)",
         }}
-        className={`group relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl border border-border bg-card/70 dark:shadow-2xl dark:shadow-zinc-900/50 transition-[padding,background-color,max-height,border-color] duration-700 anim-ease-ui md:gap-8 ${article.isRead && !visuallyExpanded ? "opacity-55 transition-opacity duration-200 hover:opacity-100" : ""} ${visuallyExpanded ? "p-4" : "p-3"}`}
+        className={`group relative overflow-visible rounded-xl border border-border bg-card/70 dark:shadow-2xl dark:shadow-zinc-900/50 transition-[background-color,max-height,border-color] duration-700 anim-ease-ui ${article.isRead && !visuallyExpanded ? "opacity-55 transition-opacity duration-200 hover:opacity-100" : ""}`}
       >
-        <div className="pointer-events-none absolute inset-0 rounded-xl">
-          <div
-            className={`absolute inset-0 z-10 rounded-xl bg-gradient-to-br transition duration-1000 ${
-              isDark
-                ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
-                : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
-            } ${isCardHovered ? "opacity-100" : "opacity-0"}`}
-          />
-        </div>
-
+        {/* Header zone — sticky when expanded */}
         <div
-          className={`relative z-20 space-y-2 ${visuallyExpanded ? "lg:space-y-2.5" : ""}`}
+          ref={headerZoneRef}
+          className={`relative transition-[padding] duration-700 anim-ease-ui ${visuallyExpanded ? "sticky top-0 z-50 bg-card rounded-t-xl px-4 pt-4 pb-2" : "px-3 pt-3 pb-0"}`}
         >
-          <div className="space-y-2">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl">
+            <div className={gradientCls} style={headerGradientStyle} />
+          </div>
+          <div className="relative z-10 space-y-2">
             <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
               <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
                 <CalendarDays className="size-3" />
@@ -608,11 +661,20 @@ export const ArticleCard = ({
               {article.title}
             </h3>
           </div>
+        </div>
 
+        {/* Content zone */}
+        <div
+          ref={contentZoneRef}
+          className={`relative transition-[padding] duration-700 anim-ease-ui ${visuallyExpanded ? "px-4 pb-4" : "px-3 pb-3"}`}
+        >
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl">
+            <div className={gradientCls} style={contentGradientStyle} />
+          </div>
           <div
-            className={
+            className={`relative z-10 ${
               visuallyExpanded ? "mt-3 border-t border-border/20 pt-3" : "mt-2"
-            }
+            }`}
           >
             <div
               className="overflow-hidden transition-[max-height] anim-duration-ui anim-ease-ui"
