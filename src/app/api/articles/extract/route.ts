@@ -6,6 +6,7 @@ import {
   parseJsonBodyOrResponse,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
+import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import type {
@@ -164,6 +165,8 @@ async function resolveExtractedContent(
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   // SECURITY: Require authentication — unauthenticated callers must not be
   // able to trigger arbitrary outbound HTTP fetches from the server.
+  // Exception: placeholder snapshot URLs are served from local files only
+  // (no outbound fetch), so they bypass auth to support preview/explore mode.
   const requireAuth =
     deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
   const parseArticleUrl =
@@ -195,7 +198,26 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
       },
     });
-    if (authResult instanceof Response) return authResult;
+
+    // If auth fails, allow through only for placeholder snapshot URLs
+    // (local files only — no outbound HTTP fetch, SSRF-safe).
+    const isAuthFailure = authResult instanceof Response;
+    let authUserId: number | undefined;
+    if (isAuthFailure) {
+      // Peek at the body to check for a placeholder URL before rejecting
+      const peekBody = await request
+        .clone()
+        .json()
+        .catch(() => null);
+      const peekUrl =
+        typeof peekBody?.url === "string" ? peekBody.url.trim() : "";
+      const isPlaceholderUrl = Boolean(
+        peekUrl && getPlaceholderSnapshotPathByArticleUrl(peekUrl),
+      );
+      if (!isPlaceholderUrl) return authResult;
+    } else {
+      authUserId = authResult.userId;
+    }
 
     // Parse body once and extract both url and useProxy flag
     const bodyResult = await parseJsonBodyOrResponse<{
@@ -203,11 +225,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       useProxy?: boolean;
     }>(request);
     if (bodyResult instanceof Response) return bodyResult;
-    useProxy = bodyResult.useProxy === true;
+    useProxy = !isAuthFailure && bodyResult.useProxy === true;
 
     // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
     let allowInsecureTls = false;
-    if (useProxy) {
+    if (useProxy && authUserId) {
       const db = getDb();
       const [row] = await db
         .select({
@@ -215,7 +237,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
           allowInsecureTls: users.allowInsecureTls,
         })
         .from(users)
-        .where(eq(users.id, authResult.userId))
+        .where(eq(users.id, authUserId))
         .limit(1);
       const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
       resolvedProxyUrl =
@@ -242,6 +264,12 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     }
 
     const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
+
+    // SECURITY: If unauthenticated (placeholder bypass path), only local
+    // snapshots are permitted — never allow outbound fetches without auth.
+    if (isAuthFailure && !localSnapshot) {
+      return jsonError("Unauthorized", 401);
+    }
     const html =
       localSnapshot?.html ??
       (await fetchArticleHtml(articleUrl, undefined, {
