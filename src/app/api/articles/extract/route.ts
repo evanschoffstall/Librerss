@@ -217,7 +217,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         .from(users)
         .where(eq(users.id, authResult.userId))
         .limit(1);
-      resolvedProxyUrl = row?.proxyUrl?.trim() || undefined;
+      const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
+      resolvedProxyUrl =
+        rawProxyUrl && rawProxyUrl !== "null" && rawProxyUrl !== "undefined"
+          ? rawProxyUrl
+          : undefined;
       allowInsecureTls = row?.allowInsecureTls ?? false;
     }
 
