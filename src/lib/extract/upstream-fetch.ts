@@ -28,6 +28,7 @@ type FetchHtmlDeps = {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
   axiosGetFn?: typeof axios.get;
   isAxiosErrorFn?: typeof axios.isAxiosError;
+  fingerprintFetchFn?: typeof fetchHtmlWithFingerprint;
 };
 
 interface FetchHtmlOptions {
@@ -74,6 +75,7 @@ export async function fetchHtml(
     const proxyMode = SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol)
       ? "socks"
       : "http";
+    const fpFetch = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
 
     for (let attempt = 0; attempt < attempts; attempt++) {
       // Human-like delay between retries: base delay + random jitter.
@@ -87,8 +89,10 @@ export async function fetchHtml(
         PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
 
       try {
-        const { html, requestHeaders: sentHeaders } =
-          await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+        const { html, requestHeaders: sentHeaders } = await fpFetch(
+          url,
+          isAllowedUrl,
+          {
             proxyUrl: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls,
             operatingSystem: fp.os,
@@ -97,7 +101,8 @@ export async function fetchHtml(
             secChUa: fp.secChUa,
             accept: fp.accept,
             referer: proxyReferer,
-          });
+          },
+        );
         logger.info(
           `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
           {
@@ -426,6 +431,7 @@ export async function fetchHtml(
     const connectionMode = options?.useProxy ? "proxy" : "direct";
     const fallbackFp = PROXY_FINGERPRINT_POOL[0];
     const fallbackReferer = buildDdgReferer(url);
+    const fpFallback = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
     const fallbackLogCtx = {
       url,
       provider,
@@ -451,7 +457,7 @@ export async function fetchHtml(
         }
       }
       const { html: fallbackHtml, requestHeaders: fallbackSentHeaders } =
-        await fetchHtmlWithFingerprint(url, isAllowedUrl, {
+        await fpFallback(url, isAllowedUrl, {
           proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
           allowInsecureTls: options?.allowInsecureTls,
           // Use the best fingerprint entry from the proxy pool for TLS spoofing.

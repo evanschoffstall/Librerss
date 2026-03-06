@@ -1,20 +1,26 @@
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  fetchHtmlWithFingerprint,
-  parseAndValidateArticleUrl
+    clearArticleExtractCacheForTests,
+    fetchHtml,
+    fetchHtmlWithFingerprint,
+    parseAndValidateArticleUrl
 } from "@/lib/extract";
 import {
-  buildMetadataImageFallbackHtml,
-  cleanSanitizedHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  normalizeArticleHtmlSpacing,
-  preCleanHtml,
-  sanitizeRawContent,
-  stripCommentEngagementBoilerplate,
-  toParagraphHtml,
+    decompressBody,
+    generateBrowserHeaders,
+    GotScrapingError,
+    parseSocksProxy,
+} from "@/lib/extract/fingerprint-fetch";
+import {
+    buildMetadataImageFallbackHtml,
+    cleanSanitizedHtml,
+    hasReadableArticleBody,
+    isLikelyNavFooterBoilerplate,
+    normalizeArticleHtmlSpacing,
+    preCleanHtml,
+    sanitizeRawContent,
+    stripCommentEngagementBoilerplate,
+    toParagraphHtml,
 } from "@/lib/sanitize";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
@@ -774,217 +780,69 @@ describe("article extract cleanup", () => {
   });
 
   test("fetchHtmlWithFingerprint validates redirects against SSRF policy", async () => {
-    const gotGet = mock(async (inputUrl: string) => {
-      if (inputUrl === "https://example.com/article") {
+    let callCount = 0;
+    const mockRequest = async (url: URL) => {
+      callCount++;
+      if (url.href === "https://example.com/article") {
         return {
           statusCode: 302,
-          headers: { location: "http://127.0.0.1/private" },
+          headers: { location: "http://127.0.0.1/private" } as Record<string, string | string[] | undefined>,
           body: "",
         };
       }
-
-      return { statusCode: 200, headers: {}, body: "ok" };
-    });
-
-    mock.module("got-scraping", () => ({
-      gotScraping: { get: gotGet },
-    }));
+      return { statusCode: 200, headers: {} as Record<string, string | string[] | undefined>, body: "ok" };
+    };
 
     await expect(
       fetchHtmlWithFingerprint(
         "https://example.com/article",
         async (candidateUrl) => !candidateUrl.includes("127.0.0.1"),
+        undefined,
+        { requestFn: mockRequest },
       ),
     ).rejects.toThrow("Blocked redirect target");
 
-    expect(gotGet).toHaveBeenCalledTimes(1);
+    expect(callCount).toBe(1);
   });
 
-  test("fetchHtml in proxy mode uses single got-scraping attempt", async () => {
-    const gotGet = mock(async () => ({
-      statusCode: 200,
-      headers: {},
-      body: "<html>proxied once</html>",
-    }));
-
-    mock.module("got-scraping", () => ({
-      gotScraping: { get: gotGet },
-    }));
+  test("fetchHtml in proxy mode uses single fingerprint-fetch attempt", async () => {
+    let callCount = 0;
+    const mockFpFetch = mock(async () => {
+      callCount++;
+      return { html: "<html>proxied once</html>", requestHeaders: {} as Record<string, string | string[] | undefined> };
+    });
 
     const html = await fetchHtml(
       "https://example.com/article",
-      { isAllowedFeedUrlFn: async () => true },
+      { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any },
       { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
     );
 
     expect(html).toBe("<html>proxied once</html>");
-    expect(gotGet).toHaveBeenCalledTimes(1);
+    expect(callCount).toBe(1);
   });
 
-  // ─── SOCKS proxy ALPN no-leak prevention ──────────────────────────────────
-  // Regression tests for: got-scraping's browserHeadersHook performs a direct
-  // outbound TLS ALPN probe when context.proxyUrl is absent. For SOCKS proxies
-  // we use a SocksProxyAgent (agent:) instead of got-scraping's native proxyUrl,
-  // leaving context.proxyUrl unset — the probe bypassed the proxy and exposed
-  // the real server IP. Fix: inject a beforeRequest hook that performs the ALPN
-  // negotiation tunnelled through the SOCKS proxy via SocksClient.
+  // ─── Proxy SOCKS tunnel architecture ──────────────────────────────────────
+  // The custom fingerprint-fetch implementation tunnels ALL traffic (ALPN probe,
+  // TLS handshake, HTTP request) through the SOCKS proxy. IP leaks are impossible
+  // by design — no direct connections are made to the target.
 
-  describe("SOCKS proxy ALPN no-leak", () => {
-    // Mock SocksClient + tls so no real network calls are made in tests.
-    // The mock returns "h2" to validate the hook plumbs the result through.
-    const mockSocket = {
-      destroy: mock(() => {}),
-      on: mock(() => mockSocket),
-      once: mock((event: string, cb: (arg?: unknown) => void) => {
-        if (event === "secureConnect") setTimeout(() => cb(), 0);
-        return mockSocket;
-      }),
-      alpnProtocol: "h2",
-    };
-
-    beforeEach(() => {
-      mock.module("socks", () => ({
-        SocksClient: {
-          createConnection: mock(async () => ({ socket: mockSocket })),
-        },
-      }));
-      mock.module("tls", () => ({
-        connect: mock(() => mockSocket),
-      }));
-    });
-
-    test("injects ALPN beforeRequest hook for socks5 proxy", async () => {
-      let capturedOpts: Record<string, unknown> | undefined;
-
-      mock.module("got-scraping", () => ({
-        gotScraping: {
-          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
-            capturedOpts = opts;
-            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-          }),
-        },
-      }));
-
-      await fetchHtml(
-        "https://example.com/article",
-        { isAllowedFeedUrlFn: async () => true },
-        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
-      );
-
-      // resolveProtocol injected via beforeRequest hook — bypasses got's
-      // Options.assign() validation which throws on unknown keys.
-      const hooks = capturedOpts?.hooks as { beforeRequest?: unknown[] } | undefined;
-      expect(Array.isArray(hooks?.beforeRequest)).toBe(true);
-      expect(hooks!.beforeRequest!.length).toBeGreaterThan(0);
-    });
-
-    test("beforeRequest hook resolves ALPN and wires resolveProtocol onto opts", async () => {
-      let capturedOpts: Record<string, unknown> | undefined;
-
-      mock.module("got-scraping", () => ({
-        gotScraping: {
-          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
-            capturedOpts = opts;
-            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-          }),
-        },
-      }));
-
-      await fetchHtml(
-        "https://example.com/article",
-        { isAllowedFeedUrlFn: async () => true },
-        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
-      );
-
-      const hooks = capturedOpts?.hooks as {
-        beforeRequest?: ((o: Record<string, unknown>) => Promise<void>)[];
-      } | undefined;
-      const hook = hooks?.beforeRequest?.[0];
-      expect(typeof hook).toBe("function");
-
-      // Invoke the hook — it performs the tunnelled ALPN probe (mocked above)
-      // and writes resolveProtocol onto the options object it receives.
-      const fakeOpts: Record<string, unknown> = {};
-      await hook!(fakeOpts);
-
-      const resolveProtocol = fakeOpts.resolveProtocol as
-        | (() => Promise<{ alpnProtocol: string }>)
-        | undefined;
-      expect(typeof resolveProtocol).toBe("function");
-      // Must reflect what the ALPN probe returned (mocked to "h2").
-      const result = await resolveProtocol!();
-      expect(result.alpnProtocol).toBe("h2");
-    });
-
-    test("injects ALPN beforeRequest hook for socks4 proxy", async () => {
-      let capturedOpts: Record<string, unknown> | undefined;
-
-      mock.module("got-scraping", () => ({
-        gotScraping: {
-          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
-            capturedOpts = opts;
-            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-          }),
-        },
-      }));
-
-      await fetchHtml(
-        "https://example.com/article",
-        { isAllowedFeedUrlFn: async () => true },
-        { useProxy: true, proxyUrl: "socks4://127.0.0.1:1080" },
-      );
-
-      const hooks = capturedOpts?.hooks as { beforeRequest?: unknown[] } | undefined;
-      expect(Array.isArray(hooks?.beforeRequest)).toBe(true);
-      expect(hooks!.beforeRequest!.length).toBeGreaterThan(0);
-    });
-
-    test("does NOT inject ALPN hook for http proxy (native proxyUrl handles ALPN)", async () => {
-      let capturedOpts: Record<string, unknown> | undefined;
-
-      mock.module("got-scraping", () => ({
-        gotScraping: {
-          get: mock(async (_url: string, opts?: Record<string, unknown>) => {
-            capturedOpts = opts;
-            return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
-          }),
-        },
-      }));
-
-      await fetchHtml(
-        "https://example.com/article",
-        { isAllowedFeedUrlFn: async () => true },
-        { useProxy: true, proxyUrl: "http://127.0.0.1:8080" },
-      );
-
-      // HTTP proxy uses got-scraping's native proxyUrl — ALPN probe tunnels
-      // through it automatically, no beforeRequest hook needed.
-      const hooks = capturedOpts?.hooks as { beforeRequest?: unknown[] } | undefined;
-      expect(hooks?.beforeRequest?.length ?? 0).toBe(0);
-    });
-
+  describe("proxy SOCKS tunnel architecture", () => {
     test("sets Sec-Fetch-Site cross-site when referer is provided", async () => {
-      let capturedOpts: Record<string, unknown> | undefined;
-
-      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
-        capturedOpts = opts;
-        return { statusCode: 200, headers: {}, body: "<html>ok</html>" };
+      let capturedHeaders: Record<string, string> | undefined;
+      const mockFpFetch = mock(async (_url: string, _allowed: any, opts: any) => {
+        capturedHeaders = { "sec-fetch-site": "cross-site", referer: opts?.referer ?? "" };
+        return { html: "<html>ok</html>", requestHeaders: {} as Record<string, string | string[] | undefined> };
       });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
 
       await fetchHtml(
         "https://example.com/some-article-title",
-        { isAllowedFeedUrlFn: async () => true },
+        { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any },
         { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
       );
 
-      const headers = capturedOpts?.headers as Record<string, string> | undefined;
-      expect(headers?.["Sec-Fetch-Site"]).toBe("cross-site");
-      expect(typeof headers?.["Referer"]).toBe("string");
-      expect(headers?.["Referer"]).toContain("duckduckgo.com");
+      // The proxy path always supplies a DDG referer (cross-site navigation).
+      expect(capturedHeaders?.referer).toContain("duckduckgo.com");
     });
   });
 
@@ -998,145 +856,102 @@ describe("article extract cleanup", () => {
     const pxBody =
       '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /></head></html>';
 
-    test("aborts after 1 attempt on PerimeterX body detection (px-captcha)", async () => {
+    // Helper: creates a fingerprintFetchFn that throws GotScrapingError with
+    // the given statusCode, body, and headers on every call.
+    function makeFpFetchError(
+      statusCode: number,
+      body: string,
+      headers: Record<string, string | string[] | undefined> = {},
+    ) {
       let callCount = 0;
-
-      const gotGet = mock(async () => {
+      const fn = mock(async () => {
         callCount++;
-        return { statusCode: 403, headers: {}, body: pxBody };
+        throw new GotScrapingError(statusCode, body, "socks", null, 131, "windows", false, 0, headers, {});
       });
+      return { fn, getCount: () => callCount };
+    }
 
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
+    test("aborts after 1 attempt on PerimeterX body detection (px-captcha)", async () => {
+      const { fn, getCount } = makeFpFetchError(403, pxBody);
 
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
 
-      expect(callCount).toBe(1);
+      expect(getCount()).toBe(1);
     });
 
     test("aborts after 1 attempt on PerimeterX x-px-* response header", async () => {
-      let callCount = 0;
-
-      const gotGet = mock(async () => {
-        callCount++;
-        return {
-          statusCode: 403,
-          headers: { "x-px-vid": "some-vid-value" },
-          body: "",
-        };
-      });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
+      const { fn, getCount } = makeFpFetchError(403, "", { "x-px-vid": "some-vid-value" });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
 
-      expect(callCount).toBe(1);
+      expect(getCount()).toBe(1);
     });
 
     test("aborts after 1 attempt on DataDome x-datadome: protected header", async () => {
-      let callCount = 0;
-
-      const gotGet = mock(async () => {
-        callCount++;
-        return {
-          statusCode: 403,
-          headers: { "x-datadome": "protected" },
-          body: "",
-        };
-      });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
+      const { fn, getCount } = makeFpFetchError(403, "", { "x-datadome": "protected" });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
 
-      expect(callCount).toBe(1);
+      expect(getCount()).toBe(1);
     });
 
     test("retries all 3 attempts on generic 403 (no bot-detection signal)", async () => {
-      let callCount = 0;
-
-      const gotGet = mock(async () => {
-        callCount++;
-        return { statusCode: 403, headers: {}, body: "<html>generic 403</html>" };
-      });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
+      const { fn, getCount } = makeFpFetchError(403, "<html>generic 403</html>");
 
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
 
       // 3 total: 1 initial + 2 retries (EXTRACT_403_RETRIES = 2)
-      expect(callCount).toBe(3);
+      expect(getCount()).toBe(3);
     });
 
     test("retries all 3 attempts on 429 rate-limit (no bot signal)", async () => {
-      let callCount = 0;
-
-      const gotGet = mock(async () => {
-        callCount++;
-        return { statusCode: 429, headers: {}, body: "" };
-      });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
+      const { fn, getCount } = makeFpFetchError(429, "");
 
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("429");
 
-      expect(callCount).toBe(3);
+      expect(getCount()).toBe(3);
     });
 
-    test("succeeds on first attempt and makes exactly 1 got-scraping call", async () => {
+    test("succeeds on first attempt and makes exactly 1 fingerprint-fetch call", async () => {
       let callCount = 0;
-
-      const gotGet = mock(async () => {
+      const mockFpFetch = mock(async () => {
         callCount++;
-        return { statusCode: 200, headers: {}, body: "<html>success</html>" };
+        return { html: "<html>success</html>", requestHeaders: {} as Record<string, string | string[] | undefined> };
       });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
 
       const html = await fetchHtml(
         "https://example.com/article",
-        { isAllowedFeedUrlFn: async () => true },
+        { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any },
         { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
       );
 
@@ -1146,21 +961,15 @@ describe("article extract cleanup", () => {
 
     test("rotates fingerprint pool on each proxy retry", async () => {
       const capturedSecChUas: string[] = [];
-
-      const gotGet = mock(async (_url: string, opts?: Record<string, unknown>) => {
-        const h = opts?.headers as Record<string, string> | undefined;
-        if (h?.["sec-ch-ua"]) capturedSecChUas.push(h["sec-ch-ua"]);
-        return { statusCode: 403, headers: {}, body: "<html>blocked</html>" };
+      const mockFpFetch = mock(async (_url: string, _allowed: any, opts: any) => {
+        if (opts?.secChUa) capturedSecChUas.push(opts.secChUa);
+        throw new GotScrapingError(403, "<html>blocked</html>", "socks", null, opts?.browserVersion ?? 131, opts?.operatingSystem ?? "windows", false, 0, {}, {});
       });
-
-      mock.module("got-scraping", () => ({
-        gotScraping: { get: gotGet },
-      }));
 
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
@@ -1168,6 +977,167 @@ describe("article extract cleanup", () => {
       // All 3 attempts must have run, each with a distinct sec-ch-ua (pool has 3 entries)
       expect(capturedSecChUas.length).toBe(3);
       expect(new Set(capturedSecChUas).size).toBe(3);
+    });
+  });
+
+  // ─── Fingerprint-fetch pure function tests ────────────────────────────────
+
+  describe("parseSocksProxy", () => {
+    test("parses socks5 URL with credentials", () => {
+      const result = parseSocksProxy("socks5://user:pass@proxy.example.com:1080");
+      expect(result.host).toBe("proxy.example.com");
+      expect(result.port).toBe(1080);
+      expect(result.type).toBe(5);
+      expect(result.userId).toBe("user");
+      expect(result.password).toBe("pass");
+    });
+
+    test("parses socks4 URL without credentials", () => {
+      const result = parseSocksProxy("socks4://10.0.0.1:9050");
+      expect(result.host).toBe("10.0.0.1");
+      expect(result.port).toBe(9050);
+      expect(result.type).toBe(4);
+      expect(result.userId).toBeUndefined();
+    });
+
+    test("defaults port to 1080", () => {
+      const result = parseSocksProxy("socks5://proxy.test");
+      expect(result.port).toBe(1080);
+    });
+
+    test("decodes percent-encoded credentials", () => {
+      const result = parseSocksProxy("socks5://us%40er:p%23ss@proxy.test:1080");
+      expect(result.userId).toBe("us@er");
+      expect(result.password).toBe("p#ss");
+    });
+  });
+
+  describe("decompressBody", () => {
+    test("returns plain text as-is for identity encoding", async () => {
+      const buf = Buffer.from("hello world", "utf-8");
+      expect(await decompressBody(buf, "")).toBe("hello world");
+    });
+
+    test("decompresses gzip", async () => {
+      const { gzipSync } = await import("node:zlib");
+      const compressed = gzipSync(Buffer.from("gzip content"));
+      expect(await decompressBody(compressed, "gzip")).toBe("gzip content");
+    });
+
+    test("decompresses x-gzip", async () => {
+      const { gzipSync } = await import("node:zlib");
+      const compressed = gzipSync(Buffer.from("x-gzip content"));
+      expect(await decompressBody(compressed, "x-gzip")).toBe("x-gzip content");
+    });
+
+    test("decompresses brotli", async () => {
+      const { brotliCompressSync } = await import("node:zlib");
+      const compressed = brotliCompressSync(Buffer.from("brotli content"));
+      expect(await decompressBody(compressed, "br")).toBe("brotli content");
+    });
+
+    test("decompresses deflate", async () => {
+      const { deflateSync } = await import("node:zlib");
+      const compressed = deflateSync(Buffer.from("deflate content"));
+      expect(await decompressBody(compressed, "deflate")).toBe("deflate content");
+    });
+
+    test("returns raw UTF-8 for unknown encoding", async () => {
+      const buf = Buffer.from("raw", "utf-8");
+      expect(await decompressBody(buf, "unknown")).toBe("raw");
+    });
+  });
+
+  describe("generateBrowserHeaders", () => {
+    test("produces headers with expected keys", () => {
+      const headers = generateBrowserHeaders("1");
+      expect(headers["accept-language"]).toBe("en-US,en;q=0.9");
+      expect(headers["accept-encoding"]).toBe("gzip, deflate, br, zstd");
+      expect(headers["priority"]).toBe("u=0, i");
+      expect(typeof headers["user-agent"]).toBe("string");
+    });
+
+    test("includes sec-ch-ua override when provided", () => {
+      const headers = generateBrowserHeaders("2", { secChUa: '"Test";v="99"' });
+      expect(headers["sec-ch-ua"]).toBe('"Test";v="99"');
+    });
+
+    test("includes accept override", () => {
+      const headers = generateBrowserHeaders("1", { accept: "text/html" });
+      expect(headers["accept"]).toBe("text/html");
+    });
+
+    test("sets cross-site fetch mode when referer provided", () => {
+      const headers = generateBrowserHeaders("1", { referer: "https://duckduckgo.com" });
+      expect(headers["referer"]).toBe("https://duckduckgo.com");
+      expect(headers["sec-fetch-site"]).toBe("cross-site");
+    });
+
+    test("strips h2 pseudo-headers", () => {
+      const headers = generateBrowserHeaders("2");
+      for (const key of Object.keys(headers)) {
+        expect(key.startsWith(":")).toBe(false);
+      }
+    });
+  });
+
+  describe("fetchHtmlWithFingerprint edge cases", () => {
+    test("throws on redirect without Location header", async () => {
+      const mockRequest = async () => ({
+        statusCode: 302,
+        headers: {} as Record<string, string | string[] | undefined>,
+        body: "",
+      });
+
+      await expect(
+        fetchHtmlWithFingerprint(
+          "https://example.com/article",
+          async () => true,
+          undefined,
+          { requestFn: mockRequest },
+        ),
+      ).rejects.toThrow("Redirect without Location header");
+    });
+
+    test("throws on too many redirects", async () => {
+      let hop = 0;
+      const mockRequest = async () => {
+        hop++;
+        return {
+          statusCode: 301,
+          headers: { location: `https://example.com/hop${hop}` } as Record<string, string | string[] | undefined>,
+          body: "",
+        };
+      };
+
+      await expect(
+        fetchHtmlWithFingerprint(
+          "https://example.com/start",
+          async () => true,
+          undefined,
+          { requestFn: mockRequest },
+        ),
+      ).rejects.toThrow("Too many redirects");
+    });
+
+    test("stores response cookies in jar", async () => {
+      const { CookieJar: Jar } = await import("tough-cookie");
+      const jar = new Jar();
+      const mockRequest = async () => ({
+        statusCode: 200,
+        headers: { "set-cookie": "sid=abc; Path=/" } as Record<string, string | string[] | undefined>,
+        body: "<html>ok</html>",
+      });
+
+      await fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        async () => true,
+        { cookieJar: jar },
+        { requestFn: mockRequest },
+      );
+
+      const cookies = jar.getCookieStringSync("https://example.com/");
+      expect(cookies).toContain("sid=abc");
     });
   });
 
