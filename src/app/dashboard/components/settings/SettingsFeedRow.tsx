@@ -95,13 +95,24 @@ export function SettingsFeedRow({
   const isProxyEnabled = feedNode.data?.proxyEnabled === true;
   const isTogglingEnabled = togglingFeedKey === feedNode.key;
   const isUpdatingSettings = updatingSettingsKey === feedNode.key;
+  const isDeleting = deletingKey === feedNode.key;
+  const isDragging = draggingFeedKey === feedNode.key;
   const isEditing = editingFeedKey === feedNode.key;
+  const settingsBusy = isUpdatingSettings || isTogglingEnabled || isDeleting;
   const isDropBefore =
     feedDropTarget?.categoryLabel === categoryLabel &&
     feedDropTarget?.index === index;
   const isDropAfter =
     feedDropTarget?.categoryLabel === categoryLabel &&
     feedDropTarget?.index === index + 1;
+
+  const [pendingSetting, setPendingSetting] = useState<
+    "extraction" | "proxy" | null
+  >(null);
+
+  useEffect(() => {
+    if (!isUpdatingSettings) setPendingSetting(null);
+  }, [isUpdatingSettings]);
 
   const resolveTargetIndexFromPointer = (
     event: React.DragEvent<HTMLElement>,
@@ -113,8 +124,7 @@ export function SettingsFeedRow({
 
   return (
     <div
-      key={feedNode.key}
-      className={`relative flex items-center gap-2 rounded-md border px-3 py-2 ${animTransitionColorsClass}`}
+      className={`relative flex items-center gap-2 rounded-md border px-3 py-2 ${animTransitionColorsClass}${isDeleting ? " border-destructive/30 opacity-50" : ""}`}
       onDragOver={(event) => {
         const targetIndex = resolveTargetIndexFromPointer(event);
         onDragOver(event, categoryLabel, targetIndex);
@@ -235,17 +245,14 @@ export function SettingsFeedRow({
           tip={
             isExtractionDisabled ? "Enable extraction" : "Disable extraction"
           }
-          onClick={() =>
-            onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled)
-          }
-          disabled={
-            isUpdatingSettings ||
-            isTogglingEnabled ||
-            deletingKey === feedNode.key
-          }
+          onClick={() => {
+            setPendingSetting("extraction");
+            onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled);
+          }}
+          disabled={settingsBusy}
           className={isExtractionDisabled ? "text-muted-foreground/50" : ""}
         >
-          {isUpdatingSettings ? (
+          {isUpdatingSettings && pendingSetting === "extraction" ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : isExtractionDisabled ? (
             <FileX className="size-3.5" />
@@ -255,17 +262,16 @@ export function SettingsFeedRow({
         </SettingsIconButton>
         <SettingsIconButton
           tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
-          onClick={() => onToggleProxyEnabled(feedNode.key, !isProxyEnabled)}
-          disabled={
-            isUpdatingSettings ||
-            isTogglingEnabled ||
-            deletingKey === feedNode.key
-          }
+          onClick={() => {
+            setPendingSetting("proxy");
+            onToggleProxyEnabled(feedNode.key, !isProxyEnabled);
+          }}
+          disabled={settingsBusy}
           className={
             isProxyEnabled ? "text-primary/80" : "text-muted-foreground/50"
           }
         >
-          {isUpdatingSettings ? (
+          {isUpdatingSettings && pendingSetting === "proxy" ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : isProxyEnabled ? (
             <Shield className="size-3.5" />
@@ -276,11 +282,7 @@ export function SettingsFeedRow({
         <SettingsIconButton
           tip={isEnabled ? "Disable feed" : "Enable feed"}
           onClick={() => onToggleEnabled(feedNode.key, !isEnabled)}
-          disabled={
-            isTogglingEnabled ||
-            deletingKey === feedNode.key ||
-            draggingFeedKey === feedNode.key
-          }
+          disabled={isTogglingEnabled || isDeleting || isDragging}
         >
           {isTogglingEnabled ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -290,17 +292,14 @@ export function SettingsFeedRow({
             <EyeOff className="size-3.5" />
           )}
         </SettingsIconButton>
+        <div className="mx-0.5 h-4 w-px bg-border/40" />
         <SettingsIconButton
           tip="Remove feed"
           onClick={() => onRemove(feedNode.key)}
-          disabled={
-            deletingKey === feedNode.key ||
-            draggingFeedKey === feedNode.key ||
-            isTogglingEnabled
-          }
+          disabled={isDeleting || isDragging || isTogglingEnabled}
           className="text-muted-foreground hover:text-destructive"
         >
-          {deletingKey === feedNode.key ? (
+          {isDeleting ? (
             <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <Trash2 className="size-3.5" />
