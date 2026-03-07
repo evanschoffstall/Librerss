@@ -30,7 +30,7 @@ export function SettingsDisplaySection({
   return (
     <section className="rounded-lg border bg-card p-4 space-y-4">
       <div>
-        <h3 className="flex items-center gap-2 font-semibold">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
           <Monitor className="size-3.5 text-muted-foreground" />
           Display
         </h3>
