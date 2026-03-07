@@ -162,14 +162,14 @@ export function SettingsCategoryList({
             onCategoryDragOver={drag.onCategoryDragOver}
             onCategoryDrop={drag.onCategoryDrop}
             onEditingCategoryNameChange={onEditingCategoryNameChange}
-            onSaveCategoryRename={(label) => onSaveCategoryRename(label)}
+            onSaveCategoryRename={onSaveCategoryRename}
             onCancelCategoryEdit={onCancelCategoryEdit}
-            onStartCategoryEdit={(label) => onStartCategoryEdit(label)}
-            onToggleAddFeed={(label) => onToggleAddFeed(label)}
-            onRemoveCategory={(label) => onRemoveCategory(label)}
+            onStartCategoryEdit={onStartCategoryEdit}
+            onToggleAddFeed={onToggleAddFeed}
+            onRemoveCategory={onRemoveCategory}
             onNewFeedNameChange={onNewFeedNameChange}
             onNewFeedUrlChange={onNewFeedUrlChange}
-            onAddFeed={(label) => onAddFeed(label)}
+            onAddFeed={onAddFeed}
             onCancelAddFeed={onCancelAddFeed}
             {...sharedFeedRowProps}
           />

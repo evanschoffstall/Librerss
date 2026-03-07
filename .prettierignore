@@ -8,4 +8,5 @@ drizzle/meta/
 public/placeholder-articles/
 src/__tests__/
 src/components/ui/
+tests/templates/
 .gitleaks.toml

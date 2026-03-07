@@ -23,6 +23,8 @@ export const users = pgTable("User", {
     withTimezone: true,
   }),
   proxyUrl: text("proxy_url"),
+  proxyUsername: text("proxy_username"),
+  proxyPassword: text("proxy_password"),
   allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
 });
 

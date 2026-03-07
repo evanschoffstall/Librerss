@@ -1,5 +1,5 @@
 {
   "project": "tsconfig.json",
   "skip": "(node_modules|\\.next|coverage|dist|build|src/components/ui)",
-  "ignore": "(src/app/|src/lib/(extract/index|api/http/index|utils/index|index)\\.ts|(drizzle|next|tailwind)\\.config)"
+  "ignore": "(src/app/|src/lib/(extract/index|api/http/index|utils/index|fetch/index|index)\\.ts|(drizzle|next|tailwind)\\.config)"
 }

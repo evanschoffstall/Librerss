@@ -16,9 +16,13 @@ import {
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
+import {
+  generateOpml,
+  type CategoryTreeNode,
+  type OpmlFeedImportEntry,
+} from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import { Loader2, Plus, Rss, Settings2, X } from "lucide-react";
+import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import { SettingsCategoryList } from "./SettingsCategoryList";
@@ -28,7 +32,6 @@ import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
-
 interface SettingsModalProps {
   onClose: () => void;
   categories: CategoryTreeNode[];
@@ -99,7 +102,7 @@ function SettingsBody({
       <section className="rounded-lg border bg-card p-4 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="flex items-center gap-2 font-semibold">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
               <Rss className="size-3.5 text-muted-foreground" />
               Feeds
             </h3>
@@ -115,6 +118,24 @@ function SettingsBody({
               className="hidden"
               onChange={state.handleOpmlFileChange}
             />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => {
+                const xml = generateOpml(categories);
+                const blob = new Blob([xml], { type: "text/xml" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "librerss-subscriptions.opml";
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}
+            >
+              <Download className="mr-1.5 size-3.5" />
+              Export OPML
+            </Button>
             <Button
               type="button"
               size="sm"
@@ -228,9 +249,14 @@ export const SettingsModal = ({
     onRemoveCategory,
   } as const;
 
+  const handleModalOpenChange = (open: boolean) => {
+    if (open) return;
+    onClose();
+  };
+
   if (isMobile) {
     return (
-      <Drawer open onOpenChange={(open) => !open && onClose()}>
+      <Drawer open onOpenChange={handleModalOpenChange}>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-left">
@@ -252,7 +278,7 @@ export const SettingsModal = ({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={handleModalOpenChange}>
       <DialogContent className="h-[90vh] max-h-[90vh] max-w-3xl overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

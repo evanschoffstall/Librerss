@@ -166,9 +166,7 @@ export function toCategoryLookupKey(feedUrl: string): string {
  */
 export function redactUrlForLogs(raw: string): string {
   const trimmed = raw.trim();
-  if (!trimmed) {
-    return "[empty-url]";
-  }
+  if (!trimmed) return "[empty-url]";
 
   try {
     const parsed = new URL(trimmed);
@@ -176,8 +174,35 @@ export function redactUrlForLogs(raw: string): string {
     parsed.password = "";
     parsed.search = "";
     parsed.hash = "";
+    // Non-special schemes (socks5://, socks4://, etc.) and bare host:port
+    // parsed as a scheme produce an opaque origin (the string "null").
+    // Reconstruct from components to avoid returning the misleading literal.
+    if (parsed.origin === "null") {
+      const portPart = parsed.port ? `:${parsed.port}` : "";
+      const hostPart = parsed.hostname ? `//${parsed.hostname}${portPart}` : "";
+      return `${parsed.protocol}${hostPart}${parsed.pathname}`;
+    }
     return `${parsed.origin}${parsed.pathname}`;
   } catch {
     return "[invalid-url]";
+  }
+}
+
+/**
+ * Injects username/password credentials into a proxy URL.
+ * Returns the original URL if it's unparseable.
+ */
+export function injectProxyCredentials(
+  proxyUrl: string,
+  username: string,
+  password: string,
+): string {
+  try {
+    const parsed = new URL(proxyUrl);
+    parsed.username = encodeURIComponent(username);
+    parsed.password = encodeURIComponent(password);
+    return parsed.toString();
+  } catch {
+    return proxyUrl;
   }
 }

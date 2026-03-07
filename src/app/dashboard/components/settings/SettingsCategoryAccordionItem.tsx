@@ -10,11 +10,9 @@ import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
 import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
 import {
   SettingsIconButton,
+  animTransitionColorsClass,
   settingsDragHandleCls,
 } from "./SettingsIconButton";
-
-const animTransitionColorsClass =
-  "transition-colors anim-duration-ui anim-ease-ui";
 
 interface SettingsCategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
@@ -141,7 +139,6 @@ export function SettingsCategoryAccordionItem({
 
   return (
     <div
-      key={`${categoryNode.key}-motion`}
       className={
         categoryDropIndex === categoryIndex
           ? `rounded-md border border-primary bg-primary/5 ${animTransitionColorsClass}`
@@ -217,6 +214,11 @@ export function SettingsCategoryAccordionItem({
                 title="Double-click to rename"
               >
                 {categoryNode.label}
+                {categoryFeeds.length > 0 && (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] leading-none tabular-nums font-normal normal-case tracking-normal text-muted-foreground/60">
+                    {categoryFeeds.length}
+                  </span>
+                )}
               </span>
             </AccordionTrigger>
           )}
@@ -252,53 +254,58 @@ export function SettingsCategoryAccordionItem({
         <AccordionContent className="px-3 pb-3">
           {isAddingFeed && (
             <div
-              className={`mb-2 flex items-center gap-2 rounded-md border border-dashed p-2 ${animTransitionColorsClass}`}
+              className={`mb-2 space-y-2 rounded-md border border-dashed p-2.5 ${animTransitionColorsClass}`}
             >
-              <Input
-                value={newFeedName}
-                onChange={(e) => onNewFeedNameChange(e.target.value)}
-                placeholder="Feed name"
-                className="h-8 text-sm"
-                autoFocus
-              />
-              <Input
-                value={newFeedUrl}
-                onChange={(e) => onNewFeedUrlChange(e.target.value)}
-                placeholder="https://example.com/feed.xml"
-                className="h-8 text-sm"
-                onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    newFeedName.trim() &&
-                    newFeedUrl.trim()
-                  ) {
-                    onAddFeed(categoryNode.label);
+              <div className="flex gap-2">
+                <Input
+                  value={newFeedName}
+                  onChange={(e) => onNewFeedNameChange(e.target.value)}
+                  placeholder="Feed name"
+                  className="h-8 text-sm"
+                  autoFocus
+                />
+                <Input
+                  value={newFeedUrl}
+                  onChange={(e) => onNewFeedUrlChange(e.target.value)}
+                  placeholder="https://example.com/feed.xml"
+                  className="h-8 flex-[2] text-sm"
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === "Enter" &&
+                      newFeedName.trim() &&
+                      newFeedUrl.trim()
+                    ) {
+                      onAddFeed(categoryNode.label);
+                    }
+                    if (e.key === "Escape") onCancelAddFeed();
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-3 text-xs"
+                  onClick={onCancelAddFeed}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={() => onAddFeed(categoryNode.label)}
+                  disabled={
+                    !newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed
                   }
-                  if (e.key === "Escape") onCancelAddFeed();
-                }}
-              />
-              <Button
-                size="sm"
-                className="h-8 shrink-0"
-                onClick={() => onAddFeed(categoryNode.label)}
-                disabled={
-                  !newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed
-                }
-              >
-                {isSavingFeed ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  "Add"
-                )}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 shrink-0 px-2"
-                onClick={onCancelAddFeed}
-              >
-                Cancel
-              </Button>
+                >
+                  {isSavingFeed ? (
+                    <Loader2 className="mr-1 size-3 animate-spin" />
+                  ) : (
+                    <Plus className="mr-1 size-3" />
+                  )}
+                  {isSavingFeed ? "Saving…" : "Add Feed"}
+                </Button>
+              </div>
             </div>
           )}
 

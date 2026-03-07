@@ -180,16 +180,20 @@ export class FeedService {
 
 // ── ArticleService ────────────────────────────────────────────────────────────
 
+type ProxySettings = {
+  configured: boolean;
+  proxyUrl: string | null;
+  status: "reachable" | "unreachable" | "checking";
+  allowInsecureTls: boolean;
+  proxyUsername: string | null;
+  hasProxyPassword: boolean;
+  error?: string;
+};
+
 export class ArticleService {
   private static baseUrl = "/api";
   private static greaderBaseUrl = "/api/greader.php/reader/api/0";
-  private static proxySettingsRequest: Promise<{
-    configured: boolean;
-    proxyUrl: string | null;
-    status: "reachable" | "unreachable" | "checking";
-    allowInsecureTls: boolean;
-    error?: string;
-  }> | null = null;
+  private static proxySettingsRequest: Promise<ProxySettings> | null = null;
 
   private static streamContentsUrl(streamId: string): string {
     return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
@@ -228,13 +232,7 @@ export class ArticleService {
     return response.data;
   }
 
-  static async getProxySettings(): Promise<{
-    configured: boolean;
-    proxyUrl: string | null;
-    status: "reachable" | "unreachable" | "checking";
-    allowInsecureTls: boolean;
-    error?: string;
-  }> {
+  static async getProxySettings(): Promise<ProxySettings> {
     if (!this.proxySettingsRequest) {
       this.proxySettingsRequest = getApiClient()
         .get(`${this.baseUrl}/settings/proxy`)
@@ -249,17 +247,34 @@ export class ArticleService {
 
   static async saveProxyUrl(
     proxyUrl: string | null,
-    options?: { allowInsecureTls?: boolean },
-  ): Promise<{
-    configured: boolean;
-    proxyUrl: string | null;
-    status: "reachable" | "unreachable" | "checking";
-    allowInsecureTls: boolean;
-    error?: string;
-  }> {
+    options?: {
+      allowInsecureTls?: boolean;
+      proxyUsername?: string | null;
+      proxyPassword?: string | null;
+    },
+  ): Promise<ProxySettings> {
     const response = await getApiClient().put(
       `${this.baseUrl}/settings/proxy`,
       { proxyUrl, ...options },
+    );
+    return response.data;
+  }
+
+  static async testBotDetection(options?: { useProxy?: boolean }): Promise<{
+    results: Array<{
+      site: string;
+      url: string;
+      protection: string;
+      success: boolean;
+      blocked: boolean;
+      statusCode?: number;
+      error?: string;
+      responseSize?: number;
+    }>;
+  }> {
+    const response = await getApiClient().post(
+      `${this.baseUrl}/settings/proxy/test-bot-detection`,
+      options ?? {},
     );
     return response.data;
   }

@@ -192,17 +192,18 @@ export function useArticleActions({
           window.clearTimeout(collapseScrollTimeoutRef.current);
         }
         // After the collapse CSS transition (~150–240ms), scroll to the top of the
-        // target article: next article if already read, current article if unread.
-        const nextArticle = article.isRead
-          ? getNextArticle(feedRef.current, article.id)
-          : null;
+        // target article: keep position in read filter, otherwise next if already read.
+        const nextArticle =
+          articleFilter === "unread" && article.isRead
+            ? getNextArticle(feedRef.current, article.id)
+            : null;
         const scrollTargetKey = nextArticle
           ? getArticleKey(nextArticle)
           : nextArticleKey;
         collapseScrollTimeoutRef.current = window.setTimeout(() => {
           scrollArticleToTop(scrollTargetKey);
           collapseScrollTimeoutRef.current = null;
-        }, 250);
+        }, 700);
 
         // Schedule animated removal from the unread filter for read articles
         if (articleFilter === "unread" && article.isRead) {
