@@ -444,12 +444,12 @@ export const ArticleCard = ({
               ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
               : undefined,
         }}
-        className={`group relative overflow-visible rounded-xl border border-border dark:shadow-2xl dark:shadow-zinc-900/50 transition-[max-height,border-color] duration-700 anim-ease-ui ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        className={`group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 transition-[max-height,border-color,border-radius] duration-700 anim-ease-ui ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
       >
         {/* Header zone — sticky when expanded */}
         <div
           ref={headerZoneRef}
-          className={`relative transition-[padding,background-color] duration-700 anim-ease-ui ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-t-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
+          className={`relative transition-[padding,background-color] duration-700 anim-ease-ui ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
           style={
             visuallyExpanded
               ? {
@@ -459,7 +459,9 @@ export const ArticleCard = ({
               : undefined
           }
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl">
+          <div
+            className={`pointer-events-none absolute inset-0 overflow-hidden ${visuallyExpanded ? "rounded-xl" : "rounded-t-xl"}`}
+          >
             <div className={gradientCls} style={headerGradientStyle} />
           </div>
           <div className="relative z-10 space-y-2">
@@ -679,9 +681,11 @@ export const ArticleCard = ({
         {/* Content zone */}
         <div
           ref={contentZoneRef}
-          className={`relative bg-card/70 rounded-b-xl transition-[padding] duration-700 anim-ease-ui ${visuallyExpanded ? "px-4 pt-3 pb-4" : "px-3 pt-2 pb-3"}`}
+          className={`relative bg-card/70 transition-[padding,border-radius] duration-700 anim-ease-ui ${visuallyExpanded ? "rounded-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl">
+          <div
+            className={`pointer-events-none absolute inset-0 overflow-hidden ${visuallyExpanded ? "rounded-xl" : "rounded-b-xl"}`}
+          >
             <div className={gradientCls} style={contentGradientStyle} />
           </div>
           <div className="relative z-10">
