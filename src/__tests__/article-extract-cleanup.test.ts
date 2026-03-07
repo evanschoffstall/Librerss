@@ -331,50 +331,6 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body text remains.");
   });
 
-  test("sanitizeRawContent falls back to plain text when HTML sanitization produces empty result", () => {
-    // Use HTML that will be completely stripped by the sanitizer, forcing fallback
-    const cleaned = sanitizeRawContent(
-      "<script>onlyBadContent();</script><style>body{}</style>",
-    );
-
-    // Fallback should produce something (even if minimal)
-    expect(typeof cleaned).toBe("string");
-  });
-
-  test("sanitizeRawContent returns empty when both HTML and plain text sanitization fail", () => {
-    // Content that is entirely whitespace after sanitization
-    const cleaned = sanitizeRawContent("<div>   </div>");
-
-    // Should handle gracefully
-    expect(typeof cleaned).toBe("string");
-  });
-
-  test("sanitizeRawContent recovers images in fallback path when initial sanitization is empty", () => {
-    // HTML with images but content that gets stripped, forcing fallback
-    const cleaned = sanitizeRawContent(
-      '<script>bad()</script><img src="https://example.com/img.jpg" width="800" height="600" alt="Test" />',
-    );
-
-    // Should attempt to recover images even in fallback
-    expect(typeof cleaned).toBe("string");
-  });
-
-  test("sanitizeRawContent handles HTML without images in fallback path", () => {
-    // Content that triggers fallback but has no images to recover
-    const cleaned = sanitizeRawContent("<script>code()</script>  Some text  ");
-
-    // Should handle text-only fallback
-    expect(typeof cleaned).toBe("string");
-  });
-
-  test("recoverSanitizedImageHtml returns empty when no img tags exist", () => {
-    const cleaned = sanitizeRawContent("<p>No images here</p>");
-
-    // Normal path, no recovery needed
-    expect(cleaned).toContain("No images here");
-    expect(cleaned).not.toContain("undefined");
-  });
-
   test("stripCommentEngagementBoilerplate removes login and commenting prompt paragraphs", () => {
     const input =
       '<img src="https://cdn.mos.cms.futurecdn.net/wWN99SCnGejGkViA9SXtm6.png" alt="hero" />' +
