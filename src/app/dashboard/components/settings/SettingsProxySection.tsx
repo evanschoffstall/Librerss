@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ArticleService } from "@/lib/api/services";
 import {
+  Bug,
   Globe,
   Save,
   Shield,
@@ -52,6 +53,8 @@ export function SettingsProxySection() {
   const [proxyPassword, setProxyPassword] = useState("");
   const [hasProxyPassword, setHasProxyPassword] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [testingBot, setTestingBot] = useState(false);
+  const [botTestResult, setBotTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     ArticleService.getProxySettings()
@@ -125,6 +128,44 @@ export function SettingsProxySection() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestBotDetection = async (useProxy: boolean) => {
+    setTestingBot(true);
+    setBotTestResult(null);
+    setError(null);
+    try {
+      const response = await ArticleService.testBotDetection({ useProxy });
+      const { results } = response as {
+        results: Array<{
+          site: string;
+          url: string;
+          protection: string;
+          success: boolean;
+          blocked: boolean;
+          statusCode?: number;
+          error?: string;
+        }>;
+      };
+
+      const statusLines = results.map((r) => {
+        if (r.success && !r.blocked) {
+          return `✅ ${r.protection}: Passed (HTTP ${r.statusCode})`;
+        } else if (r.blocked) {
+          return `🛡 ${r.protection}: Blocked/Challenged${r.statusCode ? ` (HTTP ${r.statusCode})` : ""}`;
+        } else {
+          return `❌ ${r.protection}: ${r.error ?? "Failed"}`;
+        }
+      });
+
+      setBotTestResult(statusLines.join(" · "));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Test failed";
+      setBotTestResult(`Test failed: ${msg}`);
+      setError(msg);
+    } finally {
+      setTestingBot(false);
     }
   };
 
@@ -223,6 +264,27 @@ export function SettingsProxySection() {
       </div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}
+
+      <div className="flex flex-col gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 w-full"
+          onClick={() => handleTestBotDetection(!!hasProxy)}
+          disabled={testingBot || saving}
+        >
+          <Bug className="size-3.5 mr-1.5" />
+          {testingBot
+            ? "Testing anti-bot protections..."
+            : `Test Anti-Bot (DataDome + PerimeterX)${hasProxy ? " via Proxy" : ""}`}
+        </Button>
+        {botTestResult && (
+          <p className="text-xs leading-relaxed text-muted-foreground border-l-2 border-muted pl-2">
+            {botTestResult}
+          </p>
+        )}
+      </div>
 
       <div className="flex items-center justify-between gap-2">
         <Label

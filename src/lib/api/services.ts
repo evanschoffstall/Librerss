@@ -260,6 +260,25 @@ export class ArticleService {
     return response.data;
   }
 
+  static async testBotDetection(options?: { useProxy?: boolean }): Promise<{
+    results: Array<{
+      site: string;
+      url: string;
+      protection: string;
+      success: boolean;
+      blocked: boolean;
+      statusCode?: number;
+      error?: string;
+      responseSize?: number;
+    }>;
+  }> {
+    const response = await getApiClient().post(
+      `${this.baseUrl}/settings/proxy/test-bot-detection`,
+      options ?? {},
+    );
+    return response.data;
+  }
+
   static async getReaderStream(streamId: string): Promise<Article[]> {
     const response = await getApiClient().get<ReaderApiStreamResponse>(
       this.streamContentsUrl(streamId),
