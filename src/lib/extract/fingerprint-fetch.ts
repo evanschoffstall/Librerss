@@ -3,19 +3,10 @@ import { logger } from "@/lib/logger";
 import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
-import * as dns from "dns";
 import { HeaderGenerator } from "header-generator";
-import * as http from "http";
-import * as http2 from "http2";
-import * as https from "https";
-import * as net from "net";
-// node-tls-client is loaded dynamically to avoid Turbopack bundling its native
-// Go FFI library (koffi) — it must remain server-external.
-import { type SocksClientOptions } from "socks";
-import * as tls from "tls";
+import type { SocksClientOptions } from "socks";
 import { CookieJar } from "tough-cookie";
 import * as zlib from "zlib";
-import { SOCKS_PROTOCOLS } from "./proxy-config";
 
 // Dedicated axios instance with cookie jar support for article extraction.
 export const extractionAxios = cookieJarWrapper(axios.create());
@@ -43,10 +34,12 @@ async function ensureTlsClient(): Promise<boolean> {
     const { initTLS } = await import("node-tls-client");
     await initTLS();
     tlsReady = true;
-    logger.info("node-tls-client initialized (uTLS Chrome fingerprint active)");
+    logger.info(
+      "node-tls-client initialized (Chrome 131 uTLS fingerprint active)",
+    );
   } catch (err) {
     tlsReady = false;
-    logger.error("node-tls-client init failed, falling back to OpenSSL", {
+    logger.error("node-tls-client init failed", {
       error: err instanceof Error ? err.message : String(err),
     });
   }
@@ -182,448 +175,10 @@ export function parseSocksProxy(proxyUrl: string): SocksClientOptions["proxy"] {
   };
 }
 
-interface SocksTunnelResult {
-  socket: net.Socket;
-  /** Actual IP of the SOCKS server TCP peer — used for proxy-IP verification. */
-  proxyIp: string | undefined;
-  /** Destination as acknowledged by the SOCKS server. */
-  remoteHost: { host: string; port: number } | undefined;
-}
-
-const SOCKS5_ERRORS: Record<number, string> = {
-  0x01: "general failure",
-  0x02: "connection not allowed",
-  0x03: "network unreachable",
-  0x04: "host unreachable",
-  0x05: "connection refused",
-  0x06: "TTL expired",
-  0x07: "command not supported",
-  0x08: "address type not supported",
-};
-
-/**
- * Manual SOCKS5 tunnel that offers ONLY user/pass auth when credentials are
- * present. The `socks` npm package always offers [no-auth, user/pass], letting
- * the server pick. If the server picks no-auth, credentials are never sent and
- * the session is treated as unauthenticated — causing routing failures on
- * providers like PIA that enforce auth for outbound tunnels. Offering only
- * user/pass forces the server to authenticate properly.
- *
- * For `socks5://` (local DNS) the target hostname is resolved here and sent as
- * ATYP 0x01 (IPv4). For `socks5h://` the domain is forwarded to the proxy
- * (ATYP 0x03) for remote resolution. PIA NL has broken DNS resolution on its
- * SOCKS5 servers — local resolution avoids "host unreachable" for every domain.
- */
-async function socksTunnel(
-  proxyUrl: string,
-  host: string,
-  port: number,
-): Promise<SocksTunnelResult> {
-  const parsed = new URL(proxyUrl);
-  const proxyHost = parsed.hostname;
-  const proxyPort = Number(parsed.port) || 1080;
-  const username = parsed.username ? decodeURIComponent(parsed.username) : null;
-  const password = parsed.password ? decodeURIComponent(parsed.password) : null;
-  const hasCredentials = !!username && !!password;
-  // socks5h: → proxy resolves DNS (ATYP 0x03 domain); socks5: → local DNS (ATYP 0x01 IPv4).
-  const useRemoteDns = parsed.protocol === "socks5h:";
-
-  // Resolve target hostname locally when using socks5:// (not socks5h://).
-  // PIA NL SOCKS5 servers return "host unreachable" for ATYP 0x03 domain
-  // requests because their DNS resolver is broken.
-  let resolvedIp: string | null = null;
-  if (!useRemoteDns && !net.isIP(host)) {
-    try {
-      const addrs = await dns.promises.resolve4(host);
-      if (addrs.length > 0) resolvedIp = addrs[0];
-    } catch (err) {
-      throw new Error(
-        `SOCKS5: local DNS resolution failed for ${host}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  return new Promise<SocksTunnelResult>((resolve, reject) => {
-    const socket = new net.Socket();
-    socket.setTimeout(25_000);
-    socket.once("error", reject);
-    socket.once("timeout", () => reject(new Error("SOCKS5 tunnel timed out")));
-
-    // Stage machine: greeting → [auth] → connect → done
-    type Stage = "greeting" | "auth" | "connect";
-    let stage: Stage = "greeting";
-    let buf = Buffer.alloc(0);
-
-    const fail = (msg: string) => {
-      socket.destroy();
-      reject(new Error(msg));
-    };
-
-    socket.on("data", (chunk: Buffer) => {
-      buf = Buffer.concat([buf, chunk]);
-
-      if (stage === "greeting") {
-        if (buf.length < 2) return;
-        if (buf[0] !== 0x05) return fail("SOCKS5: invalid server version");
-        const method = buf[1];
-        buf = buf.slice(2);
-        if (method === 0xff) return fail("SOCKS5: no acceptable auth method");
-        if (method === 0x02 && hasCredentials) {
-          stage = "auth";
-          const user = Buffer.from(username!, "utf8");
-          const pass = Buffer.from(password!, "utf8");
-          const msg = Buffer.alloc(3 + user.length + pass.length);
-          msg[0] = 0x01;
-          msg[1] = user.length;
-          user.copy(msg, 2);
-          msg[2 + user.length] = pass.length;
-          pass.copy(msg, 3 + user.length);
-          socket.write(msg);
-          return;
-        }
-        if (method === 0x00 && !hasCredentials) {
-          sendConnect();
-          return;
-        }
-        return fail(`SOCKS5: unexpected auth method 0x${method.toString(16)}`);
-      }
-
-      if (stage === "auth") {
-        if (buf.length < 2) return;
-        if (buf[0] !== 0x01) return fail("SOCKS5: invalid auth response");
-        if (buf[1] !== 0x00) return fail("SOCKS5: authentication failed");
-        buf = buf.slice(2);
-        sendConnect();
-        return;
-      }
-
-      if (stage === "connect") {
-        // SOCKS5 CONNECT reply: VER(1) REP(1) RSV(1) ATYP(1) BND.ADDR BND.PORT
-        if (buf.length < 4) return;
-        if (buf[0] !== 0x05)
-          return fail("SOCKS5: invalid CONNECT response version");
-        const rep = buf[1];
-        if (rep !== 0x00)
-          return fail(
-            `SOCKS5: CONNECT failed — ${SOCKS5_ERRORS[rep] ?? `error 0x${rep.toString(16)}`}`,
-          );
-        // Parse BND.ADDR to get remoteHost for leak verification
-        const atyp = buf[3] ?? 0;
-        let remoteHost: { host: string; port: number } | undefined;
-        try {
-          let offset = 4;
-          let boundHost = "";
-          if (atyp === 0x01) {
-            // IPv4
-            if (buf.length < 10) return;
-            boundHost = `${buf[4]}.${buf[5]}.${buf[6]}.${buf[7]}`;
-            offset = 8;
-          } else if (atyp === 0x03) {
-            // Domain
-            const len = buf[4] ?? 0;
-            if (buf.length < 5 + len + 2) return;
-            boundHost = buf.slice(5, 5 + len).toString("utf8");
-            offset = 5 + len;
-          } else if (atyp === 0x04) {
-            // IPv6
-            if (buf.length < 22) return;
-            const parts: string[] = [];
-            for (let i = 0; i < 16; i += 2)
-              parts.push(buf.readUInt16BE(4 + i).toString(16));
-            boundHost = parts.join(":");
-            offset = 20;
-          }
-          if (boundHost) {
-            const boundPort = buf.readUInt16BE(offset);
-            remoteHost = { host: boundHost, port: boundPort };
-          }
-        } catch {
-          // Parsing BND.ADDR is optional — tunnel is established regardless.
-        }
-        socket.setTimeout(0); // clear before handing off — caller sets its own
-        socket.removeAllListeners("data");
-        socket.removeAllListeners("error");
-        socket.removeAllListeners("timeout");
-        resolve({
-          socket,
-          proxyIp: socket.remoteAddress,
-          remoteHost,
-        });
-      }
-    });
-
-    const sendConnect = () => {
-      stage = "connect";
-      let req: Buffer;
-      if (resolvedIp && net.isIPv4(resolvedIp)) {
-        // ATYP=0x01 (IPv4) — locally resolved address, avoids proxy-side DNS.
-        req = Buffer.alloc(10);
-        req[0] = 0x05; // VER
-        req[1] = 0x01; // CMD: CONNECT
-        req[2] = 0x00; // RSV
-        req[3] = 0x01; // ATYP: IPv4
-        const parts = resolvedIp.split(".").map(Number);
-        req[4] = parts[0];
-        req[5] = parts[1];
-        req[6] = parts[2];
-        req[7] = parts[3];
-        req.writeUInt16BE(port, 8);
-      } else if (net.isIP(host)) {
-        // Host is already an IP address.
-        req = Buffer.alloc(10);
-        req[0] = 0x05;
-        req[1] = 0x01;
-        req[2] = 0x00;
-        req[3] = 0x01;
-        const parts = host.split(".").map(Number);
-        req[4] = parts[0];
-        req[5] = parts[1];
-        req[6] = parts[2];
-        req[7] = parts[3];
-        req.writeUInt16BE(port, 8);
-      } else {
-        // ATYP=0x03 (domain name) — proxy resolves DNS (socks5h:// mode).
-        const hostBuf = Buffer.from(host, "utf8");
-        req = Buffer.alloc(7 + hostBuf.length);
-        req[0] = 0x05;
-        req[1] = 0x01;
-        req[2] = 0x00;
-        req[3] = 0x03;
-        req[4] = hostBuf.length;
-        hostBuf.copy(req, 5);
-        req.writeUInt16BE(port, 5 + hostBuf.length);
-      }
-      socket.write(req);
-    };
-
-    socket.connect(proxyPort, proxyHost, () => {
-      // Offer ONLY user/pass when credentials present — forces auth, no bypass.
-      const greeting = hasCredentials
-        ? Buffer.from([0x05, 0x01, 0x02])
-        : Buffer.from([0x05, 0x01, 0x00]);
-      socket.write(greeting);
-    });
-  });
-}
-
-/**
- * Chrome 135 JA3-matched TLS parameters.
- * Cipher order, curves, and sig algs must match Chrome exactly — WAFs like
- * DataDome fingerprint the TLS ClientHello independent of HTTP headers.
- */
-const CHROME_TLS = {
-  ciphers: [
-    "ECDHE-ECDSA-AES128-GCM-SHA256",
-    "ECDHE-RSA-AES128-GCM-SHA256",
-    "ECDHE-ECDSA-CHACHA20-POLY1305",
-    "ECDHE-RSA-CHACHA20-POLY1305",
-    "ECDHE-ECDSA-AES256-GCM-SHA384",
-    "ECDHE-RSA-AES256-GCM-SHA384",
-    "ECDHE-RSA-AES128-SHA",
-    "ECDHE-RSA-AES256-SHA",
-    "AES128-GCM-SHA256",
-    "AES256-GCM-SHA384",
-  ].join(":"),
-  ecdhCurve: "X25519:P-256:P-384",
-  sigalgs: [
-    "ecdsa_secp256r1_sha256",
-    "rsa_pss_rsae_sha256",
-    "rsa_pkcs1_sha256",
-    "ecdsa_secp384r1_sha384",
-    "rsa_pss_rsae_sha384",
-    "rsa_pkcs1_sha384",
-    "rsa_pss_rsae_sha512",
-    "rsa_pkcs1_sha512",
-    "ecdsa_secp521r1_sha512",
-    "ed25519",
-  ].join(":"),
-  minVersion: "TLSv1.2" as const,
-} satisfies tls.SecureContextOptions & { minVersion: tls.SecureVersion };
-
-function tlsUpgrade(
-  socket: net.Socket,
-  host: string,
-  rejectUnauthorized: boolean,
-  timeoutMs: number,
-): Promise<{ tlsSocket: tls.TLSSocket; alpn: "h2" | "http/1.1" }> {
-  return new Promise((resolve, reject) => {
-    const tlsSocket = tls.connect({
-      socket,
-      servername: host,
-      ALPNProtocols: ["h2", "http/1.1"],
-      rejectUnauthorized,
-      ...CHROME_TLS,
-    });
-    const timer = setTimeout(() => {
-      tlsSocket.destroy(new Error("TLS handshake timed out"));
-    }, timeoutMs);
-    tlsSocket.once("secureConnect", () => {
-      clearTimeout(timer);
-      resolve({
-        tlsSocket,
-        alpn: tlsSocket.alpnProtocol === "h2" ? "h2" : "http/1.1",
-      });
-    });
-    tlsSocket.once("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
-// ---------------------------------------------------------------------------
-// HTTP/2 request over a TLS socket
-// ---------------------------------------------------------------------------
-
 interface RawResponse {
   statusCode: number;
   headers: Record<string, string | string[] | undefined>;
   body: string;
-}
-
-// HTTP/2 headers forbidden by RFC 9113 §8.2.2 — must not appear in h2 requests.
-const H2_FORBIDDEN_HEADERS = new Set([
-  "host",
-  "connection",
-  "keep-alive",
-  "upgrade",
-  "proxy-connection",
-  "transfer-encoding",
-]);
-
-async function h2Request(
-  tlsSocket: tls.TLSSocket,
-  url: URL,
-  headers: Record<string, string>,
-  timeoutMs: number,
-): Promise<RawResponse> {
-  return new Promise((resolve, reject) => {
-    const session = http2.connect(url.origin, {
-      createConnection: () => tlsSocket as unknown as net.Socket,
-      // Chrome HTTP/2 SETTINGS — WAFs fingerprint these exact values.
-      settings: {
-        headerTableSize: 65536,
-        enablePush: false,
-        initialWindowSize: 6291456,
-        maxHeaderListSize: 262144,
-      },
-    });
-    // Chrome sends WINDOW_UPDATE(15663105) on connect → total connection window 15728640.
-    if (typeof session.setLocalWindowSize === "function")
-      session.setLocalWindowSize(15728640);
-    session.once("error", reject);
-
-    // Chrome pseudo-header order: :method, :authority, :scheme, :path.
-    const reqHeaders: http2.OutgoingHttpHeaders = {
-      [http2.constants.HTTP2_HEADER_METHOD]: "GET",
-      [http2.constants.HTTP2_HEADER_AUTHORITY]: url.host,
-      [http2.constants.HTTP2_HEADER_SCHEME]: url.protocol.replace(":", ""),
-      [http2.constants.HTTP2_HEADER_PATH]: url.pathname + url.search,
-    };
-    for (const [k, v] of Object.entries(headers)) {
-      const lk = k.toLowerCase();
-      if (!H2_FORBIDDEN_HEADERS.has(lk)) reqHeaders[lk] = v;
-    }
-
-    const stream = session.request(reqHeaders, { endStream: true });
-    const chunks: Buffer[] = [];
-    let respHeaders: http2.IncomingHttpHeaders = {};
-    let status = 0;
-
-    stream.on("response", (h) => {
-      respHeaders = h;
-      status = Number(h[":status"] ?? 0);
-    });
-    stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-    stream.on("end", () => {
-      session.close();
-      const rawBody = Buffer.concat(chunks);
-      const encoding = String(
-        respHeaders["content-encoding"] ?? "",
-      ).toLowerCase();
-      decompressBody(rawBody, encoding).then(
-        (body) =>
-          resolve({
-            statusCode: status,
-            headers: respHeaders as Record<
-              string,
-              string | string[] | undefined
-            >,
-            body,
-          }),
-        reject,
-      );
-    });
-    stream.on("error", (err) => {
-      session.close();
-      reject(err);
-    });
-    stream.setTimeout(timeoutMs, () => {
-      stream.close(http2.constants.NGHTTP2_CANCEL);
-      session.close();
-      reject(new Error("HTTP/2 request timed out"));
-    });
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Shared: read an IncomingMessage into a RawResponse
-// ---------------------------------------------------------------------------
-
-function readIncomingMessage(
-  res: http.IncomingMessage,
-  resolve: (r: RawResponse) => void,
-  reject: (e: unknown) => void,
-): void {
-  const chunks: Buffer[] = [];
-  res.on("data", (chunk: Buffer) => chunks.push(chunk));
-  res.on("error", reject);
-  res.on("end", () => {
-    const rawBody = Buffer.concat(chunks);
-    const encoding = String(
-      res.headers["content-encoding"] ?? "",
-    ).toLowerCase();
-    decompressBody(rawBody, encoding).then(
-      (body) =>
-        resolve({
-          statusCode: res.statusCode ?? 0,
-          headers: res.headers as Record<string, string | string[] | undefined>,
-          body,
-        }),
-      reject,
-    );
-  });
-}
-
-// ---------------------------------------------------------------------------
-// HTTP/1.1 request over a TLS socket
-// ---------------------------------------------------------------------------
-
-async function h1Request(
-  tlsSocket: tls.TLSSocket,
-  url: URL,
-  headers: Record<string, string>,
-  timeoutMs: number,
-): Promise<RawResponse> {
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname: url.hostname,
-        port: Number(url.port) || 443,
-        path: url.pathname + url.search,
-        method: "GET",
-        headers,
-        createConnection: () => tlsSocket as unknown as net.Socket,
-        timeout: timeoutMs,
-      },
-      (res) => readIncomingMessage(res, resolve, reject),
-    );
-    req.on("error", reject);
-    req.on("timeout", () =>
-      req.destroy(new Error("HTTP/1.1 request timed out")),
-    );
-    req.end();
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -665,367 +220,7 @@ export function decompressBody(buf: Buffer, encoding: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Direct (non-proxy) fetch — no SOCKS, ALPN + h2 or h1.1
-// ---------------------------------------------------------------------------
-
-/** Shared plain-HTTP GET over an open (possibly tunneled) socket or directly. */
-function httpPlainRequest(
-  hostname: string,
-  port: number,
-  path: string,
-  headers: Record<string, string>,
-  timeoutMs: number,
-  socket?: net.Socket,
-): Promise<RawResponse> {
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
-        hostname,
-        port,
-        path,
-        method: "GET",
-        headers,
-        ...(socket ? { createConnection: () => socket } : {}),
-        timeout: timeoutMs,
-      },
-      (res) => readIncomingMessage(res, resolve, reject),
-    );
-    req.on("error", reject);
-    req.on("timeout", () => req.destroy(new Error("HTTP request timed out")));
-    req.end();
-  });
-}
-
-async function directFetch(
-  url: URL,
-  headersFn: (alpn: "h2" | "http/1.1") => Record<string, string>,
-  rejectUnauthorized: boolean,
-  timeoutMs: number,
-): Promise<TunnelResult> {
-  // Plain HTTP — no TLS, no ALPN.
-  if (url.protocol === "http:") {
-    const port = Number(url.port) || 80;
-    const headers = headersFn("http/1.1");
-    const response = await httpPlainRequest(
-      url.hostname,
-      port,
-      url.pathname + url.search,
-      headers,
-      timeoutMs,
-    );
-    return { response, alpn: "http/1.1", sentHeaders: headers };
-  }
-
-  // HTTPS — ALPN negotiation, h2 or http/1.1.
-  return new Promise((resolve, reject) => {
-    const socket = net.connect(
-      { host: url.hostname, port: Number(url.port) || 443 },
-      () => {
-        const tlsSocket = tls.connect({
-          socket,
-          servername: url.hostname,
-          ALPNProtocols: ["h2", "http/1.1"],
-          rejectUnauthorized,
-          ...CHROME_TLS,
-        });
-        tlsSocket.once("secureConnect", () => {
-          const alpn: "h2" | "http/1.1" =
-            tlsSocket.alpnProtocol === "h2" ? "h2" : "http/1.1";
-          const headers = headersFn(alpn);
-          (alpn === "h2"
-            ? h2Request(tlsSocket, url, headers, timeoutMs)
-            : h1Request(tlsSocket, url, headers, timeoutMs)
-          ).then(
-            (response) => resolve({ response, alpn, sentHeaders: headers }),
-            reject,
-          );
-        });
-        tlsSocket.once("error", reject);
-      },
-    );
-    socket.once("error", reject);
-    socket.setTimeout(timeoutMs, () =>
-      socket.destroy(new Error("Direct connection timed out")),
-    );
-  });
-}
-
-// ---------------------------------------------------------------------------
-// HTTP CONNECT proxy — tunnel through an HTTP(S) proxy, then TLS upgrade.
-// Preserves Chrome TLS fingerprint through the proxy (same as SOCKS path).
-// ---------------------------------------------------------------------------
-
-function httpConnectTunnel(
-  proxyUrl: string,
-  targetHost: string,
-  targetPort: number,
-  timeoutMs: number,
-): Promise<net.Socket> {
-  return new Promise((resolve, reject) => {
-    const proxy = new URL(proxyUrl);
-    const proxyPort =
-      Number(proxy.port) || (proxy.protocol === "https:" ? 443 : 8080);
-    const authHeader =
-      proxy.username &&
-      `Basic ${Buffer.from(`${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`).toString("base64")}`;
-
-    const socket = net.connect(
-      { host: proxy.hostname, port: proxyPort },
-      () => {
-        const lines = [
-          `CONNECT ${targetHost}:${targetPort} HTTP/1.1`,
-          `Host: ${targetHost}:${targetPort}`,
-          ...(authHeader ? [`Proxy-Authorization: ${authHeader}`] : []),
-          "",
-          "",
-        ];
-        socket.write(lines.join("\r\n"));
-      },
-    );
-
-    let buf = "";
-    const onData = (chunk: Buffer) => {
-      buf += chunk.toString();
-      if (!buf.includes("\r\n\r\n")) return;
-      socket.removeListener("data", onData);
-      const statusLine = buf.split("\r\n")[0];
-      const statusCode = Number(statusLine.split(" ")[1]);
-      if (statusCode === 200) {
-        resolve(socket);
-      } else {
-        socket.destroy();
-        reject(
-          new Error(`HTTP CONNECT proxy returned ${statusCode}: ${statusLine}`),
-        );
-      }
-    };
-    socket.on("data", onData);
-    socket.once("error", reject);
-    socket.setTimeout(timeoutMs, () =>
-      socket.destroy(new Error("HTTP CONNECT proxy timed out")),
-    );
-  });
-}
-
-async function httpProxyFetch(
-  url: URL,
-  headersFn: (alpn: "h2" | "http/1.1") => Record<string, string>,
-  proxyUrl: string,
-  allowInsecureTls: boolean,
-  timeoutMs: number,
-): Promise<TunnelResult> {
-  const port = Number(url.port) || (url.protocol === "http:" ? 80 : 443);
-
-  if (url.protocol === "http:") {
-    // Plain HTTP through CONNECT tunnel (rare but safe).
-    const socket = await httpConnectTunnel(
-      proxyUrl,
-      url.hostname,
-      port,
-      timeoutMs,
-    );
-    const headers = headersFn("http/1.1");
-    const response = await httpPlainRequest(
-      url.hostname,
-      port,
-      url.pathname + url.search,
-      headers,
-      timeoutMs,
-      socket,
-    );
-    return { response, alpn: "http/1.1", sentHeaders: headers };
-  }
-
-  // HTTPS: CONNECT tunnel → TLS upgrade (ALPN) → h2/h1 request.
-  const socket = await httpConnectTunnel(
-    proxyUrl,
-    url.hostname,
-    port,
-    timeoutMs,
-  );
-  const { tlsSocket, alpn } = await tlsUpgrade(
-    socket,
-    url.hostname,
-    !allowInsecureTls,
-    timeoutMs,
-  );
-  const headers = headersFn(alpn);
-
-  logger.info("HTTP CONNECT proxy + TLS established", {
-    url: url.toString(),
-    alpn,
-    proxyHost: new URL(proxyUrl).hostname,
-  });
-
-  const response =
-    alpn === "h2"
-      ? await h2Request(tlsSocket, url, headers, timeoutMs)
-      : await h1Request(tlsSocket, url, headers, timeoutMs);
-  return { response, alpn, sentHeaders: headers };
-}
-
-// ---------------------------------------------------------------------------
-// Tunneled fetch — every byte through SOCKS, zero IP leak.
-// Returns TLS metadata alongside the response so headers can be generated
-// after ALPN negotiation on the same socket (no double-connect).
-// ---------------------------------------------------------------------------
-
-interface TunnelResult {
-  response: RawResponse;
-  alpn: "h2" | "http/1.1";
-  sentHeaders: Record<string, string>;
-}
-
-async function tunnelFetch(
-  url: URL,
-  headersFn: (alpn: "h2" | "http/1.1") => Record<string, string>,
-  proxyUrl: string,
-  allowInsecureTls: boolean,
-  timeoutMs: number,
-): Promise<TunnelResult> {
-  const port = Number(url.port) || (url.protocol === "http:" ? 80 : 443);
-
-  const configuredProxyHost = new URL(proxyUrl).hostname;
-
-  /**
-   * Verify no proxy bypass / IP leak: the socket's actual TCP peer must be
-   * the SOCKS proxy, not a direct path to the destination.
-   *
-   * - Resolves the configured proxy host to its canonical IP(s) via DNS.
-   * - Compares socket.remoteAddress against every resolved address.
-   * - Errors if none match — the process connected somewhere other than the
-   *   declared proxy (bypass or misconfiguration).
-   * - Also checks the SOCKS-handshake destination matches what was requested.
-   */
-  async function verifyNoLeak(
-    actualIp: string | undefined,
-    socksDestination: { host: string; port: number } | undefined,
-    expectedHost: string,
-    expectedPort: number,
-  ): Promise<void> {
-    const ctx = {
-      configuredProxyHost,
-      actualIp,
-      target: `${expectedHost}:${expectedPort}`,
-    };
-
-    if (!actualIp) {
-      logger.error(
-        "SOCKS proxy leak check failed: socket.remoteAddress is undefined",
-        ctx,
-      );
-      return;
-    }
-
-    // Resolve all IPs the proxy hostname maps to and confirm the socket landed on one of them.
-    let resolvedProxyIps: string[];
-    try {
-      const results = await dns.promises
-        .resolve(configuredProxyHost)
-        .catch(() => dns.promises.resolve6(configuredProxyHost));
-      resolvedProxyIps = results;
-    } catch {
-      // Proxy was likely configured as a bare IP — fall back to direct compare.
-      resolvedProxyIps = [configuredProxyHost];
-    }
-
-    if (!resolvedProxyIps.includes(actualIp)) {
-      logger.error(
-        "SOCKS proxy IP leak detected: socket connected to unexpected IP — not the configured proxy",
-        {
-          ...ctx,
-          resolvedProxyIps,
-        },
-      );
-    } else {
-      logger.info(
-        "SOCKS proxy verified: socket.remoteAddress matches configured proxy",
-        {
-          ...ctx,
-          resolvedProxyIps,
-        },
-      );
-    }
-
-    // Sanity-check the SOCKS handshake destination against what we requested.
-    // Only validate when the proxy returns a non-empty host; some SOCKS5
-    // servers omit it (port-only response) — that is not a mismatch.
-    if (socksDestination?.host && socksDestination.port) {
-      const destOk =
-        socksDestination.host === expectedHost &&
-        socksDestination.port === expectedPort;
-      if (!destOk) {
-        logger.error(
-          "SOCKS destination mismatch: proxy tunneled to wrong endpoint",
-          {
-            ...ctx,
-            socksDestination,
-          },
-        );
-      }
-    }
-  }
-
-  if (url.protocol === "http:") {
-    const {
-      socket: rawSocket,
-      proxyIp,
-      remoteHost: socksRemoteHost,
-    } = await socksTunnel(proxyUrl, url.hostname, port);
-    void verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
-    const headers = headersFn("http/1.1");
-    const response = await httpPlainRequest(
-      url.hostname,
-      port,
-      url.pathname + url.search,
-      headers,
-      timeoutMs,
-      rawSocket,
-    );
-    return { response, alpn: "http/1.1", sentHeaders: headers };
-  }
-
-  // HTTPS: SOCKS tunnel → TLS upgrade (ALPN) → generate headers → request
-  // on the SAME socket. Zero double-connect, zero IP leak.
-  const parsedForDiag = parseSocksProxy(proxyUrl);
-  logger.info("SOCKS tunnel connect", {
-    url: url.toString(),
-    proxyHost: configuredProxyHost,
-    socksAuthPresent: !!(parsedForDiag.userId && parsedForDiag.password),
-  });
-  const {
-    socket: rawSocket,
-    proxyIp,
-    remoteHost: socksRemoteHost,
-  } = await socksTunnel(proxyUrl, url.hostname, port);
-
-  const { tlsSocket, alpn } = await tlsUpgrade(
-    rawSocket,
-    url.hostname,
-    !allowInsecureTls,
-    timeoutMs,
-  );
-  // Run leak verification after TLS is up — avoids holding the raw socket
-  // idle (no handlers) during an async DNS lookup between socksTunnel and TLS.
-  void verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
-  const headers = headersFn(alpn);
-
-  logger.info("SOCKS tunnel + TLS established", {
-    url: url.toString(),
-    alpn,
-    configuredProxyHost,
-    actualProxyIp: proxyIp,
-  });
-
-  const response =
-    alpn === "h2"
-      ? await h2Request(tlsSocket, url, headers, timeoutMs)
-      : await h1Request(tlsSocket, url, headers, timeoutMs);
-  return { response, alpn, sentHeaders: headers };
-}
-
-// ---------------------------------------------------------------------------
-// Header generation via header-generator (no got-scraping dependency)
+// Header generation
 // ---------------------------------------------------------------------------
 
 /**
@@ -1175,36 +370,6 @@ interface FingerprintFetchDeps {
   }>;
 }
 
-/** OpenSSL transport selection: SOCKS tunnel, HTTP CONNECT, or direct. */
-async function opensslFetch(
-  parsed: URL,
-  makeHeaders: (alpn: "h2" | "http/1.1") => Record<string, string>,
-  isSocksProxy: boolean,
-  isHttpProxy: boolean,
-  proxyUrl: string | undefined,
-  allowInsecureTls: boolean,
-  rejectUnauth: boolean,
-  timeoutMs: number,
-): Promise<TunnelResult> {
-  if (isSocksProxy && proxyUrl)
-    return tunnelFetch(
-      parsed,
-      makeHeaders,
-      proxyUrl,
-      allowInsecureTls,
-      timeoutMs,
-    );
-  if (isHttpProxy && proxyUrl)
-    return httpProxyFetch(
-      parsed,
-      makeHeaders,
-      proxyUrl,
-      allowInsecureTls,
-      timeoutMs,
-    );
-  return directFetch(parsed, makeHeaders, rejectUnauth, timeoutMs);
-}
-
 export async function fetchHtmlWithFingerprint(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -1217,17 +382,8 @@ export async function fetchHtmlWithFingerprint(
   let currentUrl = stripUrlFragment(url);
   let isFirstValidation = true;
 
-  const chromeVer = options?.browserVersion ?? 135;
   const requestOs = options?.operatingSystem ?? "windows";
-  const isSocksProxy =
-    !!options?.proxyUrl &&
-    SOCKS_PROTOCOLS.has(new URL(options.proxyUrl).protocol);
-  const isHttpProxy = !!options?.proxyUrl && !isSocksProxy;
-  const proxyMode = isSocksProxy
-    ? "socks"
-    : options?.proxyUrl
-      ? "http"
-      : "direct";
+  const proxyMode = options?.proxyUrl ? "proxy" : "direct";
   const allowInsecureTls = options?.allowInsecureTls ?? false;
   const timeoutMs = 25_000;
 
@@ -1240,131 +396,62 @@ export async function fetchHtmlWithFingerprint(
     isFirstValidation = false;
 
     const parsed = new URL(currentUrl);
-    const rejectUnauth = !allowInsecureTls;
 
-    // Deferred header generation: headers depend on negotiated ALPN, so we
-    // pass a factory to tunnelFetch/directFetch and generate after TLS handshake.
-    // Optional overrides let the tls-client path force Chrome 131 headers to
-    // match the uTLS profile's JA3 — preventing a version mismatch signal.
-    const makeHeaders = (
-      alpn: "h2" | "http/1.1",
-      overrides?: Partial<FingerprintFetchOptions>,
-    ): Record<string, string> => {
-      const effectiveOpts = overrides ? { ...options, ...overrides } : options;
-      const h = generateBrowserHeaders(
-        alpn === "h2" ? "2" : "1",
-        effectiveOpts,
-      );
-      const jar = effectiveOpts?.cookieJar ?? options?.cookieJar;
-      if (jar) {
-        try {
-          const cs = jar.getCookieStringSync(currentUrl);
-          if (cs) h["cookie"] = cs;
-        } catch {
-          // skip
-        }
+    // Generate headers for Chrome 131 (fixed to h2 since tls-client always negotiates HTTP/2)
+    const headers = generateBrowserHeaders("2", {
+      ...options,
+      browserVersion: TLS_CLIENT_CHROME_VER,
+      secChUa: TLS_CLIENT_SEC_CH_UA,
+      operatingSystem: requestOs,
+    });
+
+    // Add cookies from jar
+    if (options?.cookieJar) {
+      try {
+        const cs = options.cookieJar.getCookieStringSync(currentUrl);
+        if (cs) headers["Cookie"] = cs;
+      } catch {
+        // skip
       }
-      return h;
-    };
+    }
 
-    logger.info("Fingerprint fetch attempt", {
+    logger.info("Fingerprint fetch attempt (Chrome 131 uTLS)", {
       url: currentUrl,
       proxyMode,
+      proxyUrl: options?.proxyUrl,
       redirectHop: redirects,
-      chromeVersion: chromeVer,
-      tlsProfileVersion: tlsReady !== false ? TLS_CLIENT_CHROME_VER : null,
       os: requestOs,
     });
 
     let response: RawResponse;
-    let usedHeaders: Record<string, string>;
-    let negotiatedAlpn: "h2" | "http/1.1" | undefined;
     if (deps?.requestFn) {
-      usedHeaders = makeHeaders("http/1.1");
-      response = await deps.requestFn(parsed, usedHeaders);
-    } else if (await ensureTlsClient()) {
-      // Primary path: node-tls-client (Go uTLS) — Chrome-exact JA3/JA4.
-      // uTLS handles SOCKS proxy natively, so no need for manual tunnel.
-      // Force Chrome 131 headers to match the TLS profile — caller may have
-      // requested 135 but the JA3 must agree with sec-ch-ua.
-      usedHeaders = makeHeaders("h2", {
-        browserVersion: TLS_CLIENT_CHROME_VER,
-        secChUa: TLS_CLIENT_SEC_CH_UA,
-      });
-      let tlsFailReason: string | null = null;
-      let tlsSuccessResponse: RawResponse | null = null;
-      try {
-        const tlsResult = await tlsClientFetch(
-          parsed,
-          usedHeaders,
-          options?.proxyUrl,
-          allowInsecureTls,
-          timeoutMs,
-        );
-        // statusCode 0 = network-level failure (proxy refused CONNECT, timeout,
-        // etc.) — not an HTTP response. Fall through to OpenSSL / Node.js socks.
-        if (tlsResult.statusCode === 0) {
-          tlsFailReason = tlsResult.body || "statusCode 0";
-        } else {
-          tlsSuccessResponse = tlsResult;
-        }
-      } catch (tlsClientErr) {
-        tlsFailReason =
-          tlsClientErr instanceof Error
-            ? tlsClientErr.message
-            : String(tlsClientErr);
-      }
-      if (tlsSuccessResponse) {
-        response = tlsSuccessResponse;
-        negotiatedAlpn = "h2";
-      } else {
-        // uTLS failed — fall through to OpenSSL pipeline.
-        logger.error("tls-client failed, falling back to OpenSSL", {
-          url: currentUrl,
-          error: tlsFailReason ?? undefined,
-        });
-        const result = await opensslFetch(
-          parsed,
-          (alpn) =>
-            makeHeaders(alpn, {
-              browserVersion: TLS_CLIENT_CHROME_VER,
-              secChUa: TLS_CLIENT_SEC_CH_UA,
-            }),
-          isSocksProxy,
-          isHttpProxy,
-          options?.proxyUrl,
-          allowInsecureTls,
-          rejectUnauth,
-          timeoutMs,
-        );
-        response = result.response;
-        usedHeaders = result.sentHeaders;
-        negotiatedAlpn = result.alpn;
-      }
+      response = await deps.requestFn(parsed, headers);
     } else {
-      const result = await opensslFetch(
+      // node-tls-client is required — fail loudly if unavailable
+      if (!(await ensureTlsClient())) {
+        throw new Error(
+          "node-tls-client initialization failed — cannot proceed without Chrome 131 uTLS fingerprint",
+        );
+      }
+
+      response = await tlsClientFetch(
         parsed,
-        (alpn) =>
-          makeHeaders(alpn, {
-            browserVersion: TLS_CLIENT_CHROME_VER,
-            secChUa: TLS_CLIENT_SEC_CH_UA,
-          }),
-        isSocksProxy,
-        isHttpProxy,
+        headers,
         options?.proxyUrl,
         allowInsecureTls,
-        rejectUnauth,
         timeoutMs,
       );
-      response = result.response;
-      usedHeaders = result.sentHeaders;
-      negotiatedAlpn = result.alpn;
+
+      if (response.statusCode === 0) {
+        throw new Error(
+          `Network failure: ${response.body || "Connection failed (statusCode 0)"}`,
+        );
+      }
     }
     logger.info("Fingerprint fetch response", {
       url: currentUrl,
       statusCode: response.statusCode,
       proxyMode,
-      alpn: negotiatedAlpn,
       redirectHop: redirects,
       diagnosticHeaders: pickDiagnosticHeaders(response.headers),
     });
@@ -1405,12 +492,12 @@ export async function fetchHtmlWithFingerprint(
         response.body,
         proxyMode,
         options?.proxyUrl ?? null,
-        chromeVer,
+        TLS_CLIENT_CHROME_VER,
         requestOs,
         allowInsecureTls,
         redirects,
         response.headers,
-        usedHeaders as Record<string, string | string[] | undefined>,
+        headers as Record<string, string | string[] | undefined>,
       );
     }
 
@@ -1422,10 +509,7 @@ export async function fetchHtmlWithFingerprint(
 
     return {
       html: response.body,
-      requestHeaders: usedHeaders as Record<
-        string,
-        string | string[] | undefined
-      >,
+      requestHeaders: headers as Record<string, string | string[] | undefined>,
     };
   }
 
