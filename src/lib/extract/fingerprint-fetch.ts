@@ -336,6 +336,35 @@ async function h2Request(
 }
 
 // ---------------------------------------------------------------------------
+// Shared: read an IncomingMessage into a RawResponse
+// ---------------------------------------------------------------------------
+
+function readIncomingMessage(
+  res: http.IncomingMessage,
+  resolve: (r: RawResponse) => void,
+  reject: (e: unknown) => void,
+): void {
+  const chunks: Buffer[] = [];
+  res.on("data", (chunk: Buffer) => chunks.push(chunk));
+  res.on("error", reject);
+  res.on("end", () => {
+    const rawBody = Buffer.concat(chunks);
+    const encoding = String(
+      res.headers["content-encoding"] ?? "",
+    ).toLowerCase();
+    decompressBody(rawBody, encoding).then(
+      (body) =>
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          headers: res.headers as Record<string, string | string[] | undefined>,
+          body,
+        }),
+      reject,
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
 // HTTP/1.1 request over a TLS socket
 // ---------------------------------------------------------------------------
 
@@ -356,29 +385,7 @@ async function h1Request(
         createConnection: () => tlsSocket as unknown as net.Socket,
         timeout: timeoutMs,
       },
-      (res: http.IncomingMessage) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => {
-          const rawBody = Buffer.concat(chunks);
-          const encoding = String(
-            res.headers["content-encoding"] ?? "",
-          ).toLowerCase();
-          decompressBody(rawBody, encoding).then(
-            (body) =>
-              resolve({
-                statusCode: res.statusCode ?? 0,
-                headers: res.headers as Record<
-                  string,
-                  string | string[] | undefined
-                >,
-                body,
-              }),
-            reject,
-          );
-        });
-        res.on("error", reject);
-      },
+      (res) => readIncomingMessage(res, resolve, reject),
     );
     req.on("error", reject);
     req.on("timeout", () =>
@@ -430,6 +437,34 @@ export function decompressBody(buf: Buffer, encoding: string): Promise<string> {
 // Direct (non-proxy) fetch — no SOCKS, ALPN + h2 or h1.1
 // ---------------------------------------------------------------------------
 
+/** Shared plain-HTTP GET over an open (possibly tunneled) socket or directly. */
+function httpPlainRequest(
+  hostname: string,
+  port: number,
+  path: string,
+  headers: Record<string, string>,
+  timeoutMs: number,
+  socket?: net.Socket,
+): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname,
+        port,
+        path,
+        method: "GET",
+        headers,
+        ...(socket ? { createConnection: () => socket } : {}),
+        timeout: timeoutMs,
+      },
+      (res) => readIncomingMessage(res, resolve, reject),
+    );
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new Error("HTTP request timed out")));
+    req.end();
+  });
+}
+
 async function directFetch(
   url: URL,
   headersFn: (alpn: "h2" | "http/1.1") => Record<string, string>,
@@ -440,44 +475,13 @@ async function directFetch(
   if (url.protocol === "http:") {
     const port = Number(url.port) || 80;
     const headers = headersFn("http/1.1");
-    const response = await new Promise<RawResponse>((resolve, reject) => {
-      const req = http.request(
-        {
-          hostname: url.hostname,
-          port,
-          path: url.pathname + url.search,
-          method: "GET",
-          headers,
-          timeout: timeoutMs,
-        },
-        (res: http.IncomingMessage) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => {
-            const raw = Buffer.concat(chunks);
-            const enc = String(
-              res.headers["content-encoding"] ?? "",
-            ).toLowerCase();
-            decompressBody(raw, enc).then(
-              (body) =>
-                resolve({
-                  statusCode: res.statusCode ?? 0,
-                  headers: res.headers as Record<
-                    string,
-                    string | string[] | undefined
-                  >,
-                  body,
-                }),
-              reject,
-            );
-          });
-          res.on("error", reject);
-        },
-      );
-      req.on("error", reject);
-      req.on("timeout", () => req.destroy(new Error("HTTP request timed out")));
-      req.end();
-    });
+    const response = await httpPlainRequest(
+      url.hostname,
+      port,
+      url.pathname + url.search,
+      headers,
+      timeoutMs,
+    );
     return { response, alpn: "http/1.1", sentHeaders: headers };
   }
 
@@ -590,45 +594,14 @@ async function httpProxyFetch(
       timeoutMs,
     );
     const headers = headersFn("http/1.1");
-    const response = await new Promise<RawResponse>((resolve, reject) => {
-      const req = http.request(
-        {
-          hostname: url.hostname,
-          port,
-          path: url.pathname + url.search,
-          method: "GET",
-          headers,
-          createConnection: () => socket,
-          timeout: timeoutMs,
-        },
-        (res: http.IncomingMessage) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => {
-            const raw = Buffer.concat(chunks);
-            const enc = String(
-              res.headers["content-encoding"] ?? "",
-            ).toLowerCase();
-            decompressBody(raw, enc).then(
-              (body) =>
-                resolve({
-                  statusCode: res.statusCode ?? 0,
-                  headers: res.headers as Record<
-                    string,
-                    string | string[] | undefined
-                  >,
-                  body,
-                }),
-              reject,
-            );
-          });
-          res.on("error", reject);
-        },
-      );
-      req.on("error", reject);
-      req.on("timeout", () => req.destroy(new Error("HTTP request timed out")));
-      req.end();
-    });
+    const response = await httpPlainRequest(
+      url.hostname,
+      port,
+      url.pathname + url.search,
+      headers,
+      timeoutMs,
+      socket,
+    );
     return { response, alpn: "http/1.1", sentHeaders: headers };
   }
 
@@ -769,45 +742,14 @@ async function tunnelFetch(
     } = await socksTunnel(proxyUrl, url.hostname, port);
     await verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
     const headers = headersFn("http/1.1");
-    const response = await new Promise<RawResponse>((resolve, reject) => {
-      const req = http.request(
-        {
-          hostname: url.hostname,
-          port,
-          path: url.pathname + url.search,
-          method: "GET",
-          headers,
-          createConnection: () => rawSocket,
-          timeout: timeoutMs,
-        },
-        (res: http.IncomingMessage) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () => {
-            const raw = Buffer.concat(chunks);
-            const enc = String(
-              res.headers["content-encoding"] ?? "",
-            ).toLowerCase();
-            decompressBody(raw, enc).then(
-              (body) =>
-                resolve({
-                  statusCode: res.statusCode ?? 0,
-                  headers: res.headers as Record<
-                    string,
-                    string | string[] | undefined
-                  >,
-                  body,
-                }),
-              reject,
-            );
-          });
-          res.on("error", reject);
-        },
-      );
-      req.on("error", reject);
-      req.on("timeout", () => req.destroy(new Error("HTTP request timed out")));
-      req.end();
-    });
+    const response = await httpPlainRequest(
+      url.hostname,
+      port,
+      url.pathname + url.search,
+      headers,
+      timeoutMs,
+      rawSocket,
+    );
     return { response, alpn: "http/1.1", sentHeaders: headers };
   }
 
@@ -976,6 +918,36 @@ interface FingerprintFetchDeps {
   }>;
 }
 
+/** OpenSSL transport selection: SOCKS tunnel, HTTP CONNECT, or direct. */
+async function opensslFetch(
+  parsed: URL,
+  makeHeaders: (alpn: "h2" | "http/1.1") => Record<string, string>,
+  isSocksProxy: boolean,
+  isHttpProxy: boolean,
+  proxyUrl: string | undefined,
+  allowInsecureTls: boolean,
+  rejectUnauth: boolean,
+  timeoutMs: number,
+): Promise<TunnelResult> {
+  if (isSocksProxy && proxyUrl)
+    return tunnelFetch(
+      parsed,
+      makeHeaders,
+      proxyUrl,
+      allowInsecureTls,
+      timeoutMs,
+    );
+  if (isHttpProxy && proxyUrl)
+    return httpProxyFetch(
+      parsed,
+      makeHeaders,
+      proxyUrl,
+      allowInsecureTls,
+      timeoutMs,
+    );
+  return directFetch(parsed, makeHeaders, rejectUnauth, timeoutMs);
+}
+
 export async function fetchHtmlWithFingerprint(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -1080,66 +1052,28 @@ export async function fetchHtmlWithFingerprint(
               ? tlsClientErr.message
               : String(tlsClientErr),
         });
-        if (isSocksProxy && options?.proxyUrl) {
-          const result = await tunnelFetch(
-            parsed,
-            makeHeaders,
-            options.proxyUrl,
-            allowInsecureTls,
-            timeoutMs,
-          );
-          response = result.response;
-          usedHeaders = result.sentHeaders;
-          negotiatedAlpn = result.alpn;
-        } else if (isHttpProxy && options?.proxyUrl) {
-          const result = await httpProxyFetch(
-            parsed,
-            makeHeaders,
-            options.proxyUrl,
-            allowInsecureTls,
-            timeoutMs,
-          );
-          response = result.response;
-          usedHeaders = result.sentHeaders;
-          negotiatedAlpn = result.alpn;
-        } else {
-          const result = await directFetch(
-            parsed,
-            makeHeaders,
-            rejectUnauth,
-            timeoutMs,
-          );
-          response = result.response;
-          usedHeaders = result.sentHeaders;
-          negotiatedAlpn = result.alpn;
-        }
+        const result = await opensslFetch(
+          parsed,
+          makeHeaders,
+          isSocksProxy,
+          isHttpProxy,
+          options?.proxyUrl,
+          allowInsecureTls,
+          rejectUnauth,
+          timeoutMs,
+        );
+        response = result.response;
+        usedHeaders = result.sentHeaders;
+        negotiatedAlpn = result.alpn;
       }
-    } else if (isSocksProxy && options?.proxyUrl) {
-      const result = await tunnelFetch(
-        parsed,
-        makeHeaders,
-        options.proxyUrl,
-        allowInsecureTls,
-        timeoutMs,
-      );
-      response = result.response;
-      usedHeaders = result.sentHeaders;
-      negotiatedAlpn = result.alpn;
-    } else if (isHttpProxy && options?.proxyUrl) {
-      const result = await httpProxyFetch(
-        parsed,
-        makeHeaders,
-        options.proxyUrl,
-        allowInsecureTls,
-        timeoutMs,
-      );
-      response = result.response;
-      usedHeaders = result.sentHeaders;
-      negotiatedAlpn = result.alpn;
     } else {
-      const result = await directFetch(
+      const result = await opensslFetch(
         parsed,
         makeHeaders,
+        isSocksProxy,
+        isHttpProxy,
+        options?.proxyUrl,
+        allowInsecureTls,
         rejectUnauth,
         timeoutMs,
       );
