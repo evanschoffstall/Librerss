@@ -2,6 +2,28 @@ import { logger } from "@/lib/logger";
 import { promises as dns } from "dns";
 
 let tlsReady: boolean | null = null;
+
+interface WrapperModuleClient {
+  open: () => Promise<void>;
+}
+
+interface WrapperSessionClient {
+  get: (
+    url: string,
+    options?: {
+      headers?: Record<string, string>;
+      followRedirects?: boolean;
+      requestHostOverride?: string;
+    },
+  ) => Promise<{
+    status: number;
+    headers: Record<string, string>;
+    body: string;
+  }>;
+  destroySession: () => Promise<unknown>;
+}
+
+let moduleClient: WrapperModuleClient | null = null;
 const globalForFetch = globalThis as unknown as {
   socksRoutePreference?: Map<string, "hostname" | "ip">;
   socksFallbackWarningEmitted?: Set<string>;
@@ -27,18 +49,23 @@ function socksRouteKey(proxyUrl: string | undefined, hostname: string): string {
 
 export async function ensureTlsClient(): Promise<boolean> {
   if (tlsReady !== null) return tlsReady;
+
   try {
-    const { initTLS } = await import("node-tls-client");
-    await initTLS();
+    const { ModuleClient } = (await import("tlsclientwrapper")) as unknown as {
+      ModuleClient: new () => WrapperModuleClient;
+    };
+    moduleClient = new ModuleClient();
+    await moduleClient.open();
     tlsReady = true;
-    logger.info("node-tls-client initialized (uTLS fingerprint active)");
+    logger.info("tlsclientwrapper initialized (bogdanfinn TLS backend active)");
+    return true;
   } catch (err) {
     tlsReady = false;
-    logger.error("node-tls-client init failed", {
+    logger.error("TLS client failed to initialize", {
       error: err instanceof Error ? err.message : String(err),
     });
+    return false;
   }
-  return tlsReady;
 }
 
 function flattenHeaders(
@@ -64,8 +91,6 @@ export async function tlsClientFetch(
   allowInsecureTls: boolean,
   timeoutMs: number,
 ): Promise<RawResponse> {
-  const { Session, ClientIdentifier } = await import("node-tls-client");
-
   const sanitizedProxyUrl =
     proxyUrl && proxyUrl !== "null" && proxyUrl !== "undefined"
       ? proxyUrl
@@ -76,33 +101,49 @@ export async function tlsClientFetch(
     serverNameOverwrite?: string,
     hostOverride?: string,
   ): Promise<RawResponse> => {
-    const session = new Session({
-      clientIdentifier: ClientIdentifier.chrome_131,
-      timeout: timeoutMs,
+    if (!moduleClient) {
+      throw new Error("TLS client not initialized");
+    }
+
+    const { SessionClient } = (await import("tlsclientwrapper")) as unknown as {
+      SessionClient: new (
+        moduleClient: WrapperModuleClient,
+        options?: Record<string, unknown>,
+      ) => WrapperSessionClient;
+    };
+
+    const session = new SessionClient(moduleClient, {
+      tlsClientIdentifier: "chrome_131",
+      timeoutMilliseconds: timeoutMs,
+      timeoutSeconds: undefined,
       insecureSkipVerify: allowInsecureTls,
-      ...(sanitizedProxyUrl ? { proxy: sanitizedProxyUrl } : {}),
+      followRedirects: false,
+      withDefaultCookieJar: true,
+      ...(sanitizedProxyUrl ? { proxyUrl: sanitizedProxyUrl } : {}),
       ...(serverNameOverwrite ? { serverNameOverwrite } : {}),
     });
 
     try {
       const resp = await session.get(targetUrl, {
-        headers: headers as Record<string, string | string[]>,
+        headers,
         followRedirects: false,
-        ...(hostOverride ? { hostOverride } : {}),
+        ...(hostOverride ? { requestHostOverride: hostOverride } : {}),
       });
       return {
         statusCode: resp.status,
-        headers: flattenHeaders(
-          resp.headers as Record<string, string | string[] | undefined>,
-        ),
+        headers: flattenHeaders(resp.headers),
         body: resp.body,
       };
+    } catch (err) {
+      return {
+        statusCode: 0,
+        headers: {},
+        body: err instanceof Error ? err.message : String(err),
+      };
     } finally {
-      try {
-        await session.close();
-      } catch {
+      await session.destroySession().catch(() => {
         // Session already closed or init incomplete — ignore.
-      }
+      });
     }
   };
 
