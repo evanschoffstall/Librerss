@@ -2,7 +2,6 @@
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -26,7 +25,7 @@ const features = [
 
 const LandingView = () => {
   return (
-    <div className="relative flex min-h-full flex-col items-center justify-center py-16 sm:py-24">
+    <div className="relative flex min-h-dvh box-border flex-col items-center justify-center overflow-hidden">
       <ThemeNoticeDialog />
 
       {/* Ambient background glow */}
@@ -51,7 +50,7 @@ const LandingView = () => {
       />
 
       {/* Content */}
-      <div className="relative z-10 mx-auto w-full max-w-4xl px-4 text-center sm:px-6">
+      <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4 text-center sm:px-6">
         {/* Eyebrow pill */}
         <div
           className="landing-reveal mb-6 inline-flex max-w-[90vw] items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm sm:mb-8"
@@ -126,21 +125,21 @@ const LandingView = () => {
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Bottom tagline */}
-      <div className="landing-tagline mt-14 text-center text-xs text-muted-foreground/50">
-        <p>
-          Made with ❤️ by{" "}
-          <a
-            href="https://github.com/evanschoffstall"
-            target="_blank"
-            rel="noreferrer"
-            className="underline-offset-2 hover:underline"
-          >
-            Evan Schoffstall
-          </a>
-        </p>
+        {/* Bottom tagline */}
+        <div className="landing-tagline mt-8 text-center text-xs text-muted-foreground/50 sm:mt-10">
+          <p>
+            Made with ❤️ by{" "}
+            <a
+              href="https://github.com/evanschoffstall"
+              target="_blank"
+              rel="noreferrer"
+              className="underline-offset-2 hover:underline"
+            >
+              Evan Schoffstall
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -148,10 +147,8 @@ const LandingView = () => {
 
 export default function Landing() {
   return (
-    <main className="h-full">
-      <ScrollArea className="h-full">
-        <LandingView />
-      </ScrollArea>
+    <main className="min-h-dvh overflow-hidden">
+      <LandingView />
     </main>
   );
 }
