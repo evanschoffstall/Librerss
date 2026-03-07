@@ -181,3 +181,22 @@ export function redactUrlForLogs(raw: string): string {
     return "[invalid-url]";
   }
 }
+
+/**
+ * Injects username/password credentials into a proxy URL.
+ * Returns the original URL if it's unparseable.
+ */
+export function injectProxyCredentials(
+  proxyUrl: string,
+  username: string,
+  password: string,
+): string {
+  try {
+    const parsed = new URL(proxyUrl);
+    parsed.username = encodeURIComponent(username);
+    parsed.password = encodeURIComponent(password);
+    return parsed.toString();
+  } catch {
+    return proxyUrl;
+  }
+}
