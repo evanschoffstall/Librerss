@@ -29,10 +29,10 @@ const headerGen = new HeaderGenerator();
 // Must match the ClientIdentifier used in tlsClientFetch — headers claim this version
 // so the JA3/JA4 and sec-ch-ua are consistent (DataDome cross-checks them).
 const TLS_CLIENT_CHROME_VER = 131;
-// Correct brand list for Chrome 131 — header-generator often omits "Google Chrome"
-// or uses wrong not-a-brand tokens, which is a trivial bot fingerprint signal.
+// Correct brand list for Chrome 131 — brand order matches real Chrome: Google Chrome first.
+// Not A(Brand grease version for Chrome 131 is "24" (rotates per major release).
 const TLS_CLIENT_SEC_CH_UA =
-  '"Chromium";v="131", "Google Chrome";v="131", "Not A(Brand";v="8"';
+  '"Google Chrome";v="131", "Chromium";v="131", "Not A(Brand";v="24"';
 
 let tlsReady: boolean | null = null; // null = not attempted, true/false = result
 
@@ -55,8 +55,9 @@ async function ensureTlsClient(): Promise<boolean> {
 
 /** Flatten node-tls-client headers (string[] → string) to match RawResponse. */
 function flattenHeaders(
-  src: Record<string, string | string[] | undefined>,
+  src: Record<string, string | string[] | undefined> | null | undefined,
 ): Record<string, string | string[] | undefined> {
+  if (!src) return {};
   const out: Record<string, string | string[] | undefined> = {};
   for (const [k, v] of Object.entries(src))
     out[k.toLowerCase()] = Array.isArray(v) && v.length === 1 ? v[0] : v;
@@ -273,6 +274,16 @@ interface RawResponse {
   body: string;
 }
 
+// HTTP/2 headers forbidden by RFC 9113 §8.2.2 — must not appear in h2 requests.
+const H2_FORBIDDEN_HEADERS = new Set([
+  "host",
+  "connection",
+  "keep-alive",
+  "upgrade",
+  "proxy-connection",
+  "transfer-encoding",
+]);
+
 async function h2Request(
   tlsSocket: tls.TLSSocket,
   url: URL,
@@ -282,17 +293,30 @@ async function h2Request(
   return new Promise((resolve, reject) => {
     const session = http2.connect(url.origin, {
       createConnection: () => tlsSocket as unknown as net.Socket,
+      // Chrome HTTP/2 SETTINGS — WAFs fingerprint these exact values.
+      settings: {
+        headerTableSize: 65536,
+        enablePush: false,
+        initialWindowSize: 6291456,
+        maxHeaderListSize: 262144,
+      },
     });
+    // Chrome sends WINDOW_UPDATE(15663105) on connect → total connection window 15728640.
+    if (typeof session.setLocalWindowSize === "function")
+      session.setLocalWindowSize(15728640);
     session.once("error", reject);
 
+    // Chrome pseudo-header order: :method, :authority, :scheme, :path.
     const reqHeaders: http2.OutgoingHttpHeaders = {
       [http2.constants.HTTP2_HEADER_METHOD]: "GET",
-      [http2.constants.HTTP2_HEADER_PATH]: url.pathname + url.search,
-      [http2.constants.HTTP2_HEADER_SCHEME]: url.protocol.replace(":", ""),
       [http2.constants.HTTP2_HEADER_AUTHORITY]: url.host,
+      [http2.constants.HTTP2_HEADER_SCHEME]: url.protocol.replace(":", ""),
+      [http2.constants.HTTP2_HEADER_PATH]: url.pathname + url.search,
     };
-    for (const [k, v] of Object.entries(headers))
-      reqHeaders[k.toLowerCase()] = v;
+    for (const [k, v] of Object.entries(headers)) {
+      const lk = k.toLowerCase();
+      if (!H2_FORBIDDEN_HEADERS.has(lk)) reqHeaders[lk] = v;
+    }
 
     const stream = session.request(reqHeaders, { endStream: true });
     const chunks: Buffer[] = [];
@@ -851,6 +875,13 @@ function orderChromeHeaders(
   return out;
 }
 
+/** Build correct sec-ch-ua for any Chrome major version with proper brand order. */
+function buildSecChUa(chromeVer: number): string {
+  // Not A(Brand grease version: Chrome 131 uses "24", others use "8".
+  const notABrandVer = chromeVer === 131 ? "24" : "8";
+  return `"Google Chrome";v="${chromeVer}", "Chromium";v="${chromeVer}", "Not A(Brand";v="${notABrandVer}"`;
+}
+
 export function generateBrowserHeaders(
   alpnHint: "1" | "2",
   opts?: FingerprintFetchOptions,
@@ -881,11 +912,20 @@ export function generateBrowserHeaders(
 
   // Enforce correct platform — header-generator sometimes mismatches OS.
   headers["sec-ch-ua-platform"] = PLATFORM_MAP[os] ?? '"Windows"';
+  // Always override sec-ch-ua with correct brand order — header-generator pool has wrong order.
+  headers["sec-ch-ua"] = opts?.secChUa ?? buildSecChUa(chromeVer);
+  headers["sec-ch-ua-mobile"] = "?0";
 
   headers["accept-language"] = "en-US,en;q=0.9";
   headers["accept-encoding"] = "gzip, deflate, br, zstd";
-  if (opts?.secChUa) headers["sec-ch-ua"] = opts.secChUa;
-  if (opts?.accept) headers["accept"] = opts.accept;
+  // Chrome's canonical navigation Accept — header-generator pool may have stale values.
+  headers["accept"] =
+    opts?.accept ??
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7";
+  headers["upgrade-insecure-requests"] = "1";
+  headers["sec-fetch-mode"] = "navigate";
+  headers["sec-fetch-user"] = "?1";
+  headers["sec-fetch-dest"] = "document";
   if (opts?.referer) {
     headers["referer"] = opts.referer;
     headers["sec-fetch-site"] = "cross-site";
@@ -1054,7 +1094,11 @@ export async function fetchHtmlWithFingerprint(
         });
         const result = await opensslFetch(
           parsed,
-          makeHeaders,
+          (alpn) =>
+            makeHeaders(alpn, {
+              browserVersion: TLS_CLIENT_CHROME_VER,
+              secChUa: TLS_CLIENT_SEC_CH_UA,
+            }),
           isSocksProxy,
           isHttpProxy,
           options?.proxyUrl,
@@ -1069,7 +1113,11 @@ export async function fetchHtmlWithFingerprint(
     } else {
       const result = await opensslFetch(
         parsed,
-        makeHeaders,
+        (alpn) =>
+          makeHeaders(alpn, {
+            browserVersion: TLS_CLIENT_CHROME_VER,
+            secChUa: TLS_CLIENT_SEC_CH_UA,
+          }),
         isSocksProxy,
         isHttpProxy,
         options?.proxyUrl,
