@@ -20,12 +20,12 @@ describe("Image Sanitization", () => {
     expect(result).toContain('referrerpolicy="no-referrer"');
   });
 
-  test("should enforce loading=lazy by default", () => {
+  test("should enforce loading=eager by default", () => {
     const input =
       '<img src="https://example.com/photo.jpg" width="800" height="600">';
     const result = sanitizeArticleHtml(input);
 
-    expect(result).toContain('loading="lazy"');
+    expect(result).toContain('loading="eager"');
   });
 
   test("should preserve explicit referrerpolicy if provided", () => {
