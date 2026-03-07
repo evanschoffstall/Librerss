@@ -1,26 +1,26 @@
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-    clearArticleExtractCacheForTests,
-    fetchHtml,
-    fetchHtmlWithFingerprint,
-    parseAndValidateArticleUrl
+  clearArticleExtractCacheForTests,
+  fetchHtml,
+  fetchHtmlWithFingerprint,
+  parseAndValidateArticleUrl
 } from "@/lib/extract";
 import {
-    decompressBody,
-    generateBrowserHeaders,
-    GotScrapingError,
-    parseSocksProxy,
+  decompressBody,
+  generateBrowserHeaders,
+  GotScrapingError,
+  parseSocksProxy,
 } from "@/lib/extract/fingerprint-fetch";
 import {
-    buildMetadataImageFallbackHtml,
-    cleanSanitizedHtml,
-    hasReadableArticleBody,
-    isLikelyNavFooterBoilerplate,
-    normalizeArticleHtmlSpacing,
-    preCleanHtml,
-    sanitizeRawContent,
-    stripCommentEngagementBoilerplate,
-    toParagraphHtml,
+  buildMetadataImageFallbackHtml,
+  cleanSanitizedHtml,
+  hasReadableArticleBody,
+  isLikelyNavFooterBoilerplate,
+  normalizeArticleHtmlSpacing,
+  preCleanHtml,
+  sanitizeRawContent,
+  stripCommentEngagementBoilerplate,
+  toParagraphHtml,
 } from "@/lib/sanitize";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";

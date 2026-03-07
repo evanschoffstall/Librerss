@@ -4,28 +4,31 @@
  * and async crypto with real modules.
  */
 import {
-    toggleReadStatus,
-    toggleStarredStatus,
+  toggleReadStatus,
+  toggleStarredStatus,
 } from "@/app/dashboard/hooks/useArticleActions";
 import {
-    getRequestedFeedUrl,
-    parseCreateFeedPayload,
-    parseDeleteSourceId,
-    parseRenameFeedPayload,
+  getRequestedFeedUrl,
+  parseCreateFeedPayload,
+  parseDeleteSourceId,
+  parseRenameFeedPayload,
+  parseRenameFeedPayloadFromBody,
+  parseToggleFeedEnabledPayloadFromBody,
+  parseUpdateFeedSettingsPayloadFromBody,
 } from "@/lib/api/feeds/parsers";
 import { toFeedSourceResponse } from "@/lib/api/feeds/repository";
 import {
-    normalizeEmailInput,
-    parseEmailPasswordFromFormData,
-    parseEmailPasswordFromRecord,
-    parseEmailPasswordFromSearchParams,
+  normalizeEmailInput,
+  parseEmailPasswordFromFormData,
+  parseEmailPasswordFromRecord,
+  parseEmailPasswordFromSearchParams,
 } from "@/lib/auth/credentials";
 import {
-    SESSION_COOKIE_NAME,
-    clearSessionCookie,
-    hashPassword,
-    setSessionCookie,
-    verifyPassword,
+  SESSION_COOKIE_NAME,
+  clearSessionCookie,
+  hashPassword,
+  setSessionCookie,
+  verifyPassword,
 } from "@/lib/auth/session";
 import * as schema from "@/lib/db/schema";
 import { describe, expect, test } from "bun:test";

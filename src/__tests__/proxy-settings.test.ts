@@ -9,8 +9,8 @@
 
 import type { ProxyRouteDeps } from "@/app/api/settings/proxy/route";
 import {
-    __resetApiClientForTesting,
-    __setApiClientForTesting,
+  __resetApiClientForTesting,
+  __setApiClientForTesting,
 } from "@/lib/api/http-client";
 import { ArticleService } from "@/lib/api/services";
 import { fetchHtml } from "@/lib/extract";
