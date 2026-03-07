@@ -1,6 +1,6 @@
-export type { ExtractedArticle } from "./content-extraction";
+export type { ExtractedArticle } from "./extraction";
 
-export { extractArticleFromHtml } from "./content-extraction";
+export { extractArticleFromHtml } from "./extraction";
 
 export {
   clearArticleExtractCacheForTests,
@@ -20,8 +20,8 @@ export {
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
 } from "./constants";
 
-export { readPlaceholderSnapshotHtml } from "./placeholder-snapshot";
+export { readPlaceholderSnapshotHtml } from "./snapshot";
 
-export { fetchHtml, fetchHtmlWithFingerprint } from "./upstream-fetch";
+export { fetchHtml } from "./upstream";
 
-export { parseAndValidateArticleUrl } from "./url-validation";
+export { parseAndValidateArticleUrl } from "./validators";
