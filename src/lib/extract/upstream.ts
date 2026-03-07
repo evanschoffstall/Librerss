@@ -6,23 +6,24 @@ import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
 import axios from "axios";
-import https from "node:https";
 import { CookieJar } from "tough-cookie";
+import {
+  buildAxiosGet,
+  buildDdgReferer,
+  buildProxyConfig,
+  detectBotProtection,
+  fetchHtmlWithFingerprint,
+  GotScrapingError,
+  pickDiagnosticHeaders,
+  SOCKS_PROTOCOLS,
+  type BotDetection,
+} from "@/lib/fetch";
 import {
   ARTICLE_EXTRACT_SEC_CH_UA,
   EXTRACT_403_RETRIES,
   EXTRACT_FINGERPRINT_POOL,
   PROXY_FINGERPRINT_POOL,
 } from "./constants";
-import {
-  extractionAxios,
-  fetchHtmlWithFingerprint,
-  GotScrapingError,
-  pickDiagnosticHeaders,
-} from "./fingerprint-fetch";
-import { buildProxyConfig, SOCKS_PROTOCOLS } from "./proxy-config";
-
-export { fetchHtmlWithFingerprint } from "./fingerprint-fetch";
 
 type FetchHtmlDeps = {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
@@ -36,118 +37,6 @@ interface FetchHtmlOptions {
   useProxy?: boolean;
   proxyUrl?: string;
   allowInsecureTls?: boolean;
-}
-
-type BotDetection =
-  | { detected: false }
-  | {
-      detected: true;
-      provider: "DataDome" | "PerimeterX";
-      challengeCookies: string[];
-    };
-
-function buildDdgReferer(url: string): string {
-  try {
-    const segments = new URL(url).pathname.split("/").filter(Boolean);
-    const slug = segments[segments.length - 1] ?? "";
-    const q =
-      slug
-        .replace(/\.[^.]+$/, "")
-        .replace(/[-_]/g, " ")
-        .trim() || "news right now";
-    return `https://duckduckgo.com/?q=${encodeURIComponent(q).replace(/%20/g, "+")}&ia=web`;
-  } catch {
-    return "https://duckduckgo.com/?q=news+right+now&ia=web";
-  }
-}
-
-function detectBotProtection(
-  error: ReturnType<typeof axios.isAxiosError> extends true ? never : unknown,
-  isAxiosError: typeof axios.isAxiosError,
-): { retryable: boolean; bot: BotDetection } {
-  if (!isAxiosError(error))
-    return { retryable: false, bot: { detected: false } };
-  const resp = (
-    error as {
-      response?: {
-        status?: number;
-        headers?: Record<string, unknown>;
-        data?: unknown;
-      };
-    }
-  ).response;
-  const responseStatus = resp?.status;
-  if (responseStatus !== 403 && responseStatus !== 429)
-    return { retryable: false, bot: { detected: false } };
-  if (responseStatus === 429)
-    return { retryable: true, bot: { detected: false } };
-
-  // DataDome
-  const ddHeader = String(resp?.headers?.["x-datadome"] ?? "").toLowerCase();
-  if (ddHeader === "protected") {
-    const setCookie = resp?.headers?.["set-cookie"];
-    const challengeCookies = Array.isArray(setCookie)
-      ? setCookie
-      : typeof setCookie === "string"
-        ? [setCookie]
-        : [];
-    return {
-      retryable: false,
-      bot: { detected: true, provider: "DataDome", challengeCookies },
-    };
-  }
-
-  // PerimeterX
-  const responseBody = String(resp?.data ?? "");
-  const resPxHeaders = Object.keys(resp?.headers ?? {});
-  const isPx =
-    /px[-_]captcha|perimeterx|\/_px\//i.test(responseBody) ||
-    resPxHeaders.some((h) => h.toLowerCase().startsWith("x-px-"));
-  if (isPx)
-    return {
-      retryable: false,
-      bot: { detected: true, provider: "PerimeterX", challengeCookies: [] },
-    };
-
-  return { retryable: true, bot: { detected: false } };
-}
-
-/** Build axios fetch function for a given proxy config. */
-function buildAxiosGet(
-  injectedGet: typeof axios.get | undefined,
-  proxyConfig: ReturnType<typeof buildProxyConfig> | undefined,
-  insecureTls: boolean,
-  jar: CookieJar | undefined,
-): typeof axios.get {
-  if (injectedGet) return injectedGet;
-  const insecureAgent = insecureTls
-    ? new https.Agent({ rejectUnauthorized: false })
-    : undefined;
-
-  if (proxyConfig && proxyConfig.mode === "socks") {
-    return (reqUrl, config) =>
-      axios.get(reqUrl, {
-        ...config,
-        proxy: false as const,
-        httpAgent: proxyConfig.httpAgent,
-        httpsAgent: proxyConfig.httpsAgent,
-      });
-  }
-  if (proxyConfig && proxyConfig.mode === "http") {
-    return (reqUrl, config) =>
-      extractionAxios.get(reqUrl, {
-        ...config,
-        jar,
-        proxy: proxyConfig.proxy,
-        ...(insecureAgent && { httpsAgent: insecureAgent }),
-      });
-  }
-  return (reqUrl, config) =>
-    extractionAxios.get(reqUrl, {
-      ...config,
-      jar,
-      ...(insecureAgent && { httpsAgent: insecureAgent }),
-    });
 }
 
 export async function fetchHtml(
@@ -188,12 +77,11 @@ export async function fetchHtml(
           {
             proxyUrl: options.proxyUrl,
             allowInsecureTls: options.allowInsecureTls,
-            operatingSystem: fp.os,
-            browserVersion: fp.chromeVersion,
             cookieJar: new CookieJar(),
-            secChUa: fp.secChUa,
             accept: fp.accept,
             referer: proxyReferer,
+            browserVersion: fp.chromeVersion,
+            secChUa: fp.secChUa,
           },
         );
         logger.info(
@@ -425,9 +313,6 @@ export async function fetchHtml(
         {
           proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
           allowInsecureTls: options?.allowInsecureTls,
-          operatingSystem: fallbackFp.os,
-          browserVersion: fallbackFp.chromeVersion,
-          secChUa: fallbackFp.secChUa,
           accept: fallbackFp.accept,
           cookieJar: fallbackJar,
           referer: buildDdgReferer(url),
