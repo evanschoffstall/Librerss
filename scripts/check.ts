@@ -44,7 +44,17 @@ const CMD_MADGE: Cmd = [
   "bunx",
   ["madge@8", "--circular", "--extensions", "ts,tsx", "src"],
 ];
-const CMD_TYPE_COVERAGE: Cmd = ["bunx", ["type-coverage", "--at-least", "98"]];
+const CMD_TYPE_COVERAGE: Cmd = [
+  "bunx",
+  [
+    "type-coverage",
+    "--at-least",
+    "98",
+    "--cache",
+    "--cache-directory",
+    ".cache/type-coverage",
+  ],
+];
 const CMD_STYLELINT: Cmd = [
   "bunx",
   [
@@ -57,7 +67,10 @@ const CMD_STYLELINT: Cmd = [
     "content",
   ],
 ];
-const CMD_TSD: Cmd = ["bunx", ["tsd", "--typings", "next-env.d.ts"]];
+const CMD_TSD: Cmd = [
+  "bunx",
+  ["tsd", "--typings", "next-env.d.ts", "--files", "next-env.test-d.ts"],
+];
 const CMD_SECRETLINT: Cmd = [
   "bunx",
   ["secretlint", "**/*", "--secretlintignore", ".secretlintignore"],
@@ -78,8 +91,10 @@ const CMD_SEMGREP: Cmd = [
   [
     "scan",
     "--config",
-    "auto",
+    "p/default",
     "--error",
+    "--metrics",
+    "off",
     "--exclude=src/__tests__",
     "--exclude=src/components/ui",
     "--exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
@@ -188,7 +203,7 @@ const where = ({ file, line, suite, name }: TestResult) =>
   `${file ?? "unknown-file"}${line ? `:${line}` : ""} - ${suite ? `${suite} > ` : ""}${name}`;
 
 function getConcurrency(n: number): number {
-  if (n < 1200) return 1;
+  if (n < 50) return 1;
   const c =
     typeof availableParallelism === "function"
       ? availableParallelism()
