@@ -22,8 +22,64 @@ export const MAX_PROXY_URL_LENGTH = 2048;
 const VALID_PROTOCOLS = new Set(["http:", "https:", ...SOCKS_PROTOCOLS]);
 const BARE_HOST_PORT_RE = /^[\w.-]+:\d{1,5}$/;
 const PROBE_TIMEOUT_MS = 4000;
-/** SOCKS5 greeting: version 5, 1 auth method, no-auth (0x00). */
-const SOCKS5_GREETING = Buffer.from([0x05, 0x01, 0x00]);
+
+/**
+ * Perform a SOCKS5 auth probe: send greeting + auth sub-negotiation without
+ * issuing a CONNECT to any destination. Returns true if the server accepts
+ * auth (or no-auth). This validates credentials without touching any external
+ * host.
+ */
+async function socks5AuthProbe(
+  host: string,
+  port: number,
+  username?: string,
+  password?: string,
+): Promise<boolean> {
+  const hasCredentials = !!username && !!password;
+  // Offer user/pass (0x02) when credentials available, otherwise only no-auth (0x00).
+  const greeting = hasCredentials
+    ? Buffer.from([0x05, 0x02, 0x00, 0x02]) // VER, NMETHODS=2, no-auth, user/pass
+    : Buffer.from([0x05, 0x01, 0x00]); // VER, NMETHODS=1, no-auth
+  return new Promise<boolean>((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(PROBE_TIMEOUT_MS);
+    let stage: "greeting" | "auth" = "greeting";
+    const finish = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.on("connect", () => socket.write(greeting));
+    socket.on("data", (data: Buffer) => {
+      if (stage === "greeting") {
+        if (data.length < 2 || data[0] !== 0x05) return finish(false);
+        const method = data[1];
+        if (method === 0xff) return finish(false); // no acceptable method
+        if (method === 0x00) return finish(true); // no-auth accepted
+        if (method === 0x02 && hasCredentials) {
+          stage = "auth";
+          const user = Buffer.from(username!, "utf8");
+          const pass = Buffer.from(password!, "utf8");
+          const msg = Buffer.alloc(3 + user.length + pass.length);
+          msg[0] = 0x01;
+          msg[1] = user.length;
+          user.copy(msg, 2);
+          msg[2 + user.length] = pass.length;
+          pass.copy(msg, 3 + user.length);
+          socket.write(msg);
+          return;
+        }
+        finish(false);
+      } else {
+        // auth sub-negotiation response: VER=1, STATUS (0x00=success)
+        finish(data.length >= 2 && data[0] === 0x01 && data[1] === 0x00);
+      }
+    });
+    socket.on("timeout", () => finish(false));
+    socket.on("error", () => finish(false));
+    socket.connect(port, host);
+  });
+}
 
 function parseHostPort(
   proxyUrl: string,
@@ -88,7 +144,8 @@ export async function detectProxyProtocol(
         "Proxy detection TCP connected, sending SOCKS5 greeting",
         ctx,
       );
-      socket.write(SOCKS5_GREETING);
+      // SOCKS5 greeting: version 5, 1 method offered: no-auth (0x00)
+      socket.write(Buffer.from([0x05, 0x01, 0x00]));
     });
     socket.on("data", (data: Buffer) => {
       const isSocks = data.length >= 2 && data[0] === 0x05;
@@ -200,6 +257,8 @@ export async function normalizeProxyUrl(
 }
 
 /** TCP connect probe — resolves true if port is open, false on timeout/error.
+ *  For SOCKS5 URLs with embedded credentials, performs a full auth handshake
+ *  to verify the credentials are accepted before reporting reachable.
  *  Includes both static and DNS-rebinding SSRF guards. */
 export async function probeProxy(proxyUrl: string): Promise<boolean> {
   const hp = parseHostPort(proxyUrl);
@@ -224,6 +283,35 @@ export async function probeProxy(proxyUrl: string): Promise<boolean> {
     });
     return false;
   }
+
+  // For SOCKS5 with embedded credentials, do a full auth handshake.
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(proxyUrl);
+  } catch {
+    /* fall through */
+  }
+  if (parsed && SOCKS_PROTOCOLS.has(parsed.protocol) && parsed.username) {
+    const username = decodeURIComponent(parsed.username);
+    const password = parsed.password
+      ? decodeURIComponent(parsed.password)
+      : undefined;
+    logger.info(
+      `Proxy probe: SOCKS5 auth handshake. (proxyUrl=${safeProxyUrl})`,
+    );
+    const ok = await socks5AuthProbe(hp.host, hp.port, username, password);
+    if (ok) {
+      logger.info(
+        `Proxy probe succeeded (SOCKS5 auth). (proxyUrl=${safeProxyUrl})`,
+      );
+    } else {
+      logger.error(
+        `Proxy probe failed: SOCKS5 auth rejected. (proxyUrl=${safeProxyUrl})`,
+      );
+    }
+    return ok;
+  }
+
   logger.info(`Proxy probe started. (proxyUrl=${safeProxyUrl})`);
   return new Promise<boolean>((resolve) => {
     const socket = new net.Socket();
