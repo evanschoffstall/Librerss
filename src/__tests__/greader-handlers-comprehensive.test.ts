@@ -565,6 +565,154 @@ describe("Tag Handler", () => {
     expect(data).toHaveProperty("tags");
   });
 
+  test("disabling a non-user tag is a no-op", async () => {
+    const deleteWhere = mock(async () => []);
+    const loggerInfo = mock(() => {});
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        delete: mock(() => ({ where: deleteWhere })),
+      }),
+    }));
+
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        info: loggerInfo,
+        warn: mock(() => {}),
+        error: mock(() => {}),
+      },
+    }));
+
+    const { handleDisableTag } = await import("@/lib/api/greader/tag-labels");
+
+    const formData = new FormData();
+    formData.append("s", "user/-/state/com.google/reading-list");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/disable-tag",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    const response = await handleDisableTag(mockUser, request);
+
+    expect(await response.text()).toBe("OK\n");
+    expect(deleteWhere).not.toHaveBeenCalled();
+    expect(loggerInfo).not.toHaveBeenCalled();
+  });
+
+  test("disabling a user tag deletes matching feed category rows", async () => {
+    const deleteWhere = mock(async () => []);
+    const loggerInfo = mock(() => {});
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        delete: mock(() => ({ where: deleteWhere })),
+      }),
+    }));
+
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        info: loggerInfo,
+        warn: mock(() => {}),
+        error: mock(() => {}),
+      },
+    }));
+
+    const { handleDisableTag } = await import("@/lib/api/greader/tag-labels");
+
+    const formData = new FormData();
+    formData.append("s", "user/-/label/Tech");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/disable-tag",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    const response = await handleDisableTag(mockUser, request);
+
+    expect(await response.text()).toBe("OK\n");
+    expect(deleteWhere).toHaveBeenCalledTimes(1);
+    expect(loggerInfo).toHaveBeenCalledTimes(1);
+  });
+
+  test("renaming tags returns OK when labels are invalid or unchanged", async () => {
+    const updateWhere = mock(async () => []);
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        update: mock(() => ({
+          set: mock(() => ({ where: updateWhere })),
+        })),
+      }),
+    }));
+
+    const { handleRenameTag } = await import("@/lib/api/greader/tag-labels");
+
+    const formData = new FormData();
+    formData.append("s", "user/-/label/Same");
+    formData.append("dest", "user/-/label/Same");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/rename-tag",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    const response = await handleRenameTag(mockUser, request);
+
+    expect(await response.text()).toBe("OK\n");
+    expect(updateWhere).not.toHaveBeenCalled();
+  });
+
+  test("renaming tags updates feed categories when source/destination differ", async () => {
+    const updateWhere = mock(async () => []);
+    const loggerInfo = mock(() => {});
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        update: mock(() => ({
+          set: mock(() => ({ where: updateWhere })),
+        })),
+      }),
+    }));
+
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        info: loggerInfo,
+        warn: mock(() => {}),
+        error: mock(() => {}),
+      },
+    }));
+
+    const { handleRenameTag } = await import("@/lib/api/greader/tag-labels");
+
+    const formData = new FormData();
+    formData.append("s", "user/-/label/Old");
+    formData.append("dest", "user/-/label/New");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/rename-tag",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    const response = await handleRenameTag(mockUser, request);
+
+    expect(await response.text()).toBe("OK\n");
+    expect(updateWhere).toHaveBeenCalledTimes(1);
+    expect(loggerInfo).toHaveBeenCalledTimes(1);
+  });
+
   test("handles edit tag operation", async () => {
     const { handleEditTag } =
       await import("@/lib/api/greader/tag");
