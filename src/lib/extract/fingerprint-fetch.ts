@@ -11,7 +11,7 @@ import * as https from "https";
 import * as net from "net";
 // node-tls-client is loaded dynamically to avoid Turbopack bundling its native
 // Go FFI library (koffi) — it must remain server-external.
-import { SocksClient, type SocksClientOptions } from "socks";
+import { type SocksClientOptions } from "socks";
 import * as tls from "tls";
 import { CookieJar } from "tough-cookie";
 import * as zlib from "zlib";
@@ -190,21 +190,220 @@ interface SocksTunnelResult {
   remoteHost: { host: string; port: number } | undefined;
 }
 
+const SOCKS5_ERRORS: Record<number, string> = {
+  0x01: "general failure",
+  0x02: "connection not allowed",
+  0x03: "network unreachable",
+  0x04: "host unreachable",
+  0x05: "connection refused",
+  0x06: "TTL expired",
+  0x07: "command not supported",
+  0x08: "address type not supported",
+};
+
+/**
+ * Manual SOCKS5 tunnel that offers ONLY user/pass auth when credentials are
+ * present. The `socks` npm package always offers [no-auth, user/pass], letting
+ * the server pick. If the server picks no-auth, credentials are never sent and
+ * the session is treated as unauthenticated — causing routing failures on
+ * providers like PIA that enforce auth for outbound tunnels. Offering only
+ * user/pass forces the server to authenticate properly.
+ *
+ * For `socks5://` (local DNS) the target hostname is resolved here and sent as
+ * ATYP 0x01 (IPv4). For `socks5h://` the domain is forwarded to the proxy
+ * (ATYP 0x03) for remote resolution. PIA NL has broken DNS resolution on its
+ * SOCKS5 servers — local resolution avoids "host unreachable" for every domain.
+ */
 async function socksTunnel(
   proxyUrl: string,
   host: string,
   port: number,
 ): Promise<SocksTunnelResult> {
-  const result = await SocksClient.createConnection({
-    proxy: parseSocksProxy(proxyUrl),
-    command: "connect",
-    destination: { host, port },
+  const parsed = new URL(proxyUrl);
+  const proxyHost = parsed.hostname;
+  const proxyPort = Number(parsed.port) || 1080;
+  const username = parsed.username ? decodeURIComponent(parsed.username) : null;
+  const password = parsed.password ? decodeURIComponent(parsed.password) : null;
+  const hasCredentials = !!username && !!password;
+  // socks5h: → proxy resolves DNS (ATYP 0x03 domain); socks5: → local DNS (ATYP 0x01 IPv4).
+  const useRemoteDns = parsed.protocol === "socks5h:";
+
+  // Resolve target hostname locally when using socks5:// (not socks5h://).
+  // PIA NL SOCKS5 servers return "host unreachable" for ATYP 0x03 domain
+  // requests because their DNS resolver is broken.
+  let resolvedIp: string | null = null;
+  if (!useRemoteDns && !net.isIP(host)) {
+    try {
+      const addrs = await dns.promises.resolve4(host);
+      if (addrs.length > 0) resolvedIp = addrs[0];
+    } catch (err) {
+      throw new Error(
+        `SOCKS5: local DNS resolution failed for ${host}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  return new Promise<SocksTunnelResult>((resolve, reject) => {
+    const socket = new net.Socket();
+    socket.setTimeout(25_000);
+    socket.once("error", reject);
+    socket.once("timeout", () => reject(new Error("SOCKS5 tunnel timed out")));
+
+    // Stage machine: greeting → [auth] → connect → done
+    type Stage = "greeting" | "auth" | "connect";
+    let stage: Stage = "greeting";
+    let buf = Buffer.alloc(0);
+
+    const fail = (msg: string) => {
+      socket.destroy();
+      reject(new Error(msg));
+    };
+
+    socket.on("data", (chunk: Buffer) => {
+      buf = Buffer.concat([buf, chunk]);
+
+      if (stage === "greeting") {
+        if (buf.length < 2) return;
+        if (buf[0] !== 0x05) return fail("SOCKS5: invalid server version");
+        const method = buf[1];
+        buf = buf.slice(2);
+        if (method === 0xff) return fail("SOCKS5: no acceptable auth method");
+        if (method === 0x02 && hasCredentials) {
+          stage = "auth";
+          const user = Buffer.from(username!, "utf8");
+          const pass = Buffer.from(password!, "utf8");
+          const msg = Buffer.alloc(3 + user.length + pass.length);
+          msg[0] = 0x01;
+          msg[1] = user.length;
+          user.copy(msg, 2);
+          msg[2 + user.length] = pass.length;
+          pass.copy(msg, 3 + user.length);
+          socket.write(msg);
+          return;
+        }
+        if (method === 0x00 && !hasCredentials) {
+          sendConnect();
+          return;
+        }
+        return fail(`SOCKS5: unexpected auth method 0x${method.toString(16)}`);
+      }
+
+      if (stage === "auth") {
+        if (buf.length < 2) return;
+        if (buf[0] !== 0x01) return fail("SOCKS5: invalid auth response");
+        if (buf[1] !== 0x00) return fail("SOCKS5: authentication failed");
+        buf = buf.slice(2);
+        sendConnect();
+        return;
+      }
+
+      if (stage === "connect") {
+        // SOCKS5 CONNECT reply: VER(1) REP(1) RSV(1) ATYP(1) BND.ADDR BND.PORT
+        if (buf.length < 4) return;
+        if (buf[0] !== 0x05)
+          return fail("SOCKS5: invalid CONNECT response version");
+        const rep = buf[1];
+        if (rep !== 0x00)
+          return fail(
+            `SOCKS5: CONNECT failed — ${SOCKS5_ERRORS[rep] ?? `error 0x${rep.toString(16)}`}`,
+          );
+        // Parse BND.ADDR to get remoteHost for leak verification
+        const atyp = buf[3] ?? 0;
+        let remoteHost: { host: string; port: number } | undefined;
+        try {
+          let offset = 4;
+          let boundHost = "";
+          if (atyp === 0x01) {
+            // IPv4
+            if (buf.length < 10) return;
+            boundHost = `${buf[4]}.${buf[5]}.${buf[6]}.${buf[7]}`;
+            offset = 8;
+          } else if (atyp === 0x03) {
+            // Domain
+            const len = buf[4] ?? 0;
+            if (buf.length < 5 + len + 2) return;
+            boundHost = buf.slice(5, 5 + len).toString("utf8");
+            offset = 5 + len;
+          } else if (atyp === 0x04) {
+            // IPv6
+            if (buf.length < 22) return;
+            const parts: string[] = [];
+            for (let i = 0; i < 16; i += 2)
+              parts.push(buf.readUInt16BE(4 + i).toString(16));
+            boundHost = parts.join(":");
+            offset = 20;
+          }
+          if (boundHost) {
+            const boundPort = buf.readUInt16BE(offset);
+            remoteHost = { host: boundHost, port: boundPort };
+          }
+        } catch {
+          // Parsing BND.ADDR is optional — tunnel is established regardless.
+        }
+        socket.setTimeout(0); // clear before handing off — caller sets its own
+        socket.removeAllListeners("data");
+        socket.removeAllListeners("error");
+        socket.removeAllListeners("timeout");
+        resolve({
+          socket,
+          proxyIp: socket.remoteAddress,
+          remoteHost,
+        });
+      }
+    });
+
+    const sendConnect = () => {
+      stage = "connect";
+      let req: Buffer;
+      if (resolvedIp && net.isIPv4(resolvedIp)) {
+        // ATYP=0x01 (IPv4) — locally resolved address, avoids proxy-side DNS.
+        req = Buffer.alloc(10);
+        req[0] = 0x05; // VER
+        req[1] = 0x01; // CMD: CONNECT
+        req[2] = 0x00; // RSV
+        req[3] = 0x01; // ATYP: IPv4
+        const parts = resolvedIp.split(".").map(Number);
+        req[4] = parts[0];
+        req[5] = parts[1];
+        req[6] = parts[2];
+        req[7] = parts[3];
+        req.writeUInt16BE(port, 8);
+      } else if (net.isIP(host)) {
+        // Host is already an IP address.
+        req = Buffer.alloc(10);
+        req[0] = 0x05;
+        req[1] = 0x01;
+        req[2] = 0x00;
+        req[3] = 0x01;
+        const parts = host.split(".").map(Number);
+        req[4] = parts[0];
+        req[5] = parts[1];
+        req[6] = parts[2];
+        req[7] = parts[3];
+        req.writeUInt16BE(port, 8);
+      } else {
+        // ATYP=0x03 (domain name) — proxy resolves DNS (socks5h:// mode).
+        const hostBuf = Buffer.from(host, "utf8");
+        req = Buffer.alloc(7 + hostBuf.length);
+        req[0] = 0x05;
+        req[1] = 0x01;
+        req[2] = 0x00;
+        req[3] = 0x03;
+        req[4] = hostBuf.length;
+        hostBuf.copy(req, 5);
+        req.writeUInt16BE(port, 5 + hostBuf.length);
+      }
+      socket.write(req);
+    };
+
+    socket.connect(proxyPort, proxyHost, () => {
+      // Offer ONLY user/pass when credentials present — forces auth, no bypass.
+      const greeting = hasCredentials
+        ? Buffer.from([0x05, 0x01, 0x02])
+        : Buffer.from([0x05, 0x01, 0x00]);
+      socket.write(greeting);
+    });
   });
-  return {
-    socket: result.socket,
-    proxyIp: result.socket.remoteAddress,
-    remoteHost: result.remoteHost,
-  };
 }
 
 /**
@@ -764,7 +963,7 @@ async function tunnelFetch(
       proxyIp,
       remoteHost: socksRemoteHost,
     } = await socksTunnel(proxyUrl, url.hostname, port);
-    await verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
+    void verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
     const headers = headersFn("http/1.1");
     const response = await httpPlainRequest(
       url.hostname,
@@ -779,18 +978,27 @@ async function tunnelFetch(
 
   // HTTPS: SOCKS tunnel → TLS upgrade (ALPN) → generate headers → request
   // on the SAME socket. Zero double-connect, zero IP leak.
+  const parsedForDiag = parseSocksProxy(proxyUrl);
+  logger.info("SOCKS tunnel connect", {
+    url: url.toString(),
+    proxyHost: configuredProxyHost,
+    socksAuthPresent: !!(parsedForDiag.userId && parsedForDiag.password),
+  });
   const {
     socket: rawSocket,
     proxyIp,
     remoteHost: socksRemoteHost,
   } = await socksTunnel(proxyUrl, url.hostname, port);
-  await verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
 
   const { tlsSocket, alpn } = await tlsUpgrade(
     rawSocket,
     url.hostname,
     !allowInsecureTls,
+    timeoutMs,
   );
+  // Run leak verification after TLS is up — avoids holding the raw socket
+  // idle (no handlers) during an async DNS lookup between socksTunnel and TLS.
+  void verifyNoLeak(proxyIp, socksRemoteHost, url.hostname, port);
   const headers = headersFn(alpn);
 
   logger.info("SOCKS tunnel + TLS established", {

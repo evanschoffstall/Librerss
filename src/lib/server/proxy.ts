@@ -36,10 +36,12 @@ async function socks5AuthProbe(
   password?: string,
 ): Promise<boolean> {
   const hasCredentials = !!username && !!password;
-  // Offer user/pass (0x02) when credentials available, otherwise only no-auth (0x00).
+  // When credentials are provided, offer ONLY user/pass (0x02) — this forces the server
+  // to verify them. Offering no-auth (0x00) alongside allows the server to bypass
+  // credential checking by selecting no-auth, giving a false "success" result.
   const greeting = hasCredentials
-    ? Buffer.from([0x05, 0x02, 0x00, 0x02]) // VER, NMETHODS=2, no-auth, user/pass
-    : Buffer.from([0x05, 0x01, 0x00]); // VER, NMETHODS=1, no-auth
+    ? Buffer.from([0x05, 0x01, 0x02]) // VER, NMETHODS=1, user/pass only
+    : Buffer.from([0x05, 0x01, 0x00]); // VER, NMETHODS=1, no-auth only
   return new Promise<boolean>((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
