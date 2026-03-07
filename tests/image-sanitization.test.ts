@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
 import { sanitizeArticleHtml } from "@/lib/sanitize";
+import { describe, expect, test } from "bun:test";
 
 describe("Image Sanitization", () => {
   test("should allow safe img tags", () => {
