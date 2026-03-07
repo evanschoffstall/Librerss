@@ -25,6 +25,10 @@ beforeEach(() => {
   __resetArticleStatusesTableStateForTests();
 });
 
+afterEach(() => {
+  mock.restore();
+});
+
 afterAll(() => {
   mock.restore();
 });
