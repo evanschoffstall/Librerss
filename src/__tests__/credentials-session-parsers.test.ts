@@ -426,6 +426,80 @@ describe("parseRenameFeedPayload", () => {
   });
 });
 
+describe("parseRenameFeedPayloadFromBody", () => {
+  test("rejects overly long url", () => {
+    const result = parseRenameFeedPayloadFromBody({
+      id: 1,
+      name: "Feed",
+      url: `https://example.com/${"x".repeat(2100)}`,
+    });
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+});
+
+describe("parseToggleFeedEnabledPayloadFromBody", () => {
+  test("parses valid toggle payload", () => {
+    const result = parseToggleFeedEnabledPayloadFromBody({
+      id: 17,
+      enabled: true,
+    });
+    expect(result).toEqual({ sourceId: 17, enabled: true });
+  });
+
+  test("rejects non-boolean enabled", () => {
+    const result = parseToggleFeedEnabledPayloadFromBody({
+      id: 17,
+      enabled: "true",
+    });
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+});
+
+describe("parseUpdateFeedSettingsPayloadFromBody", () => {
+  test("rejects payload without mutable fields", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({ id: 12 });
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+
+  test("parses extractionDisabled-only payload", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({
+      id: 12,
+      extractionDisabled: true,
+    });
+    expect(result).toEqual({ sourceId: 12, extractionDisabled: true });
+  });
+
+  test("parses proxyEnabled-only payload", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({
+      id: 12,
+      proxyEnabled: false,
+    });
+    expect(result).toEqual({ sourceId: 12, proxyEnabled: false });
+  });
+
+  test("parses payload with both mutable fields", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({
+      id: 12,
+      extractionDisabled: false,
+      proxyEnabled: true,
+    });
+    expect(result).toEqual({
+      sourceId: 12,
+      extractionDisabled: false,
+      proxyEnabled: true,
+    });
+  });
+});
+
 // ─── feed-parsers: parseDeleteSourceId ────────────────────────────────────────
 
 describe("parseDeleteSourceId", () => {

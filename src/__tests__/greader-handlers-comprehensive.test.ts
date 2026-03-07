@@ -878,4 +878,35 @@ describe("Subscription Handler", () => {
 
     expect(response.status).toBeLessThan(400);
   });
+
+  test("quick add rejects oversized feed urls", async () => {
+    const { handleSubscriptionQuickAdd } =
+      await import("@/lib/api/greader/subscription");
+
+    const oversized = "https://example.com/" + "x".repeat(2100);
+    const request = new NextRequest(
+      `https://example.com/api/greader.php/reader/api/0/subscription/quickadd?quickadd=${encodeURIComponent(oversized)}`,
+    );
+
+    const response = await handleSubscriptionQuickAdd(mockUser, request);
+
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("Invalid feed URL");
+  });
+
+  test("quick add rejects malformed urls", async () => {
+    const { handleSubscriptionQuickAdd } =
+      await import("@/lib/api/greader/subscription");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/subscription/quickadd?quickadd=not-a-valid-feed-url",
+    );
+
+    const response = await handleSubscriptionQuickAdd(mockUser, request);
+
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("Invalid feed URL");
+  });
 });
