@@ -9,6 +9,7 @@ import {
   useArticleHydration,
   type FeedExtractionSettings,
 } from "./useArticleHydration";
+import { getNextArticle } from "./useArticleNavigation";
 import { useArticleReadState } from "./useArticleReadState";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
@@ -107,6 +108,9 @@ export function useArticleActions({
     hydrateArticleContent,
   ]);
 
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
   const collapseScrollTimeoutRef = useRef<number | null>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
@@ -125,73 +129,48 @@ export function useArticleActions({
     [],
   );
 
-  const scrollCollapsedArticleIntoView = useCallback(
-    (collapsingKey: string) => {
-      let collapsingEl: HTMLElement | null = null;
-      try {
-        collapsingEl = document.querySelector<HTMLElement>(
-          `[data-article-key="${escapeArticleKey(collapsingKey)}"]`,
-        );
-      } catch {
-        collapsingEl = null;
-      }
-
-      if (!collapsingEl) {
-        for (const candidate of Array.from(
-          document.getElementsByTagName("*"),
-        )) {
-          if (
-            candidate instanceof HTMLElement &&
-            candidate.getAttribute("data-article-key") === collapsingKey
-          ) {
-            collapsingEl = candidate;
-            break;
-          }
+  const scrollArticleToTop = useCallback((targetKey: string) => {
+    let el: HTMLElement | null = null;
+    try {
+      el = document.querySelector<HTMLElement>(
+        `[data-article-key="${escapeArticleKey(targetKey)}"]`,
+      );
+    } catch {
+      el = null;
+    }
+    if (!el) {
+      for (const candidate of Array.from(document.getElementsByTagName("*"))) {
+        if (
+          candidate instanceof HTMLElement &&
+          candidate.getAttribute("data-article-key") === targetKey
+        ) {
+          el = candidate;
+          break;
         }
       }
+    }
+    if (!el) return;
 
-      if (!collapsingEl) return;
+    const viewport = el.closest<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
 
-      const viewport = collapsingEl.closest<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      );
-
-      if (!viewport) {
-        collapsingEl.scrollIntoView({
-          block: "nearest",
-          inline: "nearest",
-          behavior: "smooth",
-        });
-        return;
-      }
-
-      const viewportRect = viewport.getBoundingClientRect();
-      const articleRect = collapsingEl.getBoundingClientRect();
-
-      // Keep current position if the card is already fully visible.
-      if (
-        articleRect.top >= viewportRect.top &&
-        articleRect.bottom <= viewportRect.bottom
-      ) {
-        return;
-      }
-
-      const targetScrollTop = Math.max(
-        0,
-        Math.min(
-          viewport.scrollTop + (articleRect.top - viewportRect.top),
-          Math.max(0, viewport.scrollHeight - viewport.clientHeight),
-        ),
-      );
-
-      if (Math.abs(viewport.scrollTop - targetScrollTop) <= 1) {
-        return;
-      }
-
-      viewport.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-    },
-    [],
-  );
+    const targetScrollTop = Math.max(
+      0,
+      Math.min(
+        viewport.scrollTop +
+          (el.getBoundingClientRect().top -
+            viewport.getBoundingClientRect().top),
+        Math.max(0, viewport.scrollHeight - viewport.clientHeight),
+      ),
+    );
+    if (Math.abs(viewport.scrollTop - targetScrollTop) <= 1) return;
+    viewport.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+  }, []);
 
   const handleArticleToggle = useCallback(
     async (article: Article) => {
@@ -212,9 +191,16 @@ export function useArticleActions({
         if (collapseScrollTimeoutRef.current !== null) {
           window.clearTimeout(collapseScrollTimeoutRef.current);
         }
-        // After the collapse CSS transition (~150–240ms), scroll the collapsed article back into view
+        // After the collapse CSS transition (~150–240ms), scroll to the top of the
+        // target article: next article if already read, current article if unread.
+        const nextArticle = article.isRead
+          ? getNextArticle(feedRef.current, article.id)
+          : null;
+        const scrollTargetKey = nextArticle
+          ? getArticleKey(nextArticle)
+          : nextArticleKey;
         collapseScrollTimeoutRef.current = window.setTimeout(() => {
-          scrollCollapsedArticleIntoView(nextArticleKey);
+          scrollArticleToTop(scrollTargetKey);
           collapseScrollTimeoutRef.current = null;
         }, 250);
 
@@ -263,7 +249,7 @@ export function useArticleActions({
       setExpandedArticleKey,
       setArticleReadState,
       hydrateArticleContent,
-      scrollCollapsedArticleIntoView,
+      scrollArticleToTop,
     ],
   );
 
