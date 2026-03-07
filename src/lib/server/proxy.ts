@@ -12,6 +12,8 @@ export type ProxySettingsResponse = {
   configured: boolean;
   status: ProxyStatus;
   allowInsecureTls: boolean;
+  proxyUsername: string | null;
+  hasProxyPassword: boolean;
   error?: string;
 };
 
