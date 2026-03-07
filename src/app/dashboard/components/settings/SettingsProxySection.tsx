@@ -41,6 +41,30 @@ type BotResult = {
   error?: string;
 };
 
+type BotResultsCache = {
+  checkedAt: number;
+  results: BotResult[];
+};
+
+const ERROR_PREVIEW_CHARS = 88;
+const BOT_RESULTS_CACHE_KEY = "librerss:settings:proxy:bot-results:v1";
+
+function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}...`;
+}
+
+function formatElapsed(checkedAt: number, now: number) {
+  const elapsedSec = Math.max(0, Math.floor((now - checkedAt) / 1000));
+  if (elapsedSec < 60) return `${elapsedSec}s ago`;
+  const elapsedMin = Math.floor(elapsedSec / 60);
+  if (elapsedMin < 60) return `${elapsedMin}m ago`;
+  const elapsedHr = Math.floor(elapsedMin / 60);
+  if (elapsedHr < 24) return `${elapsedHr}h ago`;
+  const elapsedDay = Math.floor(elapsedHr / 24);
+  return `${elapsedDay}d ago`;
+}
+
 function StatusBadge({
   status,
 }: {
@@ -140,6 +164,10 @@ export function SettingsProxySection() {
   const [testingBot, setTestingBot] = useState(false);
   const [botResults, setBotResults] = useState<BotResult[] | null>(null);
   const [botError, setBotError] = useState<string | null>(null);
+  const [botCheckedAt, setBotCheckedAt] = useState<number | null>(null);
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollToResultsRef = useRef(false);
 
   useEffect(() => {
     ArticleService.getProxySettings()
@@ -158,6 +186,39 @@ export function SettingsProxySection() {
       })
       .catch(() => setProxyStatus("none"));
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(BOT_RESULTS_CACHE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<BotResultsCache>;
+      if (
+        typeof parsed?.checkedAt !== "number" ||
+        !Array.isArray(parsed?.results)
+      )
+        return;
+      setBotResults(parsed.results as BotResult[]);
+      setBotCheckedAt(parsed.checkedAt);
+    } catch {
+      // ignore malformed cache
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!botResults || !shouldAutoScrollToResultsRef.current) return;
+    shouldAutoScrollToResultsRef.current = false;
+    window.requestAnimationFrame(() => {
+      resultsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    });
+  }, [botResults]);
 
   if (proxyStatus === "loading") return <ProxySkeleton />;
 
@@ -225,14 +286,23 @@ export function SettingsProxySection() {
 
   const handleTestBotDetection = async () => {
     setTestingBot(true);
-    setBotResults(null);
     setBotError(null);
     setError(null);
     try {
       const response = await ArticleService.testBotDetection({
         useProxy: hasProxy,
       });
+      shouldAutoScrollToResultsRef.current = true;
       setBotResults(response.results);
+      const checkedAt = Date.now();
+      setBotCheckedAt(checkedAt);
+      window.localStorage.setItem(
+        BOT_RESULTS_CACHE_KEY,
+        JSON.stringify({
+          checkedAt,
+          results: response.results,
+        } satisfies BotResultsCache),
+      );
     } catch (err) {
       setBotError(err instanceof Error ? err.message : "Test failed");
     } finally {
@@ -241,132 +311,143 @@ export function SettingsProxySection() {
   };
 
   return (
-    <section className="rounded-lg border bg-card p-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Globe className="size-3.5 text-muted-foreground" />
-            Extraction Proxy
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Route article extraction through a proxy to bypass geo-restrictions
-            or bot detection.
-          </p>
+    <TooltipProvider delayDuration={250}>
+      <section className="rounded-lg border bg-card p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Globe className="size-3.5 text-muted-foreground" />
+              Extraction Proxy
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Route article extraction through a proxy to bypass
+              geo-restrictions or bot detection.
+            </p>
+          </div>
+          <StatusBadge status={proxyStatus} />
         </div>
-        <StatusBadge status={proxyStatus} />
-      </div>
 
-      <Separator />
+        <Separator />
 
-      {/* URL input */}
-      <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">Proxy URL</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            ref={inputRef}
-            type="text"
-            placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
-            value={proxyUrl}
-            onChange={(e) => {
-              setProxyUrl(e.target.value);
-              setError(null);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            disabled={saving}
-            className="h-9 font-mono text-sm"
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 shrink-0 gap-1.5"
-            onClick={handleSave}
-            disabled={saving || !proxyUrl.trim()}
-          >
-            {saving ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Save className="size-3.5" />
-            )}
-            Save
-          </Button>
-          {hasProxy && (
+        {/* URL input */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Proxy URL</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              ref={inputRef}
+              type="text"
+              placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
+              value={proxyUrl}
+              onChange={(e) => {
+                setProxyUrl(e.target.value);
+                setError(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              disabled={saving}
+              className="h-9 font-mono text-sm"
+            />
             <Button
               type="button"
               size="sm"
-              variant="ghost"
-              className="h-9 px-2 shrink-0 text-muted-foreground hover:text-destructive"
-              onClick={handleClear}
-              disabled={saving}
+              variant="outline"
+              className="h-9 shrink-0 gap-1.5"
+              onClick={handleSave}
+              disabled={saving || !proxyUrl.trim()}
             >
-              <Trash2 className="size-3.5" />
+              {saving ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Save
             </Button>
+            {hasProxy && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-9 px-2 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={handleClear}
+                disabled={saving}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+          {error && (
+            <div className="flex min-w-0 items-center gap-1.5 text-xs text-destructive">
+              <XCircle className="size-3.5 shrink-0" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="max-w-[28rem] min-w-0 truncate">
+                    {previewText(error)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[40rem] text-xs">
+                  <p className="break-all">{error}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           )}
         </div>
-        {error && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <XCircle className="size-3.5 shrink-0" />
-            {error}
-          </p>
-        )}
-      </div>
 
-      {/* Credentials */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="proxy-username"
-            className="text-xs text-muted-foreground"
-          >
-            Username
-          </Label>
-          <Input
-            id="proxy-username"
-            type="text"
-            autoComplete="username"
-            placeholder="optional"
-            value={proxyUsername}
-            onChange={(e) => setProxyUsername(e.target.value)}
-            disabled={saving}
-            className="h-9 font-mono text-sm"
-          />
+        {/* Credentials */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="proxy-username"
+              className="text-xs text-muted-foreground"
+            >
+              Username
+            </Label>
+            <Input
+              id="proxy-username"
+              type="text"
+              autoComplete="username"
+              placeholder="optional"
+              value={proxyUsername}
+              onChange={(e) => setProxyUsername(e.target.value)}
+              disabled={saving}
+              className="h-9 font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="proxy-password"
+              className="text-xs text-muted-foreground"
+            >
+              Password
+              {hasProxyPassword && !proxyPassword && (
+                <span className="text-muted-foreground/60"> · saved</span>
+              )}
+            </Label>
+            <Input
+              id="proxy-password"
+              type="password"
+              autoComplete="current-password"
+              placeholder={
+                hasProxyPassword ? "leave blank to keep" : "optional"
+              }
+              value={proxyPassword}
+              onChange={(e) => setProxyPassword(e.target.value)}
+              disabled={saving}
+              className="h-9 font-mono text-sm"
+            />
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="proxy-password"
-            className="text-xs text-muted-foreground"
-          >
-            Password
-            {hasProxyPassword && !proxyPassword && (
-              <span className="text-muted-foreground/60"> · saved</span>
-            )}
-          </Label>
-          <Input
-            id="proxy-password"
-            type="password"
-            autoComplete="current-password"
-            placeholder={hasProxyPassword ? "leave blank to keep" : "optional"}
-            value={proxyPassword}
-            onChange={(e) => setProxyPassword(e.target.value)}
-            disabled={saving}
-            className="h-9 font-mono text-sm"
-          />
-        </div>
-      </div>
 
-      <Separator />
+        <Separator />
 
-      {/* TLS toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1.5">
-          <Label
-            htmlFor="allow-insecure-tls"
-            className="cursor-pointer text-xs"
-          >
-            Allow insecure TLS
-          </Label>
-          <TooltipProvider>
+        {/* TLS toggle */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5">
+            <Label
+              htmlFor="allow-insecure-tls"
+              className="cursor-pointer text-xs"
+            >
+              Allow insecure TLS
+            </Label>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Info className="size-3 cursor-help text-muted-foreground" />
@@ -376,94 +457,119 @@ export function SettingsProxySection() {
                 proxies.
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
-        </div>
-        <Switch
-          id="allow-insecure-tls"
-          checked={allowInsecureTls}
-          disabled={saving}
-          onCheckedChange={async (checked) => {
-            const currentUrl = proxyUrl.trim();
-            if (!currentUrl) return;
-            setAllowInsecureTls(checked);
-            try {
-              await ArticleService.saveProxyUrl(currentUrl, {
-                allowInsecureTls: checked,
-              });
-            } catch {
-              setAllowInsecureTls(!checked);
-            }
-          }}
-        />
-      </div>
-
-      <Separator />
-
-      {/* Anti-bot test */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium">Anti-Bot Detection Test</p>
-            <p className="text-[11px] text-muted-foreground">
-              Verify bypass against DataDome &amp; PerimeterX
-              {hasProxy ? " via proxy" : ""}.
-            </p>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 shrink-0 gap-1.5"
-            onClick={handleTestBotDetection}
-            disabled={testingBot || saving}
-          >
-            {testingBot ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Bug className="size-3.5" />
-            )}
-            {testingBot ? "Testing…" : "Run Test"}
-          </Button>
+          <Switch
+            id="allow-insecure-tls"
+            checked={allowInsecureTls}
+            disabled={saving}
+            onCheckedChange={async (checked) => {
+              const currentUrl = proxyUrl.trim();
+              if (!currentUrl) return;
+              setAllowInsecureTls(checked);
+              try {
+                await ArticleService.saveProxyUrl(currentUrl, {
+                  allowInsecureTls: checked,
+                });
+              } catch {
+                setAllowInsecureTls(!checked);
+              }
+            }}
+          />
         </div>
 
-        {botError && (
-          <p className="flex items-center gap-1.5 text-xs text-destructive">
-            <XCircle className="size-3.5 shrink-0" />
-            {botError}
-          </p>
-        )}
+        <Separator />
 
-        {botResults && (
-          <div className="divide-y divide-border rounded-lg border bg-muted/30">
-            {botResults.map((r, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-3 px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="shrink-0 text-xs font-medium">
-                    {r.protection}
+        {/* Anti-bot test */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium">Anti-Bot Detection Test</p>
+              <p className="text-[11px] text-muted-foreground">
+                Verify bypass against DataDome, PerimeterX, Cloudflare, and
+                reCAPTCHA
+                {hasProxy ? " via proxy" : ""}.
+              </p>
+              {botCheckedAt && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Last check {formatElapsed(botCheckedAt, nowTs)}
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 shrink-0 gap-1.5"
+              onClick={handleTestBotDetection}
+              disabled={testingBot || saving}
+            >
+              {testingBot ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Bug className="size-3.5" />
+              )}
+              {testingBot ? "Testing…" : "Run Test"}
+            </Button>
+          </div>
+
+          {botError && (
+            <div className="flex min-w-0 items-center gap-1.5 text-xs text-destructive">
+              <XCircle className="size-3.5 shrink-0" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="max-w-[28rem] min-w-0 truncate">
+                    {previewText(botError)}
                   </span>
-                  {!!r.statusCode && r.statusCode > 0 && (
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {r.statusCode}
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[40rem] text-xs">
+                  <p className="break-all">{botError}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+
+          {botResults && (
+            <div
+              ref={resultsRef}
+              className="divide-y divide-border rounded-lg border bg-muted/30"
+            >
+              {botResults.map((r, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-3 px-3 py-2"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="shrink-0 text-xs font-medium">
+                      {r.protection}
                     </span>
-                  )}
-                  {r.error && (!r.statusCode || r.statusCode === 0) && (
-                    <span
-                      className="truncate font-mono text-[10px] text-muted-foreground"
-                      title={r.error}
-                    >
-                      {r.error}
-                    </span>
-                  )}
+                    {!!r.statusCode && r.statusCode > 0 && (
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {r.statusCode}
+                      </span>
+                    )}
+                    {r.error && (!r.statusCode || r.statusCode === 0) && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="max-w-[20rem] min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground md:max-w-[28rem]">
+                            {previewText(r.error)}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="max-w-[40rem] text-xs"
+                        >
+                          <p className="break-all">{r.error}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <BotResultBadge result={r} />
                 </div>
-                <BotResultBadge result={r} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </TooltipProvider>
   );
 }

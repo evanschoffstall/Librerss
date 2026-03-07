@@ -5,7 +5,7 @@ import {
   fetchHtmlWithFingerprint,
   GotScrapingError,
   pickDiagnosticHeaders,
-} from "@/lib/extract/fingerprint-fetch";
+} from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import { requireAuthenticatedUser } from "@/lib/server";
 import { injectProxyCredentials } from "@/lib/utils/url";
@@ -14,19 +14,60 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// Test real anti-bot protections: DataDome (Nike) and PerimeterX (Lowes)
+// Test real anti-bot protections: DataDome, PerimeterX, Cloudflare, reCAPTCHA
 const TEST_SITES = [
   {
-    name: "Nike (DataDome)",
-    url: "https://www.nike.com",
+    name: "x (DataDome)",
+    url: "https://www.pennlive.com/",
     protection: "DataDome",
   },
   {
-    name: "Lowes (PerimeterX)",
-    url: "https://www.lowes.com",
+    name: "x (PerimeterX)",
+    url: "https://www.abc27.com/",
     protection: "PerimeterX",
   },
+  {
+    name: "Cloudflare",
+    url: "https://www.cloudflare.com/",
+    protection: "Cloudflare",
+  },
+  {
+    name: "Google reCAPTCHA Demo",
+    url: "https://ticketmaster.com/",
+    protection: "reCAPTCHA",
+  },
 ] as const;
+
+function hasProtectionSignal(protection: string, bodyLower: string) {
+  if (protection === "DataDome")
+    return (
+      bodyLower.includes("datadome") ||
+      bodyLower.includes("captcha-delivery") ||
+      bodyLower.includes("geo.captcha-delivery")
+    );
+  if (protection === "PerimeterX")
+    return (
+      bodyLower.includes("perimeterx") ||
+      bodyLower.includes("_px") ||
+      bodyLower.includes("px-captcha")
+    );
+  if (protection === "Cloudflare")
+    return (
+      bodyLower.includes("cloudflare") ||
+      bodyLower.includes("cf-browser-verification") ||
+      bodyLower.includes("__cf_chl_") ||
+      bodyLower.includes("/cdn-cgi/challenge-platform")
+    );
+  if (protection === "reCAPTCHA")
+    return (
+      bodyLower.includes("g-recaptcha") ||
+      bodyLower.includes("grecaptcha") ||
+      bodyLower.includes("/recaptcha/api") ||
+      bodyLower.includes("google.com/recaptcha") ||
+      bodyLower.includes("i'm not a robot")
+    );
+  return false;
+}
 
 type SiteTestResult = {
   site: string;
@@ -97,10 +138,9 @@ export async function POST(request: NextRequest) {
     userId: authResult.userId,
   });
 
-  const results: SiteTestResult[] = [];
-
-  // Test each site sequentially
-  for (const site of TEST_SITES) {
+  const testSite = async (
+    site: (typeof TEST_SITES)[number],
+  ): Promise<SiteTestResult> => {
     const result: SiteTestResult = {
       site: site.name,
       url: site.url,
@@ -116,8 +156,6 @@ export async function POST(request: NextRequest) {
         {
           proxyUrl,
           allowInsecureTls,
-          browserVersion: 131,
-          operatingSystem: "windows",
         },
       );
 
@@ -127,18 +165,8 @@ export async function POST(request: NextRequest) {
 
       const htmlLower = html.toLowerCase();
 
-      // Check if blocked by anti-bot protection
-      if (site.protection === "DataDome") {
-        result.blocked =
-          htmlLower.includes("datadome") ||
-          htmlLower.includes("captcha-delivery") ||
-          htmlLower.includes("geo.captcha-delivery");
-      } else if (site.protection === "PerimeterX") {
-        result.blocked =
-          htmlLower.includes("perimeterx") ||
-          htmlLower.includes("_px") ||
-          htmlLower.includes("px-captcha");
-      }
+      // Check if blocked by anti-bot protection signal
+      result.blocked = hasProtectionSignal(site.protection, htmlLower);
 
       logger.info("Site test completed", {
         site: site.name,
@@ -161,14 +189,7 @@ export async function POST(request: NextRequest) {
         result.error = `HTTP ${err.statusCode}`;
 
         const bodyLower = err.responseBody.toLowerCase();
-        if (site.protection === "DataDome" && bodyLower.includes("datadome")) {
-          result.blocked = true;
-        } else if (
-          site.protection === "PerimeterX" &&
-          (bodyLower.includes("perimeterx") || bodyLower.includes("_px"))
-        ) {
-          result.blocked = true;
-        }
+        result.blocked = hasProtectionSignal(site.protection, bodyLower);
 
         logger.error("Site test failed with upstream error", {
           site: site.name,
@@ -194,8 +215,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    results.push(result);
-  }
+    return result;
+  };
+
+  // Run each provider test concurrently.
+  const results = await Promise.all(TEST_SITES.map((site) => testSite(site)));
 
   return NextResponse.json({ results });
 }
