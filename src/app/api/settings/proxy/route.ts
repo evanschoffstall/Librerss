@@ -12,7 +12,7 @@ import {
   type AuthenticatedUser,
   type ProxyStatus,
 } from "@/lib/server";
-import { redactUrlForLogs } from "@/lib/utils/url";
+import { injectProxyCredentials, redactUrlForLogs } from "@/lib/utils/url";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -47,9 +47,14 @@ async function probeAndRespond(
   logLabel: string,
   allowInsecureTls = false,
   proxyUsername: string | null = null,
-  hasProxyPassword = false,
+  proxyPassword: string | null = null,
 ): Promise<Response> {
-  const reachable = await probe(proxyUrl);
+  // Inject credentials into the probe URL so SOCKS5 auth is actually tested.
+  const probeUrl =
+    proxyUsername && proxyPassword
+      ? injectProxyCredentials(proxyUrl, proxyUsername, proxyPassword)
+      : proxyUrl;
+  const reachable = await probe(probeUrl);
   if (!reachable)
     logger.error(logLabel, { proxyUrl: redactUrlForLogs(proxyUrl) });
   return NextResponse.json({
@@ -58,7 +63,7 @@ async function probeAndRespond(
     status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
     allowInsecureTls,
     proxyUsername,
-    hasProxyPassword,
+    hasProxyPassword: proxyPassword !== null,
   });
 }
 
@@ -109,7 +114,7 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
     "Proxy unreachable on GET",
     user?.allowInsecureTls ?? false,
     user?.proxyUsername ?? null,
-    !!user?.proxyPassword,
+    user?.proxyPassword ?? null,
   );
 }
 
@@ -190,7 +195,7 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
 
   const effectiveTls = updated?.allowInsecureTls ?? false;
   const effectiveUsername = updated?.proxyUsername ?? null;
-  const effectiveHasPassword = !!updated?.proxyPassword;
+  const effectivePassword = updated?.proxyPassword ?? null;
 
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
@@ -199,6 +204,6 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     "Proxy saved but unreachable",
     effectiveTls,
     effectiveUsername,
-    effectiveHasPassword,
+    effectivePassword,
   );
 }
