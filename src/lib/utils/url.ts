@@ -166,9 +166,7 @@ export function toCategoryLookupKey(feedUrl: string): string {
  */
 export function redactUrlForLogs(raw: string): string {
   const trimmed = raw.trim();
-  if (!trimmed) {
-    return "[empty-url]";
-  }
+  if (!trimmed) return "[empty-url]";
 
   try {
     const parsed = new URL(trimmed);
