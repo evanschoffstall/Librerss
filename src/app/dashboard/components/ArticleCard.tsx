@@ -715,10 +715,11 @@ export const ArticleCard = ({
                     ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                     : "none",
                 ...(hasOverflow &&
-                collapsedHeight === expandedHeight &&
-                !visuallyExpanded
+                  collapsedHeight === expandedHeight &&
+                  !visuallyExpanded
                   ? { maxHeight: `${collapsedHeight}px` }
                   : {}),
+                contentVisibility: expandTransitionDone ? "auto" : "visible",
               }}
             >
               {showSkeleton ? (
@@ -740,6 +741,10 @@ export const ArticleCard = ({
               ) : useRichFormatting ? (
                 <div
                   className={visibleRichContentClassName}
+                  style={{
+                    contain: "layout style paint",
+                    willChange: visuallyExpanded ? "auto" : "contents",
+                  }}
                   dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                 />
               ) : (
