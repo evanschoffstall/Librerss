@@ -1,9 +1,11 @@
-import type { ProxyStatus } from "@/app/api/settings/proxy/route";
-import { probeProxy } from "@/app/api/settings/proxy/route";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { requireAuthenticatedUser } from "@/lib/server";
+import {
+  probeProxy,
+  requireAuthenticatedUser,
+  type ProxyStatus,
+} from "@/lib/server";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
