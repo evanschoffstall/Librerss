@@ -95,7 +95,7 @@ const CMD_SEMGREP: Cmd = [
     "--error",
     "--metrics",
     "off",
-    "--exclude=src/__tests__",
+    "--exclude=tests",
     "--exclude=src/components/ui",
     "--exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
     "--exclude-rule=typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
