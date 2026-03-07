@@ -63,7 +63,10 @@ export function mapBatchResultsToArticles(
 // ── Feed-loader utilities ─────────────────────────────────────────────────────
 
 /** Safety timeout for a single batch feed-load cycle. */
-export const FEED_LOADING_FAILSAFE_MS = 20_000;
+// Must exceed BATCH_REQUEST_TIMEOUT_MS (60 s) so the Axios-level timeout always
+// fires before this failsafe, and actual slow upstream refreshes don't trigger
+// a false "timed out" toast.
+export const FEED_LOADING_FAILSAFE_MS = 65_000;
 
 /**
  * De-duplicates batch sources by URL, preserving first-occurrence order.
