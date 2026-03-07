@@ -131,6 +131,7 @@ export async function detectProxyProtocol(
   return new Promise((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
+    let response = Buffer.alloc(0);
     const finish = (proto: "socks5" | "http", reason: string) => {
       socket.removeAllListeners();
       socket.destroy();
@@ -146,14 +147,25 @@ export async function detectProxyProtocol(
         "Proxy detection TCP connected, sending SOCKS5 greeting",
         ctx,
       );
-      // SOCKS5 greeting: version 5, 1 method offered: no-auth (0x00)
-      socket.write(Buffer.from([0x05, 0x01, 0x00]));
+      // Offer both methods for protocol detection robustness:
+      // no-auth (0x00) and username/password (0x02).
+      // Some SOCKS servers require auth and may reject a no-auth-only greeting.
+      socket.write(Buffer.from([0x05, 0x02, 0x00, 0x02]));
     });
     socket.on("data", (data: Buffer) => {
-      const isSocks = data.length >= 2 && data[0] === 0x05;
+      response = Buffer.concat([response, data]);
+      if (response.length < 1) return;
+      if (response[0] !== 0x05) {
+        finish(
+          "http",
+          `server replied ${response.length}B, first byte 0x${response[0]?.toString(16) ?? "??"} → not SOCKS`,
+        );
+        return;
+      }
+      if (response.length < 2) return;
       finish(
-        isSocks ? "socks5" : "http",
-        `server replied ${data.length}B, first byte 0x${data[0]?.toString(16) ?? "??"} → ${isSocks ? "SOCKS5" : "not SOCKS"}`,
+        "socks5",
+        `server replied ${response.length}B, version 0x${response[0]?.toString(16) ?? "??"}, method 0x${response[1]?.toString(16) ?? "??"} → SOCKS5`,
       );
     });
     socket.on("timeout", () =>
