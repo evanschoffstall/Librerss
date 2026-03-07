@@ -12,13 +12,12 @@ import {
   ShieldOff,
   Trash2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   SettingsIconButton,
+  animTransitionColorsClass,
   settingsDragHandleCls,
 } from "./SettingsIconButton";
-
-const animTransitionColorsClass =
-  "transition-colors anim-duration-ui anim-ease-ui";
 
 export interface SettingsFeedRowProps {
   feedNode: CategoryTreeNode;

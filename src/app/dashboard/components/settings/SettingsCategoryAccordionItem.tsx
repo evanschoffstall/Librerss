@@ -10,11 +10,9 @@ import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
 import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
 import {
   SettingsIconButton,
+  animTransitionColorsClass,
   settingsDragHandleCls,
 } from "./SettingsIconButton";
-
-const animTransitionColorsClass =
-  "transition-colors anim-duration-ui anim-ease-ui";
 
 interface SettingsCategoryAccordionItemProps {
   categoryNode: CategoryTreeNode;
