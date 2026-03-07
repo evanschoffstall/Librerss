@@ -161,7 +161,8 @@ const ARTICLE_SANITIZE_OPTIONS = {
           ...attribs,
           ...(trimmedSource ? { src: trimmedSource } : {}),
           referrerpolicy: attribs.referrerpolicy || "no-referrer",
-          loading: attribs.loading || "lazy",
+          loading: "eager",
+          decoding: attribs.decoding || "async",
         },
       };
     },
