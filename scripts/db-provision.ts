@@ -1,0 +1,59 @@
+#!/usr/bin/env bun
+/**
+ * Provisions the LibreRSS database from scratch.
+ *
+ * Usage:
+ *   bun run db:provision
+ *
+ * What it does:
+ *   1. Validates DATABASE_URL is set
+ *   2. Verifies the database connection
+ *   3. Pushes the Drizzle schema (creates/migrates all tables)
+ */
+
+import { execSync } from "node:child_process";
+import { Client } from "pg";
+
+const DATABASE_URL = process.env.DATABASE_URL?.trim();
+
+if (!DATABASE_URL) {
+  console.error(
+    "ERROR: DATABASE_URL is not set.\n" +
+      "Create a .env.local file with:\n\n" +
+      '  DATABASE_URL="postgres://user:password@host:5432/dbname"\n',
+  );
+  process.exit(1);
+}
+
+console.log("Connecting to database...");
+
+const client = new Client({ connectionString: DATABASE_URL });
+
+try {
+  await client.connect();
+  const result = await client.query("SELECT version()");
+  const version: string = result.rows[0]?.version ?? "unknown";
+  console.log(
+    `Connected. PostgreSQL: ${version.split(" ").slice(0, 2).join(" ")}`,
+  );
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`ERROR: Could not connect to database.\n${message}`);
+  process.exit(1);
+} finally {
+  await client.end();
+}
+
+console.log("Pushing schema...");
+
+try {
+  execSync("bunx drizzle-kit push", {
+    stdio: "inherit",
+    env: { ...process.env },
+  });
+} catch {
+  console.error("ERROR: Schema push failed.");
+  process.exit(1);
+}
+
+console.log("Done. Database provisioned successfully.");
