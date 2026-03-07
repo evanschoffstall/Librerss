@@ -63,7 +63,6 @@
     "cmdk": "^1.1.1",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
-    "header-generator": "^2.1.81",
     "lexical": "^0.41.0",
     "lodash": "^4.17.23",
     "lucide-react": "^0.575.0",
