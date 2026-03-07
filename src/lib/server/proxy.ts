@@ -1,5 +1,5 @@
 import { resolvesToBlockedAddress } from "@/lib/core/dns-cache";
-import { SOCKS_PROTOCOLS } from "@/lib/extract/proxy-config";
+import { SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import { isBlockedHost } from "@/lib/utils/ssrf";
 import { redactUrlForLogs } from "@/lib/utils/url";
