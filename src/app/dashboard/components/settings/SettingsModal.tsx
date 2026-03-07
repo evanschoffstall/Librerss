@@ -22,7 +22,6 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
@@ -33,8 +32,6 @@ import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
-const SETTINGS_MODAL_SCROLL_KEY = "librerss:scroll:settings-modal";
-
 interface SettingsModalProps {
   onClose: () => void;
   categories: CategoryTreeNode[];
@@ -223,8 +220,6 @@ export const SettingsModal = ({
   onUpdateFeedSettings,
 }: SettingsModalProps) => {
   const isMobile = useIsMobile();
-  const { ref: settingsScrollRef, capture: captureSettingsScroll } =
-    useScrollRestore(SETTINGS_MODAL_SCROLL_KEY);
   const state = useSettingsModalState({
     categories,
     categoryOptions,
@@ -256,7 +251,6 @@ export const SettingsModal = ({
 
   const handleModalOpenChange = (open: boolean) => {
     if (open) return;
-    captureSettingsScroll();
     onClose();
   };
 
@@ -275,7 +269,7 @@ export const SettingsModal = ({
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
-          <ScrollArea ref={settingsScrollRef} className="flex-1 px-4 pb-6">
+          <ScrollArea className="flex-1 px-4 pb-6">
             <SettingsBody {...bodyProps} />
           </ScrollArea>
         </DrawerContent>
@@ -294,7 +288,7 @@ export const SettingsModal = ({
           <DialogDescription>{DESCRIPTION}</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea ref={settingsScrollRef} className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1">
           <SettingsBody {...bodyProps} />
         </ScrollArea>
       </DialogContent>
