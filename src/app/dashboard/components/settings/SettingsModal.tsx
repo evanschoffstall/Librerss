@@ -22,6 +22,7 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
@@ -32,6 +33,7 @@ import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
+const SETTINGS_MODAL_SCROLL_KEY = "librerss:scroll:settings-modal";
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -221,6 +223,8 @@ export const SettingsModal = ({
   onUpdateFeedSettings,
 }: SettingsModalProps) => {
   const isMobile = useIsMobile();
+  const { ref: settingsScrollRef, capture: captureSettingsScroll } =
+    useScrollRestore(SETTINGS_MODAL_SCROLL_KEY);
   const state = useSettingsModalState({
     categories,
     categoryOptions,
@@ -250,9 +254,15 @@ export const SettingsModal = ({
     onRemoveCategory,
   } as const;
 
+  const handleModalOpenChange = (open: boolean) => {
+    if (open) return;
+    captureSettingsScroll();
+    onClose();
+  };
+
   if (isMobile) {
     return (
-      <Drawer open onOpenChange={(open) => !open && onClose()}>
+      <Drawer open onOpenChange={handleModalOpenChange}>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-left">
@@ -265,7 +275,7 @@ export const SettingsModal = ({
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
-          <ScrollArea className="flex-1 px-4 pb-6">
+          <ScrollArea ref={settingsScrollRef} className="flex-1 px-4 pb-6">
             <SettingsBody {...bodyProps} />
           </ScrollArea>
         </DrawerContent>
@@ -274,7 +284,7 @@ export const SettingsModal = ({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={handleModalOpenChange}>
       <DialogContent className="h-[90vh] max-h-[90vh] max-w-3xl overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -284,7 +294,7 @@ export const SettingsModal = ({
           <DialogDescription>{DESCRIPTION}</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea ref={settingsScrollRef} className="min-h-0 flex-1">
           <SettingsBody {...bodyProps} />
         </ScrollArea>
       </DialogContent>
