@@ -13,14 +13,43 @@
  *   bun scripts/check-fingerprint.ts  # Direct connection
  */
 
-import { fetchHtmlWithFingerprint } from "@/lib/extract/fingerprint-fetch";
+import { fetchHtmlWithFingerprint } from "@/lib/fetch";
 
 const FINGERPRINT_URL = "https://tls.peet.ws/api/all";
 
+function buildProxyUrl(
+  baseProxyUrl?: string,
+  proxyUser?: string,
+  proxyPass?: string,
+): string | undefined {
+  if (!baseProxyUrl) return undefined;
+  if (!proxyUser || !proxyPass) return baseProxyUrl;
+
+  const parsed = new URL(baseProxyUrl);
+  if (parsed.username || parsed.password) return baseProxyUrl;
+  parsed.username = proxyUser;
+  parsed.password = proxyPass;
+  return parsed.toString();
+}
+
+function redactProxyUrl(proxyUrl?: string): string {
+  if (!proxyUrl) return "Direct (no proxy)";
+  return proxyUrl.replace(/(\/\/)([^:]+):([^@]+)@/, "$1[user]:[pass]@");
+}
+
 async function checkFingerprint() {
-  // Get proxy URL from CLI argument or environment variable
-  const proxyUrl =
+  const baseProxyUrl =
     process.argv[2] || process.env.PROXY_URL || process.env.GLOBAL_PROXY_URL;
+  const proxyUser = process.env.PROXY_USER;
+  const proxyPass = process.env.PROXY_PASS;
+  let proxyUrl: string | undefined;
+
+  try {
+    proxyUrl = buildProxyUrl(baseProxyUrl, proxyUser, proxyPass);
+  } catch {
+    console.error("Invalid proxy URL format:", baseProxyUrl);
+    process.exit(1);
+  }
 
   const allowInsecureTls = process.env.ALLOW_INSECURE_TLS === "true";
 
@@ -28,7 +57,7 @@ async function checkFingerprint() {
   console.log("Browser Fingerprint Check");
   console.log("=".repeat(60));
   console.log(`Target: ${FINGERPRINT_URL}`);
-  console.log(`Proxy: ${proxyUrl || "Direct (no proxy)"}`);
+  console.log(`Proxy: ${redactProxyUrl(proxyUrl)}`);
   console.log(`Allow Insecure TLS: ${allowInsecureTls}`);
   console.log("=".repeat(60));
   console.log();
@@ -42,8 +71,6 @@ async function checkFingerprint() {
       {
         proxyUrl,
         allowInsecureTls,
-        browserVersion: 131, // Chrome 131 to match TLS profile
-        operatingSystem: "windows",
       },
     );
 
