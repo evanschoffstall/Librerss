@@ -227,9 +227,22 @@ export function SettingsProxySection() {
     proxyStatus === "unreachable" ||
     proxyStatus === "checking";
 
+  const clearBotDetectionResults = () => {
+    setBotResults(null);
+    setBotCheckedAt(null);
+    setBotError(null);
+    shouldAutoScrollToResultsRef.current = false;
+    try {
+      window.localStorage.removeItem(BOT_RESULTS_CACHE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   const handleSave = async () => {
     const trimmed = proxyUrl.trim();
     if (!trimmed) return;
+    clearBotDetectionResults();
     setSaving(true);
     setError(null);
     setProxyStatus("checking");
@@ -262,6 +275,7 @@ export function SettingsProxySection() {
   };
 
   const handleClear = async () => {
+    clearBotDetectionResults();
     setSaving(true);
     setError(null);
     try {
@@ -274,7 +288,6 @@ export function SettingsProxySection() {
       setProxyPassword("");
       setHasProxyPassword(false);
       setProxyStatus("none");
-      setBotResults(null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to clear proxy URL",
