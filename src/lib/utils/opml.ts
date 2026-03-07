@@ -1,3 +1,4 @@
+import type { CategoryTreeNode } from "@/lib/core/types";
 import { DEFAULT_CATEGORY_LABEL } from "./categories";
 import { tryNormalizeFeedUrl } from "./url";
 
@@ -106,4 +107,35 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   }
 
   return [...imported.values()];
+};
+
+const escapeXml = (s: string): string =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+export const generateOpml = (categories: CategoryTreeNode[]): string => {
+  const lines: string[] = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<opml version="2.0">',
+    "<head><title>LibreRSS Subscriptions</title></head>",
+    "<body>",
+  ];
+  for (const cat of categories) {
+    const feeds = cat.children?.filter((c) => c.data?.url) ?? [];
+    if (feeds.length === 0) continue;
+    lines.push(
+      `<outline text="${escapeXml(cat.label)}" title="${escapeXml(cat.label)}">`,
+    );
+    for (const feed of feeds) {
+      lines.push(
+        `<outline type="rss" text="${escapeXml(feed.label)}" title="${escapeXml(feed.label)}" xmlUrl="${escapeXml(feed.data!.url)}" />`,
+      );
+    }
+    lines.push("</outline>");
+  }
+  lines.push("</body>", "</opml>");
+  return lines.join("\n");
 };
