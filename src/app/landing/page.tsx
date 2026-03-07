@@ -26,7 +26,7 @@ const features = [
 
 const LandingView = () => {
   return (
-    <div className="relative flex min-h-full flex-col items-center justify-center py-12 sm:py-20">
+    <div className="relative flex min-h-full flex-col items-center justify-center py-16 sm:py-24">
       <ThemeNoticeDialog />
 
       {/* Ambient background glow */}
@@ -54,7 +54,7 @@ const LandingView = () => {
       <div className="relative z-10 mx-auto w-full max-w-4xl px-4 text-center sm:px-6">
         {/* Eyebrow pill */}
         <div
-          className="landing-reveal mb-5 inline-flex max-w-[90vw] items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm sm:mb-6"
+          className="landing-reveal mb-6 inline-flex max-w-[90vw] items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm sm:mb-8"
           style={{ animationDelay: "var(--motion-delay-0)" }}
         >
           <Rss className="size-3 shrink-0" />
@@ -65,7 +65,7 @@ const LandingView = () => {
 
         {/* Headline */}
         <h1
-          className="landing-reveal mb-4 text-[2.5rem] font-bold leading-[1.1] tracking-tight sm:mb-6 sm:text-6xl lg:text-8xl"
+          className="landing-reveal mb-5 text-[2.5rem] font-bold leading-[1.1] tracking-tight sm:mb-7 sm:text-6xl lg:text-8xl"
           style={{ animationDelay: "var(--motion-delay-1)" }}
         >
           <span className="block">Your reading,</span>
@@ -76,7 +76,7 @@ const LandingView = () => {
 
         {/* Subtitle */}
         <p
-          className="landing-reveal mx-auto mb-8 max-w-lg text-base text-muted-foreground sm:mb-10 sm:text-xl"
+          className="landing-reveal mx-auto mb-9 max-w-lg text-base text-muted-foreground sm:mb-12 sm:text-xl"
           style={{ animationDelay: "var(--motion-delay-2)" }}
         >
           A free, open-source cloud reader for RSS. All your sources in one
@@ -85,7 +85,7 @@ const LandingView = () => {
 
         {/* Single CTA */}
         <div
-          className="landing-reveal mb-10 sm:mb-16"
+          className="landing-reveal mb-12 sm:mb-16"
           style={{ animationDelay: "var(--motion-delay-3)" }}
         >
           <div className="transition-transform anim-duration-ui anim-ease-ui hover:-translate-y-0.5">
@@ -129,7 +129,7 @@ const LandingView = () => {
       </div>
 
       {/* Bottom tagline */}
-      <div className="landing-tagline mt-12 text-center text-xs text-muted-foreground/50">
+      <div className="landing-tagline mt-14 text-center text-xs text-muted-foreground/50">
         <p>
           Made with ❤️ by{" "}
           <a
