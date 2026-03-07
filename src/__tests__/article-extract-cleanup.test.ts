@@ -1051,26 +1051,26 @@ describe("article extract cleanup", () => {
   describe("generateBrowserHeaders", () => {
     test("produces headers with expected keys", () => {
       const headers = generateBrowserHeaders("1");
-      expect(headers["accept-language"]).toBe("en-US,en;q=0.9");
-      expect(headers["accept-encoding"]).toBe("gzip, deflate, br, zstd");
+      expect(headers["Accept-Language"]).toBe("en-US,en;q=0.9");
+      expect(headers["Accept-Encoding"]).toBe("gzip, deflate, br, zstd");
       expect(headers["priority"]).toBe("u=0, i");
-      expect(typeof headers["user-agent"]).toBe("string");
+      expect(typeof headers["User-Agent"]).toBe("string");
     });
 
     test("includes sec-ch-ua override when provided", () => {
       const headers = generateBrowserHeaders("2", { secChUa: '"Test";v="99"' });
-      expect(headers["sec-ch-ua"]).toBe('"Test";v="99"');
+      expect(headers["Sec-Ch-Ua"]).toBe('"Test";v="99"');
     });
 
     test("includes accept override", () => {
       const headers = generateBrowserHeaders("1", { accept: "text/html" });
-      expect(headers["accept"]).toBe("text/html");
+      expect(headers["Accept"]).toBe("text/html");
     });
 
     test("sets cross-site fetch mode when referer provided", () => {
       const headers = generateBrowserHeaders("1", { referer: "https://duckduckgo.com" });
-      expect(headers["referer"]).toBe("https://duckduckgo.com");
-      expect(headers["sec-fetch-site"]).toBe("cross-site");
+      expect(headers["Referer"]).toBe("https://duckduckgo.com");
+      expect(headers["Sec-Fetch-Site"]).toBe("cross-site");
     });
 
     test("strips h2 pseudo-headers", () => {

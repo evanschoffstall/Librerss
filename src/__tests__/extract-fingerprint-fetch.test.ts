@@ -348,62 +348,62 @@ describe("generateBrowserHeaders", () => {
   test("generates headers for HTTP/2", () => {
     const headers = generateBrowserHeaders("2");
     expect(headers).toBeDefined();
-    expect(headers["user-agent"]).toContain("Chrome");
-    expect(headers["accept"]).toBeDefined();
-    expect(headers["accept-language"]).toBe("en-US,en;q=0.9");
-    expect(headers["accept-encoding"]).toBe("gzip, deflate, br, zstd");
+    expect(headers["User-Agent"]).toContain("Chrome");
+    expect(headers["Accept"]).toBeDefined();
+    expect(headers["Accept-Language"]).toBe("en-US,en;q=0.9");
+    expect(headers["Accept-Encoding"]).toBe("gzip, deflate, br, zstd");
   });
 
   test("generates headers for HTTP/1.1", () => {
     const headers = generateBrowserHeaders("1");
     expect(headers).toBeDefined();
-    expect(headers["user-agent"]).toContain("Chrome");
-    expect(headers["accept-language"]).toBe("en-US,en;q=0.9");
+    expect(headers["User-Agent"]).toContain("Chrome");
+    expect(headers["Accept-Language"]).toBe("en-US,en;q=0.9");
   });
 
   test("uses custom browser version when provided", () => {
     const headers = generateBrowserHeaders("2", { browserVersion: 131 });
-    expect(headers["user-agent"]).toContain("Chrome/131");
+    expect(headers["User-Agent"]).toContain("Chrome/131");
   });
 
   test("defaults to Chrome 135 when no version specified", () => {
     const headers = generateBrowserHeaders("2");
-    expect(headers["user-agent"]).toContain("Chrome/135");
+    expect(headers["User-Agent"]).toContain("Chrome/135");
   });
 
   test("uses custom operating system when provided", () => {
     const headers = generateBrowserHeaders("2", { operatingSystem: "macos" });
-    expect(headers["sec-ch-ua-platform"]).toBe('"macOS"');
+    expect(headers["Sec-Ch-Ua-Platform"]).toBe('"macOS"');
   });
 
   test("defaults to windows platform when not specified", () => {
     const headers = generateBrowserHeaders("2");
-    expect(headers["sec-ch-ua-platform"]).toBe('"Windows"');
+    expect(headers["Sec-Ch-Ua-Platform"]).toBe('"Windows"');
   });
 
   test("uses custom sec-ch-ua when provided", () => {
     const customSecChUa = '"Test";v="99"';
     const headers = generateBrowserHeaders("2", { secChUa: customSecChUa });
-    expect(headers["sec-ch-ua"]).toBe(customSecChUa);
+    expect(headers["Sec-Ch-Ua"]).toBe(customSecChUa);
   });
 
   test("uses custom accept when provided", () => {
     const customAccept = "text/html,application/xhtml+xml";
     const headers = generateBrowserHeaders("2", { accept: customAccept });
-    expect(headers["accept"]).toBe(customAccept);
+    expect(headers["Accept"]).toBe(customAccept);
   });
 
   test("includes referer and sets sec-fetch-site to cross-site when referer provided", () => {
     const referer = "https://example.com/page";
     const headers = generateBrowserHeaders("2", { referer });
-    expect(headers["referer"]).toBe(referer);
-    expect(headers["sec-fetch-site"]).toBe("cross-site");
+    expect(headers["Referer"]).toBe(referer);
+    expect(headers["Sec-Fetch-Site"]).toBe("cross-site");
   });
 
   test("sets sec-fetch-site to none when no referer provided", () => {
     const headers = generateBrowserHeaders("2");
-    expect(headers["sec-fetch-site"]).toBe("none");
-    expect(headers["referer"]).toBeUndefined();
+    expect(headers["Sec-Fetch-Site"]).toBe("none");
+    expect(headers["Referer"]).toBeUndefined();
   });
 
   test("strips pseudo-headers starting with colon", () => {
@@ -417,28 +417,36 @@ describe("generateBrowserHeaders", () => {
     expect(headers["priority"]).toBe("u=0, i");
   });
 
-  test("normalizes all header keys to lowercase", () => {
+  test("uses proper casing for Chrome 131 headers", () => {
     const headers = generateBrowserHeaders("2");
-    const allLowercase = Object.keys(headers).every((k) => k === k.toLowerCase());
-    expect(allLowercase).toBe(true);
+    // Verify proper casing per Chrome 131 spec
+    expect(headers["Cache-Control"]).toBeDefined();
+    expect(headers["Sec-Ch-Ua"]).toBeDefined();
+    expect(headers["User-Agent"]).toBeDefined();
+    expect(headers["Accept"]).toBeDefined();
+    // Verify lowercase keys do NOT exist
+    expect(headers["cache-control"]).toBeUndefined();
+    expect(headers["user-agent"]).toBeUndefined();
   });
 
   test("orders headers in Chrome canonical order", () => {
     const headers = generateBrowserHeaders("2", { referer: "https://example.com" });
     const keys = Object.keys(headers);
     const expectedOrder = [
-      "sec-ch-ua",
-      "sec-ch-ua-mobile",
-      "sec-ch-ua-platform",
-      "user-agent",
-      "accept",
-      "sec-fetch-site",
-      "sec-fetch-mode",
-      "sec-fetch-user",
-      "sec-fetch-dest",
-      "referer",
-      "accept-encoding",
-      "accept-language",
+      "Cache-Control",
+      "Sec-Ch-Ua",
+      "Sec-Ch-Ua-Mobile",
+      "Sec-Ch-Ua-Platform",
+      "Upgrade-Insecure-Requests",
+      "User-Agent",
+      "Accept",
+      "Sec-Fetch-Site",
+      "Sec-Fetch-Mode",
+      "Sec-Fetch-User",
+      "Sec-Fetch-Dest",
+      "Referer",
+      "Accept-Encoding",
+      "Accept-Language",
       "priority",
     ];
 
@@ -450,12 +458,12 @@ describe("generateBrowserHeaders", () => {
 
   test("handles linux operating system", () => {
     const headers = generateBrowserHeaders("2", { operatingSystem: "linux" });
-    expect(headers["sec-ch-ua-platform"]).toBe('"Linux"');
+    expect(headers["Sec-Ch-Ua-Platform"]).toBe('"Linux"');
   });
 
   test("sanitizes user-agent to remove extension tokens", () => {
     const headers = generateBrowserHeaders("2");
-    const ua = headers["user-agent"] ?? "";
+    const ua = headers["User-Agent"] ?? "";
     expect(ua).not.toContain("SiderAI");
     expect(ua).not.toContain("Brave");
     expect(ua).not.toContain("Opera");
@@ -463,8 +471,8 @@ describe("generateBrowserHeaders", () => {
 
   test("includes standard sec-fetch headers", () => {
     const headers = generateBrowserHeaders("2");
-    expect(headers["sec-fetch-mode"]).toBeDefined();
-    expect(headers["sec-fetch-dest"]).toBeDefined();
+    expect(headers["Sec-Fetch-Mode"]).toBeDefined();
+    expect(headers["Sec-Fetch-Dest"]).toBeDefined();
   });
 });
 
@@ -628,13 +636,13 @@ describe("fetchHtmlWithFingerprint", () => {
 
     expect(result.html).toBe("<html>Content</html>");
     expect(result.requestHeaders).toBeDefined();
-    expect(result.requestHeaders["user-agent"]).toBeDefined();
+    expect(result.requestHeaders["User-Agent"]).toBeDefined();
   });
 
   test("handles browser version option", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async (url: URL, headers: Record<string, string>) => {
-      expect(headers["user-agent"]).toContain("Chrome/131");
+      expect(headers["User-Agent"]).toContain("Chrome/131");
       return {
         statusCode: 200,
         headers: {},
@@ -653,7 +661,7 @@ describe("fetchHtmlWithFingerprint", () => {
   test("handles operating system option", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async (url: URL, headers: Record<string, string>) => {
-      expect(headers["sec-ch-ua-platform"]).toBe('"macOS"');
+      expect(headers["Sec-Ch-Ua-Platform"]).toBe('"macOS"');
       return {
         statusCode: 200,
         headers: {},
@@ -760,18 +768,18 @@ describe("fetchHtmlWithFingerprint", () => {
 describe("integration: generateBrowserHeaders edge cases", () => {
   test("handles all three operating systems", () => {
     const windows = generateBrowserHeaders("2", { operatingSystem: "windows" });
-    expect(windows["sec-ch-ua-platform"]).toBe('"Windows"');
+    expect(windows["Sec-Ch-Ua-Platform"]).toBe('"Windows"');
 
     const macos = generateBrowserHeaders("2", { operatingSystem: "macos" });
-    expect(macos["sec-ch-ua-platform"]).toBe('"macOS"');
+    expect(macos["Sec-Ch-Ua-Platform"]).toBe('"macOS"');
 
     const linux = generateBrowserHeaders("2", { operatingSystem: "linux" });
-    expect(linux["sec-ch-ua-platform"]).toBe('"Linux"');
+    expect(linux["Sec-Ch-Ua-Platform"]).toBe('"Linux"');
   });
 
   test("does not include cookies by default", () => {
     const headers = generateBrowserHeaders("2");
-    expect(headers["cookie"]).toBeUndefined();
+    expect(headers["Cookie"]).toBeUndefined();
   });
 
   test("maintains header order consistency across calls", () => {
@@ -788,10 +796,10 @@ describe("integration: generateBrowserHeaders edge cases", () => {
     const h1 = generateBrowserHeaders("1");
     const h2 = generateBrowserHeaders("2");
 
-    expect(h1["user-agent"]).toBeDefined();
-    expect(h2["user-agent"]).toBeDefined();
-    expect(h1["accept-language"]).toBe("en-US,en;q=0.9");
-    expect(h2["accept-language"]).toBe("en-US,en;q=0.9");
+    expect(h1["User-Agent"]).toBeDefined();
+    expect(h2["User-Agent"]).toBeDefined();
+    expect(h1["Accept-Language"]).toBe("en-US,en;q=0.9");
+    expect(h2["Accept-Language"]).toBe("en-US,en;q=0.9");
   });
 });
 

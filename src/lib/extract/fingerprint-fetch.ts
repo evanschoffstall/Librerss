@@ -23,7 +23,7 @@ const TLS_CLIENT_CHROME_VER = 131;
 // Correct brand list for Chrome 131 — brand order matches real Chrome: Google Chrome first.
 // Not A(Brand grease version for Chrome 131 is "24" (rotates per major release).
 const TLS_CLIENT_SEC_CH_UA =
-  '"Google Chrome";v="131", "Chromium";v="131", "Not A(Brand";v="24"';
+  '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"';
 
 let tlsReady: boolean | null = null; // null = not attempted, true/false = result
 
@@ -247,29 +247,28 @@ const PLATFORM_MAP: Record<string, string> = {
 };
 
 /**
- * Chrome's canonical header order for a navigation GET.
+ * Chrome 131 canonical header order for a navigation GET.
  * WAFs like DataDome fingerprint header ordering independently of TLS — an
  * out-of-order header set is a strong non-browser signal even when every
- * individual value is correct.
+ * individual value is correct. Casing must match exactly.
  */
 const CHROME_HEADER_ORDER = [
-  "host",
-  "connection",
-  "sec-ch-ua",
-  "sec-ch-ua-mobile",
-  "sec-ch-ua-platform",
-  "upgrade-insecure-requests",
-  "user-agent",
-  "accept",
-  "sec-fetch-site",
-  "sec-fetch-mode",
-  "sec-fetch-user",
-  "sec-fetch-dest",
-  "referer",
-  "accept-encoding",
-  "accept-language",
-  "cookie",
+  "Cache-Control",
+  "Sec-Ch-Ua",
+  "Sec-Ch-Ua-Mobile",
+  "Sec-Ch-Ua-Platform",
+  "Upgrade-Insecure-Requests",
+  "User-Agent",
+  "Accept",
+  "Sec-Fetch-Site",
+  "Sec-Fetch-Mode",
+  "Sec-Fetch-User",
+  "Sec-Fetch-Dest",
+  "Referer",
+  "Accept-Encoding",
+  "Accept-Language",
   "priority",
+  "Cookie",
 ];
 
 /** Re-order a header map to match Chrome's canonical order. */
@@ -289,9 +288,9 @@ function orderChromeHeaders(
 
 /** Build correct sec-ch-ua for any Chrome major version with proper brand order. */
 function buildSecChUa(chromeVer: number): string {
-  // Not A(Brand grease version: Chrome 131 uses "24", others use "8".
+  // Not_A Brand grease version: Chrome 131 uses "24", others use "8".
   const notABrandVer = chromeVer === 131 ? "24" : "8";
-  return `"Google Chrome";v="${chromeVer}", "Chromium";v="${chromeVer}", "Not A(Brand";v="${notABrandVer}"`;
+  return `"Google Chrome";v="${chromeVer}", "Chromium";v="${chromeVer}", "Not_A Brand";v="${notABrandVer}"`;
 }
 
 export function generateBrowserHeaders(
@@ -311,46 +310,37 @@ export function generateBrowserHeaders(
     operatingSystems: [os],
   });
 
-  // Normalize all generated header keys to lowercase so our overrides below
-  // actually replace them instead of creating duplicate mixed-case headers
-  // (a strong bot fingerprint signal detected by WAFs like DataDome).
-  const headers: Record<string, string> = {};
-  for (const [k, v] of Object.entries(generated))
-    headers[k.toLowerCase()] = typeof v === "string" ? v : String(v);
+  // Extract UA from header-generator, clean it, then build all headers with correct casing
+  const rawUa = String(
+    generated["user-agent"] || generated["User-Agent"] || "",
+  );
+  const cleanUa = rawUa
+    ? sanitizeUserAgent(rawUa, chromeVer)
+    : `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVer}.0.0.0 Safari/537.36`;
 
-  // Strip extension/addon tokens from UA (e.g. SiderAI, Brave, Opera).
-  if (headers["user-agent"])
-    headers["user-agent"] = sanitizeUserAgent(headers["user-agent"], chromeVer);
+  const headers: Record<string, string> = {
+    "Cache-Control": "max-age=0",
+    "Sec-Ch-Ua": opts?.secChUa ?? buildSecChUa(chromeVer),
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": PLATFORM_MAP[os] ?? '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": cleanUa,
+    Accept:
+      opts?.accept ??
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Sec-Fetch-Site": opts?.referer ? "cross-site" : "none",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-US,en;q=0.9",
+    priority: "u=0, i",
+  };
 
-  // Enforce correct platform — header-generator sometimes mismatches OS.
-  headers["sec-ch-ua-platform"] = PLATFORM_MAP[os] ?? '"Windows"';
-  // Always override sec-ch-ua with correct brand order — header-generator pool has wrong order.
-  headers["sec-ch-ua"] = opts?.secChUa ?? buildSecChUa(chromeVer);
-  headers["sec-ch-ua-mobile"] = "?0";
-
-  headers["accept-language"] = "en-US,en;q=0.9";
-  headers["accept-encoding"] = "gzip, deflate, br, zstd";
-  // Chrome's canonical navigation Accept — header-generator pool may have stale values.
-  headers["accept"] =
-    opts?.accept ??
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7";
-  headers["upgrade-insecure-requests"] = "1";
-  headers["sec-fetch-mode"] = "navigate";
-  headers["sec-fetch-user"] = "?1";
-  headers["sec-fetch-dest"] = "document";
   if (opts?.referer) {
-    headers["referer"] = opts.referer;
-    headers["sec-fetch-site"] = "cross-site";
-  } else {
-    // Direct navigation with no referrer — Chrome sends "none", not omitting.
-    headers["sec-fetch-site"] = "none";
+    headers["Referer"] = opts.referer;
   }
-  headers["priority"] = "u=0, i";
 
-  // h2 pseudo-headers are injected by h2Request — strip them here.
-  for (const k of Object.keys(headers)) {
-    if (k.startsWith(":")) delete headers[k];
-  }
   return orderChromeHeaders(headers);
 }
 
