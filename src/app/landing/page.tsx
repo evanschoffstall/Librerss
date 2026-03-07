@@ -2,6 +2,7 @@
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -25,7 +26,7 @@ const features = [
 
 const LandingView = () => {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden">
+    <div className="relative flex min-h-full flex-col items-center justify-center py-16 sm:py-24">
       <ThemeNoticeDialog />
 
       {/* Ambient background glow */}
@@ -50,19 +51,21 @@ const LandingView = () => {
       />
 
       {/* Content */}
-      <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
+      <div className="relative z-10 mx-auto w-full max-w-4xl px-4 text-center sm:px-6">
         {/* Eyebrow pill */}
         <div
-          className="landing-reveal mb-6 inline-flex items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm"
+          className="landing-reveal mb-6 inline-flex max-w-[90vw] items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm sm:mb-8"
           style={{ animationDelay: "var(--motion-delay-0)" }}
         >
-          <Rss className="size-3" />
-          Open-source · Self-hostable · GReader compatible
+          <Rss className="size-3 shrink-0" />
+          <span className="truncate">
+            Open-source · Self-hostable · GReader compatible
+          </span>
         </div>
 
         {/* Headline */}
         <h1
-          className="landing-reveal mb-6 text-5xl font-bold tracking-tight sm:text-7xl lg:text-8xl"
+          className="landing-reveal mb-5 text-[2.5rem] font-bold leading-[1.1] tracking-tight sm:mb-7 sm:text-6xl lg:text-8xl"
           style={{ animationDelay: "var(--motion-delay-1)" }}
         >
           <span className="block">Your reading,</span>
@@ -73,7 +76,7 @@ const LandingView = () => {
 
         {/* Subtitle */}
         <p
-          className="landing-reveal mx-auto mb-10 max-w-lg text-lg text-muted-foreground sm:text-xl"
+          className="landing-reveal mx-auto mb-9 max-w-lg text-base text-muted-foreground sm:mb-12 sm:text-xl"
           style={{ animationDelay: "var(--motion-delay-2)" }}
         >
           A free, open-source cloud reader for RSS. All your sources in one
@@ -82,7 +85,7 @@ const LandingView = () => {
 
         {/* Single CTA */}
         <div
-          className="landing-reveal mb-16"
+          className="landing-reveal mb-12 sm:mb-16"
           style={{ animationDelay: "var(--motion-delay-3)" }}
         >
           <div className="transition-transform anim-duration-ui anim-ease-ui hover:-translate-y-0.5">
@@ -101,30 +104,32 @@ const LandingView = () => {
         </div>
 
         {/* Feature pillars */}
-        <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-3 sm:gap-4">
           {features.map(({ icon: Icon, label, desc }, index) => (
             <div
               key={label}
-              className="landing-reveal landing-feature group flex flex-col items-center gap-3 rounded-xl border border-border/20 p-5 transition-[transform,border-color,background-color] anim-duration-ui anim-ease-ui hover:-translate-y-1 hover:border-border/50 hover:bg-card/50"
+              className="landing-reveal landing-feature group flex items-center gap-4 rounded-xl border border-border/20 p-4 transition-[transform,border-color,background-color] anim-duration-ui anim-ease-ui sm:flex-col sm:items-center sm:gap-3 sm:p-5 hover:-translate-y-1 hover:border-border/50 hover:bg-card/50"
               style={{
                 animationDelay: `calc(var(--motion-delay-3) + (${index + 1} * var(--motion-delay-step)))`,
               }}
             >
-              <div className="relative flex items-center justify-center">
-                <div className="absolute size-14 rounded-full border border-border/20" />
+              <div className="relative flex shrink-0 items-center justify-center">
+                <div className="absolute size-14 rounded-full border border-border/20 max-sm:hidden" />
                 <div className="landing-feature-icon relative flex size-10 items-center justify-center rounded-lg border border-border/40 bg-card/70 shadow-sm backdrop-blur-sm">
                   <Icon className="h-5 w-5 text-muted-foreground" />
                 </div>
               </div>
-              <span className="text-sm font-medium">{label}</span>
-              <span className="text-xs text-muted-foreground">{desc}</span>
+              <div className="flex flex-col items-start gap-0.5 sm:items-center">
+                <span className="text-sm font-medium">{label}</span>
+                <span className="text-xs text-muted-foreground">{desc}</span>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Bottom tagline */}
-      <div className="landing-tagline absolute bottom-8 text-center text-xs text-muted-foreground/50">
+      <div className="landing-tagline mt-14 text-center text-xs text-muted-foreground/50">
         <p>
           Made with ❤️ by{" "}
           <a
@@ -143,8 +148,10 @@ const LandingView = () => {
 
 export default function Landing() {
   return (
-    <main>
-      <LandingView />
+    <main className="h-full">
+      <ScrollArea className="h-full">
+        <LandingView />
+      </ScrollArea>
     </main>
   );
 }

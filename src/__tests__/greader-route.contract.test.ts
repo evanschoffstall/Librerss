@@ -1,8 +1,5 @@
-import {
-    hashPassword as realHashPassword,
-    verifyPassword as realVerifyPassword,
-} from "@/lib/auth/session";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
 type SelectBehavior = {
@@ -69,7 +66,7 @@ function createSelectBuilder(behavior: SelectBehavior) {
   return builder;
 }
 
-function registerModuleMocks() {
+function registerDbMock() {
   mock.module("@/lib/db/db", () => ({
     getDb: () => ({
       select: () => {
@@ -78,53 +75,30 @@ function registerModuleMocks() {
       },
     }),
   }));
-
-  mock.module("@/lib/auth/session", () => ({
-    createSession: async () => "session-token",
-    getUserFromRequest: async () => ({
-      userId: 1,
-      email: "test@example.com",
-    }),
-    getUserFromSessionToken: async () => null,
-    authenticateCredentials: async () => ({ ok: false as const }),
-    setSessionCookie: () => {},
-    SESSION_COOKIE_NAME: "librerss_session",
-    hashPassword: realHashPassword,
-    verifyPassword: realVerifyPassword,
-  }));
-
-  mock.module("@/lib/core/runtime", () => ({
-    PLACEHOLDER_ADMIN_USER: {
-      id: 1,
-      email: "placeholder@example.com",
-      passwordHash: "",
-      sessionToken: "a".repeat(64),
-    },
-    RUNTIME_FLAGS: {
-      hasDatabaseUrl: true,
-      usePlaceholderData: false,
-      allowSignup: true,
-    },
-  }));
 }
 
 let routeModulePromise: Promise<
   typeof import("@/app/api/greader.php/[...segments]/route")
 >;
 
-beforeAll(() => {
-  registerModuleMocks();
-  routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
-});
-
-afterAll(() => {
-  mock.restore();
-});
+let previousDbUrl: string | undefined;
 
 describe("greader route compatibility contracts", () => {
-  test("rejects cross-site cookie-authenticated mutation requests", async () => {
+  beforeEach(() => {
     selectBehaviors.length = 0;
+    previousDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    mock.restore();
+    registerDbMock();
+    routeModulePromise = import("@/app/api/greader.php/[...segments]/route");
+  });
 
+  afterEach(() => {
+    process.env.DATABASE_URL = previousDbUrl;
+    mock.restore();
+  });
+
+  test("rejects cross-site cookie-authenticated mutation requests", async () => {
     const { POST } = await routeModulePromise;
 
     const request = new NextRequest(
@@ -150,12 +124,15 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("token endpoint returns plain alphanumeric token", async () => {
-    selectBehaviors.length = 0;
-
     const { GET } = await routeModulePromise;
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/token",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -174,8 +151,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("ClientLogin rejects oversized request bodies", async () => {
-    selectBehaviors.length = 0;
-
     const { POST } = await routeModulePromise;
 
     const request = new NextRequest(
@@ -201,7 +176,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("stream/items/ids returns decimal ids for Reader API clients", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       {
         whereResult: [{ url: "https://one.example/rss.xml" }],
@@ -228,6 +202,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&output=json&n=2",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -253,7 +232,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("subscription/list returns all user subscriptions even if feed join is missing", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       {
         whereResult: [
@@ -283,6 +261,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -324,7 +307,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("subscription/list falls back to canonical URL category mapping", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       {
         whereResult: [
@@ -351,6 +333,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -376,7 +363,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("tag/list omits My Feeds when all feeds have explicit categories", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push({
       whereResult: [
         { category: "World" },
@@ -390,6 +376,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/tag/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {
@@ -412,7 +403,6 @@ describe("greader route compatibility contracts", () => {
   });
 
   test("tag/list includes My Feeds when at least one feed has no category", async () => {
-    selectBehaviors.length = 0;
     selectBehaviors.push(
       // First query: raw JOIN — one feed has no category assignment
       {
@@ -428,6 +418,11 @@ describe("greader route compatibility contracts", () => {
 
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/tag/list?output=json",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
     );
 
     const response = await GET(request, {

@@ -295,7 +295,7 @@ describe("useArticleHydration", () => {
     (ArticleService.extractArticleContent as ReturnType<typeof mock>)
       .mockClear()
       .mockImplementation(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return "<p>Slow content</p>";
       });
 
@@ -320,7 +320,7 @@ describe("useArticleHydration", () => {
     (ArticleService.extractArticleContent as ReturnType<typeof mock>)
       .mockClear()
       .mockImplementation(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return "<p>Content</p>";
       });
 

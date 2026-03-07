@@ -588,7 +588,7 @@ describe("ArticleService", () => {
 describe("Service Error Handling", () => {
   test("services handle network timeouts", async () => {
     mockAxiosInstance.get = mock(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20000));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       return { data: [] };
     });
 
@@ -598,7 +598,7 @@ describe("Service Error Handling", () => {
     } catch (error) {
       expect(error).toBeDefined();
     }
-  }, 22000);
+  }, 1000);
 
   test("services handle server errors", async () => {
     mockAxiosInstance.post = mock(async () => {

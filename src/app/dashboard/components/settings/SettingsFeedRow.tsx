@@ -244,6 +244,7 @@ export function SettingsFeedRow({
             isTogglingEnabled ||
             deletingKey === feedNode.key
           }
+          className={isExtractionDisabled ? "text-muted-foreground/50" : ""}
         >
           {isUpdatingSettings ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -260,6 +261,9 @@ export function SettingsFeedRow({
             isUpdatingSettings ||
             isTogglingEnabled ||
             deletingKey === feedNode.key
+          }
+          className={
+            isProxyEnabled ? "text-primary/80" : "text-muted-foreground/50"
           }
         >
           {isUpdatingSettings ? (

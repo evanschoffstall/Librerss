@@ -288,8 +288,8 @@ describe("rate-limit", () => {
       // Should be blocked immediately
       expect(limiter.check(request, "test", config)?.status).toBe(429);
 
-      // Wait for window to reset
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      // Wait for window to reset (reduced for tests)
+      await new Promise((resolve) => setTimeout(resolve, 110));
 
       // Should be allowed again
       expect(limiter.check(request, "test", config)).toBeNull();

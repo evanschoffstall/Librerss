@@ -29,6 +29,7 @@ type FetchHtmlDeps = {
   axiosGetFn?: typeof axios.get;
   isAxiosErrorFn?: typeof axios.isAxiosError;
   fingerprintFetchFn?: typeof fetchHtmlWithFingerprint;
+  delayFn?: (ms: number) => Promise<void>;
 };
 
 interface FetchHtmlOptions {
@@ -60,6 +61,9 @@ export async function fetchHtml(
 ): Promise<string> {
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+  const delay =
+    deps?.delayFn ??
+    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   // When axiosGetFn is injected (tests / external callers) fall back to the
   // original single-attempt behaviour — cookie jar and retry are production-only.
@@ -82,7 +86,7 @@ export async function fetchHtml(
       let delayMs = 0;
       if (attempt > 0) {
         delayMs = 800 * attempt + Math.floor(Math.random() * 400);
-        await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+        await delay(delayMs);
       }
 
       const fp =
@@ -209,7 +213,7 @@ export async function fetchHtml(
   for (let attempt = 0; attempt < attempts; attempt++) {
     // Exponential backoff between retries (first attempt is immediate).
     if (attempt > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 600 * attempt));
+      await delay(600 * attempt);
     }
 
     // Rotate fingerprint on each attempt. Injected callers (tests/overrides)

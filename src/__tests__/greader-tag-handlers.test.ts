@@ -8,6 +8,7 @@
  * - Edge cases for timestamp validation
  */
 
+import { __resetArticleStatusesTableStateForTests } from "@/lib/core/article-status";
 import type { SessionUser } from "@/lib/auth/session";
 import {
   afterEach,
@@ -21,6 +22,7 @@ import { NextRequest } from "next/server";
 
 beforeEach(() => {
   mock.restore();
+  __resetArticleStatusesTableStateForTests();
 });
 
 afterEach(() => {
@@ -45,7 +47,9 @@ describe("handleUnreadCount", () => {
       { sourceUrl: "https://feed2.example.com/rss", unreadCount: 3 },
     ];
 
+    const probeLimitMock = mock(async () => [{ id: 1 }]);
     const mockDb = {
+      select: mock(() => ({ from: mock(() => ({ limit: probeLimitMock })) })),
       execute: mock(async () => mockRows),
     };
 
@@ -53,17 +57,8 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
     mock.module("@/lib/core/feed-cache", () => ({
       invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
     }));
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
@@ -90,7 +85,12 @@ describe("handleUnreadCount", () => {
       { sourceUrl: "https://feed2.example.com/rss", unreadCount: 7 },
     ];
 
+    const missingErr = Object.assign(
+      new Error('relation "ArticleStatus" does not exist'),
+      { code: "42P01" },
+    );
     const mockDb = {
+      select: mock(() => ({ from: mock(() => ({ limit: mock(async () => { throw missingErr; }) })) })),
       execute: mock(async () => mockRows),
     };
 
@@ -98,17 +98,8 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => false),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
     mock.module("@/lib/core/feed-cache", () => ({
       invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
     }));
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
@@ -129,6 +120,7 @@ describe("handleUnreadCount", () => {
     ];
 
     const mockDb = {
+      select: mock(() => ({ from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })) })),
       execute: mock(async () => ({ rows: mockRows })),
     };
 
@@ -136,17 +128,8 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
     mock.module("@/lib/core/feed-cache", () => ({
       invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
     }));
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
@@ -161,6 +144,7 @@ describe("handleUnreadCount", () => {
 
   test("handles empty feed list", async () => {
     const mockDb = {
+      select: mock(() => ({ from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })) })),
       execute: mock(async () => []),
     };
 
@@ -168,17 +152,8 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
     mock.module("@/lib/core/feed-cache", () => ({
       invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
     }));
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
@@ -199,6 +174,7 @@ describe("handleUnreadCount", () => {
     ];
 
     const mockDb = {
+      select: mock(() => ({ from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })) })),
       execute: mock(async () => mockRows),
     };
 
@@ -206,17 +182,8 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
     mock.module("@/lib/core/feed-cache", () => ({
       invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
     }));
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
@@ -237,131 +204,55 @@ describe("handleMarkAllAsRead - error paths", () => {
   });
 
   test("rejects invalid timestamp (NaN)", async () => {
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
-    }));
-
+    mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
-
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=invalid",
-      { method: "POST" }
+      { method: "POST" },
     );
-
     const response = await handleMarkAllAsRead(mockUser, request);
-
     expect(response.status).toBe(400);
-    const text = await response.text();
-    expect(text).toContain("MissingTimestamp");
+    expect(await response.text()).toContain("MissingTimestamp");
   });
 
   test("rejects zero timestamp", async () => {
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
-    }));
-
+    mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
-
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=0",
-      { method: "POST" }
+      { method: "POST" },
     );
-
     const response = await handleMarkAllAsRead(mockUser, request);
-
     expect(response.status).toBe(400);
-    const text = await response.text();
-    expect(text).toContain("MissingTimestamp");
+    expect(await response.text()).toContain("MissingTimestamp");
   });
 
   test("rejects negative timestamp", async () => {
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
-    }));
-
+    mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
-
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=-1000",
-      { method: "POST" }
+      { method: "POST" },
     );
-
     const response = await handleMarkAllAsRead(mockUser, request);
-
     expect(response.status).toBe(400);
-    const text = await response.text();
-    expect(text).toContain("MissingTimestamp");
+    expect(await response.text()).toContain("MissingTimestamp");
   });
 
   test("rejects Infinity timestamp", async () => {
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: mock(async () => {}),
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
-    mock.module("@/lib/core/mark-stream-read", () => ({
-      markStreamAsRead: mock(async () => {}),
-    }));
-
+    mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
-
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=Infinity",
-      { method: "POST" }
+      { method: "POST" },
     );
-
     const response = await handleMarkAllAsRead(mockUser, request);
-
     expect(response.status).toBe(400);
-    const text = await response.text();
-    expect(text).toContain("MissingTimestamp");
+    expect(await response.text()).toContain("MissingTimestamp");
   });
 });
 
@@ -370,198 +261,104 @@ describe("handleEditTag - error paths and edge cases", () => {
     mock.restore();
   });
 
+  function makeEditTagDb() {
+    const onConflictDoUpdate = mock(async () => []);
+    const values = mock(() => ({ onConflictDoUpdate }));
+    const insert = mock(() => ({ values }));
+    const select = mock(() => ({ from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })) }));
+    return { db: { select, insert }, insert };
+  }
+
   test("handles multiple tag operations in single request", async () => {
-    const upsertMock = mock(async () => {});
-
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: upsertMock,
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
+    const { db: mockDb, insert } = makeEditTagDb();
+    mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleEditTag } = await import("@/lib/api/greader/tag");
-
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("a", "user/-/state/com.google/read");
     formData.append("a", "user/-/state/com.google/starred");
-
-    const request = new NextRequest(
-      "https://example.com/api/edit-tag",
-      {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: formData.toString(),
-      }
-    );
-
+    const request = new NextRequest("https://example.com/api/edit-tag", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
     const response = await handleEditTag(mockUser, request);
-
     expect(response.status).toBe(200);
-    // Should call upsertArticleStatuses twice (once for read, once for starred)
-    expect(upsertMock).toHaveBeenCalled();
+    expect(insert).toHaveBeenCalled();
   });
 
   test("handles tags with no matching mutations", async () => {
-    const upsertMock = mock(async () => {});
-
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: upsertMock,
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
+    const { db: mockDb, insert } = makeEditTagDb();
+    mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleEditTag } = await import("@/lib/api/greader/tag");
-
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("a", "user/-/label/SomeCustomLabel");
-
-    const request = new NextRequest(
-      "https://example.com/api/edit-tag",
-      {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: formData.toString(),
-      }
-    );
-
+    const request = new NextRequest("https://example.com/api/edit-tag", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
     const response = await handleEditTag(mockUser, request);
-
     expect(response.status).toBe(200);
-    // Should not call upsertArticleStatuses for unknown tags
-    expect(upsertMock).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
   test("handles both add and remove tags in single request", async () => {
-    const upsertMock = mock(async () => {});
-
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: upsertMock,
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
+    const { db: mockDb, insert } = makeEditTagDb();
+    mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleEditTag } = await import("@/lib/api/greader/tag");
-
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("a", "user/-/state/com.google/read");
     formData.append("r", "user/-/state/com.google/starred");
-
-    const request = new NextRequest(
-      "https://example.com/api/edit-tag",
-      {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: formData.toString(),
-      }
-    );
-
+    const request = new NextRequest("https://example.com/api/edit-tag", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
     const response = await handleEditTag(mockUser, request);
-
     expect(response.status).toBe(200);
-    // Should call twice: once for read (add), once for starred (remove)
-    expect(upsertMock).toHaveBeenCalled();
+    expect(insert).toHaveBeenCalled();
   });
 
   test("handles duplicate article IDs", async () => {
-    const upsertMock = mock(async () => {});
-
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: upsertMock,
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
+    const { db: mockDb, insert } = makeEditTagDb();
+    mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleEditTag } = await import("@/lib/api/greader/tag");
-
     const formData = new URLSearchParams();
-    // Same article ID twice
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("a", "user/-/state/com.google/read");
-
-    const request = new NextRequest(
-      "https://example.com/api/edit-tag",
-      {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: formData.toString(),
-      }
-    );
-
+    const request = new NextRequest("https://example.com/api/edit-tag", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
     const response = await handleEditTag(mockUser, request);
-
     expect(response.status).toBe(200);
-    // parseDistinctReaderArticleIds should deduplicate
-    expect(upsertMock).toHaveBeenCalled();
+    expect(insert).toHaveBeenCalled();
   });
 
   test("handles invalid article ID formats", async () => {
-    const upsertMock = mock(async () => {});
-
-    mock.module("@/lib/db/db", () => ({
-      getDb: () => ({}),
-    }));
-
-    mock.module("@/lib/core/article-status", () => ({
-      canUseArticleStatusesTable: mock(async () => true),
-      upsertArticleStatuses: upsertMock,
-    }));
-
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
-
+    mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
+    mock.module("@/lib/core/feed-cache", () => ({ invalidateUserCache: mock(() => {}) }));
     const { handleEditTag } = await import("@/lib/api/greader/tag");
-
     const formData = new URLSearchParams();
     formData.append("i", "invalid-format");
     formData.append("i", "also-invalid");
     formData.append("a", "user/-/state/com.google/read");
-
-    const request = new NextRequest(
-      "https://example.com/api/edit-tag",
-      {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: formData.toString(),
-      }
-    );
-
+    const request = new NextRequest("https://example.com/api/edit-tag", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
     const response = await handleEditTag(mockUser, request);
-
     expect(response.status).toBe(400);
-    const text = await response.text();
-    expect(text).toContain("InvalidParameters");
+    expect(await response.text()).toContain("InvalidParameters");
   });
 });

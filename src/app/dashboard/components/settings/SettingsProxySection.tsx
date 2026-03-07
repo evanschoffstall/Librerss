@@ -6,7 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ArticleService } from "@/lib/api/services";
-import { Save, Shield, ShieldAlert, ShieldOff, Trash2 } from "lucide-react";
+import {
+  Globe,
+  Save,
+  Shield,
+  ShieldAlert,
+  ShieldOff,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type ProxyUIStatus =
@@ -113,8 +120,11 @@ export function SettingsProxySection() {
   return (
     <section className="rounded-lg border bg-card p-4 space-y-3">
       <div>
-        <h3 className="font-semibold">Extraction Proxy</h3>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h3 className="flex items-center gap-2 font-semibold">
+          <Globe className="size-3.5 text-muted-foreground" />
+          Extraction Proxy
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Route article extraction through a proxy to bypass restrictions.
         </p>
       </div>

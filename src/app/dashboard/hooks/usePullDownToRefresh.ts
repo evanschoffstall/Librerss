@@ -10,8 +10,6 @@ const PULL_THRESHOLD = 56;
 const HOLD_PULL_PX = 44;
 /** Hold duration before snapping back. */
 const REFRESH_HOLD_MS = 650;
-/** Wheel inactivity ms before treating scroll as ended. */
-const WHEEL_END_DEBOUNCE_MS = 150;
 
 interface PullState {
   pulling: boolean;
@@ -28,9 +26,8 @@ const IDLE: PullState = { pulling: false, readyToRefresh: false };
  * invisible. Pulling down from the top naturally scrolls into the sentinel
  * zone — 100% native scroll compositor, zero transforms or layout writes.
  *
- * Works on both touch (mobile) and wheel/trackpad (desktop).
- * Momentum-only scroll into the sentinel zone is snapped back immediately
- * so pull-to-refresh only triggers with active user input.
+ * Touch-only: wheel/trackpad scroll is clamped at the sentinel boundary
+ * so pull-to-refresh only triggers with active touch input.
  */
 export function usePullDownToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
@@ -40,14 +37,10 @@ export function usePullDownToRefresh(
   const [state, setState] = useState<PullState>(IDLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const touchActiveRef = useRef(false);
-  const wheelActiveRef = useRef(false);
   const committedRef = useRef(false);
   const pullingRef = useRef(false);
   const holdingRef = useRef(false);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const wheelEndTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
   const disabledRef = useRef(disabled);
@@ -148,7 +141,6 @@ export function usePullDownToRefresh(
               height > 0 &&
               viewport.scrollTop < height &&
               !touchActiveRef.current &&
-              !wheelActiveRef.current &&
               !holdingRef.current
             ) {
               viewport.scrollTop = height;
@@ -156,10 +148,6 @@ export function usePullDownToRefresh(
           })
         : null;
     resizeObserver?.observe(wrapper!);
-
-    /** True when active user input (touch or wheel) is driving scroll. */
-    const isInputActive = () =>
-      touchActiveRef.current || wheelActiveRef.current;
 
     const commitOrSnapBack = () => {
       const height = sh();
@@ -177,7 +165,7 @@ export function usePullDownToRefresh(
         }, REFRESH_HOLD_MS);
       } else {
         pullingRef.current = false;
-        viewport.scrollTo({ top: height, behavior: "smooth" });
+        viewport.scrollTop = height;
         setState(IDLE);
       }
       committedRef.current = false;
@@ -204,24 +192,6 @@ export function usePullDownToRefresh(
       if (holdingRef.current) return;
 
       const pullDistance = height - st;
-
-      // No active input — momentum overshoot, snap back
-      if (!isInputActive()) {
-        if (!snapTimerRef.current) {
-          snapTimerRef.current = setTimeout(() => {
-            snapTimerRef.current = undefined;
-            const h = sh();
-            if (h > 0 && viewport.scrollTop < h) {
-              viewport.scrollTo({ top: h, behavior: "smooth" });
-            }
-          }, 80);
-        }
-        if (pullingRef.current) {
-          pullingRef.current = false;
-          setState(IDLE);
-        }
-        return;
-      }
 
       const committed = pullDistance >= PULL_THRESHOLD;
       const wasCommitted = committedRef.current;
@@ -262,34 +232,10 @@ export function usePullDownToRefresh(
       }
     };
 
-    // ── Wheel handlers (desktop / trackpad) ───────────────────────────────
-
-    const handleWheelEnd = () => {
-      wheelEndTimerRef.current = undefined;
-      wheelActiveRef.current = false;
+    // When scroll settles inside sentinel without active touch, commit or snap back.
+    const handleScrollEnd = () => {
+      if (touchActiveRef.current || holdingRef.current) return;
       commitOrSnapBack();
-    };
-
-    const handleWheel = () => {
-      // Cancel any pending snap from the momentum guard in handleScroll
-      clearTimeout(snapTimerRef.current);
-      snapTimerRef.current = undefined;
-
-      if (!wheelActiveRef.current) {
-        wheelActiveRef.current = true;
-        if (holdingRef.current) {
-          resetPull();
-          const h = sh();
-          if (h > 0) viewport.scrollTo({ top: h, behavior: "smooth" });
-          return;
-        }
-      }
-
-      clearTimeout(wheelEndTimerRef.current);
-      wheelEndTimerRef.current = setTimeout(
-        handleWheelEnd,
-        WHEEL_END_DEBOUNCE_MS,
-      );
     };
 
     // ── Register listeners ────────────────────────────────────────────────
@@ -300,7 +246,7 @@ export function usePullDownToRefresh(
     });
     viewport.addEventListener("touchend", handleTouchEnd);
     viewport.addEventListener("touchcancel", handleTouchCancel);
-    viewport.addEventListener("wheel", handleWheel, { passive: true });
+    viewport.addEventListener("scrollend", handleScrollEnd);
 
     return () => {
       resizeObserver?.disconnect();
@@ -308,8 +254,6 @@ export function usePullDownToRefresh(
       cancelAnimationFrame(rafId);
       clearTimeout(snapTimerRef.current);
       snapTimerRef.current = undefined;
-      clearTimeout(wheelEndTimerRef.current);
-      wheelEndTimerRef.current = undefined;
       viewport.style.overscrollBehaviorY = "";
       if (wrapper) wrapper.style.paddingBottom = "";
       const sb = findScrollbar();
@@ -322,7 +266,7 @@ export function usePullDownToRefresh(
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
       viewport.removeEventListener("touchcancel", handleTouchCancel);
-      viewport.removeEventListener("wheel", handleWheel);
+      viewport.removeEventListener("scrollend", handleScrollEnd);
     };
   }, [scrollRootRef]);
 
@@ -335,14 +279,11 @@ export function usePullDownToRefresh(
       root;
     viewport.scrollTop = sentinelRef.current?.offsetHeight ?? 0;
     touchActiveRef.current = false;
-    wheelActiveRef.current = false;
     committedRef.current = false;
     pullingRef.current = false;
     holdingRef.current = false;
     clearTimeout(snapTimerRef.current);
     snapTimerRef.current = undefined;
-    clearTimeout(wheelEndTimerRef.current);
-    wheelEndTimerRef.current = undefined;
     setState(IDLE);
   }, [disabled, scrollRootRef]);
 

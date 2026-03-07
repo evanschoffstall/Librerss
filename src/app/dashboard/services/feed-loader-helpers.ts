@@ -80,6 +80,31 @@ export function getSourceNamesByUrl(
   return new Map(sources.map((source) => [source.url, source.name] as const));
 }
 
+/**
+ * Merge hydrated (extracted) article content from the previous feed into
+ * freshly-fetched articles so expanded articles retain their rich content
+ * across any kind of dashboard refresh.
+ */
+export function mergeHydratedContent(
+  previousFeed: Article[],
+  freshArticles: Article[],
+): Article[] {
+  if (previousFeed.length === 0) return freshArticles;
+
+  const previousContentByLink = new Map<string, string>();
+  for (const a of previousFeed) {
+    const link = a.link?.trim();
+    if (link) previousContentByLink.set(link, a.content);
+  }
+
+  return freshArticles.map((a) => {
+    const link = a.link?.trim();
+    if (!link) return a;
+    const prev = previousContentByLink.get(link);
+    return prev && prev !== a.content ? { ...a, content: prev } : a;
+  });
+}
+
 export type { BatchFeedResponseItem as FeedBatchResult };
 
 // ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────

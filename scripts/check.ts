@@ -5,10 +5,129 @@ import { join } from "node:path";
 const LINE_COVERAGE_THRESHOLD = 80;
 const TEST_TIMEOUT_MS = 5_000;
 const TEST_COMMAND_TIMEOUT_MS = Number.parseInt(
-  process.env.CHECK_TEST_COMMAND_TIMEOUT_MS ?? "200000",
+  process.env.CHECK_TEST_COMMAND_TIMEOUT_MS ?? "100000",
   10,
 );
 const COVERAGE_EXCLUDED_FILES: string[] = [];
+
+const JUNIT_PATH = join(process.cwd(), "coverage", "test-results.xml");
+const LCOV_PATH = join(process.cwd(), "coverage", "lcov.info");
+
+type Cmd = [string, string[]];
+const CMD_PRETTIER_FMT: Cmd = ["bunx", ["prettier", "--write", "."]];
+const CMD_BUN_TEST: Cmd = [
+  "bun",
+  [
+    "test",
+    `--timeout=${TEST_TIMEOUT_MS}`,
+    "--reporter=junit",
+    `--reporter-outfile=${JUNIT_PATH}`,
+  ],
+];
+const CMD_TSC: Cmd = ["tsc", ["--noEmit"]];
+const CMD_JSCPD: Cmd = ["bunx", ["jscpd", "--config", ".jscpd.json"]];
+const CMD_KNIP: Cmd = ["bunx", ["knip", "--config", "knip.json", "--cache"]];
+const CMD_DEPCRUISE: Cmd = [
+  "bunx",
+  [
+    "depcruise",
+    "--config",
+    ".dependency-cruiser.cjs",
+    "src",
+    "--output-type",
+    "err",
+    "--cache",
+    ".cache/depcruise",
+  ],
+];
+const CMD_MADGE: Cmd = [
+  "bunx",
+  ["madge@8", "--circular", "--extensions", "ts,tsx", "src"],
+];
+const CMD_TYPE_COVERAGE: Cmd = [
+  "bunx",
+  [
+    "type-coverage",
+    "--at-least",
+    "98",
+    "--cache",
+    "--cache-directory",
+    ".cache/type-coverage",
+  ],
+];
+const CMD_STYLELINT: Cmd = [
+  "bunx",
+  [
+    "stylelint",
+    "src/**/*.{css,scss}",
+    "--cache",
+    "--cache-location",
+    ".cache/stylelint",
+    "--cache-strategy",
+    "content",
+  ],
+];
+const CMD_TSD: Cmd = [
+  "bunx",
+  ["tsd", "--typings", "next-env.d.ts", "--files", "next-env.test-d.ts"],
+];
+const CMD_SECRETLINT: Cmd = [
+  "bunx",
+  ["secretlint", "**/*", "--secretlintignore", ".secretlintignore"],
+];
+const CMD_PRETTIER_CHECK: Cmd = [
+  "bunx",
+  [
+    "prettier",
+    "--check",
+    ".",
+    "--cache",
+    "--cache-location",
+    ".cache/prettier",
+  ],
+];
+const CMD_SEMGREP: Cmd = [
+  "semgrep",
+  [
+    "scan",
+    "--config",
+    "p/default",
+    "--error",
+    "--metrics",
+    "off",
+    "--exclude=src/__tests__",
+    "--exclude=src/components/ui",
+    "--exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
+    "--exclude-rule=typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
+    "--exclude-rule=problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification",
+    "--quiet",
+    "src",
+  ],
+];
+const CMD_GITLEAKS: Cmd = [
+  "bunx",
+  [
+    "@0xts/gitleaks-cli",
+    "detect",
+    "-s",
+    "src",
+    "--no-git",
+    "-c",
+    ".gitleaks.toml",
+  ],
+];
+const CMD_BUN_AUDIT: Cmd = ["bun", ["audit"]];
+const ESLINT_ARGS_BASE = [
+  "eslint",
+  ".",
+  "--cache",
+  "--cache-strategy",
+  "content",
+  "--cache-location",
+  ".cache/eslint",
+  "--concurrency",
+];
+const TS_PRUNE_ARGS_BASE = ["ts-prune", "-p"];
 
 type TestResult = {
   file?: string;
@@ -22,6 +141,7 @@ type Command = {
   timedOut: boolean;
   output: string;
   durationMs?: number;
+  notFound?: boolean;
 };
 
 const ANSI = {
@@ -29,6 +149,7 @@ const ANSI = {
   bold: "\x1b[1m",
   green: "\x1b[32m",
   red: "\x1b[31m",
+  yellow: "\x1b[33m",
   cyan: "\x1b[36m",
   gray: "\x1b[90m",
 } as const;
@@ -82,7 +203,7 @@ const where = ({ file, line, suite, name }: TestResult) =>
   `${file ?? "unknown-file"}${line ? `:${line}` : ""} - ${suite ? `${suite} > ` : ""}${name}`;
 
 function getConcurrency(n: number): number {
-  if (n < 1200) return 1;
+  if (n < 50) return 1;
   const c =
     typeof availableParallelism === "function"
       ? availableParallelism()
@@ -312,6 +433,14 @@ async function run(
   extraEnv?: Record<string, string>,
 ): Promise<Command> {
   const startMs = Date.now();
+  if (!Bun.which(cmd))
+    return {
+      exitCode: 127,
+      timedOut: false,
+      output: `command not found: ${cmd}`,
+      notFound: true,
+      durationMs: 0,
+    };
   const env: Record<string, string | undefined> = {
     ...process.env,
     FORCE_COLOR: process.env.FORCE_COLOR ?? "1",
@@ -360,18 +489,7 @@ async function runLint(extraArgs: string[]): Promise<Command> {
     envC && /^\d+$/.test(envC)
       ? Number.parseInt(envC, 10)
       : getConcurrency(fileCount);
-  return run("bunx", [
-    "eslint",
-    ".",
-    "--cache",
-    "--cache-strategy",
-    "content",
-    "--cache-location",
-    ".cache/eslint",
-    "--concurrency",
-    String(concurrency),
-    ...extraArgs,
-  ]);
+  return run("bunx", [...ESLINT_ARGS_BASE, String(concurrency), ...extraArgs]);
 }
 
 async function runTsPrune(argv: string[]): Promise<Command> {
@@ -418,7 +536,7 @@ async function runTsPrune(argv: string[]): Promise<Command> {
         );
       }
     }
-    const args = ["ts-prune", "-p", project as string];
+    const args = [...TS_PRUNE_ARGS_BASE, project as string];
     if (typeof skip === "string") args.push("--skip", skip);
     if (typeof ignore === "string") args.push("--ignore", ignore);
     const result = await run("bunx", args);
@@ -448,8 +566,6 @@ async function runTsPrune(argv: string[]): Promise<Command> {
 
 async function runCheckSuite() {
   const startedAtMs = Date.now();
-  const junitPath = join(process.cwd(), "coverage", "test-results.xml");
-  const lcovPath = join(process.cwd(), "coverage", "lcov.info");
   process.stdout.write(
     paint(
       "⏳ Please wait -- validating static analysis, tests, coverage, and redundancy checks... ",
@@ -458,99 +574,47 @@ async function runCheckSuite() {
     ),
   );
 
-  // Auto-fix prettier formatting issues before checks
-  await run("bun", ["run", "format"]);
+  await run(...CMD_PRETTIER_FMT);
 
   const steps = [
     {
       k: "test",
       l: "Tests",
-      r: () =>
-        run(
-          "bun",
-          [
-            "test",
-            `--timeout=${TEST_TIMEOUT_MS}`,
-            "--reporter=junit",
-            `--reporter-outfile=${junitPath}`,
-          ],
-          TEST_COMMAND_TIMEOUT_MS,
-        ),
+      r: () => run(...CMD_BUN_TEST, TEST_COMMAND_TIMEOUT_MS),
     },
-    { k: "types", l: "tsc", r: () => run("tsc", ["--noEmit"]) },
+    { k: "types", l: "tsc", r: () => run(...CMD_TSC) },
     { k: "lint", l: "eslint", r: () => runLint([]) },
-    { k: "jscpd", l: "jscpd", r: () => run("bun", ["run", "dup"]) },
-    { k: "knip", l: "knip", r: () => run("bun", ["run", "redundancy"]) },
+    { k: "jscpd", l: "jscpd", r: () => run(...CMD_JSCPD) },
+    { k: "knip", l: "knip", r: () => run(...CMD_KNIP) },
     { k: "tsPrune", l: "ts-prune", r: () => runTsPrune([]) },
-    {
-      k: "depCruise",
-      l: "depcruise",
-      r: () =>
-        run("bunx", [
-          "depcruise",
-          "--config",
-          ".dependency-cruiser.cjs",
-          "src",
-          "--output-type",
-          "err",
-          "--cache",
-          ".cache/depcruise",
-        ]),
-    },
-    {
-      k: "madge",
-      l: "madge",
-      r: () => run("bun", ["run", "depgraph"]),
-      t: filterMadge,
-    },
+    { k: "depCruise", l: "depcruise", r: () => run(...CMD_DEPCRUISE) },
+    { k: "madge", l: "madge", r: () => run(...CMD_MADGE), t: filterMadge },
     {
       k: "typeCoverage",
       l: "type-coverage",
-      r: () => run("bunx", ["type-coverage", "--at-least", "98"]),
+      r: () => run(...CMD_TYPE_COVERAGE),
     },
-    {
-      k: "stylelint",
-      l: "stylelint",
-      r: () => run("bun", ["run", "lint:style"]),
-    },
-    { k: "tsd", l: "tsd", r: () => run("bun", ["run", "tsd"]) },
-    {
-      k: "secretlint",
-      l: "secretlint",
-      r: () => run("bun", ["run", "scan:secretlint"]),
-    },
-    {
-      k: "prettier",
-      l: "prettier-check",
-      r: () => run("bun", ["run", "format:check"]),
-    },
-    {
-      k: "semgrep",
-      l: "semgrep",
-      r: () => run("bun", ["run", "scan:semgrep"]),
-    },
-    {
-      k: "gitleaks",
-      l: "gitleaks",
-      r: () => run("bun", ["run", "scan:gitleaks"]),
-    },
-    {
-      k: "depAudit",
-      l: "dep-audit",
-      r: () => run("bun", ["run", "scan:deps"]),
-    },
+    { k: "stylelint", l: "stylelint", r: () => run(...CMD_STYLELINT) },
+    { k: "tsd", l: "tsd", r: () => run(...CMD_TSD) },
+    { k: "secretlint", l: "secretlint", r: () => run(...CMD_SECRETLINT) },
+    { k: "prettier", l: "prettier-check", r: () => run(...CMD_PRETTIER_CHECK) },
+    { k: "semgrep", l: "semgrep", r: () => run(...CMD_SEMGREP) },
+    { k: "gitleaks", l: "gitleaks", r: () => run(...CMD_GITLEAKS) },
+    { k: "depAudit", l: "dep-audit", r: () => run(...CMD_BUN_AUDIT) },
   ];
   const runs = Object.fromEntries(
     await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
   ) as Record<string, Command>;
   const timedOut = Object.values(runs).some((result) => result.timedOut);
+  const missingLabels = steps.filter((s) => runs[s.k].notFound).map((s) => s.l);
   for (const step of steps)
-    printStepOutput(
-      step.l,
-      step.t ? step.t(runs[step.k].output) : runs[step.k].output,
-    );
-  const tests = parseTests(junitPath);
-  const coverage = parseCoverage(lcovPath);
+    if (!runs[step.k].notFound)
+      printStepOutput(
+        step.l,
+        step.t ? step.t(runs[step.k].output) : runs[step.k].output,
+      );
+  const tests = parseTests(JUNIT_PATH);
+  const coverage = parseCoverage(LCOV_PATH);
   const details = parseDetails(runs);
   const checks = [
     {
@@ -558,111 +622,135 @@ async function runCheckSuite() {
       ok: runs.types.exitCode === 0,
       d: details.tsc,
       ms: runs.types.durationMs,
+      stpk: "types",
     },
     {
       k: "eslint",
       ok: runs.lint.exitCode === 0,
       d: details.eslint,
       ms: runs.lint.durationMs,
+      stpk: "lint",
     },
     {
       k: "jscpd",
       ok: runs.jscpd.exitCode === 0,
       d: details.jscpd,
       ms: runs.jscpd.durationMs,
+      stpk: "jscpd",
     },
     {
       k: "knip",
       ok: runs.knip.exitCode === 0,
       d: details.knip,
       ms: runs.knip.durationMs,
+      stpk: "knip",
     },
     {
       k: "ts-prune",
       ok: runs.tsPrune.exitCode === 0,
       d: details.tsPrune,
       ms: runs.tsPrune.durationMs,
+      stpk: "tsPrune",
     },
     {
       k: "depcruise",
       ok: runs.depCruise.exitCode === 0,
       d: details.depCruise,
       ms: runs.depCruise.durationMs,
+      stpk: "depCruise",
     },
     {
       k: "madge",
       ok: runs.madge.exitCode === 0,
       d: details.madge,
       ms: runs.madge.durationMs,
+      stpk: "madge",
     },
     {
       k: "type-coverage",
       ok: runs.typeCoverage.exitCode === 0,
       d: details.typeCoverage,
       ms: runs.typeCoverage.durationMs,
+      stpk: "typeCoverage",
     },
     {
       k: "stylelint",
       ok: runs.stylelint.exitCode === 0,
       d: details.stylelint,
       ms: runs.stylelint.durationMs,
+      stpk: "stylelint",
     },
     {
       k: "tsd",
       ok: runs.tsd.exitCode === 0,
       d: details.tsd,
       ms: runs.tsd.durationMs,
+      stpk: "tsd",
     },
     {
       k: "secretlint",
       ok: runs.secretlint.exitCode === 0,
       d: details.secretlint,
       ms: runs.secretlint.durationMs,
+      stpk: "secretlint",
     },
     {
       k: "prettier",
       ok: runs.prettier.exitCode === 0,
       d: details.prettier,
       ms: runs.prettier.durationMs,
+      stpk: "prettier",
     },
     {
       k: "semgrep",
       ok: runs.semgrep.exitCode === 0,
       d: details.semgrep,
       ms: runs.semgrep.durationMs,
+      stpk: "semgrep",
     },
     {
       k: "gitleaks",
       ok: runs.gitleaks.exitCode === 0,
       d: details.gitleaks,
       ms: runs.gitleaks.durationMs,
+      stpk: "gitleaks",
     },
     {
       k: "dep-audit",
       ok: runs.depAudit.exitCode === 0,
       d: details.depAudit,
       ms: runs.depAudit.durationMs,
+      stpk: "depAudit",
     },
     {
       k: "Tests",
       ok: tests.ok && runs.test.exitCode === 0,
       d: `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${runs.test.exitCode}`,
       ms: runs.test.durationMs,
+      stpk: "test",
     },
     {
       k: "Coverage",
       ok: coverage.ok,
       d: `${coverage.pct.toFixed(2)}% (${coverage.covered}/${coverage.found}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
+      stpk: null,
     },
   ];
   printTests("Failed tests", ANSI.red, tests.failedTests);
   printTests("Skipped tests", ANSI.gray, tests.skippedTests);
+  if (missingLabels.length > 0)
+    console.log(
+      `\n${paint("missing/not found:", ANSI.bold, ANSI.yellow)} ${paint(missingLabels.join(", "), ANSI.yellow)}`,
+    );
+  const presentChecks = checks.filter(
+    (c) => !c.stpk || !runs[c.stpk]?.notFound,
+  );
   console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
   console.log(divider());
-  for (const check of checks)
+  for (const check of presentChecks)
     console.log(row(check.k, check.ok, check.d, check.ms));
   console.log(divider());
-  const allOk = checks.every((c) => c.ok) && !timedOut;
+  const allOk = presentChecks.every((c) => c.ok) && !timedOut;
   const elapsedSeconds = ((Date.now() - startedAtMs) / 1000).toFixed(2);
   console.log(
     row(

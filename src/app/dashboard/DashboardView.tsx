@@ -279,7 +279,9 @@ export const DashboardView = ({
     ? "Release to refresh"
     : "Pull down to refresh";
 
-  const lastRefreshLabel = formatLastRefreshLabel(lastRefreshedAt);
+  const lastRefreshLabel = usePlaceholderData
+    ? "demo"
+    : formatLastRefreshLabel(lastRefreshedAt);
 
   useDashboardEvents({
     selectedCategory,

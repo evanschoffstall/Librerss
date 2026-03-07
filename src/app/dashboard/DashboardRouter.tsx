@@ -98,8 +98,12 @@ export function DashboardRouter() {
   if (isSessionLoading) {
     return (
       <main className="h-full overflow-hidden bg-background">
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+        <div className="relative flex h-full items-center justify-center">
+          <div
+            className="pointer-events-none absolute size-64 rounded-full bg-primary/5 blur-3xl"
+            aria-hidden="true"
+          />
+          <Loader2 className="relative size-4 animate-spin text-muted-foreground/40" />
         </div>
       </main>
     );

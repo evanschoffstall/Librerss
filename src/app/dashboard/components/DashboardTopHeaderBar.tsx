@@ -12,6 +12,7 @@ import { AuthService, useLocalStorage } from "@/lib";
 import {
   CheckCheck,
   EllipsisVertical,
+  Loader2,
   LogOut,
   Menu,
   Moon,
@@ -244,9 +245,13 @@ export function DashboardTopHeaderBar() {
               )
             }
             aria-label="Mark all read"
-            className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70 ${isMarkingAllRead ? "animate-pulse" : ""}`}
+            className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70`}
           >
-            <CheckCheck className="h-4 w-4" />
+            {isMarkingAllRead ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCheck className="h-4 w-4" />
+            )}
           </button>
 
           <button

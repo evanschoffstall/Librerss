@@ -36,7 +36,7 @@ function ThemeModeToggle() {
         type="button"
         onClick={() => setTheme(nextTheme)}
         aria-label={`Switch to ${nextTheme} mode`}
-        className="transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-zinc-600 hover:text-zinc-300"
+        className="text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {mounted && isDark ? (
           <Sun className="h-4 w-4" />

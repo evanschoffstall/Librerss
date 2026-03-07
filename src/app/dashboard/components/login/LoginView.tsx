@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AuthService, type AuthUser } from "@/lib";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
@@ -84,9 +85,24 @@ export const LoginView = ({
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 pt-14">
-      <Card className="w-full max-w-md">
-        <CardHeader>
+    <div className="relative flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 pt-14">
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <div className="absolute left-1/2 top-1/3 size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl" />
+      </div>
+      <Card className="anim-fade-in-load-slow relative w-full max-w-md">
+        <CardHeader className="items-center pb-2 text-center">
+          <div className="relative mb-3 flex size-14 items-center justify-center">
+            <div
+              className="absolute size-[4.5rem] rounded-2xl border border-border/20"
+              aria-hidden="true"
+            />
+            <div className="relative flex size-14 items-center justify-center rounded-2xl border border-border/50 bg-card/70 shadow-md backdrop-blur-sm">
+              <img src="/favicon.svg" alt="LibreRSS" className="size-6" />
+            </div>
+          </div>
           <CardTitle>
             {mode === "signup" ? "Create your account" : "Sign in to LibreRSS"}
           </CardTitle>
@@ -97,28 +113,55 @@ export const LoginView = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          {mode === "signup" && (
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="auth-email"
+              className="text-xs text-muted-foreground"
+            >
+              Email
+            </Label>
             <Input
-              type="password"
-              placeholder="Confirm password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              id="auth-email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               onKeyDown={handleKeyDown}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="auth-password"
+              className="text-xs text-muted-foreground"
+            >
+              Password
+            </Label>
+            <Input
+              id="auth-password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+          {mode === "signup" && (
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="auth-confirm"
+                className="text-xs text-muted-foreground"
+              >
+                Confirm password
+              </Label>
+              <Input
+                id="auth-confirm"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
           )}
           <Button
             className="w-full"

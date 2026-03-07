@@ -591,8 +591,8 @@ describe("useArticleActions - Article Hydration Integration", () => {
       await result.current.handleArticleToggle(article);
     });
 
-    // Wait for the scrollIntoView timeout
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Wait for the scrollIntoView timeout (reduced for tests)
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
 
@@ -673,7 +673,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
       await result.current.handleArticleToggle(article);
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(viewport.scrollTo).not.toHaveBeenCalled();
 

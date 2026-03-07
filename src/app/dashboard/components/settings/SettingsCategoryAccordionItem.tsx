@@ -308,7 +308,7 @@ export function SettingsCategoryAccordionItem({
                 feedDropTarget?.categoryLabel === categoryNode.label &&
                 feedDropTarget?.index === 0
                   ? "border-primary bg-primary/5 text-foreground"
-                  : "text-muted-foreground"
+                  : "border-border/50 text-muted-foreground/60"
               }`}
               onDragOver={(event) =>
                 onFeedDragOver(event, categoryNode.label, 0)
@@ -317,7 +317,7 @@ export function SettingsCategoryAccordionItem({
             >
               {draggingFeedKey
                 ? "Drop feed here"
-                : "Empty — click + to add a feed."}
+                : "No feeds — click + to add one."}
             </div>
           ) : (
             <div

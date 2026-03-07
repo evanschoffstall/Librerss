@@ -877,7 +877,7 @@ describe("article extract cleanup", () => {
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any, delayFn: async () => {} },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
@@ -891,7 +891,7 @@ describe("article extract cleanup", () => {
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any, delayFn: async () => {} },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
@@ -905,7 +905,7 @@ describe("article extract cleanup", () => {
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any, delayFn: async () => {} },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
@@ -919,7 +919,7 @@ describe("article extract cleanup", () => {
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any, delayFn: async () => {} },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
@@ -934,7 +934,7 @@ describe("article extract cleanup", () => {
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: fn as any, delayFn: async () => {} },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("429");
@@ -951,7 +951,7 @@ describe("article extract cleanup", () => {
 
       const html = await fetchHtml(
         "https://example.com/article",
-        { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any },
+        { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any, delayFn: async () => {} },
         { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
       );
 
@@ -969,7 +969,7 @@ describe("article extract cleanup", () => {
       await expect(
         fetchHtml(
           "https://example.com/article",
-          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any },
+          { isAllowedFeedUrlFn: async () => true, fingerprintFetchFn: mockFpFetch as any, delayFn: async () => {} },
           { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
         ),
       ).rejects.toThrow("403");
