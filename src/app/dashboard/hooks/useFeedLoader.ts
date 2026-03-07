@@ -24,6 +24,7 @@ import {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
   isCanceledBatchRequest,
+  mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
   type FeedBatchResult,
@@ -294,7 +295,7 @@ export function useFeedLoader({
         );
 
         if (articles.length > 0) {
-          setFeed(articles);
+          setFeed((currentFeed) => mergeHydratedContent(currentFeed, articles));
           setExpandedArticleKey((currentKey) =>
             resolveExpandedArticleKey(currentKey, articles),
           );
