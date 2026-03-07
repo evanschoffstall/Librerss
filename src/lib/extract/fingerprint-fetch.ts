@@ -444,6 +444,7 @@ function tlsUpgrade(
   socket: net.Socket,
   host: string,
   rejectUnauthorized: boolean,
+  timeoutMs: number,
 ): Promise<{ tlsSocket: tls.TLSSocket; alpn: "h2" | "http/1.1" }> {
   return new Promise((resolve, reject) => {
     const tlsSocket = tls.connect({
@@ -453,13 +454,20 @@ function tlsUpgrade(
       rejectUnauthorized,
       ...CHROME_TLS,
     });
-    tlsSocket.once("secureConnect", () =>
+    const timer = setTimeout(() => {
+      tlsSocket.destroy(new Error("TLS handshake timed out"));
+    }, timeoutMs);
+    tlsSocket.once("secureConnect", () => {
+      clearTimeout(timer);
       resolve({
         tlsSocket,
         alpn: tlsSocket.alpnProtocol === "h2" ? "h2" : "http/1.1",
-      }),
-    );
-    tlsSocket.once("error", reject);
+      });
+    });
+    tlsSocket.once("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
   });
 }
 
@@ -839,6 +847,7 @@ async function httpProxyFetch(
     socket,
     url.hostname,
     !allowInsecureTls,
+    timeoutMs,
   );
   const headers = headersFn(alpn);
 
