@@ -199,6 +199,15 @@ export function useFeedLoader({
 
   const fetchFeedBatch = useCallback(
     async (sources: FeedBatchSource[], options?: FeedFetchOptions) => {
+      // Background refreshes (auto-refresh without force) must not replace
+      // visible articles with skeleton loaders or race the failsafe timer.
+      // Yield to any in-flight loading request rather than aborting it.
+      const isBackground =
+        options?.keepExistingFeed === true && options?.forceRefresh !== true;
+      if (isBackground && loadingRef.current) {
+        return;
+      }
+
       const requestId = currentRequestIdRef.current + 1;
       currentRequestIdRef.current = requestId;
 
@@ -231,8 +240,10 @@ export function useFeedLoader({
       }
 
       activeRequestSignatureRef.current = requestSignature;
-      syncLoading(true);
-      setLoadingEpoch((e) => e + 1);
+      if (!isBackground) {
+        syncLoading(true);
+        setLoadingEpoch((e) => e + 1);
+      }
       if (!options?.keepExistingFeed) {
         setFeed([]);
       }
