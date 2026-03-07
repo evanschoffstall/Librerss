@@ -1291,23 +1291,37 @@ export async function fetchHtmlWithFingerprint(
         browserVersion: TLS_CLIENT_CHROME_VER,
         secChUa: TLS_CLIENT_SEC_CH_UA,
       });
+      let tlsFailReason: string | null = null;
+      let tlsSuccessResponse: RawResponse | null = null;
       try {
-        response = await tlsClientFetch(
+        const tlsResult = await tlsClientFetch(
           parsed,
           usedHeaders,
           options?.proxyUrl,
           allowInsecureTls,
           timeoutMs,
         );
-        negotiatedAlpn = "h2";
+        // statusCode 0 = network-level failure (proxy refused CONNECT, timeout,
+        // etc.) — not an HTTP response. Fall through to OpenSSL / Node.js socks.
+        if (tlsResult.statusCode === 0) {
+          tlsFailReason = tlsResult.body || "statusCode 0";
+        } else {
+          tlsSuccessResponse = tlsResult;
+        }
       } catch (tlsClientErr) {
+        tlsFailReason =
+          tlsClientErr instanceof Error
+            ? tlsClientErr.message
+            : String(tlsClientErr);
+      }
+      if (tlsSuccessResponse) {
+        response = tlsSuccessResponse;
+        negotiatedAlpn = "h2";
+      } else {
         // uTLS failed — fall through to OpenSSL pipeline.
-        logger.error("tls-client request failed, falling back to OpenSSL", {
+        logger.error("tls-client failed, falling back to OpenSSL", {
           url: currentUrl,
-          error:
-            tlsClientErr instanceof Error
-              ? tlsClientErr.message
-              : String(tlsClientErr),
+          error: tlsFailReason ?? undefined,
         });
         const result = await opensslFetch(
           parsed,
