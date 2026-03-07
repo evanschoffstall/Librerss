@@ -123,12 +123,25 @@ export function useScrollRestore(
   // ── anchor-aware restore ───────────────────────────────────────────────────
   const restoreScrollIfNeeded = useCallback(() => {
     const viewport = viewportRef.current;
-    const saved = savedStateRef.current;
-    if (!viewport || saved === null) return;
+    if (!viewport) return;
 
     if (Date.now() > restoreDeadlineRef.current) {
       savedStateRef.current = null;
       return;
+    }
+
+    // Recover from sessionStorage if savedStateRef was cleared by a scroll
+    // event during content replacement (feed refresh).
+    let saved = savedStateRef.current;
+    if (!saved) {
+      try {
+        const raw = sessionStorage.getItem(sessionKey);
+        if (raw) saved = parseSavedState(raw);
+      } catch {
+        /* ignore */
+      }
+      if (!saved) return;
+      savedStateRef.current = saved;
     }
 
     const contentWrapper = viewport.firstElementChild;
@@ -156,7 +169,7 @@ export function useScrollRestore(
     );
     if (maxScrollTop === 0) return;
     applyRestoredScrollTop(viewport, Math.min(saved.t, maxScrollTop));
-  }, [applyRestoredScrollTop]);
+  }, [applyRestoredScrollTop, sessionKey]);
 
   // ── restore once the viewport mounts ──────────────────────────────────────
   const attachRef = useCallback(
