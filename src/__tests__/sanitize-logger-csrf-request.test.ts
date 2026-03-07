@@ -644,6 +644,91 @@ describe("request – parseFormOrQueryParams", () => {
   });
 });
 
+describe("http diagnostics", () => {
+  test("toBodySnippet compacts and truncates strings", () => {
+    const snippet = toBodySnippet("  hello\n\nworld  ", 5);
+    expect(snippet).toBe("hello…");
+  });
+
+  test("toBodySnippet ignores plain object toString output", () => {
+    expect(toBodySnippet({})).toBeUndefined();
+  });
+
+  test("buildAxiosFailureDiagnostics returns empty object for non-axios errors", () => {
+    expect(buildAxiosFailureDiagnostics(new Error("boom"))).toEqual({});
+  });
+
+  test("buildAxiosFailureDiagnostics keeps only safe headers and metadata", () => {
+    const alwaysAxiosError: typeof import("axios").isAxiosError = <
+      T = unknown,
+      D = unknown,
+    >(
+      _payload: unknown,
+    ): _payload is import("axios").AxiosError<T, D> => true;
+
+    const diagnostics = buildAxiosFailureDiagnostics(
+      {
+        code: "ECONNRESET",
+        config: {
+          method: "get",
+          url: "https://example.com/feed.xml",
+          timeout: 2000,
+          maxRedirects: 3,
+          headers: {
+            "User-Agent": "LibreRSS",
+            Authorization: "secret",
+            Accept: ["application/xml", "text/xml"],
+          },
+        },
+        response: {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: {
+            Server: "cloudflare",
+            "Retry-After": 120,
+            "Set-Cookie": "session=secret",
+          },
+          data: "   temporary upstream failure   ",
+        },
+      },
+      alwaysAxiosError,
+    );
+
+    expect(diagnostics).toMatchObject({
+      upstreamStatus: 503,
+      upstreamStatusText: "Service Unavailable",
+      upstreamMethod: "GET",
+      upstreamUrl: "https://example.com/feed.xml",
+      requestTimeoutMs: 2000,
+      requestMaxRedirects: 3,
+      axiosErrorCode: "ECONNRESET",
+      responseBodySnippet: "temporary upstream failure",
+    });
+    expect(diagnostics.requestHeaders).toEqual({
+      "user-agent": "LibreRSS",
+      accept: "application/xml, text/xml",
+    });
+    expect(diagnostics.responseHeaders).toEqual({
+      server: "cloudflare",
+      "retry-after": "120",
+    });
+  });
+
+  test("isVerboseLoggingEnabled checks LOG_LEVEL environment", () => {
+    const previous = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = "verbose";
+    try {
+      expect(isVerboseLoggingEnabled()).toBe(true);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previous;
+      }
+    }
+  });
+});
+
 // ─── responses.ts ─────────────────────────────────────────────────────────────
 
 describe("responses", () => {
