@@ -39,7 +39,11 @@ import {
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
-import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
+import {
+  injectProxyCredentials,
+  redactUrlForLogs,
+  tryGetUrlHostname,
+} from "@/lib/utils/url";
 import axios from "axios";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -235,15 +239,25 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         .select({
           proxyUrl: users.proxyUrl,
           allowInsecureTls: users.allowInsecureTls,
+          proxyUsername: users.proxyUsername,
+          proxyPassword: users.proxyPassword,
         })
         .from(users)
         .where(eq(users.id, authUserId))
         .limit(1);
       const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
-      resolvedProxyUrl =
+      const baseProxyUrl =
         rawProxyUrl && rawProxyUrl !== "null" && rawProxyUrl !== "undefined"
           ? rawProxyUrl
           : undefined;
+      resolvedProxyUrl =
+        baseProxyUrl && row?.proxyUsername && row?.proxyPassword
+          ? injectProxyCredentials(
+              baseProxyUrl,
+              row.proxyUsername,
+              row.proxyPassword,
+            )
+          : baseProxyUrl;
       allowInsecureTls = row?.allowInsecureTls ?? false;
     }
 

@@ -36,6 +36,13 @@
       "when": 1772403273451,
       "tag": "0004_wide_betty_brant",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772500000000,
+      "tag": "0005_proxy_credentials",
+      "breakpoints": true
     }
   ]
 }

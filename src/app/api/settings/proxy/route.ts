@@ -35,6 +35,8 @@ function unconfiguredResponse(error?: string): Response {
     configured: false,
     status: "unreachable" as ProxyStatus,
     allowInsecureTls: false,
+    proxyUsername: null,
+    hasProxyPassword: false,
     ...(error && { error }),
   });
 }
@@ -44,6 +46,8 @@ async function probeAndRespond(
   probe: (url: string) => Promise<boolean>,
   logLabel: string,
   allowInsecureTls = false,
+  proxyUsername: string | null = null,
+  hasProxyPassword = false,
 ): Promise<Response> {
   const reachable = await probe(proxyUrl);
   if (!reachable)
@@ -53,6 +57,8 @@ async function probeAndRespond(
     configured: true,
     status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
     allowInsecureTls,
+    proxyUsername,
+    hasProxyPassword,
   });
 }
 
@@ -88,6 +94,8 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
     .select({
       proxyUrl: users.proxyUrl,
       allowInsecureTls: users.allowInsecureTls,
+      proxyUsername: users.proxyUsername,
+      proxyPassword: users.proxyPassword,
     })
     .from(users)
     .where(eq(users.id, result.auth.userId))
@@ -100,6 +108,8 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
     result.probe,
     "Proxy unreachable on GET",
     user?.allowInsecureTls ?? false,
+    user?.proxyUsername ?? null,
+    !!user?.proxyPassword,
   );
 }
 
@@ -110,6 +120,8 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   const body = await parseJsonBodyOrResponse<{
     proxyUrl?: string | null;
     allowInsecureTls?: boolean;
+    proxyUsername?: string | null;
+    proxyPassword?: string | null;
   }>(request);
   if (body instanceof Response) return body;
 
@@ -121,6 +133,18 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     typeof body.allowInsecureTls === "boolean"
       ? body.allowInsecureTls
       : undefined;
+  const proxyUsername =
+    typeof body.proxyUsername === "string" && body.proxyUsername.trim()
+      ? body.proxyUsername.trim()
+      : body.proxyUsername === null || body.proxyUsername === ""
+        ? null
+        : undefined;
+  const proxyPassword =
+    typeof body.proxyPassword === "string" && body.proxyPassword
+      ? body.proxyPassword
+      : body.proxyPassword === null || body.proxyPassword === ""
+        ? null
+        : undefined;
 
   if (raw && raw.length > MAX_PROXY_URL_LENGTH) {
     logger.error("Proxy URL exceeds max length", {
@@ -154,11 +178,19 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     .set({
       proxyUrl,
       ...(allowInsecureTls !== undefined && { allowInsecureTls }),
+      ...(proxyUsername !== undefined && { proxyUsername }),
+      ...(proxyPassword !== undefined && { proxyPassword }),
     })
     .where(eq(users.id, result.auth.userId))
-    .returning({ allowInsecureTls: users.allowInsecureTls });
+    .returning({
+      allowInsecureTls: users.allowInsecureTls,
+      proxyUsername: users.proxyUsername,
+      proxyPassword: users.proxyPassword,
+    });
 
   const effectiveTls = updated?.allowInsecureTls ?? false;
+  const effectiveUsername = updated?.proxyUsername ?? null;
+  const effectiveHasPassword = !!updated?.proxyPassword;
 
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
@@ -166,5 +198,7 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     result.probe,
     "Proxy saved but unreachable",
     effectiveTls,
+    effectiveUsername,
+    effectiveHasPassword,
   );
 }

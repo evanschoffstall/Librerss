@@ -48,6 +48,9 @@ export function SettingsProxySection() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allowInsecureTls, setAllowInsecureTls] = useState(false);
+  const [proxyUsername, setProxyUsername] = useState("");
+  const [proxyPassword, setProxyPassword] = useState("");
+  const [hasProxyPassword, setHasProxyPassword] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,6 +58,8 @@ export function SettingsProxySection() {
       .then((result) => {
         setProxyUrl(result.proxyUrl ?? "");
         setAllowInsecureTls(result.allowInsecureTls ?? false);
+        setProxyUsername(result.proxyUsername ?? "");
+        setHasProxyPassword(result.hasProxyPassword ?? false);
         if (!result.proxyUrl) setProxyStatus("none");
         else
           setProxyStatus(
@@ -76,8 +81,13 @@ export function SettingsProxySection() {
     try {
       const result = await ArticleService.saveProxyUrl(trimmed, {
         allowInsecureTls,
+        proxyUsername: proxyUsername.trim() || null,
+        proxyPassword: proxyPassword || null,
       });
       setProxyUrl(result.proxyUrl ?? "");
+      setProxyUsername(result.proxyUsername ?? "");
+      setHasProxyPassword(result.hasProxyPassword ?? false);
+      if (proxyPassword) setProxyPassword("");
       if (result.error) {
         setError(result.error);
         setProxyStatus("unreachable");
@@ -100,8 +110,14 @@ export function SettingsProxySection() {
     setSaving(true);
     setError(null);
     try {
-      await ArticleService.saveProxyUrl(null);
+      await ArticleService.saveProxyUrl(null, {
+        proxyUsername: null,
+        proxyPassword: null,
+      });
       setProxyUrl("");
+      setProxyUsername("");
+      setProxyPassword("");
+      setHasProxyPassword(false);
       setProxyStatus("none");
     } catch (err) {
       setError(
@@ -165,6 +181,45 @@ export function SettingsProxySection() {
             <Trash2 className="size-3.5" />
           </Button>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <Label
+            htmlFor="proxy-username"
+            className="text-xs text-muted-foreground"
+          >
+            Username
+          </Label>
+          <Input
+            id="proxy-username"
+            type="text"
+            autoComplete="username"
+            placeholder="optional"
+            value={proxyUsername}
+            onChange={(e) => setProxyUsername(e.target.value)}
+            disabled={saving}
+            className="h-8 text-sm font-mono"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label
+            htmlFor="proxy-password"
+            className="text-xs text-muted-foreground"
+          >
+            Password{hasProxyPassword && !proxyPassword ? " (saved)" : ""}
+          </Label>
+          <Input
+            id="proxy-password"
+            type="password"
+            autoComplete="current-password"
+            placeholder={hasProxyPassword ? "leave blank to keep" : "optional"}
+            value={proxyPassword}
+            onChange={(e) => setProxyPassword(e.target.value)}
+            disabled={saving}
+            className="h-8 text-sm font-mono"
+          />
+        </div>
       </div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}
