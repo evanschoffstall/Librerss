@@ -24,6 +24,10 @@ interface WrapperSessionClient {
 }
 
 let moduleClient: WrapperModuleClient | null = null;
+
+const MAX_SOCKS_ROUTE_ENTRIES = 500;
+const MAX_FALLBACK_WARNING_ENTRIES = 100;
+
 const globalForFetch = globalThis as unknown as {
   socksRoutePreference?: Map<string, "hostname" | "ip">;
   socksFallbackWarningEmitted?: Set<string>;
@@ -45,6 +49,27 @@ function socksRouteKey(proxyUrl: string | undefined, hostname: string): string {
   } catch {
     return `${proxyUrl}|${hostname}`;
   }
+}
+
+function boundedMapSet<K, V>(
+  map: Map<K, V>,
+  key: K,
+  value: V,
+  maxSize: number,
+): void {
+  if (map.size >= maxSize && !map.has(key)) {
+    const firstKey = map.keys().next().value;
+    if (firstKey !== undefined) map.delete(firstKey);
+  }
+  map.set(key, value);
+}
+
+function boundedSetAdd<T>(set: Set<T>, value: T, maxSize: number): void {
+  if (set.size >= maxSize && !set.has(value)) {
+    const firstValue = set.values().next().value;
+    if (firstValue !== undefined) set.delete(firstValue);
+  }
+  set.add(value);
 }
 
 export async function ensureTlsClient(): Promise<boolean> {
@@ -175,7 +200,12 @@ export async function tlsClientFetch(
       if (primaryIp.statusCode !== 0) return primaryIp;
       const hostnameFallback = await request(targetUrl);
       if (hostnameFallback.statusCode !== 0) {
-        socksRoutePreference.set(routeKey, "hostname");
+        boundedMapSet(
+          socksRoutePreference,
+          routeKey,
+          "hostname",
+          MAX_SOCKS_ROUTE_ENTRIES,
+        );
         return hostnameFallback;
       }
       return primaryIp;
@@ -190,7 +220,11 @@ export async function tlsClientFetch(
     if (!ip) return primary;
     logger.info("Resolved hostname for SOCKS proxy fallback", { hostname, ip });
     if (!socksFallbackWarningEmitted.has(routeKey)) {
-      socksFallbackWarningEmitted.add(routeKey);
+      boundedSetAdd(
+        socksFallbackWarningEmitted,
+        routeKey,
+        MAX_FALLBACK_WARNING_ENTRIES,
+      );
       logger.warn(
         "SOCKS hostname request failed, retrying with resolved IPv4",
         {
@@ -204,7 +238,14 @@ export async function tlsClientFetch(
       hostname,
       hostname,
     );
-    if (fallback.statusCode !== 0) socksRoutePreference.set(routeKey, "ip");
+    if (fallback.statusCode !== 0) {
+      boundedMapSet(
+        socksRoutePreference,
+        routeKey,
+        "ip",
+        MAX_SOCKS_ROUTE_ENTRIES,
+      );
+    }
     return fallback.statusCode === 0 ? primary : fallback;
   } catch (err) {
     logger.warn("DNS resolution failed for SOCKS proxy fallback", {
