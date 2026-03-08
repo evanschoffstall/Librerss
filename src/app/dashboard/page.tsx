@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Suspense } from "react";
 import { DashboardRouter } from "./DashboardRouter";
 
@@ -9,8 +9,13 @@ export default function Dashboard() {
     <div className="h-dvh overflow-hidden overscroll-contain">
       <Suspense
         fallback={
-          <div className="flex h-full items-center justify-center overflow-hidden">
-            <Loader2 className="size-4 animate-spin text-muted-foreground/40" />
+          <div className="flex h-full items-center justify-center overflow-hidden px-4">
+            <div className="w-full max-w-3xl space-y-2">
+              <Skeleton className="h-8 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
           </div>
         }
       >

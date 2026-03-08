@@ -1,8 +1,8 @@
 "use client";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
-import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -98,12 +98,17 @@ export function DashboardRouter() {
   if (isSessionLoading) {
     return (
       <main className="h-full overflow-hidden bg-background">
-        <div className="relative flex h-full items-center justify-center">
+        <div className="relative flex h-full items-center justify-center px-4">
           <div
             className="pointer-events-none absolute size-64 rounded-full bg-primary/5 blur-3xl"
             aria-hidden="true"
           />
-          <Loader2 className="relative size-4 animate-spin text-muted-foreground/40" />
+          <div className="relative w-full max-w-3xl space-y-2">
+            <Skeleton className="h-8 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
         </div>
       </main>
     );
