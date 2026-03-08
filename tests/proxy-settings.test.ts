@@ -9,9 +9,9 @@
 
 import type { ProxyRouteDeps } from "@/app/api/settings/proxy/route";
 import {
-  __resetApiClientForTesting,
-  __setApiClientForTesting,
-} from "@/lib/api/http-client";
+  resetApiClientForTesting,
+  setApiClientForTesting,
+} from "@/lib/api/http";
 import { ArticleService } from "@/lib/api/services";
 import { fetchHtml } from "@/lib/extract";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -23,7 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   mock.restore();
-  __resetApiClientForTesting();
+  resetApiClientForTesting();
 });
 
 // ── Proxy Settings API Route ────────────────────────────────────────────────
@@ -360,7 +360,7 @@ describe("ArticleService proxy methods", () => {
   beforeEach(() => {
     mockAxios.get = mock(async () => ({ data: {} }));
     mockAxios.put = mock(async () => ({ data: {} }));
-    __setApiClientForTesting(mockAxios);
+    setApiClientForTesting(mockAxios);
   });
 
   test("getProxySettings calls GET /api/settings/proxy", async () => {
