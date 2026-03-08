@@ -16,7 +16,7 @@ interface DnsCacheEntry {
 
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 
-export function __resetDnsCacheForTests(): void {
+export function clearDnsCacheForTests(): void {
   DNS_CACHE.clear();
 }
 

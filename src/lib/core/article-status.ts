@@ -42,7 +42,7 @@ function warnMissingArticleStatusesTable(): void {
   );
 }
 
-export function __resetArticleStatusesTableStateForTests(): void {
+export function resetArticleStatusTableStateForTests(): void {
   articleStatusesTableState = "unknown";
   warnedMissingArticleStatusesTable = false;
 }
