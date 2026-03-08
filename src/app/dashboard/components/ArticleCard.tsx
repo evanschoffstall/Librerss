@@ -151,26 +151,16 @@ export const ArticleCard = ({
     interactionBlockUntilRef.current = Date.now() + 200;
   };
 
-  const handleRawHtmlOpenChange = (open: boolean) => {
-    setIsRawHtmlOpen(open);
-    if (!open) {
-      blockArticleInteractionTemporarily();
-    }
-  };
+  const makeOpenChangeHandler =
+    (setter: React.Dispatch<React.SetStateAction<boolean>>) =>
+    (open: boolean) => {
+      setter(open);
+      if (!open) blockArticleInteractionTemporarily();
+    };
 
-  const handleCopyLinkOpenChange = (open: boolean) => {
-    setIsCopyLinkOpen(open);
-    if (!open) {
-      blockArticleInteractionTemporarily();
-    }
-  };
-
-  const handleShareMenuOpenChange = (open: boolean) => {
-    setIsShareMenuOpen(open);
-    if (!open) {
-      blockArticleInteractionTemporarily();
-    }
-  };
+  const handleRawHtmlOpenChange = makeOpenChangeHandler(setIsRawHtmlOpen);
+  const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
+  const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (shouldBlockArticleInteraction()) {
