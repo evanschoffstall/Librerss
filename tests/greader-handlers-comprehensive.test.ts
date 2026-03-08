@@ -4,7 +4,7 @@
  */
 
 import type { SessionUser } from "@/lib/auth/session";
-import { __resetArticleStatusesTableStateForTests } from "@/lib/core/article-status";
+import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
 import {
   afterAll,
   afterEach,
@@ -22,7 +22,7 @@ import { NextRequest } from "next/server";
 
 beforeEach(() => {
   mock.restore();
-  __resetArticleStatusesTableStateForTests();
+  resetArticleStatusTableStateForTests();
 });
 
 afterEach(() => {

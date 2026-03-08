@@ -489,9 +489,9 @@ describe("config module", () => {
 
 describe("dns-cache: resolvesToBlockedAddress", () => {
   test("returns cached result when not expired", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     let lookupCallCount = 0;
     const deps = {
@@ -512,9 +512,9 @@ describe("dns-cache: resolvesToBlockedAddress", () => {
   });
 
   test("re-resolves when cache entry has expired", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     let now = 1_000_000;
     let lookupCallCount = 0;
@@ -536,9 +536,9 @@ describe("dns-cache: resolvesToBlockedAddress", () => {
   });
 
   test("returns true and caches result on DNS lookup failure", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     const warned: any[] = [];
     const deps = {
@@ -559,9 +559,9 @@ describe("dns-cache: resolvesToBlockedAddress", () => {
   });
 
   test("returns true for blocked address", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     const deps = {
       lookupFn: async () => [{ address: "127.0.0.1", family: 4 }] as any,
@@ -575,9 +575,9 @@ describe("dns-cache: resolvesToBlockedAddress", () => {
   });
 
   test("setCacheSafe triggers eviction when cache exceeds max entries", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     const { CONFIG } = await import("@/lib/config");
     const maxEntries = CONFIG.DNS_CACHE_MAX_ENTRIES;
@@ -731,9 +731,9 @@ describe("ssrf: isBlockedResolvedAddress IPv6 edge cases", () => {
 
 describe("dns-cache: cache full with no expired entries triggers oldest-20%-eviction", () => {
   test("setCacheSafe evicts oldest 20% when cache is full and no entries expired", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     const { CONFIG } = await import("@/lib/config");
     const maxEntries = CONFIG.DNS_CACHE_MAX_ENTRIES;
