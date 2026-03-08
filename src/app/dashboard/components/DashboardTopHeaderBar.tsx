@@ -150,7 +150,7 @@ export function DashboardTopHeaderBar() {
           <Menu className="h-4 w-4" />
         </button>
 
-        <h1 className="flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight">
+        <h1 className="flex min-w-0 select-none items-center gap-2 text-lg font-semibold tracking-tight">
           <img src="/favicon.svg" alt="LibreRSS logo" className="h-5 w-5" />
           <span className="truncate">{title}</span>
         </h1>

@@ -68,7 +68,7 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                 <div className="px-1.5">
                   <button
                     type="button"
-                    className={`w-full rounded px-1.5 py-1 text-left font-sans text-[0.65rem] font-semibold uppercase tracking-[0.07em] transition-colors ${
+                    className={`w-full cursor-pointer rounded px-1.5 py-1 text-left font-sans text-[0.65rem] font-semibold uppercase tracking-[0.07em] transition-colors ${
                       selectedCategory === categoryNode.key
                         ? "bg-muted/60 text-foreground"
                         : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
