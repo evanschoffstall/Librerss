@@ -1,6 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
 import { Rss } from "lucide-react";
+import { memo } from "react";
 import { FeedCategory } from "./feed/FeedCategory";
 
 const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
@@ -15,7 +16,7 @@ type DashboardSidebarContentProps = {
   onFeedClick: (feedNode: CategoryTreeNode) => void;
 };
 
-export function DashboardSidebarContent({
+export const DashboardSidebarContent = memo(function DashboardSidebarContent({
   isCategoriesLoading,
   isSidebarVisible,
   sidebarCategories,
@@ -30,12 +31,24 @@ export function DashboardSidebarContent({
         <div key="sidebar-loading" className={sidebarPanelCls}>
           {[3, 2, 4].map((count, groupIndex) => (
             <div key={groupIndex} className="space-y-0.5">
-              <Skeleton className="mx-2 h-3.5 w-16 rounded" />
+              <div className="px-1.5">
+                <Skeleton className="h-6 w-20 rounded" />
+              </div>
               {Array.from({ length: count }).map((_, itemIndex) => (
-                <Skeleton
+                <div
                   key={itemIndex}
-                  className="mx-1 h-9 w-[calc(100%-8px)] rounded-lg"
-                />
+                  className="mx-1 flex items-center justify-between gap-2 rounded-lg border-l-2 border-transparent px-2 py-2"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Skeleton
+                      className={`h-3.5 ${itemIndex % 2 === 0 ? "w-24" : "w-20"}`}
+                    />
+                    <Skeleton
+                      className={`h-2.5 ${itemIndex % 2 === 0 ? "w-16" : "w-20"}`}
+                    />
+                  </div>
+                  <Skeleton className="size-3.5 shrink-0 rounded-full" />
+                </div>
               ))}
             </div>
           ))}
@@ -67,7 +80,7 @@ export function DashboardSidebarContent({
                 <div className="px-1.5">
                   <button
                     type="button"
-                    className={`w-full rounded px-1.5 py-1 text-left font-sans text-[0.65rem] font-semibold uppercase tracking-[0.07em] transition-colors ${
+                    className={`w-full cursor-pointer rounded px-1.5 py-1 text-left font-sans text-[0.65rem] font-semibold uppercase tracking-[0.07em] transition-colors ${
                       selectedCategory === categoryNode.key
                         ? "bg-muted/60 text-foreground"
                         : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
@@ -84,7 +97,7 @@ export function DashboardSidebarContent({
                       category={feedNode}
                       isActive={selectedCategory === feedNode.key}
                       showFavicon={showFavicons}
-                      onClick={() => onFeedClick(feedNode)}
+                      onClick={onFeedClick}
                     />
                   ),
                 )}
@@ -95,4 +108,4 @@ export function DashboardSidebarContent({
       )}
     </>
   );
-}
+});

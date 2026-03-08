@@ -14,7 +14,7 @@ import {
   renameCategoryAndRefresh,
 } from "../services/category-operations";
 import { hasCategoryLabelInTree } from "../services/category-tree";
-import type { FeedSourceActionState } from "./feedSourceActionTypes";
+import type { FeedSourceActionState } from "./types";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
 interface UseCategoryManagerOptions extends FeedSourceActionState {

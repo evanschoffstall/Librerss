@@ -5,12 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getArticleKey } from "../services/article-collection";
 import {
-  escapeArticleKey,
   useArticleHydration,
   type FeedExtractionSettings,
 } from "./useArticleHydration";
-import { getNextArticle } from "./useArticleNavigation";
 import { useArticleReadState } from "./useArticleReadState";
+import { useScrollPin } from "./useScrollPin";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
 
@@ -25,6 +24,13 @@ interface UseArticleActionsOptions {
   articleFilter: "all" | "unread" | "read" | "starred";
   usePlaceholderData?: boolean;
   categories?: CategoryTreeNode[];
+  /** Called when any article begins expanding; settles scroll restore. */
+  onExpand?: () => void;
+  /**
+   * Scroll-pin coordinate ref shared with usePullDownToRefresh.
+   * See useScrollPin.ts for the full three-mode protocol documentation.
+   */
+  suppressSnapRef?: React.RefObject<number | false>;
 }
 
 export function useArticleActions({
@@ -35,6 +41,8 @@ export function useArticleActions({
   articleFilter,
   usePlaceholderData = false,
   categories,
+  onExpand,
+  suppressSnapRef,
 }: UseArticleActionsOptions) {
   const {
     updatingArticleState,
@@ -111,66 +119,19 @@ export function useArticleActions({
   const feedRef = useRef(feed);
   feedRef.current = feed;
 
+  const scrollPin = useScrollPin(suppressSnapRef);
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
-  const collapseScrollTimeoutRef = useRef<number | null>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
     string | null
   >(null);
 
   useEffect(
     () => () => {
-      if (collapseRemovalTimeoutRef.current !== null) {
+      if (collapseRemovalTimeoutRef.current !== null)
         window.clearTimeout(collapseRemovalTimeoutRef.current);
-      }
-      if (collapseScrollTimeoutRef.current !== null) {
-        window.clearTimeout(collapseScrollTimeoutRef.current);
-      }
     },
     [],
   );
-
-  const scrollArticleToTop = useCallback((targetKey: string) => {
-    let el: HTMLElement | null = null;
-    try {
-      el = document.querySelector<HTMLElement>(
-        `[data-article-key="${escapeArticleKey(targetKey)}"]`,
-      );
-    } catch {
-      el = null;
-    }
-    if (!el) {
-      for (const candidate of Array.from(document.getElementsByTagName("*"))) {
-        if (
-          candidate instanceof HTMLElement &&
-          candidate.getAttribute("data-article-key") === targetKey
-        ) {
-          el = candidate;
-          break;
-        }
-      }
-    }
-    if (!el) return;
-
-    const viewport = el.closest<HTMLElement>(
-      "[data-radix-scroll-area-viewport]",
-    );
-    if (!viewport) {
-      el.scrollIntoView({ block: "start", behavior: "smooth" });
-      return;
-    }
-
-    const targetScrollTop = Math.max(
-      0,
-      Math.min(
-        viewport.scrollTop +
-          (el.getBoundingClientRect().top -
-            viewport.getBoundingClientRect().top),
-        Math.max(0, viewport.scrollHeight - viewport.clientHeight),
-      ),
-    );
-    if (Math.abs(viewport.scrollTop - targetScrollTop) <= 1) return;
-    viewport.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-  }, []);
 
   const handleArticleToggle = useCallback(
     async (article: Article) => {
@@ -184,29 +145,20 @@ export function useArticleActions({
       if (isCollapsing) {
         awaitingExpandedSyncKeyRef.current = null;
         autoHydratedExpandedKeyRef.current = null;
-        // Cancel any pending extract request for this article
         const link = article.link?.trim();
         if (link) cancelHydration(link);
 
-        if (collapseScrollTimeoutRef.current !== null) {
-          window.clearTimeout(collapseScrollTimeoutRef.current);
-        }
-        // After the collapse CSS transition (~150–240ms), scroll to the top of the
-        // target article: keep position in read filter, otherwise next if already read.
-        const nextArticle =
-          articleFilter === "unread" && article.isRead
-            ? getNextArticle(feedRef.current, article.id)
-            : null;
-        const scrollTargetKey = nextArticle
-          ? getArticleKey(nextArticle)
-          : nextArticleKey;
-        collapseScrollTimeoutRef.current = window.setTimeout(() => {
-          scrollArticleToTop(scrollTargetKey);
-          collapseScrollTimeoutRef.current = null;
-        }, 700);
+        // Pin scrollTop at the pre-expand value while the card collapses.
+        // See useScrollPin.ts for the full collapse-pin protocol.
+        scrollPin.activateCollapsePin(
+          scrollPin.preExpandViewport.current,
+          scrollPin.preExpandScrollTop.current,
+        );
 
-        // Schedule animated removal from the unread filter for read articles
-        if (articleFilter === "unread" && article.isRead) {
+        // Animate removal from the unread filter for read articles.
+        const isRemovingFromFilter =
+          articleFilter === "unread" && article.isRead;
+        if (isRemovingFromFilter) {
           if (collapseRemovalTimeoutRef.current !== null) {
             window.clearTimeout(collapseRemovalTimeoutRef.current);
           }
@@ -221,23 +173,26 @@ export function useArticleActions({
         return;
       }
 
-      // Expanding: cancel any in-progress collapse animation first
+      // Cancel any in-progress scroll pin / collapse removal.
       if (collapseRemovalTimeoutRef.current !== null) {
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
       }
-      if (collapseScrollTimeoutRef.current !== null) {
-        window.clearTimeout(collapseScrollTimeoutRef.current);
-        collapseScrollTimeoutRef.current = null;
-      }
+      scrollPin.cancelPin();
       setCollapsingArticleKey(null);
+
+      // Settle scroll-restore window before expand layout changes.
+      onExpand?.();
+
+      // Suppress ResizeObserver during CSS expand transition.
+      // See useScrollPin.ts for the full expand-suppress protocol.
+      scrollPin.activateExpandSuppress(nextArticleKey);
 
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
 
-      // Manual expand already triggers hydration; mark this key as handled so
-      // the auto-hydration effect does not schedule a second extraction request.
+      // Mark as handled so the auto-hydration effect skips this key.
       awaitingExpandedSyncKeyRef.current = nextArticleKey;
       autoHydratedExpandedKeyRef.current = nextArticleKey;
       await hydrateArticleContent(article);
@@ -246,11 +201,12 @@ export function useArticleActions({
       articleFilter,
       cancelHydration,
       expandedArticleKey,
+      onExpand,
+      scrollPin,
       updatingArticleState,
       setExpandedArticleKey,
       setArticleReadState,
       hydrateArticleContent,
-      scrollArticleToTop,
     ],
   );
 

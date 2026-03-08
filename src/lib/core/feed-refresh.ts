@@ -19,6 +19,14 @@ import {
   toPendingArticle,
 } from "./feed-parser";
 
+// ─── Diagnostic logging helpers ───────────────────────────────────────────────
+export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.info(msg, ctx);
+};
+export const diagWarn = (msg: string, ctx?: Record<string, unknown>) => {
+  if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.warn(msg, ctx);
+};
+
 // ─── RSS parser singleton ─────────────────────────────────────────────────────
 // parseString() creates a fresh readable stream per call — no shared state.
 // Configure to parse content:encoded (used by many feeds for full article content)
@@ -75,13 +83,11 @@ export async function refreshFeedFromUpstream(
   const now = deps?.nowFn?.() ?? new Date();
 
   try {
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-      logger.info("Upstream refresh started", {
-        feedId: feed.id,
-        url: feed.url,
-        lastFetched: feed.lastFetched,
-      });
-    }
+    diagInfo("Upstream refresh started", {
+      feedId: feed.id,
+      url: feed.url,
+      lastFetched: feed.lastFetched,
+    });
 
     const fetchXml = deps?.fetchFeedXmlFn ?? fetchFeedXml;
     const parseFeedXml =
@@ -99,16 +105,14 @@ export async function refreshFeedFromUpstream(
     const validItems = dedupe(mappedItems);
     const publicationDateRange = getRange(validItems);
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-      logger.info("Upstream refresh parsed feed", {
-        feedId: feed.id,
-        url: feed.url,
-        parsedItemCount: parsed.items.length,
-        acceptedItemCount: validItems.length,
-        newestPublicationDate: publicationDateRange.newestPublicationDate,
-        oldestPublicationDate: publicationDateRange.oldestPublicationDate,
-      });
-    }
+    diagInfo("Upstream refresh parsed feed", {
+      feedId: feed.id,
+      url: feed.url,
+      parsedItemCount: parsed.items.length,
+      acceptedItemCount: validItems.length,
+      newestPublicationDate: publicationDateRange.newestPublicationDate,
+      oldestPublicationDate: publicationDateRange.oldestPublicationDate,
+    });
 
     if (validItems.length > 0) {
       await db
@@ -124,20 +128,16 @@ export async function refreshFeedFromUpstream(
           },
         });
 
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-        logger.info("Upstream refresh upserted articles", {
-          feedId: feed.id,
-          url: feed.url,
-          upsertAttemptCount: validItems.length,
-        });
-      }
+      diagInfo("Upstream refresh upserted articles", {
+        feedId: feed.id,
+        url: feed.url,
+        upsertAttemptCount: validItems.length,
+      });
     } else {
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-        logger.info("Upstream refresh found no valid new items", {
-          feedId: feed.id,
-          url: feed.url,
-        });
-      }
+      diagInfo("Upstream refresh found no valid new items", {
+        feedId: feed.id,
+        url: feed.url,
+      });
     }
 
     await db
@@ -145,25 +145,21 @@ export async function refreshFeedFromUpstream(
       .set({ lastFetched: now, lastFetchError: null })
       .where(eq(feeds.id, feed.id));
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-      logger.info("Upstream refresh completed", {
-        feedId: feed.id,
-        url: feed.url,
-        newLastFetched: now,
-      });
-    }
+    diagInfo("Upstream refresh completed", {
+      feedId: feed.id,
+      url: feed.url,
+      newLastFetched: now,
+    });
 
     return { ok: true };
   } catch (err) {
     const toError = deps?.toErrorMessageFn ?? toErrorMessage;
     const errorMessage = toError(err);
 
-    if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-      logger.warn("Upstream feed refresh failed", {
-        url: feed.url,
-        error: errorMessage,
-      });
-    }
+    diagWarn("Upstream feed refresh failed", {
+      url: feed.url,
+      error: errorMessage,
+    });
 
     // Advance lastFetched even on failure so the TTL cooldown applies —
     // otherwise every request retries the upstream on a consistently-failing feed.
@@ -173,12 +169,10 @@ export async function refreshFeedFromUpstream(
         .set({ lastFetched: now, lastFetchError: errorMessage })
         .where(eq(feeds.id, feed.id));
 
-      if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) {
-        logger.info("Upstream refresh failure cooldown applied", {
-          feedId: feed.id,
-          url: feed.url,
-        });
-      }
+      diagInfo("Upstream refresh failure cooldown applied", {
+        feedId: feed.id,
+        url: feed.url,
+      });
     } catch {
       // Best-effort; ignore secondary DB errors.
     }

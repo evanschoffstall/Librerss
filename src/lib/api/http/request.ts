@@ -1,5 +1,4 @@
 import { CONFIG } from "@/lib/config";
-import { parseDateOrNull } from "@/lib/utils/date-utils";
 import { NextResponse } from "next/server";
 import { jsonError } from "./responses";
 
@@ -173,8 +172,4 @@ export function parseUnixTimestampSeconds(value: unknown): Date | null {
 
   const parsed = new Date(seconds * 1000);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-export function parseDateInput(value: unknown): Date | null {
-  return parseDateOrNull(value);
 }

@@ -8,21 +8,17 @@ import type {
 } from "@/lib/core/types";
 import { normalizeDistinctUrlList } from "@/lib/utils/url";
 import {
-  ensureArrayResponse,
-  normalizeBatchItem,
-  type BatchFeedResponseItem,
-} from "./http";
-import {
   BATCH_REQUEST_TIMEOUT_MS,
   createLinkedAbortController,
+  ensureArrayResponse,
   getApiClient,
-  withRequestDeadline,
-} from "./http-client";
-import {
+  normalizeBatchItem,
   parseReaderStreamItems,
   readerItemToArticle,
+  withRequestDeadline,
+  type BatchFeedResponseItem,
   type ReaderApiStreamResponse,
-} from "./reader-mappers";
+} from "./http";
 
 // ── AuthService ───────────────────────────────────────────────────────────────
 

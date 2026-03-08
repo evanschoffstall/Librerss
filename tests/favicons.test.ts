@@ -9,36 +9,38 @@ import {
   getFaviconCacheKey,
   getFaviconTintColors,
   getFaviconUrl,
-  getHostnameLabel,
   getMergedFaviconCandidates,
 } from "@/app/dashboard/services/favicons";
+import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 import { describe, expect, test } from "bun:test";
 
-describe("favicons – getHostnameLabel", () => {
+describe("favicons – getUrlHostnameDisplayLabel", () => {
   test("strips www. prefix", () => {
-    expect(getHostnameLabel("https://www.example.com/feed")).toBe(
+    expect(getUrlHostnameDisplayLabel("https://www.example.com/feed")).toBe(
       "example.com",
     );
   });
 
   test("returns hostname without www unchanged", () => {
-    expect(getHostnameLabel("https://blog.example.com")).toBe(
+    expect(getUrlHostnameDisplayLabel("https://blog.example.com")).toBe(
       "blog.example.com",
     );
   });
 
   test("returns raw URL when hostname extraction fails", () => {
-    expect(getHostnameLabel("not-a-url")).toBe("not-a-url");
+    expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
   });
 
   test("handles URL with port", () => {
-    expect(getHostnameLabel("https://example.com:8080/feed")).toBe(
+    expect(getUrlHostnameDisplayLabel("https://example.com:8080/feed")).toBe(
       "example.com",
     );
   });
 
   test("handles WWW in mixed case", () => {
-    expect(getHostnameLabel("https://WWW.Example.com/")).toBe("example.com");
+    expect(getUrlHostnameDisplayLabel("https://WWW.Example.com/")).toBe(
+      "example.com",
+    );
   });
 });
 

@@ -126,14 +126,14 @@ function getCachedExtractResponse(
   return cachedPayload;
 }
 
-async function resolveExtractedContent(
+function resolveExtractedContent(
   extractableHtml: string,
   originalHtml: string,
   articleUrl: string,
   extracted: ExtractedArticle | null | undefined,
   sanitizeContent: (rawContent: string) => string,
   cleanContent: (sanitizedContent: string, articleUrl: string) => string,
-): Promise<string> {
+): string {
   // 1. Sanitize the extracted article body container (if found)
   const rawContent =
     extracted?.content?.trim() || extracted?.description?.trim() || "";
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       warn(`Article extractor returned no content`, { url: safeUrl });
     }
 
-    const content = await resolveExtractedContent(
+    const content = resolveExtractedContent(
       extractableHtml,
       html,
       articleUrl,

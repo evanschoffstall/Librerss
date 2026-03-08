@@ -2,6 +2,7 @@
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -25,7 +26,7 @@ const features = [
 
 const LandingView = () => {
   return (
-    <div className="relative flex min-h-dvh box-border flex-col items-center justify-center overflow-hidden">
+    <div className="relative flex flex-1 box-border flex-col items-center justify-center overflow-hidden">
       <ThemeNoticeDialog />
 
       {/* Ambient background glow */}
@@ -51,17 +52,6 @@ const LandingView = () => {
 
       {/* Content */}
       <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4 text-center sm:px-6">
-        {/* Eyebrow pill */}
-        <div
-          className="landing-reveal mb-6 inline-flex max-w-[90vw] items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm sm:mb-8"
-          style={{ animationDelay: "var(--motion-delay-0)" }}
-        >
-          <Rss className="size-3 shrink-0" />
-          <span className="truncate">
-            Open-source · Self-hostable · GReader compatible
-          </span>
-        </div>
-
         {/* Headline */}
         <h1
           className="landing-reveal mb-5 text-[2.5rem] font-bold leading-[1.1] tracking-tight sm:mb-7 sm:text-6xl lg:text-8xl"
@@ -125,21 +115,6 @@ const LandingView = () => {
             </div>
           ))}
         </div>
-
-        {/* Bottom tagline */}
-        <div className="landing-tagline mt-8 text-center text-xs text-muted-foreground/50 sm:mt-10">
-          <p>
-            Made with ❤️ by{" "}
-            <a
-              href="https://github.com/evanschoffstall"
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-2 hover:underline"
-            >
-              Evan Schoffstall
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );
@@ -148,7 +123,36 @@ const LandingView = () => {
 export default function Landing() {
   return (
     <main className="min-h-dvh overflow-hidden">
-      <LandingView />
+      <ScrollArea className="h-dvh">
+        <div className="flex min-h-dvh flex-col">
+          <header className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
+            <div className="flex items-start justify-center">
+              <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+                <Rss className="size-3 shrink-0" />
+                <span className="truncate">
+                  Open-source · Self-hostable · GReader compatible
+                </span>
+              </div>
+            </div>
+          </header>
+
+          <LandingView />
+
+          <footer className="relative z-10 mx-auto mt-8 w-full max-w-5xl px-4 pb-6 pt-4 text-center text-xs text-muted-foreground/50 sm:mt-10 sm:px-6 sm:pb-8 sm:pt-6">
+            <p>
+              Made with ❤️ by{" "}
+              <a
+                href="https://github.com/evanschoffstall"
+                target="_blank"
+                rel="noreferrer"
+                className="underline-offset-2 hover:underline"
+              >
+                Evan Schoffstall
+              </a>
+            </p>
+          </footer>
+        </div>
+      </ScrollArea>
     </main>
   );
 }

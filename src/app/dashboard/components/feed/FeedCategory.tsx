@@ -1,22 +1,23 @@
 import { type CategoryTreeNode } from "@/lib";
 import { getUrlHostnameLabel } from "@/lib/utils/url";
 import { Globe } from "lucide-react";
+import { memo } from "react";
 import { useFavicon } from "../../hooks/useFavicon";
 import { setCachedFaviconIndex } from "../../services/favicons";
 
 interface FeedCategoryProps {
   category: CategoryTreeNode;
   isActive: boolean;
-  onClick: () => void;
+  onClick: (node: CategoryTreeNode) => void;
   showFavicon: boolean;
 }
 
-export const FeedCategory = ({
+export const FeedCategory = memo(function FeedCategory({
   category,
   isActive,
   onClick,
   showFavicon,
-}: FeedCategoryProps) => {
+}: FeedCategoryProps) {
   const {
     faviconUrl,
     faviconTint,
@@ -30,8 +31,8 @@ export const FeedCategory = ({
 
   return (
     <button
-      onClick={onClick}
-      className={`flex w-full items-center justify-between gap-2 rounded-lg border-l-2 px-2 py-2 text-left transition-colors ${
+      onClick={() => onClick(category)}
+      className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border-l-2 px-2 py-2 text-left transition-colors ${
         isActive
           ? "border-primary/60 bg-muted/70 text-foreground"
           : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
@@ -78,4 +79,4 @@ export const FeedCategory = ({
       )}
     </button>
   );
-};
+});

@@ -174,12 +174,9 @@ describe("api/request helpers", () => {
   });
 
   test("parseFormOrQueryParams handles GET, urlencoded, multipart fallback paths", async () => {
-    const {
-      parseFormOrQueryParams,
-      getSearchParams,
-      asTrimmedString,
-      parseDateInput,
-    } = await import("@/lib/api/http");
+    const { parseFormOrQueryParams, getSearchParams, asTrimmedString } =
+      await import("@/lib/api/http");
+    const { parseDateOrNull } = await import("@/lib/utils/dates");
 
     const getRequest = new Request("https://example.com/path?x=1&y=2");
     const getParams = await parseFormOrQueryParams(getRequest);
@@ -219,7 +216,7 @@ describe("api/request helpers", () => {
     expect(getSearchParams(getRequest).get("y")).toBe("2");
     expect(asTrimmedString("  hi  ")).toBe("hi");
     expect(asTrimmedString(12)).toBe("");
-    expect(parseDateInput("2024-01-01T00:00:00.000Z")).toBeInstanceOf(Date);
-    expect(parseDateInput(123)).toBeNull();
+    expect(parseDateOrNull("2024-01-01T00:00:00.000Z")).toBeInstanceOf(Date);
+    expect(parseDateOrNull(123)).toBeNull();
   });
 });

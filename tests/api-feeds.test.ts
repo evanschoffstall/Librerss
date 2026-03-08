@@ -3,7 +3,16 @@
  * Tests for src/app/api/feeds/
  */
 
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { createMockFeed, createMockRequest } from "./support/test-utils";
 
 const createSelectChain = () => ({
@@ -58,6 +67,15 @@ const routeDeps = {
 
 beforeAll(() => {
   registerModuleMocks();
+});
+
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
+
+afterEach(() => {
+  mock.restore();
 });
 
 afterAll(() => {
@@ -186,6 +204,7 @@ describe("Feeds API - Route branches with injected deps", () => {
         requireAuthenticatedUserFn: async () =>
           ({ userId: 1, email: "x@y.com" }) as any,
         getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+        assertAllowedFeedUrlFn: async () => null,
         handleFeedReadFn: async () => {
           throw new Error("missing");
         },
@@ -199,6 +218,7 @@ describe("Feeds API - Route branches with injected deps", () => {
         requireAuthenticatedUserFn: async () =>
           ({ userId: 1, email: "x@y.com" }) as any,
         getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+        assertAllowedFeedUrlFn: async () => null,
         handleFeedReadFn: async () => {
           throw new Error("upstream");
         },
@@ -222,6 +242,7 @@ describe("Feeds API - Route branches with injected deps", () => {
         requireAuthenticatedUserFn: async () =>
           ({ userId: 1, email: "x@y.com" }) as any,
         getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
+        assertAllowedFeedUrlFn: async () => null,
         handleFeedReadFn: async () => {
           throw axiosError;
         },
@@ -246,6 +267,7 @@ describe("Feeds API - Route branches with injected deps", () => {
       const generic = await GET(request as any, {
         requireAuthenticatedUserFn: async () =>
           ({ userId: 1, email: "x@y.com" }) as any,
+        assertAllowedFeedUrlFn: async () => null,
         handleFeedReadFn: async () => {
           throw new Error("generic");
         },

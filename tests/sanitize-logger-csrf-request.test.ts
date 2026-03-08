@@ -10,7 +10,6 @@ import {
   getSearchParams,
   isVerboseLoggingEnabled,
   jsonError,
-  parseDateInput,
   parseFormOrQueryParams,
   parseJsonBody,
   parseJsonObjectBodyOrResponse,
@@ -26,6 +25,7 @@ import {
   stripOrphanedRelatedBlocks,
   toPlainText,
 } from "@/lib/sanitize";
+import { parseDateOrNull } from "@/lib/utils/dates";
 import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { describe, expect, test } from "bun:test";
 
@@ -500,19 +500,19 @@ describe("request – parsing helpers", () => {
     expect(parsePositiveInt("3.5")).toBeNull();
   });
 
-  test("parseDateInput returns Date for valid date string", () => {
-    const result = parseDateInput("2024-01-15T12:00:00Z");
+  test("parseDateOrNull returns Date for valid date string", () => {
+    const result = parseDateOrNull("2024-01-15T12:00:00Z");
     expect(result).toBeInstanceOf(Date);
     expect(result!.getTime()).toBe(new Date("2024-01-15T12:00:00Z").getTime());
   });
 
-  test("parseDateInput returns null for invalid date", () => {
-    expect(parseDateInput("not-a-date")).toBeNull();
+  test("parseDateOrNull returns null for invalid date", () => {
+    expect(parseDateOrNull("not-a-date")).toBeNull();
   });
 
-  test("parseDateInput returns null for non-string input", () => {
-    expect(parseDateInput(42)).toBeNull();
-    expect(parseDateInput(null)).toBeNull();
+  test("parseDateOrNull returns null for non-string input", () => {
+    expect(parseDateOrNull(42)).toBeNull();
+    expect(parseDateOrNull(null)).toBeNull();
   });
 
   test("getSearchParams extracts params from URL", () => {

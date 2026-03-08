@@ -3,7 +3,16 @@
  * Tests for src/app/api/auth/
  */
 
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { createMockRequest } from "./support/test-utils";
 
 function registerModuleMocks() {
@@ -34,6 +43,15 @@ function registerModuleMocks() {
 
 beforeAll(() => {
   registerModuleMocks();
+});
+
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
+
+afterEach(() => {
+  mock.restore();
 });
 
 afterAll(() => {

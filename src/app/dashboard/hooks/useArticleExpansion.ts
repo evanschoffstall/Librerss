@@ -2,78 +2,60 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type ExpansionPhase = "collapsed" | "loading" | "ready" | "expanded";
+// collapsed → loading (hydrating) → revealing (one-frame FLIP) → expanded → collapsed
+type ExpansionPhase = "collapsed" | "loading" | "revealing" | "expanded";
 
 /**
- * State machine for article card expand/collapse animation.
+ * State machine for article card expand/collapse.
  *
- * Phases:
- *   collapsed → loading  (click while content not ready)
- *   loading   → ready    (content hydrated)
- *   ready     → expanded (one rAF after paint)
- *   expanded  → collapsed (click again, animate closed)
+ * Expand: collapsed → loading → revealing → expanded
+ *   "revealing" gives the browser one frame to paint full content at
+ *   collapsed height before triggering the CSS max-height transition.
+ *
+ * Collapse: expanded → collapsed (instant, no transition).
  */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
     isExpanded ? "expanded" : "collapsed",
   );
-  const [isCollapsing, setIsCollapsing] = useState(false);
+  // Once the expand transition finishes we swap max-height to "none" so
+  // content (images, etc.) can resize freely without re-triggering a transition.
   const [expandTransitionDone, setExpandTransitionDone] = useState(isExpanded);
-  const collapseRafRef = useRef(0);
 
-  // isExpanded / isHydrating → phase transitions
   useEffect(() => {
-    cancelAnimationFrame(collapseRafRef.current);
     if (isExpanded) {
       if (isHydrating) {
         setPhase("loading");
       } else {
-        setPhase((current) =>
-          current === "loading" || current === "collapsed" ? "ready" : current,
+        setPhase((cur) =>
+          cur === "loading" || cur === "collapsed" ? "revealing" : cur,
         );
       }
     } else {
-      setPhase((current) => {
-        if (current === "expanded") {
-          setIsCollapsing(true);
-          setExpandTransitionDone(false);
-          collapseRafRef.current = requestAnimationFrame(() => {
-            setPhase("collapsed");
-            setIsCollapsing(false);
-          });
-          return current;
-        }
-        setIsCollapsing(false);
-        setExpandTransitionDone(false);
-        return "collapsed";
-      });
+      setPhase("collapsed");
+      setExpandTransitionDone(false);
     }
-    return () => cancelAnimationFrame(collapseRafRef.current);
   }, [isExpanded, isHydrating]);
 
-  // ready → expanded: one frame after browser paints collapsed content
+  // revealing → expanded: single rAF gives the browser one frame to paint the
+  // collapsed-height layout before the CSS height transition fires.
   useEffect(() => {
-    if (phase !== "ready") return;
-    const frame = requestAnimationFrame(() => setPhase("expanded"));
-    return () => cancelAnimationFrame(frame);
+    if (phase !== "revealing") return;
+    const id = requestAnimationFrame(() => setPhase("expanded"));
+    return () => cancelAnimationFrame(id);
   }, [phase]);
 
-  const onContentTransitionEnd = () => {
-    if (phase === "expanded") {
-      setExpandTransitionDone(true);
-    }
+  const onContentTransitionEnd = (e: React.TransitionEvent) => {
+    if (e.propertyName !== "max-height") return;
+    if (phase === "expanded") setExpandTransitionDone(true);
   };
 
-  return {
-    phase,
-    isCollapsing,
-    expandTransitionDone,
-    onContentTransitionEnd,
-  };
+  return { phase, expandTransitionDone, onContentTransitionEnd };
 }
 
 /**
  * Tracks collapsed / expanded container heights for max-height animation.
+ * Uses ResizeObserver instead of window.resize to avoid N global listeners.
  */
 export function useArticleHeights(
   content: string,
@@ -86,18 +68,20 @@ export function useArticleHeights(
   const [expandedHeight, setExpandedHeight] = useState(0);
 
   useEffect(() => {
+    const previewEl = previewRef.current;
+    const fullEl = fullContentRef.current;
+    if (!previewEl || !fullEl) return;
+
     const measure = () => {
-      if (!previewRef.current || !fullContentRef.current) {
-        setCollapsedHeight(0);
-        setExpandedHeight(0);
-        return;
-      }
-      setCollapsedHeight(previewRef.current.scrollHeight);
-      setExpandedHeight(fullContentRef.current.scrollHeight);
+      setCollapsedHeight(previewEl.scrollHeight);
+      setExpandedHeight(fullEl.scrollHeight);
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(previewEl);
+    ro.observe(fullEl);
+    return () => ro.disconnect();
   }, [content, preview, richContentClassName]);
 
   return { previewRef, fullContentRef, collapsedHeight, expandedHeight };

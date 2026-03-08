@@ -206,7 +206,7 @@ export function SettingsCategoryAccordionItem({
           ) : (
             <AccordionTrigger className="flex-1 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground/70 hover:no-underline">
               <span
-                className="flex items-center gap-2"
+                className="flex cursor-pointer items-center gap-2"
                 onDoubleClick={(event) => {
                   event.stopPropagation();
                   onStartCategoryEdit(categoryNode.label);

@@ -193,6 +193,9 @@ export function useScrollRestore(
           if (state && state.t > 0) {
             savedStateRef.current = state;
             restoreDeadlineRef.current = Date.now() + RESTORE_WINDOW_MS;
+            // Immediately rough-position to clamp scrollTop above any sentinel
+            // offset and avoid a one-frame flash before the rAF fires.
+            viewport.scrollTop = Math.max(offsetRef.current, state.t);
             requestAnimationFrame(() => restoreScrollIfNeeded());
           }
         }
@@ -238,59 +241,22 @@ export function useScrollRestore(
 
     // ── save anchor-state on scroll ──────────────────────────────────────────
     const handleScroll = () => {
-      if (isApplyingRestoreScrollRef.current) {
-        return;
-      }
+      if (isApplyingRestoreScrollRef.current) return;
 
-      // A real user scroll cancels any pending restore.
-      if (savedStateRef.current !== null) {
-        savedStateRef.current = null;
-      }
+      // A real user scroll permanently ends the restore window so the
+      // ResizeObserver can never re-read sessionStorage and fight the scroll.
+      savedStateRef.current = null;
+      restoreDeadlineRef.current = 0;
 
       cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(() => {
-        const top = viewport.scrollTop;
-        const offset = offsetRef.current;
-
-        // In the sentinel / pull-to-refresh zone — treat as "at top"
-        if (top <= offset) {
-          try {
-            sessionStorage.removeItem(sessionKey);
-          } catch {
-            /* ignore */
-          }
-          return;
-        }
-
-        // Find the first child of the content wrapper whose top edge is at or
-        // just below the viewport top — this becomes the anchor element.
-        const contentWrapper = viewport.firstElementChild;
-        let anchorIndex = -1;
-        let anchorOffset = 0;
-
-        if (contentWrapper) {
-          const viewportTop = viewport.getBoundingClientRect().top;
-          const children = Array.from(contentWrapper.children);
-          for (let i = 0; i < children.length; i++) {
-            const childTop =
-              children[i].getBoundingClientRect().top - viewportTop;
-            if (childTop >= -1) {
-              anchorIndex = i;
-              anchorOffset = childTop; // pixels from viewport top (≈ 0 for the topmost)
-              break;
-            }
-          }
-          // If all children are above the viewport top, anchor to the last one.
-          if (anchorIndex === -1 && children.length > 0) {
-            anchorIndex = children.length - 1;
-            anchorOffset =
-              children[anchorIndex].getBoundingClientRect().top - viewportTop;
-          }
-        }
-
-        const state: SavedState = { t: top, ai: anchorIndex, ao: anchorOffset };
+        const state = buildSavedState(viewport, offsetRef.current);
         try {
-          sessionStorage.setItem(sessionKey, JSON.stringify(state));
+          if (!state) {
+            sessionStorage.removeItem(sessionKey);
+          } else {
+            sessionStorage.setItem(sessionKey, JSON.stringify(state));
+          }
         } catch {
           /* quota / policy — ignore */
         }
@@ -346,5 +312,13 @@ export function useScrollRestore(
     requestAnimationFrame(() => restoreScrollIfNeeded());
   }, [restoreScrollIfNeeded, sessionKey]);
 
-  return { ref: attachRef, invalidate, capture };
+  // Kills the restore window without touching scrollTop or sessionStorage.
+  // Call whenever the user interacts in a way that makes restore irrelevant
+  // (e.g. expanding an article card that resizes the content).
+  const settle = useCallback(() => {
+    savedStateRef.current = null;
+    restoreDeadlineRef.current = 0;
+  }, []);
+
+  return { ref: attachRef, invalidate, capture, settle };
 }

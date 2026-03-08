@@ -5,14 +5,16 @@
  * Coverage: Main handler flow, stream types, pagination, filtering, query paths
  */
 
-import { __resetArticleStatusesTableStateForTests } from "@/lib/core/article-status";
+import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
 import type { SessionUser } from "@/lib/auth/session";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+beforeEach(() => mock.restore());
+
 beforeEach(() => {
   mock.restore();
-  __resetArticleStatusesTableStateForTests();
+  resetArticleStatusTableStateForTests();
 });
 
 afterEach(() => {

@@ -28,10 +28,10 @@ export function SettingsDisplaySection({
   onBackgroundModeChange,
 }: SettingsDisplaySectionProps) {
   return (
-    <section className="rounded-lg border bg-card p-4 space-y-4">
+    <section className="settings-card">
       <div>
-        <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <Monitor className="size-3.5 text-muted-foreground" />
+        <h3 className="section-heading">
+          <Monitor className="icon-muted" />
           Display
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -39,7 +39,7 @@ export function SettingsDisplaySection({
         </p>
       </div>
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-4">
+        <div className="row-between">
           <Label>Items per page</Label>
           <Select
             value={String(pageSize)}
@@ -63,7 +63,7 @@ export function SettingsDisplaySection({
             onCheckedChange={onShowFaviconsChange}
           />
         </div>
-        <div className="flex items-center justify-between gap-4">
+        <div className="row-between">
           <Label>Background</Label>
           <Select
             value={backgroundMode}

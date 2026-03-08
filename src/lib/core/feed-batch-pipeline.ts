@@ -144,17 +144,19 @@ export async function resolveAuthorizedFeedRecords(
 
   const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
   if (missingUrls.length > 0) {
-    await db
+    // Insert missing feed records and get them back in one round-trip.
+    // onConflictDoUpdate with a no-op SET guarantees RETURNING always fires
+    // even when a concurrent insert beat us to it (race-safe).
+    const newFeeds = await db
       .insert(feeds)
       .values(missingUrls.map((url) => ({ url })))
-      .onConflictDoNothing({ target: feeds.url });
+      .onConflictDoUpdate({
+        target: feeds.url,
+        set: { url: sql`excluded.url` },
+      })
+      .returning(feedRecordFields);
 
-    const resolvedFeeds = await db
-      .select(feedRecordFields)
-      .from(feeds)
-      .where(inArray(feeds.url, missingUrls));
-
-    for (const f of resolvedFeeds) feedByUrl.set(f.url, f);
+    for (const f of newFeeds) feedByUrl.set(f.url, f);
   }
 
   return { allowedUrls, feedByUrl };
@@ -218,18 +220,16 @@ export async function executeParallelRefreshes(
   let cooldownLimitedCount = 0;
 
   if (!skipRefresh) {
+    // For force-refresh, also retry feeds with a stored error regardless of cooldown —
+    // the cooldown guards auto-cycles, but user-initiated retries should always run.
+    const canRefresh = (f: FeedRecord): boolean =>
+      forceRefresh
+        ? shouldForceRefreshFeed(f.lastFetched) || f.lastFetchError !== null
+        : shouldRefreshFeed(f.lastFetched);
+
     const staleFeeds = allowedUrls
       .map((u) => feedByUrl.get(u))
-      .filter((f): f is FeedRecord =>
-        f
-          ? forceRefresh
-            ? // Bypass the cooldown for feeds with a stored error: the cooldown
-              // exists to avoid hammering broken feeds on automatic cycles, but a
-              // user-initiated force-refresh should always be able to retry them.
-              shouldForceRefreshFeed(f.lastFetched) || f.lastFetchError !== null
-            : shouldRefreshFeed(f.lastFetched)
-          : false,
-      );
+      .filter((f): f is FeedRecord => f !== undefined && canRefresh(f));
 
     for (const f of staleFeeds) refreshedUrls.add(f.url);
 

@@ -3,8 +3,20 @@
  * Tests for src/app/api/articles/
  */
 
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { createMockArticle, createMockRequest } from "./support/test-utils";
+
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
 
 const mockState = {
   selectResult: [createMockArticle()],

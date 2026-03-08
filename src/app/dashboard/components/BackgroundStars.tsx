@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useMousePosition } from "../hooks/useMousePosition";
 
 interface StarsProps {
   className?: string;
@@ -46,7 +45,6 @@ export default function BackgroundStars({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const context = useRef<CanvasRenderingContext2D | null>(null);
   const stars = useRef<Star[]>([]);
-  const mousePosition = useMousePosition();
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const canvasSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
@@ -296,10 +294,24 @@ export default function BackgroundStars({
       animationId = requestAnimationFrame(animateLoop);
     });
 
+    const handleMouseMove = (event: MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const { w, h } = canvasSize.current;
+      const x = event.clientX - rect.left - w / 2;
+      const y = event.clientY - rect.top - h / 2;
+      if (x < w / 2 && x > -w / 2 && y < h / 2 && y > -h / 2) {
+        mouse.current.x = x;
+        mouse.current.y = y;
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("resize", onResize);
 
     return () => {
       cancelAnimationFrame(animationId);
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", onResize);
     };
   }, [animate, initCanvas, onResize]);
@@ -307,23 +319,6 @@ export default function BackgroundStars({
   useEffect(() => {
     initCanvas();
   }, [initCanvas, refresh]);
-
-  useEffect(() => {
-    if (!canvasRef.current) {
-      return;
-    }
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const { w, h } = canvasSize.current;
-    const x = mousePosition.x - rect.left - w / 2;
-    const y = mousePosition.y - rect.top - h / 2;
-    const inside = x < w / 2 && x > -w / 2 && y < h / 2 && y > -h / 2;
-
-    if (inside) {
-      mouse.current.x = x;
-      mouse.current.y = y;
-    }
-  }, [mousePosition.x, mousePosition.y]);
 
   return (
     <div className={className} ref={canvasContainerRef} aria-hidden="true">

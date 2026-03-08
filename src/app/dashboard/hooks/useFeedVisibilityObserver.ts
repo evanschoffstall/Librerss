@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface UseFeedVisibilityObserverOptions {
   sentinelRef: RefObject<Element | null>;
@@ -16,6 +16,11 @@ export function useFeedVisibilityObserver({
   totalFeedItems,
   setVisibleCount,
 }: UseFeedVisibilityObserverOptions) {
+  // Keep a ref so the observer callback always sees the latest value without
+  // needing to reconnect the observer whenever totalFeedItems changes.
+  const totalRef = useRef(totalFeedItems);
+  totalRef.current = totalFeedItems;
+
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) {
@@ -26,7 +31,7 @@ export function useFeedVisibilityObserver({
       (entries) => {
         if (entries[0].isIntersecting) {
           setVisibleCount((previousCount) =>
-            Math.min(previousCount + pageSize, totalFeedItems),
+            Math.min(previousCount + pageSize, totalRef.current),
           );
         }
       },
@@ -36,5 +41,5 @@ export function useFeedVisibilityObserver({
     observer.observe(sentinel);
 
     return () => observer.disconnect();
-  }, [pageSize, sentinelRef, setVisibleCount, totalFeedItems]);
+  }, [pageSize, sentinelRef, setVisibleCount]);
 }

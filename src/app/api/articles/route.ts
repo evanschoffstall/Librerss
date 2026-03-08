@@ -1,7 +1,6 @@
 import {
   asTrimmedString,
   jsonError,
-  parseDateInput,
   parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
@@ -23,6 +22,7 @@ import {
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
+import { parseDateOrNull } from "@/lib/utils/dates";
 import { isValidUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -50,10 +50,10 @@ function parseCreateArticleDates(
   payload: Record<string, unknown>,
 ): { publicationDate: Date; lastChecked: Date } | Response {
   const publicationDate = payload.publication_date
-    ? parseDateInput(payload.publication_date)
+    ? parseDateOrNull(payload.publication_date)
     : new Date();
   const lastChecked = payload.last_checked
-    ? parseDateInput(payload.last_checked)
+    ? parseDateOrNull(payload.last_checked)
     : new Date();
 
   if (!publicationDate || !lastChecked) {

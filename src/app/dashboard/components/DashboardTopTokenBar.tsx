@@ -2,6 +2,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
+import { memo } from "react";
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
@@ -14,7 +15,7 @@ type DashboardTopTokenBarProps = {
   loading: boolean;
 };
 
-export function DashboardTopTokenBar({
+export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
   articleFilter,
   onArticleFilterChange,
   lastRefreshLabel,
@@ -33,7 +34,7 @@ export function DashboardTopTokenBar({
                     key={value}
                     type="button"
                     onClick={() => onArticleFilterChange(value)}
-                    className={`rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${
+                    className={`cursor-pointer rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${
                       articleFilter === value
                         ? "bg-muted font-semibold text-foreground ring-1 ring-inset ring-border/40"
                         : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground"
@@ -44,7 +45,7 @@ export function DashboardTopTokenBar({
                 ))}
 
                 <span
-                  className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-right text-[11px] text-muted-foreground/50"
+                  className="ml-auto flex select-none items-center gap-1.5 whitespace-nowrap text-right text-[11px] text-muted-foreground/50"
                   aria-live="polite"
                 >
                   <RefreshCw className="size-2.5 shrink-0" />
@@ -64,4 +65,4 @@ export function DashboardTopTokenBar({
       </div>
     </div>
   );
-}
+});

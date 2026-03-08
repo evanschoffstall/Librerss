@@ -132,21 +132,61 @@ function BotResultBadge({ result }: { result: BotResult }) {
 
 function ProxySkeleton() {
   return (
-    <section className="rounded-lg border bg-card p-4 space-y-4">
-      <div className="flex items-start justify-between">
+    <section className="settings-card">
+      <div className="flex items-start justify-between gap-4">
         <div className="space-y-1.5">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-3 w-56" />
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="size-4 rounded" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-3 w-72" />
         </div>
         <Skeleton className="h-5 w-20 rounded-full" />
       </div>
-      <Skeleton className="h-9 w-full" />
-      <div className="grid grid-cols-2 gap-3">
-        <Skeleton className="h-9 w-full" />
-        <Skeleton className="h-9 w-full" />
+
+      <Separator />
+
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-14" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 flex-1" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-9" />
+        </div>
       </div>
-      <Skeleton className="h-px w-full" />
-      <Skeleton className="h-9 w-full" />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <div className="space-y-1.5">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="row-between">
+        <div className="flex items-center gap-1.5">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="size-3 rounded-full" />
+        </div>
+        <Skeleton className="h-5 w-9 rounded-full" />
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <div className="row-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-3 w-64" />
+          </div>
+          <Skeleton className="h-8 w-24" />
+        </div>
+      </div>
     </section>
   );
 }
@@ -325,12 +365,12 @@ export function SettingsProxySection() {
 
   return (
     <TooltipProvider delayDuration={250}>
-      <section className="rounded-lg border bg-card p-4 space-y-4">
+      <section className="settings-card">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <Globe className="size-3.5 text-muted-foreground" />
+            <h3 className="section-heading">
+              <Globe className="icon-muted" />
               Extraction Proxy
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -453,7 +493,7 @@ export function SettingsProxySection() {
         <Separator />
 
         {/* TLS toggle */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="row-between">
           <div className="flex items-center gap-1.5">
             <Label
               htmlFor="allow-insecure-tls"
@@ -494,7 +534,7 @@ export function SettingsProxySection() {
 
         {/* Anti-bot test */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="row-between">
             <div>
               <p className="text-xs font-medium">Anti-Bot Detection Test</p>
               <p className="text-[11px] text-muted-foreground">

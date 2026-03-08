@@ -110,8 +110,9 @@ describe("dashboard article helpers comprehensive", () => {
   });
 
   test("getArticleSourceLabel prioritizes feedName then hostname fallback", async () => {
-    const { getArticleSourceLabel, getUrlHostnameLabel } =
+    const { getArticleSourceLabel } =
       await import("@/app/dashboard/services/article-content");
+    const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
     const named = makeArticle({
       feedName: "My Feed",
@@ -125,7 +126,7 @@ describe("dashboard article helpers comprehensive", () => {
       link: "https://fallback.example/article",
     });
     expect(getArticleSourceLabel(fromFeedUrl as any)).toBe("blog.example.com");
-    expect(getUrlHostnameLabel("https://www.news.example.com")).toBe(
+    expect(getUrlHostnameDisplayLabel("https://www.news.example.com")).toBe(
       "news.example.com",
     );
 
@@ -306,8 +307,9 @@ describe("dashboard favicons comprehensive", () => {
   });
 
   test("merged favicon candidates include provider and direct icon URLs", async () => {
-    const { getMergedFaviconCandidates, getFaviconUrl, getHostnameLabel } =
+    const { getMergedFaviconCandidates, getFaviconUrl } =
       await import("@/app/dashboard/services/favicons");
+    const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
     const candidates = getMergedFaviconCandidates(
       "https://sub.blog.example.com/path",
@@ -321,7 +323,7 @@ describe("dashboard favicons comprehensive", () => {
     expect(candidates.some((url) => url.endsWith("/favicon.ico"))).toBe(true);
     expect(getFaviconUrl("https://example.org")).toContain("example.org");
     expect(getFaviconUrl("not-a-url")).toBe("");
-    expect(getHostnameLabel("https://www.Example.com/path")).toBe(
+    expect(getUrlHostnameDisplayLabel("https://www.Example.com/path")).toBe(
       "example.com",
     );
 

@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
     if (!streamId) {
       return jsonError("streamId is required", 400);
     }
+    if (streamId.length > 512) {
+      return jsonError("streamId too long", 400);
+    }
 
     await markStreamAsRead(parsedRequest.user.userId, streamId);
 

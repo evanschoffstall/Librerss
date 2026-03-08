@@ -43,6 +43,8 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
   // article row, then aggregated. The correlated approach lets PostgreSQL use
   // per-feed indexes (article_feed_id_idx) and per-user-article indexes
   // (article_status_user_article_idx) independently per feed.
+  // The read-count subquery uses a JOIN instead of article_id IN (subquery),
+  // giving the planner a hash/loop join strategy instead of a semi-join.
   type UnreadRow = { sourceUrl: string; unreadCount: number };
   const rows: UnreadRow[] = useArticleStatuses
     ? await db
@@ -51,12 +53,10 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
         SELECT fs.url AS "sourceUrl",
           (SELECT count(*)::int FROM "Article" a WHERE a.feed_id = f.id) -
           COALESCE((
-            SELECT count(*)::int FROM "ArticleStatus" s
-            WHERE s.user_id = ${user.userId}
-              AND s.is_read = true
-              AND s.article_id IN (
-                SELECT a2.id FROM "Article" a2 WHERE a2.feed_id = f.id
-              )
+            SELECT count(*)::int
+            FROM "ArticleStatus" s
+            INNER JOIN "Article" a2 ON a2.id = s.article_id AND a2.feed_id = f.id
+            WHERE s.user_id = ${user.userId} AND s.is_read = true
           ), 0) AS "unreadCount"
         FROM "FeedSource" fs
         INNER JOIN "Feed" f ON f.url = fs.url

@@ -5,6 +5,7 @@ import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import {
   detectProxyProtocol,
+  MAX_PROXY_CREDENTIAL_LENGTH,
   MAX_PROXY_URL_LENGTH,
   normalizeProxyUrl,
   probeProxy,
@@ -157,6 +158,20 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
       max: MAX_PROXY_URL_LENGTH,
     });
     return unconfiguredResponse("Proxy URL too long");
+  }
+
+  if (
+    typeof body.proxyUsername === "string" &&
+    body.proxyUsername.length > MAX_PROXY_CREDENTIAL_LENGTH
+  ) {
+    return unconfiguredResponse("Proxy username too long");
+  }
+
+  if (
+    typeof body.proxyPassword === "string" &&
+    body.proxyPassword.length > MAX_PROXY_CREDENTIAL_LENGTH
+  ) {
+    return unconfiguredResponse("Proxy password too long");
   }
 
   let proxyUrl: string | null = null;

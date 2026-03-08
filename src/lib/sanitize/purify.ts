@@ -149,16 +149,16 @@ export function purifyRawHtml(rawHtml: string): string {
       "sms",
       "cid",
       "xmpp",
-      "blob",
     ],
     allowedSchemesByTag: {
-      img: ["http", "https", "data"],
+      img: ["http", "https"],
+      // data: URIs are intentionally excluded — data:image/svg+xml can execute scripts
       source: ["http", "https"],
       video: ["http", "https"],
       audio: ["http", "https"],
       track: ["http", "https"],
     },
-    allowProtocolRelative: true,
+    allowProtocolRelative: false,
   });
 
   return purified;

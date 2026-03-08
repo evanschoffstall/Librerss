@@ -1,10 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
-import { Loader2, RefreshCw, SearchX, Sparkles, X } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { Loader2, SearchX, Sparkles } from "lucide-react";
+import { memo, useCallback, useMemo } from "react";
 import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
@@ -23,11 +22,45 @@ interface FeedListProps {
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
-  onClearSearch: () => void;
-  onRefresh: () => void;
 }
 
-export function FeedList({
+const ArticleCardSkeleton = memo(function ArticleCardSkeleton() {
+  return (
+    <article className="group relative overflow-visible rounded-xl border border-border dark:shadow-2xl dark:shadow-zinc-900/50">
+      <div className="relative rounded-t-xl bg-card/70 px-3 pt-3">
+        <div className="relative z-10 space-y-2">
+          <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
+            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="size-1 rounded-full" />
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <Skeleton className="size-3 rounded-full" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <div className="-mr-1 ml-auto flex shrink-0 items-center gap-1">
+              <Skeleton className="size-6 rounded-md" />
+              <Skeleton className="size-6 rounded-md" />
+              <Skeleton className="size-6 rounded-md" />
+              <Skeleton className="size-6 rounded-md" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Skeleton className="h-4 w-11/12" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+      </div>
+      <div className="relative rounded-b-xl bg-card/70 px-3 pb-3 pt-2">
+        <div className="relative z-10 py-0.5">
+          <Skeleton className="h-4 w-[86%]" />
+        </div>
+      </div>
+    </article>
+  );
+});
+
+export const FeedList = memo(function FeedList({
   loading,
   filteredFeed,
   visibleCount,
@@ -41,8 +74,6 @@ export function FeedList({
   onToggle,
   onToggleRead,
   onToggleStarred,
-  onClearSearch,
-  onRefresh,
 }: FeedListProps) {
   const visibleFeed = useMemo(
     () => filteredFeed.slice(0, visibleCount),
@@ -116,23 +147,7 @@ export function FeedList({
           className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 px-1 py-2 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
         >
           {Array.from({ length: 6 }).map((_, index) => (
-            <div
-              key={index}
-              className="rounded-xl border bg-card/40 p-3 space-y-2"
-            >
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-3 w-3 rounded-full" />
-                <Skeleton className="h-3 w-16" />
-              </div>
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-4 w-3/4" />
-              <div className="space-y-1.5 pt-1">
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-[92%]" />
-                <Skeleton className="h-3 w-[78%]" />
-              </div>
-            </div>
+            <ArticleCardSkeleton key={index} />
           ))}
         </div>
       ) : !hasAnyVisible && filteredFeed.length === 0 ? (
@@ -190,18 +205,6 @@ export function FeedList({
                 )}
               </p>
             </div>
-
-            {searchTerm ? (
-              <Button variant="outline" size="sm" onClick={onClearSearch}>
-                <X className="size-3.5" />
-                Clear search
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={onRefresh}>
-                <RefreshCw className="size-3.5" />
-                Refresh feeds
-              </Button>
-            )}
           </div>
         </div>
       ) : (
@@ -230,9 +233,9 @@ export function FeedList({
                   isHydrating={Boolean(hydratingArticleLinks[articleLink])}
                   isUpdatingState={Boolean(updatingArticleState[cardKey])}
                   showFavicon={showFavicons}
-                  onToggle={() => onToggle(article)}
-                  onToggleRead={() => onToggleRead(article)}
-                  onToggleStarred={() => onToggleStarred(article)}
+                  onToggle={onToggle}
+                  onToggleRead={onToggleRead}
+                  onToggleStarred={onToggleStarred}
                 />
               </div>
             );
@@ -246,4 +249,4 @@ export function FeedList({
       )}
     </>
   );
-}
+});

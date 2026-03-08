@@ -1,133 +1,110 @@
 import { existsSync, readFileSync } from "node:fs";
 import { availableParallelism, cpus } from "node:os";
 import { join } from "node:path";
+import "ts-morph";
 
-const LINE_COVERAGE_THRESHOLD = 80;
-const TEST_TIMEOUT_MS = 5_000;
+// ---------------------------------------------------------------------------
+// Config types
+// ---------------------------------------------------------------------------
+
+type SummaryPattern = {
+  regex: string;
+  type: "match" | "literal" | "table-row";
+  format: string;
+  cellSep?: string;
+};
+type Summary =
+  | { type: "simple" }
+  | { type: "test-runner" }
+  | { type: "pattern"; patterns: SummaryPattern[]; default: string };
+
+type LintConfig = {
+  globExtensions: string[];
+  skipDirs: string[];
+  maxFiles: number;
+  args: string[];
+};
+
+type TsPruneConfig = {
+  project: string;
+  skip?: string;
+  ignore?: string;
+  actionableLinePattern: string;
+  usedInTestsMarker: string;
+};
+
+type DeadCssConfig = {
+  cssFiles: string[];
+  contentGlobs: string[];
+  safelists: string[];
+  selectorPrefix: string;
+};
+
+type OutputFilter = { type: "stripLines"; pattern: string };
+
+type StepConfig = {
+  key: string;
+  label: string;
+  handler?: string;
+  cmd?: string;
+  args?: string[];
+  passMsg?: string;
+  failMsg?: string;
+  preRun?: boolean;
+  enabled?: boolean;
+  outputFilter?: OutputFilter;
+  summary?: Summary;
+  config?: LintConfig | TsPruneConfig | DeadCssConfig | Record<string, unknown>;
+};
+
+type CheckConfig = {
+  thresholds: {
+    lineCoverageThreshold: number;
+    typeCoverageThreshold: number;
+    testTimeoutMs: number;
+    testCommandTimeoutMs: number;
+    testCommandTimeoutEnvVar: string;
+  };
+  paths: { junitPath: string; lcovPath: string };
+  coverageExcludedFiles: string[];
+  steps: StepConfig[];
+};
+
+// ---------------------------------------------------------------------------
+// Load config
+// ---------------------------------------------------------------------------
+
+const CFG: CheckConfig = JSON.parse(
+  readFileSync(join(import.meta.dir, "check.json"), "utf8"),
+) as CheckConfig;
+
 const TEST_COMMAND_TIMEOUT_MS = Number.parseInt(
-  process.env.CHECK_TEST_COMMAND_TIMEOUT_MS ?? "100000",
+  process.env[CFG.thresholds.testCommandTimeoutEnvVar] ??
+    String(CFG.thresholds.testCommandTimeoutMs),
   10,
 );
-const COVERAGE_EXCLUDED_FILES: string[] = [];
 
-const JUNIT_PATH = join(process.cwd(), "coverage", "test-results.xml");
-const LCOV_PATH = join(process.cwd(), "coverage", "lcov.info");
+// Auto-derive tokens: {key} → scalar thresholds, {key} → cwd-joined paths.
+// Every key added to "thresholds" or "paths" in check.json becomes a usable
+// {token} in any step's args or summary format strings — zero TS changes.
+const TOKENS: Record<string, string> = (() => {
+  const t: Record<string, string> = {};
+  for (const [k, v] of Object.entries(CFG.thresholds))
+    if (typeof v === "string" || typeof v === "number") t[`{${k}}`] = String(v);
+  for (const [k, v] of Object.entries(CFG.paths))
+    if (typeof v === "string") t[`{${k}}`] = join(process.cwd(), v);
+  return t;
+})();
 
-type Cmd = [string, string[]];
-const CMD_PRETTIER_FMT: Cmd = ["bunx", ["prettier", "--write", "."]];
-const CMD_BUN_TEST: Cmd = [
-  "bun",
-  [
-    "test",
-    `--timeout=${TEST_TIMEOUT_MS}`,
-    "--reporter=junit",
-    `--reporter-outfile=${JUNIT_PATH}`,
-  ],
-];
-const CMD_TSC: Cmd = ["tsc", ["--noEmit"]];
-const CMD_JSCPD: Cmd = ["bunx", ["jscpd", "--config", ".jscpd.json"]];
-const CMD_KNIP: Cmd = ["bunx", ["knip", "--config", "knip.json", "--cache"]];
-const CMD_DEPCRUISE: Cmd = [
-  "bunx",
-  [
-    "depcruise",
-    "--config",
-    ".dependency-cruiser.cjs",
-    "src",
-    "--output-type",
-    "err",
-    "--cache",
-    ".cache/depcruise",
-  ],
-];
-const CMD_MADGE: Cmd = [
-  "bunx",
-  ["madge@8", "--circular", "--extensions", "ts,tsx", "src"],
-];
-const CMD_TYPE_COVERAGE: Cmd = [
-  "bunx",
-  [
-    "type-coverage",
-    "--at-least",
-    "98",
-    "--cache",
-    "--cache-directory",
-    ".cache/type-coverage",
-  ],
-];
-const CMD_STYLELINT: Cmd = [
-  "bunx",
-  [
-    "stylelint",
-    "src/**/*.{css,scss}",
-    "--cache",
-    "--cache-location",
-    ".cache/stylelint",
-    "--cache-strategy",
-    "content",
-  ],
-];
-const CMD_TSD: Cmd = [
-  "bunx",
-  ["tsd", "--typings", "next-env.d.ts", "--files", "next-env.test-d.ts"],
-];
-const CMD_SECRETLINT: Cmd = [
-  "bunx",
-  ["secretlint", "**/*", "--secretlintignore", ".secretlintignore"],
-];
-const CMD_PRETTIER_CHECK: Cmd = [
-  "bunx",
-  [
-    "prettier",
-    "--check",
-    ".",
-    "--cache",
-    "--cache-location",
-    ".cache/prettier",
-  ],
-];
-const CMD_SEMGREP: Cmd = [
-  "semgrep",
-  [
-    "scan",
-    "--config",
-    "p/default",
-    "--error",
-    "--metrics",
-    "off",
-    "--exclude=tests",
-    "--exclude=src/components/ui",
-    "--exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
-    "--exclude-rule=typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
-    "--exclude-rule=problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification",
-    "--quiet",
-    "src",
-  ],
-];
-const CMD_GITLEAKS: Cmd = [
-  "bunx",
-  [
-    "@0xts/gitleaks-cli",
-    "detect",
-    "-s",
-    "src",
-    "--no-git",
-    "-c",
-    ".gitleaks.toml",
-  ],
-];
-const CMD_BUN_AUDIT: Cmd = ["bun", ["audit"]];
-const ESLINT_ARGS_BASE = [
-  "eslint",
-  ".",
-  "--cache",
-  "--cache-strategy",
-  "content",
-  "--cache-location",
-  ".cache/eslint",
-  "--concurrency",
-];
-const TS_PRUNE_ARGS_BASE = ["ts-prune", "-p"];
+const JUNIT_PATH = TOKENS["{junitPath}"] ?? "";
+const LCOV_PATH = TOKENS["{lcovPath}"] ?? "";
+
+// Substitute {token} placeholders in args, including embedded (e.g. --flag={token})
+function resolveArgs(args: string[]): string[] {
+  return args.map((a) =>
+    a.replace(/\{(\w+)\}/g, (whole, k) => TOKENS[`{${k}}`] ?? whole),
+  );
+}
 
 type TestResult = {
   file?: string;
@@ -182,7 +159,7 @@ const stripAnsi = (v: string): string => {
   }
 };
 const norm = (v: string) => stripAnsi(v).replace(/\r/g, "").trim();
-const lines = (v: string) =>
+const splitLines = (v: string) =>
   norm(v)
     .split("\n")
     .map((l) => l.trim())
@@ -215,14 +192,15 @@ function getConcurrency(n: number): number {
       : Math.min(8, Math.max(4, Math.ceil(c / 2)));
 }
 
-async function estLintFiles(): Promise<number> {
-  const glob = new Bun.Glob("**/*.{js,mjs,cjs,ts,jsx,tsx}");
-  const skip = ["node_modules", ".next", "dist", "build", "coverage", ".cache"];
+async function estLintFiles(cfg: LintConfig): Promise<number> {
+  const glob = new Bun.Glob(`**/*.{${cfg.globExtensions.join(",")}}`);
   let count = 0;
   for await (const fp of glob.scan({ cwd: process.cwd(), absolute: false })) {
-    if (skip.some((d) => fp.startsWith(`${d}/`) || fp.includes(`/${d}/`)))
+    if (
+      cfg.skipDirs.some((d) => fp.startsWith(`${d}/`) || fp.includes(`/${d}/`))
+    )
       continue;
-    if (++count >= 5000) return count;
+    if (++count >= cfg.maxFiles) return count;
   }
   return count;
 }
@@ -304,7 +282,7 @@ function parseCoverage(path: string) {
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     if (line.startsWith("SF:")) {
       file = line.slice(3);
-      include = !COVERAGE_EXCLUDED_FILES.includes(file);
+      include = !CFG.coverageExcludedFiles.includes(file);
       if (include && !hits.has(file)) hits.set(file, new Map<number, number>());
       continue;
     }
@@ -327,86 +305,79 @@ function parseCoverage(path: string) {
     return { covered, found: 0, pct: 0, ok: false };
   }
   const pct = (covered / found) * 100;
-  return { covered, found, pct, ok: pct >= LINE_COVERAGE_THRESHOLD };
+  return {
+    covered,
+    found,
+    pct,
+    ok: pct >= CFG.thresholds.lineCoverageThreshold,
+  };
 }
 
-function parseDetails(outputs: Record<string, Command>) {
-  const detail = (cmd: Command, pass: string, fail: string) => {
-    if (cmd.exitCode === 0) return pass;
-    const firstError = lines(cmd.output).find((l) => !l.startsWith("$ "));
-    return firstError ? `${fail}: ${firstError}` : fail;
-  };
-  const regex = (out: string, pattern: RegExp) => norm(out).match(pattern);
-  const jscpdM = regex(outputs.jscpd.output, /Found\s+(\d+)\s+clones?/i);
-  const jscpdRow = lines(outputs.jscpd.output).find((l) =>
-    l.includes("│ Total:"),
-  );
-  let jscpd = "no duplicate stats detected";
-  if (jscpdRow) {
-    const cells = jscpdRow
-      .split("│")
-      .map((c) => c.trim())
-      .filter(Boolean);
-    if (cells.length >= 7)
-      jscpd = `${cells[4]} clones · ${cells[5]} lines · ${cells[6]} tokens · ${cells[1]} files`;
-  } else if (jscpdM) jscpd = `${jscpdM[1]} clones`;
-  const depM = regex(
-    outputs.depCruise.output,
-    /no dependency violations found \((\d+) modules,\s*(\d+) dependencies cruised\)/i,
-  );
-  const depCruise = depM
-    ? `${depM[1]} modules · ${depM[2]} dependencies cruised`
-    : "dependency check completed";
-  const madgeN = norm(outputs.madge.output);
-  const madgeM = madgeN.match(/Found\s+(\d+)\s+circular\s+dependenc/i);
-  const madge = /No circular dependency found/i.test(madgeN)
-    ? "0 circular dependencies"
-    : madgeM
-      ? `${madgeM[1]} circular dependencies`
-      : "circular dependency check completed";
-  const typeCovM = regex(
-    outputs.typeCoverage.output,
-    /\((\d+)\s*\/\s*(\d+)\)\s*([\d.]+)%/,
-  );
-  const typeCoverage = typeCovM
-    ? `${typeCovM[3]}% (${typeCovM[1]}/${typeCovM[2]}) · threshold 98%`
-    : "type coverage completed";
-  const depAuditN = norm(outputs.depAudit.output);
-  const depAuditM = depAuditN.match(/(\d+)\s+vulnerabilit(?:y|ies)/i);
-  const depAudit = /No vulnerabilities found/i.test(depAuditN)
-    ? "0 vulnerabilities found"
-    : depAuditM
-      ? `${depAuditM[1]} vulnerabilities found`
-      : "dependency audit completed";
-  return {
-    tsc: detail(outputs.types, "typecheck clean", "typecheck failed"),
-    eslint: detail(outputs.lint, "lint clean", "lint failed"),
-    jscpd,
-    knip: detail(outputs.knip, "unused dependency check clean", "knip failed"),
-    tsPrune: detail(
-      outputs.tsPrune,
-      "unused export check clean",
-      "ts-prune failed",
-    ),
-    depCruise,
-    madge,
-    typeCoverage,
-    stylelint: detail(outputs.stylelint, "stylelint clean", "stylelint failed"),
-    tsd: detail(outputs.tsd, "type definition tests clean", "tsd failed"),
-    secretlint: detail(
-      outputs.secretlint,
-      "no secret findings",
-      "secretlint failed",
-    ),
-    prettier: detail(
-      outputs.prettier,
-      "formatting compliant",
-      "prettier check failed",
-    ),
-    semgrep: detail(outputs.semgrep, "rule scan clean", "semgrep failed"),
-    gitleaks: detail(outputs.gitleaks, "secret scan clean", "gitleaks failed"),
-    depAudit,
-  };
+// ---------------------------------------------------------------------------
+// Output filters
+// ---------------------------------------------------------------------------
+
+function applyOutputFilter(filter: OutputFilter, output: string): string {
+  if (filter.type === "stripLines")
+    return output
+      .split(/\r?\n/)
+      .filter((line) => !new RegExp(filter.pattern, "i").test(stripAnsi(line)))
+      .join("\n")
+      .trimEnd();
+  return output;
+}
+
+// ---------------------------------------------------------------------------
+// Summary builders
+// ---------------------------------------------------------------------------
+
+function resolveSummaryTokens(
+  format: string,
+  match: RegExpMatchArray | null,
+): string {
+  return format.replace(/\{(\w+)\}/g, (whole, key) => {
+    if (/^\d+$/.test(key)) return match?.[Number(key)] ?? "";
+    return TOKENS[`{${key}}`] ?? whole;
+  });
+}
+
+function buildSummary(step: StepConfig, cmd: Command): string {
+  const { summary } = step;
+  if (!summary || summary.type === "simple") {
+    if (cmd.exitCode === 0) return step.passMsg ?? "passed";
+    const firstError = splitLines(cmd.output).find((l) => !l.startsWith("$ "));
+    return firstError
+      ? `${step.failMsg ?? "failed"}: ${firstError}`
+      : (step.failMsg ?? "failed");
+  }
+  if (summary.type === "test-runner") return "";
+  // pattern
+  const n = norm(cmd.output);
+  for (const pat of summary.patterns) {
+    if (pat.type === "literal") {
+      if (new RegExp(pat.regex, "i").test(n))
+        return resolveSummaryTokens(pat.format, null);
+    } else if (pat.type === "match") {
+      const m = n.match(new RegExp(pat.regex, "i"));
+      if (m) return resolveSummaryTokens(pat.format, m);
+    } else if (pat.type === "table-row") {
+      const tableRow = splitLines(cmd.output).find((l) =>
+        l.includes(pat.regex),
+      );
+      if (tableRow) {
+        const cells = tableRow
+          .split(pat.cellSep ?? "│")
+          .map((c) => c.trim())
+          .filter(Boolean);
+        if (cells.length >= 7)
+          return pat.format.replace(
+            /\{(\d+)\}/g,
+            (_, i) => cells[Number(i)] ?? "",
+          );
+      }
+    }
+  }
+  return summary.default;
 }
 
 function printStepOutput(label: string, output: string) {
@@ -418,12 +389,45 @@ function printStepOutput(label: string, output: string) {
     );
 }
 
-function filterMadge(output: string): string {
-  return output
-    .split(/\r?\n/)
-    .filter((line) => !/\b\d+\s+warnings?\b/i.test(stripAnsi(line)))
-    .join("\n")
-    .trimEnd();
+async function runDeadCss(cfg: DeadCssConfig): Promise<Command> {
+  const startMs = Date.now();
+  const cwd = process.cwd();
+  const { cssFiles, contentGlobs, safelists, selectorPrefix } = cfg;
+  const safelistRe = safelists.map((s) => new RegExp(s));
+  const safePattern = new RegExp(safelists.join("|"));
+  try {
+    const { PurgeCSS } = await import("purgecss");
+    const [result] = await new PurgeCSS().purge({
+      css: cssFiles.map((f) => join(cwd, f)),
+      content: contentGlobs.map((g) => join(cwd, g)),
+      rejected: true,
+      safelist: { greedy: safelistRe },
+    });
+    const dead = (result?.rejected ?? []).filter(
+      (s) => s.startsWith(selectorPrefix) && !safePattern.test(s),
+    );
+    const durationMs = Date.now() - startMs;
+    if (!dead.length)
+      return {
+        exitCode: 0,
+        timedOut: false,
+        output: "no dead CSS definitions found\n",
+        durationMs,
+      };
+    return {
+      exitCode: 1,
+      timedOut: false,
+      output: `${dead.map((s) => `  dead: ${s}`).join("\n")}\nfound ${dead.length} unused CSS selector(s)\n`,
+      durationMs,
+    };
+  } catch (e) {
+    return {
+      exitCode: 1,
+      timedOut: false,
+      output: `dead-css check failed: ${e instanceof Error ? e.message : String(e)}\n`,
+      durationMs: Date.now() - startMs,
+    };
+  }
 }
 
 async function run(
@@ -482,28 +486,30 @@ async function run(
     : { exitCode: exitCode ?? 1, timedOut: false, output, durationMs };
 }
 
-async function runLint(extraArgs: string[]): Promise<Command> {
+async function runLint(cfg: LintConfig, extraArgs: string[]): Promise<Command> {
   const envC = process.env.ESLINT_CONCURRENCY;
-  const fileCount = await estLintFiles();
+  const fileCount = await estLintFiles(cfg);
   const concurrency =
     envC && /^\d+$/.test(envC)
       ? Number.parseInt(envC, 10)
       : getConcurrency(fileCount);
-  return run("bunx", [...ESLINT_ARGS_BASE, String(concurrency), ...extraArgs]);
+  return run("bunx", [...cfg.args, String(concurrency), ...extraArgs]);
 }
 
-async function runTsPrune(argv: string[]): Promise<Command> {
-  const cfgIdx = argv.indexOf("--config");
-  const configPath =
-    cfgIdx >= 0
-      ? (argv[cfgIdx + 1] ??
-        (() => {
-          throw new Error("Missing value for --config");
-        })())
-      : (argv.find((a) => a.startsWith("--config="))?.slice(9) ??
-        ".ts-prune.json");
-  try {
-    const absPath = join(process.cwd(), configPath);
+async function runTsPrune(
+  cfg: TsPruneConfig,
+  argv?: string[],
+): Promise<Command> {
+  // CLI --config override: load from file and recurse
+  const overridePath = argv
+    ? (() => {
+        const cfgIdx = argv.indexOf("--config");
+        if (cfgIdx >= 0) return argv[cfgIdx + 1] ?? null;
+        return argv.find((a) => a.startsWith("--config="))?.slice(9) ?? null;
+      })()
+    : null;
+  if (overridePath !== null) {
+    const absPath = join(process.cwd(), overridePath);
     if (!existsSync(absPath))
       return {
         exitCode: 1,
@@ -512,22 +518,28 @@ async function runTsPrune(argv: string[]): Promise<Command> {
       };
     const raw = JSON.parse(readFileSync(absPath, "utf8")) as unknown;
     if (!raw || typeof raw !== "object")
-      throw new Error(`Invalid config at ${absPath}: expected an object`);
-    const { project, skip, ignore } = raw as Record<string, unknown>;
-    if (typeof project !== "string" || !project.trim())
-      throw new Error(
-        `Invalid config at ${absPath}: "project" must be a non-empty string`,
-      );
-    if (skip !== undefined && typeof skip !== "string")
-      throw new Error(
-        `Invalid config at ${absPath}: "skip" must be a string when provided`,
-      );
-    if (ignore !== undefined && typeof ignore !== "string")
-      throw new Error(
-        `Invalid config at ${absPath}: "ignore" must be a string when provided`,
-      );
+      return {
+        exitCode: 1,
+        timedOut: false,
+        output: `Invalid ts-prune config at ${absPath}: expected an object\n`,
+      };
+    const r = raw as Record<string, unknown>;
+    return runTsPrune(
+      {
+        project: typeof r.project === "string" ? r.project : cfg.project,
+        skip: typeof r.skip === "string" ? r.skip : cfg.skip,
+        ignore: typeof r.ignore === "string" ? r.ignore : cfg.ignore,
+        actionableLinePattern: cfg.actionableLinePattern,
+        usedInTestsMarker: cfg.usedInTestsMarker,
+      },
+      undefined,
+    );
+  }
+  try {
+    const { project, skip, ignore, actionableLinePattern, usedInTestsMarker } =
+      cfg;
     let ignoreRe: RegExp | null = null;
-    if (typeof ignore === "string") {
+    if (ignore) {
       try {
         ignoreRe = new RegExp(ignore);
       } catch (e) {
@@ -536,17 +548,18 @@ async function runTsPrune(argv: string[]): Promise<Command> {
         );
       }
     }
-    const args = [...TS_PRUNE_ARGS_BASE, project as string];
-    if (typeof skip === "string") args.push("--skip", skip);
-    if (typeof ignore === "string") args.push("--ignore", ignore);
-    const result = await run("bunx", args);
+    const tsArgs = ["ts-prune", "-p", project];
+    if (skip) tsArgs.push("--skip", skip);
+    if (ignore) tsArgs.push("--ignore", ignore);
+    const result = await run("bunx", tsArgs);
     if (result.timedOut) return result;
+    const actionableRe = new RegExp(actionableLinePattern);
     const actionable = result.output
       .split(/\r?\n/)
       .filter(
         (l) =>
-          /^\S.+:\d+\s-\s.+$/.test(l.trim()) &&
-          (l.includes("(used in tests)") || !ignoreRe?.test(l)),
+          actionableRe.test(l.trim()) &&
+          (l.includes(usedInTestsMarker) || !ignoreRe?.test(l)),
       );
     if (actionable.length > 0)
       return {
@@ -559,197 +572,135 @@ async function runTsPrune(argv: string[]): Promise<Command> {
     return {
       exitCode: 1,
       timedOut: false,
-      output: `ts-prune failed to load config (${configPath}): ${e instanceof Error ? e.message : "unknown error"}\n`,
+      output: `ts-prune failed: ${e instanceof Error ? e.message : "unknown error"}\n`,
     };
   }
 }
 
-async function runCheckSuite() {
+// Handler registry — keyed by step "handler" field
+const HANDLERS: Record<string, (step: StepConfig) => Promise<Command>> = {
+  lint: (step) => runLint(step.config as LintConfig, []),
+  "ts-prune": (step) => runTsPrune(step.config as TsPruneConfig),
+  "dead-css": (step) => runDeadCss(step.config as DeadCssConfig),
+  test: (step) =>
+    run("bun", resolveArgs(step.args ?? []), TEST_COMMAND_TIMEOUT_MS),
+};
+
+function runStep(step: StepConfig): Promise<Command> {
+  if (step.handler)
+    return (
+      HANDLERS[step.handler]?.(step) ??
+      Promise.resolve({
+        exitCode: 1,
+        timedOut: false,
+        output: `unknown handler: ${step.handler}`,
+      })
+    );
+  if (!step.cmd)
+    return Promise.resolve({
+      exitCode: 1,
+      timedOut: false,
+      output: `step "${step.key}" missing cmd`,
+    });
+  return run(step.cmd, resolveArgs(step.args ?? []));
+}
+
+async function runCheckSuite(keyFilter?: Set<string> | null) {
   const startedAtMs = Date.now();
-  process.stdout.write(
-    paint(
-      "⏳ Please wait -- validating static analysis, tests, coverage, and redundancy checks... ",
-      ANSI.bold,
-      ANSI.cyan,
-    ),
+  process.stdout.write(paint("⏳ Please wait ... ", ANSI.bold, ANSI.cyan));
+
+  const preRunSteps = keyFilter
+    ? []
+    : CFG.steps.filter((s) => s.preRun && s.enabled !== false);
+  const mainSteps = CFG.steps.filter(
+    (s) =>
+      !s.preRun && s.enabled !== false && (!keyFilter || keyFilter.has(s.key)),
   );
 
-  await run(...CMD_PRETTIER_FMT);
+  for (const step of preRunSteps) await runStep(step);
 
-  const steps = [
-    {
-      k: "test",
-      l: "Tests",
-      r: () => run(...CMD_BUN_TEST, TEST_COMMAND_TIMEOUT_MS),
-    },
-    { k: "types", l: "tsc", r: () => run(...CMD_TSC) },
-    { k: "lint", l: "eslint", r: () => runLint([]) },
-    { k: "jscpd", l: "jscpd", r: () => run(...CMD_JSCPD) },
-    { k: "knip", l: "knip", r: () => run(...CMD_KNIP) },
-    { k: "tsPrune", l: "ts-prune", r: () => runTsPrune([]) },
-    { k: "depCruise", l: "depcruise", r: () => run(...CMD_DEPCRUISE) },
-    { k: "madge", l: "madge", r: () => run(...CMD_MADGE), t: filterMadge },
-    {
-      k: "typeCoverage",
-      l: "type-coverage",
-      r: () => run(...CMD_TYPE_COVERAGE),
-    },
-    { k: "stylelint", l: "stylelint", r: () => run(...CMD_STYLELINT) },
-    { k: "tsd", l: "tsd", r: () => run(...CMD_TSD) },
-    { k: "secretlint", l: "secretlint", r: () => run(...CMD_SECRETLINT) },
-    { k: "prettier", l: "prettier-check", r: () => run(...CMD_PRETTIER_CHECK) },
-    { k: "semgrep", l: "semgrep", r: () => run(...CMD_SEMGREP) },
-    { k: "gitleaks", l: "gitleaks", r: () => run(...CMD_GITLEAKS) },
-    { k: "depAudit", l: "dep-audit", r: () => run(...CMD_BUN_AUDIT) },
-  ];
   const runs = Object.fromEntries(
-    await Promise.all(steps.map(async (s) => [s.k, await s.r()] as const)),
+    await Promise.all(
+      mainSteps.map(async (s) => [s.key, await runStep(s)] as const),
+    ),
   ) as Record<string, Command>;
-  const timedOut = Object.values(runs).some((result) => result.timedOut);
-  const missingLabels = steps.filter((s) => runs[s.k].notFound).map((s) => s.l);
-  for (const step of steps)
-    if (!runs[step.k].notFound)
-      printStepOutput(
-        step.l,
-        step.t ? step.t(runs[step.k].output) : runs[step.k].output,
-      );
-  const tests = parseTests(JUNIT_PATH);
-  const coverage = parseCoverage(LCOV_PATH);
-  const details = parseDetails(runs);
-  const checks = [
-    {
-      k: "tsc",
-      ok: runs.types.exitCode === 0,
-      d: details.tsc,
-      ms: runs.types.durationMs,
-      stpk: "types",
-    },
-    {
-      k: "eslint",
-      ok: runs.lint.exitCode === 0,
-      d: details.eslint,
-      ms: runs.lint.durationMs,
-      stpk: "lint",
-    },
-    {
-      k: "jscpd",
-      ok: runs.jscpd.exitCode === 0,
-      d: details.jscpd,
-      ms: runs.jscpd.durationMs,
-      stpk: "jscpd",
-    },
-    {
-      k: "knip",
-      ok: runs.knip.exitCode === 0,
-      d: details.knip,
-      ms: runs.knip.durationMs,
-      stpk: "knip",
-    },
-    {
-      k: "ts-prune",
-      ok: runs.tsPrune.exitCode === 0,
-      d: details.tsPrune,
-      ms: runs.tsPrune.durationMs,
-      stpk: "tsPrune",
-    },
-    {
-      k: "depcruise",
-      ok: runs.depCruise.exitCode === 0,
-      d: details.depCruise,
-      ms: runs.depCruise.durationMs,
-      stpk: "depCruise",
-    },
-    {
-      k: "madge",
-      ok: runs.madge.exitCode === 0,
-      d: details.madge,
-      ms: runs.madge.durationMs,
-      stpk: "madge",
-    },
-    {
-      k: "type-coverage",
-      ok: runs.typeCoverage.exitCode === 0,
-      d: details.typeCoverage,
-      ms: runs.typeCoverage.durationMs,
-      stpk: "typeCoverage",
-    },
-    {
-      k: "stylelint",
-      ok: runs.stylelint.exitCode === 0,
-      d: details.stylelint,
-      ms: runs.stylelint.durationMs,
-      stpk: "stylelint",
-    },
-    {
-      k: "tsd",
-      ok: runs.tsd.exitCode === 0,
-      d: details.tsd,
-      ms: runs.tsd.durationMs,
-      stpk: "tsd",
-    },
-    {
-      k: "secretlint",
-      ok: runs.secretlint.exitCode === 0,
-      d: details.secretlint,
-      ms: runs.secretlint.durationMs,
-      stpk: "secretlint",
-    },
-    {
-      k: "prettier",
-      ok: runs.prettier.exitCode === 0,
-      d: details.prettier,
-      ms: runs.prettier.durationMs,
-      stpk: "prettier",
-    },
-    {
-      k: "semgrep",
-      ok: runs.semgrep.exitCode === 0,
-      d: details.semgrep,
-      ms: runs.semgrep.durationMs,
-      stpk: "semgrep",
-    },
-    {
-      k: "gitleaks",
-      ok: runs.gitleaks.exitCode === 0,
-      d: details.gitleaks,
-      ms: runs.gitleaks.durationMs,
-      stpk: "gitleaks",
-    },
-    {
-      k: "dep-audit",
-      ok: runs.depAudit.exitCode === 0,
-      d: details.depAudit,
-      ms: runs.depAudit.durationMs,
-      stpk: "depAudit",
-    },
-    {
-      k: "Tests",
-      ok: tests.ok && runs.test.exitCode === 0,
-      d: `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${runs.test.exitCode}`,
-      ms: runs.test.durationMs,
-      stpk: "test",
-    },
-    {
+
+  const timedOut = Object.values(runs).some((r) => r.timedOut);
+  const missingLabels = mainSteps
+    .filter((s) => runs[s.key]?.notFound)
+    .map((s) => s.label);
+
+  for (const step of mainSteps) {
+    if (runs[step.key]?.notFound) continue;
+    printStepOutput(
+      step.label,
+      step.outputFilter
+        ? applyOutputFilter(step.outputFilter, runs[step.key].output)
+        : runs[step.key].output,
+    );
+  }
+
+  const runTests = !keyFilter || keyFilter.has("test");
+  const tests = runTests
+    ? parseTests(JUNIT_PATH)
+    : {
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        failedTests: [],
+        skippedTests: [],
+        ok: true,
+      };
+  const coverage = runTests ? parseCoverage(LCOV_PATH) : null;
+
+  type CheckRow = {
+    k: string;
+    ok: boolean;
+    d: string;
+    ms?: number;
+    stpk: string | null;
+  };
+  const checks: CheckRow[] = mainSteps.map((step) => {
+    const cmd = runs[step.key];
+    const isTestRunner = step.summary?.type === "test-runner";
+    const d = isTestRunner
+      ? `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${cmd.exitCode}`
+      : buildSummary(step, cmd);
+    return {
+      k: step.label,
+      ok: cmd.exitCode === 0 && (!isTestRunner || tests.ok),
+      d,
+      ms: cmd.durationMs,
+      stpk: step.key,
+    };
+  });
+
+  if (coverage)
+    checks.push({
       k: "Coverage",
       ok: coverage.ok,
-      d: `${coverage.pct.toFixed(2)}% (${coverage.covered}/${coverage.found}) · threshold ${LINE_COVERAGE_THRESHOLD.toFixed(1)}%`,
+      d: `${coverage.pct.toFixed(2)}% (${coverage.covered}/${coverage.found}) · threshold ${CFG.thresholds.lineCoverageThreshold.toFixed(1)}%`,
       stpk: null,
-    },
-  ];
+    });
+
   printTests("Failed tests", ANSI.red, tests.failedTests);
   printTests("Skipped tests", ANSI.gray, tests.skippedTests);
+
   if (missingLabels.length > 0)
     console.log(
       `\n${paint("missing/not found:", ANSI.bold, ANSI.yellow)} ${paint(missingLabels.join(", "), ANSI.yellow)}`,
     );
+
   const presentChecks = checks.filter(
     (c) => !c.stpk || !runs[c.stpk]?.notFound,
   );
+
   console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
   console.log(divider());
   for (const check of presentChecks)
     console.log(row(check.k, check.ok, check.d, check.ms));
   console.log(divider());
+
   const allOk = presentChecks.every((c) => c.ok) && !timedOut;
   const elapsedSeconds = ((Date.now() - startedAtMs) / 1000).toFixed(2);
   console.log(
@@ -760,6 +711,7 @@ async function runCheckSuite() {
     ),
   );
   console.log(divider());
+
   if (timedOut) {
     console.error(
       `Check command failed: bun test exceeded the ${TEST_COMMAND_TIMEOUT_MS / 1000}-second failsafe timeout. Please try again.`,
@@ -777,16 +729,22 @@ async function main() {
       output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
     );
   if (command === "lint") {
-    const result = await runLint(args);
+    const step = CFG.steps.find((s) => s.handler === "lint");
+    const result = await runLint(step?.config as LintConfig, args);
     writeOut(result.output);
     process.exit(result.exitCode);
   }
   if (command === "ts-prune") {
-    const result = await runTsPrune(args);
+    const step = CFG.steps.find((s) => s.handler === "ts-prune");
+    const result = await runTsPrune(step?.config as TsPruneConfig, args);
     writeOut(result.output);
     process.exit(result.exitCode);
   }
-  await runCheckSuite();
+  const flagKeys = Bun.argv
+    .slice(2)
+    .filter((a) => a.startsWith("--"))
+    .map((a) => a.slice(2));
+  await runCheckSuite(flagKeys.length > 0 ? new Set(flagKeys) : null);
 }
 
 await main();

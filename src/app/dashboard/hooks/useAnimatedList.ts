@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export const EXIT_CLEANUP_MS = 340;
 const EXIT_DURATION_MS = EXIT_CLEANUP_MS;
@@ -27,8 +27,6 @@ export function useAnimatedList<T>(
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
-
-  const currentKeys = new Set(items.map(getKey));
 
   // Detect newly removed items by diffing against previous order
   // Using items as the dep so this only runs when the list reference changes
@@ -85,21 +83,20 @@ export function useAnimatedList<T>(
   );
 
   // Build merged list: current items + exiting items at their last positions
-  const result: AnimatedItem<T>[] = items.map((item) => ({
-    item,
-    key: getKey(item),
-    exiting: false,
-  }));
-
-  // Insert exiting items at clamped positions
-  const toInsert = [...exitingMap.entries()]
-    .filter(([k]) => !currentKeys.has(k))
-    .sort((a, b) => a[1].index - b[1].index);
-
-  for (const [key, { item, index }] of toInsert) {
-    const pos = Math.min(index, result.length);
-    result.splice(pos, 0, { item, key, exiting: true });
-  }
-
-  return result;
+  return useMemo(() => {
+    const currentKeys = new Set(items.map(getKey));
+    const result: AnimatedItem<T>[] = items.map((item) => ({
+      item,
+      key: getKey(item),
+      exiting: false,
+    }));
+    const toInsert = [...exitingMap.entries()]
+      .filter(([k]) => !currentKeys.has(k))
+      .sort((a, b) => a[1].index - b[1].index);
+    for (const [key, { item, index }] of toInsert) {
+      const pos = Math.min(index, result.length);
+      result.splice(pos, 0, { item, key, exiting: true });
+    }
+    return result;
+  }, [items, exitingMap, getKey]);
 }

@@ -8,14 +8,24 @@
  * - Edge cases for timestamp validation
  */
 
-import { __resetArticleStatusesTableStateForTests } from "@/lib/core/article-status";
 import type { SessionUser } from "@/lib/auth/session";
+import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
+import * as realFeedCacheModule from "@/lib/core/feed-cache";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+beforeEach(() => mock.restore());
+
+function mockFeedCacheModule() {
+  mock.module("@/lib/core/feed-cache", () => ({
+    ...realFeedCacheModule,
+    invalidateUserCache: mock(() => {}),
+  }));
+}
+
 beforeEach(() => {
   mock.restore();
-  __resetArticleStatusesTableStateForTests();
+  resetArticleStatusTableStateForTests();
 });
 
 afterEach(() => {
@@ -50,9 +60,7 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
 
@@ -97,9 +105,7 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
 
@@ -129,9 +135,7 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
 
@@ -155,9 +159,7 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
 
@@ -187,9 +189,7 @@ describe("handleUnreadCount", () => {
       getDb: () => mockDb,
     }));
 
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
 
     const { handleUnreadCount } = await import("@/lib/api/greader/tag");
 
@@ -210,9 +210,7 @@ describe("handleMarkAllAsRead - error paths", () => {
 
   test("rejects invalid timestamp (NaN)", async () => {
     mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=invalid",
@@ -225,9 +223,7 @@ describe("handleMarkAllAsRead - error paths", () => {
 
   test("rejects zero timestamp", async () => {
     mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=0",
@@ -240,9 +236,7 @@ describe("handleMarkAllAsRead - error paths", () => {
 
   test("rejects negative timestamp", async () => {
     mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=-1000",
@@ -255,9 +249,7 @@ describe("handleMarkAllAsRead - error paths", () => {
 
   test("rejects Infinity timestamp", async () => {
     mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
     const request = new NextRequest(
       "https://example.com/api/mark-all-as-read?s=user/-/state/com.google/reading-list&ts=Infinity",
@@ -281,15 +273,15 @@ describe("handleEditTag - error paths and edge cases", () => {
     const select = mock(() => ({
       from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })),
     }));
-    return { db: { select, insert }, insert };
+    const db: Record<string, unknown> = { select, insert };
+    db.transaction = async (cb: (tx: typeof db) => Promise<void>) => cb(db);
+    return { db, insert };
   }
 
   test("handles multiple tag operations in single request", async () => {
     const { db: mockDb, insert } = makeEditTagDb();
     mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleEditTag } = await import("@/lib/api/greader/tag");
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -308,9 +300,7 @@ describe("handleEditTag - error paths and edge cases", () => {
   test("handles tags with no matching mutations", async () => {
     const { db: mockDb, insert } = makeEditTagDb();
     mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleEditTag } = await import("@/lib/api/greader/tag");
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -328,9 +318,7 @@ describe("handleEditTag - error paths and edge cases", () => {
   test("handles both add and remove tags in single request", async () => {
     const { db: mockDb, insert } = makeEditTagDb();
     mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleEditTag } = await import("@/lib/api/greader/tag");
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -349,9 +337,7 @@ describe("handleEditTag - error paths and edge cases", () => {
   test("handles duplicate article IDs", async () => {
     const { db: mockDb, insert } = makeEditTagDb();
     mock.module("@/lib/db/db", () => ({ getDb: () => mockDb }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleEditTag } = await import("@/lib/api/greader/tag");
     const formData = new URLSearchParams();
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
@@ -369,9 +355,7 @@ describe("handleEditTag - error paths and edge cases", () => {
 
   test("handles invalid article ID formats", async () => {
     mock.module("@/lib/db/db", () => ({ getDb: () => ({}) }));
-    mock.module("@/lib/core/feed-cache", () => ({
-      invalidateUserCache: mock(() => {}),
-    }));
+    mockFeedCacheModule();
     const { handleEditTag } = await import("@/lib/api/greader/tag");
     const formData = new URLSearchParams();
     formData.append("i", "invalid-format");

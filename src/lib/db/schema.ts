@@ -46,6 +46,11 @@ export const sessions = pgTable(
   },
   (table) => ({
     tokenHashIdx: uniqueIndex("session_token_hash_idx").on(table.tokenHash),
+    // Speeds up session-limit enforcement: SELECT WHERE userId ORDER BY createdAt
+    userCreatedAtIdx: index("session_user_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
   }),
 );
 
@@ -124,6 +129,11 @@ export const feedCategories = pgTable(
     userFeedIdx: uniqueIndex("feed_category_user_feed_idx").on(
       table.userId,
       table.feedId,
+    ),
+    // Speeds up delete/update by label (disable-tag, rename-tag)
+    userCategoryIdx: index("feed_category_user_category_idx").on(
+      table.userId,
+      table.category,
     ),
   }),
 );

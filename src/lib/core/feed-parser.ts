@@ -3,7 +3,7 @@
  * Pure transformations: no IO, no DB access.
  */
 
-import { parseDateOrFallback } from "@/lib/utils/date-utils";
+import { parseDateOrFallback } from "@/lib/utils/dates";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,

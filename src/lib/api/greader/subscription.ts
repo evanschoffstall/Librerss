@@ -93,41 +93,30 @@ export async function handleSubscriptionQuickAdd(
 
   const db = getDb();
 
-  const [existing] = await db
-    .select({ id: feedSources.id })
-    .from(feedSources)
-    .where(
-      and(
-        eq(feedSources.userId, user.userId),
-        eq(feedSources.url, normalizedUrl),
-      ),
-    )
-    .limit(1);
+  // Ensure the global Feed record exists (1 query: upsert + RETURNING).
+  await ensureFeedRecordByUrl(db, normalizedUrl);
 
-  if (existing) {
+  const fallbackName = getUrlHostnameLabel(normalizedUrl, normalizedUrl);
+
+  // Insert the subscription; ON CONFLICT DO NOTHING lets us detect duplicates
+  // without a prior existence SELECT.
+  const [source] = await db
+    .insert(feedSources)
+    .values({
+      userId: user.userId,
+      url: normalizedUrl,
+      name: fallbackName,
+    })
+    .onConflictDoNothing()
+    .returning({ id: feedSources.id });
+
+  if (!source) {
     return NextResponse.json({
       numResults: 0,
       error: `Already subscribed! ${normalizedUrl}`,
       streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
     });
   }
-
-  const feedId = (await ensureFeedRecordByUrl(db, normalizedUrl)).id;
-
-  if (!feedId) {
-    return NextResponse.json(
-      { numResults: 0, error: "Unable to create feed" },
-      { status: 500 },
-    );
-  }
-
-  const fallbackName = getUrlHostnameLabel(normalizedUrl, normalizedUrl);
-
-  await db.insert(feedSources).values({
-    userId: user.userId,
-    url: normalizedUrl,
-    name: fallbackName,
-  });
 
   return NextResponse.json({
     numResults: 1,

@@ -229,6 +229,18 @@ export function stripOrphanedInlineContent(
     .join("");
 }
 
+/**
+ * Strip anchor elements whose inner content contains no visible text and no
+ * img child.  These are left behind when sanitize-html strips non-allowed
+ * children (SVG icons, buttons) from inside a link.
+ */
+export function stripEmptyAnchors(html: string): string {
+  return html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (match, inner: string) => {
+    if (/<img\b/i.test(inner)) return match;
+    return inner.replace(/<[^>]*>/g, "").trim().length === 0 ? "" : match;
+  });
+}
+
 export function escapeHtmlAttribute(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -304,12 +316,14 @@ function removeElementsByAttrPattern(
   while ((match = openRe.exec(result)) !== null) {
     const attrValue = manipulateAttrValue(match[2] ?? "", attr);
     if (attrValue === null || !pattern.test(attrValue)) continue;
+
     const tagName = match[1]!.toLowerCase();
     const afterOpen = match.index + match[0].length;
     const closeRe = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
     closeRe.lastIndex = afterOpen;
     let depth = 1;
     let endIdx = -1;
+
     let m: RegExpExecArray | null;
     while (depth > 0 && (m = closeRe.exec(result)) !== null) {
       if (m[1]?.toLowerCase() !== tagName) continue;
@@ -317,6 +331,7 @@ function removeElementsByAttrPattern(
       else depth++;
       if (depth === 0) endIdx = m.index + m[0].length;
     }
+
     if (endIdx < 0) continue;
     result = result.slice(0, match.index) + result.slice(endIdx);
     openRe.lastIndex = match.index;

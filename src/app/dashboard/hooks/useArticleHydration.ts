@@ -40,32 +40,19 @@ export function useArticleHydration({
   const hydrationAbortRef = useRef(new Map<string, AbortController>());
 
   const scrollArticleIntoView = useCallback((articleKey: string) => {
-    let el: HTMLElement | null = null;
     try {
-      el = document.querySelector<HTMLElement>(
-        `[data-article-key="${escapeArticleKey(articleKey)}"]`,
-      );
+      document
+        .querySelector<HTMLElement>(
+          `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+        )
+        ?.scrollIntoView({
+          block: "nearest",
+          inline: "nearest",
+          behavior: "auto",
+        });
     } catch {
-      el = null;
+      // invalid selector — skip
     }
-
-    if (!el) {
-      for (const candidate of Array.from(document.getElementsByTagName("*"))) {
-        if (
-          candidate instanceof HTMLElement &&
-          candidate.getAttribute("data-article-key") === articleKey
-        ) {
-          el = candidate;
-          break;
-        }
-      }
-    }
-
-    el?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: "auto",
-    });
   }, []);
 
   const hydrateArticleContent = useCallback(

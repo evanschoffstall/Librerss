@@ -18,11 +18,11 @@ export function getApiClient(): ApiClient {
   return api;
 }
 
-export function __setApiClientForTesting(client: ApiClient): void {
+export function setApiClientForTesting(client: ApiClient): void {
   api = client;
 }
 
-export function __resetApiClientForTesting(): void {
+export function resetApiClientForTesting(): void {
   api = axios.create();
 }
 

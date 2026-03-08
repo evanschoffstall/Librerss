@@ -1,0 +1,366 @@
+{
+  "thresholds": {
+    "lineCoverageThreshold": 90,
+    "typeCoverageThreshold": 98,
+    "testTimeoutMs": 5000,
+    "testCommandTimeoutMs": 100000,
+    "testCommandTimeoutEnvVar": "CHECK_TEST_COMMAND_TIMEOUT_MS"
+  },
+  "paths": {
+    "junitPath": "coverage/test-results.xml",
+    "lcovPath": "coverage/lcov.info"
+  },
+  "coverageExcludedFiles": [],
+  "steps": [
+    {
+      "key": "format",
+      "enabled": true,
+      "label": "format",
+      "preRun": true,
+      "cmd": "bunx",
+      "args": ["prettier", "--write", "."]
+    },
+    {
+      "key": "test",
+      "enabled": true,
+      "label": "Tests",
+      "handler": "test",
+      "cmd": "bun",
+      "args": [
+        "test",
+        "--timeout={testTimeoutMs}",
+        "--reporter=junit",
+        "--reporter-outfile={junitPath}"
+      ],
+      "passMsg": "",
+      "failMsg": "",
+      "summary": {
+        "type": "test-runner"
+      }
+    },
+    {
+      "key": "types",
+      "enabled": true,
+      "label": "tsc",
+      "cmd": "tsc",
+      "args": ["--noEmit"],
+      "passMsg": "typecheck clean",
+      "failMsg": "typecheck failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "lint",
+      "enabled": true,
+      "label": "eslint",
+      "handler": "lint",
+      "passMsg": "lint clean",
+      "failMsg": "lint failed",
+      "summary": { "type": "simple" },
+      "config": {
+        "globExtensions": ["js", "mjs", "cjs", "ts", "jsx", "tsx"],
+        "skipDirs": [
+          "node_modules",
+          ".next",
+          "dist",
+          "build",
+          "coverage",
+          ".cache"
+        ],
+        "maxFiles": 5000,
+        "args": [
+          "eslint",
+          ".",
+          "--cache",
+          "--cache-strategy",
+          "content",
+          "--cache-location",
+          ".cache/eslint",
+          "--concurrency"
+        ]
+      }
+    },
+    {
+      "key": "jscpd",
+      "enabled": true,
+      "label": "jscpd",
+      "cmd": "bunx",
+      "args": ["jscpd", "--config", ".jscpd.json"],
+      "passMsg": "no duplicate stats detected",
+      "failMsg": "duplicates found",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "│ Total:",
+            "type": "table-row",
+            "cellSep": "│",
+            "format": "{4} clones · {5} lines · {6} tokens · {1} files"
+          },
+          {
+            "regex": "Found\\s+(\\d+)\\s+clones?",
+            "type": "match",
+            "format": "{1} clones"
+          }
+        ],
+        "default": "no duplicate stats detected"
+      }
+    },
+    {
+      "key": "knip",
+      "enabled": true,
+      "label": "knip",
+      "cmd": "bunx",
+      "args": ["knip", "--config", "knip.json", "--cache"],
+      "passMsg": "unused dependency check clean",
+      "failMsg": "knip failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "tsPrune",
+      "enabled": true,
+      "label": "ts-prune",
+      "handler": "ts-prune",
+      "passMsg": "unused export check clean",
+      "failMsg": "ts-prune failed",
+      "summary": { "type": "simple" },
+      "config": {
+        "project": "tsconfig.json",
+        "skip": "(node_modules|\\.next|coverage|dist|build|src/components/ui)",
+        "ignore": "(src/app/|src/lib/(extract/index|api/http/index|utils/index|fetch/index|index)\\.ts|(drizzle|next|tailwind)\\.config)",
+        "actionableLinePattern": "^\\S.+:\\d+\\s-\\s.+$",
+        "usedInTestsMarker": "(used in tests)"
+      }
+    },
+    {
+      "key": "depCruise",
+      "enabled": true,
+      "label": "depcruise",
+      "cmd": "bunx",
+      "args": [
+        "depcruise",
+        "--config",
+        ".dependency-cruiser.cjs",
+        "src",
+        "--output-type",
+        "err",
+        "--cache",
+        ".cache/depcruise"
+      ],
+      "passMsg": "dependency check completed",
+      "failMsg": "dependency violations found",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "no dependency violations found \\((\\d+) modules,\\s*(\\d+) dependencies cruised\\)",
+            "type": "match",
+            "format": "{1} modules · {2} dependencies cruised"
+          }
+        ],
+        "default": "dependency check completed"
+      }
+    },
+    {
+      "key": "madge",
+      "enabled": true,
+      "label": "madge",
+      "cmd": "bunx",
+      "args": ["madge@8", "--circular", "--extensions", "ts,tsx", "src"],
+      "passMsg": "0 circular dependencies",
+      "failMsg": "circular dependencies found",
+      "outputFilter": {
+        "type": "stripLines",
+        "pattern": "\\b\\d+\\s+warnings?\\b"
+      },
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "No circular dependency found",
+            "type": "literal",
+            "format": "0 circular dependencies"
+          },
+          {
+            "regex": "Found\\s+(\\d+)\\s+circular\\s+dependenc",
+            "type": "match",
+            "format": "{1} circular dependencies"
+          }
+        ],
+        "default": "circular dependency check completed"
+      }
+    },
+    {
+      "key": "typeCoverage",
+      "enabled": true,
+      "label": "type-coverage",
+      "cmd": "bunx",
+      "args": [
+        "type-coverage",
+        "--at-least",
+        "{typeCoverageThreshold}",
+        "--cache",
+        "--cache-directory",
+        ".cache/type-coverage"
+      ],
+      "passMsg": "type coverage completed",
+      "failMsg": "type coverage below threshold",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "\\((\\d+)\\s*\\/\\s*(\\d+)\\)\\s*([\\d.]+)%",
+            "type": "match",
+            "format": "{3}% ({1}/{2}) · threshold {typeCoverageThreshold}%"
+          }
+        ],
+        "default": "type coverage completed"
+      }
+    },
+    {
+      "key": "stylelint",
+      "enabled": true,
+      "label": "stylelint",
+      "cmd": "bunx",
+      "args": [
+        "stylelint",
+        "src/**/*.{css,scss}",
+        "--cache",
+        "--cache-location",
+        ".cache/stylelint",
+        "--cache-strategy",
+        "content"
+      ],
+      "passMsg": "stylelint clean",
+      "failMsg": "stylelint failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "deadCss",
+      "enabled": true,
+      "label": "dead-css",
+      "handler": "dead-css",
+      "passMsg": "no dead CSS definitions",
+      "failMsg": "dead CSS found",
+      "summary": { "type": "simple" },
+      "config": {
+        "cssFiles": ["src/app/globals.css"],
+        "contentGlobs": [
+          "src/**/*.{tsx,ts,jsx,js}",
+          "src/components/components.css"
+        ],
+        "safelists": ["^dark$", "^motion-profile-"],
+        "selectorPrefix": "."
+      }
+    },
+    {
+      "key": "tsd",
+      "enabled": true,
+      "label": "tsd",
+      "cmd": "bunx",
+      "args": [
+        "tsd",
+        "--typings",
+        "next-env.d.ts",
+        "--files",
+        "next-env.test-d.ts"
+      ],
+      "passMsg": "type definition tests clean",
+      "failMsg": "tsd failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "secretlint",
+      "enabled": true,
+      "label": "secretlint",
+      "cmd": "bunx",
+      "args": ["secretlint", "**/*", "--secretlintignore", ".secretlintignore"],
+      "passMsg": "no secret findings",
+      "failMsg": "secretlint failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "prettier",
+      "enabled": true,
+      "label": "prettier-check",
+      "cmd": "bunx",
+      "args": [
+        "prettier",
+        "--check",
+        ".",
+        "--cache",
+        "--cache-location",
+        ".cache/prettier"
+      ],
+      "passMsg": "formatting compliant",
+      "failMsg": "prettier check failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "semgrep",
+      "enabled": true,
+      "label": "semgrep",
+      "cmd": "semgrep",
+      "args": [
+        "scan",
+        "--config",
+        "p/default",
+        "--error",
+        "--metrics",
+        "off",
+        "--exclude=tests",
+        "--exclude=src/components/ui",
+        "--exclude-rule=javascript.lang.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
+        "--exclude-rule=typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml",
+        "--exclude-rule=problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification",
+        "--quiet",
+        "src"
+      ],
+      "passMsg": "rule scan clean",
+      "failMsg": "semgrep failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "gitleaks",
+      "enabled": true,
+      "label": "gitleaks",
+      "cmd": "bunx",
+      "args": [
+        "@0xts/gitleaks-cli",
+        "detect",
+        "-s",
+        "src",
+        "--no-git",
+        "-c",
+        ".gitleaks.toml"
+      ],
+      "passMsg": "secret scan clean",
+      "failMsg": "gitleaks failed",
+      "summary": { "type": "simple" }
+    },
+    {
+      "key": "depAudit",
+      "enabled": true,
+      "label": "dep-audit",
+      "cmd": "bun",
+      "args": ["audit"],
+      "passMsg": "0 vulnerabilities found",
+      "failMsg": "vulnerabilities found",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "No vulnerabilities found",
+            "type": "literal",
+            "format": "0 vulnerabilities found"
+          },
+          {
+            "regex": "(\\d+)\\s+vulnerabilit(?:y|ies)",
+            "type": "match",
+            "format": "{1} vulnerabilities found"
+          }
+        ],
+        "default": "dependency audit completed"
+      }
+    }
+  ]
+}

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-/** Height of the hidden pull zone above content. */
-const SENTINEL_HEIGHT = 104;
+import { attachSentinelLayout, SENTINEL_HEIGHT } from "./useSentinelLayout";
 /** Distance (px into sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
 /** Hold height during refresh feedback. */
@@ -26,13 +24,27 @@ const IDLE: PullState = { pulling: false, readyToRefresh: false };
  * invisible. Pulling down from the top naturally scrolls into the sentinel
  * zone — 100% native scroll compositor, zero transforms or layout writes.
  *
- * Touch-only: wheel/trackpad scroll is clamped at the sentinel boundary
- * so pull-to-refresh only triggers with active touch input.
+ * All input methods (touch, wheel, trackpad) activate the pull indicator
+ * and can trigger refresh. On scrollend without active touch, the sentinel
+ * snaps back if the pull threshold wasn't met.
+ *
+ * ## Collapse scroll-pin (DO NOT REMOVE)
+ *
+ * `suppressSnapRef` coordinates with `useArticleActions` during collapse:
+ * - `false` → normal sentinel snap-back (scrollTop ≥ SENTINEL_HEIGHT).
+ * - `number > 0` → collapse pin mode: the ResizeObserver pins scrollTop to
+ *   this value with enough bottom padding to prevent browser clamping
+ *   while the CSS max-height transition progressively shrinks scrollHeight.
+ * - `-1` → expand suppress mode: the ResizeObserver skips entirely so
+ *   browser scroll anchoring and user scrolling are unimpeded.
+ *   handleScroll and handleScrollEnd bail out in both non-false modes.
+ *   Released back to `false` by useArticleActions after the transition.
  */
 export function usePullDownToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   onRefresh: () => void,
   disabled = false,
+  suppressSnapRef?: React.RefObject<number | false>,
 ) {
   const [state, setState] = useState<PullState>(IDLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -57,8 +69,8 @@ export function usePullDownToRefresh(
       root;
 
     const sentinel = sentinelRef.current;
-    /** Live-read sentinel height — handles late layout. */
     const sh = () => sentinel?.offsetHeight ?? 0;
+    const wrapper = sentinel?.parentElement ?? null;
 
     const resetPull = () => {
       holdingRef.current = false;
@@ -69,85 +81,18 @@ export function usePullDownToRefresh(
       setState(IDLE);
     };
 
-    // Prevent iOS from rubber-banding the page
-    viewport.style.overscrollBehaviorY = "none";
-
-    const wrapper = sentinel?.parentElement ?? null;
-
-    /** Find the Radix scrollbar element (conditionally mounted by Presence). */
-    const findScrollbar = () =>
-      root.querySelector<HTMLElement>(':scope > [data-orientation="vertical"]');
-
-    /** Apply or clear inset styles on the scrollbar to hide the sentinel zone. */
-    const syncScrollbar = () => {
-      const sb = findScrollbar();
-      if (!sb) return;
-      const height = sh();
-      const H = viewport.scrollHeight;
-      // Real content overflows only when scrollHeight > clientHeight + sentinel.
-      // The padding added by ensureMinOverflow is exactly enough to not exceed that.
-      const realOverflow = H - height > viewport.clientHeight;
-      if (!realOverflow || height === 0) {
-        sb.style.display = "none";
-        return;
-      }
-      sb.style.display = "";
-      // D = S·C/(H−S) makes translate3d(0, D, 0) land at the visible top edge.
-      const inset =
-        H > height ? (height * viewport.clientHeight) / (H - height) : 0;
-      sb.style.marginTop = `-${inset.toFixed(2)}px`;
-      sb.style.height = `calc(100% + ${inset.toFixed(2)}px)`;
-    };
-
-    /**
-     * Ensures viewport.scrollHeight >= viewport.clientHeight + sentinelHeight
-     * so that setting scrollTop = sentinelHeight is never clamped to 0.
-     * Also offsets the scrollbar track so the thumb is flush at top when
-     * the sentinel is scrolled out of view.
-     */
-    const ensureMinOverflow = () => {
-      const height = sh();
-      if (height === 0 || !wrapper) return;
-      wrapper.style.paddingBottom = "";
-      const contentHeight = wrapper.offsetHeight;
-      const needed = viewport.clientHeight + height - contentHeight;
-      if (needed > 0) wrapper.style.paddingBottom = `${needed}px`;
-      syncScrollbar();
-    };
-
-    // Watch for Radix mounting/unmounting the scrollbar element via Presence.
-    const mutObserver =
-      typeof MutationObserver !== "undefined"
-        ? new MutationObserver(syncScrollbar)
-        : null;
-    mutObserver?.observe(root, { childList: true, subtree: false });
-
-    ensureMinOverflow();
-    viewport.scrollTop = sh();
-
-    const rafId = requestAnimationFrame(() => {
-      ensureMinOverflow();
-      const height = sh();
-      if (height > 0 && viewport.scrollTop < height)
-        viewport.scrollTop = height;
-    });
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined" && wrapper
-        ? new ResizeObserver(() => {
-            ensureMinOverflow();
-            const height = sh();
-            if (
-              height > 0 &&
-              viewport.scrollTop < height &&
-              !touchActiveRef.current &&
-              !holdingRef.current
-            ) {
-              viewport.scrollTop = height;
-            }
-          })
-        : null;
-    resizeObserver?.observe(wrapper!);
+    // Delegate all layout invariants (sentinel visibility, overflow padding,
+    // scrollbar inset, ResizeObserver three-mode branching) to the extracted
+    // sentinel layout engine. See useSentinelLayout.ts for full docs.
+    const cleanupLayout = attachSentinelLayout(
+      { viewport, sentinel, wrapper, scrollRoot: root },
+      suppressSnapRef,
+      {
+        touchActive: touchActiveRef,
+        holding: holdingRef,
+        pulling: pullingRef,
+      },
+    );
 
     const commitOrSnapBack = () => {
       const height = sh();
@@ -172,6 +117,7 @@ export function usePullDownToRefresh(
     };
 
     const handleScroll = () => {
+      if (typeof suppressSnapRef?.current === "number") return;
       const height = sh();
       if (height === 0) return;
 
@@ -234,6 +180,7 @@ export function usePullDownToRefresh(
 
     // When scroll settles inside sentinel without active touch, commit or snap back.
     const handleScrollEnd = () => {
+      if (typeof suppressSnapRef?.current === "number") return;
       if (touchActiveRef.current || holdingRef.current) return;
       commitOrSnapBack();
     };
@@ -249,26 +196,16 @@ export function usePullDownToRefresh(
     viewport.addEventListener("scrollend", handleScrollEnd);
 
     return () => {
-      resizeObserver?.disconnect();
-      mutObserver?.disconnect();
-      cancelAnimationFrame(rafId);
+      cleanupLayout();
       clearTimeout(snapTimerRef.current);
       snapTimerRef.current = undefined;
-      viewport.style.overscrollBehaviorY = "";
-      if (wrapper) wrapper.style.paddingBottom = "";
-      const sb = findScrollbar();
-      if (sb) {
-        sb.style.marginTop = "";
-        sb.style.height = "";
-        sb.style.display = "";
-      }
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
       viewport.removeEventListener("touchcancel", handleTouchCancel);
       viewport.removeEventListener("scrollend", handleScrollEnd);
     };
-  }, [scrollRootRef]);
+  }, [scrollRootRef, suppressSnapRef]);
 
   useEffect(() => {
     if (!disabled) return;

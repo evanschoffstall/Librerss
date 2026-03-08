@@ -13,8 +13,8 @@ import {
 } from "./article-status";
 import {
   FEED_STREAM_PREFIX,
-  parseUserLabel,
   STARRED_STATE,
+  parseUserLabel,
 } from "./stream-ids";
 
 // Upper bound for mark-all-as-read to prevent unbounded queries.
@@ -51,72 +51,68 @@ export async function markStreamAsRead(
     eq(feedSources.enabled, true),
   );
 
-  const rows = stream.startsWith(FEED_STREAM_PREFIX)
-    ? await db
-        .select({ articleId: articles.id })
-        .from(articles)
-        .innerJoin(feeds, eq(feeds.id, articles.feedId))
-        .innerJoin(feedSources, enabledJoin)
-        .where(
-          and(
-            eq(feeds.url, stream.slice(FEED_STREAM_PREFIX.length)),
-            beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
-          ),
-        )
-        .limit(MARK_ALL_READ_LIMIT)
-    : stream === STARRED_STATE && useArticleStatuses
-      ? await db
-          .select({ articleId: articles.id })
-          .from(articles)
-          .innerJoin(feeds, eq(feeds.id, articles.feedId))
-          .innerJoin(feedSources, enabledJoin)
-          .innerJoin(
-            articleStatuses,
-            and(
-              eq(articleStatuses.userId, userId),
-              eq(articleStatuses.articleId, articles.id),
-            ),
-          )
-          .where(
-            and(
-              eq(articleStatuses.isStarred, true),
-              beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
-            ),
-          )
-          .limit(MARK_ALL_READ_LIMIT)
-      : stream === STARRED_STATE
-        ? []
-        : parseUserLabel(stream) !== null
-          ? await db
-              .select({ articleId: articles.id })
-              .from(articles)
-              .innerJoin(feeds, eq(feeds.id, articles.feedId))
-              .innerJoin(feedSources, enabledJoin)
-              .innerJoin(
-                feedCategories,
-                and(
-                  eq(feedCategories.feedId, feeds.id),
-                  eq(feedCategories.userId, userId),
-                  eq(feedCategories.category, parseUserLabel(stream)!),
-                ),
-              )
-              .where(
-                beforeDate
-                  ? lt(articles.publicationDate, beforeDate)
-                  : undefined,
-              )
-              .limit(MARK_ALL_READ_LIMIT)
-          : await db
-              .select({ articleId: articles.id })
-              .from(articles)
-              .innerJoin(feeds, eq(feeds.id, articles.feedId))
-              .innerJoin(feedSources, enabledJoin)
-              .where(
-                beforeDate
-                  ? lt(articles.publicationDate, beforeDate)
-                  : undefined,
-              )
-              .limit(MARK_ALL_READ_LIMIT);
+  let rows: { articleId: number }[];
+
+  if (stream.startsWith(FEED_STREAM_PREFIX)) {
+    rows = await db
+      .select({ articleId: articles.id })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(feedSources, enabledJoin)
+      .where(
+        and(
+          eq(feeds.url, stream.slice(FEED_STREAM_PREFIX.length)),
+          beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
+        ),
+      )
+      .limit(MARK_ALL_READ_LIMIT);
+  } else if (stream === STARRED_STATE && useArticleStatuses) {
+    rows = await db
+      .select({ articleId: articles.id })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(feedSources, enabledJoin)
+      .innerJoin(
+        articleStatuses,
+        and(
+          eq(articleStatuses.userId, userId),
+          eq(articleStatuses.articleId, articles.id),
+        ),
+      )
+      .where(
+        and(
+          eq(articleStatuses.isStarred, true),
+          beforeDate ? lt(articles.publicationDate, beforeDate) : undefined,
+        ),
+      )
+      .limit(MARK_ALL_READ_LIMIT);
+  } else if (stream === STARRED_STATE) {
+    rows = [];
+  } else if (parseUserLabel(stream) !== null) {
+    rows = await db
+      .select({ articleId: articles.id })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(feedSources, enabledJoin)
+      .innerJoin(
+        feedCategories,
+        and(
+          eq(feedCategories.feedId, feeds.id),
+          eq(feedCategories.userId, userId),
+          eq(feedCategories.category, parseUserLabel(stream)!),
+        ),
+      )
+      .where(beforeDate ? lt(articles.publicationDate, beforeDate) : undefined)
+      .limit(MARK_ALL_READ_LIMIT);
+  } else {
+    rows = await db
+      .select({ articleId: articles.id })
+      .from(articles)
+      .innerJoin(feeds, eq(feeds.id, articles.feedId))
+      .innerJoin(feedSources, enabledJoin)
+      .where(beforeDate ? lt(articles.publicationDate, beforeDate) : undefined)
+      .limit(MARK_ALL_READ_LIMIT);
+  }
 
   await upsertStatuses(
     userId,

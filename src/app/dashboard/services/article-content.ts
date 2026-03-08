@@ -6,10 +6,6 @@
 import { type Article } from "@/lib";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 
-export function getUrlHostnameLabel(raw?: string): string {
-  return getUrlHostnameDisplayLabel(raw, { fallback: raw ?? "No source URL" });
-}
-
 // ── Preview truncation ────────────────────────────────────────────────────────
 
 const PREVIEW_LIMIT = 170;
@@ -40,7 +36,8 @@ export function getArticleSourceLabel(article: Article): string {
   if (article.feedName?.trim()) {
     return article.feedName;
   }
-  return getUrlHostnameLabel(article.feedUrl ?? article.link);
+  const raw = article.feedUrl ?? article.link;
+  return getUrlHostnameDisplayLabel(raw, { fallback: raw });
 }
 
 // ── Rich-text CSS classes ─────────────────────────────────────────────────────

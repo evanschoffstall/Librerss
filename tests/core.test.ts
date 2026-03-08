@@ -97,12 +97,10 @@ describe("article-status", () => {
   });
 
   test("canUseArticleStatusesTable caches available result", async () => {
-    const {
-      __resetArticleStatusesTableStateForTests,
-      canUseArticleStatusesTable,
-    } = await import("@/lib/core/article-status");
+    const { resetArticleStatusTableStateForTests, canUseArticleStatusesTable } =
+      await import("@/lib/core/article-status");
 
-    __resetArticleStatusesTableStateForTests();
+    resetArticleStatusTableStateForTests();
 
     const limit = mock(async () => [{ id: 1 }]);
     const from = mock(() => ({ limit }));
@@ -115,12 +113,10 @@ describe("article-status", () => {
   });
 
   test("canUseArticleStatusesTable handles missing table errors", async () => {
-    const {
-      __resetArticleStatusesTableStateForTests,
-      canUseArticleStatusesTable,
-    } = await import("@/lib/core/article-status");
+    const { resetArticleStatusTableStateForTests, canUseArticleStatusesTable } =
+      await import("@/lib/core/article-status");
 
-    __resetArticleStatusesTableStateForTests();
+    resetArticleStatusTableStateForTests();
     const warn = mock(() => {});
 
     const missingError = new Error(
@@ -148,10 +144,10 @@ describe("article-status", () => {
   });
 
   test("upsertArticleStatuses chunks writes and preserves unspecified fields", async () => {
-    const { __resetArticleStatusesTableStateForTests, upsertArticleStatuses } =
+    const { resetArticleStatusTableStateForTests, upsertArticleStatuses } =
       await import("@/lib/core/article-status");
 
-    __resetArticleStatusesTableStateForTests();
+    resetArticleStatusTableStateForTests();
 
     const onConflictDoUpdate = mock(async () => []);
     const values = mock(() => ({ onConflictDoUpdate }));
@@ -160,7 +156,8 @@ describe("article-status", () => {
     const limit = mock(async () => [{ id: 1 }]);
     const from = mock(() => ({ limit }));
     const select = mock(() => ({ from }));
-    const db = { select, insert };
+    const db: Record<string, unknown> = { select, insert };
+    db.transaction = async (cb: (tx: typeof db) => Promise<void>) => cb(db);
 
     const articleIds = Array.from({ length: 1201 }, (_, index) => index + 1);
     await upsertArticleStatuses(
@@ -459,10 +456,10 @@ describe("feed-http", () => {
 
 describe("dns-cache", () => {
   test("resolvesToBlockedAddress caches DNS lookup results until TTL expires", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
 
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     let nowMs = 1_000;
     const lookupFn = mock(async () => [{ address: "8.8.8.8" }]);
@@ -484,10 +481,10 @@ describe("dns-cache", () => {
   });
 
   test("resolvesToBlockedAddress fails closed on lookup error and caches fallback", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
 
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     let nowMs = 10_000;
     const warnFn = mock(() => {});
@@ -512,10 +509,10 @@ describe("dns-cache", () => {
   });
 
   test("resolvesToBlockedAddress handles timeout race and clears timeout handle", async () => {
-    const { __resetDnsCacheForTests, resolvesToBlockedAddress } =
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
 
-    __resetDnsCacheForTests();
+    clearDnsCacheForTests();
 
     const warnFn = mock(() => {});
     const clearTimeoutFn = mock(() => {});
@@ -761,8 +758,8 @@ describe("feed-batch-pipeline", () => {
     // The new resolveAuthorizedFeedRecords uses a single JOIN query:
     //   select({sourceUrl, feedId, feedUrl, lastFetched, lastFetchError})
     //     .from(feedSources).leftJoin(feeds, ...).where(...)
-    // Then optionally: insert().values().onConflictDoNothing()
-    //   + select(feedRecordFields).from(feeds).where(...) for missing feeds.
+    // Then optionally: insert().values().onConflictDoUpdate()
+    //   .returning() for missing feeds (1 round-trip, not 2).
     let selectWhereCalls = 0;
 
     const joinedRows = options.ownedRows.map((owned) => {
@@ -779,7 +776,6 @@ describe("feed-batch-pipeline", () => {
     const where = mock(async () => {
       selectWhereCalls += 1;
       if (selectWhereCalls === 1) return joinedRows;
-      // Subsequent where() calls return resolved feeds (after insert)
       return options.resolvedFeeds ?? [];
     });
 
@@ -787,8 +783,9 @@ describe("feed-batch-pipeline", () => {
     const from = mock(() => ({ where, leftJoin }));
     const select = mock(() => ({ from }));
 
-    const onConflictDoNothing = mock(async () => []);
-    const values = mock(() => ({ onConflictDoNothing }));
+    const returning = mock(async () => options.resolvedFeeds ?? []);
+    const onConflictDoUpdate = mock(() => ({ returning }));
+    const values = mock(() => ({ onConflictDoUpdate }));
     const insert = mock(() => ({ values }));
 
     return {

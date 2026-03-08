@@ -8,8 +8,9 @@ export {
   type AuthenticatedUser,
 } from "./guards";
 export {
-  detectProxyProtocol,
+  MAX_PROXY_CREDENTIAL_LENGTH,
   MAX_PROXY_URL_LENGTH,
+  detectProxyProtocol,
   normalizeProxyUrl,
   probeProxy,
   type ProxySettingsResponse,

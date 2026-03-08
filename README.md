@@ -16,7 +16,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT License" /></a>
 </p>
 
-<p>A self-hosted, open-source RSS reader built for calm, focused reading.<br/>Fast feeds. Clean layouts. No clutter. Your data stays yours.</p>
+<p>A self-hosted, open-source RSS reader built for calm, focused reading.<br/>Fast feeds. Clean layouts. No clutter.</p>
 
 <br/>
 
@@ -28,7 +28,7 @@
 
 LibreRSS is a **self-hosted RSS reader** you run on your own server. Subscribe to any RSS or Atom feed, organize sources into categories, and read distraction-free articles — all from a single dashboard you fully control.
 
-It also speaks the **GReader API**, so native clients like **NetNewsWire** and **Reeder** connect without any plugins or adapters.
+It also implements the **GReader API**, so native clients like **NetNewsWire** and **Reeder** connect without any plugins or adapters.
 
 ---
 
@@ -37,12 +37,12 @@ It also speaks the **GReader API**, so native clients like **NetNewsWire** and *
 |     | Feature                      | Description                                       |
 | --- | ---------------------------- | ------------------------------------------------- |
 | 📡  | **Universal feed support**   | Subscribe to any RSS, Atom, or JSON feed          |
-| 🗂️  | **Category organization**    | Group feeds however makes sense to you            |
+| 🗂️  | **Category organization**    | Group feeds into custom categories                |
 | 🧘  | **Distraction-free reading** | Clean article view, no clutter                    |
 | 🔗  | **GReader API**              | Works natively with NetNewsWire, Reeder, and more |
-| 🌙  | **Dark & light mode**        | Looks great either way                            |
+| 🌙  | **Dark & light mode**        | System-aware theme with manual override           |
 | 🔒  | **Self-hosted**              | Your data stays on your server, always            |
-| 🚪  | **Invite-only mode**         | Disable public signup whenever you want           |
+| 🚪  | **Invite-only mode**         | Restrict registration via `ALLOW_SIGNUP` env flag |
 | ⚡  | **Streaming refresh**        | Feeds update in real time via server-sent events  |
 
 ---
@@ -57,7 +57,7 @@ bun install
 
 ### 2 · Configure your environment
 
-This repo ships with a committed `.env` containing sane defaults. Create `.env.local` at the project root for machine-specific overrides:
+This repo ships with a committed `.env` containing sensible defaults. Create `.env.local` at the project root for machine-specific overrides:
 
 ```env
 DATABASE_URL="postgres://user:password@host:5432/dbname"
@@ -72,7 +72,7 @@ LOG_LEVEL="warn"
 bun run db:provision
 ```
 
-Verifies your connection and applies the full schema in one shot.
+Verifies the database connection and applies the full schema.
 
 ### 4 · Start the dev server
 
@@ -80,7 +80,7 @@ Verifies your connection and applies the full schema in one shot.
 bun dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)** and you're reading.
+Open **[http://localhost:3000](http://localhost:3000)** and you're up.
 
 > **GReader clients** — point them at `http://localhost:3000/api/greader.php`
 
@@ -113,7 +113,7 @@ Open **[http://localhost:3000](http://localhost:3000)** and you're reading.
 When public signup is disabled, create accounts directly from the CLI:
 
 ```bash
-bun run create-user <email> <password>
+bun run db:create-user <email> <password>
 ```
 
 Inserts a user into the database. Password must be at least 8 characters.
@@ -128,11 +128,19 @@ librerss/
 │   ├── app/
 │   │   ├── api/          # Feed, article, and GReader API routes
 │   │   ├── dashboard/    # Main reader UI
-│   │   └── landing/      # Marketing / login page
+│   │   └── landing/      # Login and marketing page
 │   └── lib/
+│       ├── api/          # HTTP client, services, response helpers
+│       ├── auth/         # Credentials, CSRF, session management
+│       ├── core/         # Domain logic: feed fetching, parsing, articles
 │       ├── db/           # Drizzle schema and database client
-│       └── api/          # Service layer
-├── scripts/              # CLI utilities (provision, create-user, check)
+│       ├── extract/      # Article extraction orchestration and caching
+│       ├── fetch/        # Fingerprinted HTTP fetching: TLS client, proxy/SOCKS, cookies
+│       ├── hooks/        # React hooks (client-side only)
+│       ├── sanitize/     # HTML sanitization pipeline
+│       ├── server/       # Server-only guards, rate limiting, CSP, proxy routing
+│       └── utils/        # Pure utility functions
+├── scripts/              # CLI utilities (provision, db-create-user, check)
 └── public/               # Static assets
 ```
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useMousePosition } from "../hooks/useMousePosition";
 
 interface ParticlesProps {
   className?: string;
@@ -37,7 +36,6 @@ export default function BackgroundParticles({
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const frameRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
-  const mousePosition = useMousePosition();
   const canvasSize = useRef<{ width: number; height: number }>({
     width: 0,
     height: 0,
@@ -202,6 +200,21 @@ export default function BackgroundParticles({
 
     frameRef.current = window.requestAnimationFrame(renderFrame);
 
+    const handleMouseMove = (event: MouseEvent) => {
+      const c = canvasRef.current;
+      if (!c) return;
+      const rect = c.getBoundingClientRect();
+      const halfW = canvasSize.current.width / 2;
+      const halfH = canvasSize.current.height / 2;
+      const localX = event.clientX - rect.left - halfW;
+      const localY = event.clientY - rect.top - halfH;
+      const inside =
+        localX < halfW && localX > -halfW && localY < halfH && localY > -halfH;
+      pointerOffsetRef.current = inside
+        ? { x: localX, y: localY }
+        : { x: 0, y: 0 };
+    };
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("resize", onResize);
 
     return () => {
@@ -209,28 +222,10 @@ export default function BackgroundParticles({
         window.cancelAnimationFrame(frameRef.current);
       }
       frameRef.current = null;
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", onResize);
     };
   }, [renderFrame, initParticles, onResize]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    const rect = canvas.getBoundingClientRect();
-    const halfW = canvasSize.current.width / 2;
-    const halfH = canvasSize.current.height / 2;
-    const localX = mousePosition.x - rect.left - halfW;
-    const localY = mousePosition.y - rect.top - halfH;
-    const pointerInside =
-      localX < halfW && localX > -halfW && localY < halfH && localY > -halfH;
-
-    pointerOffsetRef.current = pointerInside
-      ? { x: localX, y: localY }
-      : { x: 0, y: 0 };
-  }, [mousePosition.x, mousePosition.y]);
 
   useEffect(() => {
     if (refresh) {

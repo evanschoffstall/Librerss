@@ -5,7 +5,7 @@
  * Shared by FeedCategory and ArticleCard.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getCachedFaviconIndex,
   getFaviconCacheKey,
@@ -33,14 +33,23 @@ export function useFavicon({
   primaryUrl,
   fallbackUrl,
 }: UseFaviconOptions): UseFaviconResult {
-  const faviconCandidates = getMergedFaviconCandidates(primaryUrl, fallbackUrl);
-  const faviconCacheKey = getFaviconCacheKey(primaryUrl, fallbackUrl);
+  const faviconCandidates = useMemo(
+    () => getMergedFaviconCandidates(primaryUrl, fallbackUrl),
+    [primaryUrl, fallbackUrl],
+  );
+  const faviconCacheKey = useMemo(
+    () => getFaviconCacheKey(primaryUrl, fallbackUrl),
+    [primaryUrl, fallbackUrl],
+  );
   const [faviconIndex, setFaviconIndex] = useState(() =>
     getCachedFaviconIndex(faviconCacheKey),
   );
   const faviconUrl =
     faviconIndex >= 0 ? faviconCandidates[faviconIndex] : undefined;
-  const faviconTint = getFaviconTintColors(primaryUrl, fallbackUrl);
+  const faviconTint = useMemo(
+    () => getFaviconTintColors(primaryUrl, fallbackUrl),
+    [primaryUrl, fallbackUrl],
+  );
 
   useEffect(() => {
     setFaviconIndex(getCachedFaviconIndex(faviconCacheKey));
