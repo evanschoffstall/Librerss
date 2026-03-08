@@ -8,14 +8,14 @@
  * - Edge cases for timestamp validation
  */
 
-import { __resetArticleStatusesTableStateForTests } from "@/lib/core/article-status";
 import type { SessionUser } from "@/lib/auth/session";
+import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
 beforeEach(() => {
   mock.restore();
-  __resetArticleStatusesTableStateForTests();
+  resetArticleStatusTableStateForTests();
 });
 
 afterEach(() => {
