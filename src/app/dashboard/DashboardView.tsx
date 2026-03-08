@@ -328,6 +328,11 @@ export const DashboardView = ({
     ? "demo"
     : formatLastRefreshLabel(lastRefreshedAt);
 
+  const handleMarkAllReadLocally = useCallback(
+    () => setFeed((f) => f.map((a) => ({ ...a, isRead: true }))),
+    [setFeed],
+  );
+
   useDashboardEvents({
     selectedCategory,
     selectedFeedUrl,
@@ -345,6 +350,8 @@ export const DashboardView = ({
     ),
     onSearchChange: setSearchTerm,
     onRefresh: handleRefreshSelection,
+    usePlaceholderData,
+    onMarkAllReadLocally: handleMarkAllReadLocally,
   });
 
   const handleCloseSettings = useCallback(

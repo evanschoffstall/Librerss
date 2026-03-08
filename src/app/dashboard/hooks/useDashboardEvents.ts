@@ -22,6 +22,8 @@ interface UseDashboardEventsOptions {
   onOpenFeedsSidebar: () => void;
   onSearchChange: (term: string) => void;
   onRefresh: () => void;
+  usePlaceholderData?: boolean;
+  onMarkAllReadLocally?: () => void;
 }
 
 function collectMarkAllReadStreams(
@@ -58,12 +60,23 @@ export function useDashboardEvents({
   onOpenFeedsSidebar,
   onSearchChange,
   onRefresh,
+  usePlaceholderData = false,
+  onMarkAllReadLocally,
 }: UseDashboardEventsOptions) {
   useEffect(() => {
     const handleMarkAllRead = async () => {
       window.dispatchEvent(
         new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
       );
+
+      if (usePlaceholderData) {
+        onMarkAllReadLocally?.();
+        toast.success("Marked all as read.");
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        );
+        return;
+      }
 
       const streams = collectMarkAllReadStreams(
         selectedCategory,
@@ -144,5 +157,7 @@ export function useDashboardEvents({
     onOpenFeedsSidebar,
     onSearchChange,
     onRefresh,
+    usePlaceholderData,
+    onMarkAllReadLocally,
   ]);
 }
