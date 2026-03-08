@@ -100,7 +100,6 @@ function ThemedToaster() {
           : { top: "1rem", right: "1rem" }
       }
       richColors
-      closeButton
       duration={4000}
     />
   );
