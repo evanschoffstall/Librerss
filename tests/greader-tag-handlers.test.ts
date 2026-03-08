@@ -281,7 +281,9 @@ describe("handleEditTag - error paths and edge cases", () => {
     const select = mock(() => ({
       from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })),
     }));
-    return { db: { select, insert }, insert };
+    const db: Record<string, unknown> = { select, insert };
+    db.transaction = async (cb: (tx: typeof db) => Promise<void>) => cb(db);
+    return { db, insert };
   }
 
   test("handles multiple tag operations in single request", async () => {
