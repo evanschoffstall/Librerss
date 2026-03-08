@@ -91,32 +91,51 @@ export const ArticleCard = memo(function ArticleCard({
   onToggleRead,
   onToggleStarred,
   isUpdatingState,
-}: ArticleCardProps) => {
+}: ArticleCardProps) {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [supportsNativeShare, setSupportsNativeShare] = useState(false);
-  const [isCardHovered, setIsCardHovered] = useState(false);
+  const [supportsNativeShare] = useState(
+    () =>
+      typeof navigator !== "undefined" && typeof navigator.share === "function",
+  );
   const isDevelopment = process.env.NODE_ENV === "development";
   const isMobile = useIsMobile();
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
 
   const rawHtml = article.content || "";
-  const normalizedHtml = normalizeArticleHtmlSpacing(rawHtml);
-  const plainContent = toPlainText(normalizedHtml).trim();
+  const {
+    normalizedHtml,
+    plainContent,
+    content,
+    preview,
+    hasOverflow,
+    collapsedPreview,
+  } = useMemo(() => {
+    const normalized = normalizeArticleHtmlSpacing(rawHtml);
+    const plain = toPlainText(normalized).trim();
+    const body = plain || "No description available";
+    const { preview: p, hasOverflow: ho } = buildPreview(body);
+    return {
+      normalizedHtml: normalized,
+      plainContent: plain,
+      content: body,
+      preview: p,
+      hasOverflow: ho,
+      collapsedPreview: ho ? `${p}\u2026` : p,
+    };
+  }, [rawHtml]);
   const hasReadableContent = plainContent.length > 0;
-  const content = plainContent || "No description available";
-  const { preview, hasOverflow } = buildPreview(content);
-  const collapsedPreview = hasOverflow ? `${preview}…` : preview;
 
-  const { phase, isCollapsing, expandTransitionDone, onContentTransitionEnd } =
+  const { phase, expandTransitionDone, onContentTransitionEnd } =
     useArticleExpansion(isExpanded, isHydrating);
 
   const showSkeleton = phase === "loading";
-  const showFullContent =
-    phase === "ready" || phase === "expanded" || isCollapsing;
-  const visuallyExpanded = phase === "expanded" || isCollapsing;
+  const showFullContent = phase === "revealing" || phase === "expanded";
+  const visuallyExpanded = phase === "expanded";
+  const cardT =
+    "var(--motion-duration-expand) var(--motion-ease-expand)" as const;
 
   const richContentClassName = getRichContentClass(isExpanded);
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
@@ -194,48 +213,8 @@ export const ArticleCard = memo(function ArticleCard({
     }
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    onToggle();
+    onToggle(article);
   };
-
-  useEffect(() => {
-    setSupportsNativeShare(
-      typeof navigator !== "undefined" && typeof navigator.share === "function",
-    );
-  }, []);
-
-  useEffect(() => {
-    const updateHoverState = () => {
-      const target = articleRef.current;
-      const pointer = pointerPosRef.current;
-
-      if (!target || !pointer) {
-        setIsCardHovered(false);
-        return;
-      }
-
-      const element = document.elementFromPoint(pointer.x, pointer.y);
-      setIsCardHovered(Boolean(element && target.contains(element)));
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
-      pointerPosRef.current = { x: event.clientX, y: event.clientY };
-      updateHoverState();
-    };
-
-    const handleWindowMouseLeave = (event: MouseEvent) => {
-      if (event.relatedTarget !== null) return;
-      setIsCardHovered(false);
-      pointerPosRef.current = null;
-    };
-
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    window.addEventListener("mouseleave", handleWindowMouseLeave);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseleave", handleWindowMouseLeave);
-    };
-  }, []);
 
   const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -358,7 +337,7 @@ export const ArticleCard = memo(function ArticleCard({
     isDark
       ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
       : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
-  } ${isCardHovered ? "opacity-100" : "opacity-0"}`;
+  } opacity-0 group-hover:opacity-100`;
 
   const copyLinkInputBlock = (
     <div className="rounded-md border bg-muted/30 p-2">
@@ -424,39 +403,44 @@ export const ArticleCard = memo(function ArticleCard({
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
         onMouseDown={handleMouseDown}
-        onMouseLeave={() => setIsCardHovered(false)}
         style={{
+          cursor: visuallyExpanded ? "default" : "pointer",
           transform: swipeState.swiping
             ? `translateX(${swipeState.offsetX}px)`
             : undefined,
           transition: swipeState.swiping
             ? "none"
-            : swipeState.offsetX !== 0
-              ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
-              : undefined,
+            : [
+                swipeState.offsetX !== 0
+                  ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
+                  : null,
+                `border-radius ${cardT}`,
+                `box-shadow ${cardT}`,
+              ]
+                .filter(Boolean)
+                .join(", "),
         }}
-        className={`group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 transition-[max-height,border-color,border-radius] duration-700 anim-ease-ui ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        className={`group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
       >
         {/* Header zone — sticky when expanded */}
         <div
           ref={headerZoneRef}
-          className={`relative transition-[padding,background-color] duration-700 anim-ease-ui ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
-          style={
-            visuallyExpanded
+          className={`relative ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-t-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
+          style={{
+            transition: `padding ${cardT}, background-color ${cardT}`,
+            ...(visuallyExpanded
               ? {
                   WebkitBackdropFilter: "blur(24px)",
                   backdropFilter: "blur(24px)",
                 }
-              : undefined
-          }
+              : undefined),
+          }}
         >
-          <div
-            className={`pointer-events-none absolute inset-0 overflow-hidden ${visuallyExpanded ? "rounded-xl" : "rounded-t-xl"}`}
-          >
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl">
             <div className={gradientCls} style={headerGradientStyle} />
           </div>
           <div className="relative z-10 space-y-2">
-            <div className="flex items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
+            <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
               <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
                 <CalendarDays className="size-3" />
                 {formatRelativeDate(
@@ -659,6 +643,7 @@ export const ArticleCard = memo(function ArticleCard({
             </div>
 
             <h3
+              style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
               className={`font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
             >
               {article.title}
@@ -672,16 +657,15 @@ export const ArticleCard = memo(function ArticleCard({
         {/* Content zone */}
         <div
           ref={contentZoneRef}
-          className={`relative bg-card/70 transition-[padding,border-radius] duration-700 anim-ease-ui ${visuallyExpanded ? "rounded-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
+          style={{ transition: `padding ${cardT}` }}
+          className={`relative bg-card/70 ${visuallyExpanded ? "rounded-b-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
         >
-          <div
-            className={`pointer-events-none absolute inset-0 overflow-hidden ${visuallyExpanded ? "rounded-xl" : "rounded-b-xl"}`}
-          >
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl">
             <div className={gradientCls} style={contentGradientStyle} />
           </div>
           <div className="relative z-10">
             <div
-              className="overflow-hidden transition-[max-height] anim-duration-ui anim-ease-ui"
+              className="overflow-hidden"
               onTransitionEnd={onContentTransitionEnd}
               onClick={
                 visuallyExpanded
@@ -711,6 +695,7 @@ export const ArticleCard = memo(function ArticleCard({
                   ? { maxHeight: `${collapsedHeight}px` }
                   : {}),
                 contentVisibility: expandTransitionDone ? "auto" : "visible",
+                transition: `max-height ${cardT}`,
               }}
             >
               {showSkeleton ? (
@@ -725,13 +710,13 @@ export const ArticleCard = memo(function ArticleCard({
                   {collapsedPreview}
                 </p>
               ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
-                <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75">
+                <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75 anim-article-enter">
                   Full article content unavailable. Open the original article to
                   read more.
                 </p>
               ) : useRichFormatting ? (
                 <div
-                  className={visibleRichContentClassName}
+                  className={`${visibleRichContentClassName} anim-article-enter`}
                   style={{
                     contain: "layout style paint",
                     willChange: visuallyExpanded ? "auto" : "contents",
@@ -740,7 +725,7 @@ export const ArticleCard = memo(function ArticleCard({
                 />
               ) : (
                 <p
-                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
+                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
                 >
                   {content}
                 </p>
