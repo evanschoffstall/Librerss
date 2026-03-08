@@ -25,7 +25,7 @@ import {
   stripOrphanedRelatedBlocks,
   toPlainText,
 } from "@/lib/sanitize";
-import { parseDateOrNull } from "@/lib/utils/date-utils";
+import { parseDateOrNull } from "@/lib/utils/dates";
 import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { describe, expect, test } from "bun:test";
 

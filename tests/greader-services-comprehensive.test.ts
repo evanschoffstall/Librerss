@@ -176,7 +176,7 @@ describe("api/request helpers", () => {
   test("parseFormOrQueryParams handles GET, urlencoded, multipart fallback paths", async () => {
     const { parseFormOrQueryParams, getSearchParams, asTrimmedString } =
       await import("@/lib/api/http");
-    const { parseDateOrNull } = await import("@/lib/utils/date-utils");
+    const { parseDateOrNull } = await import("@/lib/utils/dates");
 
     const getRequest = new Request("https://example.com/path?x=1&y=2");
     const getParams = await parseFormOrQueryParams(getRequest);
