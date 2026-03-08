@@ -1,4 +1,4 @@
-import { RateLimiter } from "@/lib/server/rate-limit";
+import { RateLimiter } from "@/lib/server";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 

@@ -6,19 +6,19 @@
  * Target: 95%+ coverage (from 59% baseline)
  */
 
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
+import { logger } from "@/lib/logger";
 import {
   logAndRespondError,
+  rateLimiter,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
   requireMutableRequest,
   requireMutableUserAndJsonBody,
-} from "@/lib/server/guards";
+} from "@/lib/server";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
-import { rateLimiter } from "@/lib/server/rate-limit";
-import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
-import { logger } from "@/lib/logger";
 
 beforeEach(() => {
   mock.restore();
