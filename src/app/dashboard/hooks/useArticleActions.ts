@@ -45,7 +45,8 @@ interface UseArticleActionsOptions {
    * to the target. After the CSS transition ends, we release to `false`.
    *
    * - `false` → normal sentinel enforcement.
-   * - `number` → pin mode (ResizeObserver holds scrollTop).
+   * - `number > 0` → pin mode: ResizeObserver holds scrollTop (collapse).
+   * - `-1` → suppress mode: ResizeObserver skips entirely (expand).
    * ─────────────────────────────────────────────────────────────────────
    */
   suppressSnapRef?: React.RefObject<number | false>;
@@ -252,13 +253,15 @@ export function useArticleActions({
           preExpandVpRef.current = vp;
           preExpandTopRef.current = vp.scrollTop;
 
-          // ── Expand scroll-pin ──────────────────────────────────────
-          // Same mechanism as the collapse pin. During the CSS expand
-          // transition, browser scroll anchoring and ResizeObserver
-          // layout adjustments can shift scrollTop. Pin it at the
-          // current position throughout the transition.
+          // ── Expand scroll-suppress ─────────────────────────────────
+          // During the CSS expand transition, the ResizeObserver's
+          // ensureMinOverflow() and sentinel snap-back interfere with
+          // browser scroll anchoring and user scrolling. Setting -1
+          // tells the ResizeObserver to bail entirely — no padding
+          // adjustments, no scrollTop writes. The browser handles
+          // scroll anchoring natively during expansion.
           // ────────────────────────────────────────────────────────────
-          if (suppressSnapRef) suppressSnapRef.current = vp.scrollTop;
+          if (suppressSnapRef) suppressSnapRef.current = -1;
 
           const expandDuration =
             typeof getComputedStyle === "function"
