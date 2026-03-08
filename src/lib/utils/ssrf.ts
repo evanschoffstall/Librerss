@@ -9,16 +9,22 @@
 
 const BLOCKED_HOST_PATTERNS = [
   /^localhost$/i,
-  /^0\.0\.0\.0$/,
-  /^127\./,
-  /^10\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./,
-  /^::1$/i,
-  /^fc[0-9a-f]{2}:/i,
-  /^fd[0-9a-f]{2}:/i,
-  /^fe80:/i,
+  /^0\./, // 0.0.0.0/8 — "This Network" (RFC 1122); 0.0.0.0 routes to localhost on Linux/macOS
+  /^127\./, // 127.0.0.0/8 — IPv4 loopback
+  /^10\./, // 10.0.0.0/8 — RFC 1918 private
+  /^168\.63\.129\.16$/, // 168.63.129.16 — Azure IMDS/fabric address (not in RFC link-local range)
+  /^169\.254\./, // 169.254.0.0/16 — link-local (AWS metadata: 169.254.169.254)
+  /^192\.168\./, // 192.168.0.0/16 — RFC 1918 private
+  /^172\.(1[6-9]|2\d|3[0-1])\./, // 172.16.0.0/12 — RFC 1918 private
+  /^100\.(6[4-9]|[789]\d|1[01]\d|12[0-7])\./, // 100.64.0.0/10 — CGNAT (RFC 6598); reaches cloud/ISP internal infra
+  /^192\.0\.0\./, // 192.0.0.0/24 — IETF protocol assignments (RFC 6890)
+  /^198\.(1[89])\./, // 198.18.0.0/15 — benchmarking (RFC 2544)
+  /^2(?:4[0-9]|5[0-5])\./, // 240.0.0.0/4 — Class E reserved (RFC 1112)
+  /^::$/, // :: — IPv6 unspecified (routes to any/localhost like 0.0.0.0)
+  /^::1$/i, // ::1 — IPv6 loopback
+  /^fc[0-9a-f]{2}:/i, // fc00::/7 — IPv6 ULA (first half)
+  /^fd[0-9a-f]{2}:/i, // fc00::/7 — IPv6 ULA (second half)
+  /^fe80:/i, // fe80::/10 — IPv6 link-local
 ] as const;
 
 function parseIpv4DottedQuad(
