@@ -5,11 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getArticleKey } from "../services/article-collection";
 import {
-  escapeArticleKey,
   useArticleHydration,
   type FeedExtractionSettings,
 } from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
+import { useScrollPin } from "./useScrollPin";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
 
@@ -27,27 +27,8 @@ interface UseArticleActionsOptions {
   /** Called when any article begins expanding; settles scroll restore. */
   onExpand?: () => void;
   /**
-   * ── CRITICAL: Scroll-pin ref (expand & collapse) ───────────────────────
-   * DO NOT REMOVE. This took 10+ iterations to get right.
-   *
-   * Shared ref coordinating useArticleActions ↔ usePullDownToRefresh.
-   *
-   * Problem: during both expand and collapse, the CSS max-height
-   * transition changes scrollHeight progressively. Browser scroll
-   * anchoring and ResizeObserver layout adjustments shift scrollTop,
-   * causing the viewport to jump (typically to the bottom on collapse,
-   * or erratically during expand).
-   *
-   * Solution: set this ref to the current scrollTop at the start of
-   * expand or collapse. The ResizeObserver in usePullDownToRefresh
-   * detects the numeric value and on every resize: (a) pads the bottom
-   * so scrollHeight stays large enough, (b) re-pins viewport.scrollTop
-   * to the target. After the CSS transition ends, we release to `false`.
-   *
-   * - `false` → normal sentinel enforcement.
-   * - `number > 0` → pin mode: ResizeObserver holds scrollTop (collapse).
-   * - `-1` → suppress mode: ResizeObserver skips entirely (expand).
-   * ─────────────────────────────────────────────────────────────────────
+   * Scroll-pin coordinate ref shared with usePullDownToRefresh.
+   * See useScrollPin.ts for the full three-mode protocol documentation.
    */
   suppressSnapRef?: React.RefObject<number | false>;
 }
@@ -138,12 +119,8 @@ export function useArticleActions({
   const feedRef = useRef(feed);
   feedRef.current = feed;
 
+  const scrollPin = useScrollPin(suppressSnapRef);
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
-  /** Cleanup for the in-flight scroll-pin timeout (expand or collapse). */
-  const pinCleanupRef = useRef<(() => void) | null>(null);
-  /** Viewport + scrollTop captured at expand time for collapse scroll-restore. */
-  const preExpandVpRef = useRef<HTMLElement | null>(null);
-  const preExpandTopRef = useRef<number | null>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
     string | null
   >(null);
@@ -152,7 +129,6 @@ export function useArticleActions({
     () => () => {
       if (collapseRemovalTimeoutRef.current !== null)
         window.clearTimeout(collapseRemovalTimeoutRef.current);
-      pinCleanupRef.current?.();
     },
     [],
   );
@@ -172,43 +148,12 @@ export function useArticleActions({
         const link = article.link?.trim();
         if (link) cancelHydration(link);
 
-        // ── Collapse scroll-pin ──────────────────────────────────────
-        // DO NOT REMOVE — this is the fix for the "scroll jumps to bottom
-        // on collapse" bug. See suppressSnapRef JSDoc above for why.
-        //
-        // Pin scrollTop at the pre-expand value. The ResizeObserver in
-        // usePullDownToRefresh holds it stable while the CSS transition
-        // shrinks the card, then we release the pin after transition.
-        // ────────────────────────────────────────────────────────────────
-        pinCleanupRef.current?.();
-        pinCleanupRef.current = null;
-
-        const savedVp = preExpandVpRef.current;
-        const savedTop = preExpandTopRef.current;
-        preExpandVpRef.current = null;
-        preExpandTopRef.current = null;
-
-        const pinTarget = savedTop ?? 104;
-        if (suppressSnapRef) suppressSnapRef.current = pinTarget;
-        if (savedVp) savedVp.scrollTop = pinTarget;
-
-        const collapseDuration =
-          typeof getComputedStyle === "function"
-            ? parseFloat(
-                getComputedStyle(document.body).getPropertyValue(
-                  "--motion-duration-expand",
-                ),
-              ) || 240
-            : 240;
-
-        const releaseId = window.setTimeout(() => {
-          if (suppressSnapRef) suppressSnapRef.current = false;
-        }, collapseDuration + 80);
-
-        pinCleanupRef.current = () => {
-          window.clearTimeout(releaseId);
-          if (suppressSnapRef) suppressSnapRef.current = false;
-        };
+        // Pin scrollTop at the pre-expand value while the card collapses.
+        // See useScrollPin.ts for the full collapse-pin protocol.
+        scrollPin.activateCollapsePin(
+          scrollPin.preExpandViewport.current,
+          scrollPin.preExpandScrollTop.current,
+        );
 
         // Animate removal from the unread filter for read articles.
         const isRemovingFromFilter =
@@ -233,64 +178,15 @@ export function useArticleActions({
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
       }
-      pinCleanupRef.current?.();
-      pinCleanupRef.current = null;
+      scrollPin.cancelPin();
       setCollapsingArticleKey(null);
 
-      // Kill the scroll-restore window.
+      // Settle scroll-restore window before expand layout changes.
       onExpand?.();
 
-      // Capture scroll position before layout changes for collapse restore.
-      preExpandVpRef.current = null;
-      preExpandTopRef.current = null;
-      try {
-        const el = document.querySelector<HTMLElement>(
-          `[data-article-key="${escapeArticleKey(nextArticleKey)}"]`,
-        );
-        const vp =
-          el?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
-        if (el && vp) {
-          preExpandVpRef.current = vp;
-          preExpandTopRef.current = vp.scrollTop;
-
-          // ── Expand scroll-suppress ─────────────────────────────────
-          // During the CSS expand transition, the ResizeObserver's
-          // ensureMinOverflow() and sentinel snap-back interfere with
-          // browser scroll anchoring and user scrolling. Setting -1
-          // tells the ResizeObserver to bail entirely. Released when
-          // the actual max-height transitionend fires on the article
-          // element (NOT a fixed timeout — hydration latency means the
-          // CSS transition starts well after toggle).
-          // ────────────────────────────────────────────────────────────
-          if (suppressSnapRef) suppressSnapRef.current = -1;
-
-          const release = () => {
-            if (suppressSnapRef) suppressSnapRef.current = false;
-          };
-
-          const onTransitionEnd = (e: TransitionEvent) => {
-            if (e.propertyName !== "max-height") return;
-            el.removeEventListener("transitionend", onTransitionEnd);
-            window.clearTimeout(fallbackId);
-            window.setTimeout(release, 80);
-          };
-          el.addEventListener("transitionend", onTransitionEnd);
-
-          // Safety fallback if transitionend never fires.
-          const fallbackId = window.setTimeout(() => {
-            el.removeEventListener("transitionend", onTransitionEnd);
-            release();
-          }, 3000);
-
-          pinCleanupRef.current = () => {
-            el.removeEventListener("transitionend", onTransitionEnd);
-            window.clearTimeout(fallbackId);
-            release();
-          };
-        }
-      } catch {
-        /* ignore */
-      }
+      // Suppress ResizeObserver during CSS expand transition.
+      // See useScrollPin.ts for the full expand-suppress protocol.
+      scrollPin.activateExpandSuppress(nextArticleKey);
 
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
@@ -306,7 +202,7 @@ export function useArticleActions({
       cancelHydration,
       expandedArticleKey,
       onExpand,
-      suppressSnapRef,
+      scrollPin,
       updatingArticleState,
       setExpandedArticleKey,
       setArticleReadState,
