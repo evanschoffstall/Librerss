@@ -176,7 +176,9 @@ describe("db/feed-records", () => {
             onConflictDoNothing: () => ({
               returning: async () => [existingRow],
             }),
-            onConflictDoUpdate: async () => undefined,
+            onConflictDoUpdate: () => ({
+              returning: async () => [existingRow],
+            }),
           };
         },
       }),
