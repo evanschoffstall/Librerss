@@ -33,44 +33,23 @@ export async function findFeedIdByUrl(
   return feed?.id ?? null;
 }
 
-async function findFeedRecordByUrl(
-  executor: FeedDbExecutor,
-  feedUrl: string,
-): Promise<FeedRecordRow | null> {
-  const [feed] = await executor
-    .select(feedRecordFields)
-    .from(feeds)
-    .where(eq(feeds.url, feedUrl))
-    .limit(1);
-
-  return feed ?? null;
-}
-
+// Single-query upsert: always returns the row whether inserted or already existing.
+// ON CONFLICT DO UPDATE with a no-op SET guarantees RETURNING always fires.
 export async function ensureFeedRecordByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
 ): Promise<FeedRecordRow> {
-  const existing = await findFeedRecordByUrl(executor, feedUrl);
-  if (existing) {
-    return existing;
-  }
-
-  const [created] = await executor
+  const [record] = await executor
     .insert(feeds)
     .values({ url: feedUrl })
-    .onConflictDoNothing({ target: feeds.url })
+    .onConflictDoUpdate({ target: feeds.url, set: { url: feedUrl } })
     .returning(feedRecordFields);
 
-  if (created) {
-    return created;
-  }
-
-  const persisted = await findFeedRecordByUrl(executor, feedUrl);
-  if (!persisted) {
+  if (!record) {
     throw new Error("Unable to resolve feed record");
   }
 
-  return persisted;
+  return record;
 }
 
 export async function replaceUserFeedCategory(
