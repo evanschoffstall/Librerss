@@ -113,8 +113,13 @@ export function useArticleActions({
   feedRef.current = feed;
 
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
-  const collapseScrollTimeoutRef = useRef<number | null>(null);
-  const scrollRafRef = useRef(0);
+  const collapseScrollTimerRef = useRef<number | null>(null);
+  const collapseScrollRafRef = useRef(0);
+  // Viewport state captured at expansion time; restored on collapse.
+  const preExpandScrollRef = useRef<{
+    viewport: HTMLElement;
+    top: number;
+  } | null>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
     string | null
   >(null);
@@ -123,44 +128,13 @@ export function useArticleActions({
     () => () => {
       if (collapseRemovalTimeoutRef.current !== null)
         window.clearTimeout(collapseRemovalTimeoutRef.current);
-      if (collapseScrollTimeoutRef.current !== null)
-        window.clearTimeout(collapseScrollTimeoutRef.current);
-      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+      if (collapseScrollTimerRef.current !== null)
+        window.clearTimeout(collapseScrollTimerRef.current);
+      if (collapseScrollRafRef.current)
+        cancelAnimationFrame(collapseScrollRafRef.current);
     },
     [],
   );
-
-  const scrollArticleToTop = useCallback((targetKey: string) => {
-    let el: HTMLElement | null = null;
-    try {
-      el = document.querySelector<HTMLElement>(
-        `[data-article-key="${escapeArticleKey(targetKey)}"]`,
-      );
-    } catch {
-      return;
-    }
-    if (!el) return;
-
-    const viewport = el.closest<HTMLElement>(
-      "[data-radix-scroll-area-viewport]",
-    );
-    if (!viewport) {
-      el.scrollIntoView({ block: "start", behavior: "smooth" });
-      return;
-    }
-
-    const targetScrollTop = Math.max(
-      0,
-      Math.min(
-        viewport.scrollTop +
-          (el.getBoundingClientRect().top -
-            viewport.getBoundingClientRect().top),
-        Math.max(0, viewport.scrollHeight - viewport.clientHeight),
-      ),
-    );
-    if (Math.abs(viewport.scrollTop - targetScrollTop) <= 1) return;
-    viewport.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-  }, []);
 
   const handleArticleToggle = useCallback(
     async (article: Article) => {
@@ -178,44 +152,34 @@ export function useArticleActions({
         const link = article.link?.trim();
         if (link) cancelHydration(link);
 
-        if (collapseScrollTimeoutRef.current !== null) {
-          window.clearTimeout(collapseScrollTimeoutRef.current);
-          collapseScrollTimeoutRef.current = null;
+        if (collapseScrollTimerRef.current !== null) {
+          window.clearTimeout(collapseScrollTimerRef.current);
+          collapseScrollTimerRef.current = null;
         }
-        if (scrollRafRef.current) {
-          cancelAnimationFrame(scrollRafRef.current);
-          scrollRafRef.current = 0;
+        if (collapseScrollRafRef.current) {
+          cancelAnimationFrame(collapseScrollRafRef.current);
+          collapseScrollRafRef.current = 0;
         }
 
-        // In unread filter a just-read article will be animated out — scroll to
-        // the next unread article instead.  Skip if none exists (end of list).
-        const isRemovingFromFilter =
-          articleFilter === "unread" && article.isRead;
-        const nextScrollKey: string | null = isRemovingFromFilter
-          ? (() => {
-              const idx = feedRef.current.findIndex((a) => a.id === article.id);
-              const next =
-                idx >= 0
-                  ? (feedRef.current.slice(idx + 1).find((a) => !a.isRead) ??
-                    null)
-                  : null;
-              return next ? getArticleKey(next) : null;
-            })()
-          : nextArticleKey;
-
-        if (nextScrollKey) {
-          // Fire scroll after the CSS collapse transition (duration-700) then
-          // one rAF to ensure the browser has committed the final layout frame.
-          collapseScrollTimeoutRef.current = window.setTimeout(() => {
-            collapseScrollTimeoutRef.current = null;
-            scrollRafRef.current = requestAnimationFrame(() => {
-              scrollRafRef.current = 0;
-              scrollArticleToTop(nextScrollKey);
+        // Restore scroll position to where it was before the article was expanded.
+        // Wait for the CSS collapse transition (duration-700) then one rAF to
+        // ensure the browser has committed the final layout before reading geometry.
+        const saved = preExpandScrollRef.current;
+        preExpandScrollRef.current = null;
+        if (saved) {
+          collapseScrollTimerRef.current = window.setTimeout(() => {
+            collapseScrollTimerRef.current = null;
+            collapseScrollRafRef.current = requestAnimationFrame(() => {
+              collapseScrollRafRef.current = 0;
+              if (Math.abs(saved.viewport.scrollTop - saved.top) <= 1) return;
+              saved.viewport.scrollTo({ top: saved.top, behavior: "smooth" });
             });
           }, ARTICLE_COLLAPSE_TRANSITION_MS);
         }
 
         // Animate removal from the unread filter for read articles.
+        const isRemovingFromFilter =
+          articleFilter === "unread" && article.isRead;
         if (isRemovingFromFilter) {
           if (collapseRemovalTimeoutRef.current !== null) {
             window.clearTimeout(collapseRemovalTimeoutRef.current);
@@ -236,15 +200,30 @@ export function useArticleActions({
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
       }
-      if (collapseScrollTimeoutRef.current !== null) {
-        window.clearTimeout(collapseScrollTimeoutRef.current);
-        collapseScrollTimeoutRef.current = null;
+      if (collapseScrollTimerRef.current !== null) {
+        window.clearTimeout(collapseScrollTimerRef.current);
+        collapseScrollTimerRef.current = null;
       }
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current);
-        scrollRafRef.current = 0;
+      if (collapseScrollRafRef.current) {
+        cancelAnimationFrame(collapseScrollRafRef.current);
+        collapseScrollRafRef.current = 0;
       }
       setCollapsingArticleKey(null);
+
+      // Capture scroll position before expanding so we can restore it on collapse.
+      try {
+        const el = document.querySelector<HTMLElement>(
+          `[data-article-key="${escapeArticleKey(nextArticleKey)}"]`,
+        );
+        const viewport = el?.closest<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        preExpandScrollRef.current = viewport
+          ? { viewport, top: viewport.scrollTop }
+          : null;
+      } catch {
+        preExpandScrollRef.current = null;
+      }
 
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
@@ -264,7 +243,6 @@ export function useArticleActions({
       setExpandedArticleKey,
       setArticleReadState,
       hydrateArticleContent,
-      scrollArticleToTop,
     ],
   );
 
