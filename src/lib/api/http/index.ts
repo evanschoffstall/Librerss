@@ -6,7 +6,6 @@ export {
 export {
   asTrimmedString,
   getSearchParams,
-  parseDateInput,
   parseFormOrQueryParams,
   parseJsonBody,
   parseJsonBodyOrResponse,

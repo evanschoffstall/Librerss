@@ -49,17 +49,13 @@ export interface BatchFeedResponseItem {
   lastFetchedAt?: Date;
 }
 
-function parseLastFetchedAt(value: unknown): Date | null {
-  return parseDateOrNull(value);
-}
-
 export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
   const candidate =
     item && typeof item === "object"
       ? (item as Record<string, unknown>)
       : ({} as Record<string, unknown>);
 
-  const parsedLastFetchedAt = parseLastFetchedAt(candidate.lastFetchedAt);
+  const parsedLastFetchedAt = parseDateOrNull(candidate.lastFetchedAt);
 
   return {
     url: typeof candidate.url === "string" ? candidate.url : "",
