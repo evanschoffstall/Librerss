@@ -144,17 +144,19 @@ export async function resolveAuthorizedFeedRecords(
 
   const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
   if (missingUrls.length > 0) {
-    await db
+    // Insert missing feed records and get them back in one round-trip.
+    // onConflictDoUpdate with a no-op SET guarantees RETURNING always fires
+    // even when a concurrent insert beat us to it (race-safe).
+    const newFeeds = await db
       .insert(feeds)
       .values(missingUrls.map((url) => ({ url })))
-      .onConflictDoNothing({ target: feeds.url });
+      .onConflictDoUpdate({
+        target: feeds.url,
+        set: { url: sql`excluded.url` },
+      })
+      .returning(feedRecordFields);
 
-    const resolvedFeeds = await db
-      .select(feedRecordFields)
-      .from(feeds)
-      .where(inArray(feeds.url, missingUrls));
-
-    for (const f of resolvedFeeds) feedByUrl.set(f.url, f);
+    for (const f of newFeeds) feedByUrl.set(f.url, f);
   }
 
   return { allowedUrls, feedByUrl };
