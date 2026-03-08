@@ -1,6 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
 import { Rss } from "lucide-react";
+import { memo } from "react";
 import { FeedCategory } from "./feed/FeedCategory";
 
 const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
@@ -15,7 +16,7 @@ type DashboardSidebarContentProps = {
   onFeedClick: (feedNode: CategoryTreeNode) => void;
 };
 
-export function DashboardSidebarContent({
+export const DashboardSidebarContent = memo(function DashboardSidebarContent({
   isCategoriesLoading,
   isSidebarVisible,
   sidebarCategories,
@@ -84,7 +85,7 @@ export function DashboardSidebarContent({
                       category={feedNode}
                       isActive={selectedCategory === feedNode.key}
                       showFavicon={showFavicons}
-                      onClick={() => onFeedClick(feedNode)}
+                      onClick={onFeedClick}
                     />
                   ),
                 )}
@@ -95,4 +96,4 @@ export function DashboardSidebarContent({
       )}
     </>
   );
-}
+});

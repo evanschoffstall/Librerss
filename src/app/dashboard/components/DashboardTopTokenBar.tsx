@@ -2,6 +2,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
+import { memo } from "react";
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
@@ -14,7 +15,7 @@ type DashboardTopTokenBarProps = {
   loading: boolean;
 };
 
-export function DashboardTopTokenBar({
+export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
   articleFilter,
   onArticleFilterChange,
   lastRefreshLabel,
@@ -64,4 +65,4 @@ export function DashboardTopTokenBar({
       </div>
     </div>
   );
-}
+});
