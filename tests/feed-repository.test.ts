@@ -10,6 +10,7 @@ import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import * as realUrlModule from "@/lib/utils/url";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -17,6 +18,9 @@ import {
   mock,
   test,
 } from "bun:test";
+
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
 
 const getFeedRepository = async () => import("@/lib/api/feeds/repository");
 

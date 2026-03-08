@@ -2,6 +2,9 @@ import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
+
 type SelectBehavior = {
   limitResult?: unknown;
   limitError?: unknown;

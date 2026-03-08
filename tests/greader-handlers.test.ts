@@ -17,6 +17,8 @@ import {
 } from "bun:test";
 import { NextRequest } from "next/server";
 
+beforeEach(() => mock.restore());
+
 // Note: This file uses module mocking which violates AGENTS.md guidance
 // but is kept for compatibility during refactoring
 

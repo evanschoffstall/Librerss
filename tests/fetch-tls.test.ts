@@ -12,7 +12,10 @@
  * that must persist across test cases to test state transitions. Each Bun
  * test file runs in its own process, so this cannot leak.
  */
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
 
 // ─── Mutable mock controller ──────────────────────────────────────────────────
 // Allows per-test response sequencing without re-registering mock.module().

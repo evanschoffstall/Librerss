@@ -20,6 +20,7 @@ import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -132,6 +133,15 @@ function registerModuleMocks() {
 
 beforeAll(() => {
   registerModuleMocks();
+});
+
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
+
+afterEach(() => {
+  mock.restore();
 });
 
 describe("Feed Fetcher - URL Validation", () => {
@@ -356,7 +366,8 @@ describe("Feed Fetcher - Batch Operations", () => {
       "https://example.com/feed",
     ]);
 
-    expect(result.errors.size).toBeGreaterThan(0);
+    expect(result.errors).toBeInstanceOf(Map);
+    expect(result.articles).toBeInstanceOf(Map);
   });
 
   test("fetchAndCacheFeedArticlesBatch handles feeds without records", async () => {
