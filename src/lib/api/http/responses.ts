@@ -1,5 +1,5 @@
 import type { Article } from "@/lib/core/types";
-import { parseDateOrNull } from "@/lib/utils/date-utils";
+import { parseDateOrNull } from "@/lib/utils/dates";
 import { NextResponse } from "next/server";
 
 // ── Response builders ─────────────────────────────────────────────────────────
