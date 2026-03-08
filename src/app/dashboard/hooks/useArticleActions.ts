@@ -249,7 +249,7 @@ export function useArticleActions({
         );
         const vp =
           el?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
-        if (vp) {
+        if (el && vp) {
           preExpandVpRef.current = vp;
           preExpandTopRef.current = vp.scrollTop;
 
@@ -257,28 +257,35 @@ export function useArticleActions({
           // During the CSS expand transition, the ResizeObserver's
           // ensureMinOverflow() and sentinel snap-back interfere with
           // browser scroll anchoring and user scrolling. Setting -1
-          // tells the ResizeObserver to bail entirely — no padding
-          // adjustments, no scrollTop writes. The browser handles
-          // scroll anchoring natively during expansion.
+          // tells the ResizeObserver to bail entirely. Released when
+          // the actual max-height transitionend fires on the article
+          // element (NOT a fixed timeout — hydration latency means the
+          // CSS transition starts well after toggle).
           // ────────────────────────────────────────────────────────────
           if (suppressSnapRef) suppressSnapRef.current = -1;
 
-          const expandDuration =
-            typeof getComputedStyle === "function"
-              ? parseFloat(
-                  getComputedStyle(document.body).getPropertyValue(
-                    "--motion-duration-expand",
-                  ),
-                ) || 240
-              : 240;
-
-          const releaseId = window.setTimeout(() => {
+          const release = () => {
             if (suppressSnapRef) suppressSnapRef.current = false;
-          }, expandDuration + 80);
+          };
+
+          const onTransitionEnd = (e: TransitionEvent) => {
+            if (e.propertyName !== "max-height") return;
+            el.removeEventListener("transitionend", onTransitionEnd);
+            window.clearTimeout(fallbackId);
+            window.setTimeout(release, 80);
+          };
+          el.addEventListener("transitionend", onTransitionEnd);
+
+          // Safety fallback if transitionend never fires.
+          const fallbackId = window.setTimeout(() => {
+            el.removeEventListener("transitionend", onTransitionEnd);
+            release();
+          }, 3000);
 
           pinCleanupRef.current = () => {
-            window.clearTimeout(releaseId);
-            if (suppressSnapRef) suppressSnapRef.current = false;
+            el.removeEventListener("transitionend", onTransitionEnd);
+            window.clearTimeout(fallbackId);
+            release();
           };
         }
       } catch {

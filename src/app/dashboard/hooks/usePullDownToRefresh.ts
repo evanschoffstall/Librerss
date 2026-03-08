@@ -177,14 +177,10 @@ export function usePullDownToRefresh(
         ? new ResizeObserver(() => {
             const target = suppressSnapRef?.current;
             if (typeof target === "number") {
-              // Expand suppress: keep padding in sync but don't touch
-              // scrollTop so browser anchoring and user scrolling are
-              // unimpeded. Without this, stale padding gets removed all
-              // at once when suppress releases, causing a scroll clamp.
-              if (target < 0) {
-                ensureMinOverflow();
-                return;
-              }
+              // Expand suppress: bail entirely so neither padding
+              // adjustments nor scrollTop writes fight user scrolling
+              // or browser scroll anchoring during the transition.
+              if (target < 0) return;
               // ── Collapse pin mode ───────────────────────────────────
               // The CSS max-height transition is changing scrollHeight.
               // Ensure enough paddingBottom so the browser never clamps
