@@ -18,14 +18,14 @@ afterEach(() => {
 
 describe("date-utils", () => {
   test("formatRelativeDate returns formatted date string", async () => {
-    const { formatRelativeDate } = await import("@/lib/utils/date-utils");
+    const { formatRelativeDate } = await import("@/lib/utils/dates");
     const now = new Date();
     const result = formatRelativeDate(now);
     expect(result).toMatch(/^Today\s.+/);
   });
 
   test("formatRelativeDate handles past dates", async () => {
-    const { formatRelativeDate } = await import("@/lib/utils/date-utils");
+    const { formatRelativeDate } = await import("@/lib/utils/dates");
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const result = formatRelativeDate(yesterday);
     expect(result).toMatch(/^Yesterday\s.+|^1 days ago$/);
