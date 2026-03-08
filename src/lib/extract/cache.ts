@@ -37,9 +37,20 @@ export function setCachedExtractPayload(
   payload: ExtractResponsePayload,
 ): void {
   if (articleExtractCache.size >= ARTICLE_EXTRACT_CACHE_MAX_ENTRIES) {
-    const oldestKey = articleExtractCache.keys().next().value;
-    if (typeof oldestKey === "string") {
-      articleExtractCache.delete(oldestKey);
+    const now = Date.now();
+    let evicted = false;
+    for (const [k, entry] of articleExtractCache.entries()) {
+      if (entry.expiresAt <= now) {
+        articleExtractCache.delete(k);
+        evicted = true;
+        break;
+      }
+    }
+    if (!evicted) {
+      const oldestKey = articleExtractCache.keys().next().value;
+      if (typeof oldestKey === "string") {
+        articleExtractCache.delete(oldestKey);
+      }
     }
   }
 
