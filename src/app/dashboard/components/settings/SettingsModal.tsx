@@ -99,11 +99,11 @@ function SettingsBody({
         onBackgroundModeChange={onBackgroundModeChange}
       />
 
-      <section className="rounded-lg border bg-card p-4 space-y-4">
+      <section className="settings-card">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <Rss className="size-3.5 text-muted-foreground" />
+            <h3 className="section-heading">
+              <Rss className="icon-muted" />
               Feeds
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">

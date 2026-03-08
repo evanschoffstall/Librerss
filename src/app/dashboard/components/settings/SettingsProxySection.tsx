@@ -132,7 +132,7 @@ function BotResultBadge({ result }: { result: BotResult }) {
 
 function ProxySkeleton() {
   return (
-    <section className="rounded-lg border bg-card p-4 space-y-4">
+    <section className="settings-card">
       <div className="flex items-start justify-between">
         <div className="space-y-1.5">
           <Skeleton className="h-4 w-36" />
@@ -325,12 +325,12 @@ export function SettingsProxySection() {
 
   return (
     <TooltipProvider delayDuration={250}>
-      <section className="rounded-lg border bg-card p-4 space-y-4">
+      <section className="settings-card">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <Globe className="size-3.5 text-muted-foreground" />
+            <h3 className="section-heading">
+              <Globe className="icon-muted" />
               Extraction Proxy
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -453,7 +453,7 @@ export function SettingsProxySection() {
         <Separator />
 
         {/* TLS toggle */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="row-between">
           <div className="flex items-center gap-1.5">
             <Label
               htmlFor="allow-insecure-tls"
@@ -494,7 +494,7 @@ export function SettingsProxySection() {
 
         {/* Anti-bot test */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="row-between">
             <div>
               <p className="text-xs font-medium">Anti-Bot Detection Test</p>
               <p className="text-[11px] text-muted-foreground">
