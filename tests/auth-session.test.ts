@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
+
 type SessionRow = { id: number };
 type UserRow = { id: number; email: string; passwordHash: string };
 type ActiveSessionRow = {
