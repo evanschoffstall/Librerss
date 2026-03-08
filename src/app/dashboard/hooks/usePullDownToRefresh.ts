@@ -28,11 +28,22 @@ const IDLE: PullState = { pulling: false, readyToRefresh: false };
  *
  * Touch-only: wheel/trackpad scroll is clamped at the sentinel boundary
  * so pull-to-refresh only triggers with active touch input.
+ *
+ * ## Collapse scroll-pin (DO NOT REMOVE)
+ *
+ * `suppressSnapRef` coordinates with `useArticleActions` during collapse:
+ * - `false` → normal sentinel snap-back (scrollTop ≥ SENTINEL_HEIGHT).
+ * - `number` → collapse pin mode: the ResizeObserver pins scrollTop to
+ *   this value with enough bottom padding to prevent browser clamping
+ *   while the CSS max-height transition progressively shrinks scrollHeight.
+ *   handleScroll and handleScrollEnd bail out so they don't fight the pin.
+ *   Released back to `false` by useArticleActions after the transition.
  */
 export function usePullDownToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   onRefresh: () => void,
   disabled = false,
+  suppressSnapRef?: React.RefObject<number | false>,
 ) {
   const [state, setState] = useState<PullState>(IDLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -108,10 +119,19 @@ export function usePullDownToRefresh(
     const ensureMinOverflow = () => {
       const height = sh();
       if (height === 0 || !wrapper) return;
-      wrapper.style.paddingBottom = "";
-      const contentHeight = wrapper.offsetHeight;
-      const needed = viewport.clientHeight + height - contentHeight;
-      if (needed > 0) wrapper.style.paddingBottom = `${needed}px`;
+      // Subtract our previously-set paddingBottom from offsetHeight so we
+      // measure only real content.  Never strip-then-add: that transiently
+      // reduces scrollHeight, which browsers use to clamp scrollTop, exposing
+      // the sentinel during expand/collapse animations.
+      const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
+      const contentHeight = wrapper.offsetHeight - currentPad;
+      const needed = Math.max(
+        0,
+        viewport.clientHeight + height - contentHeight,
+      );
+      const next = needed > 0 ? `${needed}px` : "";
+      if (wrapper.style.paddingBottom !== next)
+        wrapper.style.paddingBottom = next;
       syncScrollbar();
     };
 
@@ -135,13 +155,38 @@ export function usePullDownToRefresh(
     const resizeObserver =
       typeof ResizeObserver !== "undefined" && wrapper
         ? new ResizeObserver(() => {
+            const target = suppressSnapRef?.current;
+            if (typeof target === "number") {
+              // ── Scroll-pin mode (expand & collapse) ──────────────────
+              // The CSS max-height transition is changing scrollHeight.
+              // Ensure enough paddingBottom so the browser never clamps
+              // scrollTop below our target, then re-set scrollTop.
+              const height = sh();
+              if (height > 0 && wrapper) {
+                const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
+                const contentHeight = wrapper.offsetHeight - currentPad;
+                const minContent =
+                  viewport.clientHeight + Math.max(height, target);
+                const needed = Math.max(0, minContent - contentHeight);
+                const next = needed > 0 ? `${needed}px` : "";
+                if (wrapper.style.paddingBottom !== next)
+                  wrapper.style.paddingBottom = next;
+                syncScrollbar();
+              }
+              viewport.scrollTop = target;
+              return;
+            }
+            // ── Normal mode ───────────────────────────────────────────
+            const scrollTopBefore = viewport.scrollTop;
             ensureMinOverflow();
             const height = sh();
             if (
               height > 0 &&
+              scrollTopBefore < height &&
               viewport.scrollTop < height &&
               !touchActiveRef.current &&
-              !holdingRef.current
+              !holdingRef.current &&
+              !pullingRef.current
             ) {
               viewport.scrollTop = height;
             }
@@ -172,6 +217,7 @@ export function usePullDownToRefresh(
     };
 
     const handleScroll = () => {
+      if (typeof suppressSnapRef?.current === "number") return;
       const height = sh();
       if (height === 0) return;
 
@@ -234,6 +280,7 @@ export function usePullDownToRefresh(
 
     // When scroll settles inside sentinel without active touch, commit or snap back.
     const handleScrollEnd = () => {
+      if (typeof suppressSnapRef?.current === "number") return;
       if (touchActiveRef.current || holdingRef.current) return;
       commitOrSnapBack();
     };
@@ -268,7 +315,7 @@ export function usePullDownToRefresh(
       viewport.removeEventListener("touchcancel", handleTouchCancel);
       viewport.removeEventListener("scrollend", handleScrollEnd);
     };
-  }, [scrollRootRef]);
+  }, [scrollRootRef, suppressSnapRef]);
 
   useEffect(() => {
     if (!disabled) return;
