@@ -229,6 +229,18 @@ export function stripOrphanedInlineContent(
     .join("");
 }
 
+/**
+ * Strip anchor elements whose inner content contains no visible text and no
+ * img child.  These are left behind when sanitize-html strips non-allowed
+ * children (SVG icons, buttons) from inside a link.
+ */
+export function stripEmptyAnchors(html: string): string {
+  return html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (match, inner: string) => {
+    if (/<img\b/i.test(inner)) return match;
+    return inner.replace(/<[^>]*>/g, "").trim().length === 0 ? "" : match;
+  });
+}
+
 export function escapeHtmlAttribute(value: string): string {
   return value
     .replace(/&/g, "&amp;")

@@ -5,6 +5,7 @@ import {
   normalizeArticleHtmlSpacing,
   stripApJunkBlocks,
   stripEmbeddedMediaBlocks,
+  stripEmptyAnchors,
   stripOrphanedInlineContent,
   stripOrphanedRelatedBlocks,
 } from "./cleaners";
@@ -187,7 +188,9 @@ export function sanitizeArticleHtml(raw: string): string {
     ARTICLE_SANITIZE_OPTIONS,
   );
   return normalizeArticleHtmlSpacing(
-    stripOrphanedInlineContent(stripOrphanedRelatedBlocks(sanitized)),
+    stripOrphanedInlineContent(
+      stripOrphanedRelatedBlocks(stripEmptyAnchors(sanitized)),
+    ),
   );
 }
 
