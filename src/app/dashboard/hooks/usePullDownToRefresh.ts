@@ -159,8 +159,14 @@ export function usePullDownToRefresh(
         ? new ResizeObserver(() => {
             const target = suppressSnapRef?.current;
             if (typeof target === "number") {
-              // Expand suppress: bail entirely, let browser handle scroll.
-              if (target < 0) return;
+              // Expand suppress: keep padding in sync but don't touch
+              // scrollTop so browser anchoring and user scrolling are
+              // unimpeded. Without this, stale padding gets removed all
+              // at once when suppress releases, causing a scroll clamp.
+              if (target < 0) {
+                ensureMinOverflow();
+                return;
+              }
               // ── Collapse pin mode ───────────────────────────────────
               // The CSS max-height transition is changing scrollHeight.
               // Ensure enough paddingBottom so the browser never clamps
@@ -233,6 +239,17 @@ export function usePullDownToRefresh(
 
       if (st >= height) {
         if (pullingRef.current && !holdingRef.current) {
+          pullingRef.current = false;
+          setState(IDLE);
+        }
+        return;
+      }
+
+      // Non-touch scroll entered sentinel zone — clamp immediately.
+      // Pull-to-refresh is touch-only.
+      if (!touchActiveRef.current && !holdingRef.current) {
+        viewport.scrollTop = height;
+        if (pullingRef.current) {
           pullingRef.current = false;
           setState(IDLE);
         }
