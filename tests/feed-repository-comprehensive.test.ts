@@ -52,6 +52,28 @@ const renameFeedSourceForUser = async (
 const deleteFeedSourceForUser = async (userId: number, sourceId: number) =>
   (await getFeedRepository()).deleteFeedSourceForUser(userId, sourceId);
 
+const setFeedSourceEnabledForUser = async (
+  userId: number,
+  sourceId: number,
+  enabled: boolean,
+) =>
+  (await getFeedRepository()).setFeedSourceEnabledForUser(
+    userId,
+    sourceId,
+    enabled,
+  );
+
+const updateFeedSettingsForUser = async (
+  userId: number,
+  sourceId: number,
+  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+) =>
+  (await getFeedRepository()).updateFeedSettingsForUser(
+    userId,
+    sourceId,
+    settings,
+  );
+
 afterAll(() => {
   mock.module("@/lib/db/db", () => realDbModule);
   mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
@@ -678,19 +700,21 @@ describe("Feed Repository - Delete Operations", () => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
-                where: mock(() => ({
-                  for: mock(() => ({
-                    limit: mock(() =>
-                      Promise.resolve([
-                        {
-                          id: 1,
-                          name: "Feed",
-                          url: "https://example.com/feed",
-                        },
-                      ]),
-                    ),
+                leftJoin: mock(() => ({
+                  where: mock(() => ({
+                    for: mock(() => ({
+                      limit: mock(() =>
+                        Promise.resolve([
+                          {
+                            id: 1,
+                            name: "Feed",
+                            url: "https://example.com/feed",
+                            feedId: 1,
+                          },
+                        ]),
+                      ),
+                    })),
                   })),
-                  limit: mock(() => Promise.resolve([{ id: 1 }])),
                 })),
               })),
             })),
@@ -726,11 +750,12 @@ describe("Feed Repository - Delete Operations", () => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
-                where: mock(() => ({
-                  for: mock(() => ({
-                    limit: mock(() => Promise.resolve([])),
+                leftJoin: mock(() => ({
+                  where: mock(() => ({
+                    for: mock(() => ({
+                      limit: mock(() => Promise.resolve([])),
+                    })),
                   })),
-                  limit: mock(() => Promise.resolve([])),
                 })),
               })),
             })),
@@ -752,19 +777,21 @@ describe("Feed Repository - Delete Operations", () => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
-                where: mock(() => ({
-                  for: mock(() => ({
-                    limit: mock(() =>
-                      Promise.resolve([
-                        {
-                          id: 1,
-                          name: "Feed",
-                          url: "https://example.com/feed",
-                        },
-                      ]),
-                    ),
+                leftJoin: mock(() => ({
+                  where: mock(() => ({
+                    for: mock(() => ({
+                      limit: mock(() =>
+                        Promise.resolve([
+                          {
+                            id: 1,
+                            name: "Feed",
+                            url: "https://example.com/feed",
+                            feedId: 1,
+                          },
+                        ]),
+                      ),
+                    })),
                   })),
-                  limit: mock(() => Promise.resolve([{ id: 1 }])),
                 })),
               })),
             })),
@@ -819,19 +846,21 @@ describe("Feed Repository - Delete Operations", () => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
-                where: mock(() => ({
-                  for: mock(() => ({
-                    limit: mock(() =>
-                      Promise.resolve([
-                        {
-                          id: 1,
-                          name: "Feed",
-                          url: "https://example.com/feed",
-                        },
-                      ]),
-                    ),
+                leftJoin: mock(() => ({
+                  where: mock(() => ({
+                    for: mock(() => ({
+                      limit: mock(() =>
+                        Promise.resolve([
+                          {
+                            id: 1,
+                            name: "Feed",
+                            url: "https://example.com/feed",
+                            feedId: null,
+                          },
+                        ]),
+                      ),
+                    })),
                   })),
-                  limit: mock(() => Promise.resolve([])),
                 })),
               })),
             })),
@@ -857,5 +886,153 @@ describe("Feed Repository - Delete Operations", () => {
     const result = await deleteFeedSourceForUser(1, 1);
 
     expect(result).toBeDefined();
+  });
+});
+
+describe("Feed Repository - Settings Operations", () => {
+  test("setFeedSourceEnabledForUser updates enabled flag", async () => {
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        update: mock(() => ({
+          set: mock(() => ({
+            where: mock(() => ({
+              returning: mock(() =>
+                Promise.resolve([
+                  {
+                    id: 4,
+                    name: "Feed",
+                    url: "https://example.com/feed",
+                    enabled: false,
+                    extractionDisabled: false,
+                    proxyEnabled: false,
+                  },
+                ]),
+              ),
+            })),
+          })),
+        })),
+      }),
+    }));
+
+    const result = await setFeedSourceEnabledForUser(1, 4, false);
+    expect(result?.enabled).toBe(false);
+  });
+
+  test("setFeedSourceEnabledForUser returns null when source is missing", async () => {
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        update: mock(() => ({
+          set: mock(() => ({
+            where: mock(() => ({
+              returning: mock(() => Promise.resolve([])),
+            })),
+          })),
+        })),
+      }),
+    }));
+
+    const result = await setFeedSourceEnabledForUser(1, 999, true);
+    expect(result).toBeNull();
+  });
+
+  test("updateFeedSettingsForUser updates both extraction and proxy flags", async () => {
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        update: mock(() => ({
+          set: mock(() => ({
+            where: mock(() => ({
+              returning: mock(() =>
+                Promise.resolve([
+                  {
+                    id: 2,
+                    name: "Feed",
+                    url: "https://example.com/feed",
+                    enabled: true,
+                    extractionDisabled: true,
+                    proxyEnabled: true,
+                  },
+                ]),
+              ),
+            })),
+          })),
+        })),
+      }),
+    }));
+
+    const result = await updateFeedSettingsForUser(1, 2, {
+      extractionDisabled: true,
+      proxyEnabled: true,
+    });
+
+    expect(result?.extractionDisabled).toBe(true);
+    expect(result?.proxyEnabled).toBe(true);
+  });
+
+  test("updateFeedSettingsForUser returns null when no settings are provided", async () => {
+    const result = await updateFeedSettingsForUser(1, 2, {});
+    expect(result).toBeNull();
+  });
+
+  test("updateFeedSettingsForUser returns null when update has no returned rows", async () => {
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        update: mock(() => ({
+          set: mock(() => ({
+            where: mock(() => ({
+              returning: mock(() => Promise.resolve([])),
+            })),
+          })),
+        })),
+      }),
+    }));
+
+    const result = await updateFeedSettingsForUser(1, 2, {
+      extractionDisabled: true,
+    });
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("Feed Repository - Upsert Failure Branch", () => {
+  test("createOrUpdateFeedSource throws when existing source update returns nothing", async () => {
+    const mockTx = {
+      select: mock(() => ({
+        from: mock(() => ({
+          where: mock(() => ({
+            limit: mock(() =>
+              Promise.resolve([
+                {
+                  id: 44,
+                  name: "Old",
+                  url: "https://example.com/feed",
+                  enabled: true,
+                },
+              ]),
+            ),
+          })),
+        })),
+      })),
+      update: mock(() => ({
+        set: mock(() => ({
+          where: mock(() => ({
+            returning: mock(() => Promise.resolve([])),
+          })),
+        })),
+      })),
+      insert: mock(() => ({
+        values: mock(() => ({
+          returning: mock(() => Promise.resolve([])),
+        })),
+      })),
+    } as unknown as FeedTransaction;
+
+    await expect(
+      createOrUpdateFeedSource(mockTx, 1, {
+        name: "Updated",
+        url: "https://example.com/feed",
+        category: "Tech",
+      }),
+    ).rejects.toThrow("Failed to update feed source");
   });
 });
