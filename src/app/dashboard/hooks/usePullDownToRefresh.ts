@@ -33,12 +33,12 @@ const IDLE: PullState = { pulling: false, readyToRefresh: false };
  *
  * `suppressSnapRef` coordinates with `useArticleActions` during collapse:
  * - `false` → normal sentinel snap-back (scrollTop ≥ SENTINEL_HEIGHT).
-   * - `number > 0` → collapse pin mode: the ResizeObserver pins scrollTop to
-   *   this value with enough bottom padding to prevent browser clamping
-   *   while the CSS max-height transition progressively shrinks scrollHeight.
-   * - `-1` → expand suppress mode: the ResizeObserver skips entirely so
-   *   browser scroll anchoring and user scrolling are unimpeded.
-   *   handleScroll and handleScrollEnd bail out in both non-false modes.
+ * - `number > 0` → collapse pin mode: the ResizeObserver pins scrollTop to
+ *   this value with enough bottom padding to prevent browser clamping
+ *   while the CSS max-height transition progressively shrinks scrollHeight.
+ * - `-1` → expand suppress mode: the ResizeObserver skips entirely so
+ *   browser scroll anchoring and user scrolling are unimpeded.
+ *   handleScroll and handleScrollEnd bail out in both non-false modes.
  *   Released back to `false` by useArticleActions after the transition.
  */
 export function usePullDownToRefresh(
