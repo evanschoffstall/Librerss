@@ -1,8 +1,5 @@
 import { getUrlHostnameDisplayLabel, tryGetUrlHostname } from "@/lib/utils/url";
 
-export const getHostnameLabel = (url: string) =>
-  getUrlHostnameDisplayLabel(url, { fallback: url });
-
 type FaviconCacheEntry = { index: number; failedAt?: number };
 const faviconIndexCache = new Map<string, FaviconCacheEntry>();
 // v2: changed from bare index to { index, failedAt } to support TTL on failures
@@ -314,3 +311,5 @@ export const getFaviconUrl = (url: string) => {
   const candidates = getMergedFaviconCandidates(url);
   return candidates[0] ?? "";
 };
+
+export const getHostnameLabel = getUrlHostnameDisplayLabel;
