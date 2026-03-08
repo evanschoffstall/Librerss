@@ -21,7 +21,7 @@ import {
 } from "@/lib/api/greader/constants";
 import { CONFIG } from "@/lib/config";
 import { READ_STATE, STARRED_STATE } from "@/lib/core/stream-ids";
-import { formatRelativeDate } from "@/lib/utils/date-utils";
+import { formatRelativeDate } from "@/lib/utils/dates";
 import { parseOpmlFeedImport } from "@/lib/utils/opml";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 import { describe, expect, test } from "bun:test";

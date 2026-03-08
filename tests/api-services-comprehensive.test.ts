@@ -4,9 +4,9 @@
  */
 
 import {
-  __resetApiClientForTesting,
-  __setApiClientForTesting,
-} from "@/lib/api/http-client";
+  resetApiClientForTesting,
+  setApiClientForTesting,
+} from "@/lib/api/http";
 import { ArticleService, AuthService, FeedService } from "@/lib/api/services";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
@@ -25,11 +25,11 @@ function resetMockAxiosInstance() {
   mockAxiosInstance.put = mock(async () => ({ data: {} }));
   mockAxiosInstance.patch = mock(async () => ({ data: {} }));
   mockAxiosInstance.delete = mock(async () => ({ data: {} }));
-  __setApiClientForTesting(mockAxiosInstance);
+  setApiClientForTesting(mockAxiosInstance);
 }
 
 afterEach(() => {
-  __resetApiClientForTesting();
+  resetApiClientForTesting();
 });
 
 describe("AuthService", () => {
