@@ -7,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { type Article } from "@/lib";
 import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { ArrowDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -119,6 +120,22 @@ export const DashboardView = ({
     usePlaceholderData,
   });
 
+  const customCategoryLabels = categoryManager.customCategoryLabels;
+  const orderedCategoryLabels = categoryManager.orderedCategoryLabels;
+  const setOrderedCategoryLabels = categoryManager.setOrderedCategoryLabels;
+
+  const sentinelScrollOffset = useSentinelScrollOffset();
+  // DO NOT REMOVE — collapse scroll-pin ref. Coordinates useArticleActions
+  // and usePullDownToRefresh to prevent scroll jumping to bottom on collapse.
+  const suppressSnapRef = useRef<number | false>(false);
+  const {
+    ref: feedScrollRef,
+    invalidate: invalidateFeedScroll,
+    capture: captureFeedScroll,
+    settle: settleFeedScroll,
+  } = useScrollRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
+  const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
+
   const articleActions = useArticleActions({
     feed,
     setFeed,
@@ -127,23 +144,54 @@ export const DashboardView = ({
     articleFilter,
     usePlaceholderData,
     categories,
+    onExpand: settleFeedScroll,
+    suppressSnapRef,
   });
 
-  const customCategoryLabels = categoryManager.customCategoryLabels;
-  const orderedCategoryLabels = categoryManager.orderedCategoryLabels;
-  const setOrderedCategoryLabels = categoryManager.setOrderedCategoryLabels;
+  const {
+    handleArticleToggle,
+    handleToggleReadState,
+    handleToggleStarredState,
+  } = articleActions;
 
-  const dashboardViewModel = buildDashboardViewModel({
-    feed,
-    articleFilter,
-    expandedArticleKey,
-    collapsingArticleKey: articleActions.collapsingArticleKey,
-    searchTerm,
-    categories,
-    customCategoryLabels,
-    orderedCategoryLabels,
-    selectedCategory,
-  });
+  const onArticleToggle = useCallback(
+    (article: Article) => void handleArticleToggle(article),
+    [handleArticleToggle],
+  );
+  const onArticleToggleRead = useCallback(
+    (article: Article) => void handleToggleReadState(article),
+    [handleToggleReadState],
+  );
+  const onArticleToggleStarred = useCallback(
+    (article: Article) => void handleToggleStarredState(article),
+    [handleToggleStarredState],
+  );
+
+  const dashboardViewModel = useMemo(
+    () =>
+      buildDashboardViewModel({
+        feed,
+        articleFilter,
+        expandedArticleKey,
+        collapsingArticleKey: articleActions.collapsingArticleKey,
+        searchTerm,
+        categories,
+        customCategoryLabels,
+        orderedCategoryLabels,
+        selectedCategory,
+      }),
+    [
+      feed,
+      articleFilter,
+      expandedArticleKey,
+      articleActions.collapsingArticleKey,
+      searchTerm,
+      categories,
+      customCategoryLabels,
+      orderedCategoryLabels,
+      selectedCategory,
+    ],
+  );
 
   const {
     filteredFeed,
@@ -206,14 +254,6 @@ export const DashboardView = ({
 
   useDashboardBroadcasts({ selectedFeed, searchTerm });
 
-  const sentinelScrollOffset = useSentinelScrollOffset();
-  const {
-    ref: feedScrollRef,
-    invalidate: invalidateFeedScroll,
-    capture: captureFeedScroll,
-  } = useScrollRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
-  const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
-
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
 
@@ -273,7 +313,12 @@ export const DashboardView = ({
     sentinelRef: pullSentinelRef,
     pulling: isPulling,
     readyToRefresh,
-  } = usePullDownToRefresh(feedScrollRootRef, refreshFeedList, loading);
+  } = usePullDownToRefresh(
+    feedScrollRootRef,
+    refreshFeedList,
+    loading,
+    suppressSnapRef,
+  );
 
   const pullRefreshHint = readyToRefresh
     ? "Release to refresh"
@@ -302,15 +347,31 @@ export const DashboardView = ({
     onRefresh: handleRefreshSelection,
   });
 
-  const sidebarProps = {
-    isCategoriesLoading,
-    isSidebarVisible,
-    sidebarCategories,
-    selectedCategory,
-    showFavicons,
-    onCategoryClick: handleCategoryClick,
-    onFeedClick: handleFeedClick,
-  };
+  const handleCloseSettings = useCallback(
+    () => setShowSettingsModal(false),
+    [setShowSettingsModal],
+  );
+
+  const sidebarProps = useMemo(
+    () => ({
+      isCategoriesLoading,
+      isSidebarVisible,
+      sidebarCategories,
+      selectedCategory,
+      showFavicons,
+      onCategoryClick: handleCategoryClick,
+      onFeedClick: handleFeedClick,
+    }),
+    [
+      isCategoriesLoading,
+      isSidebarVisible,
+      sidebarCategories,
+      selectedCategory,
+      showFavicons,
+      handleCategoryClick,
+      handleFeedClick,
+    ],
+  );
 
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+3.8rem)] md:px-6">
@@ -401,15 +462,9 @@ export const DashboardView = ({
                 showFavicons={showFavicons}
                 searchTerm={searchTerm}
                 sentinelRef={sentinelRef}
-                onToggle={(article) =>
-                  void articleActions.handleArticleToggle(article)
-                }
-                onToggleRead={(article) =>
-                  void articleActions.handleToggleReadState(article)
-                }
-                onToggleStarred={(article) =>
-                  void articleActions.handleToggleStarredState(article)
-                }
+                onToggle={onArticleToggle}
+                onToggleRead={onArticleToggleRead}
+                onToggleStarred={onArticleToggleStarred}
               />
             </div>
           </ScrollArea>
@@ -418,7 +473,7 @@ export const DashboardView = ({
 
       {showSettingsModal && (
         <SettingsModal
-          onClose={() => setShowSettingsModal(false)}
+          onClose={handleCloseSettings}
           categories={displayCategories}
           categoryOptions={categoryOptions}
           pendingCategoryRemovalLabel={

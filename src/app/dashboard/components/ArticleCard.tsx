@@ -38,8 +38,10 @@ import {
 import { useTheme } from "next-themes";
 import {
   type KeyboardEvent,
+  memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -64,20 +66,20 @@ interface ArticleCardProps {
   useRichFormatting: boolean;
   hasScrapedContent: boolean;
   isHydrating: boolean;
-  onToggle: () => void;
+  onToggle: (article: Article) => void;
   showFavicon: boolean;
-  onToggleRead: () => void;
-  onToggleStarred: () => void;
+  onToggleRead: (article: Article) => void;
+  onToggleStarred: (article: Article) => void;
   isUpdatingState: boolean;
 }
 
 const iconBtnCls =
-  "inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 
 const iconLinkCls =
-  "inline-flex size-6 items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground";
+  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground";
 
-export const ArticleCard = ({
+export const ArticleCard = memo(function ArticleCard({
   articleKey,
   article,
   isExpanded,
@@ -137,11 +139,10 @@ export const ArticleCard = ({
   const articleRef = useRef<HTMLElement | null>(null);
   const headerZoneRef = useRef<HTMLDivElement | null>(null);
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
-  const pointerPosRef = useRef<{ x: number; y: number } | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
   const { swipeState, containerRef: swipeContainerRef } = useSwipeToRead(() => {
-    if (!article.isRead) onToggleRead();
+    if (!article.isRead) onToggleRead(article);
   }, isUpdatingState || article.isRead);
 
   const shouldBlockArticleInteraction = () =>
@@ -183,7 +184,7 @@ export const ArticleCard = ({
     }
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
-    onToggle();
+    onToggle(article);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -513,7 +514,7 @@ export const ArticleCard = ({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    onToggleRead();
+                    onToggleRead(article);
                   }}
                   disabled={isUpdatingState}
                   aria-label={
@@ -532,7 +533,7 @@ export const ArticleCard = ({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    onToggleStarred();
+                    onToggleStarred(article);
                   }}
                   disabled={isUpdatingState}
                   aria-label={
@@ -897,4 +898,4 @@ export const ArticleCard = ({
       </article>
     </div>
   );
-};
+});
