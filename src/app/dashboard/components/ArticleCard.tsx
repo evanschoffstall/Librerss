@@ -353,10 +353,11 @@ export const ArticleCard = ({
     ? { backgroundSize: `${cw}px ${ch}px`, backgroundPosition: `0px -${cy}px` }
     : {};
 
-  const gradientCls = `absolute inset-0 bg-gradient-to-br transition duration-1000 ${isDark
+  const gradientCls = `absolute inset-0 bg-gradient-to-br transition duration-1000 ${
+    isDark
       ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
       : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
-    } ${isCardHovered ? "opacity-100" : "opacity-0"}`;
+  } ${isCardHovered ? "opacity-100" : "opacity-0"}`;
 
   const copyLinkInputBlock = (
     <div className="rounded-md border bg-muted/30 p-2">
@@ -393,17 +394,20 @@ export const ArticleCard = ({
       {/* Swipe-to-read background indicator */}
       {swipeState.swiping && (
         <div
-          className={`absolute inset-0 z-0 flex items-center rounded-xl transition-colors duration-150 ${swipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
-            }`}
+          className={`absolute inset-0 z-0 flex items-center rounded-xl transition-colors duration-150 ${
+            swipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
+          }`}
         >
           <div className="flex items-center gap-2 pl-4 text-emerald-600 dark:text-emerald-400">
             <CircleCheck
-              className={`size-5 transition-transform duration-150 ${swipeState.committed ? "scale-110" : "scale-90 opacity-60"
-                }`}
+              className={`size-5 transition-transform duration-150 ${
+                swipeState.committed ? "scale-110" : "scale-90 opacity-60"
+              }`}
             />
             <span
-              className={`text-xs font-medium transition-opacity duration-150 ${swipeState.committed ? "opacity-100" : "opacity-0"
-                }`}
+              className={`text-xs font-medium transition-opacity duration-150 ${
+                swipeState.committed ? "opacity-100" : "opacity-0"
+              }`}
             >
               Mark read
             </span>
@@ -439,9 +443,9 @@ export const ArticleCard = ({
           style={
             visuallyExpanded
               ? {
-                WebkitBackdropFilter: "blur(24px)",
-                backdropFilter: "blur(24px)",
-              }
+                  WebkitBackdropFilter: "blur(24px)",
+                  backdropFilter: "blur(24px)",
+                }
               : undefined
           }
         >
@@ -537,10 +541,11 @@ export const ArticleCard = ({
                   className={iconBtnCls}
                 >
                   <Star
-                    className={`size-3.5 ${article.isStarred
+                    className={`size-3.5 ${
+                      article.isStarred
                         ? "fill-current text-amber-400/90 dark:text-amber-300/80"
                         : ""
-                      }`}
+                    }`}
                   />
                 </button>
 
@@ -680,17 +685,17 @@ export const ArticleCard = ({
               onClick={
                 visuallyExpanded
                   ? (e) => {
-                    // Stop propagation only for interactive elements / text selection; blank areas toggle collapse
-                    const el = e.target as HTMLElement;
-                    if (
-                      el.closest(
-                        "a, button, input, textarea, select, [role='button']",
+                      // Stop propagation only for interactive elements / text selection; blank areas toggle collapse
+                      const el = e.target as HTMLElement;
+                      if (
+                        el.closest(
+                          "a, button, input, textarea, select, [role='button']",
+                        )
                       )
-                    )
-                      return e.stopPropagation();
-                    if (window.getSelection()?.toString())
-                      return e.stopPropagation();
-                  }
+                        return e.stopPropagation();
+                      if (window.getSelection()?.toString())
+                        return e.stopPropagation();
+                    }
                   : undefined
               }
               style={{
@@ -700,8 +705,8 @@ export const ArticleCard = ({
                     ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                     : "none",
                 ...(hasOverflow &&
-                  collapsedHeight === expandedHeight &&
-                  !visuallyExpanded
+                collapsedHeight === expandedHeight &&
+                !visuallyExpanded
                   ? { maxHeight: `${collapsedHeight}px` }
                   : {}),
                 contentVisibility: expandTransitionDone ? "auto" : "visible",
