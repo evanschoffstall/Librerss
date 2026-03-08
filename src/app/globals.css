@@ -81,6 +81,11 @@
     --motion-delay-2: 240ms;
     --motion-delay-3: 360ms;
     --motion-delay-step: 120ms;
+
+    --motion-duration-expand: 240ms;
+    --motion-duration-collapse: 160ms;
+    --motion-ease-expand: cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-ease-collapse: cubic-bezier(0.4, 0, 1, 1);
   }
 
   body.motion-profile-snappy {
@@ -105,6 +110,11 @@
     --motion-delay-2: 200ms;
     --motion-delay-3: 300ms;
     --motion-delay-step: 100ms;
+
+    --motion-duration-expand: 160ms;
+    --motion-duration-collapse: 110ms;
+    --motion-ease-expand: cubic-bezier(0.2, 0, 0, 1);
+    --motion-ease-collapse: cubic-bezier(0.5, 0, 1, 0.5);
   }
 
   body.motion-profile-default {
@@ -133,6 +143,11 @@
     --motion-delay-2: 360ms;
     --motion-delay-3: 540ms;
     --motion-delay-step: 160ms;
+
+    --motion-duration-expand: 360ms;
+    --motion-duration-collapse: 240ms;
+    --motion-ease-expand: cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-ease-collapse: cubic-bezier(0.4, 0, 0.6, 1);
   }
 
   .dark {
@@ -329,6 +344,22 @@
 
   .anim-ease-ui {
     transition-timing-function: var(--motion-ease-ui);
+  }
+
+  @keyframes article-content-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .anim-article-enter {
+    animation: article-content-enter var(--motion-duration-expand)
+      var(--motion-ease-expand) 40ms both;
   }
 
   .anim-fade-in-load-slow {
