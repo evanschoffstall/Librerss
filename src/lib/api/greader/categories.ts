@@ -2,7 +2,7 @@ import { getDb } from "@/lib/db/db";
 import { feedCategories, feeds } from "@/lib/db/schema";
 import { toOptionalCategoryLabel } from "@/lib/utils/categories";
 import { toCategoryLookupKey } from "@/lib/utils/url";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 type CategoryRow = {
   category: string;
@@ -30,10 +30,10 @@ export function resolveCategoryWithFallback(
 
 async function maybeLoadCategoryFallback(
   userId: number,
-  rows: Array<{ category?: string | null }>,
+  missingUrls: string[],
 ): Promise<Map<string, string>> {
-  return rows.some((row) => !toOptionalCategoryLabel(row.category))
-    ? loadUserCategoryFallbackByFeedUrl(userId)
+  return missingUrls.length > 0
+    ? loadUserCategoryFallbackByFeedUrls(userId, missingUrls)
     : new Map<string, string>();
 }
 
@@ -42,7 +42,16 @@ export async function withResolvedCategoryByUrl<T extends RowWithCategory>(
   rows: T[],
   getUrl: (row: T) => string | null | undefined,
 ): Promise<Array<Omit<T, "category"> & { category: string | null }>> {
-  const categoryFallbackByUrl = await maybeLoadCategoryFallback(userId, rows);
+  // Collect only the URLs where a fallback lookup is actually needed.
+  const missingUrls = rows
+    .filter((row) => !toOptionalCategoryLabel(row.category))
+    .map((row) => getUrl(row))
+    .filter((url): url is string => !!url);
+
+  const categoryFallbackByUrl = await maybeLoadCategoryFallback(
+    userId,
+    missingUrls,
+  );
   return rows.map((row) => ({
     ...row,
     category: resolveCategoryWithFallback(
@@ -62,8 +71,9 @@ export async function resolveCategoryLabelsByUrl<T extends RowWithCategory>(
   return normalizedRows.map((row) => row.category);
 }
 
-async function loadUserCategoryFallbackByFeedUrl(
+async function loadUserCategoryFallbackByFeedUrls(
   userId: number,
+  feedUrls: string[],
 ): Promise<Map<string, string>> {
   const db = getDb();
   const rows = await db
@@ -73,7 +83,9 @@ async function loadUserCategoryFallbackByFeedUrl(
     })
     .from(feedCategories)
     .innerJoin(feeds, eq(feeds.id, feedCategories.feedId))
-    .where(eq(feedCategories.userId, userId));
+    .where(
+      and(eq(feedCategories.userId, userId), inArray(feeds.url, feedUrls)),
+    );
 
   return buildCategoryFallbackMap(rows);
 }

@@ -106,8 +106,11 @@ export async function renameFeedSourceForUser(
     if (!existingSource) return [];
 
     if (existingSource.url !== normalizedUrl) {
-      const nextFeed = await ensureFeedRecordByUrl(tx, normalizedUrl);
-      const previousFeedId = await findFeedIdByUrl(tx, existingSource.url);
+      // These two lookups are independent — run them concurrently.
+      const [nextFeed, previousFeedId] = await Promise.all([
+        ensureFeedRecordByUrl(tx, normalizedUrl),
+        findFeedIdByUrl(tx, existingSource.url),
+      ]);
       let previousCategory = DEFAULT_CATEGORY_LABEL;
 
       if (previousFeedId) {
@@ -156,28 +159,25 @@ export async function deleteFeedSourceForUser(
   const db = getDb();
 
   const [deletedSource] = await db.transaction(async (tx) => {
+    // Single query: lock feedSource row and fetch its feedId via LEFT JOIN,
+    // eliminating a separate SELECT feeds round-trip.
     const [sourceToDelete] = await tx
-      .select(feedSourceFields)
+      .select({ ...feedSourceFields, feedId: feeds.id })
       .from(feedSources)
+      .leftJoin(feeds, eq(feeds.url, feedSources.url))
       .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
       .for("update")
       .limit(1);
 
     if (!sourceToDelete) return [];
 
-    const [feedForSource] = await tx
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(eq(feeds.url, sourceToDelete.url))
-      .limit(1);
-
-    if (feedForSource) {
+    if (sourceToDelete.feedId) {
       await tx
         .delete(feedCategories)
         .where(
           and(
             eq(feedCategories.userId, userId),
-            eq(feedCategories.feedId, feedForSource.id),
+            eq(feedCategories.feedId, sourceToDelete.feedId),
           ),
         );
     }
