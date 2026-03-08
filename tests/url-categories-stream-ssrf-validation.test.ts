@@ -12,10 +12,7 @@ import {
   parseStreamPaging,
   shouldExcludeReadFromStream,
 } from "@/lib/api/greader/stream-service";
-import {
-  parseReaderStreamItems,
-  readerItemToArticle,
-} from "@/lib/api/reader-mappers";
+import { parseReaderStreamItems, readerItemToArticle } from "@/lib/api/http";
 import { CONFIG, ENV } from "@/lib/config";
 import {
   FEED_STREAM_PREFIX,
