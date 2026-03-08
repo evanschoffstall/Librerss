@@ -534,6 +534,206 @@ describe("Stream Item Contents Handler", () => {
 
     expect(response.status).toBe(200);
   });
+
+  test("returns parse-form error response when body exceeds limit", async () => {
+    const { handleStreamItemContents } =
+      await import("@/lib/api/greader/stream-item-contents");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/items/contents",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "content-length": "70000",
+        },
+        body: "i=tag:google.com,2005:reader/item/00000001",
+      },
+    );
+
+    const response = await handleStreamItemContents(mockUser, request);
+    expect(response.status).toBe(413);
+  });
+
+  test("sorts mapped items to requested article id order", async () => {
+    const rows = [
+      {
+        articleId: 2,
+        title: "Second",
+        link: "https://example.com/2",
+        content: "<p>2</p>",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        sourceName: "Feed",
+        sourceUrl: "https://example.com/feed",
+        category: "Tech",
+        isRead: false,
+        isStarred: false,
+      },
+      {
+        articleId: 1,
+        title: "First",
+        link: "https://example.com/1",
+        content: "<p>1</p>",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        sourceName: "Feed",
+        sourceUrl: "https://example.com/feed",
+        category: "Tech",
+        isRead: false,
+        isStarred: false,
+      },
+    ];
+
+    const queryChain = {
+      innerJoin: mock(() => queryChain),
+      leftJoin: mock(() => queryChain),
+      where: mock(async () => rows),
+    };
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: mock(() => ({ from: mock(() => queryChain) })),
+      }),
+    }));
+
+    mock.module("@/lib/core/article-status", () => ({
+      canUseArticleStatusesTable: mock(async () => true),
+      upsertArticleStatuses: mock(async () => {}),
+    }));
+
+    const { handleStreamItemContents } =
+      await import("@/lib/api/greader/stream-item-contents");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/items/contents?i=tag:google.com,2005:reader/item/00000001&i=tag:google.com,2005:reader/item/00000002",
+    );
+
+    const response = await handleStreamItemContents(mockUser, request);
+    const payload = (await response.json()) as { items: Array<{ id: string }> };
+
+    expect(response.status).toBe(200);
+    expect(payload.items.map((item) => item.id)).toEqual([
+      "tag:google.com,2005:reader/item/1",
+      "tag:google.com,2005:reader/item/2",
+    ]);
+  });
+});
+
+describe("Stream Item IDs Handler", () => {
+  beforeEach(() => {
+    mock.restore();
+    registerBaseMocks();
+  });
+
+  test("returns empty result for starred stream when article-status table is unavailable", async () => {
+    mock.module("@/lib/core/article-status", () => ({
+      canUseArticleStatusesTable: mock(async () => false),
+      upsertArticleStatuses: mock(async () => {}),
+    }));
+
+    const { handleStreamItemIds } =
+      await import("@/lib/api/greader/stream-item-ids");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/starred",
+    );
+
+    const response = await handleStreamItemIds(mockUser, request);
+    const payload = (await response.json()) as {
+      itemRefs: Array<{ id: string }>;
+      continuation?: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.itemRefs).toEqual([]);
+    expect(payload.continuation).toBeUndefined();
+  });
+
+  test("retries without article-status join when relation is missing", async () => {
+    const queryResults: Array<unknown[] | Error> = [
+      Object.assign(new Error('relation "ArticleStatus" does not exist'), {
+        code: "42P01",
+      }),
+      [{ articleId: 25, isRead: false, isStarred: false }],
+    ];
+
+    const queryChain = {
+      innerJoin: mock(() => queryChain),
+      leftJoin: mock(() => queryChain),
+      where: mock(() => queryChain),
+      orderBy: mock(() => queryChain),
+      limit: mock(() => queryChain),
+      offset: mock(async () => {
+        const next = queryResults.shift() ?? [];
+        if (next instanceof Error) {
+          throw next;
+        }
+        return next;
+      }),
+    };
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: mock(() => ({ from: mock(() => queryChain) })),
+      }),
+    }));
+
+    mock.module("@/lib/core/article-status", () => ({
+      canUseArticleStatusesTable: mock(async () => true),
+      upsertArticleStatuses: mock(async () => {}),
+    }));
+
+    const { handleStreamItemIds } =
+      await import("@/lib/api/greader/stream-item-ids");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&n=1",
+    );
+
+    const response = await handleStreamItemIds(mockUser, request);
+    const payload = (await response.json()) as {
+      itemRefs: Array<{ id: string }>;
+      continuation?: string;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.itemRefs).toEqual([{ id: "25" }]);
+    expect(payload.continuation).toBe("25");
+  });
+
+  test("rethrows non-relation query errors", async () => {
+    const queryChain = {
+      innerJoin: mock(() => queryChain),
+      leftJoin: mock(() => queryChain),
+      where: mock(() => queryChain),
+      orderBy: mock(() => queryChain),
+      limit: mock(() => queryChain),
+      offset: mock(async () => {
+        throw new Error("query failed");
+      }),
+    };
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: mock(() => ({ from: mock(() => queryChain) })),
+      }),
+    }));
+
+    mock.module("@/lib/core/article-status", () => ({
+      canUseArticleStatusesTable: mock(async () => true),
+      upsertArticleStatuses: mock(async () => {}),
+    }));
+
+    const { handleStreamItemIds } =
+      await import("@/lib/api/greader/stream-item-ids");
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list",
+    );
+
+    await expect(handleStreamItemIds(mockUser, request)).rejects.toThrow(
+      "query failed",
+    );
+  });
 });
 
 describe("Tag Handler", () => {

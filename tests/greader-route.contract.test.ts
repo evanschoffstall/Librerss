@@ -441,4 +441,218 @@ describe("greader route compatibility contracts", () => {
     expect(labelIds).toContain("user/-/label/My Feeds");
     expect(labelIds).toContain("user/-/label/World");
   });
+
+  test("user-info endpoint returns authenticated identity payload", async () => {
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/user-info",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "user-info"],
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      userId: string;
+      userName: string;
+      userEmail: string;
+      isBloggerUser: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.userId).toBe(String(PLACEHOLDER_ADMIN_USER.id));
+    expect(payload.userName).toBe(PLACEHOLDER_ADMIN_USER.email);
+    expect(payload.userEmail).toBe(PLACEHOLDER_ADMIN_USER.email);
+    expect(payload.isBloggerUser).toBe(false);
+  });
+
+  test("unknown reader resource returns not found", async () => {
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/unknown/resource",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "unknown", "resource"],
+      }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("non-reader and non-client routes return not found", async () => {
+    const { GET } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/not-a-reader-route",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({ segments: ["not-a-reader-route"] }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  test("mutating bearer POST requires valid edit token", async () => {
+    const { POST } = await routeModulePromise;
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/edit-tag",
+      {
+        method: "POST",
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: "i=tag:google.com,2005:reader/item/1&a=user/-/state/com.google/starred",
+      },
+    );
+
+    const response = await POST(request, {
+      params: Promise.resolve({ segments: ["reader", "api", "0", "edit-tag"] }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe("Error=InvalidToken\n");
+  });
+
+  test("read-only POST resource bypasses edit token validation", async () => {
+    selectBehaviors.push(
+      { whereResult: [{ url: "https://one.example/rss.xml" }] },
+      { whereResult: [{ articleId: 11, isRead: false, isStarred: false }] },
+    );
+
+    const { POST } = await routeModulePromise;
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&n=1",
+      {
+        method: "POST",
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
+    );
+
+    const response = await POST(request, {
+      params: Promise.resolve({
+        segments: ["reader", "api", "0", "stream", "items", "ids"],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+  });
+
+  test("stream/contents resources are dispatched by prefix match", async () => {
+    selectBehaviors.push(
+      { whereResult: [{ url: "https://one.example/rss.xml" }] },
+      {
+        whereResult: [
+          {
+            articleId: 101,
+            title: "From stream contents",
+            link: "https://one.example/articles/101",
+            content: "<p>hello</p>",
+            publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+            sourceName: "One",
+            sourceUrl: "https://one.example/rss.xml",
+            category: null,
+            isRead: false,
+            isStarred: false,
+          },
+        ],
+        offsetResult: [
+          {
+            articleId: 101,
+            title: "From stream contents",
+            link: "https://one.example/articles/101",
+            content: "<p>hello</p>",
+            publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+            sourceName: "One",
+            sourceUrl: "https://one.example/rss.xml",
+            category: null,
+            isRead: false,
+            isStarred: false,
+          },
+        ],
+      },
+      { whereResult: [] },
+    );
+
+    const { GET } = await routeModulePromise;
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/stream/contents/user/-/state/com.google/reading-list?n=1",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        segments: [
+          "reader",
+          "api",
+          "0",
+          "stream",
+          "contents",
+          "user",
+          "-",
+          "state",
+          "com.google",
+          "reading-list",
+        ],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+  });
+
+  test("token endpoint returns 500 when AUTH_SECRET is missing", async () => {
+    const previousAuthSecret = process.env.AUTH_SECRET;
+    delete process.env.AUTH_SECRET;
+    mock.restore();
+    registerDbMock();
+
+    const moduleWithMissingSecret = await import(
+      `@/app/api/greader.php/[...segments]/route?missing-auth-secret=${Date.now()}`
+    );
+
+    const request = new NextRequest(
+      "https://example.com/api/greader.php/reader/api/0/token",
+      {
+        headers: {
+          authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+        },
+      },
+    );
+
+    await expect(
+      moduleWithMissingSecret.GET(request, {
+        params: Promise.resolve({ segments: ["reader", "api", "0", "token"] }),
+      }),
+    ).rejects.toThrow("AUTH_SECRET");
+    process.env.AUTH_SECRET = previousAuthSecret;
+  });
 });
