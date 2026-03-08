@@ -3,7 +3,16 @@
  * Tests for src/app/api/feeds/
  */
 
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { createMockFeed, createMockRequest } from "./support/test-utils";
 
 const createSelectChain = () => ({
@@ -58,6 +67,15 @@ const routeDeps = {
 
 beforeAll(() => {
   registerModuleMocks();
+});
+
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
+
+afterEach(() => {
+  mock.restore();
 });
 
 afterAll(() => {
