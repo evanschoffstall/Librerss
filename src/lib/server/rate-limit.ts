@@ -102,9 +102,11 @@ export class RateLimiter {
     if (this._trustedProxyCount === undefined) {
       const raw = Number(process.env.TRUSTED_PROXY_COUNT ?? "1");
       if (!Number.isFinite(raw)) {
-        throw new Error(
-          `Invalid TRUSTED_PROXY_COUNT: "${process.env.TRUSTED_PROXY_COUNT}". Must be a number.`,
+        logger.error(
+          `Invalid TRUSTED_PROXY_COUNT: "${process.env.TRUSTED_PROXY_COUNT}". Defaulting to 1.`,
         );
+        this._trustedProxyCount = 1;
+        return "unknown";
       }
       this._trustedProxyCount = Math.max(0, raw);
     }
