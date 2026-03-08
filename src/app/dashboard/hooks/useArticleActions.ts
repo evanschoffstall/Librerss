@@ -9,10 +9,11 @@ import {
   useArticleHydration,
   type FeedExtractionSettings,
 } from "./useArticleHydration";
-import { getNextArticle } from "./useArticleNavigation";
 import { useArticleReadState } from "./useArticleReadState";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
+// Must match CSS `duration-700` on the ArticleCard container transition.
+const ARTICLE_COLLAPSE_TRANSITION_MS = 700;
 
 export const toggleReadStatus = (isRead: boolean) => !isRead;
 export const toggleStarredStatus = (isStarred: boolean) => !isStarred;
@@ -113,18 +114,18 @@ export function useArticleActions({
 
   const collapseRemovalTimeoutRef = useRef<number | null>(null);
   const collapseScrollTimeoutRef = useRef<number | null>(null);
+  const scrollRafRef = useRef(0);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
     string | null
   >(null);
 
   useEffect(
     () => () => {
-      if (collapseRemovalTimeoutRef.current !== null) {
+      if (collapseRemovalTimeoutRef.current !== null)
         window.clearTimeout(collapseRemovalTimeoutRef.current);
-      }
-      if (collapseScrollTimeoutRef.current !== null) {
+      if (collapseScrollTimeoutRef.current !== null)
         window.clearTimeout(collapseScrollTimeoutRef.current);
-      }
+      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
     },
     [],
   );
@@ -136,18 +137,7 @@ export function useArticleActions({
         `[data-article-key="${escapeArticleKey(targetKey)}"]`,
       );
     } catch {
-      el = null;
-    }
-    if (!el) {
-      for (const candidate of Array.from(document.getElementsByTagName("*"))) {
-        if (
-          candidate instanceof HTMLElement &&
-          candidate.getAttribute("data-article-key") === targetKey
-        ) {
-          el = candidate;
-          break;
-        }
-      }
+      return;
     }
     if (!el) return;
 
@@ -190,23 +180,43 @@ export function useArticleActions({
 
         if (collapseScrollTimeoutRef.current !== null) {
           window.clearTimeout(collapseScrollTimeoutRef.current);
-        }
-        // After the collapse CSS transition (~150–240ms), scroll to the top of the
-        // target article: keep position in read filter, otherwise next if already read.
-        const nextArticle =
-          articleFilter === "unread" && article.isRead
-            ? getNextArticle(feedRef.current, article.id)
-            : null;
-        const scrollTargetKey = nextArticle
-          ? getArticleKey(nextArticle)
-          : nextArticleKey;
-        collapseScrollTimeoutRef.current = window.setTimeout(() => {
-          scrollArticleToTop(scrollTargetKey);
           collapseScrollTimeoutRef.current = null;
-        }, 700);
+        }
+        if (scrollRafRef.current) {
+          cancelAnimationFrame(scrollRafRef.current);
+          scrollRafRef.current = 0;
+        }
 
-        // Schedule animated removal from the unread filter for read articles
-        if (articleFilter === "unread" && article.isRead) {
+        // In unread filter a just-read article will be animated out — scroll to
+        // the next unread article instead.  Skip if none exists (end of list).
+        const isRemovingFromFilter =
+          articleFilter === "unread" && article.isRead;
+        const nextScrollKey: string | null = isRemovingFromFilter
+          ? (() => {
+              const idx = feedRef.current.findIndex((a) => a.id === article.id);
+              const next =
+                idx >= 0
+                  ? (feedRef.current.slice(idx + 1).find((a) => !a.isRead) ??
+                    null)
+                  : null;
+              return next ? getArticleKey(next) : null;
+            })()
+          : nextArticleKey;
+
+        if (nextScrollKey) {
+          // Fire scroll after the CSS collapse transition (duration-700) then
+          // one rAF to ensure the browser has committed the final layout frame.
+          collapseScrollTimeoutRef.current = window.setTimeout(() => {
+            collapseScrollTimeoutRef.current = null;
+            scrollRafRef.current = requestAnimationFrame(() => {
+              scrollRafRef.current = 0;
+              scrollArticleToTop(nextScrollKey);
+            });
+          }, ARTICLE_COLLAPSE_TRANSITION_MS);
+        }
+
+        // Animate removal from the unread filter for read articles.
+        if (isRemovingFromFilter) {
           if (collapseRemovalTimeoutRef.current !== null) {
             window.clearTimeout(collapseRemovalTimeoutRef.current);
           }
@@ -221,7 +231,7 @@ export function useArticleActions({
         return;
       }
 
-      // Expanding: cancel any in-progress collapse animation first
+      // Expanding: cancel any in-progress collapse animation/scroll first.
       if (collapseRemovalTimeoutRef.current !== null) {
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
@@ -229,6 +239,10 @@ export function useArticleActions({
       if (collapseScrollTimeoutRef.current !== null) {
         window.clearTimeout(collapseScrollTimeoutRef.current);
         collapseScrollTimeoutRef.current = null;
+      }
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = 0;
       }
       setCollapsingArticleKey(null);
 
