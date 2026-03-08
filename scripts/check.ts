@@ -1,7 +1,7 @@
-import "ts-morph";
 import { existsSync, readFileSync } from "node:fs";
 import { availableParallelism, cpus } from "node:os";
 import { join } from "node:path";
+import "ts-morph";
 
 // ---------------------------------------------------------------------------
 // Config types
