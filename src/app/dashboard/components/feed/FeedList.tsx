@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
 import { Loader2, SearchX, Sparkles } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
@@ -24,7 +24,7 @@ interface FeedListProps {
   onToggleStarred: (article: Article) => void;
 }
 
-export function FeedList({
+export const FeedList = memo(function FeedList({
   loading,
   filteredFeed,
   visibleCount,
@@ -213,9 +213,9 @@ export function FeedList({
                   isHydrating={Boolean(hydratingArticleLinks[articleLink])}
                   isUpdatingState={Boolean(updatingArticleState[cardKey])}
                   showFavicon={showFavicons}
-                  onToggle={() => onToggle(article)}
-                  onToggleRead={() => onToggleRead(article)}
-                  onToggleStarred={() => onToggleStarred(article)}
+                  onToggle={onToggle}
+                  onToggleRead={onToggleRead}
+                  onToggleStarred={onToggleStarred}
                 />
               </div>
             );
@@ -229,4 +229,4 @@ export function FeedList({
       )}
     </>
   );
-}
+});
