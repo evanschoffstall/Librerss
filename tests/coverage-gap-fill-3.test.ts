@@ -1193,6 +1193,14 @@ describe("lib/server/proxy – normalizeProxyUrl additional branches", () => {
 
 // ── lib/extract/upstream – fetchHtml DI paths ─────────────────────────────────
 
+/* Type-safe helpers for fetchHtml DI mocks */
+type AxiosGet = typeof import("axios").default.get;
+type AxiosIsError = typeof import("axios").default.isAxiosError;
+const asAxiosGet = (fn: (...args: unknown[]) => unknown) =>
+  fn as unknown as AxiosGet;
+const asIsAxiosError = (fn: (...args: unknown[]) => boolean) =>
+  fn as unknown as AxiosIsError;
+
 describe("lib/extract/upstream – fetchHtml injectable paths", () => {
   test("throws when URL is rejected by isAllowedFeedUrlFn", async () => {
     const { fetchHtml } = await import("@/lib/extract/upstream");
@@ -1201,7 +1209,7 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
         "https://blocked.example.com/feed",
         {
           isAllowedFeedUrlFn: async () => false,
-          axiosGetFn: async () => ({ data: "<html/>" }),
+          axiosGetFn: asAxiosGet(async () => ({ data: "<html/>" })),
         },
         {},
       ),
@@ -1214,14 +1222,10 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
       "https://example.com/article",
       {
         isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: () => false,
-        axiosGetFn: async (_url: string) => ({
+        isAxiosErrorFn: asIsAxiosError(() => false),
+        axiosGetFn: asAxiosGet(async () => ({
           data: "<html><body>hello</body></html>",
-          status: 200,
-          headers: {},
-          config: {},
-          statusText: "OK",
-        }),
+        })),
       },
       {},
     );
@@ -1252,10 +1256,10 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
         "https://example.com/article",
         {
           isAllowedFeedUrlFn: async () => true,
-          isAxiosErrorFn: () => false,
-          axiosGetFn: async () => {
+          isAxiosErrorFn: asIsAxiosError(() => false),
+          axiosGetFn: asAxiosGet(async () => {
             throw err;
-          },
+          }),
         },
         {},
       ),
