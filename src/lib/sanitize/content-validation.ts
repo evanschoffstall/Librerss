@@ -46,6 +46,61 @@ function stripShareEngagementToolbars(content: string): string {
   });
 }
 
+/**
+ * Known file extensions that appear in download-widget size descriptors
+ * such as "JPEG (82.95 KB)" or "MOV (3.33 MB)".
+ */
+const FILE_DOWNLOAD_EXTENSIONS = new Set([
+  "jpeg",
+  "jpg",
+  "png",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "tif",
+  "tiff",
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "mp3",
+  "mp4",
+  "mov",
+  "avi",
+  "mkv",
+  "ogg",
+  "wav",
+  "flac",
+  "zip",
+  "tar",
+  "gz",
+  "7z",
+  "rar",
+  "json",
+  "xml",
+  "csv",
+  "txt",
+]);
+/** Anchored, non-backtracking: extension + whitespace + parenthesised size. */
+const FILE_SIZE_SUFFIX_RE = /^([a-z0-9]{2,5})\s*\(\d[\d.]*\s*[KMGT]?B\)$/i;
+
+function isFileTypeSizeText(text: string): boolean {
+  const m = FILE_SIZE_SUFFIX_RE.exec(text);
+  return m !== null && FILE_DOWNLOAD_EXTENSIONS.has(m[1]!.toLowerCase());
+}
+
+function stripFileDownloadBoilerplate(content: string): string {
+  return content.replace(
+    /<p\b[^>]*>([\s\S]*?)<\/p>/gi,
+    (match, inner: string) =>
+      isFileTypeSizeText(inner.replace(/<[^>]*>/g, "").trim()) ? "" : match,
+  );
+}
+
 /** Promotional / call-to-action pattern (cross-site generic). */
 const PROMO_CTA_RE =
   /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google|reader[-\s]supported\s+publication|to\s+receive\s+new\s+posts|consider\s+becoming\s+a\s+subscriber/i;
@@ -176,8 +231,12 @@ export function cleanSanitizedHtml(
 
   const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
 
-  const withoutEngagementPrompts =
-    stripCommentEngagementBoilerplate(withoutShareToolbars);
+  const withoutFileBoilerplate =
+    stripFileDownloadBoilerplate(withoutShareToolbars);
+
+  const withoutEngagementPrompts = stripCommentEngagementBoilerplate(
+    withoutFileBoilerplate,
+  );
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 

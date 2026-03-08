@@ -14,6 +14,7 @@ const RELATED_HEADING_EXACT_PREFIXES = [
   "trending now",
   "popular now",
   "from our partners",
+  "downloads",
 ] as const;
 
 const RELATED_HEADING_RELATED_PREFIXES = [
