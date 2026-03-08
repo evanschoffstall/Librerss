@@ -264,7 +264,7 @@ export const SettingsModal = ({
               {TITLE}
             </DrawerTitle>
             <DrawerDescription>{DESCRIPTION}</DrawerDescription>
-            <DrawerClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
+            <DrawerClose className="absolute right-4 top-4 cursor-pointer rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </DrawerClose>

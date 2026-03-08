@@ -208,7 +208,7 @@ export function SettingsFeedRow({
           className={`min-w-0 flex-1 ${movingFeedKey === feedNode.key || !isEnabled ? "opacity-60" : ""}`}
         >
           <p
-            className={`truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}
+            className={`cursor-pointer truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}
             onDoubleClick={(event) => {
               event.stopPropagation();
               onStartEditing(
@@ -223,7 +223,7 @@ export function SettingsFeedRow({
           </p>
           {feedNode.data?.url && (
             <p
-              className="truncate select-text text-xs text-muted-foreground/70"
+              className="cursor-text truncate select-text text-xs text-muted-foreground/70"
               onDoubleClick={(event) => {
                 event.stopPropagation();
                 onStartEditing(
