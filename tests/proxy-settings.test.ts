@@ -17,6 +17,8 @@ import { fetchHtml } from "@/lib/extract";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+afterEach(() => mock.restore());
+
 beforeEach(() => {
   mock.restore();
 });

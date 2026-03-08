@@ -10,6 +10,8 @@ import type { SessionUser } from "@/lib/auth/session";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+beforeEach(() => mock.restore());
+
 beforeEach(() => {
   mock.restore();
   resetArticleStatusTableStateForTests();
