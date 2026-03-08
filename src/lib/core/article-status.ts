@@ -120,26 +120,30 @@ export async function upsertArticleStatuses(
   }));
 
   // Process in chunks of 500 to stay within PG parameter limits.
+  // Wrap all chunks in a single transaction so a partial failure doesn't leave
+  // some articles marked read/starred while others are not.
   const CHUNK_SIZE = 500;
-  for (let i = 0; i < values.length; i += CHUNK_SIZE) {
-    const chunk = values.slice(i, i + CHUNK_SIZE);
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < values.length; i += CHUNK_SIZE) {
+      const chunk = values.slice(i, i + CHUNK_SIZE);
 
-    await db
-      .insert(articleStatuses)
-      .values(chunk)
-      .onConflictDoUpdate({
-        target: [articleStatuses.userId, articleStatuses.articleId],
-        set: {
-          isRead:
-            changes.isRead !== undefined
-              ? changes.isRead
-              : sql`${articleStatuses.isRead}`,
-          isStarred:
-            changes.isStarred !== undefined
-              ? changes.isStarred
-              : sql`${articleStatuses.isStarred}`,
-          updatedAt: now,
-        },
-      });
-  }
+      await tx
+        .insert(articleStatuses)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [articleStatuses.userId, articleStatuses.articleId],
+          set: {
+            isRead:
+              changes.isRead !== undefined
+                ? changes.isRead
+                : sql`${articleStatuses.isRead}`,
+            isStarred:
+              changes.isStarred !== undefined
+                ? changes.isStarred
+                : sql`${articleStatuses.isStarred}`,
+            updatedAt: now,
+          },
+        });
+    }
+  });
 }
