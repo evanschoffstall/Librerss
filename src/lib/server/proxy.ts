@@ -18,6 +18,9 @@ export type ProxySettingsResponse = {
 };
 
 export const MAX_PROXY_URL_LENGTH = 2048;
+// Proxy credential fields are stored in DB columns of type text (unbounded).
+// Cap them to a reasonable value to prevent oversized writes via the API.
+export const MAX_PROXY_CREDENTIAL_LENGTH = 255;
 
 const VALID_PROTOCOLS = new Set(["http:", "https:", ...SOCKS_PROTOCOLS]);
 const BARE_HOST_PORT_RE = /^[\w.-]+:\d{1,5}$/;
