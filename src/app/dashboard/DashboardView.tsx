@@ -504,6 +504,7 @@ export const DashboardView = ({
           onRenameFeed={categoryManager.renameFeedSource}
           onSetFeedEnabled={categoryManager.setFeedSourceEnabled}
           onUpdateFeedSettings={categoryManager.updateFeedSettings}
+          isPreviewMode={usePlaceholderData}
         />
       )}
     </div>
