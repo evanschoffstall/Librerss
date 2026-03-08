@@ -1,9 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
-import { Loader2, RefreshCw, SearchX, Sparkles, X } from "lucide-react";
+import { Loader2, SearchX, Sparkles } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
@@ -23,8 +22,6 @@ interface FeedListProps {
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
-  onClearSearch: () => void;
-  onRefresh: () => void;
 }
 
 export function FeedList({
@@ -41,8 +38,6 @@ export function FeedList({
   onToggle,
   onToggleRead,
   onToggleStarred,
-  onClearSearch,
-  onRefresh,
 }: FeedListProps) {
   const visibleFeed = useMemo(
     () => filteredFeed.slice(0, visibleCount),
@@ -190,18 +185,6 @@ export function FeedList({
                 )}
               </p>
             </div>
-
-            {searchTerm ? (
-              <Button variant="outline" size="sm" onClick={onClearSearch}>
-                <X className="size-3.5" />
-                Clear search
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={onRefresh}>
-                <RefreshCw className="size-3.5" />
-                Refresh feeds
-              </Button>
-            )}
           </div>
         </div>
       ) : (

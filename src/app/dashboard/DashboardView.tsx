@@ -410,8 +410,6 @@ export const DashboardView = ({
                 onToggleStarred={(article) =>
                   void articleActions.handleToggleStarredState(article)
                 }
-                onClearSearch={() => setSearchTerm("")}
-                onRefresh={refreshFeedList}
               />
             </div>
           </ScrollArea>
