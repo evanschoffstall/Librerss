@@ -68,18 +68,20 @@ export function useArticleHeights(
   const [expandedHeight, setExpandedHeight] = useState(0);
 
   useEffect(() => {
+    const previewEl = previewRef.current;
+    const fullEl = fullContentRef.current;
+    if (!previewEl || !fullEl) return;
+
     const measure = () => {
-      if (!previewRef.current || !fullContentRef.current) {
-        setCollapsedHeight(0);
-        setExpandedHeight(0);
-        return;
-      }
-      setCollapsedHeight(previewRef.current.scrollHeight);
-      setExpandedHeight(fullContentRef.current.scrollHeight);
+      setCollapsedHeight(previewEl.scrollHeight);
+      setExpandedHeight(fullEl.scrollHeight);
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(previewEl);
+    ro.observe(fullEl);
+    return () => ro.disconnect();
   }, [content, preview, richContentClassName]);
 
   return { previewRef, fullContentRef, collapsedHeight, expandedHeight };
