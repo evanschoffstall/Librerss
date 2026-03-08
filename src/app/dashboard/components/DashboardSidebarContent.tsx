@@ -31,12 +31,24 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
         <div key="sidebar-loading" className={sidebarPanelCls}>
           {[3, 2, 4].map((count, groupIndex) => (
             <div key={groupIndex} className="space-y-0.5">
-              <Skeleton className="mx-2 h-3.5 w-16 rounded" />
+              <div className="px-1.5">
+                <Skeleton className="h-6 w-20 rounded" />
+              </div>
               {Array.from({ length: count }).map((_, itemIndex) => (
-                <Skeleton
+                <div
                   key={itemIndex}
-                  className="mx-1 h-9 w-[calc(100%-8px)] rounded-lg"
-                />
+                  className="mx-1 flex items-center justify-between gap-2 rounded-lg border-l-2 border-transparent px-2 py-2"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Skeleton
+                      className={`h-3.5 ${itemIndex % 2 === 0 ? "w-24" : "w-20"}`}
+                    />
+                    <Skeleton
+                      className={`h-2.5 ${itemIndex % 2 === 0 ? "w-16" : "w-20"}`}
+                    />
+                  </div>
+                  <Skeleton className="size-3.5 shrink-0 rounded-full" />
+                </div>
               ))}
             </div>
           ))}
