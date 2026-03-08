@@ -17,7 +17,7 @@ import {
   updateFeedSettingsAndRefresh,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
-import type { FeedSourceActionState } from "./feedSourceActionTypes";
+import type { FeedSourceActionState } from "./types";
 
 interface UseFeedSourceActionsOptions extends FeedSourceActionState {
   ensureCategoryLabelExists: (label: string) => void;
