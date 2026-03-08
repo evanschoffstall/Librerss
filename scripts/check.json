@@ -1,6 +1,6 @@
 {
   "thresholds": {
-    "lineCoverageThreshold": 85,
+    "lineCoverageThreshold": 95,
     "typeCoverageThreshold": 98,
     "testTimeoutMs": 5000,
     "testCommandTimeoutMs": 100000,
