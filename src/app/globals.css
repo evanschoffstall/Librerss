@@ -257,18 +257,6 @@
     }
   }
 
-  @keyframes landing-tagline-reveal {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
   @keyframes landing-arrow-bob {
     0%,
     100% {
@@ -320,12 +308,6 @@
     opacity: 0;
     animation: landing-reveal-up var(--motion-duration-reveal)
       var(--motion-ease-emphasized) both;
-  }
-
-  .landing-tagline {
-    opacity: 0;
-    animation: landing-tagline-reveal var(--motion-duration-tagline)
-      var(--motion-ease-emphasized) var(--motion-delay-tagline) both;
   }
 
   .landing-arrow-bob {
