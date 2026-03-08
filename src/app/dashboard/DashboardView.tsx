@@ -430,7 +430,7 @@ export const DashboardView = ({
                   Scrolling into it = native pull gesture. */}
               <div
                 ref={pullSentinelRef}
-                className={`flex items-end justify-center transition-colors duration-150 ${
+                className={`flex items-end justify-center bg-background transition-colors duration-150 ${
                   isPulling
                     ? readyToRefresh
                       ? "bg-sky-500/25"

@@ -26,8 +26,9 @@ const IDLE: PullState = { pulling: false, readyToRefresh: false };
  * invisible. Pulling down from the top naturally scrolls into the sentinel
  * zone — 100% native scroll compositor, zero transforms or layout writes.
  *
- * Touch-only: wheel/trackpad scroll is clamped at the sentinel boundary
- * so pull-to-refresh only triggers with active touch input.
+ * All input methods (touch, wheel, trackpad) activate the pull indicator
+ * and can trigger refresh. On scrollend without active touch, the sentinel
+ * snaps back if the pull threshold wasn't met.
  *
  * ## Collapse scroll-pin (DO NOT REMOVE)
  *
@@ -113,12 +114,29 @@ export function usePullDownToRefresh(
     };
 
     /**
+     * Collapse sentinel to 0 when real feed content doesn't overflow the
+     * viewport (few/no articles). This prevents the sentinel from being
+     * one scroll-tick away and accidentally visible. Restore to full
+     * height when content overflows, enabling pull-to-refresh.
+     */
+    const syncSentinelVisibility = () => {
+      if (!sentinel || !wrapper) return;
+      const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
+      const sentinelH = sentinel.offsetHeight;
+      const realContent = wrapper.offsetHeight - currentPad - sentinelH;
+      const overflows = realContent > viewport.clientHeight;
+      const target = overflows ? `${SENTINEL_HEIGHT}px` : "0px";
+      if (sentinel.style.height !== target) sentinel.style.height = target;
+    };
+
+    /**
      * Ensures viewport.scrollHeight >= viewport.clientHeight + sentinelHeight
      * so that setting scrollTop = sentinelHeight is never clamped to 0.
      * Also offsets the scrollbar track so the thumb is flush at top when
      * the sentinel is scrolled out of view.
      */
     const ensureMinOverflow = () => {
+      syncSentinelVisibility();
       const height = sh();
       if (height === 0 || !wrapper) return;
       // Subtract our previously-set paddingBottom from offsetHeight so we
@@ -239,17 +257,6 @@ export function usePullDownToRefresh(
 
       if (st >= height) {
         if (pullingRef.current && !holdingRef.current) {
-          pullingRef.current = false;
-          setState(IDLE);
-        }
-        return;
-      }
-
-      // Non-touch scroll entered sentinel zone — clamp immediately.
-      // Pull-to-refresh is touch-only.
-      if (!touchActiveRef.current && !holdingRef.current) {
-        viewport.scrollTop = height;
-        if (pullingRef.current) {
           pullingRef.current = false;
           setState(IDLE);
         }
