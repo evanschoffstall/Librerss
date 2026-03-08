@@ -8,27 +8,26 @@ import { describe, expect, test } from "bun:test";
 // ─── Article Content Services ─────────────────────────────────────────────────
 
 describe("article-content services", () => {
-  test("getUrlHostnameLabel extracts hostname", async () => {
-    const { getUrlHostnameLabel } =
-      await import("@/app/dashboard/services/article-content");
-    expect(getUrlHostnameLabel("https://www.example.com/path")).toBe(
+  test("getUrlHostnameDisplayLabel extracts hostname", async () => {
+    const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
+    expect(getUrlHostnameDisplayLabel("https://www.example.com/path")).toBe(
       "example.com",
     );
-    expect(getUrlHostnameLabel("http://subdomain.example.com")).toBe(
+    expect(getUrlHostnameDisplayLabel("http://subdomain.example.com")).toBe(
       "subdomain.example.com",
     );
   });
 
-  test("getUrlHostnameLabel removes www prefix", async () => {
-    const { getUrlHostnameLabel } =
-      await import("@/app/dashboard/services/article-content");
-    expect(getUrlHostnameLabel("https://www.example.com")).toBe("example.com");
+  test("getUrlHostnameDisplayLabel removes www prefix", async () => {
+    const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
+    expect(getUrlHostnameDisplayLabel("https://www.example.com")).toBe(
+      "example.com",
+    );
   });
 
-  test("getUrlHostnameLabel handles invalid URLs", async () => {
-    const { getUrlHostnameLabel } =
-      await import("@/app/dashboard/services/article-content");
-    expect(getUrlHostnameLabel("not-a-url")).toBe("not-a-url");
+  test("getUrlHostnameDisplayLabel handles invalid URLs", async () => {
+    const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
+    expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
   });
 });
 
@@ -48,11 +47,12 @@ describe("favicons", () => {
     expect(url).toBe("");
   });
 
-  test("getHostnameLabel extracts clean hostname", async () => {
-    const { getHostnameLabel } =
-      await import("@/app/dashboard/services/favicons");
-    expect(getHostnameLabel("https://www.example.com")).toBe("example.com");
-    expect(getHostnameLabel("http://blog.example.com")).toBe(
+  test("getUrlHostnameDisplayLabel extracts clean hostname", async () => {
+    const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
+    expect(getUrlHostnameDisplayLabel("https://www.example.com")).toBe(
+      "example.com",
+    );
+    expect(getUrlHostnameDisplayLabel("http://blog.example.com")).toBe(
       "blog.example.com",
     );
   });

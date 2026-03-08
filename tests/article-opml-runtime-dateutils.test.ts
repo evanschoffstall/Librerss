@@ -12,7 +12,6 @@ import {
   buildPreview,
   getArticleSourceLabel,
   getRichContentClass,
-  getUrlHostnameLabel,
 } from "@/app/dashboard/services/article-content";
 import {
   DEFAULT_STREAM_ITEMS,
@@ -24,6 +23,7 @@ import { CONFIG } from "@/lib/config";
 import { READ_STATE, STARRED_STATE } from "@/lib/core/stream-ids";
 import { formatRelativeDate } from "@/lib/utils/date-utils";
 import { parseOpmlFeedImport } from "@/lib/utils/opml";
+import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 import { describe, expect, test } from "bun:test";
 
 const runtimeModuleHref = new URL("../src/lib/core/runtime.ts", import.meta.url)
@@ -310,19 +310,21 @@ describe("article-content – getRichContentClass", () => {
   });
 });
 
-// ─── article-content – getUrlHostnameLabel ────────────────────────────────────
+// ─── url – getUrlHostnameDisplayLabel ────────────────────────────────────────
 
-describe("article-content – getUrlHostnameLabel for display", () => {
+describe("url – getUrlHostnameDisplayLabel", () => {
   test("returns hostname without www", async () => {
-    expect(getUrlHostnameLabel("https://www.example.com")).toBe("example.com");
+    expect(getUrlHostnameDisplayLabel("https://www.example.com")).toBe(
+      "example.com",
+    );
   });
 
   test("returns raw input for invalid URL", async () => {
-    expect(getUrlHostnameLabel("not-a-url")).toBe("not-a-url");
+    expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
   });
 
   test("returns default for undefined", async () => {
-    expect(getUrlHostnameLabel(undefined)).toBe("No source URL");
+    expect(getUrlHostnameDisplayLabel(undefined)).toBe("No source URL");
   });
 });
 
