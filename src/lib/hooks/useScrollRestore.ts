@@ -193,6 +193,9 @@ export function useScrollRestore(
           if (state && state.t > 0) {
             savedStateRef.current = state;
             restoreDeadlineRef.current = Date.now() + RESTORE_WINDOW_MS;
+            // Immediately rough-position to clamp scrollTop above any sentinel
+            // offset and avoid a one-frame flash before the rAF fires.
+            viewport.scrollTop = Math.max(offsetRef.current, state.t);
             requestAnimationFrame(() => restoreScrollIfNeeded());
           }
         }
@@ -240,8 +243,10 @@ export function useScrollRestore(
     const handleScroll = () => {
       if (isApplyingRestoreScrollRef.current) return;
 
-      // A real user scroll cancels any pending restore.
+      // A real user scroll permanently ends the restore window so the
+      // ResizeObserver can never re-read sessionStorage and fight the scroll.
       savedStateRef.current = null;
+      restoreDeadlineRef.current = 0;
 
       cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(() => {
@@ -307,5 +312,13 @@ export function useScrollRestore(
     requestAnimationFrame(() => restoreScrollIfNeeded());
   }, [restoreScrollIfNeeded, sessionKey]);
 
-  return { ref: attachRef, invalidate, capture };
+  // Kills the restore window without touching scrollTop or sessionStorage.
+  // Call whenever the user interacts in a way that makes restore irrelevant
+  // (e.g. expanding an article card that resizes the content).
+  const settle = useCallback(() => {
+    savedStateRef.current = null;
+    restoreDeadlineRef.current = 0;
+  }, []);
+
+  return { ref: attachRef, invalidate, capture, settle };
 }
