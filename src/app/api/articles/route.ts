@@ -22,7 +22,7 @@ import {
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
-import { parseDateOrNull } from "@/lib/utils/date-utils";
+import { parseDateOrNull } from "@/lib/utils/dates";
 import { isValidUrl } from "@/lib/utils/url";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
