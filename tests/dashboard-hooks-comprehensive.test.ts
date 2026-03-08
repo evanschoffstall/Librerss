@@ -23,6 +23,15 @@ import {
 } from "bun:test";
 import { toast } from "sonner";
 
+function registerModuleMocks() {
+  mock.module("sonner", () => ({
+    toast: {
+      error: mock(() => {}),
+      success: mock(() => {}),
+    },
+  }));
+}
+
 const runWithAct = async (callback: () => Promise<void> | void) => {
   await act(async () => {
     await callback();
@@ -30,12 +39,16 @@ const runWithAct = async (callback: () => Promise<void> | void) => {
 };
 
 beforeAll(() => {
-  mock.module("sonner", () => ({
-    toast: {
-      error: mock(() => {}),
-      success: mock(() => {}),
-    },
-  }));
+  registerModuleMocks();
+});
+
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
+
+afterEach(() => {
+  mock.restore();
 });
 
 const originalExtractArticleContent = ArticleService.extractArticleContent;

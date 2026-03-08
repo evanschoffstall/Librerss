@@ -13,10 +13,9 @@
  *   - lib/api/greader/subscription.ts – quickadd + subscription edit handler
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { createMockRequest } from "./support/test-utils";
 
-beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
 // ── app/api/feeds/route.ts – PATCH body-parsed paths ──────────────────────────

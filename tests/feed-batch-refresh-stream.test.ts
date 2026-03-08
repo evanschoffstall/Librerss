@@ -18,7 +18,10 @@ import { notFoundResponse, textResponse } from "@/lib/api/http";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { parseUserLabel, USER_LABEL_PREFIX } from "@/lib/core/stream-ids";
 import { toCategoryLookupKey } from "@/lib/utils/url";
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
 
 // ─── stream-conditions: buildStreamConditions ─────────────────────────────────
 

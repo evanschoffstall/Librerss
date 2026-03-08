@@ -23,6 +23,9 @@ import {
 } from "bun:test";
 import { createMockArticle } from "./support/test-utils";
 
+beforeEach(() => mock.restore());
+afterEach(() => mock.restore());
+
 const runWithAct = async (callback: () => Promise<void> | void) => {
   await act(async () => {
     await callback();
