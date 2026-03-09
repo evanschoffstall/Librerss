@@ -101,6 +101,162 @@ function stripFileDownloadBoilerplate(content: string): string {
   );
 }
 
+function normalizeHeadingText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isShortHeadingLabel(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized || normalized.length > 72) return false;
+  if (/[.!?;:]/.test(normalized)) return false;
+  return normalized.split(/\s+/).filter(Boolean).length <= 6;
+}
+
+const LEADING_WHITESPACE_RE = /^\s+/;
+const LEADING_ANCHOR_OPEN_RE = /^<a\b[^>]*>\s*/i;
+const LEADING_IMAGE_RE = /^<img\b[^>]*\/?>(?:\s*)/i;
+const LEADING_ANCHOR_CLOSE_RE = /^<\/a>\s*/i;
+const LEADING_HEADING_RE = /^<h[2-4]\b[^>]*>[\s\S]*?<\/h[2-4]>\s*/i;
+
+function consumeLeadingToken(source: string, tokenRe: RegExp): string {
+  return tokenRe.exec(source)?.[0] ?? "";
+}
+
+function parseLeadMediaAndHeadingPrefix(content: string): {
+  imagePrefix: string;
+  headingBlock: string;
+  consumedLength: number;
+} {
+  let cursor = 0;
+  let imagePrefix = "";
+  let headingBlock = "";
+
+  const leadingWhitespace = consumeLeadingToken(
+    content.slice(cursor),
+    LEADING_WHITESPACE_RE,
+  );
+  imagePrefix += leadingWhitespace;
+  cursor += leadingWhitespace.length;
+
+  while (true) {
+    const beforeImage = cursor;
+    let segment = "";
+
+    const anchorOpen = consumeLeadingToken(
+      content.slice(cursor),
+      LEADING_ANCHOR_OPEN_RE,
+    );
+    if (anchorOpen) {
+      segment += anchorOpen;
+      cursor += anchorOpen.length;
+    }
+
+    const imageTag = consumeLeadingToken(
+      content.slice(cursor),
+      LEADING_IMAGE_RE,
+    );
+    if (!imageTag) {
+      cursor = beforeImage;
+      break;
+    }
+    segment += imageTag;
+    cursor += imageTag.length;
+
+    if (anchorOpen) {
+      const anchorClose = consumeLeadingToken(
+        content.slice(cursor),
+        LEADING_ANCHOR_CLOSE_RE,
+      );
+      if (anchorClose) {
+        segment += anchorClose;
+        cursor += anchorClose.length;
+      }
+    }
+
+    imagePrefix += segment;
+  }
+
+  while (true) {
+    const heading = consumeLeadingToken(
+      content.slice(cursor),
+      LEADING_HEADING_RE,
+    );
+    if (!heading) break;
+    headingBlock += heading;
+    cursor += heading.length;
+  }
+
+  return { imagePrefix, headingBlock, consumedLength: cursor };
+}
+
+function stripLeadMediaBoilerplateHeadings(content: string): string {
+  const { imagePrefix, headingBlock, consumedLength } =
+    parseLeadMediaAndHeadingPrefix(content);
+  if (!headingBlock) return content;
+
+  const headings =
+    headingBlock.match(/<h[2-4]\b[^>]*>[\s\S]*?<\/h[2-4]>/gi) ?? [];
+  if (headings.length === 0) return content;
+
+  // Strip only clear heading clusters, not standalone semantic headings.
+  if (
+    headings.length < 2 ||
+    !headings.every((heading) =>
+      isShortHeadingLabel(normalizeHeadingText(heading)),
+    )
+  ) {
+    return content;
+  }
+
+  return normalizeArticleHtmlSpacing(
+    [imagePrefix, content.slice(consumedLength)].filter(Boolean).join("\n"),
+  );
+}
+
+function readFirstImageSource(content: string): string {
+  const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
+  const imageTag = imagePrefix.match(/<img\b[^>]*>/i)?.[0];
+  if (!imageTag) return "";
+  const srcMatch = imageTag.match(/\bsrc=["']([^"']+)["']/i);
+  return (srcMatch?.[1] ?? "").trim();
+}
+
+function normalizeImageSource(source: string): string {
+  const normalized = source.trim().replace(/&amp;/g, "&");
+  if (!normalized) return "";
+  try {
+    const url = new URL(normalized);
+    url.hash = "";
+    url.search = "";
+    return url.toString();
+  } catch {
+    return normalized.split(/[?#]/, 1)[0] ?? "";
+  }
+}
+
+function removeLeadingDuplicateImage(content: string): string {
+  const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
+  if (!imagePrefix.trim()) return content;
+
+  const firstSrc = normalizeImageSource(readFirstImageSource(content));
+  if (!firstSrc) return content;
+
+  const afterLeadImage = content.slice(imagePrefix.length);
+
+  const imageSrcMatches = [
+    ...afterLeadImage.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi),
+  ].map((match) => normalizeImageSource(match[1] ?? ""));
+
+  const hasDuplicateImageSource = imageSrcMatches.includes(firstSrc);
+  if (!hasDuplicateImageSource) return content;
+
+  return normalizeArticleHtmlSpacing(afterLeadImage);
+}
+
 /** Promotional / call-to-action pattern (cross-site generic). */
 const PROMO_CTA_RE =
   /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google|reader[-\s]supported\s+publication|to\s+receive\s+new\s+posts|consider\s+becoming\s+a\s+subscriber/i;
@@ -240,7 +396,13 @@ export function cleanSanitizedHtml(
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 
-  const normalized = normalizeArticleHtmlSpacing(withoutPromos);
+  const withoutDuplicateLeadImage = removeLeadingDuplicateImage(withoutPromos);
+
+  const withoutMediaHeadings = stripLeadMediaBoilerplateHeadings(
+    withoutDuplicateLeadImage,
+  );
+
+  const normalized = normalizeArticleHtmlSpacing(withoutMediaHeadings);
 
   if (!normalized.trim()) return "";
 
