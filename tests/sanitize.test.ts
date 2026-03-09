@@ -142,6 +142,16 @@ describe("lib/utils/sanitize comprehensive", () => {
     expect(result).toBe("<p>One</p>\n<p>Two</p>");
   });
 
+  test("normalizeArticleHtmlSpacing removes empty list tags and empty list items", async () => {
+    const { normalizeArticleHtmlSpacing } = await import("@/lib/sanitize");
+
+    const input =
+      "<p>Start</p><ul><li></li><li> </li></ul><ul><li>Kept</li><li></li></ul><p>End</p>";
+    const result = normalizeArticleHtmlSpacing(input);
+
+    expect(result).toBe("<p>Start</p><ul><li>Kept</li></ul><p>End</p>");
+  });
+
   test("sanitizeArticleTitle strips HTML from titles", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
