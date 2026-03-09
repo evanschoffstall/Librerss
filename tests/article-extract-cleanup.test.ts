@@ -148,6 +148,46 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("<p>About</p>");
   });
 
+  test("removes lead figure headings and duplicate lead image", () => {
+    const duplicatedLeadMedia =
+      '<img src="https://example.com/lead.jpg" width="1200" height="800" />' +
+      "<h2>PIA26706 Figure A</h2>" +
+      "<h2>PIA26706 Animation</h2>" +
+      "<h2>Description</h2>" +
+      "<p>Body intro text.</p>" +
+      '<a href="https://example.com/lead.jpg"><img src="https://example.com/lead.jpg" width="1200" height="800" /></a>' +
+      "<p>Figure details.</p>";
+
+    const cleaned = cleanSanitizedHtml(
+      duplicatedLeadMedia,
+      "https://example.com/article",
+    );
+
+    expect(cleaned).not.toContain("PIA26706 Figure A");
+    expect(cleaned).not.toContain("PIA26706 Animation");
+    expect(cleaned).not.toContain("<h2>Description</h2>");
+    expect(
+      cleaned.match(/<img\b[^>]*\bsrc="https:\/\/example\.com\/lead\.jpg"/g)
+        ?.length,
+    ).toBe(1);
+    expect(cleaned).toContain("Body intro text.");
+  });
+
+  test("preserves non-boilerplate lead headings", () => {
+    const meaningfulLeadHeading =
+      '<img src="https://example.com/lead.jpg" width="1200" height="800" />' +
+      "<h2>Mission Overview</h2>" +
+      "<p>Body intro text.</p>";
+
+    const cleaned = cleanSanitizedHtml(
+      meaningfulLeadHeading,
+      "https://example.com/article",
+    );
+
+    expect(cleaned).toContain("<h2>Mission Overview</h2>");
+    expect(cleaned).toContain("Body intro text.");
+  });
+
   describe("preCleanHtml", () => {
     test("removes <script> and <style> blocks", () => {
       const html =
