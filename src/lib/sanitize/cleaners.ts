@@ -115,10 +115,30 @@ function isEmptyInlineHtml(content: string): boolean {
   return withoutNbspEntities.trim().length === 0;
 }
 
-function stripEmptyTagBlocks(html: string): string {
+function hasOnlyEmptyListItems(content: string): boolean {
+  const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+  if (listItems.length === 0) return isEmptyInlineHtml(content);
+  return listItems.every((item) => isEmptyInlineHtml(item[1] ?? ""));
+}
+
+function stripEmptyListItems(html: string): string {
   return html.replace(
-    /<(p|figure)>([\s\S]*?)<\/\1>\s*/gi,
-    (match, _tag, content: string) => (isEmptyInlineHtml(content) ? "" : match),
+    /<li\b[^>]*>([\s\S]*?)<\/li>\s*/gi,
+    (match, content: string) => (isEmptyInlineHtml(content) ? "" : match),
+  );
+}
+
+function stripEmptyTagBlocks(html: string): string {
+  return stripEmptyListItems(html).replace(
+    /<(p|figure|ul|ol)\b[^>]*>([\s\S]*?)<\/\1>\s*/gi,
+    (match, tag: string, content: string) =>
+      tag === "ul" || tag === "ol"
+        ? hasOnlyEmptyListItems(content)
+          ? ""
+          : match
+        : isEmptyInlineHtml(content)
+          ? ""
+          : match,
   );
 }
 
