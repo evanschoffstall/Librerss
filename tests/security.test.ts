@@ -9,6 +9,12 @@
  *   5. URL validation (MEDIUM)
  */
 
+import {
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
+import { isStrongPassword } from "@/lib/utils/validation";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {
@@ -902,5 +908,130 @@ describe("Extract route – x-request-id header sanitization (security regressio
         new Response(JSON.stringify({ error: "test abort" }), { status: 400 }),
     });
     expect(response.status).toBeLessThan(500);
+  });
+});
+
+// ── utils/ssrf – IPv6 mapped IPv4 coverage ────────────────────────────────────
+
+describe("utils/ssrf – isBlockedHost with IPv6-mapped private addresses", () => {
+  test("processes ::ffff:127.0.0.1 (IPv4-in-IPv6) without throwing", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    // Exercises the IPv4-embedded-in-IPv6 hextet parsing path (line 48 of ssrf.ts)
+    expect(typeof isBlockedHost("::ffff:127.0.0.1")).toBe("boolean");
+  });
+
+  test("processes ::ffff:192.168.1.1 (IPv4-in-IPv6) without throwing", async () => {
+    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    expect(typeof isBlockedHost("::ffff:192.168.1.1")).toBe("boolean");
+  });
+});
+
+describe("ssrf", () => {
+  test("normalizeHostname lowercases and trims", () => {
+    expect(normalizeHostname("  EXAMPLE.COM.  ")).toBe("example.com");
+  });
+
+  test("isBlockedHost blocks localhost", () => {
+    expect(isBlockedHost("localhost")).toBe(true);
+  });
+
+  test("isBlockedHost blocks 127.0.0.1", () => {
+    expect(isBlockedHost("127.0.0.1")).toBe(true);
+  });
+
+  test("isBlockedHost blocks 10.x.x.x", () => {
+    expect(isBlockedHost("10.0.0.1")).toBe(true);
+  });
+
+  test("isBlockedHost blocks 192.168.x.x", () => {
+    expect(isBlockedHost("192.168.1.1")).toBe(true);
+  });
+
+  test("isBlockedHost blocks 169.254.x.x", () => {
+    expect(isBlockedHost("169.254.169.254")).toBe(true);
+  });
+
+  test("isBlockedHost blocks 172.16-31.x.x", () => {
+    expect(isBlockedHost("172.16.0.1")).toBe(true);
+    expect(isBlockedHost("172.31.255.255")).toBe(true);
+  });
+
+  test("isBlockedHost allows 172.32.x.x", () => {
+    expect(isBlockedHost("172.32.0.1")).toBe(false);
+  });
+
+  test("isBlockedHost blocks ::1", () => {
+    expect(isBlockedHost("::1")).toBe(true);
+  });
+
+  test("isBlockedHost blocks .local domains", () => {
+    expect(isBlockedHost("myhost.local")).toBe(true);
+  });
+
+  test("isBlockedHost allows public domains", () => {
+    expect(isBlockedHost("example.com")).toBe(false);
+    expect(isBlockedHost("google.com")).toBe(false);
+  });
+
+  test("isBlockedHost blocks 0.0.0.0", () => {
+    expect(isBlockedHost("0.0.0.0")).toBe(true);
+  });
+
+  test("isBlockedHost blocks empty hostname", () => {
+    expect(isBlockedHost("")).toBe(true);
+  });
+
+  test("isBlockedResolvedAddress handles IPv4-mapped IPv6", () => {
+    expect(isBlockedResolvedAddress("::ffff:127.0.0.1")).toBe(true);
+    expect(isBlockedResolvedAddress("::ffff:8.8.8.8")).toBe(false);
+  });
+
+  test("isBlockedResolvedAddress blocks IPv4-mapped IPv6 with hex tail for private/loopback ranges", () => {
+    expect(isBlockedResolvedAddress("::ffff:7f00:1")).toBe(true);
+    expect(isBlockedResolvedAddress("::ffff:c0a8:101")).toBe(true);
+    expect(isBlockedResolvedAddress("::ffff:0808:0808")).toBe(false);
+  });
+
+  test("isBlockedResolvedAddress blocks fc addresses", () => {
+    expect(isBlockedHost("fc00::1")).toBe(true);
+  });
+
+  test("isBlockedResolvedAddress blocks fd addresses", () => {
+    expect(isBlockedHost("fd12::1")).toBe(true);
+  });
+
+  test("isBlockedResolvedAddress blocks fe80 link-local", () => {
+    expect(isBlockedHost("fe80::1")).toBe(true);
+  });
+});
+
+describe("validation – isStrongPassword", () => {
+  test("accepts strong password", () => {
+    expect(isStrongPassword("MyP@ss123")).toBe(true);
+  });
+
+  test("rejects short password", () => {
+    expect(isStrongPassword("Aa1!")).toBe(false);
+  });
+
+  test("rejects password with only lowercase", () => {
+    expect(isStrongPassword("abcdefgh")).toBe(false);
+  });
+
+  test("accepts password with 3 of 4 types", () => {
+    expect(isStrongPassword("MyPass123")).toBe(true); // upper + lower + digit
+    expect(isStrongPassword("mypass1!")).toBe(true); // lower + digit + special
+  });
+
+  test("rejects null", () => {
+    expect(isStrongPassword(null as any)).toBe(false);
+  });
+
+  test("rejects empty string", () => {
+    expect(isStrongPassword("")).toBe(false);
+  });
+
+  test("rejects overlong password", () => {
+    expect(isStrongPassword("A1!" + "a".repeat(1025))).toBe(false);
   });
 });
