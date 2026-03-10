@@ -220,3 +220,121 @@ describe("api/request helpers", () => {
     expect(parseDateOrNull(123)).toBeNull();
   });
 });
+
+// ── lib/api/greader/subscription – handleSubscriptionEdit tag-less branch ─────
+
+describe("lib/api/greader/subscription – handleSubscriptionEdit branches", () => {
+  test("returns OK when subscription ID lacks FEED_STREAM_PREFIX", async () => {
+    const { handleSubscriptionEdit } =
+      await import("@/lib/api/greader/subscription");
+
+    const user = {
+      userId: 1,
+      email: "test@example.com",
+      sessionToken: "tok",
+    };
+    const req = new Request(
+      "https://example.com/greader.php/api/0/subscription/edit",
+      {
+        method: "POST",
+        body: "s=not-a-feed-prefix-subscription&ac=edit",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+      },
+    );
+
+    const result = await handleSubscriptionEdit(user as any, req as any);
+    const text = await result.text();
+    expect(text).toBe("OK\n");
+  });
+
+  test("handleSubscriptionQuickAdd returns 400 for too-long URL", async () => {
+    const { handleSubscriptionQuickAdd } =
+      await import("@/lib/api/greader/subscription");
+
+    const user = {
+      userId: 1,
+      email: "test@example.com",
+      sessionToken: "tok",
+    };
+    const longUrl = "https://example.com/" + "a".repeat(2050);
+    const req = new Request(
+      "https://example.com/greader.php/api/0/subscription/quickadd",
+      {
+        method: "POST",
+        body: `quickadd=${encodeURIComponent(longUrl)}`,
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+      },
+    );
+
+    const result = await handleSubscriptionQuickAdd(user as any, req as any);
+    expect(result.status).toBe(400);
+    const json = await result.json();
+    expect(json.numResults).toBe(0);
+  });
+
+  test("handleSubscriptionQuickAdd returns 400 for invalid URL", async () => {
+    const { handleSubscriptionQuickAdd } =
+      await import("@/lib/api/greader/subscription");
+
+    const user = {
+      userId: 1,
+      email: "test@example.com",
+      sessionToken: "tok",
+    };
+    const req = new Request(
+      "https://example.com/greader.php/api/0/subscription/quickadd",
+      {
+        method: "POST",
+        body: `quickadd=not-a-valid-url-at-all`,
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+      },
+    );
+
+    const result = await handleSubscriptionQuickAdd(user as any, req as any);
+    expect(result.status).toBe(400);
+  });
+});
+
+// ── lib/api/greader/subscription – early Response returns (lines 75, 133) ─────
+
+describe("lib/api/greader/subscription – parseFormOrQueryParams Response paths", () => {
+  test("handleSubscriptionQuickAdd returns 413 when body too large (line 75)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleSubscriptionQuickAdd } =
+      await import("@/lib/api/greader/subscription");
+    const user = { userId: 1, email: "test@example.com", sessionToken: "tok" };
+    const req = new NextRequest(
+      "https://dummy.local/api/greader/subscription/quickadd",
+      {
+        method: "POST",
+        body: "quickadd=https%3A%2F%2Fexample.com%2Ffeed",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "content-length": "999999999",
+        },
+      },
+    );
+    const result = await handleSubscriptionQuickAdd(user as any, req);
+    expect(result.status).toBe(413);
+  });
+
+  test("handleSubscriptionEdit returns 413 when body too large (line 133)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleSubscriptionEdit } =
+      await import("@/lib/api/greader/subscription");
+    const user = { userId: 1, email: "test@example.com", sessionToken: "tok" };
+    const req = new NextRequest(
+      "https://dummy.local/api/greader/subscription/edit",
+      {
+        method: "POST",
+        body: "s=feed%2Fhttps%3A%2F%2Fexample.com&ac=edit",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "content-length": "999999999",
+        },
+      },
+    );
+    const result = await handleSubscriptionEdit(user as any, req);
+    expect(result.status).toBe(413);
+  });
+});
