@@ -3,6 +3,7 @@
  * Runs before all tests
  */
 
+import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
@@ -53,6 +54,7 @@ afterEach(() => {
   mock.restore();
   mock.module("@/lib/db/db", () => realDbModule);
   mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
+  mock.module("@/lib/auth/session", () => realAuthSessionModule);
   mock.module(
     "@/lib/core/feed-batch-pipeline",
     () => realFeedBatchHelpersModule,
