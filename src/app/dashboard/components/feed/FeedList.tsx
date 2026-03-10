@@ -19,6 +19,7 @@ interface FeedListProps {
   showFavicons: boolean;
   searchTerm: string;
   sentinelRef: React.RefObject<HTMLDivElement | null>;
+  onExpandedSwipeRead: (article: Article) => void;
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
@@ -71,6 +72,7 @@ export const FeedList = memo(function FeedList({
   showFavicons,
   searchTerm,
   sentinelRef,
+  onExpandedSwipeRead,
   onToggle,
   onToggleRead,
   onToggleStarred,
@@ -233,6 +235,7 @@ export const FeedList = memo(function FeedList({
                   isHydrating={Boolean(hydratingArticleLinks[articleLink])}
                   isUpdatingState={Boolean(updatingArticleState[cardKey])}
                   showFavicon={showFavicons}
+                  onExpandedSwipeRead={onExpandedSwipeRead}
                   onToggle={onToggle}
                   onToggleRead={onToggleRead}
                   onToggleStarred={onToggleStarred}

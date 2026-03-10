@@ -166,6 +166,7 @@ export const DashboardView = ({
 
   const {
     handleArticleToggle,
+    handleExpandedSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
   } = articleActions;
@@ -177,6 +178,10 @@ export const DashboardView = ({
   const onArticleToggleRead = useCallback(
     (article: Article) => void handleToggleReadState(article),
     [handleToggleReadState],
+  );
+  const onArticleExpandedSwipeRead = useCallback(
+    (article: Article) => void handleExpandedSwipeRead(article),
+    [handleExpandedSwipeRead],
   );
   const onArticleToggleStarred = useCallback(
     (article: Article) => void handleToggleStarredState(article),
@@ -516,6 +521,7 @@ export const DashboardView = ({
                 showFavicons={showFavicons}
                 searchTerm={searchTerm}
                 sentinelRef={sentinelRef}
+                onExpandedSwipeRead={onArticleExpandedSwipeRead}
                 onToggle={onArticleToggle}
                 onToggleRead={onArticleToggleRead}
                 onToggleStarred={onArticleToggleStarred}
