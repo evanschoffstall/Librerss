@@ -1,7 +1,57 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+const runtimeModuleHref = new URL("../src/lib/core/runtime.ts", import.meta.url)
+  .href;
+
+function loadRuntimeModule() {
+  return import(
+    `${runtimeModuleHref}?isolation=${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+}
+
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
+
+// ─── runtime.ts ───────────────────────────────────────────────────────────────
+
+describe("runtime – RUNTIME_FLAGS", () => {
+  test("hasDatabaseUrl reflects env", async () => {
+    const { RUNTIME_FLAGS } = await loadRuntimeModule();
+    // In test env, DATABASE_URL is set
+    expect(typeof RUNTIME_FLAGS.hasDatabaseUrl).toBe("boolean");
+  });
+
+  test("usePlaceholderData is inverse of hasDatabaseUrl", async () => {
+    const { RUNTIME_FLAGS } = await loadRuntimeModule();
+    expect(RUNTIME_FLAGS.usePlaceholderData).toBe(
+      !RUNTIME_FLAGS.hasDatabaseUrl,
+    );
+  });
+
+  test("allowSignup returns boolean", async () => {
+    const { RUNTIME_FLAGS } = await loadRuntimeModule();
+    expect(typeof RUNTIME_FLAGS.allowSignup).toBe("boolean");
+  });
+});
+
+describe("runtime – PLACEHOLDER_ADMIN_USER", () => {
+  test("has expected fields", async () => {
+    const { PLACEHOLDER_ADMIN_USER } = await loadRuntimeModule();
+    expect(typeof PLACEHOLDER_ADMIN_USER.id).toBe("number");
+    expect(PLACEHOLDER_ADMIN_USER.id).toBeGreaterThanOrEqual(0);
+    expect(typeof PLACEHOLDER_ADMIN_USER.email).toBe("string");
+    expect(PLACEHOLDER_ADMIN_USER.email).toContain("@");
+    expect(typeof PLACEHOLDER_ADMIN_USER.passwordHash).toBe("string");
+    expect(PLACEHOLDER_ADMIN_USER.sessionToken).toBeTruthy();
+  });
+
+  test("session token is a hex string", async () => {
+    const { PLACEHOLDER_ADMIN_USER } = await loadRuntimeModule();
+    expect(PLACEHOLDER_ADMIN_USER.sessionToken).toMatch(/^[0-9a-f]+$/);
+    expect(PLACEHOLDER_ADMIN_USER.sessionToken.length).toBe(64); // 32 bytes = 64 hex
+  });
+});
+
 describe("core/runtime and utils/rate-limit", () => {
   test("runtime flags reflect env changes", async () => {
     const previousDb = process.env.DATABASE_URL;
