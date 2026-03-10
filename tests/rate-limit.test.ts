@@ -252,3 +252,64 @@ describe("RateLimiter", () => {
     limiter.destroy();
   });
 });
+
+// ── server/rate-limit – RateLimiter.destroy ──────────────────────────────────
+
+describe("server/rate-limit – RateLimiter.destroy", () => {
+  test("destroy() cancels the cleanup timer without throwing", async () => {
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const rl = new RateLimiter();
+    expect(() => rl.destroy()).not.toThrow();
+  });
+});
+
+// ── lib/server/rate-limit – remaining uncovered branches ─────────────────────
+
+describe("lib/server/rate-limit – edge cases", () => {
+  test("rateLimiter.check returns null when limit not exceeded", async () => {
+    const { rateLimiter } = await import("@/lib/server");
+    const { createMockRequest } = await import("./support/test-utils");
+
+    const req = createMockRequest("https://example.com/api/test", {
+      headers: { "x-forwarded-for": "203.0.113.1" },
+    });
+
+    const result = rateLimiter.check(req, "test-rate-limit-key", {
+      windowMs: 60_000,
+      maxAttempts: 100,
+    });
+
+    expect(result).toBeNull();
+  });
+});
+
+// ── lib/server/rate-limit – cleanup() private method coverage ─────────────────
+
+describe("lib/server/rate-limit – cleanup purges expired entries", () => {
+  test("cleanup removes entries whose resetAt is in the past", async () => {
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const limiter = new RateLimiter();
+
+    // Exhaust rate limit — creates an entry
+    const { createMockRequest } = await import("./support/test-utils");
+    limiter.check(
+      createMockRequest("https://example.com/test", {
+        headers: { "x-forwarded-for": "203.0.113.99" },
+      }),
+      "cleanup-test-key",
+      { windowMs: 1, maxAttempts: 0 },
+    );
+
+    // Wait for expiry then call cleanup via internal timer trick
+    const store = (limiter as any).store as Map<string, any>;
+    const entriesBefore = store.size;
+    expect(entriesBefore).toBeGreaterThan(0);
+
+    // Manually trigger cleanup
+    await new Promise((r) => setTimeout(r, 10));
+    (limiter as any).cleanup();
+
+    expect(store.size).toBe(0);
+    limiter.destroy();
+  });
+});
