@@ -8,6 +8,13 @@ import type { AxiosError, AxiosResponse } from "axios";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { CookieJar } from "tough-cookie";
 
+// Type-cast helpers for injectable fetch dependencies
+const asAxiosGet = (
+  fn: (url: string, config?: unknown) => Promise<{ data: string }>,
+) => fn as unknown as typeof import("axios").default.get;
+const asIsAxiosError = (fn: (error: unknown) => boolean) =>
+  fn as unknown as typeof import("axios").default.isAxiosError;
+
 beforeEach(() => {
   mock.restore();
 });
@@ -1523,5 +1530,265 @@ describe("fetchHtml", () => {
 
       // Should not throw PerimeterX error
     });
+  });
+});
+
+// ── lib/extract/upstream – TLS fingerprint fallback (bot detection) ───────────
+
+describe("lib/extract/upstream – proxy path with fingerprintFetchFn", () => {
+  // The direct-path TLS fallback (botDetection.detected && !injectedGet) cannot
+  // be tested with injected deps because injecting axiosGetFn sets `injectedGet`
+  // which bypasses the fallback. Instead, we test the PROXY path which always
+  // uses fingerprintFetchFn directly.
+  test("proxy path calls fingerprintFetchFn and returns html", async () => {
+    const { fetchHtml } = await import("@/lib/extract");
+
+    let fingerprintCalled = false;
+    const mockFingerprintFetch = async () => {
+      fingerprintCalled = true;
+      return {
+        html: "<html><body>Proxy fingerprint content</body></html>",
+        requestHeaders: { "User-Agent": "test-ua" },
+      };
+    };
+
+    const result = await fetchHtml(
+      "https://example.com/proxy-extract",
+      { fingerprintFetchFn: mockFingerprintFetch as any },
+      { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+    );
+
+    expect(fingerprintCalled).toBe(true);
+    expect(result).toContain("Proxy fingerprint content");
+  });
+
+  test("proxy path propagates fingerprintFetchFn errors", async () => {
+    const { fetchHtml } = await import("@/lib/extract");
+
+    const mockFingerprintFetch = async () => {
+      throw new Error("Fingerprint fetch failed");
+    };
+
+    await expect(
+      fetchHtml(
+        "https://example.com/proxy-extract-fail",
+        { fingerprintFetchFn: mockFingerprintFetch as any },
+        { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+      ),
+    ).rejects.toThrow("Fingerprint fetch failed");
+  });
+});
+
+describe("lib/extract/upstream – fetchHtml injectable paths", () => {
+  test("throws when URL is rejected by isAllowedFeedUrlFn", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    await expect(
+      fetchHtml(
+        "https://blocked.example.com/feed",
+        {
+          isAllowedFeedUrlFn: async () => false,
+          axiosGetFn: asAxiosGet(async () => ({ data: "<html/>" })),
+        },
+        {},
+      ),
+    ).rejects.toThrow("Blocked URL");
+  });
+
+  test("returns html from injected axiosGetFn on direct path", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const html = await fetchHtml(
+      "https://example.com/article",
+      {
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: asIsAxiosError(() => false),
+        axiosGetFn: asAxiosGet(async () => ({
+          data: "<html><body>hello</body></html>",
+        })),
+      },
+      {},
+    );
+    expect(html).toBe("<html><body>hello</body></html>");
+  });
+
+  test("proxy path: returns html from injected fingerprintFetchFn", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const html = await fetchHtml(
+      "https://example.com/proxied",
+      {
+        isAllowedFeedUrlFn: async () => true,
+        fingerprintFetchFn: async (_url, _isAllowed, _opts) => ({
+          html: "<html><body>proxy</body></html>",
+          requestHeaders: {},
+        }),
+      },
+      { useProxy: true, proxyUrl: "http://myproxy.example.com:8080" },
+    );
+    expect(html).toBe("<html><body>proxy</body></html>");
+  });
+
+  test("direct path: rethrows non-retryable error from axiosGetFn", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const err = new Error("connection refused");
+    await expect(
+      fetchHtml(
+        "https://example.com/article",
+        {
+          isAllowedFeedUrlFn: async () => true,
+          isAxiosErrorFn: asIsAxiosError(() => false),
+          axiosGetFn: asAxiosGet(async () => {
+            throw err;
+          }),
+        },
+        {},
+      ),
+    ).rejects.toThrow("connection refused");
+  });
+});
+
+describe("fetchHtml direct path – error branches", () => {
+  test("rethrows when isAxiosError returns false", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const err = new Error("network failure");
+    await expect(
+      fetchHtml(
+        "https://example.com/article",
+        {
+          isAllowedFeedUrlFn: async () => true,
+          isAxiosErrorFn: asIsAxiosError(() => false),
+          axiosGetFn: asAxiosGet(async () => {
+            throw err;
+          }),
+        },
+        {},
+      ),
+    ).rejects.toThrow("network failure");
+  });
+
+  test("returns html on successful direct fetch", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const html = await fetchHtml(
+      "https://example.com/article",
+      {
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: asIsAxiosError(() => false),
+        axiosGetFn: asAxiosGet(async () => ({
+          data: "<html><body>content</body></html>",
+        })),
+      },
+      {},
+    );
+    expect(html).toBe("<html><body>content</body></html>");
+  });
+});
+
+// ── lib/extract/upstream.ts – proxy path with fingerprint ────────────────────
+
+describe("fetchHtml proxy path – fingerprint fetch", () => {
+  test("returns html from fingerprint fetch on proxy path", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const html = await fetchHtml(
+      "https://example.com/proxied",
+      {
+        isAllowedFeedUrlFn: async () => true,
+        fingerprintFetchFn: async () => ({
+          html: "<html><body>proxied</body></html>",
+          requestHeaders: { "User-Agent": "test" },
+        }),
+        delayFn: async () => {},
+      },
+      { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+    );
+    expect(html).toBe("<html><body>proxied</body></html>");
+  });
+
+  test("throws after exhausting proxy retries", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const { GotScrapingError } = await import("@/lib/fetch");
+    await expect(
+      fetchHtml(
+        "https://example.com/proxied",
+        {
+          isAllowedFeedUrlFn: async () => true,
+          fingerprintFetchFn: async () => {
+            throw new GotScrapingError(
+              403,
+              "Access Denied",
+              "http",
+              "http://proxy.example.com:8080",
+              130,
+              false,
+              0,
+              {},
+              {},
+            );
+          },
+          delayFn: async () => {},
+        },
+        { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+// ── lib/extract/upstream – proxy path error flow ──────────────────────────────
+
+describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
+  test("re-throws when fingerprintFetchFn throws on proxy path", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+    const proxyErr = Object.assign(new Error("proxy connection refused"), {
+      statusCode: 500,
+      proxyMode: "socks" as const,
+      responseBody: "",
+      responseHeaders: {},
+      requestHeaders: {},
+      redirectHop: 0,
+    });
+
+    await expect(
+      fetchHtml(
+        "https://example.com/article",
+        {
+          isAllowedFeedUrlFn: async () => true,
+          fingerprintFetchFn: async () => {
+            throw proxyErr;
+          },
+        },
+        {
+          useProxy: true,
+          proxyUrl: "socks5://proxy.example.com:1080",
+        },
+      ),
+    ).rejects.toThrow("proxy connection refused");
+  });
+
+  test("re-throws when axiosGetFn throws a bot-detected error (non-retryable)", async () => {
+    const { fetchHtml } = await import("@/lib/extract/upstream");
+
+    // Build a minimal AxiosError-like object for DataDome detection
+    const axiosLikeErr: any = {
+      response: {
+        status: 403,
+        headers: { "x-datadome": "protected" },
+        data: "",
+        config: {},
+      },
+      isAxiosError: true,
+      message: "Request failed with status code 403",
+    };
+    axiosLikeErr.constructor = axiosLikeErr;
+
+    await expect(
+      fetchHtml(
+        "https://example.com/article",
+        {
+          isAllowedFeedUrlFn: async () => true,
+          isAxiosErrorFn: ((e: unknown) => e === axiosLikeErr) as any,
+          axiosGetFn: async () => {
+            throw axiosLikeErr;
+          },
+        },
+        {},
+      ),
+    ).rejects.toBeDefined();
   });
 });
