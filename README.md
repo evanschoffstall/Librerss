@@ -134,7 +134,8 @@ librerss/
 │       ├── auth/         # Credentials, CSRF, session management
 │       ├── core/         # Domain logic: feed fetching, parsing, articles
 │       ├── db/           # Drizzle schema and database client
-│       ├── extract/      # Article extraction orchestration and caching
+│       ├── distill/      # Article distillation strategies: custom, Readability, Defuddle
+│       ├── extract/      # Upstream fetch orchestration and caching
 │       ├── fetch/        # Fingerprinted HTTP fetching: TLS client, proxy/SOCKS, cookies
 │       ├── hooks/        # React hooks (client-side only)
 │       ├── sanitize/     # HTML sanitization pipeline
