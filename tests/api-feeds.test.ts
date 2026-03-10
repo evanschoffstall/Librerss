@@ -14,6 +14,16 @@ import {
   test,
 } from "bun:test";
 import { createMockFeed, createMockRequest } from "./support/test-utils";
+import {
+  getRequestedFeedUrl,
+  parseCreateFeedPayload,
+  parseDeleteSourceId,
+  parseRenameFeedPayload,
+  parseRenameFeedPayloadFromBody,
+  parseToggleFeedEnabledPayloadFromBody,
+  parseUpdateFeedSettingsPayloadFromBody,
+} from "@/lib/api/feeds/parsers";
+import { NextRequest } from "next/server";
 
 const createSelectChain = () => ({
   leftJoin: () => createSelectChain(),
@@ -458,5 +468,682 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
       const result = await requireMutableFeedAccess(request);
       expect(result).toBeDefined();
     }
+  });
+});
+
+// ── lib/api/feeds/access – requireMutableFeedAccess ──────────────────────────
+// NOTE: These tests use env-var manipulation rather than mock.module on @/lib/server
+// or @/lib/auth/session to avoid cross-file module-cache contamination.
+
+describe("lib/api/feeds/access – requireMutableFeedAccess", () => {
+  test("returns 503 when placeholder data mode is active", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { requireMutableFeedAccess } = await import("@/lib/api/feeds/access");
+    // Placeholder mode (DATABASE_URL='') bypasses DB auth and then hits the 503 branch.
+    const prevDb = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    try {
+      // sec-fetch-site passes CSRF; placeholder mode returns admin user; 503 follows.
+      const request = createMockRequest("https://localhost/api/feeds", {
+        method: "POST",
+        headers: { "sec-fetch-site": "same-origin" },
+      });
+      const result = await requireMutableFeedAccess(request);
+      expect(result instanceof Response).toBe(true);
+      if (result instanceof Response) {
+        expect(result.status).toBe(503);
+      }
+    } finally {
+      if (prevDb !== undefined) process.env.DATABASE_URL = prevDb;
+      else delete process.env.DATABASE_URL;
+    }
+  });
+
+  test("returns 401 when no session cookie in non-placeholder mode", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { requireMutableFeedAccess } = await import("@/lib/api/feeds/access");
+    // getUserFromRequest returns null when cookie absent → 401 before any DB call.
+    const prevDb = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgresql://localhost:5432/test";
+    try {
+      const request = createMockRequest("https://localhost/api/feeds", {
+        method: "POST",
+        headers: { "sec-fetch-site": "same-origin" },
+      });
+      const result = await requireMutableFeedAccess(request);
+      expect(result instanceof Response).toBe(true);
+      if (result instanceof Response) {
+        expect(result.status).toBe(401);
+      }
+    } finally {
+      if (prevDb !== undefined) process.env.DATABASE_URL = prevDb;
+      else delete process.env.DATABASE_URL;
+    }
+  });
+});
+
+// ── app/api/feeds/[id]/refresh – 501 in placeholder mode ──────────────────────
+
+describe("app/api/feeds/[id]/refresh – 501 response", () => {
+  test("POST returns 501 when auth passes in placeholder mode", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { POST } = await import("@/app/api/feeds/[id]/refresh/route");
+    const prevDb = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    try {
+      const request = createMockRequest(
+        "https://example.com/api/feeds/1/refresh",
+        { method: "POST" },
+      );
+      const context = { params: Promise.resolve({ id: "1" }) };
+      const response = await POST(request, context);
+      expect(response.status).toBe(501);
+      const body = await response.json();
+      expect(body.error).toContain("not implemented");
+    } finally {
+      if (prevDb !== undefined) process.env.DATABASE_URL = prevDb;
+      else delete process.env.DATABASE_URL;
+    }
+  });
+});
+
+// ── app/api/feeds/route.ts – PATCH body-parsed paths ──────────────────────────
+
+describe("feeds route PATCH – body-parsed paths", () => {
+  const authUser = { userId: 1, email: "u@test.com" } as any;
+
+  test("PATCH toggles feed enabled via body", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 10, enabled: false },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      setFeedSourceEnabledForUserFn: async (_uid, sid, enabled) => ({
+        id: sid,
+        enabled,
+        name: "Feed",
+        url: "https://x.com/f",
+      }),
+    });
+    expect(result.status).toBe(200);
+    const body = await result.json();
+    expect(body.enabled).toBe(false);
+    expect(body.id).toBe(10);
+  });
+
+  test("PATCH toggles feed enabled – not found returns 404", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 10, enabled: true },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      setFeedSourceEnabledForUserFn: async () => null,
+      jsonErrorFn: ((msg: string, status: number) =>
+        Response.json({ error: msg }, { status })) as any,
+    });
+    expect(result.status).toBe(404);
+  });
+
+  test("PATCH updates extraction settings via body", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 8, extractionDisabled: true },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      updateFeedSettingsForUserFn: async (_uid, sid, settings) => ({
+        id: sid,
+        ...settings,
+        name: "Feed",
+        url: "https://x.com/f",
+      }),
+    });
+    expect(result.status).toBe(200);
+    const body = await result.json();
+    expect(body.extractionDisabled).toBe(true);
+  });
+
+  test("PATCH updates proxyEnabled setting via body", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 5, proxyEnabled: true },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      updateFeedSettingsForUserFn: async (_uid, sid, settings) => ({
+        id: sid,
+        ...settings,
+        name: "Feed",
+        url: "https://x.com/f",
+      }),
+    });
+    expect(result.status).toBe(200);
+    const body = await result.json();
+    expect(body.proxyEnabled).toBe(true);
+  });
+
+  test("PATCH update settings – not found returns 404", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 5, proxyEnabled: false },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      updateFeedSettingsForUserFn: async () => null,
+      jsonErrorFn: ((msg: string, status: number) =>
+        Response.json({ error: msg }, { status })) as any,
+    });
+    expect(result.status).toBe(404);
+  });
+
+  test("PATCH renames feed via body (no parseRenameFeedPayloadFn)", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 3, name: "New Name", url: "https://example.com/feed" },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      assertAllowedFeedUrlFn: async () => null,
+      renameFeedSourceForUserFn: async (_uid, sid, name, url) => ({
+        id: sid,
+        name,
+        url,
+      }),
+    });
+    expect(result.status).toBe(200);
+    const body = await result.json();
+    expect(body.name).toBe("New Name");
+  });
+
+  test("PATCH rename via body – not found returns 404", async () => {
+    const { PATCH } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds", {
+      method: "PATCH",
+      body: { id: 3, name: "New", url: "https://example.com/feed" },
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await PATCH(req, {
+      requireMutableFeedAccessFn: async () => authUser,
+      assertAllowedFeedUrlFn: async () => null,
+      renameFeedSourceForUserFn: async () => null,
+      jsonErrorFn: ((msg: string, status: number) =>
+        Response.json({ error: msg }, { status })) as any,
+    });
+    expect(result.status).toBe(404);
+  });
+});
+
+// ── app/api/feeds/route.ts – DELETE success path ──────────────────────────────
+
+describe("feeds route DELETE – success path", () => {
+  test("DELETE returns deleted source on success", async () => {
+    const { DELETE } = await import("@/app/api/feeds/route");
+    const req = createMockRequest("https://host/api/feeds?sourceId=7", {
+      method: "DELETE",
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const result = await DELETE(req, {
+      requireMutableFeedAccessFn: async () =>
+        ({ userId: 1, email: "u@x.com" }) as any,
+      parseDeleteSourceIdFn: () => 7,
+      deleteFeedSourceForUserFn: async () => ({
+        id: 7,
+        name: "Gone",
+        url: "https://x.com/f",
+      }),
+    });
+    expect(result.status).toBe(200);
+    const body = await result.json();
+    expect(body.id).toBe(7);
+    expect(body.name).toBe("Gone");
+  });
+});
+
+// ── app/api/feeds/route.ts – GET upstream error branches ─────────────────────
+
+describe("feeds route GET – upstream error handling", () => {
+  const authUser = { userId: 1, email: "u@test.com" } as any;
+
+  test("returns 404 when feed source not found", async () => {
+    const { GET } = await import("@/app/api/feeds/route");
+    const { isFeedSourceNotFoundError } =
+      await import("@/lib/core/feed-fetcher");
+    const notFoundErr = Object.assign(new Error("not found"), {
+      name: "FeedSourceNotFoundError",
+    });
+    const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
+    const result = await GET(req, {
+      requireAuthenticatedUserFn: async () => authUser,
+      getRequestedFeedUrlFn: () => "https://x.com/f",
+      assertAllowedFeedUrlFn: async () => null,
+      handleFeedReadFn: async () => {
+        throw notFoundErr;
+      },
+      isFeedSourceNotFoundErrorFn: isFeedSourceNotFoundError,
+      isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
+      isAxiosErrorFn: ((_e: unknown) => false) as any,
+      jsonErrorFn: ((msg: string, status: number) =>
+        Response.json({ error: msg }, { status })) as any,
+      warnFn: (() => {}) as any,
+    });
+    expect(result.status).toBe(404);
+  });
+
+  test("returns 502 when upstream feed error", async () => {
+    const { GET } = await import("@/app/api/feeds/route");
+    const { isUpstreamFeedError } = await import("@/lib/core/feed-fetcher");
+    const upstreamErr = Object.assign(new Error("upstream fail"), {
+      name: "UpstreamFeedError",
+    });
+    const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
+    const result = await GET(req, {
+      requireAuthenticatedUserFn: async () => authUser,
+      getRequestedFeedUrlFn: () => "https://x.com/f",
+      assertAllowedFeedUrlFn: async () => null,
+      handleFeedReadFn: async () => {
+        throw upstreamErr;
+      },
+      isUpstreamFeedErrorFn: isUpstreamFeedError,
+      isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
+      isAxiosErrorFn: ((_e: unknown) => false) as any,
+      jsonErrorFn: ((msg: string, status: number) =>
+        Response.json({ error: msg }, { status })) as any,
+      warnFn: (() => {}) as any,
+    });
+    expect(result.status).toBe(502);
+  });
+
+  test("returns 502 when axios error occurs", async () => {
+    const { GET } = await import("@/app/api/feeds/route");
+    const axiosErr = Object.assign(new Error("timeout"), {
+      isAxiosError: true,
+      response: { status: 504 },
+      config: {},
+    });
+    const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
+    const result = await GET(req, {
+      requireAuthenticatedUserFn: async () => authUser,
+      getRequestedFeedUrlFn: () => "https://x.com/f",
+      assertAllowedFeedUrlFn: async () => null,
+      handleFeedReadFn: async () => {
+        throw axiosErr;
+      },
+      isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
+      isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
+      isAxiosErrorFn: ((e: unknown) =>
+        !!(e && typeof e === "object" && "isAxiosError" in e)) as any,
+      jsonErrorFn: ((msg: string, status: number) =>
+        Response.json({ error: msg }, { status })) as any,
+      warnFn: (() => {}) as any,
+    });
+    expect(result.status).toBe(502);
+  });
+});
+
+describe("parseCreateFeedPayload", () => {
+  test("parses valid create payload", async () => {
+    const body = JSON.stringify({
+      name: "My Feed",
+      url: "https://example.com/feed",
+    });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseCreateFeedPayload(request);
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) {
+      expect(result.name).toBe("My Feed");
+      expect(result.url).toBe("https://example.com/feed");
+      expect(typeof result.category).toBe("string");
+    }
+  });
+
+  test("returns error for missing name", async () => {
+    const body = JSON.stringify({ url: "https://example.com/feed" });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseCreateFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+
+  test("returns error for missing url", async () => {
+    const body = JSON.stringify({ name: "Feed" });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseCreateFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("uses custom category when provided", async () => {
+    const body = JSON.stringify({
+      name: "Feed",
+      url: "https://example.com/feed",
+      category: "  Tech  ",
+    });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseCreateFeedPayload(request);
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) {
+      expect(result.category).toBe("Tech");
+    }
+  });
+
+  test("rejects overly long name", async () => {
+    const body = JSON.stringify({
+      name: "A".repeat(500),
+      url: "https://example.com/feed",
+    });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseCreateFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+});
+
+// ─── feed-parsers: parseRenameFeedPayload ─────────────────────────────────────
+
+describe("parseRenameFeedPayload", () => {
+  test("parses valid rename payload", async () => {
+    const body = JSON.stringify({
+      id: 42,
+      name: "New Name",
+      url: "https://x.com/feed",
+    });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "PATCH",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseRenameFeedPayload(request);
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) {
+      expect(result.sourceId).toBe(42);
+      expect(result.name).toBe("New Name");
+      expect(result.url).toBe("https://x.com/feed");
+    }
+  });
+
+  test("returns error for missing id", async () => {
+    const body = JSON.stringify({ name: "New", url: "https://x.com" });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "PATCH",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseRenameFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("returns error for missing name", async () => {
+    const body = JSON.stringify({ id: 1, url: "https://x.com" });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "PATCH",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseRenameFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("returns error for missing url", async () => {
+    const body = JSON.stringify({ id: 1, name: "Name" });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "PATCH",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseRenameFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("rejects overly long name", async () => {
+    const body = JSON.stringify({
+      id: 1,
+      name: "A".repeat(500),
+      url: "https://x.com/feed",
+    });
+    const request = new NextRequest("http://localhost/api/feeds", {
+      method: "PATCH",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+    const result = await parseRenameFeedPayload(request);
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+});
+
+describe("parseRenameFeedPayloadFromBody", () => {
+  test("rejects overly long url", () => {
+    const result = parseRenameFeedPayloadFromBody({
+      id: 1,
+      name: "Feed",
+      url: `https://example.com/${"x".repeat(2100)}`,
+    });
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+});
+
+describe("parseToggleFeedEnabledPayloadFromBody", () => {
+  test("parses valid toggle payload", () => {
+    const result = parseToggleFeedEnabledPayloadFromBody({
+      id: 17,
+      enabled: true,
+    });
+    expect(result).toEqual({ sourceId: 17, enabled: true });
+  });
+
+  test("rejects non-boolean enabled", () => {
+    const result = parseToggleFeedEnabledPayloadFromBody({
+      id: 17,
+      enabled: "true",
+    });
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+});
+
+describe("parseUpdateFeedSettingsPayloadFromBody", () => {
+  test("rejects payload without mutable fields", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({ id: 12 });
+    expect(result).toBeInstanceOf(Response);
+    if (result instanceof Response) {
+      expect(result.status).toBe(400);
+    }
+  });
+
+  test("parses extractionDisabled-only payload", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({
+      id: 12,
+      extractionDisabled: true,
+    });
+    expect(result).toEqual({ sourceId: 12, extractionDisabled: true });
+  });
+
+  test("parses proxyEnabled-only payload", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({
+      id: 12,
+      proxyEnabled: false,
+    });
+    expect(result).toEqual({ sourceId: 12, proxyEnabled: false });
+  });
+
+  test("parses payload with both mutable fields", () => {
+    const result = parseUpdateFeedSettingsPayloadFromBody({
+      id: 12,
+      extractionDisabled: false,
+      proxyEnabled: true,
+    });
+    expect(result).toEqual({
+      sourceId: 12,
+      extractionDisabled: false,
+      proxyEnabled: true,
+    });
+  });
+});
+
+// ─── feed-parsers: parseDeleteSourceId ────────────────────────────────────────
+
+describe("parseDeleteSourceId", () => {
+  test("parses valid id from query string", () => {
+    const request = new NextRequest("http://localhost/api/feeds?id=42");
+    const result = parseDeleteSourceId(request);
+    expect(result).toBe(42);
+  });
+
+  test("returns error for missing id", () => {
+    const request = new NextRequest("http://localhost/api/feeds");
+    const result = parseDeleteSourceId(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("returns error for non-numeric id", () => {
+    const request = new NextRequest("http://localhost/api/feeds?id=abc");
+    const result = parseDeleteSourceId(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("returns error for negative id", () => {
+    const request = new NextRequest("http://localhost/api/feeds?id=-5");
+    const result = parseDeleteSourceId(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  test("returns error for zero id", () => {
+    const request = new NextRequest("http://localhost/api/feeds?id=0");
+    const result = parseDeleteSourceId(request);
+    expect(result).toBeInstanceOf(Response);
+  });
+});
+
+// ─── feed-parsers: getRequestedFeedUrl ────────────────────────────────────────
+
+describe("getRequestedFeedUrl", () => {
+  test("extracts url from query string", () => {
+    const request = new NextRequest(
+      "http://localhost/api/feeds?url=https://example.com/feed",
+    );
+    expect(getRequestedFeedUrl(request)).toBe("https://example.com/feed");
+  });
+
+  test("returns null when no url param", () => {
+    const request = new NextRequest("http://localhost/api/feeds");
+    expect(getRequestedFeedUrl(request)).toBeNull();
+  });
+
+  test("returns null for empty url param", () => {
+    const request = new NextRequest("http://localhost/api/feeds?url=");
+    expect(getRequestedFeedUrl(request)).toBeNull();
+  });
+
+  test("trims whitespace from url param", () => {
+    const request = new NextRequest(
+      "http://localhost/api/feeds?url=%20https://x.com/feed%20",
+    );
+    expect(getRequestedFeedUrl(request)).toBe("https://x.com/feed");
+  });
+});
+
+// ─── feed-repository: toFeedSourceResponse ────────────────────────────────────
+
+// ── api/feeds/parsers – validation edge cases ────────────────────────────────
+
+describe("api/feeds/parsers – assertAllowedFeedUrl", () => {
+  test("returns error Response for disallowed URL (localhost)", async () => {
+    const { assertAllowedFeedUrl } = await import("@/lib/api/feeds/parsers");
+    const result = await assertAllowedFeedUrl("http://127.0.0.1/feed");
+    expect(result).not.toBeNull();
+    expect((result as Response).status).toBe(400);
+  });
+});
+
+describe("api/feeds/parsers – parseCreateFeedPayload validation", () => {
+  function makeFeedRequest(body: unknown): Request {
+    return new Request("https://example.com/api/feeds", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  test("returns 400 when url exceeds max length", async () => {
+    const { parseCreateFeedPayload } = await import("@/lib/api/feeds/parsers");
+    const req = makeFeedRequest({
+      name: "Feed",
+      url: "https://x.com/" + "a".repeat(2200),
+    });
+    const result = await parseCreateFeedPayload(req as any);
+    expect((result as Response).status).toBe(400);
+  });
+});
+
+describe("api/feeds/parsers – parseRenameFeedPayloadFromBody", () => {
+  test("returns 400 when url is missing", async () => {
+    const { parseRenameFeedPayloadFromBody } =
+      await import("@/lib/api/feeds/parsers");
+    const result = parseRenameFeedPayloadFromBody({ id: 1, name: "Feed" });
+    expect((result as Response).status).toBe(400);
+  });
+
+  test("returns 400 when url exceeds max length", async () => {
+    const { parseRenameFeedPayloadFromBody } =
+      await import("@/lib/api/feeds/parsers");
+    const result = parseRenameFeedPayloadFromBody({
+      id: 1,
+      name: "Feed",
+      url: "https://x.com/" + "a".repeat(2200),
+    });
+    expect((result as Response).status).toBe(400);
+  });
+});
+
+describe("api/feeds/parsers – parseToggleFeedEnabledPayloadFromBody", () => {
+  test("returns 400 when id is missing", async () => {
+    const { parseToggleFeedEnabledPayloadFromBody } =
+      await import("@/lib/api/feeds/parsers");
+    const result = parseToggleFeedEnabledPayloadFromBody({ enabled: true });
+    expect((result as Response).status).toBe(400);
   });
 });
