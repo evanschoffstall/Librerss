@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { attachSentinelLayout, SENTINEL_HEIGHT } from "./useSentinelLayout";
+import {
+  attachSentinelLayout,
+  SENTINEL_HEIGHT,
+  SENTINEL_SCROLL_OFFSET,
+} from "./useSentinelLayout";
 /** Distance (px into sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
 /** Hold height during refresh feedback. */
@@ -232,7 +236,7 @@ export function usePullDownToRefresh(
   };
 }
 
-/** Scroll-restore offset: always SENTINEL_HEIGHT since sentinel is always present. */
+/** Scroll-restore offset: full sentinel height including snap buffer. */
 export function useSentinelScrollOffset(): number {
-  return SENTINEL_HEIGHT;
+  return SENTINEL_SCROLL_OFFSET;
 }

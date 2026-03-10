@@ -10,7 +10,14 @@ import {
 import { type Article } from "@/lib";
 import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { ArrowDown } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
@@ -35,6 +42,10 @@ import {
   usePullDownToRefresh,
   useSentinelScrollOffset,
 } from "./hooks/usePullDownToRefresh";
+import {
+  SENTINEL_HEIGHT,
+  SENTINEL_SCROLL_OFFSET,
+} from "./hooks/useSentinelLayout";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
@@ -43,12 +54,16 @@ type DashboardViewProps = {
   usePlaceholderData: boolean;
   backgroundMode: BackgroundMode;
   onBackgroundModeChange: (value: BackgroundMode) => void;
+  distillStrategy: string;
+  onDistillStrategyChange: (value: string) => void;
 };
 
 export const DashboardView = ({
   usePlaceholderData,
   backgroundMode,
   onBackgroundModeChange,
+  distillStrategy,
+  onDistillStrategyChange,
 }: DashboardViewProps) => {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [, setRelativeRefreshTick] = useState(0);
@@ -144,6 +159,7 @@ export const DashboardView = ({
     articleFilter,
     usePlaceholderData,
     categories,
+    distillStrategy,
     onExpand: settleFeedScroll,
     suppressSnapRef,
   });
@@ -277,6 +293,7 @@ export const DashboardView = ({
   ]);
 
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  const feedWrapperRef = useRef<HTMLDivElement | null>(null);
   const mergedFeedScrollRef = useCallback(
     (node: HTMLElement | null) => {
       feedScrollRootRef.current = node;
@@ -284,6 +301,36 @@ export const DashboardView = ({
     },
     [feedScrollRef],
   );
+
+  // Snap the sentinel out of view synchronously before paint on every
+  // filter/category switch. useEffect (above) also calls invalidateFeedScroll
+  // but fires after paint — by that point a frame with the sentinel exposed
+  // may already have been painted when content is sparse.
+  //
+  // CRITICAL: set a large padding BEFORE reading any layout properties.
+  // Reading offsetHeight/clientHeight forces a synchronous reflow. If content
+  // just shrank (full articles → empty), the browser clamps scrollTop during
+  // that reflow, firing the scroll handler which sets isPulling=true and
+  // flashes the sentinel. By writing a large padding first (no reflow needed
+  // for a write), the browser's reflow sees enough scrollHeight and never
+  // clamps. The ResizeObserver in attachSentinelLayout computes the exact
+  // padding within the same frame.
+  const hasSentinelSnapMountedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!hasSentinelSnapMountedRef.current) {
+      hasSentinelSnapMountedRef.current = true;
+      return;
+    }
+    const root = feedScrollRootRef.current;
+    const wrapper = feedWrapperRef.current;
+    if (!root || !wrapper) return;
+    const viewport =
+      root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+      root;
+    // Large padding prevents scrollTop clamping during the reflow below.
+    wrapper.style.paddingBottom = "9999px";
+    viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
+  }, [selectedCategory, articleFilter]);
 
   const {
     refreshFeedList,
@@ -425,7 +472,7 @@ export const DashboardView = ({
 
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
           <ScrollArea ref={mergedFeedScrollRef} className="h-full">
-            <div className="p-1">
+            <div className="p-1" ref={feedWrapperRef}>
               {/* Pull sentinel: fixed-height scroll item, hidden by scrollTop on mount.
                   Scrolling into it = native pull gesture. */}
               <div
@@ -437,7 +484,7 @@ export const DashboardView = ({
                       : "bg-sky-500/10"
                     : ""
                 }`}
-                style={{ height: 104 }}
+                style={{ height: SENTINEL_HEIGHT }}
               >
                 {isPulling && (
                   <div className="flex items-center gap-1.5 pb-3 text-sky-600 dark:text-sky-400">
@@ -493,6 +540,8 @@ export const DashboardView = ({
           onPageSizeChange={setPageSize}
           onShowFaviconsChange={setShowFavicons}
           onBackgroundModeChange={onBackgroundModeChange}
+          distillStrategy={distillStrategy}
+          onDistillStrategyChange={onDistillStrategyChange}
           onImportOpml={categoryManager.importOpmlFeeds}
           onDropFeed={categoryManager.moveFeedByDrop}
           onAddFeed={categoryManager.addFeedSource}

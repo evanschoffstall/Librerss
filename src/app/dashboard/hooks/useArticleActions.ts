@@ -24,6 +24,7 @@ interface UseArticleActionsOptions {
   articleFilter: "all" | "unread" | "read" | "starred";
   usePlaceholderData?: boolean;
   categories?: CategoryTreeNode[];
+  distillStrategy?: string;
   /** Called when any article begins expanding; settles scroll restore. */
   onExpand?: () => void;
   /**
@@ -41,6 +42,7 @@ export function useArticleActions({
   articleFilter,
   usePlaceholderData = false,
   categories,
+  distillStrategy,
   onExpand,
   suppressSnapRef,
 }: UseArticleActionsOptions) {
@@ -72,7 +74,7 @@ export function useArticleActions({
     hydratingArticleLinks,
     hydrateArticleContent,
     cancelHydration,
-  } = useArticleHydration({ setFeed, getFeedSettings });
+  } = useArticleHydration({ setFeed, getFeedSettings, distillStrategy });
   const autoHydratedExpandedKeyRef = useRef<string | null>(null);
   const awaitingExpandedSyncKeyRef = useRef<string | null>(null);
 

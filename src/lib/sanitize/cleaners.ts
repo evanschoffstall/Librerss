@@ -1,9 +1,5 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
-import {
-  hasApJunkClass,
-  isRelatedHeading,
-  manipulateAttrValue,
-} from "./patterns";
+import { hasApJunkClass, isRelatedHeading, readAttrValue } from "./patterns";
 import { purifyRawHtml } from "./purify";
 
 // Cached at first call — env does not change at runtime in a Node.js server
@@ -334,7 +330,7 @@ function removeElementsByAttrPattern(
   let result = html;
   let match: RegExpExecArray | null;
   while ((match = openRe.exec(result)) !== null) {
-    const attrValue = manipulateAttrValue(match[2] ?? "", attr);
+    const attrValue = readAttrValue(match[2] ?? "", attr);
     if (attrValue === null || !pattern.test(attrValue)) continue;
 
     const tagName = match[1]!.toLowerCase();

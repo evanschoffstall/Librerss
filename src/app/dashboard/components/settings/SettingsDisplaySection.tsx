@@ -10,13 +10,15 @@ import { Switch } from "@/components/ui/switch";
 import { Monitor } from "lucide-react";
 import type { BackgroundMode } from "../../constants";
 
-interface SettingsDisplaySectionProps {
+export interface SettingsDisplaySectionProps {
   pageSize: number;
   showFavicons: boolean;
   backgroundMode: BackgroundMode;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
   onBackgroundModeChange: (value: BackgroundMode) => void;
+  distillStrategy: string;
+  onDistillStrategyChange: (value: string) => void;
 }
 
 export function SettingsDisplaySection({
@@ -26,6 +28,8 @@ export function SettingsDisplaySection({
   onPageSizeChange,
   onShowFaviconsChange,
   onBackgroundModeChange,
+  distillStrategy,
+  onDistillStrategyChange,
 }: SettingsDisplaySectionProps) {
   return (
     <section className="settings-card">
@@ -78,6 +82,22 @@ export function SettingsDisplaySection({
               <SelectItem value="none">None</SelectItem>
               <SelectItem value="particles">Particles</SelectItem>
               <SelectItem value="stars">Stars</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="row-between">
+          <Label>Content extraction</Label>
+          <Select
+            value={distillStrategy}
+            onValueChange={onDistillStrategyChange}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select strategy" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="custom">Custom (built-in)</SelectItem>
+              <SelectItem value="readability">Readability</SelectItem>
+              <SelectItem value="defuddle">Defuddle</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -63,12 +63,12 @@ export function isRelatedHeading(headingText: string): boolean {
   );
 }
 
-/** manipulate the value of a named attribute from an HTML open-tag attribute string. */
-export function manipulateAttrValue(
+/** Read the value of a named attribute from an HTML open-tag attribute string. */
+export function readAttrValue(
   attrsStr: string,
   attrName: string,
 ): string | null {
-  const re = /\b([a-z][a-z0-9:-]*)=["']([^"']*)["']/gi;
+  const re = /\b([a-z][a-z0-9:-]*)=["']([^"']*)['"]/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(attrsStr)) !== null) {
     if (m[1]?.toLowerCase() === attrName) return m[2] ?? null;

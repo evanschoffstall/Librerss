@@ -202,13 +202,20 @@ export class ArticleService {
 
   static async extractArticleContent(
     url: string,
-    options?: { useProxy?: boolean; signal?: AbortSignal },
+    options?: {
+      useProxy?: boolean;
+      distillStrategy?: string;
+      signal?: AbortSignal;
+    },
   ): Promise<string> {
     const response = await getApiClient().post(
       `${this.baseUrl}/articles/extract`,
       {
         url,
         ...(options?.useProxy && { useProxy: true }),
+        ...(options?.distillStrategy && {
+          distillStrategy: options.distillStrategy,
+        }),
       },
       { signal: options?.signal },
     );

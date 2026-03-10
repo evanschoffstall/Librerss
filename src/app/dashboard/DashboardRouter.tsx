@@ -32,6 +32,10 @@ export function DashboardRouter() {
     "librerss:backgroundMode",
     "particles",
   );
+  const [distillStrategy, setDistillStrategy] = useLocalStorage<string>(
+    "librerss:distillStrategy",
+    "custom",
+  );
 
   const isLightMode = (resolvedTheme ?? "dark") === "light";
   const hasPreviewQuery =
@@ -147,6 +151,8 @@ export function DashboardRouter() {
           usePlaceholderData={isPreviewMode || usePlaceholderData}
           backgroundMode={backgroundMode}
           onBackgroundModeChange={setBackgroundMode}
+          distillStrategy={distillStrategy}
+          onDistillStrategyChange={setDistillStrategy}
         />
       </div>
     </main>

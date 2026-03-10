@@ -19,7 +19,6 @@ export { sanitizeRawContent } from "./content-sanitization";
 
 export {
   cleanSanitizedHtml,
-  findArticleBody,
   hasReadableArticleBody,
   isLikelyNavFooterBoilerplate,
   stripCommentEngagementBoilerplate,
@@ -30,3 +29,5 @@ export {
   parsePageTitle,
   readMetaTagContent,
 } from "./metadata-extraction";
+
+export { readAttrValue } from "./patterns";

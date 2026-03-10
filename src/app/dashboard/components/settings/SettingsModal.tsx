@@ -23,27 +23,23 @@ import {
 } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
-import type { BackgroundMode } from "../../constants";
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import { SettingsCategoryList } from "./SettingsCategoryList";
-import { SettingsDisplaySection } from "./SettingsDisplaySection";
+import {
+  SettingsDisplaySection,
+  type SettingsDisplaySectionProps,
+} from "./SettingsDisplaySection";
 import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
 import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
-interface SettingsModalProps {
+interface SettingsModalProps extends SettingsDisplaySectionProps {
   onClose: () => void;
   categories: CategoryTreeNode[];
   categoryOptions: string[];
   pendingCategoryRemovalLabel: string | null;
   selectedCategory: string;
-  pageSize: number;
-  showFavicons: boolean;
-  backgroundMode: BackgroundMode;
-  onPageSizeChange: (size: number) => void;
-  onShowFaviconsChange: (value: boolean) => void;
-  onBackgroundModeChange: (value: BackgroundMode) => void;
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
   onDropFeed: (
     key: string,
@@ -88,18 +84,14 @@ function SettingsBody({
   onPageSizeChange,
   onShowFaviconsChange,
   onBackgroundModeChange,
+  distillStrategy,
+  onDistillStrategyChange,
   onRemoveCategory,
   isPreviewMode = false,
-}: {
+}: SettingsDisplaySectionProps & {
   state: ReturnType<typeof useSettingsModalState>;
   categories: CategoryTreeNode[];
   pendingCategoryRemovalLabel: string | null;
-  pageSize: number;
-  showFavicons: boolean;
-  backgroundMode: BackgroundMode;
-  onPageSizeChange: (size: number) => void;
-  onShowFaviconsChange: (value: boolean) => void;
-  onBackgroundModeChange: (value: BackgroundMode) => void;
   onRemoveCategory: (label: string) => Promise<boolean>;
   isPreviewMode?: boolean;
 }) {
@@ -112,6 +104,8 @@ function SettingsBody({
         onPageSizeChange={onPageSizeChange}
         onShowFaviconsChange={onShowFaviconsChange}
         onBackgroundModeChange={onBackgroundModeChange}
+        distillStrategy={distillStrategy}
+        onDistillStrategyChange={onDistillStrategyChange}
       />
 
       <div className="relative">
@@ -228,6 +222,8 @@ export const SettingsModal = ({
   onPageSizeChange,
   onShowFaviconsChange,
   onBackgroundModeChange,
+  distillStrategy,
+  onDistillStrategyChange,
   onImportOpml,
   onDropFeed,
   onAddFeed,
@@ -268,6 +264,8 @@ export const SettingsModal = ({
     onPageSizeChange,
     onShowFaviconsChange,
     onBackgroundModeChange,
+    distillStrategy,
+    onDistillStrategyChange,
     onRemoveCategory,
     isPreviewMode,
   } as const;
