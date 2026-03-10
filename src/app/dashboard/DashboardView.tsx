@@ -42,10 +42,7 @@ import {
   usePullDownToRefresh,
   useSentinelScrollOffset,
 } from "./hooks/usePullDownToRefresh";
-import {
-  SENTINEL_HEIGHT,
-  SENTINEL_SCROLL_OFFSET,
-} from "./hooks/useSentinelLayout";
+import { SENTINEL_SCROLL_OFFSET } from "./hooks/useSentinelLayout";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
@@ -365,6 +362,7 @@ export const DashboardView = ({
     sentinelRef: pullSentinelRef,
     pulling: isPulling,
     readyToRefresh,
+    sentinelHeight,
   } = usePullDownToRefresh(
     feedScrollRootRef,
     refreshFeedList,
@@ -482,14 +480,14 @@ export const DashboardView = ({
                   Scrolling into it = native pull gesture. */}
               <div
                 ref={pullSentinelRef}
-                className={`flex items-end justify-center bg-background transition-colors duration-150 ${
+                className={`mb-2 flex items-end justify-center bg-background transition-colors duration-150 ${
                   isPulling
                     ? readyToRefresh
                       ? "bg-sky-500/25"
                       : "bg-sky-500/10"
                     : ""
                 }`}
-                style={{ height: SENTINEL_HEIGHT }}
+                style={{ height: sentinelHeight }}
               >
                 {isPulling && (
                   <div className="flex items-center gap-1.5 pb-3 text-sky-600 dark:text-sky-400">

@@ -4,11 +4,12 @@
  * Manages three layout invariants that keep the pull-to-refresh sentinel
  * hidden during normal scrolling and visible only during an active pull:
  *
- * ### 1. Sentinel height
- * The sentinel is always `SENTINEL_HEIGHT` so pull-to-refresh is never
- * blocked regardless of article count. The padding + `scrollTop`
- * initialisation (invariants 2 & 3) keeps it scrolled out of view during
- * normal use.
+ * ### 1. Sentinel height + hide offset
+ * The sentinel renders at `SENTINEL_HEIGHT`, while the hidden-rest scroll
+ * target uses `SENTINEL_SCROLL_OFFSET` (`height + snap buffer`). That slight
+ * overshoot keeps the sentinel top edge buried during normal browsing even
+ * with sub-pixel rounding or compositor drift. The padding + `scrollTop`
+ * initialisation (invariants 2 & 3) keeps it scrolled out of view.
  *
  * Fixes: sentinel unreachable with few/no articles.
  *
@@ -116,7 +117,7 @@ function syncScrollbar(
  *
  * Also syncs sentinel visibility and scrollbar inset.
  *
- * Fixes: `scrollTop = SENTINEL_HEIGHT` clamped to 0, exposing sentinel.
+ * Fixes: `scrollTop = SENTINEL_SCROLL_OFFSET` clamped to 0, exposing sentinel.
  */
 function ensureMinOverflow({
   viewport,
@@ -179,9 +180,10 @@ export function attachSentinelLayout(
   // Prevent iOS from rubber-banding the page.
   viewport.style.overscrollBehaviorY = "none";
 
-  // Always keep sentinel at full height so pull-to-refresh is never blocked.
-  if (sentinel)
-    sentinel.style.height = `${SENTINEL_HEIGHT + SENTINEL_SNAP_BUFFER}px`;
+  // Keep the rendered sentinel compact; the hidden-rest scroll target adds a
+  // small overshoot via SENTINEL_SCROLL_OFFSET so the sentinel top edge stays
+  // buried during normal browsing.
+  if (sentinel) sentinel.style.height = `${SENTINEL_HEIGHT}px`;
 
   // Radix sets overflow-y:hidden on the viewport when it detects no content
   // overflow, which prevents touch-scroll entirely. Our ensureMinOverflow
@@ -206,12 +208,13 @@ export function attachSentinelLayout(
 
   // ── Initial layout ──────────────────────────────────────────────────
   ensureMinOverflow(elements);
-  viewport.scrollTop = sh();
+  viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
 
   const rafId = requestAnimationFrame(() => {
     ensureMinOverflow(elements);
-    const height = sh();
-    if (height > 0 && viewport.scrollTop < height) viewport.scrollTop = height;
+    if (sh() > 0 && viewport.scrollTop < SENTINEL_SCROLL_OFFSET) {
+      viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
+    }
   });
 
   // ── Scrollbar mutation observer ─────────────────────────────────────
@@ -246,13 +249,13 @@ export function attachSentinelLayout(
           const height = sh();
           if (
             height > 0 &&
-            scrollTopBefore < height &&
-            viewport.scrollTop < height &&
+            scrollTopBefore < SENTINEL_SCROLL_OFFSET &&
+            viewport.scrollTop < SENTINEL_SCROLL_OFFSET &&
             !pullStateRefs.touchActive.current &&
             !pullStateRefs.holding.current &&
             !pullStateRefs.pulling.current
           ) {
-            viewport.scrollTop = height;
+            viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
           }
         })
       : null;
