@@ -52,6 +52,7 @@ import {
 } from "../hooks/useArticleExpansion";
 import { useFavicon } from "../hooks/useFavicon";
 import { useSwipeToRead } from "../hooks/useSwipeToRead";
+import { useSwipeToStar } from "../hooks/useSwipeToStar";
 import {
   buildPreview,
   getArticleSourceLabel,
@@ -160,9 +161,19 @@ export const ArticleCard = memo(function ArticleCard({
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
-  const { swipeState, containerRef: swipeContainerRef } = useSwipeToRead(() => {
-    if (!article.isRead) onToggleRead(article);
-  }, isUpdatingState || article.isRead);
+  const { swipeState: readSwipeState, containerRef: readSwipeRef } =
+    useSwipeToRead(() => onToggleRead(article), isUpdatingState);
+  const { swipeState: starSwipeState, containerRef: starSwipeRef } =
+    useSwipeToStar(() => onToggleStarred(article), isUpdatingState);
+  const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
+  const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
+  const swipeRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      readSwipeRef.current = el;
+      starSwipeRef.current = el;
+    },
+    [readSwipeRef, starSwipeRef],
+  );
 
   const shouldBlockArticleInteraction = () =>
     Date.now() < interactionBlockUntilRef.current;
@@ -368,29 +379,61 @@ export const ArticleCard = memo(function ArticleCard({
 
   return (
     <div
-      ref={swipeContainerRef}
+      ref={swipeRef}
       className={`relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl`}
     >
-      {/* Swipe-to-read background indicator */}
-      {swipeState.swiping && (
+      {/* Swipe-to-read / swipe-to-star background indicators */}
+      {readSwipeState.swiping && (
         <div
           className={`absolute inset-0 z-0 flex items-center rounded-xl transition-colors duration-150 ${
-            swipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
+            readSwipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
           }`}
         >
           <div className="flex items-center gap-2 pl-4 text-emerald-600 dark:text-emerald-400">
-            <CircleCheck
-              className={`size-5 transition-transform duration-150 ${
-                swipeState.committed ? "scale-110" : "scale-90 opacity-60"
-              }`}
-            />
+            {article.isRead ? (
+              <Circle
+                className={`size-5 transition-transform duration-150 ${
+                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
+                }`}
+              />
+            ) : (
+              <CircleCheck
+                className={`size-5 transition-transform duration-150 ${
+                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
+                }`}
+              />
+            )}
             <span
               className={`text-xs font-medium transition-opacity duration-150 ${
-                swipeState.committed ? "opacity-100" : "opacity-0"
+                readSwipeState.committed ? "opacity-100" : "opacity-0"
               }`}
             >
-              Mark read
+              {article.isRead ? "Mark unread" : "Mark read"}
             </span>
+          </div>
+        </div>
+      )}
+      {starSwipeState.swiping && (
+        <div
+          className={`absolute inset-0 z-0 flex items-center justify-end rounded-xl transition-colors duration-150 ${
+            starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"
+          }`}
+        >
+          <div className="flex items-center gap-2 pr-4 text-amber-600 dark:text-amber-400">
+            <span
+              className={`text-xs font-medium transition-opacity duration-150 ${
+                starSwipeState.committed ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {article.isStarred ? "Unstar" : "Star"}
+            </span>
+            <Star
+              className={`size-5 transition-transform duration-150 ${
+                starSwipeState.committed
+                  ? "scale-110 fill-current"
+                  : "scale-90 opacity-60"
+              }`}
+            />
           </div>
         </div>
       )}
@@ -405,13 +448,11 @@ export const ArticleCard = memo(function ArticleCard({
         onMouseDown={handleMouseDown}
         style={{
           cursor: visuallyExpanded ? "default" : "pointer",
-          transform: swipeState.swiping
-            ? `translateX(${swipeState.offsetX}px)`
-            : undefined,
-          transition: swipeState.swiping
+          transform: anySwiping ? `translateX(${swipeOffsetX}px)` : undefined,
+          transition: anySwiping
             ? "none"
             : [
-                swipeState.offsetX !== 0
+                swipeOffsetX !== 0
                   ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
                   : null,
                 `border-radius ${cardT}`,
