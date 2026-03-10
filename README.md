@@ -40,7 +40,7 @@ It also implements the **GReader API**, so native clients like **NetNewsWire** a
 | 🗂️  | **Category organization**    | Group feeds into custom categories                |
 | 🧘  | **Distraction-free reading** | Clean article view, no clutter                    |
 | 🔗  | **GReader API**              | Works natively with NetNewsWire, Reeder, and more |
-| 🌙  | **Dark & light mode**        | System-aware theme with manual override           |
+| 🌙  | **Dark & light mode**        | Dark by default with manual override              |
 | 🔒  | **Self-hosted**              | Your data stays on your server, always            |
 | 🚪  | **Invite-only mode**         | Restrict registration via `ALLOW_SIGNUP` env flag |
 | ⚡  | **Streaming refresh**        | Feeds update in real time via server-sent events  |
