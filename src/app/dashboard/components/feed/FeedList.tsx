@@ -191,19 +191,19 @@ export const FeedList = memo(function FeedList({
               <h3 className="text-xl font-semibold tracking-tight text-foreground">
                 {searchTerm ? "No results" : "You\u2019re up to date"}
               </h3>
-              <p className="max-w-[15rem] text-sm leading-relaxed text-muted-foreground">
-                {searchTerm ? (
-                  <>
-                    Nothing matched{" "}
-                    <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground/80">
-                      {searchTerm}
-                    </span>
-                    . Try a different term.
-                  </>
-                ) : (
-                  "Check back later or pull for fresh articles."
-                )}
-              </p>
+              {searchTerm ? (
+                <div className="flex flex-col items-center gap-0.5 max-w-[16rem] text-sm leading-relaxed text-muted-foreground">
+                  <span>Nothing matched</span>
+                  <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground/80 max-w-full truncate">
+                    {searchTerm}
+                  </span>
+                  <span>Try a different term.</span>
+                </div>
+              ) : (
+                <p className="max-w-[16rem] text-sm leading-relaxed text-muted-foreground">
+                  Check back later or pull for fresh articles.
+                </p>
+              )}
             </div>
           </div>
         </div>
