@@ -3,7 +3,11 @@
  * Tests for src/lib/utils/
  */
 
-import { Logger } from "@/lib/logger";
+import { Logger, logger } from "@/lib/logger";
+import { formatRelativeDate } from "@/lib/utils/dates";
+import { toError, toErrorMessage } from "@/lib/utils/errors";
+import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
+import { isSafePositiveItemId } from "@/lib/utils/validation";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {
