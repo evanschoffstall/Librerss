@@ -6,6 +6,7 @@
 import type { FeedTransaction } from "@/lib/api/feeds/types";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
+import * as schema from "@/lib/db/schema";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils/categories";
 import * as realUrlModule from "@/lib/utils/url";
 import {
@@ -1038,5 +1039,51 @@ describe("Feed Repository - Upsert Failure Branch", () => {
         category: "Tech",
       }),
     ).rejects.toThrow("Failed to update feed source");
+  });
+});
+
+describe("toFeedSourceResponse", () => {
+  test("defaults empty category to My Feeds", async () => {
+    const row = { id: 1, name: "F", url: "https://x.com", category: "" };
+    const result = await toFeedSourceResponse(row);
+    expect(result.category).toBe("My Feeds");
+  });
+
+  test("defaults null category to My Feeds", async () => {
+    const row = { id: 1, name: "F", url: "https://x.com", category: null };
+    const result = await toFeedSourceResponse(row as any);
+    expect(result.category).toBe("My Feeds");
+  });
+
+  test("trims existing category", async () => {
+    const row = {
+      id: 1,
+      name: "F",
+      url: "https://x.com",
+      category: "  Tech  ",
+    };
+    const result = await toFeedSourceResponse(row);
+    expect(result.category).toBe("Tech");
+  });
+
+  test("preserves non-empty category", async () => {
+    const row = { id: 1, name: "F", url: "https://x.com", category: "Tech" };
+    const result = await toFeedSourceResponse(row);
+    expect(result.category).toBe("Tech");
+  });
+});
+
+// ─── schema: table definitions ────────────────────────────────────────────────
+
+describe("schema tables", () => {
+  test("all tables are importable and defined", () => {
+    expect(schema.users).toBeDefined();
+    expect(schema.sessions).toBeDefined();
+    expect(schema.feeds).toBeDefined();
+    expect(schema.articles).toBeDefined();
+    expect(schema.feedSources).toBeDefined();
+    expect(schema.feedCategories).toBeDefined();
+    expect(schema.categoryOrders).toBeDefined();
+    expect(schema.articleStatuses).toBeDefined();
   });
 });
