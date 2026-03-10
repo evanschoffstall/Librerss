@@ -393,6 +393,43 @@ describe("useArticleActions - State Management", () => {
     expect(feedState[0].isRead).toBe(true);
   });
 
+  test("handleExpandedSwipeRead marks article read and collapses without toggling", async () => {
+    const article = createMockArticle({
+      id: 11,
+      isRead: false,
+      link: "https://example.com/swipe-read",
+    });
+    const articleKey = article.link;
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock((updater: any) =>
+      typeof updater === "function" ? updater(articleKey) : updater,
+    );
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        feed: feedState,
+        setFeed,
+        expandedArticleKey: articleKey,
+        setExpandedArticleKey,
+        articleFilter: "unread",
+      }),
+    );
+
+    await runWithAct(async () => {
+      result.current.handleExpandedSwipeRead(article);
+      await Promise.resolve();
+    });
+
+    expect(feedState[0].isRead).toBe(true);
+    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(11, {
+      isRead: true,
+    });
+    expect(setExpandedArticleKey).toHaveBeenCalled();
+  });
+
   test("setArticleReadState sets specific read state", async () => {
     const article = createMockArticle({ isRead: false });
     let feedState = [article];
