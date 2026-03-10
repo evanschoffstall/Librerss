@@ -701,3 +701,411 @@ describe("proxy SSRF guard functions (direct)", () => {
     expect(result).toBe(false);
   });
 });
+
+// ── server/proxy – normalizeProxyUrl (injectable probeFn + dnsCheckFn) ───────
+
+describe("server/proxy – normalizeProxyUrl", () => {
+  const neverCalled = async () => false as boolean;
+  const dnsAllow = async () => false; // not blocked
+  const dnsBlock = async () => true; // blocked
+  const probeHttp = async () => "http" as const;
+  const probeSocks = async () => "socks5" as const;
+
+  test("returns null for unparseable URL", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl(":::invalid:::", probeHttp, dnsAllow),
+    ).toBeNull();
+  });
+
+  test("returns null for unsupported protocol (ftp)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl("ftp://proxy.example.com/", probeHttp, dnsAllow),
+    ).toBeNull();
+  });
+
+  test("SOCKS: returns null when hostname is blocked (127.0.0.1)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl(
+        "socks5://127.0.0.1:1080",
+        probeHttp,
+        neverCalled,
+      ),
+    ).toBeNull();
+  });
+
+  test("SOCKS: returns null when DNS resolves to blocked address", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl(
+        "socks5://external.example.com:1080",
+        probeHttp,
+        dnsBlock,
+      ),
+    ).toBeNull();
+  });
+
+  test("SOCKS: returns normalised socks URL when allowed", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "socks5://external.example.com:1080",
+      probeHttp,
+      dnsAllow,
+    );
+    expect(result).toContain("socks5");
+    expect(result).toContain("external.example.com");
+  });
+
+  test("HTTP: returns null when hostname is blocked (localhost)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl("http://localhost:8080", probeHttp, dnsAllow),
+    ).toBeNull();
+  });
+
+  test("HTTP: returns null when DNS resolves to blocked address", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl(
+        "http://external.example.com:8080",
+        probeHttp,
+        dnsBlock,
+      ),
+    ).toBeNull();
+  });
+
+  test("HTTP: probe says 'http' → returns the http URL", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "http://external.example.com:8080",
+      probeHttp,
+      dnsAllow,
+    );
+    expect(result).not.toBeNull();
+    expect(result).toContain("external.example.com");
+  });
+
+  test("HTTP: probe says 'socks5' → returns socks5:// URL", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "http://external.example.com:8080",
+      probeSocks,
+      dnsAllow,
+    );
+    expect(result).toMatch(/^socks5:\/\//);
+  });
+
+  test("bare host:port is accepted and prefixed with http://", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "external.example.com:8080",
+      probeHttp,
+      dnsAllow,
+    );
+    expect(result).toContain("external.example.com");
+  });
+});
+
+// ── server/proxy – probeProxy SSRF early exits ────────────────────────────────
+
+describe("server/proxy – probeProxy SSRF early exits", () => {
+  test("returns false for an unparseable URL", async () => {
+    const { probeProxy } = await import("@/lib/server/proxy");
+    const result = await probeProxy(":::invalid");
+    expect(result).toBe(false);
+  });
+
+  test("returns false for a blocked hostname (localhost)", async () => {
+    const { probeProxy } = await import("@/lib/server/proxy");
+    const result = await probeProxy("http://localhost:8080");
+    expect(result).toBe(false);
+  });
+});
+
+// ── server/proxy – detectProxyProtocol SSRF early exit ───────────────────────
+
+describe("server/proxy – detectProxyProtocol SSRF guard", () => {
+  test("returns 'http' immediately for a blocked host (127.0.0.1)", async () => {
+    const { detectProxyProtocol } = await import("@/lib/server/proxy");
+    const result = await detectProxyProtocol("127.0.0.1", 1080);
+    expect(result).toBe("http");
+  });
+});
+
+// ── lib/server/proxy – detectProxyProtocol and probeProxy error paths ─────────
+
+describe("lib/server/proxy – detectProxyProtocol error path via unreachable host", () => {
+  test("returns 'http' for external hostname when DNS fails (NXDOMAIN)", async () => {
+    const { detectProxyProtocol } = await import("@/lib/server/proxy");
+    // Use a domain guaranteed not to resolve. DNS NXDOMAIN → socket error → "http"
+    const result = await detectProxyProtocol(
+      "no-such-host-detect.external.invalid",
+      1080,
+    );
+    expect(result).toBe("http");
+  });
+});
+
+describe("lib/server/proxy – probeProxy error path via unreachable host", () => {
+  test("returns false for external hostname that refuses connection", async () => {
+    const { probeProxy } = await import("@/lib/server/proxy");
+    // DNS NXDOMAIN → socket error → returns false (covered but not blocked by SSRF)
+    const result = await probeProxy(
+      "http://no-such-host-probe.external.invalid:9999",
+    );
+    expect(result).toBe(false);
+  });
+});
+
+// ── lib/server/proxy – normalizeProxyUrl additional branches ─────────────────
+
+describe("lib/server/proxy – normalizeProxyUrl additional branches", () => {
+  test("returns null for bare unparseable string (many colons)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "not::a::valid::url",
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test("returns null for unsupported protocol (ftp://)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "ftp://proxy.example.com:21",
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test("returns socks5 URL when probe returns socks5 for bare host:port", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "proxy.example.com:9050",
+      async () => "socks5",
+      async () => false,
+    );
+    expect(result).toBe("socks5://proxy.example.com:9050");
+  });
+
+  test("returns null for https:// with DNS-blocked host (injected dnsCheck)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "https://proxy.example.com:443",
+      async () => "http",
+      async () => true, // DNS check returns blocked
+    );
+    expect(result).toBeNull();
+  });
+
+  test("accepts https:// proxy when checks pass and probe returns http", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "https://proxy.example.com:443",
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBe("https://proxy.example.com:443");
+  });
+
+  test("returns null for socks5:// with DNS-blocked host (injected dnsCheck)", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "socks5://proxy.example.com:1080",
+      async () => "http",
+      async () => true, // DNS rebinding blocked
+    );
+    expect(result).toBeNull();
+  });
+});
+
+// ── lib/server/proxy.ts – normalizeProxyUrl SOCKS + DNS check branches ──────
+
+describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
+  test("returns explicit SOCKS URL when DNS check passes", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "socks5://proxy.example.com:1080",
+      async () => "http",
+      async () => false, // DNS check passes
+    );
+    expect(result).toBe("socks5://proxy.example.com:1080");
+  });
+
+  test("rejects SOCKS URL when DNS check finds blocked address", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "socks5://proxy.example.com:1080",
+      async () => "http",
+      async () => true, // DNS resolves to blocked
+    );
+    expect(result).toBeNull();
+  });
+
+  test("rejects invalid protocol", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "ftp://proxy.example.com:21",
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test("rejects unparseable URL", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "://broken",
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test("normalizes bare host:port to socks5 when detected", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "proxy.example.com:1080",
+      async () => "socks5",
+      async () => false,
+    );
+    expect(result).toBe("socks5://proxy.example.com:1080");
+  });
+
+  test("normalizes bare host:port to http when detected as http", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "proxy.example.com:8080",
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBe("http://proxy.example.com:8080");
+  });
+
+  test("rejects http URL when DNS resolves to blocked", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "http://proxy.example.com:8080",
+      async () => "http",
+      async () => true, // blocked
+    );
+    expect(result).toBeNull();
+  });
+});
+
+// ── lib/server/proxy.ts – probeProxy branches ───────────────────────────────
+
+describe("probeProxy – branch coverage", () => {
+  test("returns false for unparseable URL", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { probeProxy } = await import("@/lib/server/proxy");
+    expect(await probeProxy("://bad-url")).toBe(false);
+  });
+
+  test("returns false for DNS-blocked hostname", async () => {
+    mock.module("@/lib/logger", () => ({
+      logger: {
+        error: () => {},
+        warn: () => {},
+        info: () => {},
+        debug: () => {},
+      },
+    }));
+    const { probeProxy } = await import("@/lib/server/proxy");
+    // Use a non-blocked static hostname so the DNS check is reached
+    expect(
+      await probeProxy(
+        "http://external-proxy.example.com:8080",
+        async () => true,
+      ),
+    ).toBe(false);
+  });
+});
+
+// ── lib/server/proxy – probeProxy SOCKS5 with credentials → error on connect ──
+
+describe("lib/server/proxy – probeProxy SOCKS5 credential path (socket error)", () => {
+  test("returns false for socks5 URL with credentials to unreachable host", async () => {
+    const { probeProxy } = await import("@/lib/server/proxy");
+    // External unreachable hosts always fail with socket error → covers
+    // socks5AuthProbe socket.on('error') path (lines 77-79).
+    const result = await probeProxy(
+      "socks5://user:pass@no-such-socks-host-xyz.invalid:1080",
+    );
+    expect(result).toBe(false);
+  });
+
+  test("probeProxy returns false for SOCKS5 URL to blocked private IP (SSRF guard)", async () => {
+    const { probeProxy } = await import("@/lib/server/proxy");
+    // 10.0.0.1 is private — SSRF guard returns false immediately
+    const result = await probeProxy("socks5://user:pass@10.0.0.1:1080");
+    expect(result).toBe(false);
+  });
+});
