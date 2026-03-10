@@ -861,3 +861,373 @@ describe("pickDiagnosticHeaders edge cases", () => {
     expect(result.server).toBe("NginX/1.21");
   });
 });
+
+// ── fetch/fingerprint – fetchHtmlWithFingerprint blocked URL ─────────────────
+
+describe("fetch/fingerprint – blocked URL throws", () => {
+  test("throws 'Blocked URL' when isAllowedUrl returns false", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async () => false;
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 200,
+            headers: {},
+            body: "<html/>",
+          }),
+        },
+      ),
+    ).rejects.toThrow("Blocked URL");
+  });
+});
+
+// ── lib/fetch/bot-detection – detectBotProtection ────────────────────────────
+
+describe("lib/fetch/bot-detection – detectBotProtection", () => {
+  const isAxiosErr = (is: boolean) =>
+    ((_e: unknown) => is) as typeof import("axios").default.isAxiosError;
+  const makeErr = (
+    status: number,
+    headers: Record<string, unknown> = {},
+    data = "",
+  ) => ({ response: { status, headers, data } });
+
+  test("returns detected:false for non-axios errors", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(new Error("generic"), isAxiosErr(false));
+    expect(result.bot.detected).toBe(false);
+    expect(result.retryable).toBe(false);
+  });
+
+  test("returns retryable:true for 403 with no bot fingerprints", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(
+      makeErr(403, {}, "some generic error"),
+      isAxiosErr(true),
+    );
+    expect(result.retryable).toBe(true);
+    expect(result.bot.detected).toBe(false);
+  });
+
+  test("returns detected:false for non-403/429 status codes", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(
+      makeErr(500, {}, "Internal Server Error"),
+      isAxiosErr(true),
+    );
+    expect(result.bot.detected).toBe(false);
+    expect(result.retryable).toBe(false);
+  });
+
+  test("detects DataDome via x-datadome:protected header", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(
+      makeErr(403, { "x-datadome": "protected" }),
+      isAxiosErr(true),
+    );
+    expect(result.bot.detected).toBe(true);
+    if (result.bot.detected) expect(result.bot.provider).toBe("DataDome");
+  });
+
+  test("detects PerimeterX via px-captcha in response body", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(
+      makeErr(403, {}, "blocked by px-captcha challenge"),
+      isAxiosErr(true),
+    );
+    expect(result.bot.detected).toBe(true);
+    if (result.bot.detected) expect(result.bot.provider).toBe("PerimeterX");
+  });
+
+  test("detects Cloudflare via cf-mitigated:challenge header", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(
+      makeErr(403, { "cf-mitigated": "challenge" }),
+      isAxiosErr(true),
+    );
+    expect(result.bot.detected).toBe(true);
+    if (result.bot.detected) expect(result.bot.provider).toBe("Cloudflare");
+  });
+
+  test("detects reCAPTCHA via g-recaptcha class in body", async () => {
+    const { detectBotProtection } = await import("@/lib/fetch");
+    const result = detectBotProtection(
+      makeErr(403, {}, '<div class="g-recaptcha" data-sitekey="abc"></div>'),
+      isAxiosErr(true),
+    );
+    expect(result.bot.detected).toBe(true);
+    if (result.bot.detected) expect(result.bot.provider).toBe("reCAPTCHA");
+  });
+});
+
+// ── lib/fetch/fingerprint – status-0, too-large, too-many-redirects ──────────
+
+describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => {
+  test("throws for statusCode 0 via requestFn (GotScrapingError)", async () => {
+    // When requestFn (injected) returns status 0, it is NOT caught by the
+    // statusCode===0 branch (TLS path only). Instead it falls through to the
+    // \"< 200 || >= 300\" check which throws GotScrapingError.
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        async () => true,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 0,
+            headers: {},
+            body: "Connection refused",
+          }),
+        },
+      ),
+    ).rejects.toThrow("Upstream responded with status 0");
+  });
+
+  test("throws when response body exceeds MAX_FEED_RESPONSE_SIZE_BYTES", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const { CONFIG } = await import("@/lib/config");
+
+    const oversized = "x".repeat(CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES + 1);
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        async () => true,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 200,
+            headers: {},
+            body: oversized,
+          }),
+        },
+      ),
+    ).rejects.toThrow("too large");
+  });
+
+  test("throws TooManyRedirects after 5 redirect hops", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+
+    let hop = 0;
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/start",
+        async () => true, // all URLs allowed
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 301,
+            headers: { location: `https://example.com/hop${++hop}` },
+            body: "",
+          }),
+        },
+      ),
+    ).rejects.toThrow("Too many redirects");
+  });
+
+  test("throws 'Blocked redirect target' when redirect URL is disallowed", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+
+    const isAllowedUrl = async (url: string) =>
+      !url.includes("/blocked-redirect");
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/start",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 301,
+            headers: { location: "https://example.com/blocked-redirect" },
+            body: "",
+          }),
+        },
+      ),
+    ).rejects.toThrow("Blocked redirect target");
+  });
+
+  test("throws for redirect with empty Location header", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/redirect-no-location",
+        async () => true,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 302,
+            headers: { location: "" }, // empty location
+            body: "",
+          }),
+        },
+      ),
+    ).rejects.toThrow();
+  });
+
+  test("throws GotScrapingError for non-2xx/non-3xx status", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/article",
+        async () => true,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 404,
+            headers: {},
+            body: "Not Found",
+          }),
+        },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+// ── lib/fetch/fingerprint – blocked redirect target and statusCode 0 paths ────
+
+describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches", () => {
+  test("throws Blocked redirect target when a redirect resolves to a blocked URL", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const allowed = new Set<string>(["https://allowed.example.com/original"]);
+    const isAllowedUrl = async (url: string) => allowed.has(url);
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://allowed.example.com/original",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 302,
+            headers: { location: "https://blocked.private.example.com/dest" },
+            body: "",
+          }),
+        },
+      ),
+    ).rejects.toThrow("Blocked redirect target");
+  });
+
+  test("throws GotScrapingError when requestFn returns statusCode 0", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/page",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 0,
+            headers: {},
+            body: "Connection refused",
+          }),
+        },
+      ),
+    ).rejects.toThrow(); // GotScrapingError — statusCode 0 is < 200
+  });
+
+  test("throws Too many redirects after hitting redirect limit", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+    let hop = 0;
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/start",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 302,
+            headers: { location: `https://example.com/hop-${++hop}` },
+            body: "",
+          }),
+        },
+      ),
+    ).rejects.toThrow(/(Too many redirects|Blocked redirect target)/);
+  });
+
+  test("throws GotScrapingError for non-2xx non-3xx status code", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/page",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 503,
+            headers: {},
+            body: "Service Unavailable",
+          }),
+        },
+      ),
+    ).rejects.toThrow();
+  });
+
+  test("throws Upstream response too large when body exceeds size limit", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+    const bigBody = "x".repeat(15 * 1024 * 1024);
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/page",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 200,
+            headers: {},
+            body: bigBody,
+          }),
+        },
+      ),
+    ).rejects.toThrow("Upstream response too large");
+  });
+
+  test("throws Redirect without Location header when 302 has no location", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/page",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            statusCode: 301,
+            headers: {},
+            body: "",
+          }),
+        },
+      ),
+    ).rejects.toThrow("Redirect without Location header");
+  });
+});

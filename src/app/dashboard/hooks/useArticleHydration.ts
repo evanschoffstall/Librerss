@@ -13,6 +13,7 @@ export interface FeedExtractionSettings {
 interface UseArticleHydrationOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   getFeedSettings?: (feedUrl: string) => FeedExtractionSettings | undefined;
+  distillStrategy?: string;
 }
 
 interface HydrateArticleContentOptions {
@@ -29,6 +30,7 @@ export function escapeArticleKey(articleKey: string): string {
 export function useArticleHydration({
   setFeed,
   getFeedSettings,
+  distillStrategy,
 }: UseArticleHydrationOptions) {
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
     Record<string, boolean>
@@ -85,6 +87,7 @@ export function useArticleHydration({
           link,
           {
             useProxy: settings?.proxyEnabled,
+            distillStrategy,
             signal: abortController.signal,
           },
         );
@@ -139,7 +142,7 @@ export function useArticleHydration({
         }
       }
     },
-    [hydratedArticleLinks, setFeed, getFeedSettings],
+    [hydratedArticleLinks, setFeed, getFeedSettings, distillStrategy],
   );
 
   const cancelHydration = useCallback((link: string) => {

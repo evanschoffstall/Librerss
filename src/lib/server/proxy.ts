@@ -277,7 +277,10 @@ export async function normalizeProxyUrl(
  *  For SOCKS5 URLs with embedded credentials, performs a full auth handshake
  *  to verify the credentials are accepted before reporting reachable.
  *  Includes both static and DNS-rebinding SSRF guards. */
-export async function probeProxy(proxyUrl: string): Promise<boolean> {
+export async function probeProxy(
+  proxyUrl: string,
+  dnsCheckFn?: (host: string) => Promise<boolean>,
+): Promise<boolean> {
   const hp = parseHostPort(proxyUrl);
   const safeProxyUrl = redactUrlForLogs(proxyUrl);
   if (!hp) {
@@ -294,7 +297,8 @@ export async function probeProxy(proxyUrl: string): Promise<boolean> {
     return false;
   }
   // SSRF guard: DNS rebinding prevention — re-resolve at probe time.
-  if (await resolvesToBlockedAddress(hp.host)) {
+  const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
+  if (await dnsCheck(hp.host)) {
     logger.error("Proxy probe blocked: hostname resolves to private address", {
       proxyUrl: safeProxyUrl,
     });

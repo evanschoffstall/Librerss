@@ -3,8 +3,16 @@
  * Tests for src/lib/api/greader/
  */
 
+import {
+  DEFAULT_STREAM_ITEMS,
+  GOOGLE_LOGIN_PREFIX,
+  MAX_STREAM_ITEMS,
+  TAG_MUTATIONS,
+} from "@/lib/api/greader/constants";
 import type { SessionUser } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
 import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
+import { READ_STATE, STARRED_STATE } from "@/lib/core/stream-ids";
 import {
   afterAll,
   afterEach,
@@ -1254,5 +1262,298 @@ describe("Subscription Handler", () => {
     expect(response.status).toBe(400);
     const data = await response.json();
     expect(data.error).toBe("Invalid feed URL");
+  });
+});
+
+// ── api/greader/auth – requireGReaderUser with no auth ───────────────────────
+
+describe("api/greader/auth – requireGReaderUser returns 401 when no auth", () => {
+  test("returns 401 Response when request has no token and no cookie", async () => {
+    const { requireGReaderUser } = await import("@/lib/api/greader/auth");
+    const { createMockRequest } = await import("./support/test-utils");
+    const req = createMockRequest("https://example.com/greader");
+    const result = await requireGReaderUser(req);
+    expect(result instanceof Response).toBe(true);
+    expect((result as Response).status).toBe(401);
+  });
+});
+
+// ── lib/api/greader/auth – handleClientLogin paths ────────────────────────────
+// Tests use placeholder mode (DATABASE_URL='') or input validation to avoid DB calls.
+
+describe("lib/api/greader/auth – handleClientLogin", () => {
+  test("returns 400 for JSON body with missing credentials", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+    // parseEmailPasswordFromRecord returns null → 400 before auth is called.
+    const request = createMockRequest(
+      "https://example.com/greader/accounts/ClientLogin",
+      {
+        method: "POST",
+        body: { other: "field" },
+        headers: { "content-type": "application/json" },
+      },
+    );
+    const response = await handleClientLogin(request);
+    expect(response.status).toBe(400);
+  });
+
+  test("returns 403 in placeholder mode for wrong email", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+    const prevDb = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    try {
+      // Placeholder mode: email !== PLACEHOLDER_ADMIN_USER.email → { ok: false } → 403.
+      const request = createMockRequest(
+        "https://example.com/greader/accounts/ClientLogin",
+        {
+          method: "POST",
+          body: { Email: "notadmin@example.com", Passwd: "WrongPass123!" },
+          headers: { "content-type": "application/json" },
+        },
+      );
+      const response = await handleClientLogin(request);
+      expect(response.status).toBe(403);
+    } finally {
+      if (prevDb !== undefined) process.env.DATABASE_URL = prevDb;
+      else delete process.env.DATABASE_URL;
+    }
+  });
+});
+
+// ── lib/api/greader/auth – requireGReaderUser ────────────────────────────────
+
+describe("lib/api/greader/auth – requireGReaderUser", () => {
+  test("returns 401 when no Authorization header present", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { requireGReaderUser } = await import("@/lib/api/greader/auth");
+    // extractAuthToken returns null → immediate 401, no DB needed.
+    const request = createMockRequest(
+      "https://example.com/greader/reader/api/0/user-info",
+    );
+    const result = await requireGReaderUser(request);
+    expect(result instanceof Response).toBe(true);
+    if (result instanceof Response) {
+      expect(result.status).toBe(401);
+    }
+  });
+
+  test("returns user in placeholder mode with valid session token", async () => {
+    const { createMockRequest } = await import("./support/test-utils");
+    const { requireGReaderUser } = await import("@/lib/api/greader/auth");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const prevDb = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+    try {
+      // getUserFromSessionToken matches PLACEHOLDER_ADMIN_USER.sessionToken → returns user.
+      const request = createMockRequest(
+        "https://example.com/greader/reader/api/0/user-info",
+        {
+          headers: {
+            Authorization: `Bearer ${PLACEHOLDER_ADMIN_USER.sessionToken}`,
+          },
+        },
+      );
+      const result = await requireGReaderUser(request);
+      expect(result instanceof Response).toBe(false);
+      if (!(result instanceof Response)) {
+        expect(result.userId).toBe(PLACEHOLDER_ADMIN_USER.id);
+      }
+    } finally {
+      if (prevDb !== undefined) process.env.DATABASE_URL = prevDb;
+      else delete process.env.DATABASE_URL;
+    }
+  });
+});
+
+// ── lib/api/greader/auth – extractAuthToken bearer branch ─────────────────────
+// These tests set DATABASE_URL="" to use placeholder mode (no real DB queries).
+
+describe("lib/api/greader/auth – extractAuthToken additional branches", () => {
+  let savedDbUrl: string | undefined;
+  beforeEach(() => {
+    savedDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+  });
+  afterEach(() => {
+    if (savedDbUrl !== undefined) process.env.DATABASE_URL = savedDbUrl;
+    else delete process.env.DATABASE_URL;
+    mock.restore();
+  });
+
+  test("requireGReaderUser extracts bearer token and returns 401 for invalid token", async () => {
+    const { requireGReaderUser } = await import("@/lib/api/greader/auth");
+    const { createMockRequest } = await import("./support/test-utils");
+
+    const req = createMockRequest(
+      "https://example.com/greader.php/api/0/user-info",
+      {
+        headers: { authorization: "Bearer definitely-invalid-token-xyz" },
+      },
+    );
+
+    const result = await requireGReaderUser(req);
+    expect(result instanceof Response).toBe(true);
+    expect((result as Response).status).toBe(401);
+  });
+
+  test("requireGReaderUser extracts GoogleLogin token and returns 401 for invalid token", async () => {
+    const { requireGReaderUser } = await import("@/lib/api/greader/auth");
+    const { createMockRequest } = await import("./support/test-utils");
+
+    const req = createMockRequest(
+      "https://example.com/greader.php/api/0/user-info",
+      {
+        headers: {
+          authorization: "GoogleLogin auth=definitely-invalid-token-xyz",
+        },
+      },
+    );
+
+    const result = await requireGReaderUser(req);
+    expect(result instanceof Response).toBe(true);
+    expect((result as Response).status).toBe(401);
+  });
+
+  test("requireGReaderUser reads auth query param and returns 401 for invalid token", async () => {
+    const { requireGReaderUser } = await import("@/lib/api/greader/auth");
+    const { createMockRequest } = await import("./support/test-utils");
+
+    const req = createMockRequest(
+      "https://example.com/greader.php/api/0/user-info?auth=bad-token",
+    );
+    const result = await requireGReaderUser(req);
+    expect(result instanceof Response).toBe(true);
+    expect((result as Response).status).toBe(401);
+  });
+});
+
+// ── lib/api/greader/auth – parseClientLoginPayload edge branches ───────────────
+
+describe("lib/api/greader/auth – handleClientLogin edge branches", () => {
+  test("returns 400 when JSON body is unparseable (line 70 via handleClientLogin line 106)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+    const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
+      method: "POST",
+      body: "this is not json at all",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "192.0.2.41, 10.0.0.1",
+      },
+    });
+    const result = await handleClientLogin(req);
+    expect(result.status).toBe(400);
+    const text = await result.text();
+    expect(text).toContain("BadAuthentication");
+  });
+
+  test("returns 400 for POST with text/plain content-type (lines 79-84 fallthrough)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+    const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
+      method: "POST",
+      // text/plain → not form-urlencoded, not JSON → falls through to fallback
+      // parseFormOrQueryParams path (lines 79-84). Body has no Email/Passwd keys
+      // → parseClientLoginParams returns null → handleClientLogin returns 400 BadAuth.
+      body: "no-credentials-here",
+      headers: {
+        "content-type": "text/plain",
+        "x-forwarded-for": "192.0.2.42, 10.0.0.1",
+      },
+    });
+    const result = await handleClientLogin(req);
+    // payload is null → line 109-110 returns 400 without DB call
+    expect(result.status).toBe(400);
+    const text = await result.text();
+    expect(text).toContain("BadAuthentication");
+  });
+
+  test("returns 403 when password exceeds max length (line 116)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+    // Password longer than PASSWORD_MAX_LENGTH=1024
+    const longPassword = "x".repeat(1025);
+    const body = `Email=user@example.com&Passwd=${encodeURIComponent(longPassword)}`;
+    const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
+      method: "POST",
+      body,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-forwarded-for": "192.0.2.43, 10.0.0.1",
+      },
+    });
+    const result = await handleClientLogin(req);
+    expect(result.status).toBe(403);
+    const text = await result.text();
+    expect(text).toContain("BadAuthentication");
+  });
+
+  test("returns 413 when form body is too large (line 104)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleClientLogin } = await import("@/lib/api/greader/auth");
+    const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
+      method: "POST",
+      body: "Email=user@example.com&Passwd=pass",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "content-length": "999999999",
+        "x-forwarded-for": "192.0.2.44, 10.0.0.1",
+      },
+    });
+    const result = await handleClientLogin(req);
+    expect(result.status).toBe(413);
+    const text = await result.text();
+    expect(text).toContain("RequestTooLarge");
+  });
+});
+
+// ─── greader constants ────────────────────────────────────────────────────────
+
+describe("greader constants", () => {
+  test("TAG_MUTATIONS has expected entries", async () => {
+    expect(TAG_MUTATIONS.length).toBe(4);
+  });
+
+  test("TAG_MUTATIONS has read-add mutation", async () => {
+    const readAdd = TAG_MUTATIONS.find(
+      (m) => m.target === "a" && m.tag === READ_STATE,
+    );
+    expect(readAdd).toBeTruthy();
+    expect(readAdd!.patch.isRead).toBe(true);
+  });
+
+  test("TAG_MUTATIONS has read-remove mutation", async () => {
+    const readRemove = TAG_MUTATIONS.find(
+      (m) => m.target === "r" && m.tag === READ_STATE,
+    );
+    expect(readRemove).toBeTruthy();
+    expect(readRemove!.patch.isRead).toBe(false);
+  });
+
+  test("TAG_MUTATIONS has starred-add mutation", async () => {
+    const starredAdd = TAG_MUTATIONS.find(
+      (m) => m.target === "a" && m.tag === STARRED_STATE,
+    );
+    expect(starredAdd).toBeTruthy();
+    expect(starredAdd!.patch.isStarred).toBe(true);
+  });
+
+  test("TAG_MUTATIONS has starred-remove mutation", async () => {
+    const starredRemove = TAG_MUTATIONS.find(
+      (m) => m.target === "r" && m.tag === STARRED_STATE,
+    );
+    expect(starredRemove).toBeTruthy();
+    expect(starredRemove!.patch.isStarred).toBe(false);
+  });
+
+  test("MAX_STREAM_ITEMS matches CONFIG", async () => {
+    expect(MAX_STREAM_ITEMS).toBe(CONFIG.GREADER_MAX_STREAM_ITEMS);
+    expect(DEFAULT_STREAM_ITEMS).toBe(CONFIG.GREADER_DEFAULT_STREAM_ITEMS);
+  });
+
+  test("GOOGLE_LOGIN_PREFIX is correct", async () => {
+    expect(GOOGLE_LOGIN_PREFIX).toBe("googlelogin auth=");
   });
 });

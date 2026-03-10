@@ -9,8 +9,9 @@ import { CONFIG } from "@/lib/config";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
+import type { DistilledArticle, DistillStrategy } from "@/lib/distill";
+import { DISTILL_STRATEGIES, distillArticle } from "@/lib/distill";
 import type {
-  ExtractedArticle,
   ExtractRequestContext,
   ExtractResponsePayload,
 } from "@/lib/extract";
@@ -18,7 +19,6 @@ import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
-  extractArticleFromHtml,
   fetchHtml,
   getCachedExtractPayload,
   isExtractCacheEnabled,
@@ -65,7 +65,7 @@ type ExtractPostDeps = {
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   fetchHtmlFn?: typeof fetchHtml;
-  extractFromHtmlFn?: typeof extractArticleFromHtml;
+  extractFromHtmlFn?: typeof distillArticle;
   sanitizeRawContentFn?: typeof sanitizeRawContent;
   cleanSanitizedHtmlFn?: typeof cleanSanitizedHtml;
   jsonErrorFn?: typeof jsonError;
@@ -101,7 +101,7 @@ function createExtractRequestContext(
 
 function buildExtractPayload(
   content: string,
-  extracted: ExtractedArticle | null | undefined,
+  extracted: DistilledArticle | null | undefined,
 ): ExtractResponsePayload {
   return {
     content,
@@ -130,7 +130,7 @@ function resolveExtractedContent(
   extractableHtml: string,
   originalHtml: string,
   articleUrl: string,
-  extracted: ExtractedArticle | null | undefined,
+  extracted: DistilledArticle | null | undefined,
   sanitizeContent: (rawContent: string) => string,
   cleanContent: (sanitizedContent: string, articleUrl: string) => string,
 ): string {
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const parseArticleUrl =
     deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
   const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
-  const extractArticle = deps?.extractFromHtmlFn ?? extractArticleFromHtml;
+  const extractArticle = deps?.extractFromHtmlFn ?? distillArticle;
   const sanitizeContent = deps?.sanitizeRawContentFn ?? sanitizeRawContent;
   const cleanContent = deps?.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
   const _info = deps?.infoFn ?? logger.info.bind(logger);
@@ -227,9 +227,17 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const bodyResult = await parseJsonBodyOrResponse<{
       url?: string;
       useProxy?: boolean;
+      distillStrategy?: string;
     }>(request);
     if (bodyResult instanceof Response) return bodyResult;
     useProxy = !isAuthFailure && bodyResult.useProxy === true;
+    const distillStrategy: DistillStrategy =
+      typeof bodyResult.distillStrategy === "string" &&
+      (DISTILL_STRATEGIES as readonly string[]).includes(
+        bodyResult.distillStrategy,
+      )
+        ? (bodyResult.distillStrategy as DistillStrategy)
+        : "custom";
 
     // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
     let allowInsecureTls = false;
@@ -295,9 +303,12 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     const extractableHtml = preCleanHtml(html);
 
-    const extracted = await extractArticle(extractableHtml, articleUrl, {
-      contentLengthThreshold: 120,
-    });
+    const extracted = await extractArticle(
+      extractableHtml,
+      articleUrl,
+      distillStrategy,
+      { contentLengthThreshold: 120 },
+    );
 
     if (
       !extracted ||

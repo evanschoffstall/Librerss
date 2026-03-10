@@ -1,7 +1,3 @@
-export type { ExtractedArticle } from "./extraction";
-
-export { extractArticleFromHtml } from "./extraction";
-
 export {
   clearArticleExtractCacheForTests,
   getCachedExtractPayload,
@@ -17,10 +13,10 @@ export type {
 } from "./constants";
 
 export {
-  ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,
   ARTICLE_EXTRACT_CACHE_TTL_MS,
   ARTICLE_EXTRACT_SEC_CH_UA,
+  ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
   EXTRACT_403_RETRIES,

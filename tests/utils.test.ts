@@ -3,7 +3,11 @@
  * Tests for src/lib/utils/
  */
 
-import { Logger } from "@/lib/logger";
+import { Logger, logger } from "@/lib/logger";
+import { formatRelativeDate } from "@/lib/utils/dates";
+import { toError, toErrorMessage } from "@/lib/utils/errors";
+import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
+import { isSafePositiveItemId } from "@/lib/utils/validation";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {
@@ -384,5 +388,284 @@ describe("opml", () => {
       url: "https://example.com/feed.xml",
       category: "Tech",
     });
+  });
+});
+
+// ── lib/utils/dates – formatRelativeDate / parseDateOrNull ───────────────────
+
+describe("lib/utils/dates – formatRelativeDate", () => {
+  test("returns 'Today ...' for today", async () => {
+    const { formatRelativeDate } = await import("@/lib/utils/dates");
+    expect(formatRelativeDate(new Date())).toMatch(/^Today /);
+  });
+
+  test("returns 'Yesterday ...' for yesterday", async () => {
+    const { formatRelativeDate } = await import("@/lib/utils/dates");
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    expect(formatRelativeDate(d)).toMatch(/^Yesterday /);
+  });
+
+  test("returns 'N days ago' for dates 2–6 days ago", async () => {
+    const { formatRelativeDate } = await import("@/lib/utils/dates");
+    const d = new Date();
+    d.setDate(d.getDate() - 3);
+    expect(formatRelativeDate(d)).toBe("3 days ago");
+  });
+
+  test("returns locale date string for dates older than 6 days", async () => {
+    const { formatRelativeDate } = await import("@/lib/utils/dates");
+    const result = formatRelativeDate(new Date("2020-01-01T00:00:00.000Z"));
+    expect(result).not.toMatch(/^(Today|Yesterday|\d+ days ago)/);
+  });
+});
+
+describe("lib/utils/dates – parseDateOrNull and parseDateOrFallback", () => {
+  test("parseDateOrNull returns null for non-date inputs", async () => {
+    const { parseDateOrNull } = await import("@/lib/utils/dates");
+    expect(parseDateOrNull(null)).toBeNull();
+    expect(parseDateOrNull(42)).toBeNull();
+    expect(parseDateOrNull("not-a-date")).toBeNull();
+  });
+
+  test("parseDateOrNull parses a valid ISO date string", async () => {
+    const { parseDateOrNull } = await import("@/lib/utils/dates");
+    const result = parseDateOrNull("2023-06-15T12:00:00Z");
+    expect(result).toBeInstanceOf(Date);
+    expect(result!.getFullYear()).toBe(2023);
+  });
+
+  test("parseDateOrFallback returns fallback for invalid input", async () => {
+    const { parseDateOrFallback } = await import("@/lib/utils/dates");
+    const fallback = new Date("2000-01-01");
+    expect(parseDateOrFallback("not-a-date", fallback)).toBe(fallback);
+  });
+});
+
+// ── lib/utils/validation – isSafePositiveItemId, isValidEmail, isStrongPassword
+
+describe("lib/utils/validation – validation helpers", () => {
+  test("isSafePositiveItemId rejects non-numbers and edge cases", async () => {
+    const { isSafePositiveItemId } = await import("@/lib/utils/validation");
+    expect(isSafePositiveItemId("1")).toBe(false);
+    expect(isSafePositiveItemId(0)).toBe(false);
+    expect(isSafePositiveItemId(-1)).toBe(false);
+    expect(isSafePositiveItemId(1.5)).toBe(false);
+  });
+
+  test("isSafePositiveItemId accepts safe positive integers", async () => {
+    const { isSafePositiveItemId } = await import("@/lib/utils/validation");
+    expect(isSafePositiveItemId(1)).toBe(true);
+    expect(isSafePositiveItemId(Number.MAX_SAFE_INTEGER)).toBe(true);
+  });
+
+  test("isValidEmail validates format and length", async () => {
+    const { isValidEmail } = await import("@/lib/utils/validation");
+    expect(isValidEmail("user@example.com")).toBe(true);
+    expect(isValidEmail("not-an-email")).toBe(false);
+    expect(isValidEmail("")).toBe(false);
+  });
+
+  test("isStrongPassword enforces complexity requirements", async () => {
+    const { isStrongPassword } = await import("@/lib/utils/validation");
+    expect(isStrongPassword("Abcdef1!")).toBe(true);
+    expect(isStrongPassword("password")).toBe(false);
+    expect(isStrongPassword("ALLUPPERCASE12!")).toBe(true);
+  });
+});
+
+// ─── logger.ts ────────────────────────────────────────────────────────────────
+
+describe("logger", () => {
+  test("logger.info does not throw", () => {
+    expect(() => logger.info("test message")).not.toThrow();
+  });
+
+  test("logger.warn does not throw", () => {
+    expect(() => logger.warn("warning message")).not.toThrow();
+  });
+
+  test("logger.error does not throw", () => {
+    expect(() => logger.error("error message")).not.toThrow();
+  });
+
+  test("logger.debug is optional and callable when present", () => {
+    if (
+      typeof (logger as { debug?: (message: string) => void }).debug ===
+      "function"
+    ) {
+      expect(() => logger.debug("debug message")).not.toThrow();
+    }
+  });
+
+  test("logger.info with context does not throw", () => {
+    expect(() =>
+      logger.info("with context", { userId: 1, email: "user@example.com" }),
+    ).not.toThrow();
+  });
+
+  test("logger.error with Error context does not throw", () => {
+    expect(() =>
+      logger.error("failed", { error: new Error("boom") }),
+    ).not.toThrow();
+  });
+
+  test("logger handles nested objects", () => {
+    expect(() =>
+      logger.info("test", {
+        nested: { deep: { value: 123 } },
+      } as any),
+    ).not.toThrow();
+  });
+
+  test("logger handles arrays in context", () => {
+    expect(() =>
+      logger.info("test", { items: [1, 2, 3] } as any),
+    ).not.toThrow();
+  });
+
+  test("logger handles Date in context", () => {
+    expect(() =>
+      logger.info("test", { date: new Date() } as any),
+    ).not.toThrow();
+  });
+
+  test("logger truncates deeply nested objects", () => {
+    // depth > 6 should be truncated
+    let deepObj: any = { val: "bottom" };
+    for (let i = 0; i < 10; i++) {
+      deepObj = { nested: deepObj };
+    }
+    expect(() => logger.info("deep", deepObj)).not.toThrow();
+  });
+
+  test("logger handles email without @ sign", () => {
+    expect(() =>
+      logger.error("test", { email: "invalid-email" }),
+    ).not.toThrow();
+  });
+});
+
+// ─── errors.ts ────────────────────────────────────────────────────────────────
+
+describe("errors", () => {
+  test("toErrorMessage returns message from Error", () => {
+    expect(toErrorMessage(new Error("boom"))).toBe("boom");
+  });
+
+  test("toErrorMessage converts string to string", () => {
+    expect(toErrorMessage("string error")).toBe("string error");
+  });
+
+  test("toErrorMessage converts number to string", () => {
+    expect(toErrorMessage(42)).toBe("42");
+  });
+
+  test("toError returns Error instance from Error", () => {
+    const err = new Error("test");
+    expect(toError(err)).toBe(err);
+  });
+
+  test("toError wraps non-Error in Error", () => {
+    const result = toError("string");
+    expect(result).toBeInstanceOf(Error);
+    expect(result.message).toBe("string");
+  });
+});
+
+// ─── url – getUrlHostnameDisplayLabel ────────────────────────────────────────
+
+describe("url – getUrlHostnameDisplayLabel", () => {
+  test("returns hostname without www", async () => {
+    expect(getUrlHostnameDisplayLabel("https://www.example.com")).toBe(
+      "example.com",
+    );
+  });
+
+  test("returns raw input for invalid URL", async () => {
+    expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
+  });
+
+  test("returns default for undefined", async () => {
+    expect(getUrlHostnameDisplayLabel(undefined)).toBe("No source URL");
+  });
+});
+
+// ─── date-utils.ts ────────────────────────────────────────────────────────────
+
+describe("date-utils – formatRelativeDate", () => {
+  test("today returns 'Today' prefix", async () => {
+    const result = formatRelativeDate(new Date());
+    expect(result).toMatch(/^Today /);
+  });
+
+  test("yesterday returns 'Yesterday' prefix", async () => {
+    const yesterday = new Date(Date.now() - 86_400_000);
+    const result = formatRelativeDate(yesterday);
+    expect(result).toMatch(/^Yesterday /);
+  });
+
+  test("3 days ago returns days ago format", async () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000);
+    const result = formatRelativeDate(threeDaysAgo);
+    expect(result).toBe("3 days ago");
+  });
+
+  test("6 days ago returns days ago format", async () => {
+    const sixDaysAgo = new Date(Date.now() - 6 * 86_400_000);
+    expect(formatRelativeDate(sixDaysAgo)).toBe("6 days ago");
+  });
+
+  test("7+ days ago returns locale date", async () => {
+    const oldDate = new Date(Date.now() - 10 * 86_400_000);
+    const result = formatRelativeDate(oldDate);
+    // Should be a locale date string, not "X days ago"
+    expect(result).not.toMatch(/days ago/);
+  });
+});
+
+// ─── validation.ts ────────────────────────────────────────────────────────────
+
+describe("validation – isSafePositiveItemId", () => {
+  test("accepts positive integer", () => {
+    expect(isSafePositiveItemId(1)).toBe(true);
+    expect(isSafePositiveItemId(42)).toBe(true);
+  });
+
+  test("rejects zero", () => {
+    expect(isSafePositiveItemId(0)).toBe(false);
+  });
+
+  test("rejects negative", () => {
+    expect(isSafePositiveItemId(-1)).toBe(false);
+  });
+
+  test("rejects float", () => {
+    expect(isSafePositiveItemId(1.5)).toBe(false);
+  });
+
+  test("rejects string", () => {
+    expect(isSafePositiveItemId("42")).toBe(false);
+  });
+
+  test("rejects null/undefined", () => {
+    expect(isSafePositiveItemId(null)).toBe(false);
+    expect(isSafePositiveItemId(undefined)).toBe(false);
+  });
+
+  test("rejects Infinity", () => {
+    expect(isSafePositiveItemId(Infinity)).toBe(false);
+  });
+
+  test("rejects NaN", () => {
+    expect(isSafePositiveItemId(NaN)).toBe(false);
+  });
+
+  test("rejects beyond MAX_SAFE_INTEGER", () => {
+    expect(isSafePositiveItemId(Number.MAX_SAFE_INTEGER + 1)).toBe(false);
+  });
+
+  test("accepts MAX_SAFE_INTEGER", () => {
+    expect(isSafePositiveItemId(Number.MAX_SAFE_INTEGER)).toBe(true);
   });
 });

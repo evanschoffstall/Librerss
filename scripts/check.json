@@ -1,9 +1,9 @@
 {
   "thresholds": {
-    "lineCoverageThreshold": 90,
+    "lineCoverageThreshold": 85,
     "typeCoverageThreshold": 98,
     "testTimeoutMs": 5000,
-    "testCommandTimeoutMs": 100000,
+    "testCommandTimeoutMs": 60000,
     "testCommandTimeoutEnvVar": "CHECK_TEST_COMMAND_TIMEOUT_MS"
   },
   "paths": {

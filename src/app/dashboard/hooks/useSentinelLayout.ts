@@ -4,14 +4,14 @@
  * Manages three layout invariants that keep the pull-to-refresh sentinel
  * hidden during normal scrolling and visible only during an active pull:
  *
- * ### 1. Sentinel visibility (`syncSentinelVisibility`)
- * When real feed content (articles + empty state) doesn't overflow the
- * viewport, the sentinel is collapsed to `height: 0`. This prevents it
- * from being one scroll-tick away and accidentally visible when there
- * are few or no articles. Restored to `SENTINEL_HEIGHT` when content
- * overflows, re-enabling pull-to-refresh.
+ * ### 1. Sentinel height + hide offset
+ * The sentinel renders at `SENTINEL_HEIGHT`, while the hidden-rest scroll
+ * target uses `SENTINEL_SCROLL_OFFSET` (`height + snap buffer`). That slight
+ * overshoot keeps the sentinel top edge buried during normal browsing even
+ * with sub-pixel rounding or compositor drift. The padding + `scrollTop`
+ * initialisation (invariants 2 & 3) keeps it scrolled out of view.
  *
- * Fixes: sentinel showing with few/no articles.
+ * Fixes: sentinel unreachable with few/no articles.
  *
  * ### 2. Minimum overflow padding (`ensureMinOverflow`)
  * Ensures `viewport.scrollHeight ≥ viewport.clientHeight + sentinelHeight`.
@@ -53,6 +53,14 @@ import type { ScrollPinTarget } from "./useScrollPin";
 
 /** Height of the pull-to-refresh sentinel zone. */
 export const SENTINEL_HEIGHT = 104;
+/**
+ * Extra pixels added to the sentinel height so the hide-scroll target
+ * overshoots, ensuring the sentinel top edge is never visible during
+ * normal browsing even with sub-pixel rounding.
+ */
+export const SENTINEL_SNAP_BUFFER = 6;
+/** scrollTop value that fully hides the sentinel (height + buffer). */
+export const SENTINEL_SCROLL_OFFSET = SENTINEL_HEIGHT + SENTINEL_SNAP_BUFFER;
 
 interface SentinelLayoutElements {
   viewport: HTMLElement;
@@ -89,7 +97,7 @@ function syncScrollbar(
   if (!sb) return;
   const H = viewport.scrollHeight;
   const realOverflow = H - sentinelHeight > viewport.clientHeight;
-  if (!realOverflow || sentinelHeight === 0) {
+  if (!realOverflow) {
     sb.style.display = "none";
     return;
   }
@@ -104,32 +112,12 @@ function syncScrollbar(
 }
 
 /**
- * Collapse sentinel to 0px when content doesn't overflow, preventing
- * the sentinel from being visible with few/no articles. Restore to
- * full height when content overflows to enable pull-to-refresh.
- *
- * Fixes: sentinel showing when there are few/no articles.
- */
-function syncSentinelVisibility(
-  sentinel: HTMLElement,
-  wrapper: HTMLElement,
-  viewport: HTMLElement,
-) {
-  const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
-  const sentinelH = sentinel.offsetHeight;
-  const realContent = wrapper.offsetHeight - currentPad - sentinelH;
-  const overflows = realContent > viewport.clientHeight;
-  const target = overflows ? `${SENTINEL_HEIGHT}px` : "0px";
-  if (sentinel.style.height !== target) sentinel.style.height = target;
-}
-
-/**
  * Ensure viewport has enough scroll space to hide the sentinel.
  * Adds `paddingBottom` to the wrapper so `scrollHeight ≥ clientHeight + sentinelHeight`.
  *
  * Also syncs sentinel visibility and scrollbar inset.
  *
- * Fixes: `scrollTop = SENTINEL_HEIGHT` clamped to 0, exposing sentinel.
+ * Fixes: `scrollTop = SENTINEL_SCROLL_OFFSET` clamped to 0, exposing sentinel.
  */
 function ensureMinOverflow({
   viewport,
@@ -138,7 +126,6 @@ function ensureMinOverflow({
   scrollRoot,
 }: SentinelLayoutElements) {
   if (!sentinel || !wrapper) return;
-  syncSentinelVisibility(sentinel, wrapper, viewport);
   const height = sentinel.offsetHeight;
   syncScrollbar(scrollRoot, viewport, height);
   if (height === 0) return;
@@ -193,16 +180,41 @@ export function attachSentinelLayout(
   // Prevent iOS from rubber-banding the page.
   viewport.style.overscrollBehaviorY = "none";
 
+  // Keep the rendered sentinel compact; the hidden-rest scroll target adds a
+  // small overshoot via SENTINEL_SCROLL_OFFSET so the sentinel top edge stays
+  // buried during normal browsing.
+  if (sentinel) sentinel.style.height = `${SENTINEL_HEIGHT}px`;
+
+  // Radix sets overflow-y:hidden on the viewport when it detects no content
+  // overflow, which prevents touch-scroll entirely. Our ensureMinOverflow
+  // guarantees scrollHeight > clientHeight, but Radix's detection is async
+  // (ResizeObserver-driven), leaving a window where the viewport is locked.
+  // Force overflow-y:scroll immediately and re-enforce via MutationObserver
+  // so Radix can never sneak in "hidden".
+  viewport.style.overflowY = "scroll";
+  const overflowObserver =
+    typeof MutationObserver !== "undefined"
+      ? new MutationObserver(() => {
+          if (viewport.style.overflowY !== "scroll")
+            viewport.style.overflowY = "scroll";
+        })
+      : null;
+  overflowObserver?.observe(viewport, {
+    attributes: true,
+    attributeFilter: ["style"],
+  });
+
   const sh = () => sentinel?.offsetHeight ?? 0;
 
   // ── Initial layout ──────────────────────────────────────────────────
   ensureMinOverflow(elements);
-  viewport.scrollTop = sh();
+  viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
 
   const rafId = requestAnimationFrame(() => {
     ensureMinOverflow(elements);
-    const height = sh();
-    if (height > 0 && viewport.scrollTop < height) viewport.scrollTop = height;
+    if (sh() > 0 && viewport.scrollTop < SENTINEL_SCROLL_OFFSET) {
+      viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
+    }
   });
 
   // ── Scrollbar mutation observer ─────────────────────────────────────
@@ -237,13 +249,13 @@ export function attachSentinelLayout(
           const height = sh();
           if (
             height > 0 &&
-            scrollTopBefore < height &&
-            viewport.scrollTop < height &&
+            scrollTopBefore < SENTINEL_SCROLL_OFFSET &&
+            viewport.scrollTop < SENTINEL_SCROLL_OFFSET &&
             !pullStateRefs.touchActive.current &&
             !pullStateRefs.holding.current &&
             !pullStateRefs.pulling.current
           ) {
-            viewport.scrollTop = height;
+            viewport.scrollTop = SENTINEL_SCROLL_OFFSET;
           }
         })
       : null;
@@ -252,9 +264,12 @@ export function attachSentinelLayout(
   // ── Cleanup ─────────────────────────────────────────────────────────
   return () => {
     resizeObserver?.disconnect();
+    overflowObserver?.disconnect();
     mutObserver?.disconnect();
     cancelAnimationFrame(rafId);
     viewport.style.overscrollBehaviorY = "";
+    viewport.style.overflowY = "";
+    if (sentinel) sentinel.style.height = "";
     if (wrapper) wrapper.style.paddingBottom = "";
     const sb = findScrollbar(scrollRoot);
     if (sb) {

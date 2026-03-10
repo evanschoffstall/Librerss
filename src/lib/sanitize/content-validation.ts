@@ -3,7 +3,6 @@ import {
   SOCIAL_SHARE_LINK_RE,
   toPlainText,
 } from "./cleaners";
-import { manipulateAttrValue } from "./patterns";
 
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
@@ -99,6 +98,162 @@ function stripFileDownloadBoilerplate(content: string): string {
     (match, inner: string) =>
       isFileTypeSizeText(inner.replace(/<[^>]*>/g, "").trim()) ? "" : match,
   );
+}
+
+function normalizeHeadingText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isShortHeadingLabel(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized || normalized.length > 72) return false;
+  if (/[.!?;:]/.test(normalized)) return false;
+  return normalized.split(/\s+/).filter(Boolean).length <= 6;
+}
+
+const LEADING_WHITESPACE_RE = /^\s+/;
+const LEADING_ANCHOR_OPEN_RE = /^<a\b[^>]*>\s*/i;
+const LEADING_IMAGE_RE = /^<img\b[^>]*\/?>(?:\s*)/i;
+const LEADING_ANCHOR_CLOSE_RE = /^<\/a>\s*/i;
+const LEADING_HEADING_RE = /^<h[2-4]\b[^>]*>[\s\S]*?<\/h[2-4]>\s*/i;
+
+function consumeLeadingToken(source: string, tokenRe: RegExp): string {
+  return tokenRe.exec(source)?.[0] ?? "";
+}
+
+function parseLeadMediaAndHeadingPrefix(content: string): {
+  imagePrefix: string;
+  headingBlock: string;
+  consumedLength: number;
+} {
+  let cursor = 0;
+  let imagePrefix = "";
+  let headingBlock = "";
+
+  const leadingWhitespace = consumeLeadingToken(
+    content.slice(cursor),
+    LEADING_WHITESPACE_RE,
+  );
+  imagePrefix += leadingWhitespace;
+  cursor += leadingWhitespace.length;
+
+  while (true) {
+    const beforeImage = cursor;
+    let segment = "";
+
+    const anchorOpen = consumeLeadingToken(
+      content.slice(cursor),
+      LEADING_ANCHOR_OPEN_RE,
+    );
+    if (anchorOpen) {
+      segment += anchorOpen;
+      cursor += anchorOpen.length;
+    }
+
+    const imageTag = consumeLeadingToken(
+      content.slice(cursor),
+      LEADING_IMAGE_RE,
+    );
+    if (!imageTag) {
+      cursor = beforeImage;
+      break;
+    }
+    segment += imageTag;
+    cursor += imageTag.length;
+
+    if (anchorOpen) {
+      const anchorClose = consumeLeadingToken(
+        content.slice(cursor),
+        LEADING_ANCHOR_CLOSE_RE,
+      );
+      if (anchorClose) {
+        segment += anchorClose;
+        cursor += anchorClose.length;
+      }
+    }
+
+    imagePrefix += segment;
+  }
+
+  while (true) {
+    const heading = consumeLeadingToken(
+      content.slice(cursor),
+      LEADING_HEADING_RE,
+    );
+    if (!heading) break;
+    headingBlock += heading;
+    cursor += heading.length;
+  }
+
+  return { imagePrefix, headingBlock, consumedLength: cursor };
+}
+
+function stripLeadMediaBoilerplateHeadings(content: string): string {
+  const { imagePrefix, headingBlock, consumedLength } =
+    parseLeadMediaAndHeadingPrefix(content);
+  if (!headingBlock) return content;
+
+  const headings =
+    headingBlock.match(/<h[2-4]\b[^>]*>[\s\S]*?<\/h[2-4]>/gi) ?? [];
+  if (headings.length === 0) return content;
+
+  // Strip only clear heading clusters, not standalone semantic headings.
+  if (
+    headings.length < 2 ||
+    !headings.every((heading) =>
+      isShortHeadingLabel(normalizeHeadingText(heading)),
+    )
+  ) {
+    return content;
+  }
+
+  return normalizeArticleHtmlSpacing(
+    [imagePrefix, content.slice(consumedLength)].filter(Boolean).join("\n"),
+  );
+}
+
+function readFirstImageSource(content: string): string {
+  const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
+  const imageTag = imagePrefix.match(/<img\b[^>]*>/i)?.[0];
+  if (!imageTag) return "";
+  const srcMatch = imageTag.match(/\bsrc=["']([^"']+)["']/i);
+  return (srcMatch?.[1] ?? "").trim();
+}
+
+function normalizeImageSource(source: string): string {
+  const normalized = source.trim().replace(/&amp;/g, "&");
+  if (!normalized) return "";
+  try {
+    const url = new URL(normalized);
+    url.hash = "";
+    url.search = "";
+    return url.toString();
+  } catch {
+    return normalized.split(/[?#]/, 1)[0] ?? "";
+  }
+}
+
+function removeLeadingDuplicateImage(content: string): string {
+  const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
+  if (!imagePrefix.trim()) return content;
+
+  const firstSrc = normalizeImageSource(readFirstImageSource(content));
+  if (!firstSrc) return content;
+
+  const afterLeadImage = content.slice(imagePrefix.length);
+
+  const imageSrcMatches = [
+    ...afterLeadImage.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi),
+  ].map((match) => normalizeImageSource(match[1] ?? ""));
+
+  const hasDuplicateImageSource = imageSrcMatches.includes(firstSrc);
+  if (!hasDuplicateImageSource) return content;
+
+  return normalizeArticleHtmlSpacing(afterLeadImage);
 }
 
 /** Promotional / call-to-action pattern (cross-site generic). */
@@ -240,7 +395,13 @@ export function cleanSanitizedHtml(
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 
-  const normalized = normalizeArticleHtmlSpacing(withoutPromos);
+  const withoutDuplicateLeadImage = removeLeadingDuplicateImage(withoutPromos);
+
+  const withoutMediaHeadings = stripLeadMediaBoilerplateHeadings(
+    withoutDuplicateLeadImage,
+  );
+
+  const normalized = normalizeArticleHtmlSpacing(withoutMediaHeadings);
 
   if (!normalized.trim()) return "";
 
@@ -248,166 +409,4 @@ export function cleanSanitizedHtml(
     return "";
   }
   return normalized;
-}
-
-const CONTENT_CLASS_PATTERNS = [
-  "article-content",
-  "article-body",
-  "article__body",
-  "article__content",
-  "entry-content",
-  "entry__content",
-  "entry-body",
-  "post-content",
-  "post-body",
-  "post__content",
-  "post__body",
-  "story-content",
-  "story__content",
-  "story-body",
-  "story__body",
-  "story__text",
-  "amp-wp-article-content",
-  "content-body",
-  "blog-post-content",
-  "page-content",
-  "wp-block-post-content",
-  "the-content",
-  "rich-text",
-  // Drupal standard body field (used across all Drupal 7/8/9/10 sites)
-  "field-name-body",
-  "field--name-body",
-  // Generic article text container used across various CMSes
-  "article-text",
-  "post-text",
-] as const;
-
-function manipulateInnerHtml(
-  html: string,
-  startIdx: number,
-  openTagLength: number,
-  tagName: string,
-): string | null {
-  const afterOpen = startIdx + openTagLength;
-  const lowerTag = tagName.toLowerCase();
-  const re = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
-  re.lastIndex = afterOpen;
-  let depth = 1;
-  let m: RegExpExecArray | null;
-  while (depth > 0 && (m = re.exec(html)) !== null) {
-    if (m[1]?.toLowerCase() !== lowerTag) continue;
-    if (m[0].startsWith("</")) depth--;
-    else depth++;
-    if (depth === 0) return html.slice(afterOpen, m.index);
-  }
-  return null;
-}
-
-function findAllByTag(html: string, tagName: string): string[] {
-  const results: string[] = [];
-  const lowerTag = tagName.toLowerCase();
-  const re = /<([a-z][a-z0-9:-]*)\b[^>]*>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    if (m[1]?.toLowerCase() !== lowerTag) continue;
-    const inner = manipulateInnerHtml(html, m.index, m[0].length, tagName);
-    if (inner !== null) results.push(inner);
-  }
-  return results;
-}
-
-function findFirstByAttr(
-  html: string,
-  attr: string,
-  value: string,
-): string | null {
-  const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    if (manipulateAttrValue(m[2] ?? "", attr) !== value) continue;
-    return manipulateInnerHtml(html, m.index, m[0].length, m[1]!);
-  }
-  return null;
-}
-
-function classOrIdContains(attrsStr: string, segment: string): boolean {
-  const classVal = manipulateAttrValue(attrsStr, "class") ?? "";
-  const idVal = manipulateAttrValue(attrsStr, "id") ?? "";
-  return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
-}
-
-function segmentMatch(attrValue: string, segment: string): boolean {
-  let start = 0;
-  while (start <= attrValue.length - segment.length) {
-    const idx = attrValue.indexOf(segment, start);
-    if (idx < 0) return false;
-    const leftOk = idx === 0 || /\s/.test(attrValue[idx - 1]!);
-    const end = idx + segment.length;
-    const rightOk =
-      end >= attrValue.length ||
-      /\s/.test(attrValue[end]!) ||
-      attrValue.startsWith("--", end);
-    if (leftOk && rightOk) return true;
-    start = idx + 1;
-  }
-  return false;
-}
-
-function findFirstByClassContains(
-  html: string,
-  patterns: readonly string[],
-  minLength: number,
-): string | null {
-  for (const pattern of patterns) {
-    const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) !== null) {
-      if (!classOrIdContains(m[2] ?? "", pattern)) continue;
-      const content = manipulateInnerHtml(html, m.index, m[0].length, m[1]!);
-      if (content && content.trim().length >= minLength) return content;
-    }
-  }
-  return null;
-}
-
-/**
- * Find the article body container in pre-cleaned HTML.
- * Tries semantic selectors and common CMS class patterns in priority order:
- *
- * 1. `itemprop="articleBody"` (schema.org)
- * 2. Content-indicative CSS class/id patterns
- * 3. `<article>` elements (largest by content length)
- * 4. `role="main"` / `role="article"` attributes
- * 5. `<main>` elements (largest by content length)
- */
-export function findArticleBody(
-  html: string,
-  minLength: number,
-): string | null {
-  let body = findFirstByAttr(html, "itemprop", "articleBody");
-  if (body && body.trim().length >= minLength) {
-    return body;
-  }
-
-  body = findFirstByClassContains(html, CONTENT_CLASS_PATTERNS, minLength);
-  if (body) return body;
-
-  const articles = findAllByTag(html, "article");
-  if (articles.length > 0) {
-    body = articles.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
-  }
-
-  for (const role of ["main", "article"] as const) {
-    body = findFirstByAttr(html, "role", role);
-    if (body && body.trim().length >= minLength) return body;
-  }
-
-  const mains = findAllByTag(html, "main");
-  if (mains.length > 0) {
-    body = mains.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
-  }
-
-  return null;
 }

@@ -1,9 +1,5 @@
 import { maxArticleConsecutiveBlankLines } from "@/lib/config";
-import {
-  hasApJunkClass,
-  isRelatedHeading,
-  manipulateAttrValue,
-} from "./patterns";
+import { hasApJunkClass, isRelatedHeading, readAttrValue } from "./patterns";
 import { purifyRawHtml } from "./purify";
 
 // Cached at first call — env does not change at runtime in a Node.js server
@@ -115,10 +111,30 @@ function isEmptyInlineHtml(content: string): boolean {
   return withoutNbspEntities.trim().length === 0;
 }
 
-function stripEmptyTagBlocks(html: string): string {
+function hasOnlyEmptyListItems(content: string): boolean {
+  const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+  if (listItems.length === 0) return isEmptyInlineHtml(content);
+  return listItems.every((item) => isEmptyInlineHtml(item[1] ?? ""));
+}
+
+function stripEmptyListItems(html: string): string {
   return html.replace(
-    /<(p|figure)>([\s\S]*?)<\/\1>\s*/gi,
-    (match, _tag, content: string) => (isEmptyInlineHtml(content) ? "" : match),
+    /<li\b[^>]*>([\s\S]*?)<\/li>\s*/gi,
+    (match, content: string) => (isEmptyInlineHtml(content) ? "" : match),
+  );
+}
+
+function stripEmptyTagBlocks(html: string): string {
+  return stripEmptyListItems(html).replace(
+    /<(p|figure|ul|ol)\b[^>]*>([\s\S]*?)<\/\1>\s*/gi,
+    (match, tag: string, content: string) =>
+      tag === "ul" || tag === "ol"
+        ? hasOnlyEmptyListItems(content)
+          ? ""
+          : match
+        : isEmptyInlineHtml(content)
+          ? ""
+          : match,
   );
 }
 
@@ -314,7 +330,7 @@ function removeElementsByAttrPattern(
   let result = html;
   let match: RegExpExecArray | null;
   while ((match = openRe.exec(result)) !== null) {
-    const attrValue = manipulateAttrValue(match[2] ?? "", attr);
+    const attrValue = readAttrValue(match[2] ?? "", attr);
     if (attrValue === null || !pattern.test(attrValue)) continue;
 
     const tagName = match[1]!.toLowerCase();

@@ -371,3 +371,64 @@ describe("handleEditTag - error paths and edge cases", () => {
     expect(await response.text()).toContain("InvalidParameters");
   });
 });
+
+// ── lib/api/greader/tag – handleMarkAllAsRead parseFormOrQueryParams error ─────
+
+describe("lib/api/greader/tag – handleMarkAllAsRead early return on parse error", () => {
+  let savedDbUrl: string | undefined;
+  beforeEach(() => {
+    savedDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "";
+  });
+  afterEach(() => {
+    if (savedDbUrl !== undefined) process.env.DATABASE_URL = savedDbUrl;
+    else delete process.env.DATABASE_URL;
+    mock.restore();
+  });
+
+  test("returns 413 when POST body exceeds limit", async () => {
+    const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
+    const user = {
+      userId: 1,
+      email: "test@example.com",
+      sessionToken: "tok",
+      sessionId: 0,
+      expiresAt: new Date(),
+    };
+    const bigBody = "s=" + "x".repeat(1024 * 1024 + 1);
+    const req = new Request(
+      "https://example.com/greader.php/api/0/mark-all-as-read",
+      {
+        method: "POST",
+        body: bigBody,
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "content-length": String(Buffer.byteLength(bigBody)),
+        },
+      },
+    );
+    const result = await handleMarkAllAsRead(user as any, req as any);
+    expect(result.status).toBe(413);
+  });
+});
+
+// ── lib/api/greader/tag-labels – handleDisableTag too-large body (line 78) ────
+
+describe("lib/api/greader/tag-labels – handleDisableTag early Response return", () => {
+  test("returns Response early when body is too large (line 78)", async () => {
+    const { NextRequest } = await import("next/server");
+    const { handleDisableTag } = await import("@/lib/api/greader/tag-labels");
+    const user = { userId: 1, email: "test@example.com", sessionToken: "tok" };
+    const req = new NextRequest("https://dummy.local/api/greader/tag/disable", {
+      method: "POST",
+      body: "s=user%2Flabel%2FTest",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        // Content-Length value drastically exceeds MAX_JSON_BODY_BYTES
+        "content-length": "999999999",
+      },
+    });
+    const result = await handleDisableTag(user as any, req);
+    expect(result.status).toBe(413);
+  });
+});

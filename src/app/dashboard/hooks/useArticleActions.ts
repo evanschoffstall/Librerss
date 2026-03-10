@@ -24,6 +24,7 @@ interface UseArticleActionsOptions {
   articleFilter: "all" | "unread" | "read" | "starred";
   usePlaceholderData?: boolean;
   categories?: CategoryTreeNode[];
+  distillStrategy?: string;
   /** Called when any article begins expanding; settles scroll restore. */
   onExpand?: () => void;
   /**
@@ -41,6 +42,7 @@ export function useArticleActions({
   articleFilter,
   usePlaceholderData = false,
   categories,
+  distillStrategy,
   onExpand,
   suppressSnapRef,
 }: UseArticleActionsOptions) {
@@ -72,7 +74,7 @@ export function useArticleActions({
     hydratingArticleLinks,
     hydrateArticleContent,
     cancelHydration,
-  } = useArticleHydration({ setFeed, getFeedSettings });
+  } = useArticleHydration({ setFeed, getFeedSettings, distillStrategy });
   const autoHydratedExpandedKeyRef = useRef<string | null>(null);
   const awaitingExpandedSyncKeyRef = useRef<string | null>(null);
 
@@ -133,45 +135,55 @@ export function useArticleActions({
     [],
   );
 
+  const collapseExpandedArticle = useCallback(
+    (article: Article, options?: { treatAsRead?: boolean }) => {
+      const nextArticleKey = getArticleKey(article);
+
+      setExpandedArticleKey((current) =>
+        current === nextArticleKey ? null : current,
+      );
+      awaitingExpandedSyncKeyRef.current = null;
+      autoHydratedExpandedKeyRef.current = null;
+
+      const link = article.link?.trim();
+      if (link) cancelHydration(link);
+
+      scrollPin.activateCollapsePin(
+        scrollPin.preExpandViewport.current,
+        scrollPin.preExpandScrollTop.current,
+      );
+
+      const shouldAnimateRemoval =
+        articleFilter === "unread" && (options?.treatAsRead ?? article.isRead);
+      if (!shouldAnimateRemoval) return;
+
+      if (collapseRemovalTimeoutRef.current !== null) {
+        window.clearTimeout(collapseRemovalTimeoutRef.current);
+      }
+      setCollapsingArticleKey(nextArticleKey);
+      collapseRemovalTimeoutRef.current = window.setTimeout(() => {
+        setCollapsingArticleKey((current) =>
+          current === nextArticleKey ? null : current,
+        );
+        collapseRemovalTimeoutRef.current = null;
+      }, ARTICLE_REMOVAL_ANIMATION_MS);
+    },
+    [articleFilter, cancelHydration, scrollPin, setExpandedArticleKey],
+  );
+
   const handleArticleToggle = useCallback(
     async (article: Article) => {
       const nextArticleKey = getArticleKey(article);
       const isCollapsing = expandedArticleKey === nextArticleKey;
 
+      if (isCollapsing) {
+        collapseExpandedArticle(article);
+        return;
+      }
+
       setExpandedArticleKey((current) =>
         current === nextArticleKey ? null : nextArticleKey,
       );
-
-      if (isCollapsing) {
-        awaitingExpandedSyncKeyRef.current = null;
-        autoHydratedExpandedKeyRef.current = null;
-        const link = article.link?.trim();
-        if (link) cancelHydration(link);
-
-        // Pin scrollTop at the pre-expand value while the card collapses.
-        // See useScrollPin.ts for the full collapse-pin protocol.
-        scrollPin.activateCollapsePin(
-          scrollPin.preExpandViewport.current,
-          scrollPin.preExpandScrollTop.current,
-        );
-
-        // Animate removal from the unread filter for read articles.
-        const isRemovingFromFilter =
-          articleFilter === "unread" && article.isRead;
-        if (isRemovingFromFilter) {
-          if (collapseRemovalTimeoutRef.current !== null) {
-            window.clearTimeout(collapseRemovalTimeoutRef.current);
-          }
-          setCollapsingArticleKey(nextArticleKey);
-          collapseRemovalTimeoutRef.current = window.setTimeout(() => {
-            setCollapsingArticleKey((current) =>
-              current === nextArticleKey ? null : current,
-            );
-            collapseRemovalTimeoutRef.current = null;
-          }, ARTICLE_REMOVAL_ANIMATION_MS);
-        }
-        return;
-      }
 
       // Cancel any in-progress scroll pin / collapse removal.
       if (collapseRemovalTimeoutRef.current !== null) {
@@ -198,8 +210,7 @@ export function useArticleActions({
       await hydrateArticleContent(article);
     },
     [
-      articleFilter,
-      cancelHydration,
+      collapseExpandedArticle,
       expandedArticleKey,
       onExpand,
       scrollPin,
@@ -208,6 +219,17 @@ export function useArticleActions({
       setArticleReadState,
       hydrateArticleContent,
     ],
+  );
+
+  const handleExpandedSwipeRead = useCallback(
+    (article: Article) => {
+      const articleKey = getArticleKey(article);
+      if (!article.isRead && !updatingArticleState[articleKey]) {
+        void setArticleReadState(article, true, { suppressErrorToast: true });
+      }
+      collapseExpandedArticle(article, { treatAsRead: true });
+    },
+    [collapseExpandedArticle, setArticleReadState, updatingArticleState],
   );
 
   const handleToggleStarredState = useCallback(
@@ -270,6 +292,7 @@ export function useArticleActions({
     hydratingArticleLinks,
     collapsingArticleKey,
     handleArticleToggle,
+    handleExpandedSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
     setArticleReadState,

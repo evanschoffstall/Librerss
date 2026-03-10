@@ -52,6 +52,7 @@ import {
 } from "../hooks/useArticleExpansion";
 import { useFavicon } from "../hooks/useFavicon";
 import { useSwipeToRead } from "../hooks/useSwipeToRead";
+import { useSwipeToStar } from "../hooks/useSwipeToStar";
 import {
   buildPreview,
   getArticleSourceLabel,
@@ -68,6 +69,7 @@ interface ArticleCardProps {
   isHydrating: boolean;
   onToggle: (article: Article) => void;
   showFavicon: boolean;
+  onExpandedSwipeRead: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
   isUpdatingState: boolean;
@@ -79,6 +81,9 @@ const iconBtnCls =
 const iconLinkCls =
   "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground";
 
+const TAP_DRIFT_PX = 4;
+const AFTER_SWIPE_BLOCK_MS = 350;
+
 export const ArticleCard = memo(function ArticleCard({
   articleKey,
   article,
@@ -88,6 +93,7 @@ export const ArticleCard = memo(function ArticleCard({
   isHydrating,
   onToggle,
   showFavicon,
+  onExpandedSwipeRead,
   onToggleRead,
   onToggleStarred,
   isUpdatingState,
@@ -152,7 +158,10 @@ export const ArticleCard = memo(function ArticleCard({
     setFaviconIndex,
   } = useFavicon({ primaryUrl: article.feedUrl, fallbackUrl: article.link });
 
-  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+  const pressStartPos = useRef<{ x: number; y: number } | null>(null);
+  const pressPointerIdRef = useRef<number | null>(null);
+  const pressMovedRef = useRef(false);
+  const afterSwipeRef = useRef(0);
   const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
@@ -160,9 +169,30 @@ export const ArticleCard = memo(function ArticleCard({
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
-  const { swipeState, containerRef: swipeContainerRef } = useSwipeToRead(() => {
-    if (!article.isRead) onToggleRead(article);
-  }, isUpdatingState || article.isRead);
+  const { swipeState: readSwipeState, containerRef: readSwipeRef } =
+    useSwipeToRead(() => {
+      afterSwipeRef.current = Date.now();
+      if (isExpanded) {
+        onExpandedSwipeRead(article);
+        return;
+      }
+      onToggleRead(article);
+    }, isUpdatingState);
+  const { swipeState: starSwipeState, containerRef: starSwipeRef } =
+    useSwipeToStar(() => {
+      afterSwipeRef.current = Date.now();
+      onToggleStarred(article);
+    }, isUpdatingState);
+  const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
+  const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
+  const articleSurfaceRef = useCallback(
+    (el: HTMLElement | null) => {
+      articleRef.current = el;
+      readSwipeRef.current = el;
+      starSwipeRef.current = el;
+    },
+    [readSwipeRef, starSwipeRef],
+  );
 
   const shouldBlockArticleInteraction = () =>
     Date.now() < interactionBlockUntilRef.current;
@@ -182,12 +212,35 @@ export const ArticleCard = memo(function ArticleCard({
   const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
   const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (shouldBlockArticleInteraction()) {
       e.stopPropagation();
       return;
     }
-    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+    pressPointerIdRef.current = e.pointerId;
+    pressMovedRef.current = false;
+    pressStartPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (pressPointerIdRef.current !== e.pointerId) return;
+    const start = pressStartPos.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.hypot(dx, dy) > TAP_DRIFT_PX) pressMovedRef.current = true;
+  };
+
+  const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
+    if (pressPointerIdRef.current !== e.pointerId) return;
+    pressPointerIdRef.current = null;
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+    if (pressPointerIdRef.current !== e.pointerId) return;
+    pressPointerIdRef.current = null;
+    pressStartPos.current = null;
+    pressMovedRef.current = false;
   };
 
   const toggleExpanded = (e: React.MouseEvent) => {
@@ -195,12 +248,20 @@ export const ArticleCard = memo(function ArticleCard({
       e.stopPropagation();
       return;
     }
-    const down = mouseDownPos.current;
+    if (Date.now() - afterSwipeRef.current < AFTER_SWIPE_BLOCK_MS) return;
+    if (pressMovedRef.current) {
+      pressStartPos.current = null;
+      pressMovedRef.current = false;
+      return;
+    }
+    const down = pressStartPos.current;
     if (down) {
       const dx = e.clientX - down.x;
       const dy = e.clientY - down.y;
-      if (Math.sqrt(dx * dx + dy * dy) > 4) return;
+      if (Math.hypot(dx, dy) > TAP_DRIFT_PX) return;
     }
+    pressStartPos.current = null;
+    pressMovedRef.current = false;
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
     onToggle(article);
@@ -368,50 +429,87 @@ export const ArticleCard = memo(function ArticleCard({
 
   return (
     <div
-      ref={swipeContainerRef}
       className={`relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl`}
+      style={{ touchAction: "pan-y" }}
     >
-      {/* Swipe-to-read background indicator */}
-      {swipeState.swiping && (
+      {/* Swipe-to-read / swipe-to-star background indicators */}
+      {readSwipeState.swiping && (
         <div
           className={`absolute inset-0 z-0 flex items-center rounded-xl transition-colors duration-150 ${
-            swipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
+            readSwipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
           }`}
         >
           <div className="flex items-center gap-2 pl-4 text-emerald-600 dark:text-emerald-400">
-            <CircleCheck
-              className={`size-5 transition-transform duration-150 ${
-                swipeState.committed ? "scale-110" : "scale-90 opacity-60"
-              }`}
-            />
+            {article.isRead ? (
+              <Circle
+                className={`size-5 transition-transform duration-150 ${
+                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
+                }`}
+              />
+            ) : (
+              <CircleCheck
+                className={`size-5 transition-transform duration-150 ${
+                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
+                }`}
+              />
+            )}
             <span
               className={`text-xs font-medium transition-opacity duration-150 ${
-                swipeState.committed ? "opacity-100" : "opacity-0"
+                readSwipeState.committed ? "opacity-100" : "opacity-0"
               }`}
             >
-              Mark read
+              {article.isRead ? "Mark unread" : "Mark read"}
             </span>
           </div>
         </div>
       )}
+      {starSwipeState.swiping && (
+        <div
+          className={`absolute inset-0 z-0 flex items-center justify-end rounded-xl transition-colors duration-150 ${
+            starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"
+          }`}
+        >
+          <div className="flex items-center gap-2 pr-4 text-amber-600 dark:text-amber-400">
+            <span
+              className={`text-xs font-medium transition-opacity duration-150 ${
+                starSwipeState.committed ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {article.isStarred ? "Unstar" : "Star"}
+            </span>
+            <Star
+              className={`size-5 transition-transform duration-150 ${
+                starSwipeState.committed
+                  ? "scale-110 fill-current"
+                  : "scale-90 opacity-60"
+              }`}
+            />
+          </div>
+        </div>
+      )}
       <article
-        ref={articleRef}
+        ref={articleSurfaceRef}
         data-article-key={articleKey}
         role="button"
         tabIndex={0}
         aria-expanded={isExpanded}
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerCancel}
         style={{
+          touchAction: "pan-y",
+          WebkitTouchCallout: "none",
+          WebkitUserSelect: "none",
+          userSelect: "none",
           cursor: visuallyExpanded ? "default" : "pointer",
-          transform: swipeState.swiping
-            ? `translateX(${swipeState.offsetX}px)`
-            : undefined,
-          transition: swipeState.swiping
+          transform: anySwiping ? `translateX(${swipeOffsetX}px)` : undefined,
+          transition: anySwiping
             ? "none"
             : [
-                swipeState.offsetX !== 0
+                swipeOffsetX !== 0
                   ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
                   : null,
                 `border-radius ${cardT}`,
@@ -420,13 +518,17 @@ export const ArticleCard = memo(function ArticleCard({
                 .filter(Boolean)
                 .join(", "),
         }}
-        className={`group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        className={`article-swipe-surface group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
       >
         {/* Header zone — sticky when expanded */}
         <div
           ref={headerZoneRef}
           className={`relative ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-t-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
           style={{
+            touchAction: "pan-y",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
             transition: `padding ${cardT}, background-color ${cardT}`,
             ...(visuallyExpanded
               ? {
@@ -644,7 +746,7 @@ export const ArticleCard = memo(function ArticleCard({
 
             <h3
               style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
-              className={`font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
+              className={`select-none font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
             >
               {article.title}
             </h3>
@@ -665,25 +767,21 @@ export const ArticleCard = memo(function ArticleCard({
           </div>
           <div className="relative z-10">
             <div
-              className="overflow-hidden"
+              className="overflow-hidden article-swipe-body"
               onTransitionEnd={onContentTransitionEnd}
               onClick={
                 visuallyExpanded
                   ? (e) => {
-                      // Stop propagation only for interactive elements / text selection; blank areas toggle collapse
-                      const el = e.target as HTMLElement;
-                      if (
-                        el.closest(
-                          "a, button, input, textarea, select, [role='button']",
-                        )
-                      )
-                        return e.stopPropagation();
-                      if (window.getSelection()?.toString())
-                        return e.stopPropagation();
+                      // Expanded body interactions should never collapse the card.
+                      e.stopPropagation();
                     }
                   : undefined
               }
               style={{
+                touchAction: "pan-y",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                userSelect: "none",
                 maxHeight: expandTransitionDone
                   ? "none"
                   : hasOverflow
@@ -694,7 +792,14 @@ export const ArticleCard = memo(function ArticleCard({
                 !visuallyExpanded
                   ? { maxHeight: `${collapsedHeight}px` }
                   : {}),
-                contentVisibility: expandTransitionDone ? "auto" : "visible",
+                // content-visibility: auto helps with off-screen collapsed cards
+                // but must NOT be active while expanded — it creates a containment
+                // boundary the compositor uses as a touch-action walk stop-point,
+                // breaking swipe gestures on the article body.
+                contentVisibility:
+                  expandTransitionDone && !visuallyExpanded
+                    ? "auto"
+                    : "visible",
                 transition: `max-height ${cardT}`,
               }}
             >
@@ -718,7 +823,7 @@ export const ArticleCard = memo(function ArticleCard({
                 <div
                   className={`${visibleRichContentClassName} anim-article-enter`}
                   style={{
-                    contain: "layout style paint",
+                    contain: visuallyExpanded ? "none" : "layout style paint",
                     willChange: visuallyExpanded ? "auto" : "contents",
                   }}
                   dangerouslySetInnerHTML={{ __html: normalizedHtml }}

@@ -42,6 +42,55 @@ import {
   shouldRefreshFeed,
 } from "./feed-refresh";
 
+type FeedFetcherDependencies = {
+  ensureFeedRecordByUrl: typeof ensureFeedRecordByUrl;
+  buildRefreshPlan: typeof buildRefreshPlan;
+  executeParallelRefreshes: typeof executeParallelRefreshes;
+  mapRowsToArticleMap: typeof mapRowsToArticleMap;
+  queryTopArticlesPerFeed: typeof queryTopArticlesPerFeed;
+  resolveAuthorizedFeedRecords: typeof resolveAuthorizedFeedRecords;
+  getCachedBatch: typeof getCachedBatch;
+  invalidateUserCache: typeof invalidateUserCache;
+  setCachedBatch: typeof setCachedBatch;
+  diagInfo: typeof diagInfo;
+  diagWarn: typeof diagWarn;
+  refreshFeedFromUpstream: typeof refreshFeedFromUpstream;
+  shouldForceRefreshFeed: typeof shouldForceRefreshFeed;
+  shouldRefreshFeed: typeof shouldRefreshFeed;
+};
+
+const defaultFeedFetcherDependencies: FeedFetcherDependencies = {
+  ensureFeedRecordByUrl,
+  buildRefreshPlan,
+  executeParallelRefreshes,
+  mapRowsToArticleMap,
+  queryTopArticlesPerFeed,
+  resolveAuthorizedFeedRecords,
+  getCachedBatch,
+  invalidateUserCache,
+  setCachedBatch,
+  diagInfo,
+  diagWarn,
+  refreshFeedFromUpstream,
+  shouldForceRefreshFeed,
+  shouldRefreshFeed,
+};
+
+let feedFetcherDependencies = defaultFeedFetcherDependencies;
+
+export function setFeedFetcherDependenciesForTesting(
+  overrides: Partial<FeedFetcherDependencies>,
+): void {
+  feedFetcherDependencies = {
+    ...defaultFeedFetcherDependencies,
+    ...overrides,
+  };
+}
+
+export function resetFeedFetcherDependenciesForTesting(): void {
+  feedFetcherDependencies = defaultFeedFetcherDependencies;
+}
+
 // ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Returned when the authenticated user doesn't own the requested feed source. */
@@ -102,7 +151,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 ): Promise<BatchFeedResult> {
   if (feedUrls.length === 0) return buildEmptyBatchResult();
 
-  diagInfo("Batch feed fetch started", {
+  feedFetcherDependencies.diagInfo("Batch feed fetch started", {
     userId,
     requestedUrlCount: feedUrls.length,
     skipRefresh,
@@ -138,22 +187,25 @@ export async function fetchAndCacheFeedArticlesBatch(
   // Non-force requests: serve from memory if a cached result exists.
   // Force requests: serve from memory only when every feed is still within
   // the force-refresh cooldown — going to DB would produce the same result.
-  const cached = getCachedBatch(userId, feedUrls);
+  const cached = feedFetcherDependencies.getCachedBatch(userId, feedUrls);
   if (cached) {
     const allWithinCooldown =
       forceRefresh &&
       [...cached.lastFetchedByUrl.values()].every(
-        (d) => !shouldForceRefreshFeed(d),
+        (d) => !feedFetcherDependencies.shouldForceRefreshFeed(d),
       );
 
     if (!forceRefresh || allWithinCooldown) {
       const cachedCount = feedUrls.length;
-      diagInfo("Batch feed fetch served from memory cache", {
-        userId,
-        requestSource,
-        feedCount: cachedCount,
-        forceRefreshCooldownHit: allWithinCooldown,
-      });
+      feedFetcherDependencies.diagInfo(
+        "Batch feed fetch served from memory cache",
+        {
+          userId,
+          requestSource,
+          feedCount: cachedCount,
+          forceRefreshCooldownHit: allWithinCooldown,
+        },
+      );
       return {
         articles: cached.articles,
         errors: cached.errors,
@@ -167,9 +219,13 @@ export async function fetchAndCacheFeedArticlesBatch(
   }
 
   // ── DB path: resolve ownership + feed records ────────────────────────────
-  const resolved = await resolveAuthorizedFeedRecords(db, userId, feedUrls);
+  const resolved = await feedFetcherDependencies.resolveAuthorizedFeedRecords(
+    db,
+    userId,
+    feedUrls,
+  );
   if (!resolved) {
-    diagWarn("Batch feed fetch denied: no owned URLs", {
+    feedFetcherDependencies.diagWarn("Batch feed fetch denied: no owned URLs", {
       userId,
       requestedUrlCount: feedUrls.length,
     });
@@ -178,12 +234,17 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   const { allowedUrls, feedByUrl } = resolved;
 
-  diagInfo("Batch feed refresh plan", {
+  feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
     userId,
     requestSource,
     allowedUrlCount: allowedUrls.length,
     missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
-    plan: buildRefreshPlan(feedByUrl, allowedUrls, skipRefresh, forceRefresh),
+    plan: feedFetcherDependencies.buildRefreshPlan(
+      feedByUrl,
+      allowedUrls,
+      skipRefresh,
+      forceRefresh,
+    ),
   });
 
   const {
@@ -191,7 +252,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     refreshedCount,
     cooldownLimitedCount,
     refreshedUrls,
-  } = await executeParallelRefreshes(
+  } = await feedFetcherDependencies.executeParallelRefreshes(
     db,
     feedByUrl,
     allowedUrls,
@@ -201,7 +262,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   if (!skipRefresh) {
     if (refreshedCount > 0) {
-      diagInfo("Batch feed upstream refresh executed", {
+      feedFetcherDependencies.diagInfo("Batch feed upstream refresh executed", {
         userId,
         requestSource,
         refreshedFeedCount: refreshedCount,
@@ -209,11 +270,14 @@ export async function fetchAndCacheFeedArticlesBatch(
         failedUrls: [...upstreamErrors.keys()],
       });
     } else {
-      diagInfo("Batch feed refresh skipped: all feeds fresh", {
-        userId,
-        requestSource,
-        allowedUrlCount: allowedUrls.length,
-      });
+      feedFetcherDependencies.diagInfo(
+        "Batch feed refresh skipped: all feeds fresh",
+        {
+          userId,
+          requestSource,
+          allowedUrlCount: allowedUrls.length,
+        },
+      );
     }
   }
 
@@ -248,10 +312,18 @@ export async function fetchAndCacheFeedArticlesBatch(
       .filter((e): e is [string, Date] => e !== null),
   );
 
-  const rows = await queryTopArticlesPerFeed(db, userId, feedIds);
-  const articleMap = mapRowsToArticleMap(rows, feedByUrl, allowedUrls);
+  const rows = await feedFetcherDependencies.queryTopArticlesPerFeed(
+    db,
+    userId,
+    feedIds,
+  );
+  const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
+    rows,
+    feedByUrl,
+    allowedUrls,
+  );
 
-  diagInfo("Batch feed fetch completed", {
+  feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
     userId,
     requestSource,
     feedCount: articleMap.size,
@@ -270,8 +342,8 @@ export async function fetchAndCacheFeedArticlesBatch(
   // When feeds were refreshed upstream, other cached URL-set entries for this
   // user may contain stale article data. Invalidate everything first, then
   // store the fresh result so subsequent requests hit the cache.
-  if (refreshedCount > 0) invalidateUserCache(userId);
-  setCachedBatch(userId, allowedUrls, {
+  if (refreshedCount > 0) feedFetcherDependencies.invalidateUserCache(userId);
+  feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
     articles: articleMap,
     errors: upstreamErrors,
     lastFetchedByUrl,
@@ -331,14 +403,20 @@ export async function fetchAndCacheFeedArticles(
 
   if (!userSource) throw new FeedSourceNotFoundError(feedUrl);
 
-  const feed = (await ensureFeedRecordByUrl(db, feedUrl)) as FeedRecord;
+  const feed = (await feedFetcherDependencies.ensureFeedRecordByUrl(
+    db,
+    feedUrl,
+  )) as FeedRecord;
 
-  if (shouldRefreshFeed(feed.lastFetched)) {
-    const result = await refreshFeedFromUpstream(db, feed);
+  if (feedFetcherDependencies.shouldRefreshFeed(feed.lastFetched)) {
+    const result = await feedFetcherDependencies.refreshFeedFromUpstream(
+      db,
+      feed,
+    );
     if (!result.ok) throw new UpstreamFeedError(feedUrl, result.error);
-    diagInfo("Single feed refreshed", { url: feedUrl });
+    feedFetcherDependencies.diagInfo("Single feed refreshed", { url: feedUrl });
   } else {
-    diagInfo("Single feed cache hit", { url: feedUrl });
+    feedFetcherDependencies.diagInfo("Single feed cache hit", { url: feedUrl });
   }
 
   return db

@@ -628,3 +628,259 @@ describe("Service Error Handling", () => {
     }
   });
 });
+
+beforeEach(() => {
+  mock.restore();
+  resetApiClientForTesting();
+});
+
+afterEach(() => {
+  mock.restore();
+  resetApiClientForTesting();
+});
+
+const makeMockAxiosClient = (): {
+  get: ReturnType<typeof mock>;
+  post: ReturnType<typeof mock>;
+  put: ReturnType<typeof mock>;
+  patch: ReturnType<typeof mock>;
+  delete: ReturnType<typeof mock>;
+} => ({
+  get: mock(async () => ({ data: {} })),
+  post: mock(async () => ({ data: {} })),
+  put: mock(async () => ({ data: {} })),
+  patch: mock(async () => ({ data: {} })),
+  delete: mock(async () => ({ data: {} })),
+});
+
+describe("FeedService – renameFeedSource, setFeedSourceEnabled, getCategoryOrder", () => {
+  test("renameFeedSource patches /api/feeds with id, name, url", async () => {
+    const mx = makeMockAxiosClient();
+    const feed = { id: 5, name: "New Name", url: "https://example.com/feed" };
+    mx.patch = mock(async () => ({ data: feed }));
+    setApiClientForTesting(mx);
+
+    const result = await FeedService.renameFeedSource(
+      5,
+      "New Name",
+      "https://example.com/feed",
+    );
+    expect(mx.patch).toHaveBeenCalledWith("/api/feeds", {
+      id: 5,
+      name: "New Name",
+      url: "https://example.com/feed",
+    });
+    expect(result).toEqual(feed);
+  });
+
+  test("renameFeedSource without url omits url in payload", async () => {
+    const mx = makeMockAxiosClient();
+    mx.patch = mock(async () => ({ data: { id: 5, name: "New Name" } }));
+    setApiClientForTesting(mx);
+
+    await FeedService.renameFeedSource(5, "New Name");
+    const patchCall = (mx.patch as ReturnType<typeof mock>).mock.calls[0];
+    expect(patchCall?.[1]).toMatchObject({ id: 5, name: "New Name" });
+  });
+
+  test("setFeedSourceEnabled patches /api/feeds with enabled flag", async () => {
+    const mx = makeMockAxiosClient();
+    mx.patch = mock(async () => ({ data: { id: 3, enabled: false } }));
+    setApiClientForTesting(mx);
+
+    const result = (await FeedService.setFeedSourceEnabled(3, false)) as any;
+    expect(mx.patch).toHaveBeenCalledWith("/api/feeds", {
+      id: 3,
+      enabled: false,
+    });
+    expect(result.enabled).toBe(false);
+  });
+
+  test("updateFeedSettings patches /api/feeds with settings", async () => {
+    const mx = makeMockAxiosClient();
+    mx.patch = mock(async () => ({
+      data: { id: 7, extractionDisabled: true, proxyEnabled: false },
+    }));
+    setApiClientForTesting(mx);
+
+    const result = (await FeedService.updateFeedSettings(7, {
+      extractionDisabled: true,
+      proxyEnabled: false,
+    })) as any;
+    expect(mx.patch).toHaveBeenCalledWith("/api/feeds", {
+      id: 7,
+      extractionDisabled: true,
+      proxyEnabled: false,
+    });
+    expect(result.extractionDisabled).toBe(true);
+  });
+
+  test("getCategoryOrder returns orderedLabels array", async () => {
+    const mx = makeMockAxiosClient();
+    const labels = ["Tech", "Science", "News"];
+    mx.get = mock(async () => ({ data: { orderedLabels: labels } }));
+    setApiClientForTesting(mx);
+
+    const result = await FeedService.getCategoryOrder();
+    expect(result).toEqual(labels);
+    expect(mx.get).toHaveBeenCalledWith("/api/feeds/category-order");
+  });
+
+  test("getCategoryOrder returns [] when response is not array", async () => {
+    const mx = makeMockAxiosClient();
+    mx.get = mock(async () => ({ data: { orderedLabels: null } }));
+    setApiClientForTesting(mx);
+
+    const result = await FeedService.getCategoryOrder();
+    expect(result).toEqual([]);
+  });
+
+  test("saveCategoryOrder puts to /api/feeds/category-order", async () => {
+    const mx = makeMockAxiosClient();
+    mx.put = mock(async () => ({ data: {} }));
+    setApiClientForTesting(mx);
+
+    await FeedService.saveCategoryOrder(["News", "Tech"]);
+    expect(mx.put).toHaveBeenCalledWith("/api/feeds/category-order", {
+      orderedLabels: ["News", "Tech"],
+    });
+  });
+});
+
+// ── api/services – ArticleService additional methods ────────────────────────
+
+describe("ArticleService – getProxyStatus, testBotDetection", () => {
+  test("getProxyStatus calls GET /api/articles/proxy-status", async () => {
+    const mx = makeMockAxiosClient();
+    mx.get = mock(async () => ({
+      data: {
+        configured: true,
+        proxyUrl: "socks5://proxy:1080",
+        status: "reachable",
+      },
+    }));
+    setApiClientForTesting(mx);
+
+    const result = await ArticleService.getProxyStatus();
+    expect(mx.get).toHaveBeenCalledWith("/api/articles/proxy-status");
+    expect(result).toMatchObject({ configured: true });
+  });
+
+  test("testBotDetection posts to proxy/test-bot-detection", async () => {
+    const mx = makeMockAxiosClient();
+    const results = [
+      {
+        site: "example.com",
+        url: "https://example.com",
+        protection: "none",
+        success: true,
+        blocked: false,
+      },
+    ];
+    mx.post = mock(async () => ({ data: { results } }));
+    setApiClientForTesting(mx);
+
+    const response = await ArticleService.testBotDetection({ useProxy: true });
+    expect(mx.post).toHaveBeenCalledWith(
+      "/api/settings/proxy/test-bot-detection",
+      { useProxy: true },
+    );
+    expect(response.results).toEqual(results);
+  });
+
+  test("testBotDetection without options sends empty object", async () => {
+    const mx = makeMockAxiosClient();
+    mx.post = mock(async () => ({ data: { results: [] } }));
+    setApiClientForTesting(mx);
+
+    await ArticleService.testBotDetection();
+    const call = (mx.post as ReturnType<typeof mock>).mock.calls[0];
+    expect(call?.[1]).toEqual({});
+  });
+});
+
+// ── api/services – AuthService ───────────────────────────────────────────────
+
+describe("AuthService", () => {
+  test("getSession fetches /api/auth/session", async () => {
+    const mx = makeMockAxiosClient();
+    const session = {
+      authenticated: true,
+      user: { id: 1, email: "a@b.com", createdAt: new Date() },
+      allowSignup: false,
+      usePlaceholderData: false,
+    };
+    mx.get = mock(async () => ({ data: session }));
+    setApiClientForTesting(mx);
+
+    const result = await AuthService.getSession();
+    expect(mx.get).toHaveBeenCalledWith("/api/auth/session");
+    expect(result.authenticated).toBe(true);
+  });
+
+  test("login posts credentials and returns user", async () => {
+    const mx = makeMockAxiosClient();
+    mx.post = mock(async () => ({
+      data: { user: { id: 1, email: "user@example.com" } },
+    }));
+    setApiClientForTesting(mx);
+
+    const user = await AuthService.login("user@example.com", "password123");
+    expect(mx.post).toHaveBeenCalledWith("/api/auth/login", {
+      email: "user@example.com",
+      password: "password123",
+    });
+    expect(user).toMatchObject({ id: 1 });
+  });
+
+  test("signup posts credentials and returns user", async () => {
+    const mx = makeMockAxiosClient();
+    mx.post = mock(async () => ({
+      data: { user: { id: 2, email: "new@example.com" } },
+    }));
+    setApiClientForTesting(mx);
+
+    const user = await AuthService.signup("new@example.com", "newpassword");
+    expect(mx.post).toHaveBeenCalledWith("/api/auth/signup", {
+      email: "new@example.com",
+      password: "newpassword",
+    });
+    expect(user).toMatchObject({ id: 2 });
+  });
+
+  test("logout posts to /api/auth/logout", async () => {
+    const mx = makeMockAxiosClient();
+    mx.post = mock(async () => ({ data: { ok: true } }));
+    setApiClientForTesting(mx);
+
+    await AuthService.logout();
+    expect(mx.post).toHaveBeenCalledWith("/api/auth/logout");
+  });
+});
+
+// ── api/services – ArticleService.getReaderStream ───────────────────────────
+
+describe("ArticleService – getReaderStream and markAllRead", () => {
+  test("getReaderStream fetches stream URL and maps items", async () => {
+    const mx = makeMockAxiosClient();
+    mx.get = mock(async () => ({ data: { items: [] } }));
+    setApiClientForTesting(mx);
+
+    const result = await ArticleService.getReaderStream(
+      "user/-/state/com.google/reading-list",
+    );
+    expect(Array.isArray(result)).toBe(true);
+    expect(mx.get).toHaveBeenCalledTimes(1);
+  });
+
+  test("markAllRead posts to /api/articles/mark-all-read", async () => {
+    const mx = makeMockAxiosClient();
+    mx.post = mock(async () => ({ data: {} }));
+    setApiClientForTesting(mx);
+
+    await ArticleService.markAllRead("user/-/state/com.google/reading-list");
+    expect(mx.post).toHaveBeenCalledWith("/api/articles/mark-all-read", {
+      streamId: "user/-/state/com.google/reading-list",
+    });
+  });
+});
