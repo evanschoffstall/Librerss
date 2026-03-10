@@ -14,6 +14,7 @@ import {
 import {
   attachSentinelLayout,
   SENTINEL_HEIGHT,
+  SENTINEL_SCROLL_OFFSET,
 } from "@/app/dashboard/hooks/useSentinelLayout";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
@@ -36,7 +37,7 @@ describe("SENTINEL_HEIGHT", () => {
  *   scrollRoot
  *     viewport [data-radix-scroll-area-viewport]
  *       wrapper (div.p-1)
- *         sentinel (div, height 104)
+ *         sentinel (div, height SENTINEL_HEIGHT)
  *         ... content ...
  *     scrollbar [data-orientation="vertical"]
  */
@@ -181,20 +182,22 @@ describe("attachSentinelLayout", () => {
     cleanup();
   });
 
-  test("collapses sentinel when content does not overflow", () => {
-    // Content is 200px, viewport is 600px → no overflow → sentinel should be 0
+  test("keeps sentinel at scroll offset when content does not overflow", () => {
+    // Content is 200px, viewport is 600px → no overflow, but the sentinel must
+    // stay at the hidden-rest height so pull-to-refresh remains reachable.
     const dom = createScrollDom({ contentHeight: 200, viewportHeight: 600 });
     const cleanup = attachSentinelLayout(
       dom,
       createSuppressRef(),
       createPullRefs(),
     );
-    expect(dom.sentinel.style.height).toBe("0px");
+    expect(dom.sentinel.style.height).toBe(`${SENTINEL_HEIGHT}px`);
     cleanup();
   });
 
   test("keeps sentinel visible when content overflows", () => {
-    // Content is 800px, viewport is 600px → overflows → sentinel stays 104
+    // Content is 800px, viewport is 600px → overflows → sentinel stays at the
+    // canonical hidden-rest height.
     const dom = createScrollDom({ contentHeight: 800, viewportHeight: 600 });
     const cleanup = attachSentinelLayout(
       dom,
@@ -322,10 +325,10 @@ describe("ScrollPinTarget type usage", () => {
 // ─── useSentinelScrollOffset (re-export from usePullDownToRefresh) ────────────
 
 describe("useSentinelScrollOffset", () => {
-  test("returns SENTINEL_HEIGHT", async () => {
+  test("returns SENTINEL_SCROLL_OFFSET", async () => {
     const { useSentinelScrollOffset } =
       await import("@/app/dashboard/hooks/usePullDownToRefresh");
-    expect(useSentinelScrollOffset()).toBe(SENTINEL_HEIGHT);
+    expect(useSentinelScrollOffset()).toBe(SENTINEL_SCROLL_OFFSET);
   });
 });
 
@@ -435,7 +438,7 @@ describe("attachSentinelLayout with ResizeObserver mock", () => {
     dom.viewport.scrollTop = 50;
     resizeCallbacks[0]();
 
-    expect(dom.viewport.scrollTop).toBe(SENTINEL_HEIGHT);
+    expect(dom.viewport.scrollTop).toBe(SENTINEL_SCROLL_OFFSET);
     cleanup();
   });
 
