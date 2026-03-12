@@ -59,7 +59,7 @@ interface SummaryPattern {
   cellSep?: string;
   format: string;
   regex: string;
-  type: "literal" | "match" | "table-row";
+  type: "count" | "literal" | "match" | "table-row";
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +377,14 @@ function buildSummary(step: StepConfig, cmd: Command): string {
   // pattern
   const n = norm(cmd.output);
   for (const pat of summary.patterns) {
-    if (pat.type === "literal") {
+    if (pat.type === "count") {
+      const count = Array.from(n.matchAll(new RegExp(pat.regex, "gim"))).length;
+      if (count > 0)
+        return resolveSummaryTokens(
+          pat.format.replaceAll("{count}", String(count)),
+          null,
+        );
+    } else if (pat.type === "literal") {
       if (new RegExp(pat.regex, "i").test(n))
         return resolveSummaryTokens(pat.format, null);
     } else if (pat.type === "match") {

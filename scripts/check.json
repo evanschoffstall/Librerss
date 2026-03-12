@@ -49,7 +49,17 @@
       "args": ["--noEmit"],
       "passMsg": "typecheck clean",
       "failMsg": "typecheck failed",
-      "summary": { "type": "simple" }
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": ":\\s+error\\s+TS\\d+:",
+            "type": "count",
+            "format": "{count} TypeScript errors"
+          }
+        ],
+        "default": "typecheck clean"
+      }
     },
     {
       "key": "lint",
