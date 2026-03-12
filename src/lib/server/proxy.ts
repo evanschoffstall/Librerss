@@ -3,7 +3,7 @@ import net from "node:net";
 import { resolvesToBlockedAddress } from "@/lib/core/dns-cache";
 import { SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
-import { isBlockedHost } from "@/lib/utils/ssrf";
+import { isBlockedHost, normalizeHostname } from "@/lib/utils/ssrf";
 import { redactUrlForLogs } from "@/lib/utils/url";
 
 export interface ProxySettingsResponse {
@@ -35,22 +35,23 @@ export async function detectProxyProtocol(
   host: string,
   port: number,
 ): Promise<"http" | "socks5"> {
-  if (isBlockedHost(host)) {
+  const normalizedHost = normalizeHostname(host);
+  if (isBlockedHost(normalizedHost)) {
     logger.error("Proxy protocol detection blocked: internal hostname", {
-      host,
+      host: normalizedHost,
       port,
     });
     return "http";
   }
   // DNS rebinding prevention: re-resolve at probe time.
-  if (await resolvesToBlockedAddress(host)) {
+  if (await resolvesToBlockedAddress(normalizedHost)) {
     logger.error(
       "Proxy protocol detection blocked: hostname resolves to private address",
-      { host, port },
+      { host: normalizedHost, port },
     );
     return "http";
   }
-  const ctx = { host, port };
+  const ctx = { host: normalizedHost, port };
   logger.info("Proxy protocol detection started", ctx);
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -98,7 +99,7 @@ export async function detectProxyProtocol(
     socket.on("error", (err) => {
       finish("http", `socket error: ${err.message}`);
     });
-    socket.connect(port, host);
+    socket.connect(port, normalizedHost);
   });
 }
 
@@ -131,26 +132,27 @@ export async function normalizeProxyUrl(
   if (!VALID_PROTOCOLS.has(parsed.protocol)) {
     logger.error("Proxy URL normalization failed: invalid protocol", {
       protocol: parsed.protocol,
-      raw,
+      raw: redactUrlForLogs(raw),
     });
     return null;
   }
 
   // Already explicitly SOCKS — apply SSRF guards before accepting.
   if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
-    if (isBlockedHost(parsed.hostname)) {
+    const host = normalizeHostname(parsed.hostname);
+    if (isBlockedHost(host)) {
       logger.error("Proxy URL rejected: internal hostname (SOCKS)", {
-        host: parsed.hostname,
+        host,
         raw: redactUrlForLogs(raw),
       });
       return null;
     }
     const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
-    if (await dnsCheck(parsed.hostname)) {
+    if (await dnsCheck(host)) {
       logger.error(
         "Proxy URL rejected: hostname resolves to blocked address (SOCKS)",
         {
-          host: parsed.hostname,
+          host,
           raw: redactUrlForLogs(raw),
         },
       );
@@ -286,8 +288,13 @@ function parseHostPort(
 ): null | { host: string; port: number } {
   try {
     const parsed = new URL(proxyUrl);
+    const host = normalizeHostname(parsed.hostname);
+    if (!host) {
+      return null;
+    }
+
     return {
-      host: parsed.hostname,
+      host,
       port:
         Number(parsed.port) ||
         (parsed.protocol === "https:"
