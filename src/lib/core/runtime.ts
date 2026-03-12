@@ -1,26 +1,10 @@
 import { randomBytes } from "node:crypto";
 
-const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
-  if (typeof value !== "string") {
-    return fallback;
-  }
-
-  const normalized = value.trim().toLowerCase();
-
-  if (["1", "on", "true", "yes"].includes(normalized)) {
-    return true;
-  }
-
-  if (["0", "false", "no", "off"].includes(normalized)) {
-    return false;
-  }
-
-  return fallback;
-};
+import { envBooleanOptional } from "@/lib/config";
 
 export const RUNTIME_FLAGS = {
   get allowSignup() {
-    return parseBooleanEnv(process.env.ALLOW_SIGNUP, false);
+    return envBooleanOptional("ALLOW_SIGNUP", false);
   },
   get hasDatabaseUrl() {
     return Boolean(process.env.DATABASE_URL?.trim());
