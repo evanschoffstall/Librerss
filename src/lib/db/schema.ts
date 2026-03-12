@@ -11,6 +11,45 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+type CompositeIndexColumns = Parameters<ReturnType<typeof index>["on"]>;
+type UserScopedIndexSpec = readonly [
+  key: string,
+  name: string,
+  column: CompositeIndexColumns[number],
+  unique?: true,
+];
+
+const defineIndex = (name: string, ...columns: CompositeIndexColumns) =>
+  index(name).on(...columns);
+
+const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
+  uniqueIndex(name).on(...columns);
+
+const defineUserScopedIndexes = (
+  userId: CompositeIndexColumns[number],
+  indexes: readonly UserScopedIndexSpec[],
+) =>
+  Object.fromEntries(
+    indexes.map(([key, name, column, unique]) => [
+      key,
+      unique
+        ? defineUniqueIndex(
+            name,
+            ...([userId, column] as CompositeIndexColumns),
+          )
+        : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
+    ]),
+  );
+
+const defineUserOwnedAuditColumns = () => ({
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+});
+
 export const users = pgTable("User", {
   allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
@@ -47,7 +86,8 @@ export const sessions = pgTable(
   (table) => ({
     tokenHashIdx: uniqueIndex("session_token_hash_idx").on(table.tokenHash),
     // Speeds up session-limit enforcement: SELECT WHERE userId ORDER BY createdAt
-    userCreatedAtIdx: index("session_user_created_at_idx").on(
+    userCreatedAtIdx: defineIndex(
+      "session_user_created_at_idx",
       table.userId,
       table.createdAt,
     ),
@@ -83,9 +123,10 @@ export const articles = pgTable(
   },
   (table) => ({
     // Speeds up per-feed article lookups (WHERE feed_id = ?)
-    feedIdIdx: index("article_feed_id_idx").on(table.feedId),
+    feedIdIdx: defineIndex("article_feed_id_idx", table.feedId),
     // Speeds up the common query pattern: WHERE feed_id = ? ORDER BY publication_date DESC
-    feedIdPubDateIdx: index("article_feed_id_pub_date_idx").on(
+    feedIdPubDateIdx: defineIndex(
+      "article_feed_id_pub_date_idx",
       table.feedId,
       table.publicationDate,
     ),
@@ -106,7 +147,8 @@ export const feedSources = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
   },
   (table) => ({
-    userUrlIdx: uniqueIndex("feed_source_user_url_idx").on(
+    userUrlIdx: defineUniqueIndex(
+      "feed_source_user_url_idx",
       table.userId,
       table.url,
     ),
@@ -125,17 +167,12 @@ export const feedCategories = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
   },
-  (table) => ({
-    // Speeds up delete/update by label (disable-tag, rename-tag)
-    userCategoryIdx: index("feed_category_user_category_idx").on(
-      table.userId,
-      table.category,
-    ),
-    userFeedIdx: uniqueIndex("feed_category_user_feed_idx").on(
-      table.userId,
-      table.feedId,
-    ),
-  }),
+  (table) =>
+    defineUserScopedIndexes(table.userId, [
+      // Speeds up delete/update by label (disable-tag, rename-tag)
+      ["userCategoryIdx", "feed_category_user_category_idx", table.category],
+      ["userFeedIdx", "feed_category_user_feed_idx", table.feedId, true],
+    ]),
 );
 
 export const categoryOrders = pgTable(
@@ -143,15 +180,10 @@ export const categoryOrders = pgTable(
   {
     id: serial("id").primaryKey(),
     orderedLabels: text("ordered_labels").notNull().default("[]"),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    ...defineUserOwnedAuditColumns(),
   },
   (table) => ({
-    userIdx: uniqueIndex("category_order_user_idx").on(table.userId),
+    userIdx: defineUniqueIndex("category_order_user_idx", table.userId),
   }),
 );
 
@@ -164,27 +196,19 @@ export const articleStatuses = pgTable(
     id: serial("id").primaryKey(),
     isRead: boolean("is_read").notNull().default(false),
     isStarred: boolean("is_starred").notNull().default(false),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    ...defineUserOwnedAuditColumns(),
   },
-  (table) => ({
-    userArticleIdx: uniqueIndex("article_status_user_article_idx").on(
-      table.userId,
-      table.articleId,
-    ),
-    userReadIdx: index("article_status_user_read_idx").on(
-      table.userId,
-      table.isRead,
-    ),
-    userStarredIdx: index("article_status_user_starred_idx").on(
-      table.userId,
-      table.isStarred,
-    ),
-  }),
+  (table) =>
+    defineUserScopedIndexes(table.userId, [
+      [
+        "userArticleIdx",
+        "article_status_user_article_idx",
+        table.articleId,
+        true,
+      ],
+      ["userReadIdx", "article_status_user_read_idx", table.isRead],
+      ["userStarredIdx", "article_status_user_starred_idx", table.isStarred],
+    ]),
 );
 
 export const articleStatus = articleStatuses;
