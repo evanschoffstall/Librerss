@@ -760,6 +760,21 @@ describe("server/proxy – normalizeProxyUrl", () => {
     expect(result).toContain("external.example.com");
   });
 
+  test("SOCKS: accepts public IPv6 literals and passes unbracketed host to DNS checks", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "socks5://[2606:4700:4700::1111]:1080",
+      async () => {
+        throw new Error("explicit SOCKS URLs should skip protocol detection");
+      },
+      async (host) => {
+        expect(host).toBe("2606:4700:4700::1111");
+        return false;
+      },
+    );
+    expect(result).toBe("socks5://[2606:4700:4700::1111]:1080");
+  });
+
   test("HTTP: returns null when hostname is blocked (localhost)", async () => {
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
     expect(
@@ -787,6 +802,23 @@ describe("server/proxy – normalizeProxyUrl", () => {
     );
     expect(result).not.toBeNull();
     expect(result).toContain("external.example.com");
+  });
+
+  test("HTTP: accepts public IPv6 literals and probes with an unbracketed host", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "http://[2606:4700:4700::1111]:8080",
+      async (host, port) => {
+        expect(host).toBe("2606:4700:4700::1111");
+        expect(port).toBe(8080);
+        return "http";
+      },
+      async (host) => {
+        expect(host).toBe("2606:4700:4700::1111");
+        return false;
+      },
+    );
+    expect(result).toBe("http://[2606:4700:4700::1111]:8080");
   });
 
   test("HTTP: probe says 'socks5' → returns socks5:// URL", async () => {
