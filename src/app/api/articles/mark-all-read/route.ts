@@ -12,8 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const parsedRequest =
-      await requireMutableUserAndJsonBody<Record<string, unknown>>(request);
+    const parsedRequest = await requireMutableUserAndJsonBody(request);
     if (parsedRequest instanceof Response) {
       return parsedRequest;
     }

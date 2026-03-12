@@ -19,8 +19,7 @@ interface StatusPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const authAndBody =
-      await requireMutableUserAndJsonBody<Record<string, unknown>>(request);
+    const authAndBody = await requireMutableUserAndJsonBody(request);
     if (authAndBody instanceof Response) return authAndBody;
 
     const { body, user } = authAndBody;
