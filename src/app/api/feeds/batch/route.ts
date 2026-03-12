@@ -13,6 +13,13 @@ import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 
 const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
 
+export interface BatchRouteDeps {
+  fetchAndCacheFeedArticlesBatchFn?: typeof fetchAndCacheFeedArticlesBatch;
+  getDbFn?: typeof getDb;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+}
+
 interface BatchRequestBody {
   forceRefresh?: unknown;
   requestSource?: unknown;
@@ -20,9 +27,16 @@ interface BatchRequestBody {
   urls?: unknown;
 }
 
-export async function POST(request: NextRequest) {
+interface BatchUrlDescriptor {
+  kind: "invalid" | "valid";
+  url: string;
+}
+
+export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
   try {
-    const user = await requireMutableAuthenticatedUser(request, {
+    const requireMutableAuthenticatedUserForRoute =
+      deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+    const user = await requireMutableAuthenticatedUserForRoute(request, {
       rateLimit: {
         key: "feed-batch",
         maxAttempts: CONFIG.RATE_LIMIT_FEED_BATCH_MAX_REQUESTS,
@@ -70,26 +84,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Normalize URLs up front so they match what's stored in the DB.
-    const normalizedUrls = urls.flatMap((url) => {
-      try {
-        return [normalizeFeedUrl(url)];
-      } catch {
-        // Malformed URL — skip silently; client will see empty result for this URL
-        return [];
-      }
-    });
+    const requestUrls = normalizeBatchRequestUrls(urls);
+    const normalizedUrls = requestUrls
+      .filter(
+        (item): item is { kind: "valid"; url: string } => item.kind === "valid",
+      )
+      .map((item) => item.url);
+    const invalidUrlCount = requestUrls.length - normalizedUrls.length;
 
     if (normalizedUrls.length === 0) {
       if (DIAG)
         logger.info(
           "Feed batch request had no valid URLs after normalization",
-          { userId: user.userId },
+          { invalidUrlCount, userId: user.userId },
         );
-      return NextResponse.json([]);
+
+      return NextResponse.json(
+        requestUrls.map((item) => ({
+          articles: [],
+          error: "Invalid feed URL",
+          ok: false,
+          url: item.url,
+        })),
+        { status: 207 },
+      );
     }
 
-    const db = getDb();
+    const db = (deps.getDbFn ?? getDb)();
+    const fetchAndCacheFeedArticlesBatchForRoute =
+      deps.fetchAndCacheFeedArticlesBatchFn ?? fetchAndCacheFeedArticlesBatch;
 
     // Single batch call: ~3 DB round-trips regardless of how many feeds.
     const {
@@ -100,28 +123,48 @@ export async function POST(request: NextRequest) {
       lastFetchedByUrl,
       refreshedCount,
       resolution,
-    } = await fetchAndCacheFeedArticlesBatch(db, user.userId, normalizedUrls, {
-      forceRefresh,
-      requestSource,
-      skipRefresh,
+    } = await fetchAndCacheFeedArticlesBatchForRoute(
+      db,
+      user.userId,
+      normalizedUrls,
+      {
+        forceRefresh,
+        requestSource,
+        skipRefresh,
+      },
+    );
+
+    const results = requestUrls.map((item) => {
+      if (item.kind === "invalid") {
+        return {
+          articles: [],
+          error: "Invalid feed URL",
+          ok: false,
+          url: item.url,
+        };
+      }
+
+      const normalizedUrl = item.url;
+      return {
+        articles: batchMap.get(normalizedUrl) ?? [],
+        // ok=false only when the URL was not found / not owned by the user;
+        // an empty-but-valid feed is still ok=true so clients can distinguish
+        // "fetched successfully but has no articles yet" from "auth/not-found".
+        ok: batchMap.has(normalizedUrl),
+        url: normalizedUrl,
+        ...(lastFetchedByUrl.has(normalizedUrl)
+          ? {
+              lastFetchedAt: lastFetchedByUrl.get(normalizedUrl)?.toISOString(),
+            }
+          : {}),
+        // Surface upstream fetch errors so the client can inform the user.
+        ...(upstreamErrors.has(normalizedUrl)
+          ? { error: upstreamErrors.get(normalizedUrl) }
+          : {}),
+      };
     });
 
-    const results = normalizedUrls.map((normalizedUrl) => ({
-      articles: batchMap.get(normalizedUrl) ?? [],
-      // ok=false only when the URL was not found / not owned by the user;
-      // an empty-but-valid feed is still ok=true so clients can distinguish
-      // "fetched successfully but has no articles yet" from "auth/not-found".
-      ok: batchMap.has(normalizedUrl),
-      url: normalizedUrl,
-      ...(lastFetchedByUrl.has(normalizedUrl)
-        ? { lastFetchedAt: lastFetchedByUrl.get(normalizedUrl)?.toISOString() }
-        : {}),
-      // Surface upstream fetch errors so the client can inform the user.
-      ...(upstreamErrors.has(normalizedUrl)
-        ? { error: upstreamErrors.get(normalizedUrl) }
-        : {}),
-    }));
-
+    const hasRequestErrors = invalidUrlCount > 0;
     const hasUpstreamErrors = upstreamErrors.size > 0;
 
     // Always log cache/refresh breakdown for feed batch requests.
@@ -144,9 +187,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (hasRequestErrors) {
+      logger.warn(
+        `Returning 207 Multi-Status — ${invalidUrlCount} invalid feed URL(s) were rejected before fetch`,
+      );
+    }
+
     if (DIAG) {
       logger.info("Feed batch request completed", {
         forceRefresh,
+        invalidUrlCount,
         missingCount: results.filter((item) => !item.ok).length,
         normalizedUrlCount: normalizedUrls.length,
         okCount: results.filter((item) => item.ok).length,
@@ -164,9 +214,33 @@ export async function POST(request: NextRequest) {
     // Return 207 Multi-Status when some feeds had upstream errors so
     // clients can distinguish partial failures from full success.
     return NextResponse.json(results, {
-      status: hasUpstreamErrors ? 207 : 200,
+      status: hasRequestErrors || hasUpstreamErrors ? 207 : 200,
     });
   } catch (error) {
-    return logAndRespondError("Feed batch fetch error", error);
+    return (deps.logAndRespondErrorFn ?? logAndRespondError)(
+      "Feed batch fetch error",
+      error,
+    );
   }
+}
+
+function normalizeBatchRequestUrls(urls: string[]): BatchUrlDescriptor[] {
+  const descriptors: BatchUrlDescriptor[] = [];
+  const seenNormalizedUrls = new Set<string>();
+
+  for (const url of urls) {
+    try {
+      const normalizedUrl = normalizeFeedUrl(url);
+      if (seenNormalizedUrls.has(normalizedUrl)) {
+        continue;
+      }
+
+      seenNormalizedUrls.add(normalizedUrl);
+      descriptors.push({ kind: "valid", url: normalizedUrl });
+    } catch {
+      descriptors.push({ kind: "invalid", url });
+    }
+  }
+
+  return descriptors;
 }
