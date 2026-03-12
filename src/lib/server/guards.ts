@@ -102,9 +102,7 @@ export function requireMutableRequest(
   return null;
 }
 
-export async function requireMutableUserAndJsonBody<
-  TBody extends Record<string, unknown>,
->(
+export async function requireMutableUserAndJsonBody<TBody extends object>(
   request: NextRequest,
   options?: MutationRequestOptions,
 ): Promise<Response | { body: TBody; user: AuthenticatedUser }> {

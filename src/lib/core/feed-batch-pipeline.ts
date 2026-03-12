@@ -36,7 +36,7 @@ export interface ArticleRow {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface RankedRow {
+interface RankedRow extends Record<string, unknown> {
   content: unknown;
   feedId: unknown;
   id: unknown;

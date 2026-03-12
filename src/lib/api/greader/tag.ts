@@ -76,7 +76,7 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
   // (article_status_user_article_idx) independently per feed.
   // The read-count subquery uses a JOIN instead of article_id IN (subquery),
   // giving the planner a hash/loop join strategy instead of a semi-join.
-  interface UnreadRow {
+  interface UnreadRow extends Record<string, unknown> {
     sourceUrl: string;
     unreadCount: number;
   }
