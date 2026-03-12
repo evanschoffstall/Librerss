@@ -449,4 +449,369 @@ describe("useScrollRestore", () => {
 
     expect(window.sessionStorage.getItem("librerss:test:persist")).toBeNull();
   });
+
+  test("anchors to the item already at the viewport edge instead of the next item below", async () => {
+    delete globalAny.ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness() {
+      const { ref: attachRef } = useScrollRestore("librerss:test:edge-anchor");
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        attachRef(root);
+        if (!root) return;
+
+        const viewport = root.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        const children = root.querySelectorAll<HTMLElement>("[data-item]");
+        if (!viewport || children.length < 2) return;
+
+        let internalScrollTop = 180;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get() {
+            return internalScrollTop;
+          },
+          set(value: number) {
+            internalScrollTop = value;
+          },
+        });
+
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get() {
+            return 1200;
+          },
+        });
+
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get() {
+            return 500;
+          },
+        });
+
+        viewport.getBoundingClientRect = (() => ({
+          bottom: 600,
+          height: 500,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 100,
+          width: 400,
+          x: 0,
+          y: 100,
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[0] as HTMLElement).getBoundingClientRect = (() => ({
+          bottom: 125,
+          height: 30,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 95,
+          width: 400,
+          x: 0,
+          y: 95,
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[1] as HTMLElement).getBoundingClientRect = (() => ({
+          bottom: 165,
+          height: 30,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 135,
+          width: 400,
+          x: 0,
+          y: 135,
+        })) as typeof viewport.getBoundingClientRect;
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement(
+          "div",
+          { "data-radix-scroll-area-viewport": "" },
+          createElement(
+            "div",
+            null,
+            createElement("div", { "data-item": "0" }),
+            createElement("div", { "data-item": "1" }),
+          ),
+        ),
+      );
+    }
+
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    expect(viewport).toBeDefined();
+
+    viewport!.dispatchEvent(new Event("scroll"));
+    await waitForRaf();
+
+    expect(window.sessionStorage.getItem("librerss:test:edge-anchor")).toBe(
+      JSON.stringify({ ai: 0, ao: -5, t: 180 }),
+    );
+  });
+
+  test("preserves restore state through refresh-time layout clamp scrolls", async () => {
+    const resizeCallbacks: ResizeCallback[] = [];
+
+    class ResizeObserverMock {
+      private callback: ResizeCallback;
+
+      constructor(callback: ResizeCallback) {
+        this.callback = callback;
+      }
+
+      disconnect() {}
+
+      observe() {
+        resizeCallbacks.push(this.callback);
+      }
+    }
+
+    global.ResizeObserver =
+      ResizeObserverMock as unknown as typeof ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness(props: { onReady: (capture: () => void) => void }) {
+      const { capture, ref: attachRef } = useScrollRestore(
+        "librerss:test:refresh-clamp",
+        110,
+      );
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        attachRef(root);
+        if (!root) return;
+
+        const viewport = root.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        const children = root.querySelectorAll<HTMLElement>("[data-item]");
+        if (!viewport || children.length < 2) return;
+
+        props.onReady(capture);
+
+        let internalScrollTop = 250;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get() {
+            return internalScrollTop;
+          },
+          set(value: number) {
+            internalScrollTop = value;
+            viewport.dispatchEvent(new Event("scroll"));
+          },
+        });
+
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get() {
+            return 1400;
+          },
+        });
+
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get() {
+            return 500;
+          },
+        });
+
+        viewport.getBoundingClientRect = (() => ({
+          bottom: 600,
+          height: 500,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 100,
+          width: 400,
+          x: 0,
+          y: 100,
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[0] as HTMLElement).getBoundingClientRect = (() => ({
+          bottom: 120 + (220 - internalScrollTop),
+          height: 20,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 100 + (220 - internalScrollTop),
+          width: 400,
+          x: 0,
+          y: 100 + (220 - internalScrollTop),
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[1] as HTMLElement).getBoundingClientRect = (() => ({
+          bottom: 170 + (300 - internalScrollTop),
+          height: 40,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 130 + (300 - internalScrollTop),
+          width: 400,
+          x: 0,
+          y: 130 + (300 - internalScrollTop),
+        })) as typeof viewport.getBoundingClientRect;
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement(
+          "div",
+          { "data-radix-scroll-area-viewport": "" },
+          createElement(
+            "div",
+            null,
+            createElement("div", { "data-item": "0" }),
+            createElement("div", { "data-item": "1" }),
+          ),
+        ),
+      );
+    }
+
+    let captureScroll = () => {};
+    const { container } = render(
+      createElement(Harness, {
+        onReady: (capture) => {
+          captureScroll = capture;
+        },
+      }),
+    );
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    expect(viewport).toBeDefined();
+
+    captureScroll();
+    viewport!.scrollTop = 110;
+    viewport!.dispatchEvent(new Event("scroll"));
+    resizeCallbacks.forEach((callback) => callback());
+
+    await waitForRaf();
+
+    expect(viewport!.scrollTop).toBe(250);
+    expect(window.sessionStorage.getItem("librerss:test:refresh-clamp")).toBe(
+      JSON.stringify({ ai: 0, ao: -30, t: 250 }),
+    );
+  });
+
+  test("preserves the hidden sentinel offset as a valid restore position", async () => {
+    delete globalAny.ResizeObserver;
+    delete globalAny.MutationObserver;
+
+    function Harness() {
+      const { ref: attachRef } = useScrollRestore("librerss:test:offset", 110);
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        attachRef(root);
+        if (!root) return;
+
+        const viewport = root.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        const children = root.querySelectorAll<HTMLElement>("[data-item]");
+        if (!viewport || children.length < 2) return;
+
+        let internalScrollTop = 110;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get() {
+            return internalScrollTop;
+          },
+          set(value: number) {
+            internalScrollTop = value;
+          },
+        });
+
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get() {
+            return 1200;
+          },
+        });
+
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get() {
+            return 500;
+          },
+        });
+
+        viewport.getBoundingClientRect = (() => ({
+          bottom: 600,
+          height: 500,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 100,
+          width: 400,
+          x: 0,
+          y: 100,
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[0] as HTMLElement).getBoundingClientRect = (() => ({
+          bottom: 120,
+          height: 20,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 100,
+          width: 400,
+          x: 0,
+          y: 100,
+        })) as typeof viewport.getBoundingClientRect;
+
+        (children[1] as HTMLElement).getBoundingClientRect = (() => ({
+          bottom: 160,
+          height: 40,
+          left: 0,
+          right: 400,
+          toJSON: () => ({}),
+          top: 120,
+          width: 400,
+          x: 0,
+          y: 120,
+        })) as typeof viewport.getBoundingClientRect;
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement(
+          "div",
+          { "data-radix-scroll-area-viewport": "" },
+          createElement(
+            "div",
+            null,
+            createElement("div", { "data-item": "0" }),
+            createElement("div", { "data-item": "1" }),
+          ),
+        ),
+      );
+    }
+
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    expect(viewport).toBeDefined();
+
+    viewport!.dispatchEvent(new Event("scroll"));
+    await waitForRaf();
+
+    expect(window.sessionStorage.getItem("librerss:test:offset")).toBe(
+      JSON.stringify({ ai: 0, ao: 0, t: 110 }),
+    );
+  });
 });

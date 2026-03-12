@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 // How long (ms) to keep reapplying the saved scroll target after mount.
 // Covers the full loading → article-list → hydration render pipeline.
 const RESTORE_WINDOW_MS = 3000;
+const USER_SCROLL_INPUT_WINDOW_MS = 250;
 
 /**
  * Saved state written to sessionStorage.
@@ -39,6 +40,7 @@ export function useScrollRestore(
   const savedStateRef = useRef<null | SavedState>(null);
   const restoreDeadlineRef = useRef<number>(0);
   const isApplyingRestoreScrollRef = useRef(false);
+  const lastViewportInteractionAtRef = useRef(0);
   const offsetRef = useRef(scrollTopOffset);
   offsetRef.current = scrollTopOffset;
 
@@ -61,6 +63,7 @@ export function useScrollRestore(
   const restoreScrollIfNeeded = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
+    const restoreOffset = offsetRef.current;
 
     if (Date.now() > restoreDeadlineRef.current) {
       savedStateRef.current = null;
@@ -90,9 +93,12 @@ export function useScrollRestore(
       const children = contentWrapper.children;
       if (saved.ai < children.length) {
         const anchor = children[saved.ai];
-        const targetScrollTop =
-          elementOffsetInContent(anchor, viewport) - saved.ao;
-        if (targetScrollTop >= 0) {
+        const targetScrollTop = clampRestoredScrollTop(
+          viewport,
+          elementOffsetInContent(anchor, viewport) - saved.ao,
+          restoreOffset,
+        );
+        if (targetScrollTop !== null) {
           applyRestoredScrollTop(viewport, targetScrollTop);
         }
         return;
@@ -100,12 +106,13 @@ export function useScrollRestore(
     }
 
     // Fallback: raw scrollTop (used while skeleton is showing / no children yet).
-    const maxScrollTop = Math.max(
-      0,
-      viewport.scrollHeight - viewport.clientHeight,
+    const targetScrollTop = clampRestoredScrollTop(
+      viewport,
+      saved.t,
+      restoreOffset,
     );
-    if (maxScrollTop === 0) return;
-    applyRestoredScrollTop(viewport, Math.min(saved.t, maxScrollTop));
+    if (targetScrollTop === null) return;
+    applyRestoredScrollTop(viewport, targetScrollTop);
   }, [applyRestoredScrollTop, sessionKey]);
 
   // ── restore once the viewport mounts ──────────────────────────────────────
@@ -130,6 +137,7 @@ export function useScrollRestore(
           if (state && state.t > 0) {
             savedStateRef.current = state;
             restoreDeadlineRef.current = Date.now() + RESTORE_WINDOW_MS;
+            lastViewportInteractionAtRef.current = 0;
             // Immediately rough-position to clamp scrollTop above any sentinel
             // offset and avoid a one-frame flash before the rAF fires.
             viewport.scrollTop = Math.max(offsetRef.current, state.t);
@@ -180,9 +188,21 @@ export function useScrollRestore(
           });
     mutationObserver?.observe(viewport, { childList: true });
 
+    const markViewportInteraction = () => {
+      lastViewportInteractionAtRef.current = Date.now();
+    };
+
     // ── save anchor-state on scroll ──────────────────────────────────────────
     const handleScroll = () => {
       if (isApplyingRestoreScrollRef.current) return;
+
+      const restoreIsActive = Date.now() <= restoreDeadlineRef.current;
+      const hadRecentViewportInput =
+        Date.now() - lastViewportInteractionAtRef.current <=
+        USER_SCROLL_INPUT_WINDOW_MS;
+      if (restoreIsActive && !hadRecentViewportInput) {
+        return;
+      }
 
       // A real user scroll permanently ends the restore window so the
       // ResizeObserver can never re-read sessionStorage and fight the scroll.
@@ -204,8 +224,20 @@ export function useScrollRestore(
       });
     };
 
+    viewport.addEventListener("pointerdown", markViewportInteraction, {
+      passive: true,
+    });
+    viewport.addEventListener("touchstart", markViewportInteraction, {
+      passive: true,
+    });
+    viewport.addEventListener("wheel", markViewportInteraction, {
+      passive: true,
+    });
     viewport.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
+      viewport.removeEventListener("pointerdown", markViewportInteraction);
+      viewport.removeEventListener("touchstart", markViewportInteraction);
+      viewport.removeEventListener("wheel", markViewportInteraction);
       viewport.removeEventListener("scroll", handleScroll);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
@@ -245,6 +277,7 @@ export function useScrollRestore(
 
     savedStateRef.current = state;
     restoreDeadlineRef.current = Date.now() + RESTORE_WINDOW_MS;
+    lastViewportInteractionAtRef.current = 0;
     try {
       sessionStorage.setItem(sessionKey, JSON.stringify(state));
     } catch {
@@ -271,7 +304,10 @@ function buildSavedState(
   scrollTopOffset: number,
 ): null | SavedState {
   const top = viewport.scrollTop;
-  if (top <= scrollTopOffset) {
+  if (
+    top < scrollTopOffset ||
+    (scrollTopOffset === 0 && top === scrollTopOffset)
+  ) {
     return null;
   }
 
@@ -284,7 +320,12 @@ function buildSavedState(
     const children = Array.from(contentWrapper.children);
     for (let i = 0; i < children.length; i++) {
       const childTop = children[i].getBoundingClientRect().top - viewportTop;
-      if (childTop >= -1) {
+      if (childTop <= 1) {
+        anchorIndex = i;
+        anchorOffset = childTop;
+        continue;
+      }
+      if (anchorIndex === -1) {
         anchorIndex = i;
         anchorOffset = childTop;
         break;
@@ -298,6 +339,22 @@ function buildSavedState(
   }
 
   return { ai: anchorIndex, ao: anchorOffset, t: top };
+}
+
+function clampRestoredScrollTop(
+  viewport: HTMLElement,
+  targetScrollTop: number,
+  scrollTopOffset: number,
+): null | number {
+  const maxScrollTop = Math.max(
+    0,
+    viewport.scrollHeight - viewport.clientHeight,
+  );
+  if (maxScrollTop === 0) {
+    return targetScrollTop >= scrollTopOffset ? scrollTopOffset : null;
+  }
+
+  return Math.min(maxScrollTop, Math.max(scrollTopOffset, targetScrollTop));
 }
 
 /**
