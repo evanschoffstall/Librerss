@@ -14,6 +14,12 @@ import {
   getArticleSourceLabel,
   getRichContentClass,
 } from "@/app/dashboard/services/article-content";
+import {
+  buildFeedBatchOutcome,
+  formatFeedFailureLabel,
+} from "@/app/dashboard/services/feed-batch-outcome";
+import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-batch-resolver";
+import { loadFeedSourceTree } from "@/app/dashboard/services/feed-source-tree";
 
 // ─── Article Content Services ─────────────────────────────────────────────────
 
@@ -38,6 +44,205 @@ describe("article-content services", () => {
   test("getUrlHostnameDisplayLabel handles invalid URLs", async () => {
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
     expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
+  });
+});
+
+describe("feed-batch-resolver", () => {
+  test("returns placeholder batch results without calling the API", async () => {
+    const fetchFeedsBatch = mock(async () => {
+      throw new Error("placeholder mode should not call the API");
+    });
+    const placeholderArticle = {
+      content: "Preview",
+      feedId: 1,
+      id: 1,
+      lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+      link: "https://example.com/article",
+      publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+      title: "Placeholder Article",
+    };
+
+    const results = await resolveFeedBatchResults(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      true,
+      undefined,
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: () => [placeholderArticle],
+      },
+    );
+
+    expect(fetchFeedsBatch).not.toHaveBeenCalled();
+    expect(results).toEqual([
+      {
+        articles: [
+          {
+            ...placeholderArticle,
+            feedName: "Example Feed",
+            feedUrl: "https://example.com/feed.xml",
+          },
+        ],
+        ok: true,
+        url: "https://example.com/feed.xml",
+      },
+    ]);
+  });
+
+  test("passes normalized URLs and fetch options through to the batch API", async () => {
+    const signal = new AbortController().signal;
+    const batchResults = [
+      {
+        articles: [],
+        error: "temporary upstream failure",
+        ok: false,
+        url: "https://example.com/feed.xml",
+      },
+    ];
+    const fetchFeedsBatch = mock(async () => batchResults);
+
+    const results = await resolveFeedBatchResults(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      false,
+      {
+        forceRefresh: true,
+        requestSource: "dashboard-refresh",
+        skipRefresh: true,
+      },
+      signal,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: () => [],
+      },
+    );
+
+    expect(fetchFeedsBatch).toHaveBeenCalledWith(
+      ["https://example.com/feed.xml"],
+      {
+        forceRefresh: true,
+        requestSource: "dashboard-refresh",
+        signal,
+        skipRefresh: true,
+      },
+    );
+    expect(results).toBe(batchResults);
+  });
+});
+
+describe("feed-source-tree", () => {
+  test("returns placeholder defaults without loading feed sources", async () => {
+    const getFeedSources = mock(async () => {
+      throw new Error("placeholder mode should not fetch feed sources");
+    });
+    const placeholderCategories = [{ key: "demo", label: "Demo" }];
+
+    const result = await loadFeedSourceTree(true, {
+      buildCategoriesFromSources: mock(() => []),
+      buildDefaultCategories: mock(() => placeholderCategories as never),
+      getFeedSources,
+    });
+
+    expect(getFeedSources).not.toHaveBeenCalled();
+    expect(result).toBe(placeholderCategories);
+  });
+
+  test("maps fetched feed sources into categories", async () => {
+    const feedSources = [
+      { id: 1, name: "Feed", url: "https://example.com/feed.xml" },
+    ];
+    const categories = [{ key: "feed:1", label: "Feed" }];
+
+    const result = await loadFeedSourceTree(false, {
+      buildCategoriesFromSources: mock(() => categories as never),
+      buildDefaultCategories: mock(() => []),
+      getFeedSources: mock(async () => feedSources as never),
+    });
+
+    expect(result).toBe(categories);
+  });
+
+  test("falls back to defaults when feed source loading fails", async () => {
+    const fallbackCategories = [{ key: "all", label: "All Feeds" }];
+
+    const result = await loadFeedSourceTree(false, {
+      buildCategoriesFromSources: mock(() => []),
+      buildDefaultCategories: mock(() => fallbackCategories as never),
+      getFeedSources: mock(async () => {
+        throw new Error("network down");
+      }),
+    });
+
+    expect(result).toBe(fallbackCategories);
+  });
+});
+
+describe("feed-batch-outcome", () => {
+  test("builds enriched articles and tracks the newest fetch time", () => {
+    const timestamp = new Date("2024-01-02T00:00:00.000Z");
+
+    const outcome = buildFeedBatchOutcome(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      [
+        {
+          articles: [
+            {
+              content: "Preview",
+              feedId: 1,
+              id: 1,
+              lastChecked: timestamp,
+              link: "https://example.com/article",
+              publicationDate: timestamp,
+              title: "Article",
+            },
+          ],
+          lastFetchedAt: timestamp,
+          ok: true,
+          url: "https://example.com/feed.xml",
+        },
+      ],
+      false,
+      () => [],
+    );
+
+    expect(outcome.newestLastFetchedAt).toEqual(timestamp);
+    expect(outcome.failedFeeds).toEqual([]);
+    expect(outcome.articles).toEqual([
+      {
+        content: "Preview",
+        feedId: 1,
+        feedName: "Example Feed",
+        feedUrl: "https://example.com/feed.xml",
+        id: 1,
+        lastChecked: timestamp,
+        link: "https://example.com/article",
+        publicationDate: timestamp,
+        title: "Article",
+      },
+    ]);
+  });
+
+  test("formats a compact failure label for long upstream failure lists", () => {
+    const failureLabel = formatFeedFailureLabel(
+      [
+        { articles: [], error: "down", ok: false, url: "https://one.example" },
+        { articles: [], error: "down", ok: false, url: "https://two.example" },
+        {
+          articles: [],
+          error: "down",
+          ok: false,
+          url: "https://three.example",
+        },
+        { articles: [], error: "down", ok: false, url: "https://four.example" },
+      ],
+      new Map([
+        ["https://four.example", "Four"],
+        ["https://one.example", "One"],
+        ["https://three.example", "Three"],
+        ["https://two.example", "Two"],
+      ]),
+    );
+
+    expect(failureLabel).toBe("One, Two, Three and 1 more");
   });
 });
 
