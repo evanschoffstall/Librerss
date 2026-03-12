@@ -116,51 +116,6 @@
       "summary": { "type": "simple" }
     },
     {
-      "key": "tsPrune",
-      "enabled": true,
-      "label": "ts-prune",
-      "handler": "ts-prune",
-      "passMsg": "unused export check clean",
-      "failMsg": "ts-prune failed",
-      "summary": { "type": "simple" },
-      "config": {
-        "project": "tsconfig.json",
-        "skip": "(node_modules|\\.next|coverage|dist|build|src/components/ui)",
-        "ignore": "(src/app/|src/lib/(extract/index|api/http/index|utils/index|fetch/index|index)\\.ts|(drizzle|next|tailwind)\\.config)",
-        "actionableLinePattern": "^\\S.+:\\d+\\s-\\s.+$",
-        "usedInTestsMarker": "(used in tests)"
-      }
-    },
-    {
-      "key": "depCruise",
-      "enabled": true,
-      "label": "depcruise",
-      "cmd": "bunx",
-      "args": [
-        "depcruise",
-        "--config",
-        ".dependency-cruiser.cjs",
-        "src",
-        "--output-type",
-        "err",
-        "--cache",
-        ".cache/depcruise"
-      ],
-      "passMsg": "dependency check completed",
-      "failMsg": "dependency violations found",
-      "summary": {
-        "type": "pattern",
-        "patterns": [
-          {
-            "regex": "no dependency violations found \\((\\d+) modules,\\s*(\\d+) dependencies cruised\\)",
-            "type": "match",
-            "format": "{1} modules · {2} dependencies cruised"
-          }
-        ],
-        "default": "dependency check completed"
-      }
-    },
-    {
       "key": "madge",
       "enabled": true,
       "label": "madge",
