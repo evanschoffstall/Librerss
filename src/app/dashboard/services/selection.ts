@@ -1,51 +1,64 @@
-import type { CategoryTreeNode } from "@/lib";
 import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL } from "../constants";
+
 import { findFeedNodeByKey } from "./category-tree";
 
-export type FeedFetchOptions = {
+import type { CategoryTreeNode } from "@/lib";
+
+export interface FeedFetchOptions {
   forceRefresh?: boolean;
+  keepExistingFeed?: boolean;
   requestSource?: string;
   skipRefresh?: boolean;
-  keepExistingFeed?: boolean;
-};
+}
 
-export type FeedSelectionFetchers = {
+export interface FeedSelectionFetchers {
   fetchAllFeeds: (
     categories?: CategoryTreeNode[],
     options?: FeedFetchOptions,
   ) => Promise<void>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   fetchCategoryFeeds: (
     category: CategoryTreeNode,
     options?: FeedFetchOptions,
   ) => Promise<void>;
-};
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+}
 
 type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
-  selectedCategory: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  setSelectedCategory: (value: string) => void;
+  selectedCategory: string;
   setIsCategoriesLoading: (value: boolean) => void;
+  setSelectedCategory: (value: string) => void;
+};
+
+type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
+  fallbackFeedUrl?: string;
+  forceRefresh?: boolean;
+  keepExistingFeed?: boolean;
+  requestSource?: string;
+  selectedCategory: string;
+  selectedCategoryNode?: CategoryTreeNode;
+  selectedFeedUrl?: string;
+  skipRefresh?: boolean;
 };
 
 export async function initializeDashboardSelection(
   options: InitializeDashboardSelectionOptions,
 ): Promise<void> {
   const {
-    selectedCategory,
-    loadFeedSources,
     fetchAllFeeds,
-    fetchFeed,
     fetchCategoryFeeds,
-    setSelectedCategory,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
     setIsCategoriesLoading,
+    setSelectedCategory,
   } = options;
 
   const loadedCategories = await loadFeedSources();
   setIsCategoriesLoading(false);
   const initialFetchOptions: FeedFetchOptions = {
-    skipRefresh: true,
     requestSource: "dashboard-initial-cache",
+    skipRefresh: true,
   };
 
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {
@@ -74,39 +87,28 @@ export async function initializeDashboardSelection(
   await fetchAllFeeds(loadedCategories, initialFetchOptions);
 }
 
-type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
-  selectedCategory: string;
-  selectedFeedUrl?: string;
-  selectedCategoryNode?: CategoryTreeNode;
-  fallbackFeedUrl?: string;
-  forceRefresh?: boolean;
-  requestSource?: string;
-  skipRefresh?: boolean;
-  keepExistingFeed?: boolean;
-};
-
 export function refreshCurrentSelection(
   options: RefreshCurrentSelectionOptions,
 ): void {
   const {
-    selectedCategory,
-    selectedFeedUrl,
-    selectedCategoryNode,
-    fetchAllFeeds,
-    fetchFeed,
-    fetchCategoryFeeds,
     fallbackFeedUrl = DEFAULT_FEED_URL,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
     forceRefresh = false,
-    requestSource,
-    skipRefresh,
     keepExistingFeed,
+    requestSource,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    skipRefresh,
   } = options;
 
   const fetchOptions: FeedFetchOptions = {
     forceRefresh,
+    keepExistingFeed,
     requestSource,
     skipRefresh,
-    keepExistingFeed,
   };
 
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {

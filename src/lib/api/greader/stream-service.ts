@@ -1,23 +1,33 @@
 import {
-  parseNonNegativeInt,
-  parsePositiveInt,
-  parseUnixTimestampSeconds,
-} from "@/lib/api/http";
-import { READ_STATE } from "@/lib/core/stream-ids";
-import {
   DEFAULT_STREAM_ITEMS,
   MAX_STREAM_ITEMS,
   NETNEWSWIRE_MAX_STREAM_ITEMS,
 } from "./constants";
 
+import {
+  parseNonNegativeInt,
+  parsePositiveInt,
+  parseUnixTimestampSeconds,
+} from "@/lib/api/http";
+import { READ_STATE } from "@/lib/core/stream-ids";
+
+export function parseOlderThanDate(searchParams: URLSearchParams): Date | null {
+  return parseUnixTimestampSeconds(searchParams.get("ot"));
+}
+
+export function parseStreamId(resource: string): string {
+  const raw = resource.slice("stream/contents/".length);
+  return decodeURIComponent(raw);
+}
+
 export function parseStreamPaging(
   searchParams: URLSearchParams,
   userAgent: string,
 ): {
+  continuationId: null | number;
+  isNetNewsWire: boolean;
   limit: number;
   offset: number;
-  continuationId: number | null;
-  isNetNewsWire: boolean;
 } {
   const isNetNewsWire = /netnewswire/i.test(userAgent);
   const requested = parsePositiveInt(searchParams.get("n"));
@@ -28,7 +38,7 @@ export function parseStreamPaging(
 
   const continuation = searchParams.get("c");
   if (!continuation) {
-    return { limit, offset: 0, continuationId: null, isNetNewsWire };
+    return { continuationId: null, isNetNewsWire, limit, offset: 0 };
   }
 
   if (continuation.startsWith("offset:")) {
@@ -38,10 +48,10 @@ export function parseStreamPaging(
 
     if (continuationOffset !== null) {
       return {
-        limit,
-        offset: continuationOffset,
         continuationId: null,
         isNetNewsWire,
+        limit,
+        offset: continuationOffset,
       };
     }
   }
@@ -50,23 +60,14 @@ export function parseStreamPaging(
 
   if (parsedContinuationId !== null) {
     return {
-      limit,
-      offset: 0,
       continuationId: parsedContinuationId,
       isNetNewsWire,
+      limit,
+      offset: 0,
     };
   }
 
-  return { limit, offset: 0, continuationId: null, isNetNewsWire };
-}
-
-export function parseStreamId(resource: string): string {
-  const raw = resource.slice("stream/contents/".length);
-  return decodeURIComponent(raw);
-}
-
-export function parseOlderThanDate(searchParams: URLSearchParams): Date | null {
-  return parseUnixTimestampSeconds(searchParams.get("ot"));
+  return { continuationId: null, isNetNewsWire, limit, offset: 0 };
 }
 
 export function shouldExcludeReadFromStream(excludedTags: string[]): boolean {

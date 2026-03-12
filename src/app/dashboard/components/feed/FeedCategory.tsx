@@ -1,9 +1,11 @@
-import { type CategoryTreeNode } from "@/lib";
-import { getUrlHostnameLabel } from "@/lib/utils/url";
 import { Globe } from "lucide-react";
 import { memo } from "react";
+
 import { useFavicon } from "../../hooks/useFavicon";
 import { setCachedFaviconIndex } from "../../services/favicons";
+
+import { type CategoryTreeNode } from "@/lib";
+import { getUrlHostnameLabel } from "@/lib/utils/url";
 
 interface FeedCategoryProps {
   category: CategoryTreeNode;
@@ -19,11 +21,11 @@ export const FeedCategory = memo(function FeedCategory({
   showFavicon,
 }: FeedCategoryProps) {
   const {
-    faviconUrl,
-    faviconTint,
     faviconCacheKey,
-    faviconIndex,
     faviconCandidates,
+    faviconIndex,
+    faviconTint,
+    faviconUrl,
     setFaviconIndex,
   } = useFavicon({ primaryUrl: category.data?.url });
 
@@ -31,12 +33,14 @@ export const FeedCategory = memo(function FeedCategory({
 
   return (
     <button
-      onClick={() => onClick(category)}
       className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border-l-2 px-2 py-2 text-left transition-colors ${
         isActive
           ? "border-primary/60 bg-muted/70 text-foreground"
           : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
       }`}
+      onClick={() => {
+        onClick(category);
+      }}
     >
       <div className="min-w-0">
         <p className="font-sans text-[0.93rem] font-medium leading-[1.35] tracking-[-0.005em]">
@@ -48,14 +52,9 @@ export const FeedCategory = memo(function FeedCategory({
       </div>
       {shouldShowFavicon ? (
         <img
-          src={faviconUrl ?? ""}
           alt=""
           className="size-3.5 shrink-0 rounded-sm"
           loading="lazy"
-          referrerPolicy="no-referrer"
-          onLoad={() => {
-            setCachedFaviconIndex(faviconCacheKey, faviconIndex);
-          }}
           onError={() => {
             setFaviconIndex((current) => {
               const next = current + 1;
@@ -64,12 +63,17 @@ export const FeedCategory = memo(function FeedCategory({
               return resolved;
             });
           }}
+          onLoad={() => {
+            setCachedFaviconIndex(faviconCacheKey, faviconIndex);
+          }}
+          referrerPolicy="no-referrer"
+          src={faviconUrl ?? ""}
         />
       ) : (
         <span
+          aria-hidden="true"
           className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full"
           style={{ backgroundColor: faviconTint.background }}
-          aria-hidden="true"
         >
           <Globe
             className="size-2.5"

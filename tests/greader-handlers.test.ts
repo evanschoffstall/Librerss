@@ -4,16 +4,6 @@
  */
 
 import {
-  DEFAULT_STREAM_ITEMS,
-  GOOGLE_LOGIN_PREFIX,
-  MAX_STREAM_ITEMS,
-  TAG_MUTATIONS,
-} from "@/lib/api/greader/constants";
-import type { SessionUser } from "@/lib/auth/session";
-import { CONFIG } from "@/lib/config";
-import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
-import { READ_STATE, STARRED_STATE } from "@/lib/core/stream-ids";
-import {
   afterAll,
   afterEach,
   beforeAll,
@@ -23,7 +13,19 @@ import {
   mock,
   test,
 } from "bun:test";
+
 import { NextRequest } from "next/server";
+
+import {
+  DEFAULT_STREAM_ITEMS,
+  GOOGLE_LOGIN_PREFIX,
+  MAX_STREAM_ITEMS,
+  TAG_MUTATIONS,
+} from "@/lib/api/greader/constants";
+import type { SessionUser } from "@/lib/auth/session";
+import { CONFIG } from "@/lib/config";
+import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
+import { READ_STATE, STARRED_STATE } from "@/lib/core/stream-ids";
 
 beforeEach(() => mock.restore());
 
@@ -45,47 +47,47 @@ afterAll(() => {
 
 // Mock database setup
 const createMockDb = () => ({
-  select: mock(() => ({
-    from: mock(() => ({
-      limit: mock(() => ({
-        then: (resolve: (v: unknown[]) => void) => resolve([]),
-      })), // probe path for canUseArticleStatusesTable
-      innerJoin: mock(() => createQueryChain()),
-      leftJoin: mock(() => createQueryChain()),
-      where: mock(() => createQueryChain()),
-    })),
-  })),
-  update: mock(() => ({
-    set: mock(() => ({
-      where: mock(() => Promise.resolve([])),
-    })),
+  delete: mock(() => ({
+    where: mock(() => Promise.resolve([])),
   })),
   insert: mock(() => ({
     values: mock(() => ({
       onConflictDoUpdate: mock(() => Promise.resolve([])),
     })),
   })),
-  delete: mock(() => ({
-    where: mock(() => Promise.resolve([])),
+  select: mock(() => ({
+    from: mock(() => ({
+      innerJoin: mock(() => createQueryChain()),
+      leftJoin: mock(() => createQueryChain()),
+      limit: mock(() => ({
+        then: (resolve: (v: unknown[]) => void) => resolve([]),
+      })), // probe path for canUseArticleStatusesTable
+      where: mock(() => createQueryChain()),
+    })),
   })),
   transaction: mock(
     async (fn: (tx: ReturnType<typeof createMockDb>) => Promise<unknown>) =>
       fn(createMockDb()),
   ),
+  update: mock(() => ({
+    set: mock(() => ({
+      where: mock(() => Promise.resolve([])),
+    })),
+  })),
 });
 
 const createQueryChain = () => ({
   innerJoin: mock(() => createQueryChain()),
   leftJoin: mock(() => createQueryChain()),
-  where: mock(() => createQueryChain()),
-  orderBy: mock(() => createQueryChain()),
   limit: mock(() => createQueryChain()),
   offset: mock(() => Promise.resolve([])),
+  orderBy: mock(() => createQueryChain()),
   then: <TResult1 = unknown, TResult2 = never>(
-    onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+    onfulfilled?: ((value: unknown) => PromiseLike<TResult1> | TResult1) | null,
+    onrejected?: ((reason: unknown) => PromiseLike<TResult2> | TResult2) | null,
   ): Promise<TResult1 | TResult2> =>
     Promise.resolve([]).then(onfulfilled, onrejected),
+  where: mock(() => createQueryChain()),
 });
 
 function registerBaseMocks() {
@@ -97,9 +99,9 @@ function registerBaseMocks() {
 
   mock.module("@/lib/logger", () => ({
     logger: {
+      error: mock(() => {}),
       info: mock(() => {}),
       warn: mock(() => {}),
-      error: mock(() => {}),
     },
   }));
 }
@@ -108,10 +110,10 @@ beforeAll(() => {
   registerBaseMocks();
 });
 const mockUser: SessionUser = {
-  sessionId: 1,
-  userId: 1,
   email: "test@example.com",
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+  sessionId: 1,
+  userId: 1,
 };
 
 describe("Stream Contents Handler", () => {
@@ -278,33 +280,33 @@ describe("Stream Contents Handler", () => {
   test("returns mapped items with continuation for non-empty rows", async () => {
     const row = {
       articleId: 99,
-      title: "Mapped item",
-      link: "https://example.com/item",
+      category: "Tech",
       content: "<p>content</p>",
+      isRead: true,
+      isStarred: false,
+      link: "https://example.com/item",
       publicationDate: new Date("2024-01-01T00:00:00.000Z"),
       sourceName: "Feed",
       sourceUrl: "https://example.com/feed",
-      category: "Tech",
-      isRead: true,
-      isStarred: false,
+      title: "Mapped item",
     };
 
     const queryChain = {
       innerJoin: mock(() => queryChain),
       leftJoin: mock(() => queryChain),
-      where: mock(() => queryChain),
-      orderBy: mock(() => queryChain),
       limit: mock(() => queryChain),
       offset: mock(async () => [row]),
+      orderBy: mock(() => queryChain),
       then: <TResult1 = unknown, TResult2 = never>(
         onfulfilled?:
-          | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+          | ((value: unknown) => PromiseLike<TResult1> | TResult1)
           | null,
         onrejected?:
-          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | ((reason: unknown) => PromiseLike<TResult2> | TResult2)
           | null,
       ): Promise<TResult1 | TResult2> =>
         Promise.resolve([row]).then(onfulfilled, onrejected),
+      where: mock(() => queryChain),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -343,15 +345,15 @@ describe("Stream Contents Handler", () => {
     const secondPassRows = [
       {
         articleId: 120,
-        title: "Fallback item",
-        link: "https://example.com/fallback",
+        category: null,
         content: "fallback",
+        isRead: null,
+        isStarred: null,
+        link: "https://example.com/fallback",
         publicationDate: new Date("2024-01-02T00:00:00.000Z"),
         sourceName: "Feed",
         sourceUrl: "https://example.com/feed",
-        category: null,
-        isRead: null,
-        isStarred: null,
+        title: "Fallback item",
       },
     ];
 
@@ -359,19 +361,19 @@ describe("Stream Contents Handler", () => {
     const queryChain = {
       innerJoin: mock(() => queryChain),
       leftJoin: mock(() => queryChain),
-      where: mock(() => queryChain),
-      orderBy: mock(() => queryChain),
       limit: mock(() => queryChain),
       offset: mock(async () => queuedRows.shift() ?? []),
+      orderBy: mock(() => queryChain),
       then: <TResult1 = unknown, TResult2 = never>(
         onfulfilled?:
-          | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+          | ((value: unknown) => PromiseLike<TResult1> | TResult1)
           | null,
         onrejected?:
-          | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+          | ((reason: unknown) => PromiseLike<TResult2> | TResult2)
           | null,
       ): Promise<TResult1 | TResult2> =>
         Promise.resolve(queuedRows.shift() ?? []).then(onfulfilled, onrejected),
+      where: mock(() => queryChain),
     };
 
     mock.module("@/lib/core/article-status", () => ({
@@ -468,8 +470,8 @@ describe("Stream Item Contents Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -523,11 +525,11 @@ describe("Stream Item Contents Handler", () => {
         ...createMockDb(),
         select: mock(() => ({
           from: mock(() => ({
+            innerJoin: mock(() => createQueryChain()),
+            leftJoin: mock(() => createQueryChain()),
             limit: mock(async () => {
               throw missingErr;
             }), // probe fails → article statuses disabled
-            innerJoin: mock(() => createQueryChain()),
-            leftJoin: mock(() => createQueryChain()),
             where: mock(() => createQueryChain()),
           })),
         })),
@@ -552,12 +554,12 @@ describe("Stream Item Contents Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/contents",
       {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-          "content-length": "70000",
-        },
         body: "i=tag:google.com,2005:reader/item/00000001",
+        headers: {
+          "content-length": "70000",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        method: "POST",
       },
     );
 
@@ -569,27 +571,27 @@ describe("Stream Item Contents Handler", () => {
     const rows = [
       {
         articleId: 2,
-        title: "Second",
-        link: "https://example.com/2",
+        category: "Tech",
         content: "<p>2</p>",
+        isRead: false,
+        isStarred: false,
+        link: "https://example.com/2",
         publicationDate: new Date("2024-01-02T00:00:00.000Z"),
         sourceName: "Feed",
         sourceUrl: "https://example.com/feed",
-        category: "Tech",
-        isRead: false,
-        isStarred: false,
+        title: "Second",
       },
       {
         articleId: 1,
-        title: "First",
-        link: "https://example.com/1",
+        category: "Tech",
         content: "<p>1</p>",
+        isRead: false,
+        isStarred: false,
+        link: "https://example.com/1",
         publicationDate: new Date("2024-01-01T00:00:00.000Z"),
         sourceName: "Feed",
         sourceUrl: "https://example.com/feed",
-        category: "Tech",
-        isRead: false,
-        isStarred: false,
+        title: "First",
       },
     ];
 
@@ -618,7 +620,7 @@ describe("Stream Item Contents Handler", () => {
     );
 
     const response = await handleStreamItemContents(mockUser, request);
-    const payload = (await response.json()) as { items: Array<{ id: string }> };
+    const payload = (await response.json()) as { items: { id: string }[] };
 
     expect(response.status).toBe(200);
     expect(payload.items.map((item) => item.id)).toEqual([
@@ -649,8 +651,8 @@ describe("Stream Item IDs Handler", () => {
 
     const response = await handleStreamItemIds(mockUser, request);
     const payload = (await response.json()) as {
-      itemRefs: Array<{ id: string }>;
       continuation?: string;
+      itemRefs: { id: string }[];
     };
 
     expect(response.status).toBe(200);
@@ -659,7 +661,7 @@ describe("Stream Item IDs Handler", () => {
   });
 
   test("retries without article-status join when relation is missing", async () => {
-    const queryResults: Array<unknown[] | Error> = [
+    const queryResults: (Error | unknown[])[] = [
       Object.assign(new Error('relation "ArticleStatus" does not exist'), {
         code: "42P01",
       }),
@@ -669,8 +671,6 @@ describe("Stream Item IDs Handler", () => {
     const queryChain = {
       innerJoin: mock(() => queryChain),
       leftJoin: mock(() => queryChain),
-      where: mock(() => queryChain),
-      orderBy: mock(() => queryChain),
       limit: mock(() => queryChain),
       offset: mock(async () => {
         const next = queryResults.shift() ?? [];
@@ -679,6 +679,8 @@ describe("Stream Item IDs Handler", () => {
         }
         return next;
       }),
+      orderBy: mock(() => queryChain),
+      where: mock(() => queryChain),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -701,8 +703,8 @@ describe("Stream Item IDs Handler", () => {
 
     const response = await handleStreamItemIds(mockUser, request);
     const payload = (await response.json()) as {
-      itemRefs: Array<{ id: string }>;
       continuation?: string;
+      itemRefs: { id: string }[];
     };
 
     expect(response.status).toBe(200);
@@ -714,12 +716,12 @@ describe("Stream Item IDs Handler", () => {
     const queryChain = {
       innerJoin: mock(() => queryChain),
       leftJoin: mock(() => queryChain),
-      where: mock(() => queryChain),
-      orderBy: mock(() => queryChain),
       limit: mock(() => queryChain),
       offset: mock(async () => {
         throw new Error("query failed");
       }),
+      orderBy: mock(() => queryChain),
+      where: mock(() => queryChain),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -793,9 +795,9 @@ describe("Tag Handler", () => {
 
     mock.module("@/lib/logger", () => ({
       logger: {
+        error: mock(() => {}),
         info: loggerInfo,
         warn: mock(() => {}),
-        error: mock(() => {}),
       },
     }));
 
@@ -807,8 +809,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/disable-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -831,9 +833,9 @@ describe("Tag Handler", () => {
 
     mock.module("@/lib/logger", () => ({
       logger: {
+        error: mock(() => {}),
         info: loggerInfo,
         warn: mock(() => {}),
-        error: mock(() => {}),
       },
     }));
 
@@ -845,8 +847,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/disable-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -877,8 +879,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/rename-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -902,9 +904,9 @@ describe("Tag Handler", () => {
 
     mock.module("@/lib/logger", () => ({
       logger: {
+        error: mock(() => {}),
         info: loggerInfo,
         warn: mock(() => {}),
-        error: mock(() => {}),
       },
     }));
 
@@ -917,8 +919,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/rename-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -939,8 +941,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -959,8 +961,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -979,8 +981,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -999,8 +1001,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1019,8 +1021,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1040,8 +1042,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1056,8 +1058,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
         body: new FormData(),
+        method: "POST",
       },
     );
 
@@ -1076,8 +1078,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/mark-all-as-read",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1096,8 +1098,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/mark-all-as-read",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1115,8 +1117,8 @@ describe("Tag Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/mark-all-as-read",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1142,11 +1144,11 @@ describe("Subscription Handler", () => {
                 where: mock(() =>
                   Promise.resolve([
                     {
+                      category: "Tech",
+                      feedId: 1,
                       sourceId: 1,
                       title: "Feed 1",
                       url: "https://example.com/feed1",
-                      feedId: 1,
-                      category: "Tech",
                     },
                   ]),
                 ),
@@ -1179,8 +1181,8 @@ describe("Subscription Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/edit",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1200,8 +1202,8 @@ describe("Subscription Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/edit",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1223,8 +1225,8 @@ describe("Subscription Handler", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/edit",
       {
-        method: "POST",
         body: formData,
+        method: "POST",
       },
     );
 
@@ -1289,9 +1291,9 @@ describe("lib/api/greader/auth – handleClientLogin", () => {
     const request = createMockRequest(
       "https://example.com/greader/accounts/ClientLogin",
       {
-        method: "POST",
         body: { other: "field" },
         headers: { "content-type": "application/json" },
+        method: "POST",
       },
     );
     const response = await handleClientLogin(request);
@@ -1308,9 +1310,9 @@ describe("lib/api/greader/auth – handleClientLogin", () => {
       const request = createMockRequest(
         "https://example.com/greader/accounts/ClientLogin",
         {
-          method: "POST",
           body: { Email: "notadmin@example.com", Passwd: "WrongPass123!" },
           headers: { "content-type": "application/json" },
+          method: "POST",
         },
       );
       const response = await handleClientLogin(request);
@@ -1436,12 +1438,12 @@ describe("lib/api/greader/auth – handleClientLogin edge branches", () => {
     const { NextRequest } = await import("next/server");
     const { handleClientLogin } = await import("@/lib/api/greader/auth");
     const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
-      method: "POST",
       body: "this is not json at all",
       headers: {
         "content-type": "application/json",
         "x-forwarded-for": "192.0.2.41, 10.0.0.1",
       },
+      method: "POST",
     });
     const result = await handleClientLogin(req);
     expect(result.status).toBe(400);
@@ -1453,7 +1455,6 @@ describe("lib/api/greader/auth – handleClientLogin edge branches", () => {
     const { NextRequest } = await import("next/server");
     const { handleClientLogin } = await import("@/lib/api/greader/auth");
     const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
-      method: "POST",
       // text/plain → not form-urlencoded, not JSON → falls through to fallback
       // parseFormOrQueryParams path (lines 79-84). Body has no Email/Passwd keys
       // → parseClientLoginParams returns null → handleClientLogin returns 400 BadAuth.
@@ -1462,6 +1463,7 @@ describe("lib/api/greader/auth – handleClientLogin edge branches", () => {
         "content-type": "text/plain",
         "x-forwarded-for": "192.0.2.42, 10.0.0.1",
       },
+      method: "POST",
     });
     const result = await handleClientLogin(req);
     // payload is null → line 109-110 returns 400 without DB call
@@ -1477,12 +1479,12 @@ describe("lib/api/greader/auth – handleClientLogin edge branches", () => {
     const longPassword = "x".repeat(1025);
     const body = `Email=user@example.com&Passwd=${encodeURIComponent(longPassword)}`;
     const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
-      method: "POST",
       body,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
         "x-forwarded-for": "192.0.2.43, 10.0.0.1",
       },
+      method: "POST",
     });
     const result = await handleClientLogin(req);
     expect(result.status).toBe(403);
@@ -1494,13 +1496,13 @@ describe("lib/api/greader/auth – handleClientLogin edge branches", () => {
     const { NextRequest } = await import("next/server");
     const { handleClientLogin } = await import("@/lib/api/greader/auth");
     const req = new NextRequest("https://dummy.local/accounts/ClientLogin", {
-      method: "POST",
       body: "Email=user@example.com&Passwd=pass",
       headers: {
-        "content-type": "application/x-www-form-urlencoded",
         "content-length": "999999999",
+        "content-type": "application/x-www-form-urlencoded",
         "x-forwarded-for": "192.0.2.44, 10.0.0.1",
       },
+      method: "POST",
     });
     const result = await handleClientLogin(req);
     expect(result.status).toBe(413);

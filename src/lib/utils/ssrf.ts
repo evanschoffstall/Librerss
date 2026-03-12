@@ -27,44 +27,34 @@ const BLOCKED_HOST_PATTERNS = [
   /^fe80:/i, // fe80::/10 — IPv6 link-local
 ] as const;
 
-function parseIpv4DottedQuad(
-  raw: string,
-): [number, number, number, number] | null {
-  const parts = raw.split(".");
-  if (parts.length !== 4) {
-    return null;
+export function isBlockedHost(hostname: string): boolean {
+  const normalized = normalizeHostname(hostname);
+  if (!normalized) {
+    return true;
   }
 
-  const bytes = parts.map((part) => Number(part));
-  if (bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
-    return null;
-  }
-
-  return bytes as [number, number, number, number];
+  return (
+    normalized === "localhost" ||
+    normalized.endsWith(".local") ||
+    BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(normalized))
+  );
 }
 
-function parseIpv6Hextet(part: string): number[] | null {
-  if (!part) {
-    return null;
+export function isBlockedResolvedAddress(address: string): boolean {
+  const normalized = address.trim().toLowerCase();
+  const mappedIpv4 = extractMappedIpv4FromIpv6(normalized);
+  if (mappedIpv4) {
+    return isBlockedHost(mappedIpv4);
   }
 
-  if (part.includes(".")) {
-    const bytes = parseIpv4DottedQuad(part);
-    if (!bytes) {
-      return null;
-    }
-
-    return [(bytes[0] << 8) | bytes[1], (bytes[2] << 8) | bytes[3]];
-  }
-
-  if (!/^[0-9a-f]{1,4}$/i.test(part)) {
-    return null;
-  }
-
-  return [Number.parseInt(part, 16)];
+  return isBlockedHost(normalized);
 }
 
-function expandIpv6ToHextets(raw: string): number[] | null {
+export function normalizeHostname(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/\.$/, "");
+}
+
+function expandIpv6ToHextets(raw: string): null | number[] {
   const normalized = raw.trim().toLowerCase();
   if (!normalized.includes(":")) {
     return null;
@@ -109,7 +99,7 @@ function expandIpv6ToHextets(raw: string): number[] | null {
   return [...head, ...tail];
 }
 
-function extractMappedIpv4FromIpv6(address: string): string | null {
+function extractMappedIpv4FromIpv6(address: string): null | string {
   const hextets = expandIpv6ToHextets(address);
   if (!hextets) {
     return null;
@@ -135,29 +125,39 @@ function extractMappedIpv4FromIpv6(address: string): string | null {
   return `${octet1}.${octet2}.${octet3}.${octet4}`;
 }
 
-export function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase().replace(/\.$/, "");
-}
-
-export function isBlockedHost(hostname: string): boolean {
-  const normalized = normalizeHostname(hostname);
-  if (!normalized) {
-    return true;
+function parseIpv4DottedQuad(
+  raw: string,
+): [number, number, number, number] | null {
+  const parts = raw.split(".");
+  if (parts.length !== 4) {
+    return null;
   }
 
-  return (
-    normalized === "localhost" ||
-    normalized.endsWith(".local") ||
-    BLOCKED_HOST_PATTERNS.some((pattern) => pattern.test(normalized))
-  );
-}
-
-export function isBlockedResolvedAddress(address: string): boolean {
-  const normalized = address.trim().toLowerCase();
-  const mappedIpv4 = extractMappedIpv4FromIpv6(normalized);
-  if (mappedIpv4) {
-    return isBlockedHost(mappedIpv4);
+  const bytes = parts.map((part) => Number(part));
+  if (bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+    return null;
   }
 
-  return isBlockedHost(normalized);
+  return bytes as [number, number, number, number];
+}
+
+function parseIpv6Hextet(part: string): null | number[] {
+  if (!part) {
+    return null;
+  }
+
+  if (part.includes(".")) {
+    const bytes = parseIpv4DottedQuad(part);
+    if (!bytes) {
+      return null;
+    }
+
+    return [(bytes[0] << 8) | bytes[1], (bytes[2] << 8) | bytes[3]];
+  }
+
+  if (!/^[0-9a-f]{1,4}$/i.test(part)) {
+    return null;
+  }
+
+  return [Number.parseInt(part, 16)];
 }

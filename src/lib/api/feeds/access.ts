@@ -1,10 +1,11 @@
+import { NextRequest } from "next/server";
+
 import { jsonError } from "@/lib/api/http";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import {
   type AuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
-import { NextRequest } from "next/server";
 
 const FEED_MANAGEMENT_DISABLED_ERROR =
   "Feed source management is disabled when DATABASE_URL is not configured";
@@ -14,8 +15,8 @@ export async function requireMutableFeedAccess(
   options?: {
     rateLimit?: {
       key: string;
-      windowMs: number;
       maxAttempts: number;
+      windowMs: number;
     };
   },
 ): Promise<AuthenticatedUser | Response> {
@@ -39,7 +40,7 @@ export async function requireMutableFeedAccess(
   return user;
 }
 
-function ensureFeedManagementEnabled(): Response | null {
+function ensureFeedManagementEnabled(): null | Response {
   if (!RUNTIME_FLAGS.usePlaceholderData) {
     return null;
   }

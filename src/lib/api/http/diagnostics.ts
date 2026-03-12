@@ -1,5 +1,6 @@
-import { CONFIG } from "@/lib/config";
 import axios from "axios";
+
+import { CONFIG } from "@/lib/config";
 
 // ── Verbose logging ───────────────────────────────────────────────────────────
 
@@ -17,46 +18,6 @@ export function isVerboseLoggingEnabled(): boolean {
 }
 
 // ── Header utilities ──────────────────────────────────────────────────────────
-
-function toHeaderRecord(headers: unknown): Record<string, string> {
-  if (!headers || typeof headers !== "object") {
-    return {};
-  }
-
-  const entries = Object.entries(headers as Record<string, unknown>);
-  return entries.reduce<Record<string, string>>((acc, [rawName, rawValue]) => {
-    const key = rawName.toLowerCase();
-    if (typeof rawValue === "string") {
-      acc[key] = rawValue;
-      return acc;
-    }
-
-    if (Array.isArray(rawValue)) {
-      acc[key] = rawValue.map((value) => String(value)).join(", ");
-      return acc;
-    }
-
-    if (typeof rawValue === "number" || typeof rawValue === "boolean") {
-      acc[key] = String(rawValue);
-    }
-
-    return acc;
-  }, {});
-}
-
-function pickAllowedHeaders(
-  headers: unknown,
-  allowed: readonly string[],
-): Record<string, string> {
-  const normalized = toHeaderRecord(headers);
-  return allowed.reduce<Record<string, string>>((acc, headerName) => {
-    const value = normalized[headerName];
-    if (typeof value === "string" && value.trim()) {
-      acc[headerName] = value;
-    }
-    return acc;
-  }, {});
-}
 
 export function toBodySnippet(
   data: unknown,
@@ -85,6 +46,46 @@ export function toBodySnippet(
   }
 
   return undefined;
+}
+
+function pickAllowedHeaders(
+  headers: unknown,
+  allowed: readonly string[],
+): Record<string, string> {
+  const normalized = toHeaderRecord(headers);
+  return allowed.reduce<Record<string, string>>((acc, headerName) => {
+    const value = normalized[headerName];
+    if (typeof value === "string" && value.trim()) {
+      acc[headerName] = value;
+    }
+    return acc;
+  }, {});
+}
+
+function toHeaderRecord(headers: unknown): Record<string, string> {
+  if (!headers || typeof headers !== "object") {
+    return {};
+  }
+
+  const entries = Object.entries(headers as Record<string, unknown>);
+  return entries.reduce<Record<string, string>>((acc, [rawName, rawValue]) => {
+    const key = rawName.toLowerCase();
+    if (typeof rawValue === "string") {
+      acc[key] = rawValue;
+      return acc;
+    }
+
+    if (Array.isArray(rawValue)) {
+      acc[key] = rawValue.map((value) => String(value)).join(", ");
+      return acc;
+    }
+
+    if (typeof rawValue === "number" || typeof rawValue === "boolean") {
+      acc[key] = String(rawValue);
+    }
+
+    return acc;
+  }, {});
 }
 
 // ── Axios diagnostics ─────────────────────────────────────────────────────────
@@ -126,19 +127,19 @@ export function buildAxiosFailureDiagnostics(
   );
 
   return {
-    upstreamStatus: error.response?.status ?? null,
-    upstreamStatusText: error.response?.statusText ?? null,
-    upstreamMethod: error.config?.method?.toUpperCase() ?? null,
-    upstreamUrl: error.config?.url ?? null,
-    requestTimeoutMs:
-      typeof error.config?.timeout === "number" ? error.config.timeout : null,
+    axiosErrorCode: error.code ?? null,
+    requestHeaders,
     requestMaxRedirects:
       typeof error.config?.maxRedirects === "number"
         ? error.config.maxRedirects
         : null,
-    requestHeaders,
-    responseHeaders,
+    requestTimeoutMs:
+      typeof error.config?.timeout === "number" ? error.config.timeout : null,
     responseBodySnippet: toBodySnippet(error.response?.data),
-    axiosErrorCode: error.code ?? null,
+    responseHeaders,
+    upstreamMethod: error.config?.method?.toUpperCase() ?? null,
+    upstreamStatus: error.response?.status ?? null,
+    upstreamStatusText: error.response?.statusText ?? null,
+    upstreamUrl: error.config?.url ?? null,
   };
 }

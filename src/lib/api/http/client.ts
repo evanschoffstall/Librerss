@@ -9,43 +9,10 @@ export const BATCH_REQUEST_TIMEOUT_MS = 60_000;
 // attribution.
 type ApiClient = Pick<
   ReturnType<typeof axios.create>,
-  "get" | "post" | "put" | "patch" | "delete"
+  "delete" | "get" | "patch" | "post" | "put"
 >;
 
 let api: ApiClient = axios.create();
-
-export function getApiClient(): ApiClient {
-  return api;
-}
-
-export function setApiClientForTesting(client: ApiClient): void {
-  api = client;
-}
-
-export function resetApiClientForTesting(): void {
-  api = axios.create();
-}
-
-export async function withRequestDeadline<T>(
-  request: Promise<T>,
-  timeoutMs = REQUEST_TIMEOUT_MS,
-  onTimeout?: () => void,
-): Promise<T> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => {
-      onTimeout?.();
-      reject(new Error("Request timeout"));
-    }, timeoutMs);
-  });
-
-  try {
-    return await Promise.race([request, timeoutPromise]);
-  } finally {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-  }
-}
 
 export function createLinkedAbortController(signal?: AbortSignal): {
   controller: AbortController;
@@ -68,7 +35,9 @@ export function createLinkedAbortController(signal?: AbortSignal): {
     };
   }
 
-  const handleAbort = () => controller.abort();
+  const handleAbort = () => {
+    controller.abort();
+  };
   signal.addEventListener("abort", handleAbort, { once: true });
 
   return {
@@ -77,4 +46,37 @@ export function createLinkedAbortController(signal?: AbortSignal): {
       signal.removeEventListener("abort", handleAbort);
     },
   };
+}
+
+export function getApiClient(): ApiClient {
+  return api;
+}
+
+export function resetApiClientForTesting(): void {
+  api = axios.create();
+}
+
+export function setApiClientForTesting(client: ApiClient): void {
+  api = client;
+}
+
+export async function withRequestDeadline<T>(
+  request: Promise<T>,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  onTimeout?: () => void,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      onTimeout?.();
+      reject(new Error("Request timeout"));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([request, timeoutPromise]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }

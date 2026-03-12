@@ -7,11 +7,11 @@ const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
 
   const normalized = value.trim().toLowerCase();
 
-  if (["true", "1", "yes", "on"].includes(normalized)) {
+  if (["1", "on", "true", "yes"].includes(normalized)) {
     return true;
   }
 
-  if (["false", "0", "no", "off"].includes(normalized)) {
+  if (["0", "false", "no", "off"].includes(normalized)) {
     return false;
   }
 
@@ -19,14 +19,14 @@ const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
 };
 
 export const RUNTIME_FLAGS = {
+  get allowSignup() {
+    return parseBooleanEnv(process.env.ALLOW_SIGNUP, false);
+  },
   get hasDatabaseUrl() {
     return Boolean(process.env.DATABASE_URL?.trim());
   },
   get usePlaceholderData() {
     return !this.hasDatabaseUrl;
-  },
-  get allowSignup() {
-    return parseBooleanEnv(process.env.ALLOW_SIGNUP, false);
   },
 } as const;
 
@@ -40,8 +40,8 @@ export const RUNTIME_FLAGS = {
 // Restarting the server invalidates all placeholder sessions, which is
 // acceptable for dev/demo usage.
 export const PLACEHOLDER_ADMIN_USER = {
-  id: 0 as const,
   email: "admin@admin.com" as const,
+  id: 0 as const,
   passwordHash:
     "placeholder-admin-salt:fa68d3bb667b1689527c99821adac9c2e02910bfa20e34bfc0a9a5a6c239edc80ae30f8b59dd6c37cebc0d6919b26ae68848cb0e56cbf81108e43327765bfeb2" as const,
   // Cryptographically random per-process token — never a hardcoded constant.

@@ -1,37 +1,25 @@
-import { getDb } from "@/lib/db/db";
-import { feedCategories, feeds } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
-type FeedDbExecutor =
-  | ReturnType<typeof getDb>
-  | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+import { getDb } from "@/lib/db/db";
+import { feedCategories, feeds } from "@/lib/db/schema";
 
-type FeedRecordRow = {
+type FeedDbExecutor =
+  | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0]
+  | ReturnType<typeof getDb>;
+
+interface FeedRecordRow {
   id: number;
-  url: string;
   lastFetched: Date;
-  lastFetchError: string | null;
-};
+  lastFetchError: null | string;
+  url: string;
+}
 
 export const feedRecordFields = {
   id: feeds.id,
-  url: feeds.url,
   lastFetched: feeds.lastFetched,
   lastFetchError: feeds.lastFetchError,
+  url: feeds.url,
 };
-
-export async function findFeedIdByUrl(
-  executor: FeedDbExecutor,
-  feedUrl: string,
-): Promise<number | null> {
-  const [feed] = await executor
-    .select({ id: feeds.id })
-    .from(feeds)
-    .where(eq(feeds.url, feedUrl))
-    .limit(1);
-
-  return feed?.id ?? null;
-}
 
 // Single-query upsert: always returns the row whether inserted or already existing.
 // ON CONFLICT DO UPDATE with a no-op SET guarantees RETURNING always fires.
@@ -42,7 +30,7 @@ export async function ensureFeedRecordByUrl(
   const [record] = await executor
     .insert(feeds)
     .values({ url: feedUrl })
-    .onConflictDoUpdate({ target: feeds.url, set: { url: feedUrl } })
+    .onConflictDoUpdate({ set: { url: feedUrl }, target: feeds.url })
     .returning(feedRecordFields);
 
   if (!record) {
@@ -52,41 +40,29 @@ export async function ensureFeedRecordByUrl(
   return record;
 }
 
-export async function replaceUserFeedCategory(
+export async function findFeedIdByUrl(
   executor: FeedDbExecutor,
-  {
-    userId,
-    feedId,
-    category,
-  }: {
-    userId: number;
-    feedId: number;
-    category: string;
-  },
-): Promise<void> {
-  await executor
-    .insert(feedCategories)
-    .values({
-      userId,
-      feedId,
-      category,
-    })
-    .onConflictDoUpdate({
-      target: [feedCategories.userId, feedCategories.feedId],
-      set: { category },
-    });
+  feedUrl: string,
+): Promise<null | number> {
+  const [feed] = await executor
+    .select({ id: feeds.id })
+    .from(feeds)
+    .where(eq(feeds.url, feedUrl))
+    .limit(1);
+
+  return feed?.id ?? null;
 }
 
 export async function removeUserFeedCategory(
   executor: FeedDbExecutor,
   {
-    userId,
-    feedId,
     category,
+    feedId,
+    userId,
   }: {
-    userId: number;
-    feedId: number;
     category?: string;
+    feedId: number;
+    userId: number;
   },
 ): Promise<void> {
   await executor
@@ -103,4 +79,29 @@ export async function removeUserFeedCategory(
             eq(feedCategories.feedId, feedId),
           ),
     );
+}
+
+export async function replaceUserFeedCategory(
+  executor: FeedDbExecutor,
+  {
+    category,
+    feedId,
+    userId,
+  }: {
+    category: string;
+    feedId: number;
+    userId: number;
+  },
+): Promise<void> {
+  await executor
+    .insert(feedCategories)
+    .values({
+      category,
+      feedId,
+      userId,
+    })
+    .onConflictDoUpdate({
+      set: { category },
+      target: [feedCategories.userId, feedCategories.feedId],
+    });
 }

@@ -2,25 +2,14 @@
  * Helpers for mapping batch feed-fetch results into article lists.
  */
 
-import { type Article, type CategoryTreeNode } from "@/lib";
-import type { BatchFeedResponseItem } from "@/lib/api/http";
 import { dedupeAndSortArticles } from "./article-collection";
 
-export interface FeedBatchSource {
-  url: string;
-  name: string | undefined;
-}
+import { type Article, type CategoryTreeNode } from "@/lib";
+import type { BatchFeedResponseItem } from "@/lib/api/http";
 
-function enrichFeedArticles(
-  articles: Article[],
-  feedUrl: string,
-  feedName: string | undefined,
-): Article[] {
-  return articles.map((article) => ({
-    ...article,
-    feedName: feedName ?? article.feedName,
-    feedUrl,
-  }));
+export interface FeedBatchSource {
+  name: string | undefined;
+  url: string;
 }
 
 /**
@@ -60,6 +49,18 @@ export function mapBatchResultsToArticles(
   );
 }
 
+function enrichFeedArticles(
+  articles: Article[],
+  feedUrl: string,
+  feedName: string | undefined,
+): Article[] {
+  return articles.map((article) => ({
+    ...article,
+    feedName: feedName ?? article.feedName,
+    feedUrl,
+  }));
+}
+
 // ── Feed-loader utilities ─────────────────────────────────────────────────────
 
 /** Safety timeout for a single batch feed-load cycle. */
@@ -67,20 +68,6 @@ export function mapBatchResultsToArticles(
 // fires before this failsafe, and actual slow upstream refreshes don't trigger
 // a false "timed out" toast.
 export const FEED_LOADING_FAILSAFE_MS = 65_000;
-
-/**
- * De-duplicates batch sources by URL, preserving first-occurrence order.
- */
-export function normalizeFeedBatchSources(
-  sources: FeedBatchSource[],
-): FeedBatchSource[] {
-  const seen = new Set<string>();
-  return sources.filter((source) => {
-    if (!source.url || seen.has(source.url)) return false;
-    seen.add(source.url);
-    return true;
-  });
-}
 
 /**
  * Produces a stable string signature for a batch-sources array so callers can
@@ -106,7 +93,21 @@ export function mapFeedNodesToBatchSources(
         Boolean(node.data?.url) && node.data?.enabled !== false,
     )
     .map((node) => ({
-      url: node.data.url,
       name: node.label,
+      url: node.data.url,
     }));
+}
+
+/**
+ * De-duplicates batch sources by URL, preserving first-occurrence order.
+ */
+export function normalizeFeedBatchSources(
+  sources: FeedBatchSource[],
+): FeedBatchSource[] {
+  const seen = new Set<string>();
+  return sources.filter((source) => {
+    if (!source.url || seen.has(source.url)) return false;
+    seen.add(source.url);
+    return true;
+  });
 }

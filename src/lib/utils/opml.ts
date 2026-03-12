@@ -1,13 +1,13 @@
-import type { CategoryTreeNode } from "@/lib/core/types";
 import { DEFAULT_CATEGORY_LABEL } from "./categories";
 import { tryNormalizeFeedUrl } from "./url";
 
 import { CONFIG } from "@/lib/config";
+import type { CategoryTreeNode } from "@/lib/core/types";
 
 export interface OpmlFeedImportEntry {
+  category: string;
   name: string;
   url: string;
-  category: string;
 }
 
 const getOutlineLabel = (outline: Element): string => {
@@ -35,7 +35,7 @@ const getFeedName = (outline: Element): string => {
  * non-HTTP(S) protocol.  Delegates to tryNormalizeFeedUrl for consistent
  * parsing / stripping behaviour across the codebase.
  */
-const normalizeImportUrl = (rawUrl: string): string | null => {
+const normalizeImportUrl = (rawUrl: string): null | string => {
   try {
     const parsed = new URL(rawUrl.trim());
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -65,7 +65,7 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
 
   const imported = new Map<string, OpmlFeedImportEntry>();
 
-  const walkOutlineTree = (outline: Element, parentCategory: string | null) => {
+  const walkOutlineTree = (outline: Element, parentCategory: null | string) => {
     // Stop collecting once the cap is reached — prevents a crafted OPML with
     // thousands of entries from flooding the database via bulk import.
     if (imported.size >= CONFIG.OPML_MAX_IMPORT_ENTRIES) return;
@@ -79,9 +79,9 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
       }
 
       imported.set(normalizedUrl, {
+        category: parentCategory ?? DEFAULT_CATEGORY_LABEL,
         name: getFeedName(outline),
         url: normalizedUrl,
-        category: parentCategory ?? DEFAULT_CATEGORY_LABEL,
       });
     } else {
       // This is a category/group outline — its label becomes the category for children.

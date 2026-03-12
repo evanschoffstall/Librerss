@@ -3,8 +3,10 @@
  * Tests for src/lib/auth/
  */
 
-import { describe, expect, test, afterEach, beforeEach, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { NextResponse } from "next/server";
+
 import { createMockRequest } from "./support/test-utils";
 
 // ─── Session Management ───────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ describe("session", () => {
   });
 
   test("setSessionCookie and clearSessionCookie set expected cookie metadata", async () => {
-    const { setSessionCookie, clearSessionCookie, SESSION_COOKIE_NAME } =
+    const { clearSessionCookie, SESSION_COOKIE_NAME, setSessionCookie } =
       await import("@/lib/auth/session");
 
     const response = NextResponse.json({ ok: true });
@@ -92,9 +94,9 @@ describe("session", () => {
 
     try {
       const {
-        getUserFromSessionToken,
-        getUserFromRequest,
         deleteSessionByToken,
+        getUserFromRequest,
+        getUserFromSessionToken,
         SESSION_COOKIE_NAME,
       } = await import("@/lib/auth/session");
       const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
@@ -162,11 +164,11 @@ describe("csrf", () => {
   test("requireSameOrigin allows same-origin requests", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
-        origin: "https://example.com",
         host: "example.com",
+        origin: "https://example.com",
       },
+      method: "POST",
     });
     expect(requireSameOrigin(request)).toBeNull();
   });
@@ -174,10 +176,10 @@ describe("csrf", () => {
   test("requireSameOrigin blocks cross-origin requests", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         origin: "https://evil.com",
       },
+      method: "POST",
     });
     const result = requireSameOrigin(request);
     expect(result?.status).toBe(403);
@@ -186,10 +188,10 @@ describe("csrf", () => {
   test("requireSameOrigin allows safe methods", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const request = new Request("https://example.com/api/test", {
-      method: "GET",
       headers: {
         origin: "https://evil.com",
       },
+      method: "GET",
     });
     expect(requireSameOrigin(request)).toBeNull();
   });
@@ -197,16 +199,16 @@ describe("csrf", () => {
   test("requireSameOrigin checks Sec-Fetch-Site header", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const sameOrigin = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         "sec-fetch-site": "same-origin",
       },
+      method: "POST",
     });
     const crossOrigin = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         "sec-fetch-site": "cross-site",
       },
+      method: "POST",
     });
 
     expect(requireSameOrigin(sameOrigin)).toBeNull();
@@ -223,7 +225,7 @@ describe("rate-limit", () => {
 
     try {
       const request = new Request("https://example.com/api/test");
-      const config = { windowMs: 60_000, maxAttempts: 5 };
+      const config = { maxAttempts: 5, windowMs: 60_000 };
 
       // All these should pass
       expect(limiter.check(request, "test", config)).toBeNull();
@@ -240,7 +242,7 @@ describe("rate-limit", () => {
 
     try {
       const request = new Request("https://example.com/api/test");
-      const config = { windowMs: 60_000, maxAttempts: 2 };
+      const config = { maxAttempts: 2, windowMs: 60_000 };
 
       expect(limiter.check(request, "test", config)).toBeNull();
       expect(limiter.check(request, "test", config)).toBeNull();
@@ -258,7 +260,7 @@ describe("rate-limit", () => {
     const limiter = new RateLimiter();
 
     try {
-      const config = { windowMs: 60_000, maxAttempts: 1 };
+      const config = { maxAttempts: 1, windowMs: 60_000 };
 
       const request1 = new Request("https://example.com/api/test", {
         headers: { "x-forwarded-for": "192.168.1.1, 10.0.0.1" },
@@ -281,7 +283,7 @@ describe("rate-limit", () => {
 
     try {
       const request = new Request("https://example.com/api/test");
-      const config = { windowMs: 100, maxAttempts: 1 };
+      const config = { maxAttempts: 1, windowMs: 100 };
 
       expect(limiter.check(request, "test", config)).toBeNull();
 
@@ -299,35 +301,32 @@ describe("rate-limit", () => {
   });
 });
 
-type SessionRow = { id: number };
-type UserRow = { id: number; email: string; passwordHash: string };
-type ActiveSessionRow = {
-  sessionId: number;
-  userId: number;
+interface ActiveSessionRow {
   email: string;
   expiresAt: Date;
-};
+  sessionId: number;
+  userId: number;
+}
+interface SessionRow {
+  id: number;
+}
+interface UserRow {
+  email: string;
+  id: number;
+  passwordHash: string;
+}
 
 const originalDbUrl = process.env.DATABASE_URL;
 
 function buildMockDb(state: {
-  userSessions: SessionRow[];
-  userRows: UserRow[];
   activeSessionRows: ActiveSessionRow[];
-  deleteSessionCalls: number;
   deleteOldSessionCalls: number;
+  deleteSessionCalls: number;
   insertedSessionCalls: number;
+  userRows: UserRow[];
+  userSessions: SessionRow[];
 }) {
   const tx = {
-    select: mock(() => ({
-      from: mock(() => ({
-        where: mock(() => ({
-          orderBy: mock(() => ({
-            for: mock(async () => state.userSessions),
-          })),
-        })),
-      })),
-    })),
     delete: mock(() => ({
       where: mock(async () => {
         state.deleteOldSessionCalls += 1;
@@ -340,12 +339,18 @@ function buildMockDb(state: {
         return [];
       }),
     })),
+    select: mock(() => ({
+      from: mock(() => ({
+        where: mock(() => ({
+          orderBy: mock(() => ({
+            for: mock(async () => state.userSessions),
+          })),
+        })),
+      })),
+    })),
   };
 
   return {
-    transaction: mock(async (callback: (arg: typeof tx) => Promise<unknown>) =>
-      callback(tx),
-    ),
     delete: mock(() => ({
       where: mock(async () => {
         state.deleteSessionCalls += 1;
@@ -354,16 +359,19 @@ function buildMockDb(state: {
     })),
     select: mock(() => ({
       from: mock(() => ({
-        where: mock(() => ({
-          limit: mock(async () => state.userRows),
-        })),
         innerJoin: mock(() => ({
           where: mock(() => ({
             limit: mock(async () => state.activeSessionRows),
           })),
         })),
+        where: mock(() => ({
+          limit: mock(async () => state.userRows),
+        })),
       })),
     })),
+    transaction: mock(async (callback: (arg: typeof tx) => Promise<unknown>) =>
+      callback(tx),
+    ),
   };
 }
 
@@ -384,12 +392,12 @@ afterEach(() => {
 describe("session non-placeholder paths", () => {
   test("createSession enforces max sessions and inserts new session", async () => {
     const state = {
-      userSessions: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }],
-      userRows: [],
       activeSessionRows: [],
-      deleteSessionCalls: 0,
       deleteOldSessionCalls: 0,
+      deleteSessionCalls: 0,
       insertedSessionCalls: 0,
+      userRows: [],
+      userSessions: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }],
     };
 
     const mockDb = buildMockDb(state);
@@ -408,12 +416,12 @@ describe("session non-placeholder paths", () => {
 
   test("deleteSessionByToken executes delete query", async () => {
     const state = {
-      userSessions: [],
-      userRows: [],
       activeSessionRows: [],
-      deleteSessionCalls: 0,
       deleteOldSessionCalls: 0,
+      deleteSessionCalls: 0,
       insertedSessionCalls: 0,
+      userRows: [],
+      userSessions: [],
     };
 
     const mockDb = buildMockDb(state);
@@ -429,12 +437,12 @@ describe("session non-placeholder paths", () => {
 
   test("getUserFromSessionToken returns null for empty token and DB miss", async () => {
     const state = {
-      userSessions: [],
-      userRows: [],
       activeSessionRows: [],
-      deleteSessionCalls: 0,
       deleteOldSessionCalls: 0,
+      deleteSessionCalls: 0,
       insertedSessionCalls: 0,
+      userRows: [],
+      userSessions: [],
     };
 
     const mockDb = buildMockDb(state);
@@ -451,19 +459,19 @@ describe("session non-placeholder paths", () => {
   test("getUserFromSessionToken and getUserFromRequest return active user", async () => {
     const expiresAt = new Date(Date.now() + 60_000);
     const state = {
-      userSessions: [],
-      userRows: [],
       activeSessionRows: [
         {
-          sessionId: 22,
-          userId: 7,
           email: "person@example.com",
           expiresAt,
+          sessionId: 22,
+          userId: 7,
         },
       ],
-      deleteSessionCalls: 0,
       deleteOldSessionCalls: 0,
+      deleteSessionCalls: 0,
       insertedSessionCalls: 0,
+      userRows: [],
+      userSessions: [],
     };
 
     const mockDb = buildMockDb(state);
@@ -471,7 +479,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { SESSION_COOKIE_NAME, getUserFromRequest, getUserFromSessionToken } =
+    const { getUserFromRequest, getUserFromSessionToken, SESSION_COOKIE_NAME } =
       await import("@/lib/auth/session");
 
     const fromToken = await getUserFromSessionToken("active-token");
@@ -493,12 +501,12 @@ describe("session non-placeholder paths", () => {
     const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
 
     const state = {
-      userSessions: [],
-      userRows: [] as UserRow[],
       activeSessionRows: [],
-      deleteSessionCalls: 0,
       deleteOldSessionCalls: 0,
+      deleteSessionCalls: 0,
       insertedSessionCalls: 0,
+      userRows: [] as UserRow[],
+      userSessions: [],
     };
 
     const mockDb = buildMockDb(state as any);
@@ -517,8 +525,8 @@ describe("session non-placeholder paths", () => {
 
     state.userRows = [
       {
-        id: 9,
         email: "person@example.com",
+        id: 9,
         passwordHash: PLACEHOLDER_ADMIN_USER.passwordHash,
       },
     ];

@@ -1,11 +1,11 @@
 declare module "sonner" {
   export const toast: {
-    success: (...args: unknown[]) => void;
+    dismiss: (...args: unknown[]) => void;
     error: (...args: unknown[]) => void;
     info: (...args: unknown[]) => void;
-    warning: (...args: unknown[]) => void;
     message: (...args: unknown[]) => void;
-    dismiss: (...args: unknown[]) => void;
+    success: (...args: unknown[]) => void;
+    warning: (...args: unknown[]) => void;
     (...args: unknown[]): void;
   };
 

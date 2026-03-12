@@ -1,51 +1,51 @@
 // Type definitions and interfaces for LibreRSS
 
-export interface AuthUser {
-  id: number;
-  email: string;
-}
-
-export interface AuthSession {
-  authenticated: boolean;
-  user: AuthUser | null;
-  allowSignup: boolean;
-  usePlaceholderData: boolean;
-}
-
-export interface FeedSource {
-  id: number;
-  name: string;
-  url: string;
-  category?: string;
-  enabled?: boolean;
-  extractionDisabled?: boolean;
-  proxyEnabled?: boolean;
-}
-
 export interface Article {
-  id: number;
-  title: string;
-  link: string;
   content: string;
-  publicationDate: Date;
-  lastChecked: Date;
   feedId: number;
   feedName?: string;
   feedUrl?: string;
+  id: number;
   isRead?: boolean;
   isStarred?: boolean;
+  lastChecked: Date;
+  link: string;
+  publicationDate: Date;
+  title: string;
+}
+
+export interface AuthSession {
+  allowSignup: boolean;
+  authenticated: boolean;
+  usePlaceholderData: boolean;
+  user: AuthUser | null;
+}
+
+export interface AuthUser {
+  email: string;
+  id: number;
 }
 
 export interface CategoryTreeNode {
-  key: string;
-  label: string;
   children?: CategoryTreeNode[];
   data?: {
-    url: string;
-    sourceId?: number;
     category?: string;
     enabled?: boolean;
     extractionDisabled?: boolean;
     proxyEnabled?: boolean;
+    sourceId?: number;
+    url: string;
   };
+  key: string;
+  label: string;
+}
+
+export interface FeedSource {
+  category?: string;
+  enabled?: boolean;
+  extractionDisabled?: boolean;
+  id: number;
+  name: string;
+  proxyEnabled?: boolean;
+  url: string;
 }

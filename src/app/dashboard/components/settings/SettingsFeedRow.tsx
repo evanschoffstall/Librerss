@@ -1,6 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { type CategoryTreeNode } from "@/lib";
 import {
   Eye,
   EyeOff,
@@ -13,32 +10,36 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+
 import {
-  SettingsIconButton,
   animTransitionColorsClass,
   settingsDragHandleCls,
+  SettingsIconButton,
 } from "./SettingsIconButton";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { type CategoryTreeNode } from "@/lib";
+
 export interface SettingsFeedRowProps {
-  feedNode: CategoryTreeNode;
-  index: number;
   categoryLabel: string;
-  selectedCategory: string;
-  editingFeedKey: string | null;
+  deletingKey: null | string;
+  draggingFeedKey: null | string;
+  editingFeedKey: null | string;
   editingFeedName: string;
   editingFeedUrl: string;
-  savingFeedKey: string | null;
-  deletingKey: string | null;
-  movingFeedKey: string | null;
-  draggingFeedKey: string | null;
-  feedDropTarget: { categoryLabel: string; index: number } | null;
-  onDragStart: (event: React.DragEvent<HTMLButtonElement>, key: string) => void;
+  feedDropTarget: null | { categoryLabel: string; index: number };
+  feedNode: CategoryTreeNode;
+  index: number;
+  movingFeedKey: null | string;
+  onCancelRename: () => void;
   onDragEnd: () => void;
   onDragOver: (
     event: React.DragEvent<HTMLElement>,
     categoryLabel: string,
     index: number,
   ) => void;
+  onDragStart: (event: React.DragEvent<HTMLButtonElement>, key: string) => void;
   onDrop: (
     event: React.DragEvent<HTMLElement>,
     categoryLabel: string,
@@ -46,47 +47,48 @@ export interface SettingsFeedRowProps {
   ) => void;
   onEditingNameChange: (name: string) => void;
   onEditingUrlChange: (url: string) => void;
+  onRemove: (key: string) => void;
   onSaveRename: (key: string) => void;
-  onCancelRename: () => void;
   onStartEditing: (
     key: string,
     currentName: string,
     currentUrl: string,
   ) => void;
-  onRemove: (key: string) => void;
   onToggleEnabled: (key: string, enabled: boolean) => void;
   onToggleExtractionDisabled: (key: string, disabled: boolean) => void;
   onToggleProxyEnabled: (key: string, enabled: boolean) => void;
-  togglingFeedKey: string | null;
-  updatingSettingsKey: string | null;
+  savingFeedKey: null | string;
+  selectedCategory: string;
+  togglingFeedKey: null | string;
+  updatingSettingsKey: null | string;
 }
 
 export function SettingsFeedRow({
-  feedNode,
-  index,
   categoryLabel,
-  selectedCategory,
+  deletingKey,
+  draggingFeedKey,
   editingFeedKey,
   editingFeedName,
   editingFeedUrl,
-  savingFeedKey,
-  deletingKey,
-  movingFeedKey,
-  draggingFeedKey,
   feedDropTarget,
-  onDragStart,
+  feedNode,
+  index,
+  movingFeedKey,
+  onCancelRename,
   onDragEnd,
   onDragOver,
+  onDragStart,
   onDrop,
   onEditingNameChange,
   onEditingUrlChange,
-  onSaveRename,
-  onCancelRename,
-  onStartEditing,
   onRemove,
+  onSaveRename,
+  onStartEditing,
   onToggleEnabled,
   onToggleExtractionDisabled,
   onToggleProxyEnabled,
+  savingFeedKey,
+  selectedCategory,
   togglingFeedKey,
   updatingSettingsKey,
 }: SettingsFeedRowProps) {
@@ -147,12 +149,14 @@ export function SettingsFeedRow({
       ) : null}
 
       <button
-        type="button"
-        draggable
-        onDragStart={(event) => onDragStart(event, feedNode.key)}
-        onDragEnd={onDragEnd}
-        className={settingsDragHandleCls}
         aria-label={`Drag ${feedNode.label}`}
+        className={settingsDragHandleCls}
+        draggable
+        onDragEnd={onDragEnd}
+        onDragStart={(event) => {
+          onDragStart(event, feedNode.key);
+        }}
+        type="button"
       >
         <GripVertical className="size-4" />
       </button>
@@ -160,34 +164,40 @@ export function SettingsFeedRow({
       {isEditing ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Input
-            value={editingFeedName}
-            onChange={(event) => onEditingNameChange(event.target.value)}
-            className="h-7 text-xs"
             autoFocus
+            className="h-7 text-xs"
+            onChange={(event) => {
+              onEditingNameChange(event.target.value);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") onSaveRename(feedNode.key);
               if (event.key === "Escape") onCancelRename();
             }}
+            value={editingFeedName}
           />
           <Input
-            value={editingFeedUrl}
-            onChange={(event) => onEditingUrlChange(event.target.value)}
             className="h-7 text-xs"
-            placeholder="https://example.com/feed.xml"
+            onChange={(event) => {
+              onEditingUrlChange(event.target.value);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") onSaveRename(feedNode.key);
               if (event.key === "Escape") onCancelRename();
             }}
+            placeholder="https://example.com/feed.xml"
+            value={editingFeedUrl}
           />
           <Button
-            size="sm"
             className="h-7 text-xs"
-            onClick={() => onSaveRename(feedNode.key)}
             disabled={
               !editingFeedName.trim() ||
               !editingFeedUrl.trim() ||
               savingFeedKey === feedNode.key
             }
+            onClick={() => {
+              onSaveRename(feedNode.key);
+            }}
+            size="sm"
           >
             {savingFeedKey === feedNode.key ? (
               <Loader2 className="mr-1 size-3 animate-spin" />
@@ -195,10 +205,10 @@ export function SettingsFeedRow({
             Save
           </Button>
           <Button
-            size="sm"
-            variant="ghost"
             className="h-7 text-xs"
             onClick={onCancelRename}
+            size="sm"
+            variant="ghost"
           >
             Cancel
           </Button>
@@ -242,15 +252,15 @@ export function SettingsFeedRow({
 
       <div className="flex shrink-0 items-center gap-1">
         <SettingsIconButton
-          tip={
-            isExtractionDisabled ? "Enable extraction" : "Disable extraction"
-          }
+          className={isExtractionDisabled ? "text-muted-foreground/50" : ""}
+          disabled={settingsBusy}
           onClick={() => {
             setPendingSetting("extraction");
             onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled);
           }}
-          disabled={settingsBusy}
-          className={isExtractionDisabled ? "text-muted-foreground/50" : ""}
+          tip={
+            isExtractionDisabled ? "Enable extraction" : "Disable extraction"
+          }
         >
           {isUpdatingSettings && pendingSetting === "extraction" ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -261,15 +271,15 @@ export function SettingsFeedRow({
           )}
         </SettingsIconButton>
         <SettingsIconButton
-          tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
+          className={
+            isProxyEnabled ? "text-primary/80" : "text-muted-foreground/50"
+          }
+          disabled={settingsBusy}
           onClick={() => {
             setPendingSetting("proxy");
             onToggleProxyEnabled(feedNode.key, !isProxyEnabled);
           }}
-          disabled={settingsBusy}
-          className={
-            isProxyEnabled ? "text-primary/80" : "text-muted-foreground/50"
-          }
+          tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
         >
           {isUpdatingSettings && pendingSetting === "proxy" ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -280,9 +290,11 @@ export function SettingsFeedRow({
           )}
         </SettingsIconButton>
         <SettingsIconButton
-          tip={isEnabled ? "Disable feed" : "Enable feed"}
-          onClick={() => onToggleEnabled(feedNode.key, !isEnabled)}
           disabled={isTogglingEnabled || isDeleting || isDragging}
+          onClick={() => {
+            onToggleEnabled(feedNode.key, !isEnabled);
+          }}
+          tip={isEnabled ? "Disable feed" : "Enable feed"}
         >
           {isTogglingEnabled ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -294,10 +306,12 @@ export function SettingsFeedRow({
         </SettingsIconButton>
         <div className="mx-0.5 h-4 w-px bg-border/40" />
         <SettingsIconButton
-          tip="Remove feed"
-          onClick={() => onRemove(feedNode.key)}
-          disabled={isDeleting || isDragging || isTogglingEnabled}
           className="text-muted-foreground hover:text-destructive"
+          disabled={isDeleting || isDragging || isTogglingEnabled}
+          onClick={() => {
+            onRemove(feedNode.key);
+          }}
+          tip="Remove feed"
         >
           {isDeleting ? (
             <Loader2 className="size-3.5 animate-spin" />

@@ -17,12 +17,18 @@ export const ENV = {
 
 // ── Low-level parsers (shared by server + client accessors) ──────────────────
 
-function requireEnvValue(value: string | undefined, key: string): string {
-  if (value === undefined || value.trim() === "") {
-    throw new Error(`Missing required environment variable: ${key}`);
+function parseEnvBoolean(value: string, key: string): boolean {
+  const normalized = value.trim().toLowerCase();
+
+  if (["1", "on", "true", "yes"].includes(normalized)) {
+    return true;
   }
 
-  return value;
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean environment variable: ${key}`);
 }
 
 function parseEnvNumber(value: string, key: string): number {
@@ -35,18 +41,12 @@ function parseEnvNumber(value: string, key: string): number {
   return parsed;
 }
 
-function parseEnvBoolean(value: string, key: string): boolean {
-  const normalized = value.trim().toLowerCase();
-
-  if (["1", "true", "yes", "on"].includes(normalized)) {
-    return true;
+function requireEnvValue(value: string | undefined, key: string): string {
+  if (value === undefined || value.trim() === "") {
+    throw new Error(`Missing required environment variable: ${key}`);
   }
 
-  if (["0", "false", "no", "off"].includes(normalized)) {
-    return false;
-  }
-
-  throw new Error(`Invalid boolean environment variable: ${key}`);
+  return value;
 }
 
 // ── Server env accessors (dynamic key lookup) ────────────────────────────────
@@ -88,7 +88,7 @@ const envEnum = <T extends string>(
   return value as T;
 };
 
-const getLogLevel = (): "none" | "error" | "warn" | "info" | "verbose" =>
+const getLogLevel = (): "error" | "info" | "none" | "verbose" | "warn" =>
   envEnum("LOG_LEVEL", ["none", "error", "warn", "info", "verbose"] as const);
 
 // ── Client env accessors (literal NEXT_PUBLIC_* references) ──────────────────
@@ -146,60 +146,60 @@ const resolveConfigValue = (key: string): unknown => {
 // use a mapped type with known keys + an index signature fallback. This
 // satisfies the no-boundary-any requirement while preserving runtime flexibility.
 
-type ConfigKeys = {
-  // ── Booleans (suffix _ENABLED) ──
-  FEED_REFRESH_DIAGNOSTICS_ENABLED: boolean;
+interface ConfigKeys {
+  DNS_CACHE_MAX_ENTRIES: number;
 
-  // ── Numbers (various suffixes) ──
-  MAX_JSON_BODY_BYTES: number;
-  MAX_FEED_NAME_LENGTH: number;
-  MAX_CATEGORY_NAME_LENGTH: number;
-  PASSWORD_MAX_LENGTH: number;
-  PASSWORD_MIN_LENGTH: number;
-  PASSWORD_COMPLEXITY_REQUIRED_TYPES: number;
-  MAX_EMAIL_LENGTH: number;
-  SESSION_DURATION_DAYS: number;
-  MAX_SESSIONS_PER_USER: number;
-  RATE_LIMIT_FEED_WINDOW_MS: number;
-  RATE_LIMIT_FEED_MAX_REQUESTS: number;
-  RATE_LIMIT_AUTH_WINDOW_MS: number;
-  RATE_LIMIT_AUTH_MAX_REQUESTS: number;
-  RATE_LIMIT_LOGIN_WINDOW_MS: number;
-  RATE_LIMIT_LOGIN_MAX_ATTEMPTS: number;
-  RATE_LIMIT_SIGNUP_WINDOW_MS: number;
-  RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: number;
-  RATE_LIMIT_EXTRACT_WINDOW_MS: number;
-  RATE_LIMIT_EXTRACT_MAX_REQUESTS: number;
-  RATE_LIMIT_FEED_BATCH_WINDOW_MS: number;
-  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: number;
-  FEED_CACHE_TTL_MINUTES: number;
-  FEED_FORCE_REFRESH_TTL_MINUTES: number;
-  FEED_REQUEST_TIMEOUT_MS: number;
+  DNS_CACHE_TTL_MS: number;
+  DNS_LOOKUP_TIMEOUT_MS: number;
   FEED_BATCH_CONCURRENCY: number;
   FEED_BATCH_MAX_URLS: number;
-  MAX_ARTICLES_PER_FEED: number;
-  MAX_ALL_ARTICLES_LIMIT: number;
-  MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: number;
-  MAX_ARTICLE_TITLE_LENGTH: number;
-  MAX_ARTICLE_CONTENT_LENGTH: number;
-  MAX_FEED_RESPONSE_SIZE_BYTES: number;
-  MIN_ARTICLE_IMAGE_WIDTH_PX: number;
-  MIN_ARTICLE_IMAGE_HEIGHT_PX: number;
-  DNS_LOOKUP_TIMEOUT_MS: number;
-  DNS_CACHE_TTL_MS: number;
-  DNS_CACHE_MAX_ENTRIES: number;
-  GREADER_MAX_STREAM_ITEMS: number;
-  GREADER_DEFAULT_STREAM_ITEMS: number;
-  GREADER_NETNEWSWIRE_MAX_ITEMS: number;
-  OPML_MAX_IMPORT_ENTRIES: number;
-
+  FEED_CACHE_TTL_MINUTES: number;
+  FEED_FORCE_REFRESH_TTL_MINUTES: number;
+  // ── Booleans (suffix _ENABLED) ──
+  FEED_REFRESH_DIAGNOSTICS_ENABLED: boolean;
+  FEED_REQUEST_ACCEPT: string;
+  FEED_REQUEST_TIMEOUT_MS: number;
   // ── Strings (user agent, accept headers) ──
   FEED_REQUEST_USER_AGENT: string;
-  FEED_REQUEST_ACCEPT: string;
-
+  GREADER_DEFAULT_STREAM_ITEMS: number;
+  GREADER_MAX_STREAM_ITEMS: number;
+  GREADER_NETNEWSWIRE_MAX_ITEMS: number;
   // ── Enum ──
-  LOG_LEVEL: "none" | "error" | "warn" | "info" | "verbose";
-};
+  LOG_LEVEL: "error" | "info" | "none" | "verbose" | "warn";
+  MAX_ALL_ARTICLES_LIMIT: number;
+  MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: number;
+  MAX_ARTICLE_CONTENT_LENGTH: number;
+  MAX_ARTICLE_TITLE_LENGTH: number;
+  MAX_ARTICLES_PER_FEED: number;
+  MAX_CATEGORY_NAME_LENGTH: number;
+  MAX_EMAIL_LENGTH: number;
+  MAX_FEED_NAME_LENGTH: number;
+  MAX_FEED_RESPONSE_SIZE_BYTES: number;
+  // ── Numbers (various suffixes) ──
+  MAX_JSON_BODY_BYTES: number;
+  MAX_SESSIONS_PER_USER: number;
+  MIN_ARTICLE_IMAGE_HEIGHT_PX: number;
+  MIN_ARTICLE_IMAGE_WIDTH_PX: number;
+  OPML_MAX_IMPORT_ENTRIES: number;
+  PASSWORD_COMPLEXITY_REQUIRED_TYPES: number;
+  PASSWORD_MAX_LENGTH: number;
+  PASSWORD_MIN_LENGTH: number;
+  RATE_LIMIT_AUTH_MAX_REQUESTS: number;
+  RATE_LIMIT_AUTH_WINDOW_MS: number;
+  RATE_LIMIT_EXTRACT_MAX_REQUESTS: number;
+  RATE_LIMIT_EXTRACT_WINDOW_MS: number;
+  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: number;
+  RATE_LIMIT_FEED_BATCH_WINDOW_MS: number;
+  RATE_LIMIT_FEED_MAX_REQUESTS: number;
+  RATE_LIMIT_FEED_WINDOW_MS: number;
+  RATE_LIMIT_LOGIN_MAX_ATTEMPTS: number;
+  RATE_LIMIT_LOGIN_WINDOW_MS: number;
+
+  RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: number;
+  RATE_LIMIT_SIGNUP_WINDOW_MS: number;
+
+  SESSION_DURATION_DAYS: number;
+}
 
 export const CONFIG = new Proxy<ConfigKeys & Record<string, unknown>>(
   {} as ConfigKeys & Record<string, unknown>,

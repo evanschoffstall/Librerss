@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { resolveCategoryWithFallback } from "@/lib/api/greader/categories";
 import { mapArticleAsItem, toReaderIconUrl } from "@/lib/api/greader/mappers";
 import {
@@ -11,13 +13,12 @@ import {
   FEED_STREAM_PREFIX,
   parseReaderItemId,
   parseUserLabel,
-  READING_LIST_STREAM,
   READ_STATE,
+  READING_LIST_STREAM,
   STARRED_STATE,
   toReaderItemId,
   USER_LABEL_PREFIX,
 } from "@/lib/core/stream-ids";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -223,17 +224,17 @@ describe("reader-api – readerItemToArticle", () => {
   test("converts basic item to Article", () => {
     const article = readerItemToArticle(
       {
-        id: "tag:google.com,2005:reader/item/ff",
-        title: "Test Article",
-        published: 1700000000,
         canonical: [{ href: "https://example.com/article" }],
-        summary: { content: "<p>Content</p>" },
+        categories: [],
+        id: "tag:google.com,2005:reader/item/ff",
         origin: {
+          htmlUrl: "https://example.com",
           streamId: "feed/https://example.com/feed",
           title: "Example Feed",
-          htmlUrl: "https://example.com",
         },
-        categories: [],
+        published: 1700000000,
+        summary: { content: "<p>Content</p>" },
+        title: "Test Article",
       },
       0,
     );
@@ -249,9 +250,9 @@ describe("reader-api – readerItemToArticle", () => {
   test("marks article as read when read state in categories", () => {
     const article = readerItemToArticle(
       {
-        title: "Read",
         canonical: [{ href: "https://example.com/1" }],
         categories: [READ_STATE],
+        title: "Read",
       },
       0,
     );
@@ -261,9 +262,9 @@ describe("reader-api – readerItemToArticle", () => {
   test("marks article as starred", () => {
     const article = readerItemToArticle(
       {
-        title: "Starred",
         canonical: [{ href: "https://example.com/2" }],
         categories: [STARRED_STATE],
+        title: "Starred",
       },
       0,
     );
@@ -273,8 +274,8 @@ describe("reader-api – readerItemToArticle", () => {
   test("uses alternate link when canonical missing", () => {
     const article = readerItemToArticle(
       {
-        title: "Test",
         alternate: [{ href: "https://alternate.com/article" }],
+        title: "Test",
       },
       0,
     );
@@ -289,9 +290,9 @@ describe("reader-api – readerItemToArticle", () => {
   test("uses updated when published missing", () => {
     const article = readerItemToArticle(
       {
+        canonical: [{ href: "https://example.com" }],
         title: "Test",
         updated: 1700000000,
-        canonical: [{ href: "https://example.com" }],
       },
       0,
     );
@@ -306,11 +307,11 @@ describe("reader-api – readerItemToArticle", () => {
   test("extracts feed URL from origin htmlUrl", () => {
     const article = readerItemToArticle(
       {
+        canonical: [{ href: "https://blog.com/post" }],
         origin: {
           htmlUrl: "https://blog.com",
           streamId: "feed/https://blog.com/rss",
         },
-        canonical: [{ href: "https://blog.com/post" }],
       },
       0,
     );
@@ -320,8 +321,8 @@ describe("reader-api – readerItemToArticle", () => {
   test("falls back to streamId for feed URL when htmlUrl missing", () => {
     const article = readerItemToArticle(
       {
-        origin: { streamId: "feed/https://blog.com/rss" },
         canonical: [{ href: "https://blog.com/post" }],
+        origin: { streamId: "feed/https://blog.com/rss" },
       },
       0,
     );
@@ -331,12 +332,12 @@ describe("reader-api – readerItemToArticle", () => {
   test("sanitizes tiny placeholder image in reader summary content", () => {
     const article = readerItemToArticle(
       {
-        title: "BBC style image",
         canonical: [{ href: "https://example.com/article" }],
         summary: {
           content:
             '<img src="https://static.files.bbci.co.uk/bbcdotcom/web/grey-placeholder.png" width="150" height="84" /><p>Story text</p>',
         },
+        title: "BBC style image",
       },
       0,
     );
@@ -364,15 +365,15 @@ describe("greader mappers – mapArticleAsItem", () => {
   test("maps article to GReader item format", () => {
     const row = {
       articleId: 42,
-      title: "Test",
-      link: "https://example.com/article",
+      category: "Tech",
       content: "<p>Content</p>",
+      isRead: true,
+      isStarred: false,
+      link: "https://example.com/article",
       publicationDate: new Date("2024-01-15T12:00:00Z"),
       sourceName: "Example Feed",
       sourceUrl: "https://example.com/feed",
-      category: "Tech",
-      isRead: true,
-      isStarred: false,
+      title: "Test",
     };
 
     const item = mapArticleAsItem(row);
@@ -386,15 +387,15 @@ describe("greader mappers – mapArticleAsItem", () => {
   test("uses default category for null category", () => {
     const row = {
       articleId: 1,
-      title: "Test",
-      link: "https://example.com",
+      category: null,
       content: "",
+      isRead: false,
+      isStarred: true,
+      link: "https://example.com",
       publicationDate: new Date(),
       sourceName: "Feed",
       sourceUrl: "https://example.com/feed",
-      category: null,
-      isRead: false,
-      isStarred: true,
+      title: "Test",
     };
 
     const item = mapArticleAsItem(row);

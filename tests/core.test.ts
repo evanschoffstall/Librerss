@@ -50,7 +50,7 @@ describe("reader-item-id", () => {
   });
 
   test("parseReaderItemId extracts article ID", async () => {
-    const { toReaderItemId, parseReaderItemId } =
+    const { parseReaderItemId, toReaderItemId } =
       await import("@/lib/core/stream-ids");
     const encoded = toReaderItemId(456);
     const decoded = parseReaderItemId(encoded);
@@ -66,7 +66,7 @@ describe("reader-item-id", () => {
   });
 
   test("toReaderItemId handles large numbers", async () => {
-    const { toReaderItemId, parseReaderItemId } =
+    const { parseReaderItemId, toReaderItemId } =
       await import("@/lib/core/stream-ids");
     const largeId = 999999999;
     const encoded = toReaderItemId(largeId);
@@ -97,7 +97,7 @@ describe("article-status", () => {
   });
 
   test("canUseArticleStatusesTable caches available result", async () => {
-    const { resetArticleStatusTableStateForTests, canUseArticleStatusesTable } =
+    const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
       await import("@/lib/core/article-status");
 
     resetArticleStatusTableStateForTests();
@@ -113,7 +113,7 @@ describe("article-status", () => {
   });
 
   test("canUseArticleStatusesTable handles missing table errors", async () => {
-    const { resetArticleStatusTableStateForTests, canUseArticleStatusesTable } =
+    const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
       await import("@/lib/core/article-status");
 
     resetArticleStatusTableStateForTests();
@@ -156,7 +156,7 @@ describe("article-status", () => {
     const limit = mock(async () => [{ id: 1 }]);
     const from = mock(() => ({ limit }));
     const select = mock(() => ({ from }));
-    const db: Record<string, unknown> = { select, insert };
+    const db: Record<string, unknown> = { insert, select };
     db.transaction = async (cb: (tx: typeof db) => Promise<void>) => cb(db);
 
     const articleIds = Array.from({ length: 1201 }, (_, index) => index + 1);
@@ -179,9 +179,9 @@ describe("stream-conditions", () => {
     const { buildStreamConditions } =
       await import("@/lib/core/stream-conditions");
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: null,
       starredOnly: false,
       useArticleStatuses: true,
     });
@@ -193,9 +193,9 @@ describe("stream-conditions", () => {
     const { buildStreamConditions } =
       await import("@/lib/core/stream-conditions");
     const conditions = buildStreamConditions({
-      feedUrl: "https://example.com/feed.xml",
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: "https://example.com/feed.xml",
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -206,9 +206,9 @@ describe("stream-conditions", () => {
     const { buildStreamConditions } =
       await import("@/lib/core/stream-conditions");
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: null,
       starredOnly: true,
       useArticleStatuses: true,
     });
@@ -219,11 +219,11 @@ describe("stream-conditions", () => {
     const { buildStreamConditions } =
       await import("@/lib/core/stream-conditions");
     const conditions = buildStreamConditions({
-      feedUrl: "https://example.com/feed.xml",
-      dateFilter: new Date("2024-01-01T00:00:00.000Z"),
       continuationId: 321,
-      starredOnly: true,
+      dateFilter: new Date("2024-01-01T00:00:00.000Z"),
       excludeRead: true,
+      feedUrl: "https://example.com/feed.xml",
+      starredOnly: true,
       useArticleStatuses: true,
     });
     expect(conditions).toHaveLength(4);
@@ -250,20 +250,20 @@ describe("feed-parser", () => {
     const older = new Date(now.getTime() - 60_000);
     const items = [
       {
-        title: "old",
-        link: " https://example.com/a ",
-        publicationDate: older,
         content: "short",
         feedId: 1,
         lastChecked: now,
+        link: " https://example.com/a ",
+        publicationDate: older,
+        title: "old",
       },
       {
-        title: "new",
-        link: "https://example.com/a",
-        publicationDate: now,
         content: "longer-content",
         feedId: 1,
         lastChecked: now,
+        link: "https://example.com/a",
+        publicationDate: now,
+        title: "new",
       },
     ];
     const deduped = dedupePendingArticles(items);
@@ -281,20 +281,20 @@ describe("feed-parser", () => {
 
     const items = [
       {
-        title: "a",
-        link: "https://example.com/a",
-        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
         content: "x",
         feedId: 1,
         lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "a",
       },
       {
-        title: "b",
-        link: "https://example.com/b",
-        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
         content: "y",
         feedId: 1,
         lastChecked: new Date("2024-01-02T00:00:00.000Z"),
+        link: "https://example.com/b",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        title: "b",
       },
     ];
     const range = getPublicationDateRange(items);
@@ -307,7 +307,7 @@ describe("feed-parser", () => {
     const now = new Date("2024-01-01T00:00:00.000Z");
 
     const invalid = toPendingArticle(
-      { title: "x", link: "not-a-url", content: "y" },
+      { content: "y", link: "not-a-url", title: "x" },
       1,
       now,
     );
@@ -315,10 +315,10 @@ describe("feed-parser", () => {
 
     const valid = toPendingArticle(
       {
-        title: " Hello <b>World</b> ",
-        link: "https://example.com/a",
         content: "<p>safe</p>",
         isoDate: "2024-01-03T00:00:00.000Z",
+        link: "https://example.com/a",
+        title: " Hello <b>World</b> ",
       },
       7,
       now,
@@ -345,13 +345,13 @@ describe("feed-http", () => {
 
       if (requestUrl === "https://example.com/feed.xml") {
         return {
-          status: 302,
-          headers: { location: "/redirected.xml" },
           data: "",
+          headers: { location: "/redirected.xml" },
+          status: 302,
         };
       }
 
-      return { status: 200, headers: {}, data: "<rss />" };
+      return { data: "<rss />", headers: {}, status: 200 };
     });
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
@@ -379,9 +379,9 @@ describe("feed-http", () => {
       fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
         axiosGetFn: (async () => ({
-          status: 302,
-          headers: {},
           data: "",
+          headers: {},
+          status: 302,
         })) as any,
       }),
     ).rejects.toThrow("Redirect without Location header");
@@ -390,9 +390,9 @@ describe("feed-http", () => {
       fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
         axiosGetFn: (async () => ({
-          status: 302,
-          headers: { location: "/loop" },
           data: "",
+          headers: { location: "/loop" },
+          status: 302,
         })) as any,
       }),
     ).rejects.toThrow("Too many redirects");
@@ -414,8 +414,8 @@ describe("feed-http", () => {
 
     const upstreamError = {
       response: {
-        status: 403,
         headers: { "x-datadome": "protected" },
+        status: 403,
       },
     };
 
@@ -435,8 +435,8 @@ describe("feed-http", () => {
 
     const upstreamError = {
       response: {
-        status: 500,
         headers: {},
+        status: 500,
       },
     };
 
@@ -465,8 +465,8 @@ describe("dns-cache", () => {
     const lookupFn = mock(async () => [{ address: "8.8.8.8" }]);
 
     const deps = {
-      lookupFn: lookupFn as any,
       isBlockedResolvedAddressFn: () => false,
+      lookupFn: lookupFn as any,
       nowFn: () => nowMs,
       warnFn: () => {},
     };
@@ -493,8 +493,8 @@ describe("dns-cache", () => {
     });
 
     const deps = {
-      lookupFn: lookupFn as any,
       isBlockedResolvedAddressFn: () => false,
+      lookupFn: lookupFn as any,
       nowFn: () => nowMs,
       warnFn,
     };
@@ -523,12 +523,12 @@ describe("dns-cache", () => {
     }) as typeof setTimeout;
 
     const result = await resolvesToBlockedAddress("timeout.example", {
-      lookupFn: (() => new Promise(() => {})) as any,
-      isBlockedResolvedAddressFn: () => false,
-      warnFn,
-      setTimeoutFn,
       clearTimeoutFn: clearTimeoutFn as any,
+      isBlockedResolvedAddressFn: () => false,
+      lookupFn: (() => new Promise(() => {})) as any,
       nowFn: () => 50_000,
+      setTimeoutFn,
+      warnFn,
     });
 
     expect(result).toBe(true);
@@ -554,7 +554,7 @@ describe("feed-refresh", () => {
     >;
 
   test("shouldRefreshFeed and shouldForceRefreshFeed compare age thresholds", async () => {
-    const { shouldRefreshFeed, shouldForceRefreshFeed } =
+    const { shouldForceRefreshFeed, shouldRefreshFeed } =
       await importFeedRefresh();
 
     expect(shouldRefreshFeed(new Date(Date.now() - 1000 * 60 * 120))).toBe(
@@ -585,27 +585,27 @@ describe("feed-refresh", () => {
       { insert, update } as unknown as any,
       {
         id: 1,
-        url: "https://example.com/feed.xml",
         lastFetched: new Date("2026-02-23T00:00:00.000Z"),
         lastFetchError: null,
+        url: "https://example.com/feed.xml",
       },
       {
-        fetchFeedXmlFn: async () => "<rss />",
-        parseFeedXmlFn: async () => ({ items: [{ title: "A" }] }),
-        toPendingArticleFn: mock(() => ({
-          title: "A",
-          link: "https://example.com/a",
-          content: "Body",
-          publicationDate: fixedNow,
-          feedId: 1,
-          lastChecked: fixedNow,
-        })) as any,
         dedupePendingArticlesFn: (rows) => rows,
+        fetchFeedXmlFn: async () => "<rss />",
         getPublicationDateRangeFn: () => ({
           newestPublicationDate: fixedNow.toISOString(),
           oldestPublicationDate: fixedNow.toISOString(),
         }),
         nowFn: () => fixedNow,
+        parseFeedXmlFn: async () => ({ items: [{ title: "A" }] }),
+        toPendingArticleFn: mock(() => ({
+          content: "Body",
+          feedId: 1,
+          lastChecked: fixedNow,
+          link: "https://example.com/a",
+          publicationDate: fixedNow,
+          title: "A",
+        })) as any,
       },
     );
 
@@ -625,9 +625,9 @@ describe("feed-refresh", () => {
       { update } as unknown as any,
       {
         id: 2,
-        url: "https://example.com/feed.xml",
         lastFetched: new Date("2026-02-23T00:00:00.000Z"),
         lastFetchError: null,
+        url: "https://example.com/feed.xml",
       },
       {
         fetchFeedXmlFn: async () => {
@@ -637,7 +637,7 @@ describe("feed-refresh", () => {
       },
     );
 
-    expect(result).toEqual({ ok: false, error: "normalized-error" });
+    expect(result).toEqual({ error: "normalized-error", ok: false });
     expect(update).toHaveBeenCalledTimes(1);
   });
 
@@ -661,20 +661,20 @@ describe("feed-refresh", () => {
         { insert, update } as unknown as any,
         {
           id: 10,
-          url: "https://example.com/diag.xml",
           lastFetched: new Date("2026-02-23T00:00:00.000Z"),
           lastFetchError: null,
+          url: "https://example.com/diag.xml",
         },
         {
-          fetchFeedXmlFn: async () => "<rss />",
-          parseFeedXmlFn: async () => ({ items: [{ title: "x" }] }),
-          toPendingArticleFn: mock(() => null) as any,
           dedupePendingArticlesFn: (rows) => rows,
+          fetchFeedXmlFn: async () => "<rss />",
           getPublicationDateRangeFn: () => ({
             newestPublicationDate: null,
             oldestPublicationDate: null,
           }),
           nowFn: () => new Date("2026-02-24T00:00:00.000Z"),
+          parseFeedXmlFn: async () => ({ items: [{ title: "x" }] }),
+          toPendingArticleFn: mock(() => null) as any,
         },
       );
 
@@ -704,9 +704,9 @@ describe("feed-refresh", () => {
         { update } as unknown as any,
         {
           id: 20,
-          url: "https://example.com/fail.xml",
           lastFetched: new Date("2026-02-23T00:00:00.000Z"),
           lastFetchError: null,
+          url: "https://example.com/fail.xml",
         },
         {
           fetchFeedXmlFn: async () => {
@@ -716,7 +716,7 @@ describe("feed-refresh", () => {
         },
       );
 
-      expect(result).toEqual({ ok: false, error: "normalized-error" });
+      expect(result).toEqual({ error: "normalized-error", ok: false });
       expect(update).toHaveBeenCalledTimes(1);
     } finally {
       (CONFIG as any).FEED_REFRESH_DIAGNOSTICS_ENABLED = previousDiag;
@@ -741,18 +741,18 @@ describe("feed-batch-pipeline", () => {
     >;
 
   function createResolveDb(options: {
-    ownedRows: { url: string }[];
     existingFeeds: {
       id: number;
-      url: string;
       lastFetched: Date;
-      lastFetchError: string | null;
+      lastFetchError: null | string;
+      url: string;
     }[];
+    ownedRows: { url: string }[];
     resolvedFeeds?: {
       id: number;
-      url: string;
       lastFetched: Date;
-      lastFetchError: string | null;
+      lastFetchError: null | string;
+      url: string;
     }[];
   }) {
     // The new resolveAuthorizedFeedRecords uses a single JOIN query:
@@ -765,11 +765,11 @@ describe("feed-batch-pipeline", () => {
     const joinedRows = options.ownedRows.map((owned) => {
       const feed = options.existingFeeds.find((f) => f.url === owned.url);
       return {
-        sourceUrl: owned.url,
         feedId: feed?.id ?? null,
         feedUrl: feed?.url ?? null,
         lastFetched: feed?.lastFetched ?? null,
         lastFetchError: feed?.lastFetchError ?? null,
+        sourceUrl: owned.url,
       };
     });
 
@@ -780,7 +780,7 @@ describe("feed-batch-pipeline", () => {
     });
 
     const leftJoin = mock(() => ({ where }));
-    const from = mock(() => ({ where, leftJoin }));
+    const from = mock(() => ({ leftJoin, where }));
     const select = mock(() => ({ from }));
 
     const returning = mock(async () => options.resolvedFeeds ?? []);
@@ -789,13 +789,13 @@ describe("feed-batch-pipeline", () => {
     const insert = mock(() => ({ values }));
 
     return {
-      select,
-      insert,
       __calls: {
-        where,
-        values,
         insert,
+        values,
+        where,
       },
+      insert,
+      select,
     };
   }
 
@@ -810,18 +810,18 @@ describe("feed-batch-pipeline", () => {
         "https://a.com/feed",
         {
           id: 1,
-          url: "https://a.com/feed",
           lastFetched: veryOld,
           lastFetchError: null,
+          url: "https://a.com/feed",
         },
       ],
       [
         "https://b.com/feed",
         {
           id: 2,
-          url: "https://b.com/feed",
           lastFetched: fresh,
           lastFetchError: null,
+          url: "https://b.com/feed",
         },
       ],
     ]);
@@ -865,21 +865,21 @@ describe("feed-batch-pipeline", () => {
     const now = new Date("2026-02-24T00:00:00.000Z");
 
     const db = createResolveDb({
-      ownedRows: [{ url: "https://a.com/feed" }, { url: "https://c.com/feed" }],
       existingFeeds: [
         {
           id: 10,
-          url: "https://a.com/feed",
           lastFetched: now,
           lastFetchError: null,
+          url: "https://a.com/feed",
         },
       ],
+      ownedRows: [{ url: "https://a.com/feed" }, { url: "https://c.com/feed" }],
       resolvedFeeds: [
         {
           id: 11,
-          url: "https://c.com/feed",
           lastFetched: now,
           lastFetchError: null,
+          url: "https://c.com/feed",
         },
       ],
     });
@@ -906,8 +906,8 @@ describe("feed-batch-pipeline", () => {
     const { resolveAuthorizedFeedRecords } = await importFeedBatchHelpers();
 
     const db = createResolveDb({
-      ownedRows: [],
       existingFeeds: [],
+      ownedRows: [],
     });
 
     const result = await resolveAuthorizedFeedRecords(db as unknown as any, 6, [
@@ -923,15 +923,15 @@ describe("feed-batch-pipeline", () => {
 
     const arrayRows = [
       {
-        id: 1,
-        feedId: 10,
-        title: "A",
-        link: "https://example.com/a",
         content: "x",
-        publicationDate: new Date("2026-01-01T00:00:00.000Z"),
-        lastChecked: new Date("2026-01-01T01:00:00.000Z"),
+        feedId: 10,
+        id: 1,
         isRead: false,
         isStarred: false,
+        lastChecked: new Date("2026-01-01T01:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2026-01-01T00:00:00.000Z"),
+        title: "A",
       },
     ];
     const dbWithArray = {
@@ -947,15 +947,15 @@ describe("feed-batch-pipeline", () => {
 
     const wrappedRows = [
       {
-        id: 2,
-        feedId: 11,
-        title: "B",
-        link: "https://example.com/b",
         content: "y",
-        publicationDate: new Date("2026-01-02T00:00:00.000Z"),
-        lastChecked: new Date("2026-01-02T01:00:00.000Z"),
+        feedId: 11,
+        id: 2,
         isRead: true,
         isStarred: true,
+        lastChecked: new Date("2026-01-02T01:00:00.000Z"),
+        link: "https://example.com/b",
+        publicationDate: new Date("2026-01-02T00:00:00.000Z"),
+        title: "B",
       },
     ];
     const dbWithWrapped = {
@@ -989,9 +989,9 @@ describe("feed-batch-pipeline", () => {
         "https://a.com/feed",
         {
           id: 1,
-          url: "https://a.com/feed",
           lastFetched: new Date(),
           lastFetchError: "persisted-error",
+          url: "https://a.com/feed",
         },
       ],
     ]);
@@ -1021,19 +1021,19 @@ describe("feed-batch-pipeline", () => {
         "not-a-url",
         {
           id: 2,
-          url: "not-a-url",
           lastFetched: stale,
           lastFetchError: "previous-error",
+          url: "not-a-url",
         },
       ],
     ]);
 
     const db = {
-      update: mock(() => ({
-        set: mock(() => ({ where: mock(async () => []) })),
-      })),
       insert: mock(() => ({
         values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
+      })),
+      update: mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
       })),
     };
 
@@ -1057,35 +1057,35 @@ describe("feed-batch-pipeline", () => {
         "https://a.com/feed",
         {
           id: 10,
-          url: "https://a.com/feed",
           lastFetched: new Date(),
           lastFetchError: null,
+          url: "https://a.com/feed",
         },
       ],
     ]);
 
     const rows = [
       {
-        id: "5",
-        title: "Title",
-        link: "https://a.com/article",
         content: "Body",
-        publicationDate: "2024-01-01T00:00:00.000Z",
         feedId: 10,
-        lastChecked: "2024-01-01T01:00:00.000Z",
+        id: "5",
         isRead: 1,
         isStarred: 0,
+        lastChecked: "2024-01-01T01:00:00.000Z",
+        link: "https://a.com/article",
+        publicationDate: "2024-01-01T00:00:00.000Z",
+        title: "Title",
       },
       {
-        id: "6",
-        title: "Ignored",
-        link: "https://missing.com/article",
         content: "x",
-        publicationDate: "2024-01-01T00:00:00.000Z",
         feedId: 99,
-        lastChecked: "2024-01-01T01:00:00.000Z",
+        id: "6",
         isRead: 0,
         isStarred: 0,
+        lastChecked: "2024-01-01T01:00:00.000Z",
+        link: "https://missing.com/article",
+        publicationDate: "2024-01-01T00:00:00.000Z",
+        title: "Ignored",
       },
     ];
 
@@ -1094,13 +1094,13 @@ describe("feed-batch-pipeline", () => {
     expect(Array.isArray(mapped)).toBe(true);
     if (mapped.length > 0) {
       expect(mapped[0]).toMatchObject({
-        id: 5,
-        title: "Title",
-        link: "https://a.com/article",
         content: "Body",
         feedId: 10,
+        id: 5,
         isRead: true,
         isStarred: false,
+        link: "https://a.com/article",
+        title: "Title",
       });
     }
   });
@@ -1115,9 +1115,9 @@ describe("feed-batch-pipeline", () => {
         "https://force.example.com/feed",
         {
           id: 3,
-          url: "https://force.example.com/feed",
           lastFetched: veryOld,
           lastFetchError: null,
+          url: "https://force.example.com/feed",
         },
       ],
     ]);
@@ -1148,9 +1148,9 @@ describe("feed-batch-pipeline", () => {
         "https://errored.example.com/feed",
         {
           id: 4,
-          url: "https://errored.example.com/feed",
           lastFetched: fresh,
           lastFetchError: "upstream 500",
+          url: "https://errored.example.com/feed",
         },
       ],
     ]);
@@ -1180,9 +1180,9 @@ describe("feed-batch-pipeline", () => {
         "https://cooldown.example.com/feed",
         {
           id: 5,
-          url: "https://cooldown.example.com/feed",
           lastFetched: justRefreshed,
           lastFetchError: null,
+          url: "https://cooldown.example.com/feed",
         },
       ],
     ]);
@@ -1228,17 +1228,14 @@ describe("feed-batch-pipeline", () => {
         "https://fresh-force.example.com/feed",
         {
           id: 20,
-          url: "https://fresh-force.example.com/feed",
           lastFetched: fresh,
           lastFetchError: null,
+          url: "https://fresh-force.example.com/feed",
         },
       ],
     ]);
 
     const db = {
-      update: mock(() => ({
-        set: mock(() => ({ where: mock(async () => []) })),
-      })),
       insert: mock(() => ({
         values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
       })),
@@ -1246,6 +1243,9 @@ describe("feed-batch-pipeline", () => {
         from: mock(() => ({
           where: mock(() => ({ limit: mock(() => Promise.resolve([])) })),
         })),
+      })),
+      update: mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
       })),
     };
 
@@ -1278,8 +1278,8 @@ describe("mark-stream-read", () => {
     const rows = [{ articleId: 1 }, { articleId: 2 }];
     const chain: any = {
       innerJoin: mock(() => chain),
-      where: mock(() => chain),
       limit: mock(async () => rows),
+      where: mock(() => chain),
     };
     const db = {
       select: mock(() => ({
@@ -1289,15 +1289,15 @@ describe("mark-stream-read", () => {
     const upsert = mock(async () => {});
 
     await markStreamAsRead(5, "feed/https://example.com/feed.xml", {
-      db: db as any,
       canUseArticleStatusesTableFn: async () => true,
+      db: db as any,
       upsertArticleStatusesFn: upsert as any,
     });
     expect(upsert).toHaveBeenCalledWith(5, [1, 2], { isRead: true });
 
     await markStreamAsRead(5, "user/-/state/com.google/reading-list", {
-      db: db as any,
       canUseArticleStatusesTableFn: async () => false,
+      db: db as any,
       upsertArticleStatusesFn: upsert as any,
     });
     expect(upsert).toHaveBeenCalledTimes(2);
@@ -1310,8 +1310,8 @@ describe("mark-stream-read", () => {
     const starredRows = [{ articleId: 7 }];
     const chain: any = {
       innerJoin: mock(() => chain),
-      where: mock(() => chain),
       limit: mock(async () => starredRows),
+      where: mock(() => chain),
     };
     const db = {
       select: mock(() => ({
@@ -1321,16 +1321,16 @@ describe("mark-stream-read", () => {
     const upsert = mock(async () => {});
 
     await markStreamAsRead(9, STARRED_STATE, {
-      db: db as any,
       canUseArticleStatusesTableFn: async () => true,
+      db: db as any,
       upsertArticleStatusesFn: upsert as any,
     });
     expect(upsert).toHaveBeenCalledWith(9, [7], { isRead: true });
 
     const dbNoQuery = { select: mock(() => ({ from: mock(() => chain) })) };
     await markStreamAsRead(9, STARRED_STATE, {
-      db: dbNoQuery as any,
       canUseArticleStatusesTableFn: async () => false,
+      db: dbNoQuery as any,
       upsertArticleStatusesFn: upsert as any,
     });
     expect(upsert).toHaveBeenCalledWith(9, [], { isRead: true });
@@ -1354,8 +1354,8 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
     const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/state/com.google/starred", {
-      db: buildMockDbChain([{ articleId: 10 }]),
       canUseArticleStatusesTableFn: async () => true,
+      db: buildMockDbChain([{ articleId: 10 }]),
       upsertArticleStatusesFn: upsertFn,
     });
     expect(upsertFn).toHaveBeenCalledWith(1, [10], { isRead: true });
@@ -1365,8 +1365,8 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
     const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/state/com.google/starred", {
-      db: buildMockDbChain(),
       canUseArticleStatusesTableFn: async () => false,
+      db: buildMockDbChain(),
       upsertArticleStatusesFn: upsertFn,
     });
     expect(upsertFn).toHaveBeenCalledWith(1, [], { isRead: true });
@@ -1376,8 +1376,8 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
     const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/label/Technology", {
-      db: buildMockDbChain([{ articleId: 20 }]),
       canUseArticleStatusesTableFn: async () => false,
+      db: buildMockDbChain([{ articleId: 20 }]),
       upsertArticleStatusesFn: upsertFn,
     });
     expect(upsertFn).toHaveBeenCalledWith(1, [20], { isRead: true });
@@ -1387,10 +1387,10 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
     const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/state/com.google/reading-list", {
-      db: buildMockDbChain([{ articleId: 30 }]),
-      canUseArticleStatusesTableFn: async () => false,
-      upsertArticleStatusesFn: upsertFn,
       beforeMs: Date.now() - 3600_000,
+      canUseArticleStatusesTableFn: async () => false,
+      db: buildMockDbChain([{ articleId: 30 }]),
+      upsertArticleStatusesFn: upsertFn,
     });
     expect(upsertFn).toHaveBeenCalled();
   });
@@ -1400,7 +1400,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
 
 describe("core/feed-cache – setCachedBatch eviction", () => {
   test("evicts oldest entry when per-user capacity is exceeded", async () => {
-    const { getCachedBatch, setCachedBatch, invalidateUserCache } =
+    const { getCachedBatch, invalidateUserCache, setCachedBatch } =
       await import("@/lib/core/feed-cache");
 
     const userId = 98765; // unique userId to isolate from other tests
@@ -1575,8 +1575,8 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
           limit: () =>
             Promise.reject(
               Object.assign(new Error("wrapper error"), {
-                code: "42P01",
                 cause: null, // null cause → recursive call returns false (line 13)
+                code: "42P01",
                 // message doesn't contain "articlestatus"
                 // so only candidate.cause path is tried (line 31)
               }),
@@ -1618,9 +1618,9 @@ describe("lib/core/feed-batch-pipeline – mapRowsToArticleMap safety branches",
         "https://example.com/feed",
         {
           id: 1,
-          url: "https://example.com/feed",
           lastFetched: new Date(),
           lastFetchError: null,
+          url: "https://example.com/feed",
         },
       ],
     ]);
@@ -1639,23 +1639,23 @@ describe("lib/core/feed-batch-pipeline – mapRowsToArticleMap safety branches",
         "https://example.com/feed",
         {
           id: 1,
-          url: "https://example.com/feed",
           lastFetched: new Date(),
           lastFetchError: null,
+          url: "https://example.com/feed",
         },
       ],
     ]);
     // Row passes isValidRankedRow (id is a string) but Number("not-a-number") = NaN
     const nanIdRow = {
-      id: "not-a-number", // typeof string → passes isValidRankedRow
-      feedId: "1", // valid integer string → idToUrl.get(1) returns URL
-      title: "Test Article",
-      link: "https://test.example.com/article",
       content: null,
-      publicationDate: new Date().toISOString(),
-      lastChecked: new Date().toISOString(),
+      feedId: "1", // valid integer string → idToUrl.get(1) returns URL
+      id: "not-a-number", // typeof string → passes isValidRankedRow
       isRead: false,
       isStarred: false,
+      lastChecked: new Date().toISOString(),
+      link: "https://test.example.com/article",
+      publicationDate: new Date().toISOString(),
+      title: "Test Article",
     };
     const result = mapRowsToArticleMap([nanIdRow as any], feedByUrl, [
       "https://example.com/feed",
@@ -1673,7 +1673,7 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
     try {
       // Zero TTL → any entry is immediately stale (Date.now() - cachedAt < 0 is false)
       process.env.FEED_CACHE_TTL_MINUTES = "0";
-      const { setCachedBatch, getCachedBatch } =
+      const { getCachedBatch, setCachedBatch } =
         await import("@/lib/core/feed-cache");
       const mockResult = {
         articles: new Map(),

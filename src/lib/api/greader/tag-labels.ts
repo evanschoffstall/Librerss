@@ -1,3 +1,9 @@
+import { and, eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
+import { resolveCategoryLabelsByUrl } from "./categories";
+import { loadUserSubscriptionRows } from "./subscription-data";
+
 import {
   asTrimmedString,
   parseFormOrQueryParams,
@@ -18,10 +24,78 @@ import {
   DEFAULT_CATEGORY_LABEL,
   toOptionalCategoryLabel,
 } from "@/lib/utils/categories";
-import { and, eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
-import { resolveCategoryLabelsByUrl } from "./categories";
-import { loadUserSubscriptionRows } from "./subscription-data";
+
+export async function handleDisableTag(
+  user: SessionUser,
+  request: NextRequest,
+): Promise<Response> {
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
+
+  const tagId = asTrimmedString(params.get("s"));
+  // Not a user label — nothing to disable (system tags like reading-list are not deletable).
+  const label = parseUserLabel(tagId);
+  if (!label) {
+    return textResponse("OK\n");
+  }
+
+  const db = getDb();
+  await db
+    .delete(feedCategories)
+    .where(
+      and(
+        eq(feedCategories.userId, user.userId),
+        eq(feedCategories.category, label),
+      ),
+    );
+
+  logger.info("[greader] disable-tag", {
+    label,
+    userId: user.userId,
+  });
+
+  return textResponse("OK\n");
+}
+
+export async function handleRenameTag(
+  user: SessionUser,
+  request: NextRequest,
+): Promise<Response> {
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
+
+  const sourceTag = asTrimmedString(params.get("s"));
+  const destTag = asTrimmedString(params.get("dest"));
+
+  const oldLabel = parseUserLabel(sourceTag);
+  const newLabel = parseUserLabel(destTag);
+  if (!oldLabel || !newLabel || oldLabel === newLabel) {
+    return textResponse("OK\n");
+  }
+
+  const db = getDb();
+  await db
+    .update(feedCategories)
+    .set({ category: newLabel })
+    .where(
+      and(
+        eq(feedCategories.userId, user.userId),
+        eq(feedCategories.category, oldLabel),
+      ),
+    );
+
+  logger.info("[greader] rename-tag", {
+    newLabel,
+    oldLabel,
+    userId: user.userId,
+  });
+
+  return textResponse("OK\n");
+}
 
 export async function handleTagList(user: SessionUser): Promise<Response> {
   const rows = await loadUserSubscriptionRows(user.userId);
@@ -67,76 +141,4 @@ export async function handleTagList(user: SessionUser): Promise<Response> {
       })),
     ],
   });
-}
-
-export async function handleDisableTag(
-  user: SessionUser,
-  request: NextRequest,
-): Promise<Response> {
-  const params = await parseFormOrQueryParams(request);
-  if (params instanceof Response) {
-    return params;
-  }
-
-  const tagId = asTrimmedString(params.get("s"));
-  // Not a user label — nothing to disable (system tags like reading-list are not deletable).
-  const label = parseUserLabel(tagId);
-  if (!label) {
-    return textResponse("OK\n");
-  }
-
-  const db = getDb();
-  await db
-    .delete(feedCategories)
-    .where(
-      and(
-        eq(feedCategories.userId, user.userId),
-        eq(feedCategories.category, label),
-      ),
-    );
-
-  logger.info("[greader] disable-tag", {
-    userId: user.userId,
-    label,
-  });
-
-  return textResponse("OK\n");
-}
-
-export async function handleRenameTag(
-  user: SessionUser,
-  request: NextRequest,
-): Promise<Response> {
-  const params = await parseFormOrQueryParams(request);
-  if (params instanceof Response) {
-    return params;
-  }
-
-  const sourceTag = asTrimmedString(params.get("s"));
-  const destTag = asTrimmedString(params.get("dest"));
-
-  const oldLabel = parseUserLabel(sourceTag);
-  const newLabel = parseUserLabel(destTag);
-  if (!oldLabel || !newLabel || oldLabel === newLabel) {
-    return textResponse("OK\n");
-  }
-
-  const db = getDb();
-  await db
-    .update(feedCategories)
-    .set({ category: newLabel })
-    .where(
-      and(
-        eq(feedCategories.userId, user.userId),
-        eq(feedCategories.category, oldLabel),
-      ),
-    );
-
-  logger.info("[greader] rename-tag", {
-    userId: user.userId,
-    oldLabel,
-    newLabel,
-  });
-
-  return textResponse("OK\n");
 }

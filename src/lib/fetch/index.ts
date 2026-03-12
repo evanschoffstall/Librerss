@@ -1,6 +1,6 @@
 export { buildAxiosGet } from "./axios-client";
-export { detectBotProtection } from "./bot-detection";
 export type { BotDetection } from "./bot-detection";
+export { detectBotProtection } from "./bot-detection";
 export {
   CHROME,
   CHROME_HEADERS_BASE,

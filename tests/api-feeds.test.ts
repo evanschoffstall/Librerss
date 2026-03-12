@@ -13,7 +13,11 @@ import {
   mock,
   test,
 } from "bun:test";
+
+import { NextRequest } from "next/server";
+
 import { createMockFeed, createMockRequest } from "./support/test-utils";
+
 import {
   getRequestedFeedUrl,
   parseCreateFeedPayload,
@@ -23,20 +27,21 @@ import {
   parseToggleFeedEnabledPayloadFromBody,
   parseUpdateFeedSettingsPayloadFromBody,
 } from "@/lib/api/feeds/parsers";
-import { NextRequest } from "next/server";
 
 const createSelectChain = () => ({
   leftJoin: () => createSelectChain(),
-  where: () => createSelectChain(),
-  orderBy: () => createSelectChain(),
   limit: () => Promise.resolve([createMockFeed()]),
+  orderBy: () => createSelectChain(),
+  where: () => createSelectChain(),
 });
 
 function registerModuleMocks() {
   mock.module("@/lib/db/db", () => ({
     getDb: () => ({
-      select: () => ({
-        from: () => createSelectChain(),
+      delete: () => ({
+        from: () => ({
+          where: () => Promise.resolve({ rowCount: 1 }),
+        }),
       }),
       insert: () => ({
         into: () => ({
@@ -45,14 +50,12 @@ function registerModuleMocks() {
           }),
         }),
       }),
+      select: () => ({
+        from: () => createSelectChain(),
+      }),
       update: () => ({
         set: () => ({
           where: () => Promise.resolve([createMockFeed()]),
-        }),
-      }),
-      delete: () => ({
-        from: () => ({
-          where: () => Promise.resolve({ rowCount: 1 }),
         }),
       }),
     }),
@@ -64,10 +67,10 @@ function registerModuleMocks() {
 }
 
 const authenticatedUser = {
-  sessionId: 1,
-  userId: 1,
   email: "test@example.com",
   expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+  sessionId: 1,
+  userId: 1,
 };
 
 const routeDeps = {
@@ -110,10 +113,10 @@ describe("Feeds API - Add", () => {
   test("POST /api/feeds requires url", async () => {
     const { POST } = await import("@/app/api/feeds/route");
     const request = createMockRequest("https://example.com/api/feeds", {
-      method: "POST",
       body: {},
       cookies: { session: "test-session" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request, routeDeps);
@@ -123,10 +126,10 @@ describe("Feeds API - Add", () => {
   test("POST /api/feeds validates url format", async () => {
     const { POST } = await import("@/app/api/feeds/route");
     const request = createMockRequest("https://example.com/api/feeds", {
-      method: "POST",
       body: { url: "not-a-valid-url" },
       cookies: { session: "test-session" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request, routeDeps);
@@ -136,10 +139,10 @@ describe("Feeds API - Add", () => {
   test("POST /api/feeds accepts valid feed url", async () => {
     const { POST } = await import("@/app/api/feeds/route");
     const request = createMockRequest("https://example.com/api/feeds", {
-      method: "POST",
       body: { url: "https://example.com/feed.xml" },
       cookies: { session: "test-session" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request, routeDeps);
@@ -151,10 +154,10 @@ describe("Feeds API - Update", () => {
   test("PATCH /api/feeds/:id updates feed", async () => {
     const { PATCH } = await import("@/app/api/feeds/[id]/route");
     const request = createMockRequest("https://example.com/api/feeds/1", {
-      method: "PATCH",
       body: { title: "Updated Title" },
       cookies: { session: "test-session" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
 
     const response = await PATCH(request, {
@@ -168,9 +171,9 @@ describe("Feeds API - Delete", () => {
   test("DELETE /api/feeds/:id removes feed", async () => {
     const { DELETE } = await import("@/app/api/feeds/[id]/route");
     const request = createMockRequest("https://example.com/api/feeds/1", {
-      method: "DELETE",
       cookies: { session: "test-session" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "DELETE",
     });
 
     const response = await DELETE(request, {
@@ -186,9 +189,9 @@ describe("Feeds API - Refresh", () => {
     const request = createMockRequest(
       "https://example.com/api/feeds/1/refresh",
       {
-        method: "POST",
         cookies: { session: "test-session" },
         headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       },
     );
 
@@ -211,32 +214,32 @@ describe("Feeds API - Route branches with injected deps", () => {
 
     try {
       const sourceNotFound = await GET(request as any, {
-        requireAuthenticatedUserFn: async () =>
-          ({ userId: 1, email: "x@y.com" }) as any,
-        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         assertAllowedFeedUrlFn: async () => null,
+        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         handleFeedReadFn: async () => {
           throw new Error("missing");
         },
         isFeedSourceNotFoundErrorFn: (() => true) as any,
         jsonErrorFn: ((message: string, status: number) =>
           Response.json({ error: message }, { status })) as any,
+        requireAuthenticatedUserFn: async () =>
+          ({ email: "x@y.com", userId: 1 }) as any,
       });
       expect(sourceNotFound.status).toBe(404);
 
       const upstream = await GET(request as any, {
-        requireAuthenticatedUserFn: async () =>
-          ({ userId: 1, email: "x@y.com" }) as any,
-        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         assertAllowedFeedUrlFn: async () => null,
+        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         handleFeedReadFn: async () => {
           throw new Error("upstream");
         },
         isUpstreamFeedErrorFn: (() => true) as any,
-        toErrorMessageFn: () => "upstream-error",
-        warnFn: warnFn as any,
         jsonErrorFn: ((message: string, status: number) =>
           Response.json({ error: message }, { status })) as any,
+        requireAuthenticatedUserFn: async () =>
+          ({ email: "x@y.com", userId: 1 }) as any,
+        toErrorMessageFn: () => "upstream-error",
+        warnFn: warnFn as any,
       });
       expect(upstream.status).toBe(502);
       await expect(upstream.json()).resolves.toEqual({
@@ -249,18 +252,18 @@ describe("Feeds API - Route branches with injected deps", () => {
       axiosError.response = { status: 429 };
 
       const axiosResponse = await GET(request as any, {
-        requireAuthenticatedUserFn: async () =>
-          ({ userId: 1, email: "x@y.com" }) as any,
-        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         assertAllowedFeedUrlFn: async () => null,
+        getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         handleFeedReadFn: async () => {
           throw axiosError;
         },
         isAxiosErrorFn: (() => true) as any,
-        toErrorMessageFn: () => "axios-error",
-        warnFn: warnFn as any,
         jsonErrorFn: ((message: string, status: number) =>
           Response.json({ error: message }, { status })) as any,
+        requireAuthenticatedUserFn: async () =>
+          ({ email: "x@y.com", userId: 1 }) as any,
+        toErrorMessageFn: () => "axios-error",
+        warnFn: warnFn as any,
       });
       expect(axiosResponse.status).toBe(502);
       await expect(axiosResponse.json()).resolves.toEqual({
@@ -275,17 +278,17 @@ describe("Feeds API - Route branches with injected deps", () => {
       );
 
       const generic = await GET(request as any, {
-        requireAuthenticatedUserFn: async () =>
-          ({ userId: 1, email: "x@y.com" }) as any,
         assertAllowedFeedUrlFn: async () => null,
         handleFeedReadFn: async () => {
           throw new Error("generic");
         },
+        isAxiosErrorFn: (() => false) as any,
         isFeedSourceNotFoundErrorFn: (() => false) as any,
         isUpstreamFeedErrorFn: (() => false) as any,
-        isAxiosErrorFn: (() => false) as any,
         logAndRespondErrorFn: (() =>
           Response.json({ error: "generic" }, { status: 500 })) as any,
+        requireAuthenticatedUserFn: async () =>
+          ({ email: "x@y.com", userId: 1 }) as any,
       });
       expect(generic.status).toBe(500);
     } finally {
@@ -301,80 +304,80 @@ describe("Feeds API - Route branches with injected deps", () => {
     const { DELETE, PATCH, POST } = await import("@/app/api/feeds/route");
 
     const request = createMockRequest("https://example.com/api/feeds", {
-      method: "POST",
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const postCreated = await POST(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      parseCreateFeedPayloadFn: async () => ({
-        name: "Feed",
-        url: "https://example.com/feed.xml",
-        category: "Tech",
-      }),
       assertAllowedFeedUrlFn: async () => null,
-      getDbFn: (() => ({
-        transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({}),
-      })) as any,
       createOrUpdateFeedSourceFn: async () => ({
+        isNew: true,
         sourceRecord: {
           id: 1,
           name: "Feed",
           url: "https://example.com/feed.xml",
         },
-        isNew: true,
       }),
+      getDbFn: (() => ({
+        transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({}),
+      })) as any,
+      parseCreateFeedPayloadFn: async () => ({
+        category: "Tech",
+        name: "Feed",
+        url: "https://example.com/feed.xml",
+      }),
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(postCreated.status).toBe(201);
 
     const postUpdated = await POST(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      parseCreateFeedPayloadFn: async () => ({
-        name: "Feed",
-        url: "https://example.com/feed.xml",
-        category: "Tech",
-      }),
       assertAllowedFeedUrlFn: async () => null,
-      getDbFn: (() => ({
-        transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({}),
-      })) as any,
       createOrUpdateFeedSourceFn: async () => ({
+        isNew: false,
         sourceRecord: {
           id: 1,
           name: "Feed",
           url: "https://example.com/feed.xml",
         },
-        isNew: false,
       }),
+      getDbFn: (() => ({
+        transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({}),
+      })) as any,
+      parseCreateFeedPayloadFn: async () => ({
+        category: "Tech",
+        name: "Feed",
+        url: "https://example.com/feed.xml",
+      }),
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(postUpdated.status).toBe(200);
 
     const patchNotFound = await PATCH(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      parseRenameFeedPayloadFn: async () => ({
-        sourceId: 1,
-        name: "Renamed",
-        url: "https://example.com/feed.xml",
-      }),
       assertAllowedFeedUrlFn: async () => null,
-      renameFeedSourceForUserFn: async () => null,
       jsonErrorFn: ((message: string, status: number) =>
         Response.json({ error: message }, { status })) as any,
+      parseRenameFeedPayloadFn: async () => ({
+        name: "Renamed",
+        sourceId: 1,
+        url: "https://example.com/feed.xml",
+      }),
+      renameFeedSourceForUserFn: async () => null,
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(patchNotFound.status).toBe(404);
 
     const deleteNotFound = await DELETE(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
-      parseDeleteSourceIdFn: () => 1,
       deleteFeedSourceForUserFn: async () => null,
       jsonErrorFn: ((message: string, status: number) =>
         Response.json({ error: message }, { status })) as any,
+      parseDeleteSourceIdFn: () => 1,
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(deleteNotFound.status).toBe(404);
   });
@@ -383,40 +386,40 @@ describe("Feeds API - Route branches with injected deps", () => {
     const { DELETE, PATCH, POST } = await import("@/app/api/feeds/route");
 
     const request = createMockRequest("https://example.com/api/feeds", {
-      method: "POST",
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const respondError = ((_message: string, _error: unknown) =>
       Response.json({ error: "caught" }, { status: 500 })) as any;
 
     const postCaught = await POST(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
+      logAndRespondErrorFn: respondError,
       parseCreateFeedPayloadFn: async () => {
         throw new Error("create payload failed");
       },
-      logAndRespondErrorFn: respondError,
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(postCaught.status).toBe(500);
 
     const patchCaught = await PATCH(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
+      logAndRespondErrorFn: respondError,
       parseRenameFeedPayloadFn: async () => {
         throw new Error("rename payload failed");
       },
-      logAndRespondErrorFn: respondError,
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(patchCaught.status).toBe(500);
 
     const deleteCaught = await DELETE(request as any, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "x@y.com" }) as any,
+      logAndRespondErrorFn: respondError,
       parseDeleteSourceIdFn: () => {
         throw new Error("delete id failed");
       },
-      logAndRespondErrorFn: respondError,
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "x@y.com", userId: 1 }) as any,
     });
     expect(deleteCaught.status).toBe(500);
   });
@@ -442,11 +445,11 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
     // In parallel suites, session may be mocked → auth may succeed or fail,
     // so we only assert the function completes and returns a defined result.
     const request = createMockRequest("https://example.com/api/feeds", {
-      method: "POST",
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
     const result = await requireMutableFeedAccess(request, {
-      rateLimit: { key: "feeds-test-rl", windowMs: 60_000, maxAttempts: 5 },
+      rateLimit: { key: "feeds-test-rl", maxAttempts: 5, windowMs: 60_000 },
     });
     expect(result).toBeDefined();
   });
@@ -485,8 +488,8 @@ describe("lib/api/feeds/access – requireMutableFeedAccess", () => {
     try {
       // sec-fetch-site passes CSRF; placeholder mode returns admin user; 503 follows.
       const request = createMockRequest("https://localhost/api/feeds", {
-        method: "POST",
         headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       });
       const result = await requireMutableFeedAccess(request);
       expect(result instanceof Response).toBe(true);
@@ -507,8 +510,8 @@ describe("lib/api/feeds/access – requireMutableFeedAccess", () => {
     process.env.DATABASE_URL = "postgresql://localhost:5432/test";
     try {
       const request = createMockRequest("https://localhost/api/feeds", {
-        method: "POST",
         headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       });
       const result = await requireMutableFeedAccess(request);
       expect(result instanceof Response).toBe(true);
@@ -550,20 +553,20 @@ describe("app/api/feeds/[id]/refresh – 501 response", () => {
 // ── app/api/feeds/route.ts – PATCH body-parsed paths ──────────────────────────
 
 describe("feeds route PATCH – body-parsed paths", () => {
-  const authUser = { userId: 1, email: "u@test.com" } as any;
+  const authUser = { email: "u@test.com", userId: 1 } as any;
 
   test("PATCH toggles feed enabled via body", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
-      body: { id: 10, enabled: false },
+      body: { enabled: false, id: 10 },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
       requireMutableFeedAccessFn: async () => authUser,
       setFeedSourceEnabledForUserFn: async (_uid, sid, enabled) => ({
-        id: sid,
         enabled,
+        id: sid,
         name: "Feed",
         url: "https://x.com/f",
       }),
@@ -577,15 +580,15 @@ describe("feeds route PATCH – body-parsed paths", () => {
   test("PATCH toggles feed enabled – not found returns 404", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
-      body: { id: 10, enabled: true },
+      body: { enabled: true, id: 10 },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
-      requireMutableFeedAccessFn: async () => authUser,
-      setFeedSourceEnabledForUserFn: async () => null,
       jsonErrorFn: ((msg: string, status: number) =>
         Response.json({ error: msg }, { status })) as any,
+      requireMutableFeedAccessFn: async () => authUser,
+      setFeedSourceEnabledForUserFn: async () => null,
     });
     expect(result.status).toBe(404);
   });
@@ -593,9 +596,9 @@ describe("feeds route PATCH – body-parsed paths", () => {
   test("PATCH updates extraction settings via body", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
-      body: { id: 8, extractionDisabled: true },
+      body: { extractionDisabled: true, id: 8 },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
       requireMutableFeedAccessFn: async () => authUser,
@@ -614,9 +617,9 @@ describe("feeds route PATCH – body-parsed paths", () => {
   test("PATCH updates proxyEnabled setting via body", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
       body: { id: 5, proxyEnabled: true },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
       requireMutableFeedAccessFn: async () => authUser,
@@ -635,15 +638,15 @@ describe("feeds route PATCH – body-parsed paths", () => {
   test("PATCH update settings – not found returns 404", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
       body: { id: 5, proxyEnabled: false },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
-      requireMutableFeedAccessFn: async () => authUser,
-      updateFeedSettingsForUserFn: async () => null,
       jsonErrorFn: ((msg: string, status: number) =>
         Response.json({ error: msg }, { status })) as any,
+      requireMutableFeedAccessFn: async () => authUser,
+      updateFeedSettingsForUserFn: async () => null,
     });
     expect(result.status).toBe(404);
   });
@@ -651,18 +654,18 @@ describe("feeds route PATCH – body-parsed paths", () => {
   test("PATCH renames feed via body (no parseRenameFeedPayloadFn)", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
       body: { id: 3, name: "New Name", url: "https://example.com/feed" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
-      requireMutableFeedAccessFn: async () => authUser,
       assertAllowedFeedUrlFn: async () => null,
       renameFeedSourceForUserFn: async (_uid, sid, name, url) => ({
         id: sid,
         name,
         url,
       }),
+      requireMutableFeedAccessFn: async () => authUser,
     });
     expect(result.status).toBe(200);
     const body = await result.json();
@@ -672,16 +675,16 @@ describe("feeds route PATCH – body-parsed paths", () => {
   test("PATCH rename via body – not found returns 404", async () => {
     const { PATCH } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds", {
-      method: "PATCH",
       body: { id: 3, name: "New", url: "https://example.com/feed" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "PATCH",
     });
     const result = await PATCH(req, {
-      requireMutableFeedAccessFn: async () => authUser,
       assertAllowedFeedUrlFn: async () => null,
-      renameFeedSourceForUserFn: async () => null,
       jsonErrorFn: ((msg: string, status: number) =>
         Response.json({ error: msg }, { status })) as any,
+      renameFeedSourceForUserFn: async () => null,
+      requireMutableFeedAccessFn: async () => authUser,
     });
     expect(result.status).toBe(404);
   });
@@ -693,18 +696,18 @@ describe("feeds route DELETE – success path", () => {
   test("DELETE returns deleted source on success", async () => {
     const { DELETE } = await import("@/app/api/feeds/route");
     const req = createMockRequest("https://host/api/feeds?sourceId=7", {
-      method: "DELETE",
       headers: { "sec-fetch-site": "same-origin" },
+      method: "DELETE",
     });
     const result = await DELETE(req, {
-      requireMutableFeedAccessFn: async () =>
-        ({ userId: 1, email: "u@x.com" }) as any,
-      parseDeleteSourceIdFn: () => 7,
       deleteFeedSourceForUserFn: async () => ({
         id: 7,
         name: "Gone",
         url: "https://x.com/f",
       }),
+      parseDeleteSourceIdFn: () => 7,
+      requireMutableFeedAccessFn: async () =>
+        ({ email: "u@x.com", userId: 1 }) as any,
     });
     expect(result.status).toBe(200);
     const body = await result.json();
@@ -716,7 +719,7 @@ describe("feeds route DELETE – success path", () => {
 // ── app/api/feeds/route.ts – GET upstream error branches ─────────────────────
 
 describe("feeds route GET – upstream error handling", () => {
-  const authUser = { userId: 1, email: "u@test.com" } as any;
+  const authUser = { email: "u@test.com", userId: 1 } as any;
 
   test("returns 404 when feed source not found", async () => {
     const { GET } = await import("@/app/api/feeds/route");
@@ -727,17 +730,17 @@ describe("feeds route GET – upstream error handling", () => {
     });
     const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
     const result = await GET(req, {
-      requireAuthenticatedUserFn: async () => authUser,
-      getRequestedFeedUrlFn: () => "https://x.com/f",
       assertAllowedFeedUrlFn: async () => null,
+      getRequestedFeedUrlFn: () => "https://x.com/f",
       handleFeedReadFn: async () => {
         throw notFoundErr;
       },
+      isAxiosErrorFn: ((_e: unknown) => false) as any,
       isFeedSourceNotFoundErrorFn: isFeedSourceNotFoundError,
       isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
-      isAxiosErrorFn: ((_e: unknown) => false) as any,
       jsonErrorFn: ((msg: string, status: number) =>
         Response.json({ error: msg }, { status })) as any,
+      requireAuthenticatedUserFn: async () => authUser,
       warnFn: (() => {}) as any,
     });
     expect(result.status).toBe(404);
@@ -751,17 +754,17 @@ describe("feeds route GET – upstream error handling", () => {
     });
     const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
     const result = await GET(req, {
-      requireAuthenticatedUserFn: async () => authUser,
-      getRequestedFeedUrlFn: () => "https://x.com/f",
       assertAllowedFeedUrlFn: async () => null,
+      getRequestedFeedUrlFn: () => "https://x.com/f",
       handleFeedReadFn: async () => {
         throw upstreamErr;
       },
-      isUpstreamFeedErrorFn: isUpstreamFeedError,
-      isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
       isAxiosErrorFn: ((_e: unknown) => false) as any,
+      isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
+      isUpstreamFeedErrorFn: isUpstreamFeedError,
       jsonErrorFn: ((msg: string, status: number) =>
         Response.json({ error: msg }, { status })) as any,
+      requireAuthenticatedUserFn: async () => authUser,
       warnFn: (() => {}) as any,
     });
     expect(result.status).toBe(502);
@@ -770,24 +773,24 @@ describe("feeds route GET – upstream error handling", () => {
   test("returns 502 when axios error occurs", async () => {
     const { GET } = await import("@/app/api/feeds/route");
     const axiosErr = Object.assign(new Error("timeout"), {
+      config: {},
       isAxiosError: true,
       response: { status: 504 },
-      config: {},
     });
     const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
     const result = await GET(req, {
-      requireAuthenticatedUserFn: async () => authUser,
-      getRequestedFeedUrlFn: () => "https://x.com/f",
       assertAllowedFeedUrlFn: async () => null,
+      getRequestedFeedUrlFn: () => "https://x.com/f",
       handleFeedReadFn: async () => {
         throw axiosErr;
       },
-      isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
-      isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
       isAxiosErrorFn: ((e: unknown) =>
         !!(e && typeof e === "object" && "isAxiosError" in e)) as any,
+      isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
+      isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
       jsonErrorFn: ((msg: string, status: number) =>
         Response.json({ error: msg }, { status })) as any,
+      requireAuthenticatedUserFn: async () => authUser,
       warnFn: (() => {}) as any,
     });
     expect(result.status).toBe(502);
@@ -801,9 +804,9 @@ describe("parseCreateFeedPayload", () => {
       url: "https://example.com/feed",
     });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "POST",
       body,
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseCreateFeedPayload(request);
     expect(result).not.toBeInstanceOf(Response);
@@ -817,9 +820,9 @@ describe("parseCreateFeedPayload", () => {
   test("returns error for missing name", async () => {
     const body = JSON.stringify({ url: "https://example.com/feed" });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "POST",
       body,
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseCreateFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -831,9 +834,9 @@ describe("parseCreateFeedPayload", () => {
   test("returns error for missing url", async () => {
     const body = JSON.stringify({ name: "Feed" });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "POST",
       body,
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseCreateFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -841,14 +844,14 @@ describe("parseCreateFeedPayload", () => {
 
   test("uses custom category when provided", async () => {
     const body = JSON.stringify({
+      category: "  Tech  ",
       name: "Feed",
       url: "https://example.com/feed",
-      category: "  Tech  ",
     });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "POST",
       body,
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseCreateFeedPayload(request);
     expect(result).not.toBeInstanceOf(Response);
@@ -863,9 +866,9 @@ describe("parseCreateFeedPayload", () => {
       url: "https://example.com/feed",
     });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "POST",
       body,
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseCreateFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -885,9 +888,9 @@ describe("parseRenameFeedPayload", () => {
       url: "https://x.com/feed",
     });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "PATCH",
       body,
       headers: { "content-type": "application/json" },
+      method: "PATCH",
     });
     const result = await parseRenameFeedPayload(request);
     expect(result).not.toBeInstanceOf(Response);
@@ -901,9 +904,9 @@ describe("parseRenameFeedPayload", () => {
   test("returns error for missing id", async () => {
     const body = JSON.stringify({ name: "New", url: "https://x.com" });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "PATCH",
       body,
       headers: { "content-type": "application/json" },
+      method: "PATCH",
     });
     const result = await parseRenameFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -912,9 +915,9 @@ describe("parseRenameFeedPayload", () => {
   test("returns error for missing name", async () => {
     const body = JSON.stringify({ id: 1, url: "https://x.com" });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "PATCH",
       body,
       headers: { "content-type": "application/json" },
+      method: "PATCH",
     });
     const result = await parseRenameFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -923,9 +926,9 @@ describe("parseRenameFeedPayload", () => {
   test("returns error for missing url", async () => {
     const body = JSON.stringify({ id: 1, name: "Name" });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "PATCH",
       body,
       headers: { "content-type": "application/json" },
+      method: "PATCH",
     });
     const result = await parseRenameFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -938,9 +941,9 @@ describe("parseRenameFeedPayload", () => {
       url: "https://x.com/feed",
     });
     const request = new NextRequest("http://localhost/api/feeds", {
-      method: "PATCH",
       body,
       headers: { "content-type": "application/json" },
+      method: "PATCH",
     });
     const result = await parseRenameFeedPayload(request);
     expect(result).toBeInstanceOf(Response);
@@ -967,16 +970,16 @@ describe("parseRenameFeedPayloadFromBody", () => {
 describe("parseToggleFeedEnabledPayloadFromBody", () => {
   test("parses valid toggle payload", () => {
     const result = parseToggleFeedEnabledPayloadFromBody({
-      id: 17,
       enabled: true,
+      id: 17,
     });
-    expect(result).toEqual({ sourceId: 17, enabled: true });
+    expect(result).toEqual({ enabled: true, sourceId: 17 });
   });
 
   test("rejects non-boolean enabled", () => {
     const result = parseToggleFeedEnabledPayloadFromBody({
-      id: 17,
       enabled: "true",
+      id: 17,
     });
     expect(result).toBeInstanceOf(Response);
     if (result instanceof Response) {
@@ -996,10 +999,10 @@ describe("parseUpdateFeedSettingsPayloadFromBody", () => {
 
   test("parses extractionDisabled-only payload", () => {
     const result = parseUpdateFeedSettingsPayloadFromBody({
-      id: 12,
       extractionDisabled: true,
+      id: 12,
     });
-    expect(result).toEqual({ sourceId: 12, extractionDisabled: true });
+    expect(result).toEqual({ extractionDisabled: true, sourceId: 12 });
   });
 
   test("parses proxyEnabled-only payload", () => {
@@ -1007,19 +1010,19 @@ describe("parseUpdateFeedSettingsPayloadFromBody", () => {
       id: 12,
       proxyEnabled: false,
     });
-    expect(result).toEqual({ sourceId: 12, proxyEnabled: false });
+    expect(result).toEqual({ proxyEnabled: false, sourceId: 12 });
   });
 
   test("parses payload with both mutable fields", () => {
     const result = parseUpdateFeedSettingsPayloadFromBody({
-      id: 12,
       extractionDisabled: false,
+      id: 12,
       proxyEnabled: true,
     });
     expect(result).toEqual({
-      sourceId: 12,
       extractionDisabled: false,
       proxyEnabled: true,
+      sourceId: 12,
     });
   });
 });
@@ -1102,9 +1105,9 @@ describe("api/feeds/parsers – assertAllowedFeedUrl", () => {
 describe("api/feeds/parsers – parseCreateFeedPayload validation", () => {
   function makeFeedRequest(body: unknown): Request {
     return new Request("https://example.com/api/feeds", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      headers: { "content-type": "application/json" },
+      method: "POST",
     });
   }
 

@@ -4,20 +4,22 @@
  * RSS parsing, content sanitization, and deduplication.
  */
 
+import { eq, sql } from "drizzle-orm";
+import Parser from "rss-parser";
+
+import { fetchFeedXml } from "./feed-http";
+import {
+  dedupePendingArticles,
+  getPublicationDateRange,
+  type PendingArticle,
+  toPendingArticle,
+} from "./feed-parser";
+
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { articles, feeds } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
-import { eq, sql } from "drizzle-orm";
-import Parser from "rss-parser";
-import { fetchFeedXml } from "./feed-http";
-import {
-  type PendingArticle,
-  dedupePendingArticles,
-  getPublicationDateRange,
-  toPendingArticle,
-} from "./feed-parser";
 
 // ─── Diagnostic logging helpers ───────────────────────────────────────────────
 export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {
@@ -38,42 +40,28 @@ const parser = new Parser({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type FeedRecord = {
+export interface FeedRecord {
   id: number;
-  url: string;
   lastFetched: Date;
-  lastFetchError: string | null;
-};
+  lastFetchError: null | string;
+  url: string;
+}
 
 // ─── Upstream refresh ─────────────────────────────────────────────────────────
 
-function getAgeInMinutes(date: Date): number {
-  return (Date.now() - date.getTime()) / 60_000;
-}
+export type UpstreamRefreshResult = { error: string; ok: false } | { ok: true };
 
-export function shouldRefreshFeed(lastFetched: Date): boolean {
-  const ageMinutes = getAgeInMinutes(lastFetched);
-  return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
-}
-
-export function shouldForceRefreshFeed(lastFetched: Date): boolean {
-  const ageMinutes = getAgeInMinutes(lastFetched);
-  return ageMinutes >= CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES;
-}
-
-export type UpstreamRefreshResult = { ok: true } | { ok: false; error: string };
-
-type RefreshDeps = {
+interface RefreshDeps {
+  dedupePendingArticlesFn?: typeof dedupePendingArticles;
   fetchFeedXmlFn?: (url: string) => Promise<string>;
+  getPublicationDateRangeFn?: typeof getPublicationDateRange;
+  nowFn?: () => Date;
   parseFeedXmlFn?: (
     xml: string,
-  ) => Promise<{ items: Array<Parser.Item & { contentEncoded?: string }> }>;
-  toPendingArticleFn?: typeof toPendingArticle;
-  dedupePendingArticlesFn?: typeof dedupePendingArticles;
-  getPublicationDateRangeFn?: typeof getPublicationDateRange;
+  ) => Promise<{ items: (Parser.Item & { contentEncoded?: string })[] }>;
   toErrorMessageFn?: typeof toErrorMessage;
-  nowFn?: () => Date;
-};
+  toPendingArticleFn?: typeof toPendingArticle;
+}
 
 export async function refreshFeedFromUpstream(
   db: ReturnType<typeof getDb>,
@@ -85,8 +73,8 @@ export async function refreshFeedFromUpstream(
   try {
     diagInfo("Upstream refresh started", {
       feedId: feed.id,
-      url: feed.url,
       lastFetched: feed.lastFetched,
+      url: feed.url,
     });
 
     const fetchXml = deps?.fetchFeedXmlFn ?? fetchFeedXml;
@@ -106,12 +94,12 @@ export async function refreshFeedFromUpstream(
     const publicationDateRange = getRange(validItems);
 
     diagInfo("Upstream refresh parsed feed", {
-      feedId: feed.id,
-      url: feed.url,
-      parsedItemCount: parsed.items.length,
       acceptedItemCount: validItems.length,
+      feedId: feed.id,
       newestPublicationDate: publicationDateRange.newestPublicationDate,
       oldestPublicationDate: publicationDateRange.oldestPublicationDate,
+      parsedItemCount: parsed.items.length,
+      url: feed.url,
     });
 
     if (validItems.length > 0) {
@@ -119,19 +107,19 @@ export async function refreshFeedFromUpstream(
         .insert(articles)
         .values(validItems)
         .onConflictDoUpdate({
-          target: articles.link,
           set: {
-            title: sql`excluded.title`,
-            publicationDate: sql`excluded.publication_date`,
             content: sql`excluded.content`,
             lastChecked: sql`excluded.last_checked`,
+            publicationDate: sql`excluded.publication_date`,
+            title: sql`excluded.title`,
           },
+          target: articles.link,
         });
 
       diagInfo("Upstream refresh upserted articles", {
         feedId: feed.id,
-        url: feed.url,
         upsertAttemptCount: validItems.length,
+        url: feed.url,
       });
     } else {
       diagInfo("Upstream refresh found no valid new items", {
@@ -147,8 +135,8 @@ export async function refreshFeedFromUpstream(
 
     diagInfo("Upstream refresh completed", {
       feedId: feed.id,
-      url: feed.url,
       newLastFetched: now,
+      url: feed.url,
     });
 
     return { ok: true };
@@ -157,8 +145,8 @@ export async function refreshFeedFromUpstream(
     const errorMessage = toError(err);
 
     diagWarn("Upstream feed refresh failed", {
-      url: feed.url,
       error: errorMessage,
+      url: feed.url,
     });
 
     // Advance lastFetched even on failure so the TTL cooldown applies —
@@ -177,6 +165,20 @@ export async function refreshFeedFromUpstream(
       // Best-effort; ignore secondary DB errors.
     }
 
-    return { ok: false, error: errorMessage };
+    return { error: errorMessage, ok: false };
   }
+}
+
+export function shouldForceRefreshFeed(lastFetched: Date): boolean {
+  const ageMinutes = getAgeInMinutes(lastFetched);
+  return ageMinutes >= CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES;
+}
+
+export function shouldRefreshFeed(lastFetched: Date): boolean {
+  const ageMinutes = getAgeInMinutes(lastFetched);
+  return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
+}
+
+function getAgeInMinutes(date: Date): number {
+  return (Date.now() - date.getTime()) / 60_000;
 }

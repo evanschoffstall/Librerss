@@ -1,8 +1,26 @@
-import type { Article } from "@/lib/core/types";
-import { parseDateOrNull } from "@/lib/utils/dates";
 import { NextResponse } from "next/server";
 
+import type { Article } from "@/lib/core/types";
+import { parseDateOrNull } from "@/lib/utils/dates";
+
 // ── Response builders ─────────────────────────────────────────────────────────
+
+export interface BatchFeedResponseItem {
+  articles: Article[];
+  error?: string;
+  lastFetchedAt?: Date;
+  ok: boolean;
+  url: string;
+}
+
+export function ensureArrayResponse<T>(data: unknown): T[] {
+  if (!Array.isArray(data)) throw new Error("Invalid response format");
+  return data as T[];
+}
+
+export function forbiddenResponse(message = "Forbidden"): NextResponse {
+  return jsonError(message, 403);
+}
 
 export function jsonError(error: string, status: number): NextResponse {
   return NextResponse.json({ error }, { status });
@@ -16,38 +34,7 @@ export function jsonErrorWithReason(
   return NextResponse.json({ error, ...(reason && { reason }) }, { status });
 }
 
-export function forbiddenResponse(message = "Forbidden"): NextResponse {
-  return jsonError(message, 403);
-}
-
-export function textResponse(body: string, status = 200): Response {
-  return new NextResponse(body, {
-    status,
-    headers: {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
-}
-
-export function notFoundResponse(message = "Not found"): Response {
-  return jsonError(message, 404);
-}
-
 // ── Response normalizers ──────────────────────────────────────────────────────
-
-export function ensureArrayResponse<T>(data: unknown): T[] {
-  if (!Array.isArray(data)) throw new Error("Invalid response format");
-  return data as T[];
-}
-
-export interface BatchFeedResponseItem {
-  url: string;
-  articles: Article[];
-  ok: boolean;
-  error?: string;
-  lastFetchedAt?: Date;
-}
 
 export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
   const candidate =
@@ -58,12 +45,26 @@ export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
   const parsedLastFetchedAt = parseDateOrNull(candidate.lastFetchedAt);
 
   return {
-    url: typeof candidate.url === "string" ? candidate.url : "",
     articles: Array.isArray(candidate.articles)
       ? (candidate.articles as Article[])
       : [],
     ok: Boolean(candidate.ok),
+    url: typeof candidate.url === "string" ? candidate.url : "",
     ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),
     ...(parsedLastFetchedAt ? { lastFetchedAt: parsedLastFetchedAt } : {}),
   };
+}
+
+export function notFoundResponse(message = "Not found"): Response {
+  return jsonError(message, 404);
+}
+
+export function textResponse(body: string, status = 200): Response {
+  return new NextResponse(body, {
+    headers: {
+      "cache-control": "no-store",
+      "content-type": "text/plain; charset=utf-8",
+    },
+    status,
+  });
 }

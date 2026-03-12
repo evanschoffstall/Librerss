@@ -1,5 +1,6 @@
-import { customDistill } from "@/lib/distill";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { customDistill } from "@/lib/distill";
 
 beforeEach(() => {
   mock.restore();

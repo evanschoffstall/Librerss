@@ -12,6 +12,7 @@
  */
 
 import { execSync } from "node:child_process";
+
 import { Client } from "pg";
 
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
@@ -48,8 +49,8 @@ console.log("Pushing schema...");
 
 try {
   execSync("bunx drizzle-kit push", {
-    stdio: "inherit",
     env: { ...process.env },
+    stdio: "inherit",
   });
 } catch {
   console.error("ERROR: Schema push failed.");

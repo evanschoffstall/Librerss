@@ -1,6 +1,8 @@
-import axios from "axios";
 import https from "node:https";
+
+import axios from "axios";
 import type { CookieJar } from "tough-cookie";
+
 import { extractionAxios } from "./fingerprint";
 import type { buildProxyConfig } from "./proxy";
 
@@ -19,9 +21,9 @@ export function buildAxiosGet(
     return (reqUrl, config) =>
       axios.get(reqUrl, {
         ...config,
-        proxy: false as const,
         httpAgent: proxyConfig.httpAgent,
         httpsAgent: proxyConfig.httpsAgent,
+        proxy: false as const,
       });
   }
   if (proxyConfig && proxyConfig.mode === "http") {

@@ -1,50 +1,29 @@
 "use client";
 
-import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
 import { Moon, Sun } from "lucide-react";
-import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { ThemeProvider, useTheme } from "next-themes";
+import { type ReactNode, Suspense, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
-/**
- * Renders either the full dashboard top bar or a standalone theme toggle,
- * depending on the current route.
- */
-function ThemeModeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [mounted, setMounted] = useState(false);
+import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDark = (resolvedTheme ?? "dark") === "dark";
-  const isDashboardRoute = pathname === "/dashboard";
-  const dashboardView = searchParams?.get("view") || "dashboard";
-  const nextTheme = isDark ? "light" : "dark";
-
-  if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardTopHeaderBar />;
-  }
-
+export function AppThemeProvider({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed right-6 top-4 z-50">
-      <button
-        type="button"
-        onClick={() => setTheme(nextTheme)}
-        aria-label={`Switch to ${nextTheme} mode`}
-        className="text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {mounted && isDark ? (
-          <Sun className="h-4 w-4" />
-        ) : (
-          <Moon className="h-4 w-4" />
-        )}
-      </button>
-    </div>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      disableTransitionOnChange
+      enableSystem
+    >
+      {children}
+      <Suspense fallback={null}>
+        <ThemeModeToggle />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ThemedToaster />
+      </Suspense>
+    </ThemeProvider>
   );
 }
 
@@ -92,34 +71,58 @@ function ThemedToaster() {
 
   return (
     <Toaster
-      theme={resolvedTheme === "dark" ? "dark" : "light"}
-      position="top-right"
+      duration={4000}
       offset={
         shouldOffsetForDashboardBar
-          ? { top: "4.25rem", right: "1rem" }
-          : { top: "1rem", right: "1rem" }
+          ? { right: "1rem", top: "4.25rem" }
+          : { right: "1rem", top: "1rem" }
       }
+      position="top-right"
       richColors
-      duration={4000}
+      theme={resolvedTheme === "dark" ? "dark" : "light"}
     />
   );
 }
 
-export function AppThemeProvider({ children }: { children: ReactNode }) {
+/**
+ * Renders either the full dashboard top bar or a standalone theme toggle,
+ * depending on the current route.
+ */
+function ThemeModeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = (resolvedTheme ?? "dark") === "dark";
+  const isDashboardRoute = pathname === "/dashboard";
+  const dashboardView = searchParams?.get("view") || "dashboard";
+  const nextTheme = isDark ? "light" : "dark";
+
+  if (isDashboardRoute && dashboardView === "dashboard") {
+    return <DashboardTopHeaderBar />;
+  }
+
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem
-      disableTransitionOnChange
-    >
-      {children}
-      <Suspense fallback={null}>
-        <ThemeModeToggle />
-      </Suspense>
-      <Suspense fallback={null}>
-        <ThemedToaster />
-      </Suspense>
-    </ThemeProvider>
+    <div className="fixed right-6 top-4 z-50">
+      <button
+        aria-label={`Switch to ${nextTheme} mode`}
+        className="text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => {
+          setTheme(nextTheme);
+        }}
+        type="button"
+      >
+        {mounted && isDark ? (
+          <Sun className="h-4 w-4" />
+        ) : (
+          <Moon className="h-4 w-4" />
+        )}
+      </button>
+    </div>
   );
 }

@@ -5,70 +5,83 @@
 
 import { CONFIG } from "@/lib/config";
 
-type LogLevel = "info" | "warn" | "error" | "debug";
-
 interface LogContext {
   [key: string]: unknown;
-  userId?: number;
   email?: string;
-  timestamp?: string;
   error?: Error | string;
   stack?: string;
+  timestamp?: string;
+  userId?: number;
 }
 
+type LogLevel = "debug" | "error" | "info" | "warn";
+
 export class Logger {
+  private readonly dim = "\u001b[2m";
   private readonly isDevelopment = process.env.NODE_ENV === "development";
-  private readonly sensitiveKeyPattern =
-    /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
-  // Exact-match redaction for proxy keys that may contain credentials in the value
-  private readonly sensitiveKeys = new Set([
-    "proxyurl",
-    "proxyaddress",
-    "proxy_url",
-    "proxy-url",
-  ]);
+  private readonly levelColors: Record<LogLevel, string> = {
+    debug: "\u001b[38;5;141m",
+    error: "\u001b[38;5;196m",
+    info: "\u001b[38;5;39m",
+    warn: "\u001b[38;5;214m",
+  };
 
   private readonly reset = "\u001b[0m";
 
-  private readonly levelColors: Record<LogLevel, string> = {
-    info: "\u001b[38;5;39m",
-    warn: "\u001b[38;5;214m",
-    error: "\u001b[38;5;196m",
-    debug: "\u001b[38;5;141m",
-  };
+  private readonly sensitiveKeyPattern =
+    /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
 
-  private readonly dim = "\u001b[2m";
+  // Exact-match redaction for proxy keys that may contain credentials in the value
+  private readonly sensitiveKeys = new Set([
+    "proxy-url",
+    "proxy_url",
+    "proxyaddress",
+    "proxyurl",
+  ]);
 
-  private isColorEnabledByEnv(): boolean {
-    const value = process.env.LOG_COLORS_ENABLED?.trim().toLowerCase();
-    if (!value) return true;
-
-    if (["0", "false", "no", "off"].includes(value)) {
-      return false;
-    }
-
-    return true;
+  debug(message: string, context?: LogContext): void {
+    if (!this.isDevelopment || this.getCurrentLogLevel() !== "verbose") return;
+    const sanitized = this.sanitizeContext(context);
+    console.debug(this.formatMessage("debug", message, sanitized));
   }
 
-  private supportsColor(): boolean {
-    if (process.env.NODE_ENV === "test") return false;
-    if (process.env.NO_COLOR === "1") return false;
-    return this.isColorEnabledByEnv();
+  error(message: string, context?: LogContext): void {
+    if (this.getCurrentLogLevel() === "none") return;
+    const sanitized = this.sanitizeContext(context);
+    console.error(this.formatMessage("error", message, sanitized));
   }
 
-  private getCurrentLogLevel(): "none" | "error" | "warn" | "info" | "verbose" {
-    const level = process.env.LOG_LEVEL?.toLowerCase();
-    if (
-      level === "none" ||
-      level === "error" ||
-      level === "warn" ||
-      level === "info" ||
-      level === "verbose"
-    ) {
-      return level;
-    }
+  // Level hierarchy: none < error < warn < info < verbose
+  info(message: string, context?: LogContext): void {
+    const logLevel = this.getCurrentLogLevel();
+    if (logLevel === "none" || logLevel === "error" || logLevel === "warn")
+      return;
+    const sanitized = this.sanitizeContext(context);
+    console.log(this.formatMessage("info", message, sanitized));
+  }
 
-    return CONFIG.LOG_LEVEL;
+  warn(message: string, context?: LogContext): void {
+    const logLevel = this.getCurrentLogLevel();
+    if (logLevel === "none" || logLevel === "error") return;
+    const sanitized = this.sanitizeContext(context);
+    console.warn(this.formatMessage("warn", message, sanitized));
+  }
+
+  private formatContextBlock(contextJson: string): string {
+    const lines = contextJson.split("\n");
+    const heading = this.supportsColor()
+      ? `${this.dim}└─ context${this.reset}`
+      : "└─ context";
+    const body = lines
+      .map((line) => {
+        if (this.supportsColor()) {
+          return `${this.dim}   ${line}${this.reset}`;
+        }
+        return `   ${line}`;
+      })
+      .join("\n");
+
+    return `${heading}\n${body}`;
   }
 
   private formatMessage(
@@ -94,21 +107,41 @@ export class Logger {
     return `${coloredLine}${contextStr}`;
   }
 
-  private formatContextBlock(contextJson: string): string {
-    const lines = contextJson.split("\n");
-    const heading = this.supportsColor()
-      ? `${this.dim}└─ context${this.reset}`
-      : "└─ context";
-    const body = lines
-      .map((line) => {
-        if (this.supportsColor()) {
-          return `${this.dim}   ${line}${this.reset}`;
-        }
-        return `   ${line}`;
-      })
-      .join("\n");
+  private getCurrentLogLevel(): "error" | "info" | "none" | "verbose" | "warn" {
+    const level = process.env.LOG_LEVEL?.toLowerCase();
+    if (
+      level === "none" ||
+      level === "error" ||
+      level === "warn" ||
+      level === "info" ||
+      level === "verbose"
+    ) {
+      return level;
+    }
 
-    return `${heading}\n${body}`;
+    return CONFIG.LOG_LEVEL;
+  }
+
+  private isColorEnabledByEnv(): boolean {
+    const value = process.env.LOG_COLORS_ENABLED?.trim().toLowerCase();
+    if (!value) return true;
+
+    if (["0", "false", "no", "off"].includes(value)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private redactEmail(email: string): string {
+    const atIdx = email.lastIndexOf("@");
+    if (atIdx <= 0) {
+      return "***";
+    }
+
+    const local = email.slice(0, atIdx);
+    const domain = email.slice(atIdx + 1);
+    return `${local.slice(0, 2)}***@${domain}`;
   }
 
   private sanitizeContext(context?: LogContext): LogContext | undefined {
@@ -167,43 +200,10 @@ export class Logger {
     return value;
   }
 
-  private redactEmail(email: string): string {
-    const atIdx = email.lastIndexOf("@");
-    if (atIdx <= 0) {
-      return "***";
-    }
-
-    const local = email.slice(0, atIdx);
-    const domain = email.slice(atIdx + 1);
-    return `${local.slice(0, 2)}***@${domain}`;
-  }
-
-  // Level hierarchy: none < error < warn < info < verbose
-  info(message: string, context?: LogContext): void {
-    const logLevel = this.getCurrentLogLevel();
-    if (logLevel === "none" || logLevel === "error" || logLevel === "warn")
-      return;
-    const sanitized = this.sanitizeContext(context);
-    console.log(this.formatMessage("info", message, sanitized));
-  }
-
-  warn(message: string, context?: LogContext): void {
-    const logLevel = this.getCurrentLogLevel();
-    if (logLevel === "none" || logLevel === "error") return;
-    const sanitized = this.sanitizeContext(context);
-    console.warn(this.formatMessage("warn", message, sanitized));
-  }
-
-  error(message: string, context?: LogContext): void {
-    if (this.getCurrentLogLevel() === "none") return;
-    const sanitized = this.sanitizeContext(context);
-    console.error(this.formatMessage("error", message, sanitized));
-  }
-
-  debug(message: string, context?: LogContext): void {
-    if (!this.isDevelopment || this.getCurrentLogLevel() !== "verbose") return;
-    const sanitized = this.sanitizeContext(context);
-    console.debug(this.formatMessage("debug", message, sanitized));
+  private supportsColor(): boolean {
+    if (process.env.NODE_ENV === "test") return false;
+    if (process.env.NO_COLOR === "1") return false;
+    return this.isColorEnabledByEnv();
   }
 }
 

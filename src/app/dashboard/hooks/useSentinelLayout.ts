@@ -63,101 +63,10 @@ export const SENTINEL_SNAP_BUFFER = 6;
 export const SENTINEL_SCROLL_OFFSET = SENTINEL_HEIGHT + SENTINEL_SNAP_BUFFER;
 
 interface SentinelLayoutElements {
-  viewport: HTMLElement;
-  sentinel: HTMLElement | null;
-  wrapper: HTMLElement | null;
   scrollRoot: HTMLElement;
-}
-
-/**
- * Find the Radix scrollbar element (conditionally mounted by Presence).
- * Returns null if not currently mounted.
- */
-function findScrollbar(root: HTMLElement) {
-  return root.querySelector<HTMLElement>(
-    ':scope > [data-orientation="vertical"]',
-  );
-}
-
-/**
- * Apply or clear inset styles on the Radix scrollbar to hide the sentinel zone.
- *
- * When content doesn't overflow (sentinel hidden or no real scroll),
- * the scrollbar is hidden entirely. Otherwise, the thumb track is offset
- * so its top edge aligns with the visible content boundary.
- *
- * Fixes: scrollbar thumb starting below expected position due to sentinel.
- */
-function syncScrollbar(
-  root: HTMLElement,
-  viewport: HTMLElement,
-  sentinelHeight: number,
-) {
-  const sb = findScrollbar(root);
-  if (!sb) return;
-  const H = viewport.scrollHeight;
-  const realOverflow = H - sentinelHeight > viewport.clientHeight;
-  if (!realOverflow) {
-    sb.style.display = "none";
-    return;
-  }
-  sb.style.display = "";
-  // D = S·C/(H−S) makes translate3d(0, D, 0) land at the visible top edge.
-  const inset =
-    H > sentinelHeight
-      ? (sentinelHeight * viewport.clientHeight) / (H - sentinelHeight)
-      : 0;
-  sb.style.marginTop = `-${inset.toFixed(2)}px`;
-  sb.style.height = `calc(100% + ${inset.toFixed(2)}px)`;
-}
-
-/**
- * Ensure viewport has enough scroll space to hide the sentinel.
- * Adds `paddingBottom` to the wrapper so `scrollHeight ≥ clientHeight + sentinelHeight`.
- *
- * Also syncs sentinel visibility and scrollbar inset.
- *
- * Fixes: `scrollTop = SENTINEL_SCROLL_OFFSET` clamped to 0, exposing sentinel.
- */
-function ensureMinOverflow({
-  viewport,
-  sentinel,
-  wrapper,
-  scrollRoot,
-}: SentinelLayoutElements) {
-  if (!sentinel || !wrapper) return;
-  const height = sentinel.offsetHeight;
-  syncScrollbar(scrollRoot, viewport, height);
-  if (height === 0) return;
-  const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
-  const contentHeight = wrapper.offsetHeight - currentPad;
-  const needed = Math.max(0, viewport.clientHeight + height - contentHeight);
-  const next = needed > 0 ? `${needed}px` : "";
-  if (wrapper.style.paddingBottom !== next) wrapper.style.paddingBottom = next;
-}
-
-/**
- * Handle the collapse-pin ResizeObserver path. Pads the bottom so the
- * browser never clamps `scrollTop` below the pin target, then hard-pins
- * `scrollTop` to the target value.
- *
- * Fixes: scroll jumping to bottom during article collapse animation.
- */
-function handleCollapsePinResize(
-  { viewport, sentinel, wrapper, scrollRoot }: SentinelLayoutElements,
-  pinTarget: number,
-) {
-  if (!sentinel || !wrapper) return;
-  const height = sentinel.offsetHeight;
-  if (height <= 0) return;
-  const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
-  const contentHeight = wrapper.offsetHeight - currentPad;
-  const minContent = viewport.clientHeight + Math.max(height, pinTarget);
-  const needed = Math.max(0, minContent - contentHeight);
-  const next = needed > 0 ? `${needed}px` : "";
-  if (wrapper.style.paddingBottom !== next) wrapper.style.paddingBottom = next;
-  syncScrollbar(scrollRoot, viewport, height);
-  viewport.scrollTop = pinTarget;
+  sentinel: HTMLElement | null;
+  viewport: HTMLElement;
+  wrapper: HTMLElement | null;
 }
 
 /**
@@ -170,12 +79,12 @@ export function attachSentinelLayout(
   elements: SentinelLayoutElements,
   suppressSnapRef: React.RefObject<ScrollPinTarget> | undefined,
   pullStateRefs: {
-    touchActive: React.RefObject<boolean>;
     holding: React.RefObject<boolean>;
     pulling: React.RefObject<boolean>;
+    touchActive: React.RefObject<boolean>;
   },
 ): () => void {
-  const { viewport, sentinel, wrapper, scrollRoot } = elements;
+  const { scrollRoot, sentinel, viewport, wrapper } = elements;
 
   // Prevent iOS from rubber-banding the page.
   viewport.style.overscrollBehaviorY = "none";
@@ -200,8 +109,8 @@ export function attachSentinelLayout(
         })
       : null;
   overflowObserver?.observe(viewport, {
-    attributes: true,
     attributeFilter: ["style"],
+    attributes: true,
   });
 
   const sh = () => sentinel?.offsetHeight ?? 0;
@@ -222,7 +131,9 @@ export function attachSentinelLayout(
   // whenever the DOM structure under the scroll root changes.
   const mutObserver =
     typeof MutationObserver !== "undefined"
-      ? new MutationObserver(() => syncScrollbar(scrollRoot, viewport, sh()))
+      ? new MutationObserver(() => {
+          syncScrollbar(scrollRoot, viewport, sh());
+        })
       : null;
   mutObserver?.observe(scrollRoot, { childList: true, subtree: false });
 
@@ -278,4 +189,95 @@ export function attachSentinelLayout(
       sb.style.display = "";
     }
   };
+}
+
+/**
+ * Ensure viewport has enough scroll space to hide the sentinel.
+ * Adds `paddingBottom` to the wrapper so `scrollHeight ≥ clientHeight + sentinelHeight`.
+ *
+ * Also syncs sentinel visibility and scrollbar inset.
+ *
+ * Fixes: `scrollTop = SENTINEL_SCROLL_OFFSET` clamped to 0, exposing sentinel.
+ */
+function ensureMinOverflow({
+  scrollRoot,
+  sentinel,
+  viewport,
+  wrapper,
+}: SentinelLayoutElements) {
+  if (!sentinel || !wrapper) return;
+  const height = sentinel.offsetHeight;
+  syncScrollbar(scrollRoot, viewport, height);
+  if (height === 0) return;
+  const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
+  const contentHeight = wrapper.offsetHeight - currentPad;
+  const needed = Math.max(0, viewport.clientHeight + height - contentHeight);
+  const next = needed > 0 ? `${needed}px` : "";
+  if (wrapper.style.paddingBottom !== next) wrapper.style.paddingBottom = next;
+}
+
+/**
+ * Find the Radix scrollbar element (conditionally mounted by Presence).
+ * Returns null if not currently mounted.
+ */
+function findScrollbar(root: HTMLElement) {
+  return root.querySelector<HTMLElement>(
+    ':scope > [data-orientation="vertical"]',
+  );
+}
+
+/**
+ * Handle the collapse-pin ResizeObserver path. Pads the bottom so the
+ * browser never clamps `scrollTop` below the pin target, then hard-pins
+ * `scrollTop` to the target value.
+ *
+ * Fixes: scroll jumping to bottom during article collapse animation.
+ */
+function handleCollapsePinResize(
+  { scrollRoot, sentinel, viewport, wrapper }: SentinelLayoutElements,
+  pinTarget: number,
+) {
+  if (!sentinel || !wrapper) return;
+  const height = sentinel.offsetHeight;
+  if (height <= 0) return;
+  const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
+  const contentHeight = wrapper.offsetHeight - currentPad;
+  const minContent = viewport.clientHeight + Math.max(height, pinTarget);
+  const needed = Math.max(0, minContent - contentHeight);
+  const next = needed > 0 ? `${needed}px` : "";
+  if (wrapper.style.paddingBottom !== next) wrapper.style.paddingBottom = next;
+  syncScrollbar(scrollRoot, viewport, height);
+  viewport.scrollTop = pinTarget;
+}
+
+/**
+ * Apply or clear inset styles on the Radix scrollbar to hide the sentinel zone.
+ *
+ * When content doesn't overflow (sentinel hidden or no real scroll),
+ * the scrollbar is hidden entirely. Otherwise, the thumb track is offset
+ * so its top edge aligns with the visible content boundary.
+ *
+ * Fixes: scrollbar thumb starting below expected position due to sentinel.
+ */
+function syncScrollbar(
+  root: HTMLElement,
+  viewport: HTMLElement,
+  sentinelHeight: number,
+) {
+  const sb = findScrollbar(root);
+  if (!sb) return;
+  const H = viewport.scrollHeight;
+  const realOverflow = H - sentinelHeight > viewport.clientHeight;
+  if (!realOverflow) {
+    sb.style.display = "none";
+    return;
+  }
+  sb.style.display = "";
+  // D = S·C/(H−S) makes translate3d(0, D, 0) land at the visible top edge.
+  const inset =
+    H > sentinelHeight
+      ? (sentinelHeight * viewport.clientHeight) / (H - sentinelHeight)
+      : 0;
+  sb.style.marginTop = `-${inset.toFixed(2)}px`;
+  sb.style.height = `calc(100% + ${inset.toFixed(2)}px)`;
 }

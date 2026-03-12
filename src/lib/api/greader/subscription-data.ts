@@ -1,15 +1,17 @@
-import { getDb } from "@/lib/db/db";
-import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+
 import { buildUserCategoryJoin } from "./stream-joins";
 
-type UserSubscriptionRow = {
+import { getDb } from "@/lib/db/db";
+import { feedCategories, feeds, feedSources } from "@/lib/db/schema";
+
+interface UserSubscriptionRow {
+  category: null | string;
+  feedId: null | number;
   sourceId: number;
   title: string;
   url: string;
-  feedId: number | null;
-  category: string | null;
-};
+}
 
 export async function loadUserSubscriptionRows(
   userId: number,
@@ -18,11 +20,11 @@ export async function loadUserSubscriptionRows(
 
   return db
     .select({
+      category: feedCategories.category,
+      feedId: feeds.id,
       sourceId: feedSources.id,
       title: feedSources.name,
       url: feedSources.url,
-      feedId: feeds.id,
-      category: feedCategories.category,
     })
     .from(feedSources)
     .leftJoin(feeds, eq(feeds.url, feedSources.url))

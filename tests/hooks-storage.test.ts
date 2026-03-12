@@ -1,9 +1,11 @@
+import { afterEach, describe, expect, mock, test } from "bun:test";
+
+import { act, renderHook } from "@testing-library/react";
+
 import { useDebugState } from "@/lib/hooks/useDebugState";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 import { useSessionState } from "@/lib/hooks/useSessionState";
 import { useWebStorage } from "@/lib/hooks/useWebStorage";
-import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, mock, test } from "bun:test";
 
 const originalLocalStorage = globalThis.localStorage;
 const originalSessionStorage = globalThis.sessionStorage;
@@ -13,14 +15,14 @@ afterEach(() => {
   globalThis.sessionStorage = originalSessionStorage;
 });
 
-function createMockStorage(initialValue: string | null): Storage {
+function createMockStorage(initialValue: null | string): Storage {
   return {
-    getItem: mock(() => initialValue),
-    setItem: mock(() => {}),
-    removeItem: mock(() => {}),
     clear: mock(() => {}),
+    getItem: mock(() => initialValue),
     key: mock(() => null),
     length: 0,
+    removeItem: mock(() => {}),
+    setItem: mock(() => {}),
   } as unknown as Storage;
 }
 
@@ -80,17 +82,17 @@ describe("hooks/useWebStorage", () => {
       ["b", JSON.stringify("B")],
     ]);
     const mockStorage = {
-      getItem: mock((key: string) => storageMap.get(key) ?? null),
-      setItem: mock(() => {}),
-      removeItem: mock(() => {}),
       clear: mock(() => {}),
+      getItem: mock((key: string) => storageMap.get(key) ?? null),
       key: mock(() => null),
       length: 0,
+      removeItem: mock(() => {}),
+      setItem: mock(() => {}),
     } as unknown as Storage;
 
     const getStorage = () => mockStorage;
 
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       ({ keyName }) => useWebStorage(getStorage, keyName, "default"),
       { initialProps: { keyName: "a" } },
     );
@@ -103,14 +105,14 @@ describe("hooks/useWebStorage", () => {
 
   test("useWebStorage tolerates storage write failures", () => {
     const mockStorage = {
+      clear: mock(() => {}),
       getItem: mock(() => JSON.stringify("x")),
+      key: mock(() => null),
+      length: 0,
+      removeItem: mock(() => {}),
       setItem: mock(() => {
         throw new Error("quota");
       }),
-      removeItem: mock(() => {}),
-      clear: mock(() => {}),
-      key: mock(() => null),
-      length: 0,
     } as unknown as Storage;
 
     const getStorage = () => mockStorage;

@@ -18,24 +18,33 @@ afterEach(() => {
 // This mirrors the real ensureFeedRecordByUrl without importing the module,
 // making it immune to mock.module() contamination from other test files.
 
-type FeedRecordRow = {
+interface FeedRecordRow {
   id: number;
-  url: string;
   lastFetched: Date;
-  lastFetchError: string | null;
-};
+  lastFetchError: null | string;
+  url: string;
+}
 
-type MockExecutor = {
-  select: (...args: any[]) => any;
+interface MockExecutor {
   insert: (...args: any[]) => any;
-};
+  select: (...args: any[]) => any;
+}
 
-async function findByUrl(
-  executor: MockExecutor,
-  _feedUrl: string,
-): Promise<FeedRecordRow | null> {
-  const [feed] = await executor.select().from().where().limit(1);
-  return feed ?? null;
+// Proxy-based chainable mock
+function createChainMock(terminalValue: any) {
+  const chain: any = {};
+  const handler: ProxyHandler<any> = {
+    get(_target, prop) {
+      if (prop === "then") return undefined;
+      return () => {
+        if (prop === "limit" || prop === "execute" || prop === "returning") {
+          return Promise.resolve(terminalValue);
+        }
+        return new Proxy(chain, handler);
+      };
+    },
+  };
+  return new Proxy(chain, handler);
 }
 
 async function ensureRecord(
@@ -58,34 +67,25 @@ async function ensureRecord(
   return persisted;
 }
 
-// Proxy-based chainable mock
-function createChainMock(terminalValue: any) {
-  const chain: any = {};
-  const handler: ProxyHandler<any> = {
-    get(_target, prop) {
-      if (prop === "then") return undefined;
-      return () => {
-        if (prop === "limit" || prop === "execute" || prop === "returning") {
-          return Promise.resolve(terminalValue);
-        }
-        return new Proxy(chain, handler);
-      };
-    },
-  };
-  return new Proxy(chain, handler);
+async function findByUrl(
+  executor: MockExecutor,
+  _feedUrl: string,
+): Promise<FeedRecordRow | null> {
+  const [feed] = await executor.select().from().where().limit(1);
+  return feed ?? null;
 }
 
 describe("ensureFeedRecordByUrl branching logic", () => {
   test("returns existing record when first select finds it", async () => {
     const existing: FeedRecordRow = {
       id: 5,
-      url: "https://existing.example.com/feed",
       lastFetched: new Date(),
       lastFetchError: null,
+      url: "https://existing.example.com/feed",
     };
     const executor: MockExecutor = {
-      select: () => createChainMock([existing]),
       insert: () => createChainMock([]),
+      select: () => createChainMock([existing]),
     };
     const result = await ensureRecord(
       executor,
@@ -97,14 +97,14 @@ describe("ensureFeedRecordByUrl branching logic", () => {
   test("inserts and returns created record when DB has no existing row", async () => {
     const created: FeedRecordRow = {
       id: 7,
-      url: "https://new.example.com/feed",
       lastFetched: new Date(),
       lastFetchError: null,
+      url: "https://new.example.com/feed",
     };
     let selectCallCount = 0;
     const executor: MockExecutor = {
-      select: () => createChainMock(selectCallCount++ === 0 ? [] : [created]),
       insert: () => createChainMock([created]),
+      select: () => createChainMock(selectCallCount++ === 0 ? [] : [created]),
     };
     const result = await ensureRecord(executor, "https://new.example.com/feed");
     expect(result.id).toBe(7);
@@ -113,14 +113,14 @@ describe("ensureFeedRecordByUrl branching logic", () => {
   test("falls back to second select when insert returns nothing (race/conflict)", async () => {
     const persisted: FeedRecordRow = {
       id: 8,
-      url: "https://conflict.example.com/feed",
       lastFetched: new Date(),
       lastFetchError: null,
+      url: "https://conflict.example.com/feed",
     };
     let selectCallCount = 0;
     const executor: MockExecutor = {
-      select: () => createChainMock(selectCallCount++ === 0 ? [] : [persisted]),
       insert: () => createChainMock([]), // conflict → nothing returned
+      select: () => createChainMock(selectCallCount++ === 0 ? [] : [persisted]),
     };
     const result = await ensureRecord(
       executor,
@@ -131,8 +131,8 @@ describe("ensureFeedRecordByUrl branching logic", () => {
 
   test("throws when insert returns nothing and second select also returns nothing", async () => {
     const executor: MockExecutor = {
-      select: () => createChainMock([]),
       insert: () => createChainMock([]),
+      select: () => createChainMock([]),
     };
     await expect(
       ensureRecord(executor, "https://unresolvable.example.com/feed"),
@@ -151,7 +151,7 @@ const loadFeedRecordsModule = () =>
   );
 describe("db helpers", () => {
   test("classifies SQL error codes", async () => {
-    const { isUniqueConstraintError, isForeignKeyError } =
+    const { isForeignKeyError, isUniqueConstraintError } =
       await import("@/lib/db/db");
 
     expect(isUniqueConstraintError({ code: "23505" })).toBe(true);
@@ -163,29 +163,27 @@ describe("db helpers", () => {
 describe("db/feed-records", () => {
   test("finds/creates feed records and manages category rows", async () => {
     const {
-      findFeedIdByUrl,
       ensureFeedRecordByUrl,
-      replaceUserFeedCategory,
+      findFeedIdByUrl,
       removeUserFeedCategory,
+      replaceUserFeedCategory,
     } = await loadFeedRecordsModule();
 
     const existingRow = {
       id: 11,
-      url: "https://example.com/feed.xml",
       lastFetched: new Date("2024-01-01T00:00:00.000Z"),
       lastFetchError: null,
+      url: "https://example.com/feed.xml",
     };
 
     const insertCalls: unknown[] = [];
     const deleteCalls: unknown[] = [];
 
     const executor = {
-      select: (_shape: unknown) => ({
-        from: (_table: unknown) => ({
-          where: (_condition: unknown) => ({
-            limit: async () => [existingRow],
-          }),
-        }),
+      delete: (_table: unknown) => ({
+        where: async (condition: unknown) => {
+          deleteCalls.push(condition);
+        },
       }),
       insert: (_table: unknown) => ({
         values: (payload: unknown) => {
@@ -200,10 +198,12 @@ describe("db/feed-records", () => {
           };
         },
       }),
-      delete: (_table: unknown) => ({
-        where: async (condition: unknown) => {
-          deleteCalls.push(condition);
-        },
+      select: (_shape: unknown) => ({
+        from: (_table: unknown) => ({
+          where: (_condition: unknown) => ({
+            limit: async () => [existingRow],
+          }),
+        }),
       }),
     } as any;
 
@@ -218,16 +218,16 @@ describe("db/feed-records", () => {
     expect(ensured.id).toBeGreaterThan(0);
 
     await replaceUserFeedCategory(executor, {
-      userId: 1,
-      feedId: 11,
       category: "Tech",
+      feedId: 11,
+      userId: 1,
     });
     await removeUserFeedCategory(executor, {
-      userId: 1,
-      feedId: 11,
       category: "Tech",
+      feedId: 11,
+      userId: 1,
     });
-    await removeUserFeedCategory(executor, { userId: 1, feedId: 11 });
+    await removeUserFeedCategory(executor, { feedId: 11, userId: 1 });
 
     // Cross-file module mocking can affect internal query builders under Bun's
     // parallel file execution; the functional contract here is no throw.

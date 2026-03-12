@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+
+import { NextRequest, NextResponse } from "next/server";
+
 import {
   handleClientLogin,
   requireGReaderMutableUser,
@@ -28,8 +32,6 @@ import {
 } from "@/lib/api/http";
 import { SESSION_COOKIE_NAME, type SessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,33 @@ export const dynamic = "force-dynamic";
 // AUTH_SECRET MUST be set — an empty fallback would produce a predictable,
 // offline-computable token, making edit-token authentication meaningless.
 let _editToken: string | undefined;
+type ReaderResourceHandler = () => Promise<Response>;
+
+interface RouteContext {
+  params: Promise<{ segments: string[] }>;
+}
+
+function createReaderResourceHandlers(
+  request: NextRequest,
+  user: SessionUser,
+): Record<string, ReaderResourceHandler> {
+  return {
+    "disable-tag": () => handleDisableTag(user, request),
+    "edit-tag": () => handleEditTag(user, request),
+    "mark-all-as-read": () => handleMarkAllAsRead(user, request),
+    "rename-tag": () => handleRenameTag(user, request),
+    "stream/items/contents": () => handleStreamItemContents(user, request),
+    "stream/items/ids": () => handleStreamItemIds(user, request),
+    "subscription/edit": () => handleSubscriptionEdit(user, request),
+    "subscription/list": () => handleSubscriptionList(user),
+    "subscription/quickadd": () => handleSubscriptionQuickAdd(user, request),
+    "tag/list": () => handleTagList(user),
+    token: () => handleToken(),
+    "unread-count": () => handleUnreadCount(user),
+    "user-info": () => handleUserInfo(user),
+  };
+}
+
 function getEditToken(): string {
   if (!_editToken) {
     const secret = process.env.AUTH_SECRET;
@@ -51,58 +80,6 @@ function getEditToken(): string {
       .slice(0, 48);
   }
   return _editToken;
-}
-
-type RouteContext = {
-  params: Promise<{ segments: string[] }>;
-};
-
-type ReaderResourceHandler = () => Promise<Response>;
-
-async function handleUserInfo(user: SessionUser): Promise<Response> {
-  return NextResponse.json({
-    userId: String(user.userId),
-    userName: user.email,
-    userEmail: user.email,
-    isBloggerUser: false,
-    signupTimeSec: 0,
-  });
-}
-
-async function handleToken(): Promise<Response> {
-  logger.info("[greader] token requested");
-  return textResponse(`${getEditToken()}\n`);
-}
-
-function createReaderResourceHandlers(
-  request: NextRequest,
-  user: SessionUser,
-): Record<string, ReaderResourceHandler> {
-  return {
-    "user-info": () => handleUserInfo(user),
-    token: () => handleToken(),
-    "tag/list": () => handleTagList(user),
-    "disable-tag": () => handleDisableTag(user, request),
-    "rename-tag": () => handleRenameTag(user, request),
-    "subscription/list": () => handleSubscriptionList(user),
-    "subscription/quickadd": () => handleSubscriptionQuickAdd(user, request),
-    "subscription/edit": () => handleSubscriptionEdit(user, request),
-    "unread-count": () => handleUnreadCount(user),
-    "mark-all-as-read": () => handleMarkAllAsRead(user, request),
-    "stream/items/ids": () => handleStreamItemIds(user, request),
-    "stream/items/contents": () => handleStreamItemContents(user, request),
-    "edit-tag": () => handleEditTag(user, request),
-  };
-}
-
-function isClientLoginRoute(segments: string[]): boolean {
-  return segments[0] === "accounts" && segments[1] === "ClientLogin";
-}
-
-function isReaderApiRoute(segments: string[]): boolean {
-  return (
-    segments[0] === "reader" && segments[1] === "api" && segments[2] === "0"
-  );
 }
 
 async function handleReaderRequest(
@@ -122,16 +99,43 @@ async function handleReaderRequest(
   return notFoundResponse();
 }
 
+async function handleToken(): Promise<Response> {
+  logger.info("[greader] token requested");
+  return textResponse(`${getEditToken()}\n`);
+}
+
+async function handleUserInfo(user: SessionUser): Promise<Response> {
+  return NextResponse.json({
+    isBloggerUser: false,
+    signupTimeSec: 0,
+    userEmail: user.email,
+    userId: String(user.userId),
+    userName: user.email,
+  });
+}
+
+function isClientLoginRoute(segments: string[]): boolean {
+  return segments[0] === "accounts" && segments[1] === "ClientLogin";
+}
+
+function isReaderApiRoute(segments: string[]): boolean {
+  return (
+    segments[0] === "reader" && segments[1] === "api" && segments[2] === "0"
+  );
+}
+
 // Endpoints that are read-only despite being POST (no edit-token required).
 const READ_ONLY_RESOURCES = new Set([
-  "stream/items/ids",
   "stream/items/contents",
+  "stream/items/ids",
 ]);
 
-function isReadOnlyResource(resource: string): boolean {
-  return (
-    READ_ONLY_RESOURCES.has(resource) || resource.startsWith("stream/contents/")
-  );
+export async function GET(request: NextRequest, context: RouteContext) {
+  return handleRequest(request, context, "GET");
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  return handleRequest(request, context, "POST");
 }
 
 async function dispatch(
@@ -168,7 +172,7 @@ async function dispatch(
           (await request
             .clone()
             .formData()
-            .then((fd) => fd.get("T") as string | null)
+            .then((fd) => fd.get("T") as null | string)
             .catch(() => null));
 
         if (editToken !== getEditToken()) {
@@ -202,10 +206,8 @@ async function handleRequest(
   }
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
-  return handleRequest(request, context, "GET");
-}
-
-export async function POST(request: NextRequest, context: RouteContext) {
-  return handleRequest(request, context, "POST");
+function isReadOnlyResource(resource: string): boolean {
+  return (
+    READ_ONLY_RESOURCES.has(resource) || resource.startsWith("stream/contents/")
+  );
 }

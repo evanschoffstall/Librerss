@@ -1,35 +1,36 @@
-import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 import type { Article, FeedSource } from "./types";
+
+import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
 
 export const PLACEHOLDER_CATEGORY = "Placeholder Feeds";
 
 export const PLACEHOLDER_FEED_SOURCES: FeedSource[] = [
   {
+    category: PLACEHOLDER_CATEGORY,
     id: 1,
     name: "Live Science",
     url: "https://www.livescience.com/feeds/all",
-    category: PLACEHOLDER_CATEGORY,
   },
   {
+    category: PLACEHOLDER_CATEGORY,
     id: 2,
     name: "Psychology Today",
     url: "https://www.psychologytoday.com/us/news",
-    category: PLACEHOLDER_CATEGORY,
   },
   {
+    category: PLACEHOLDER_CATEGORY,
     id: 3,
     name: "NASA",
     url: "https://www.nasa.gov/rss/dyn/breaking_news.rss",
-    category: PLACEHOLDER_CATEGORY,
   },
 ];
 
-type PlaceholderSeed = {
-  title: string;
-  slug: string;
-  url: string;
+interface PlaceholderSeed {
   content: string;
-};
+  slug: string;
+  title: string;
+  url: string;
+}
 type PlaceholderSeedTuple = readonly [
   title: string,
   slug: string,
@@ -41,10 +42,10 @@ const createPlaceholderSeeds = (
   entries: readonly PlaceholderSeedTuple[],
 ): PlaceholderSeed[] =>
   entries.map(([title, slug, url, content]) => ({
-    title,
-    slug,
-    url,
     content,
+    slug,
+    title,
+    url,
   }));
 
 const createPlaceholderArticles = (
@@ -54,13 +55,13 @@ const createPlaceholderArticles = (
 ): Article[] => {
   const MINUTE = 60 * 1000;
   return seeds.map((seed, index) => ({
-    id: -(feedId * 100 + index + 1),
-    title: seed.title,
-    link: seed.url,
     content: seed.content,
-    publicationDate: new Date(Date.now() - (12 + index * 23) * MINUTE),
-    lastChecked: new Date(Date.now() - (4 + index) * MINUTE),
     feedId,
+    id: -(feedId * 100 + index + 1),
+    lastChecked: new Date(Date.now() - (4 + index) * MINUTE),
+    link: seed.url,
+    publicationDate: new Date(Date.now() - (12 + index * 23) * MINUTE),
+    title: seed.title,
   }));
 };
 
@@ -215,7 +216,7 @@ export const getPlaceholderArticlesForSource = (url: string): Article[] =>
 
 export const getPlaceholderSnapshotPathByArticleUrl = (
   url: string,
-): string | null => {
+): null | string => {
   const normalizedUrl = tryNormalizeFeedUrl(url);
   return PLACEHOLDER_SNAPSHOT_PATH_BY_URL[normalizedUrl] ?? null;
 };

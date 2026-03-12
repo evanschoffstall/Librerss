@@ -1,17 +1,17 @@
-import {
-  articleStatuses,
-  articles,
-  feedCategories,
-  feedSources,
-  feeds,
-} from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
-export function buildUserFeedJoin(userId: number) {
+import {
+  articles,
+  articleStatuses,
+  feedCategories,
+  feeds,
+  feedSources,
+} from "@/lib/db/schema";
+
+export function buildUserArticleStatusJoin(userId: number) {
   return and(
-    eq(feedSources.url, feeds.url),
-    eq(feedSources.userId, userId),
-    eq(feedSources.enabled, true),
+    eq(articleStatuses.userId, userId),
+    eq(articleStatuses.articleId, articles.id),
   );
 }
 
@@ -22,9 +22,10 @@ export function buildUserCategoryJoin() {
   );
 }
 
-export function buildUserArticleStatusJoin(userId: number) {
+export function buildUserFeedJoin(userId: number) {
   return and(
-    eq(articleStatuses.userId, userId),
-    eq(articleStatuses.articleId, articles.id),
+    eq(feedSources.url, feeds.url),
+    eq(feedSources.userId, userId),
+    eq(feedSources.enabled, true),
   );
 }

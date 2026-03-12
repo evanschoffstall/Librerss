@@ -1,4 +1,6 @@
-type FeedLike = { lastFetchedAt?: Date | null };
+interface FeedLike {
+  lastFetchedAt?: Date | null;
+}
 
 export function canRefreshFeed(
   feed: FeedLike,

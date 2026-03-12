@@ -8,36 +8,38 @@ import { sanitizeArticleHtml } from "@/lib/sanitize";
 
 // ── Reader API wire types ────────────────────────────────────────────────────
 
-type ReaderApiLink = { href?: string };
-type ReaderApiOrigin = { streamId?: string; title?: string; htmlUrl?: string };
-type ReaderApiSummary = { content?: string };
-
-export type ReaderApiItem = {
-  id?: string;
-  title?: string;
-  published?: number;
-  updated?: number;
-  canonical?: ReaderApiLink[];
+export interface ReaderApiItem {
   alternate?: ReaderApiLink[];
-  summary?: ReaderApiSummary;
-  origin?: ReaderApiOrigin;
+  canonical?: ReaderApiLink[];
   categories?: string[];
-};
-
-export type ReaderApiStreamResponse = {
+  id?: string;
+  origin?: ReaderApiOrigin;
+  published?: number;
+  summary?: ReaderApiSummary;
+  title?: string;
+  updated?: number;
+}
+export interface ReaderApiStreamResponse {
   items?: ReaderApiItem[];
-};
+}
+interface ReaderApiLink {
+  href?: string;
+}
+
+interface ReaderApiOrigin {
+  htmlUrl?: string;
+  streamId?: string;
+  title?: string;
+}
+
+interface ReaderApiSummary {
+  content?: string;
+}
 
 export function parseReaderStreamItems(
   data: ReaderApiStreamResponse | undefined,
 ): ReaderApiItem[] {
   return Array.isArray(data?.items) ? data.items : [];
-}
-
-function resolvePublishedTimestamp(item: ReaderApiItem): number {
-  if (typeof item.published === "number") return item.published * 1000;
-  if (typeof item.updated === "number") return item.updated * 1000;
-  return Date.now();
 }
 
 export function readerItemToArticle(
@@ -56,16 +58,22 @@ export function readerItemToArticle(
   const categories = item.categories ?? [];
 
   return {
-    id: (item.id ? parseReaderItemId(item.id) : null) ?? index + 1,
-    title: item.title?.trim() || "Untitled",
-    link,
     content: sanitizeArticleHtml(item.summary?.content || ""),
-    publicationDate,
-    lastChecked: new Date(),
     feedId: 0,
     feedName: item.origin?.title,
     feedUrl: originFeedUrl,
+    id: (item.id ? parseReaderItemId(item.id) : null) ?? index + 1,
     isRead: categories.includes(READ_STATE),
     isStarred: categories.includes(STARRED_STATE),
+    lastChecked: new Date(),
+    link,
+    publicationDate,
+    title: item.title?.trim() || "Untitled",
   };
+}
+
+function resolvePublishedTimestamp(item: ReaderApiItem): number {
+  if (typeof item.published === "number") return item.published * 1000;
+  if (typeof item.updated === "number") return item.updated * 1000;
+  return Date.now();
 }

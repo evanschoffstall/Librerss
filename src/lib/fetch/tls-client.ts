@@ -1,5 +1,6 @@
-import { logger } from "@/lib/logger";
 import { promises as dns } from "dns";
+
+import { logger } from "@/lib/logger";
 
 let tlsReady: boolean | null = null;
 
@@ -8,29 +9,29 @@ interface WrapperModuleClient {
 }
 
 interface WrapperSessionClient {
+  destroySession: () => Promise<unknown>;
   get: (
     url: string,
     options?: {
-      headers?: Record<string, string>;
       followRedirects?: boolean;
+      headers?: Record<string, string>;
       requestHostOverride?: string;
     },
   ) => Promise<{
-    status: number;
-    headers: Record<string, string>;
     body: string;
+    headers: Record<string, string>;
+    status: number;
   }>;
-  destroySession: () => Promise<unknown>;
 }
 
-let moduleClient: WrapperModuleClient | null = null;
+let moduleClient: null | WrapperModuleClient = null;
 
 const MAX_SOCKS_ROUTE_ENTRIES = 500;
 const MAX_FALLBACK_WARNING_ENTRIES = 100;
 
 const globalForFetch = globalThis as unknown as {
-  socksRoutePreference?: Map<string, "hostname" | "ip">;
   socksFallbackWarningEmitted?: Set<string>;
+  socksRoutePreference?: Map<string, "hostname" | "ip">;
 };
 
 const socksRoutePreference =
@@ -41,35 +42,10 @@ const socksFallbackWarningEmitted =
 globalForFetch.socksRoutePreference = socksRoutePreference;
 globalForFetch.socksFallbackWarningEmitted = socksFallbackWarningEmitted;
 
-function socksRouteKey(proxyUrl: string | undefined, hostname: string): string {
-  if (!proxyUrl) return hostname;
-  try {
-    const parsed = new URL(proxyUrl);
-    return `${parsed.protocol}//${parsed.host}|${hostname}`;
-  } catch {
-    return `${proxyUrl}|${hostname}`;
-  }
-}
-
-function boundedMapSet<K, V>(
-  map: Map<K, V>,
-  key: K,
-  value: V,
-  maxSize: number,
-): void {
-  if (map.size >= maxSize && !map.has(key)) {
-    const firstKey = map.keys().next().value;
-    if (firstKey !== undefined) map.delete(firstKey);
-  }
-  map.set(key, value);
-}
-
-function boundedSetAdd<T>(set: Set<T>, value: T, maxSize: number): void {
-  if (set.size >= maxSize && !set.has(value)) {
-    const firstValue = set.values().next().value;
-    if (firstValue !== undefined) set.delete(firstValue);
-  }
-  set.add(value);
+interface RawResponse {
+  body: string;
+  headers: Record<string, string | string[] | undefined>;
+  statusCode: number;
 }
 
 export async function ensureTlsClient(): Promise<boolean> {
@@ -91,22 +67,6 @@ export async function ensureTlsClient(): Promise<boolean> {
     });
     return false;
   }
-}
-
-function flattenHeaders(
-  src: Record<string, string | string[] | undefined> | null | undefined,
-): Record<string, string | string[] | undefined> {
-  if (!src) return {};
-  const out: Record<string, string | string[] | undefined> = {};
-  for (const [k, v] of Object.entries(src))
-    out[k.toLowerCase()] = Array.isArray(v) && v.length === 1 ? v[0] : v;
-  return out;
-}
-
-interface RawResponse {
-  statusCode: number;
-  headers: Record<string, string | string[] | undefined>;
-  body: string;
 }
 
 export async function tlsClientFetch(
@@ -138,11 +98,11 @@ export async function tlsClientFetch(
     };
 
     const session = new SessionClient(moduleClient, {
-      tlsClientIdentifier: "chrome_131",
+      followRedirects: false,
+      insecureSkipVerify: allowInsecureTls,
       timeoutMilliseconds: timeoutMs,
       timeoutSeconds: undefined,
-      insecureSkipVerify: allowInsecureTls,
-      followRedirects: false,
+      tlsClientIdentifier: "chrome_131",
       withDefaultCookieJar: true,
       ...(sanitizedProxyUrl ? { proxyUrl: sanitizedProxyUrl } : {}),
       ...(serverNameOverwrite ? { serverNameOverwrite } : {}),
@@ -150,20 +110,20 @@ export async function tlsClientFetch(
 
     try {
       const resp = await session.get(targetUrl, {
-        headers,
         followRedirects: false,
+        headers,
         ...(hostOverride ? { requestHostOverride: hostOverride } : {}),
       });
       return {
-        statusCode: resp.status,
-        headers: flattenHeaders(resp.headers),
         body: resp.body,
+        headers: flattenHeaders(resp.headers),
+        statusCode: resp.status,
       };
     } catch (err) {
       return {
-        statusCode: 0,
-        headers: {},
         body: err instanceof Error ? err.message : String(err),
+        headers: {},
+        statusCode: 0,
       };
     } finally {
       await session.destroySession().catch(() => {
@@ -249,9 +209,50 @@ export async function tlsClientFetch(
     return fallback.statusCode === 0 ? primary : fallback;
   } catch (err) {
     logger.warn("DNS resolution failed for SOCKS proxy fallback", {
-      hostname,
       error: err instanceof Error ? err.message : String(err),
+      hostname,
     });
     return primary;
+  }
+}
+
+function boundedMapSet<K, V>(
+  map: Map<K, V>,
+  key: K,
+  value: V,
+  maxSize: number,
+): void {
+  if (map.size >= maxSize && !map.has(key)) {
+    const firstKey = map.keys().next().value;
+    if (firstKey !== undefined) map.delete(firstKey);
+  }
+  map.set(key, value);
+}
+
+function boundedSetAdd<T>(set: Set<T>, value: T, maxSize: number): void {
+  if (set.size >= maxSize && !set.has(value)) {
+    const firstValue = set.values().next().value;
+    if (firstValue !== undefined) set.delete(firstValue);
+  }
+  set.add(value);
+}
+
+function flattenHeaders(
+  src: null | Record<string, string | string[] | undefined> | undefined,
+): Record<string, string | string[] | undefined> {
+  if (!src) return {};
+  const out: Record<string, string | string[] | undefined> = {};
+  for (const [k, v] of Object.entries(src))
+    out[k.toLowerCase()] = Array.isArray(v) && v.length === 1 ? v[0] : v;
+  return out;
+}
+
+function socksRouteKey(proxyUrl: string | undefined, hostname: string): string {
+  if (!proxyUrl) return hostname;
+  try {
+    const parsed = new URL(proxyUrl);
+    return `${parsed.protocol}//${parsed.host}|${hostname}`;
+  } catch {
+    return `${proxyUrl}|${hostname}`;
   }
 }

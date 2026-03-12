@@ -6,62 +6,41 @@
  * the main DashboardView render function.
  */
 
-import { ArticleService, type CategoryTreeNode } from "@/lib";
 import { useEffect } from "react";
 import { toast } from "sonner";
+
 import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "../constants";
 
+import { ArticleService, type CategoryTreeNode } from "@/lib";
+
 interface UseDashboardEventsOptions {
-  selectedCategory: string;
-  selectedFeedUrl: string | undefined;
-  selectedCategoryNode: CategoryTreeNode | undefined;
   fetchAllFeeds: () => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
   fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
-  onOpenSettings: () => void;
-  onOpenFeedsSidebar: () => void;
-  onSearchChange: (term: string) => void;
-  onRefresh: () => void;
-  usePlaceholderData?: boolean;
+  fetchFeed: (url: string) => Promise<void>;
   onMarkAllReadLocally?: () => void;
-}
-
-function collectMarkAllReadStreams(
-  selectedCategory: string,
-  selectedFeedUrl: string | undefined,
-  selectedCategoryNode: CategoryTreeNode | undefined,
-): string[] {
-  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    return ["user/-/state/com.google/reading-list"];
-  }
-
-  if (selectedFeedUrl) {
-    return [`feed/${selectedFeedUrl}`];
-  }
-
-  if (!selectedCategoryNode?.children?.length) {
-    return [];
-  }
-
-  return selectedCategoryNode.children
-    .map((node) => node.data?.url)
-    .filter((url): url is string => Boolean(url))
-    .map((url) => `feed/${url}`);
+  onOpenFeedsSidebar: () => void;
+  onOpenSettings: () => void;
+  onRefresh: () => void;
+  onSearchChange: (term: string) => void;
+  selectedCategory: string;
+  selectedCategoryNode: CategoryTreeNode | undefined;
+  selectedFeedUrl: string | undefined;
+  usePlaceholderData?: boolean;
 }
 
 export function useDashboardEvents({
-  selectedCategory,
-  selectedFeedUrl,
-  selectedCategoryNode,
   fetchAllFeeds,
-  fetchFeed,
   fetchCategoryFeeds,
-  onOpenSettings,
-  onOpenFeedsSidebar,
-  onSearchChange,
-  onRefresh,
-  usePlaceholderData = false,
+  fetchFeed,
   onMarkAllReadLocally,
+  onOpenFeedsSidebar,
+  onOpenSettings,
+  onRefresh,
+  onSearchChange,
+  selectedCategory,
+  selectedCategoryNode,
+  selectedFeedUrl,
+  usePlaceholderData = false,
 }: UseDashboardEventsOptions) {
   useEffect(() => {
     const handleMarkAllRead = async () => {
@@ -160,4 +139,27 @@ export function useDashboardEvents({
     usePlaceholderData,
     onMarkAllReadLocally,
   ]);
+}
+
+function collectMarkAllReadStreams(
+  selectedCategory: string,
+  selectedFeedUrl: string | undefined,
+  selectedCategoryNode: CategoryTreeNode | undefined,
+): string[] {
+  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+    return ["user/-/state/com.google/reading-list"];
+  }
+
+  if (selectedFeedUrl) {
+    return [`feed/${selectedFeedUrl}`];
+  }
+
+  if (!selectedCategoryNode?.children?.length) {
+    return [];
+  }
+
+  return selectedCategoryNode.children
+    .map((node) => node.data?.url)
+    .filter((url): url is string => Boolean(url))
+    .map((url) => `feed/${url}`);
 }

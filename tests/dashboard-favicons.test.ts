@@ -5,6 +5,8 @@
  *         getCachedFaviconIndex
  */
 
+import { describe, expect, test } from "bun:test";
+
 import {
   getFaviconCacheKey,
   getFaviconTintColors,
@@ -12,7 +14,6 @@ import {
   getMergedFaviconCandidates,
 } from "@/app/dashboard/services/favicons";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
-import { describe, expect, test } from "bun:test";
 
 describe("favicons – getUrlHostnameDisplayLabel", () => {
   test("strips www. prefix", () => {

@@ -1,3 +1,6 @@
+import axios from "axios";
+import { NextRequest, NextResponse } from "next/server";
+
 import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
 import {
   assertAllowedFeedUrl,
@@ -33,8 +36,6 @@ import { logger } from "@/lib/logger";
 import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
-import axios from "axios";
-import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -42,93 +43,65 @@ const UPSTREAM_FEED_ERROR_MESSAGE = "Failed to fetch feed from upstream";
 
 // ─── Dependency injection types (for testability) ─────────────────────────────
 
-type FeedRouteDeps = {
-  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
-  requireMutableFeedAccessFn?: typeof requireMutableFeedAccess;
-  getRequestedFeedUrlFn?: typeof getRequestedFeedUrl;
+interface FeedRouteDeps {
   assertAllowedFeedUrlFn?: typeof assertAllowedFeedUrl;
+  createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
+  deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
+  getDbFn?: typeof getDb;
+  getRequestedFeedUrlFn?: typeof getRequestedFeedUrl;
   handleFeedReadFn?: typeof handleFeedRead;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
   isFeedSourceNotFoundErrorFn?: typeof isFeedSourceNotFoundError;
   isUpstreamFeedErrorFn?: typeof isUpstreamFeedError;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
-  toErrorMessageFn?: typeof toErrorMessage;
-  logAndRespondErrorFn?: typeof logAndRespondError;
   jsonErrorFn?: typeof jsonError;
-  warnFn?: typeof logger.warn;
+  logAndRespondErrorFn?: typeof logAndRespondError;
   parseCreateFeedPayloadFn?: typeof parseCreateFeedPayload;
-  getDbFn?: typeof getDb;
-  createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
+  parseDeleteSourceIdFn?: typeof parseDeleteSourceId;
   parseRenameFeedPayloadFn?: (
     request: NextRequest,
-  ) => Promise<{ sourceId: number; name: string; url: string } | Response>;
+  ) => Promise<Response | { name: string; sourceId: number; url: string }>;
   parseRenameFeedPayloadFromBodyFn?: typeof parseRenameFeedPayloadFromBody;
   parseToggleFeedEnabledPayloadFromBodyFn?: typeof parseToggleFeedEnabledPayloadFromBody;
-  renameFeedSourceForUserFn?: typeof renameFeedSourceForUser;
-  setFeedSourceEnabledForUserFn?: typeof setFeedSourceEnabledForUser;
   parseUpdateFeedSettingsPayloadFromBodyFn?: typeof parseUpdateFeedSettingsPayloadFromBody;
+  renameFeedSourceForUserFn?: typeof renameFeedSourceForUser;
+  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+  requireMutableFeedAccessFn?: typeof requireMutableFeedAccess;
+  setFeedSourceEnabledForUserFn?: typeof setFeedSourceEnabledForUser;
+  toErrorMessageFn?: typeof toErrorMessage;
   updateFeedSettingsForUserFn?: typeof updateFeedSettingsForUser;
-  parseDeleteSourceIdFn?: typeof parseDeleteSourceId;
-  deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
-};
+  warnFn?: typeof logger.warn;
+}
 
 // ─── Shared upstream error handler ────────────────────────────────────────────
 
-function handleUpstreamFeedError(
-  error: unknown,
-  safeUrl: string | null,
-  deps: FeedRouteDeps,
-  context?: {
-    verboseLoggingEnabled?: boolean;
-    feedAttemptId?: string;
-    requestId?: string | null;
-  },
-): Response | null {
-  const isSourceNotFound =
-    deps.isFeedSourceNotFoundErrorFn ?? isFeedSourceNotFoundError;
-  const isUpstreamError = deps.isUpstreamFeedErrorFn ?? isUpstreamFeedError;
-  const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
-  const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
+export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
+  const requireMutable =
+    deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
+  const parseDeleteId = deps.parseDeleteSourceIdFn ?? parseDeleteSourceId;
+  const deleteSource =
+    deps.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
   const toJsonError = deps.jsonErrorFn ?? jsonError;
-  const warn = deps.warnFn ?? logger.warn.bind(logger);
-  const urlSuffix = safeUrl ? ` for ${safeUrl}` : "";
-  const verboseLoggingEnabled = context?.verboseLoggingEnabled ?? false;
-  const feedAttemptId = context?.feedAttemptId;
-  const requestId = context?.requestId ?? null;
+  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
-  if (isSourceNotFound(error)) {
-    return toJsonError("Feed source not found", 404);
+  try {
+    const user = await requireMutable(request);
+    if (user instanceof Response) return user;
+
+    const sourceId = parseDeleteId(request);
+    if (sourceId instanceof Response) return sourceId;
+
+    const deletedSource = await deleteSource(user.userId, sourceId);
+
+    if (!deletedSource) {
+      // Row was deleted by a concurrent request; treat as already gone.
+      return toJsonError("Feed source not found", 404);
+    }
+
+    invalidateUserCache(user.userId);
+    return NextResponse.json(deletedSource);
+  } catch (error) {
+    return respondError("Error deleting feed source", error);
   }
-
-  if (isUpstreamError(error)) {
-    warn(
-      `Returning 502 Bad Gateway — upstream feed fetch failed${urlSuffix}: ${toMessage(error)}`,
-      {
-        url: safeUrl,
-        feedAttemptId,
-        requestId,
-      },
-    );
-    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
-  }
-
-  if (isAxiosError(error)) {
-    const status = 502;
-    const label = "Bad Gateway";
-    warn(
-      `Returning ${status} ${label} — upstream feed request failed${urlSuffix}: ${toMessage(error)}`,
-      {
-        url: safeUrl,
-        feedAttemptId,
-        requestId,
-        ...(verboseLoggingEnabled
-          ? buildAxiosFailureDiagnostics(error, isAxiosError)
-          : {}),
-      },
-    );
-    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, status);
-  }
-
-  return null;
 }
 
 // ─── Route handlers ───────────────────────────────────────────────────────────
@@ -164,56 +137,13 @@ export async function GET(request: NextRequest, deps: FeedRouteDeps = {}) {
     const safeUrl = requestedUrl ? redactUrlForLogs(requestedUrl) : null;
 
     const upstreamResponse = handleUpstreamFeedError(error, safeUrl, deps, {
-      verboseLoggingEnabled,
       feedAttemptId,
       requestId,
+      verboseLoggingEnabled,
     });
     if (upstreamResponse) return upstreamResponse;
 
     return respondError("Error fetching feed", error);
-  }
-}
-
-export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
-  const requireMutable =
-    deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
-  const parseCreatePayload =
-    deps.parseCreateFeedPayloadFn ?? parseCreateFeedPayload;
-  const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
-  const getDbForRoute = deps.getDbFn ?? getDb;
-  const createOrUpdate =
-    deps.createOrUpdateFeedSourceFn ?? createOrUpdateFeedSource;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
-
-  try {
-    const user = await requireMutable(request, {
-      rateLimit: {
-        key: "feed-create",
-        windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
-        maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
-      },
-    });
-    if (user instanceof Response) return user;
-
-    const parsedPayload = await parseCreatePayload(request);
-    if (parsedPayload instanceof Response) return parsedPayload;
-
-    const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
-    if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
-
-    const db = getDbForRoute();
-    const { sourceRecord, isNew } = await db.transaction((tx) =>
-      createOrUpdate(tx, user.userId, parsedPayload),
-    );
-
-    invalidateUserCache(user.userId);
-
-    return NextResponse.json(
-      { ...sourceRecord, category: parsedPayload.category },
-      { status: isNew ? 201 : 200 },
-    );
-  } catch (error) {
-    return respondError("Error creating feed source", error);
   }
 }
 
@@ -247,7 +177,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       const parsedPayload = await parseRenamePayload(request);
       if (parsedPayload instanceof Response) return parsedPayload;
 
-      const { sourceId, name, url } = parsedPayload;
+      const { name, sourceId, url } = parsedPayload;
 
       const invalidFeedUrlResponse = await assertAllowedUrl(url);
       if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
@@ -308,7 +238,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
     const parsedPayload = parseRenamePayloadFromBody(payload);
     if (parsedPayload instanceof Response) return parsedPayload;
 
-    const { sourceId, name, url } = parsedPayload;
+    const { name, sourceId, url } = parsedPayload;
 
     const invalidFeedUrlResponse = await assertAllowedUrl(url);
     if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
@@ -323,32 +253,103 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
   }
 }
 
-export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
+export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
   const requireMutable =
     deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
-  const parseDeleteId = deps.parseDeleteSourceIdFn ?? parseDeleteSourceId;
-  const deleteSource =
-    deps.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
-  const toJsonError = deps.jsonErrorFn ?? jsonError;
+  const parseCreatePayload =
+    deps.parseCreateFeedPayloadFn ?? parseCreateFeedPayload;
+  const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
+  const getDbForRoute = deps.getDbFn ?? getDb;
+  const createOrUpdate =
+    deps.createOrUpdateFeedSourceFn ?? createOrUpdateFeedSource;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
-    const user = await requireMutable(request);
+    const user = await requireMutable(request, {
+      rateLimit: {
+        key: "feed-create",
+        maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
+        windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
+      },
+    });
     if (user instanceof Response) return user;
 
-    const sourceId = parseDeleteId(request);
-    if (sourceId instanceof Response) return sourceId;
+    const parsedPayload = await parseCreatePayload(request);
+    if (parsedPayload instanceof Response) return parsedPayload;
 
-    const deletedSource = await deleteSource(user.userId, sourceId);
+    const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
+    if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
 
-    if (!deletedSource) {
-      // Row was deleted by a concurrent request; treat as already gone.
-      return toJsonError("Feed source not found", 404);
-    }
+    const db = getDbForRoute();
+    const { isNew, sourceRecord } = await db.transaction((tx) =>
+      createOrUpdate(tx, user.userId, parsedPayload),
+    );
 
     invalidateUserCache(user.userId);
-    return NextResponse.json(deletedSource);
+
+    return NextResponse.json(
+      { ...sourceRecord, category: parsedPayload.category },
+      { status: isNew ? 201 : 200 },
+    );
   } catch (error) {
-    return respondError("Error deleting feed source", error);
+    return respondError("Error creating feed source", error);
   }
+}
+
+function handleUpstreamFeedError(
+  error: unknown,
+  safeUrl: null | string,
+  deps: FeedRouteDeps,
+  context?: {
+    feedAttemptId?: string;
+    requestId?: null | string;
+    verboseLoggingEnabled?: boolean;
+  },
+): null | Response {
+  const isSourceNotFound =
+    deps.isFeedSourceNotFoundErrorFn ?? isFeedSourceNotFoundError;
+  const isUpstreamError = deps.isUpstreamFeedErrorFn ?? isUpstreamFeedError;
+  const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
+  const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
+  const toJsonError = deps.jsonErrorFn ?? jsonError;
+  const warn = deps.warnFn ?? logger.warn.bind(logger);
+  const urlSuffix = safeUrl ? ` for ${safeUrl}` : "";
+  const verboseLoggingEnabled = context?.verboseLoggingEnabled ?? false;
+  const feedAttemptId = context?.feedAttemptId;
+  const requestId = context?.requestId ?? null;
+
+  if (isSourceNotFound(error)) {
+    return toJsonError("Feed source not found", 404);
+  }
+
+  if (isUpstreamError(error)) {
+    warn(
+      `Returning 502 Bad Gateway — upstream feed fetch failed${urlSuffix}: ${toMessage(error)}`,
+      {
+        feedAttemptId,
+        requestId,
+        url: safeUrl,
+      },
+    );
+    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
+  }
+
+  if (isAxiosError(error)) {
+    const status = 502;
+    const label = "Bad Gateway";
+    warn(
+      `Returning ${status} ${label} — upstream feed request failed${urlSuffix}: ${toMessage(error)}`,
+      {
+        feedAttemptId,
+        requestId,
+        url: safeUrl,
+        ...(verboseLoggingEnabled
+          ? buildAxiosFailureDiagnostics(error, isAxiosError)
+          : {}),
+      },
+    );
+    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, status);
+  }
+
+  return null;
 }

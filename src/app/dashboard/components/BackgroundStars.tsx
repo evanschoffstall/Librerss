@@ -2,31 +2,31 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-interface StarsProps {
-  className?: string;
-  quantity?: number;
-  staticity?: number;
-  ease?: number;
-  color?: "light" | "dark";
-  refresh?: boolean;
-}
-
-type Star = {
-  x: number;
-  y: number;
+interface Star {
+  alpha: number;
+  colorRgb: string;
+  direction: -1 | 1;
+  glowStrength: number;
+  magnetism: number;
+  maxAlpha: number;
+  minAlpha: number;
+  mode: "fade" | "steady" | "twinkle";
+  size: number;
+  speed: number;
   translateX: number;
   translateY: number;
-  size: number;
-  alpha: number;
-  minAlpha: number;
-  maxAlpha: number;
-  speed: number;
-  magnetism: number;
-  colorRgb: string;
-  glowStrength: number;
-  mode: "steady" | "twinkle" | "fade";
-  direction: 1 | -1;
-};
+  x: number;
+  y: number;
+}
+
+interface StarsProps {
+  className?: string;
+  color?: "dark" | "light";
+  ease?: number;
+  quantity?: number;
+  refresh?: boolean;
+  staticity?: number;
+}
 
 const TWINKLE_MAX_SPEED = 0.003;
 const TWINKLE_MIN_SPEED = 0.0012;
@@ -35,18 +35,18 @@ const FADE_MIN_SPEED = 0.0006;
 
 export default function BackgroundStars({
   className = "",
-  quantity = 30,
-  staticity = 50,
-  ease = 50,
   color = "light",
+  ease = 50,
+  quantity = 30,
   refresh = false,
+  staticity = 50,
 }: StarsProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const context = useRef<CanvasRenderingContext2D | null>(null);
   const stars = useRef<Star[]>([]);
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const canvasSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const canvasSize = useRef<{ h: number; w: number }>({ h: 0, w: 0 });
 
   const clearContext = useCallback(() => {
     if (!context.current) {
@@ -105,19 +105,20 @@ export default function BackgroundStars({
           : "35, 35, 35";
 
     return {
-      x,
-      y,
-      translateX: 0,
-      translateY: 0,
-      size,
       alpha:
         mode === "steady"
           ? maxAlpha
           : parseFloat(
               (Math.random() * (maxAlpha - minAlpha) + minAlpha).toFixed(2),
             ),
-      minAlpha,
+      colorRgb,
+      direction: Math.random() > 0.5 ? 1 : -1,
+      glowStrength: isBrightStar ? 0.28 : isDimStar ? 0.1 : 0.18,
+      magnetism: 0.1 + Math.random() * 4,
       maxAlpha,
+      minAlpha,
+      mode,
+      size,
       speed:
         mode === "twinkle"
           ? Math.random() * (TWINKLE_MAX_SPEED - TWINKLE_MIN_SPEED) +
@@ -125,11 +126,10 @@ export default function BackgroundStars({
           : mode === "fade"
             ? Math.random() * (FADE_MAX_SPEED - FADE_MIN_SPEED) + FADE_MIN_SPEED
             : 0,
-      magnetism: 0.1 + Math.random() * 4,
-      colorRgb,
-      glowStrength: isBrightStar ? 0.28 : isDimStar ? 0.1 : 0.18,
-      mode,
-      direction: Math.random() > 0.5 ? 1 : -1,
+      translateX: 0,
+      translateY: 0,
+      x,
+      y,
     };
   }, [color]);
 
@@ -208,7 +208,7 @@ export default function BackgroundStars({
 
   const starInRegion = useCallback(
     (minX: number, minY: number, maxX: number, maxY: number): Star => {
-      const saved = { w: canvasSize.current.w, h: canvasSize.current.h };
+      const saved = { h: canvasSize.current.h, w: canvasSize.current.w };
       canvasSize.current.w = maxX;
       canvasSize.current.h = maxY;
       const s = starParams();
@@ -298,7 +298,7 @@ export default function BackgroundStars({
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const { w, h } = canvasSize.current;
+      const { h, w } = canvasSize.current;
       const x = event.clientX - rect.left - w / 2;
       const y = event.clientY - rect.top - h / 2;
       if (x < w / 2 && x > -w / 2 && y < h / 2 && y > -h / 2) {
@@ -321,7 +321,7 @@ export default function BackgroundStars({
   }, [initCanvas, refresh]);
 
   return (
-    <div className={className} ref={canvasContainerRef} aria-hidden="true">
+    <div aria-hidden="true" className={className} ref={canvasContainerRef}>
       <canvas ref={canvasRef} />
     </div>
   );

@@ -1,14 +1,5 @@
 "use client";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { type Article } from "@/lib";
-import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 import { ArrowDown } from "lucide-react";
 import {
   useCallback,
@@ -18,11 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsModal } from "./components/settings/SettingsModal";
-import { FEED_SCROLL_SESSION_KEY, type BackgroundMode } from "./constants";
 import { useArticleActions } from "./hooks/useArticleActions";
 import { useCategoryManager } from "./hooks/useCategoryManager";
 import { useDashboardEvents } from "./hooks/useDashboardEvents";
@@ -46,89 +37,100 @@ import { SENTINEL_SCROLL_OFFSET } from "./hooks/useSentinelLayout";
 import { computeNextOrderedCategoryLabels } from "./services/category-display";
 import { buildDashboardViewModel } from "./services/dashboard-view-model";
 import { formatLastRefreshLabel } from "./services/feed-loader-helpers";
+import { type BackgroundMode, FEED_SCROLL_SESSION_KEY } from "./constants";
 
-type DashboardViewProps = {
-  usePlaceholderData: boolean;
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { type Article } from "@/lib";
+import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
+
+interface DashboardViewProps {
   backgroundMode: BackgroundMode;
-  onBackgroundModeChange: (value: BackgroundMode) => void;
   distillStrategy: string;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
   onDistillStrategyChange: (value: string) => void;
-};
+  usePlaceholderData: boolean;
+}
 
 export const DashboardView = ({
-  usePlaceholderData,
   backgroundMode,
-  onBackgroundModeChange,
   distillStrategy,
+  onBackgroundModeChange,
   onDistillStrategyChange,
+  usePlaceholderData,
 }: DashboardViewProps) => {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [, setRelativeRefreshTick] = useState(0);
 
   const {
-    feed,
-    setFeed,
-    loading,
-    setLoading,
-    categories,
-    setCategories,
-    categoriesRef,
-    selectedCategory,
-    setSelectedCategory,
-    searchTerm,
-    setSearchTerm,
-    expandedArticleKey,
-    setExpandedArticleKey,
-    showSettingsModal,
-    setShowSettingsModal,
-    isSidebarVisible,
-    setIsSidebarVisible,
-    isMobileSidebarOpen,
-    setIsMobileSidebarOpen,
     articleFilter,
-    setArticleFilter,
-    pageSize,
-    setPageSize,
-    showFavicons,
-    setShowFavicons,
-    visibleCount,
-    setVisibleCount,
-    sentinelRef,
-    isCategoriesLoading,
-    setIsCategoriesLoading,
+    categories,
+    categoriesRef,
+    expandedArticleKey,
+    feed,
     hasInitializedDashboardRef,
+    isCategoriesLoading,
+    isMobileSidebarOpen,
+    isSidebarVisible,
+    loading,
+    pageSize,
+    searchTerm,
+    selectedCategory,
+    sentinelRef,
+    setArticleFilter,
+    setCategories,
+    setExpandedArticleKey,
+    setFeed,
+    setIsCategoriesLoading,
+    setIsMobileSidebarOpen,
+    setIsSidebarVisible,
+    setLoading,
+    setPageSize,
+    setSearchTerm,
+    setSelectedCategory,
+    setShowFavicons,
+    setShowSettingsModal,
+    setVisibleCount,
+    showFavicons,
+    showSettingsModal,
+    visibleCount,
   } = useDashboardViewState();
 
   const feedLoader = useFeedLoader({
-    usePlaceholderData,
     categoriesRef,
-    setFeed,
+    onFeedBatchLoaded: setLastRefreshedAt,
     setCategories,
     setExpandedArticleKey,
+    setFeed,
     setLoading,
-    onFeedBatchLoaded: setLastRefreshedAt,
+    usePlaceholderData,
   });
 
   const {
-    loadFeedSources,
-    loadingEpoch,
-    fetchFeed,
-    fetchCategoryFeeds,
-    fetchAllFeeds,
     cancelPendingRequest,
     FEED_LOADING_FAILSAFE_MS,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    loadingEpoch,
   } = feedLoader;
 
   const categoryManager = useCategoryManager({
     categories,
-    selectedCategory,
-    setCategories,
-    setSelectedCategory,
-    setFeed,
-    loadFeedSources,
-    fetchFeed,
     fetchAllFeeds,
     fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
     usePlaceholderData,
   });
 
@@ -139,26 +141,26 @@ export const DashboardView = ({
   const sentinelScrollOffset = useSentinelScrollOffset();
   // DO NOT REMOVE — collapse scroll-pin ref. Coordinates useArticleActions
   // and usePullDownToRefresh to prevent scroll jumping to bottom on collapse.
-  const suppressSnapRef = useRef<number | false>(false);
+  const suppressSnapRef = useRef<false | number>(false);
   const {
-    ref: feedScrollRef,
-    invalidate: invalidateFeedScroll,
     capture: captureFeedScroll,
+    invalidate: invalidateFeedScroll,
+    ref: feedScrollRef,
     settle: settleFeedScroll,
   } = useScrollRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
   const { ref: sidebarScrollRef } = useScrollRestore("librerss:scroll:sidebar");
 
   const articleActions = useArticleActions({
-    feed,
-    setFeed,
-    expandedArticleKey,
-    setExpandedArticleKey,
     articleFilter,
-    usePlaceholderData,
     categories,
     distillStrategy,
+    expandedArticleKey,
+    feed,
     onExpand: settleFeedScroll,
+    setExpandedArticleKey,
+    setFeed,
     suppressSnapRef,
+    usePlaceholderData,
   });
 
   const {
@@ -177,7 +179,9 @@ export const DashboardView = ({
     [handleToggleReadState],
   );
   const onArticleExpandedSwipeRead = useCallback(
-    (article: Article) => void handleExpandedSwipeRead(article),
+    (article: Article) => {
+      handleExpandedSwipeRead(article);
+    },
     [handleExpandedSwipeRead],
   );
   const onArticleToggleStarred = useCallback(
@@ -188,14 +192,14 @@ export const DashboardView = ({
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
-        feed,
         articleFilter,
-        expandedArticleKey,
-        collapsingArticleKey: articleActions.collapsingArticleKey,
-        searchTerm,
         categories,
+        collapsingArticleKey: articleActions.collapsingArticleKey,
         customCategoryLabels,
+        expandedArticleKey,
+        feed,
         orderedCategoryLabels,
+        searchTerm,
         selectedCategory,
       }),
     [
@@ -212,12 +216,12 @@ export const DashboardView = ({
   );
 
   const {
-    filteredFeed,
-    displayCategories,
-    sidebarCategories,
-    selectedFeedUrl,
-    selectedFeed,
     categoryOptions,
+    displayCategories,
+    filteredFeed,
+    selectedFeed,
+    selectedFeedUrl,
+    sidebarCategories,
   } = dashboardViewModel;
 
   // Memoize by identity key to prevent new object refs from resetting
@@ -231,9 +235,9 @@ export const DashboardView = ({
   useFeedLoadingTimeout({
     loading,
     loadingEpoch,
-    timeoutMs: FEED_LOADING_FAILSAFE_MS,
-    setLoading,
     onTimeout: cancelPendingRequest,
+    setLoading,
+    timeoutMs: FEED_LOADING_FAILSAFE_MS,
   });
   useLockDocumentScroll();
   useRevealSidebarOnMount(setIsSidebarVisible);
@@ -243,21 +247,21 @@ export const DashboardView = ({
   }, [selectedCategory, searchTerm, pageSize, articleFilter, setVisibleCount]);
 
   useFeedVisibilityObserver({
-    sentinelRef,
     pageSize,
-    totalFeedItems: filteredFeed.length,
+    sentinelRef,
     setVisibleCount,
+    totalFeedItems: filteredFeed.length,
   });
 
   useDashboardInitialization({
-    hasInitializedDashboardRef,
-    selectedCategory,
-    loadFeedSources,
     fetchAllFeeds,
-    fetchFeed,
     fetchCategoryFeeds,
-    setSelectedCategory,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    loadFeedSources,
+    selectedCategory,
     setIsCategoriesLoading,
+    setSelectedCategory,
   });
 
   useEffect(() => {
@@ -270,7 +274,7 @@ export const DashboardView = ({
     );
   }, [categories, customCategoryLabels, setOrderedCategoryLabels]);
 
-  useDashboardBroadcasts({ selectedFeed, searchTerm });
+  useDashboardBroadcasts({ searchTerm, selectedFeed });
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
@@ -335,34 +339,34 @@ export const DashboardView = ({
   }, [selectedCategory, articleFilter]);
 
   const {
-    refreshFeedList,
     autoRefreshFeedList,
-    handleRefreshSelection,
-    handleFeedClick,
     handleCategoryClick,
+    handleFeedClick,
+    handleRefreshSelection,
+    refreshFeedList,
   } = useDashboardViewHandlers({
-    selectedCategory,
-    selectedFeedUrl,
-    selectedCategoryNode,
-    setSelectedCategory,
-    setIsMobileSidebarOpen,
     fetchAllFeeds,
-    fetchFeed,
     fetchCategoryFeeds,
+    fetchFeed,
+    onBeforeRefresh: captureFeedScroll,
     onFeedSwitch: useCallback(() => {
       invalidateFeedScroll();
       setArticleFilter("unread");
     }, [invalidateFeedScroll, setArticleFilter]),
-    onBeforeRefresh: captureFeedScroll,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
   });
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
 
   const {
-    sentinelRef: pullSentinelRef,
     pulling: isPulling,
     readyToRefresh,
     sentinelHeight,
+    sentinelRef: pullSentinelRef,
   } = usePullDownToRefresh(
     feedScrollRootRef,
     refreshFeedList,
@@ -378,46 +382,42 @@ export const DashboardView = ({
     ? "demo"
     : formatLastRefreshLabel(lastRefreshedAt);
 
-  const handleMarkAllReadLocally = useCallback(
-    () => setFeed((f) => f.map((a) => ({ ...a, isRead: true }))),
-    [setFeed],
-  );
+  const handleMarkAllReadLocally = useCallback(() => {
+    setFeed((f) => f.map((a) => ({ ...a, isRead: true })));
+  }, [setFeed]);
 
   useDashboardEvents({
-    selectedCategory,
-    selectedFeedUrl,
-    selectedCategoryNode,
     fetchAllFeeds,
-    fetchFeed,
     fetchCategoryFeeds,
-    onOpenSettings: useCallback(
-      () => setShowSettingsModal(true),
-      [setShowSettingsModal],
-    ),
-    onOpenFeedsSidebar: useCallback(
-      () => setIsMobileSidebarOpen(true),
-      [setIsMobileSidebarOpen],
-    ),
-    onSearchChange: setSearchTerm,
-    onRefresh: handleRefreshSelection,
-    usePlaceholderData,
+    fetchFeed,
     onMarkAllReadLocally: handleMarkAllReadLocally,
+    onOpenFeedsSidebar: useCallback(() => {
+      setIsMobileSidebarOpen(true);
+    }, [setIsMobileSidebarOpen]),
+    onOpenSettings: useCallback(() => {
+      setShowSettingsModal(true);
+    }, [setShowSettingsModal]),
+    onRefresh: handleRefreshSelection,
+    onSearchChange: setSearchTerm,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    usePlaceholderData,
   });
 
-  const handleCloseSettings = useCallback(
-    () => setShowSettingsModal(false),
-    [setShowSettingsModal],
-  );
+  const handleCloseSettings = useCallback(() => {
+    setShowSettingsModal(false);
+  }, [setShowSettingsModal]);
 
   const sidebarProps = useMemo(
     () => ({
       isCategoriesLoading,
       isSidebarVisible,
-      sidebarCategories,
-      selectedCategory,
-      showFavicons,
       onCategoryClick: handleCategoryClick,
       onFeedClick: handleFeedClick,
+      selectedCategory,
+      showFavicons,
+      sidebarCategories,
     }),
     [
       isCategoriesLoading,
@@ -432,10 +432,10 @@ export const DashboardView = ({
 
   return (
     <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+3.8rem)] md:px-6">
-      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+      <Sheet onOpenChange={setIsMobileSidebarOpen} open={isMobileSidebarOpen}>
         <SheetContent
-          side="left"
           className="w-[min(22rem,88vw)] gap-0 p-0 lg:hidden"
+          side="left"
         >
           <SheetHeader className="space-y-0 px-4 pb-2 pt-5 text-left">
             <SheetTitle className="text-sm font-semibold tracking-tight text-foreground/90">
@@ -454,19 +454,19 @@ export const DashboardView = ({
 
       <DashboardTopTokenBar
         articleFilter={articleFilter}
-        onArticleFilterChange={setArticleFilter}
         lastRefreshLabel={lastRefreshLabel}
         loading={loading}
+        onArticleFilterChange={setArticleFilter}
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch lg:gap-0">
         <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
           <div className="h-full rounded-xl bg-card/35 px-2 py-2">
             <ScrollArea
-              ref={sidebarScrollRef}
               className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${
                 isSidebarVisible ? "opacity-100" : "opacity-0"
               }`}
+              ref={sidebarScrollRef}
             >
               <DashboardSidebarContent {...sidebarProps} />
             </ScrollArea>
@@ -474,12 +474,11 @@ export const DashboardView = ({
         </aside>
 
         <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
-          <ScrollArea ref={mergedFeedScrollRef} className="h-full">
+          <ScrollArea className="h-full" ref={mergedFeedScrollRef}>
             <div className="p-1" ref={feedWrapperRef}>
               {/* Pull sentinel: fixed-height scroll item, hidden by scrollTop on mount.
                   Scrolling into it = native pull gesture. */}
               <div
-                ref={pullSentinelRef}
                 className={`mb-2 flex items-end justify-center bg-background transition-colors duration-150 ${
                   isPulling
                     ? readyToRefresh
@@ -487,6 +486,7 @@ export const DashboardView = ({
                       : "bg-sky-500/10"
                     : ""
                 }`}
+                ref={pullSentinelRef}
                 style={{ height: sentinelHeight }}
               >
                 {isPulling && (
@@ -509,20 +509,20 @@ export const DashboardView = ({
                 )}
               </div>
               <FeedList
-                loading={loading}
-                filteredFeed={filteredFeed}
-                visibleCount={visibleCount}
                 expandedArticleKey={expandedArticleKey}
+                filteredFeed={filteredFeed}
                 hydratedArticleLinks={articleActions.hydratedArticleLinks}
                 hydratingArticleLinks={articleActions.hydratingArticleLinks}
-                updatingArticleState={articleActions.updatingArticleState}
-                showFavicons={showFavicons}
-                searchTerm={searchTerm}
-                sentinelRef={sentinelRef}
+                loading={loading}
                 onExpandedSwipeRead={onArticleExpandedSwipeRead}
                 onToggle={onArticleToggle}
                 onToggleRead={onArticleToggleRead}
                 onToggleStarred={onArticleToggleStarred}
+                searchTerm={searchTerm}
+                sentinelRef={sentinelRef}
+                showFavicons={showFavicons}
+                updatingArticleState={articleActions.updatingArticleState}
+                visibleCount={visibleCount}
               />
             </div>
           </ScrollArea>
@@ -531,33 +531,33 @@ export const DashboardView = ({
 
       {showSettingsModal && (
         <SettingsModal
-          onClose={handleCloseSettings}
+          backgroundMode={backgroundMode}
           categories={displayCategories}
           categoryOptions={categoryOptions}
+          distillStrategy={distillStrategy}
+          isPreviewMode={usePlaceholderData}
+          onAddCategory={categoryManager.addCategory}
+          onAddFeed={categoryManager.addFeedSource}
+          onBackgroundModeChange={onBackgroundModeChange}
+          onClose={handleCloseSettings}
+          onDistillStrategyChange={onDistillStrategyChange}
+          onDropCategory={categoryManager.moveCategoryByDrop}
+          onDropFeed={categoryManager.moveFeedByDrop}
+          onImportOpml={categoryManager.importOpmlFeeds}
+          onPageSizeChange={setPageSize}
+          onRemoveCategory={categoryManager.removeCategory}
+          onRemoveFeed={categoryManager.removeFeedSource}
+          onRenameCategory={categoryManager.renameCategory}
+          onRenameFeed={categoryManager.renameFeedSource}
+          onSetFeedEnabled={categoryManager.setFeedSourceEnabled}
+          onShowFaviconsChange={setShowFavicons}
+          onUpdateFeedSettings={categoryManager.updateFeedSettings}
+          pageSize={pageSize}
           pendingCategoryRemovalLabel={
             categoryManager.pendingCategoryRemovalLabel
           }
           selectedCategory={selectedCategory}
-          pageSize={pageSize}
           showFavicons={showFavicons}
-          backgroundMode={backgroundMode}
-          onPageSizeChange={setPageSize}
-          onShowFaviconsChange={setShowFavicons}
-          onBackgroundModeChange={onBackgroundModeChange}
-          distillStrategy={distillStrategy}
-          onDistillStrategyChange={onDistillStrategyChange}
-          onImportOpml={categoryManager.importOpmlFeeds}
-          onDropFeed={categoryManager.moveFeedByDrop}
-          onAddFeed={categoryManager.addFeedSource}
-          onAddCategory={categoryManager.addCategory}
-          onRenameCategory={categoryManager.renameCategory}
-          onDropCategory={categoryManager.moveCategoryByDrop}
-          onRemoveCategory={categoryManager.removeCategory}
-          onRemoveFeed={categoryManager.removeFeedSource}
-          onRenameFeed={categoryManager.renameFeedSource}
-          onSetFeedEnabled={categoryManager.setFeedSourceEnabled}
-          onUpdateFeedSettings={categoryManager.updateFeedSettings}
-          isPreviewMode={usePlaceholderData}
         />
       )}
     </div>

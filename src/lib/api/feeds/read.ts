@@ -1,3 +1,7 @@
+import { NextResponse } from "next/server";
+
+import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";
+
 import { fetchAndCacheFeedArticles } from "@/lib/core/feed-fetcher";
 import {
   getPlaceholderArticlesForSource,
@@ -7,10 +11,8 @@ import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
 import { tryNormalizeFeedUrl } from "@/lib/utils/url";
-import { NextResponse } from "next/server";
-import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";
 
-export async function handleFeedRead(userId: number, feedUrl: string | null) {
+export async function handleFeedRead(userId: number, feedUrl: null | string) {
   const normalizedFeedUrl = feedUrl ? tryNormalizeFeedUrl(feedUrl) : null;
 
   if (RUNTIME_FLAGS.usePlaceholderData) {

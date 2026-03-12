@@ -1,3 +1,9 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { NextRequest } from "next/server";
+
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
   clearArticleExtractCacheForTests,
@@ -22,16 +28,12 @@ import {
   stripCommentEngagementBoilerplate,
   toParagraphHtml,
 } from "@/lib/sanitize";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { NextRequest } from "next/server";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 const mockReq = () =>
   new NextRequest("http://localhost/api/articles/extract", {
-    method: "POST",
     body: JSON.stringify({ url: "https://example.com/article" }),
     headers: { "content-type": "application/json" },
+    method: "POST",
   });
 
 const FIXTURE_DIR = join(
@@ -51,10 +53,6 @@ const SPECIAL_CASE_BRAND = String.fromCharCode(
   115,
 );
 
-function readExtractionFixture(articleName: string): string {
-  return readFileSync(join(FIXTURE_DIR, `${articleName}.html`), "utf8");
-}
-
 function extractCanonicalUrlFromHtml(
   html: string,
   fixtureName: string,
@@ -70,6 +68,10 @@ function extractCanonicalUrlFromHtml(
   if (ogUrlMatch?.[1]) return ogUrlMatch[1];
 
   return `https://example.invalid/${fixtureName}`;
+}
+
+function readExtractionFixture(articleName: string): string {
+  return readFileSync(join(FIXTURE_DIR, `${articleName}.html`), "utf8");
 }
 
 const SPECIAL_CASE_STORY_URL =
@@ -496,37 +498,37 @@ describe("article extract cleanup", () => {
     expect((missingUrl as Response).status).toBe(400);
 
     const blocked = await parseAndValidateArticleUrl({} as any, {
+      isAllowedFeedUrlFn: async () => false,
       parseJsonBodyOrResponseFn: (async () => ({
         url: "https://blocked.example",
       })) as any,
-      isAllowedFeedUrlFn: async () => false,
     });
     expect(blocked).toBeInstanceOf(Response);
     expect((blocked as Response).status).toBe(400);
 
     const allowed = await parseAndValidateArticleUrl({} as any, {
+      isAllowedFeedUrlFn: async () => true,
       parseJsonBodyOrResponseFn: (async () => ({
         url: "  https://example.com/article  ",
       })) as any,
-      isAllowedFeedUrlFn: async () => true,
     });
     expect(allowed).toBe("https://example.com/article");
 
     // Fragment must be stripped: HTTP requests must not carry URL fragments
     // (RFC 3986 §3.5). CDNs can return 403/400 for requests with raw fragments.
     const withFragment = await parseAndValidateArticleUrl({} as any, {
+      isAllowedFeedUrlFn: async () => true,
       parseJsonBodyOrResponseFn: (async () => ({
         url: "https://example.com/article#comments",
       })) as any,
-      isAllowedFeedUrlFn: async () => true,
     });
     expect(withFragment).toBe("https://example.com/article");
 
     const withQueryAndFragment = await parseAndValidateArticleUrl({} as any, {
+      isAllowedFeedUrlFn: async () => true,
       parseJsonBodyOrResponseFn: (async () => ({
         url: "https://example.com/article?ref=rss#section-2",
       })) as any,
-      isAllowedFeedUrlFn: async () => true,
     });
     expect(withQueryAndFragment).toBe("https://example.com/article?ref=rss");
   });
@@ -540,14 +542,14 @@ describe("article extract cleanup", () => {
 
     const axiosGetFn = mock(async (url: string) => {
       if (url === "https://example.com/a") {
-        return { status: 302, headers: { location: "/b" }, data: "" } as any;
+        return { data: "", headers: { location: "/b" }, status: 302 } as any;
       }
-      return { status: 200, headers: {}, data: 1234 } as any;
+      return { data: 1234, headers: {}, status: 200 } as any;
     });
 
     const html = await fetchHtml("https://example.com/a", {
-      isAllowedFeedUrlFn: async () => true,
       axiosGetFn: axiosGetFn as any,
+      isAllowedFeedUrlFn: async () => true,
     });
     expect(html).toBe("1234");
     expect(axiosGetFn).toHaveBeenCalledTimes(2);
@@ -555,26 +557,26 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml rejects redirects without location and redirect loops", async () => {
     const noLocation = mock(async () => ({
-      status: 302,
-      headers: {},
       data: "",
+      headers: {},
+      status: 302,
     }));
     await expect(
       fetchHtml("https://example.com/a", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: noLocation as any,
+        isAllowedFeedUrlFn: async () => true,
       }),
     ).rejects.toThrow("Redirect without Location header");
 
     const loop = mock(async () => ({
-      status: 302,
-      headers: { location: "/loop" },
       data: "",
+      headers: { location: "/loop" },
+      status: 302,
     }));
     await expect(
       fetchHtml("https://example.com/loop", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: loop as any,
+        isAllowedFeedUrlFn: async () => true,
       }),
     ).rejects.toThrow("Too many redirects");
   });
@@ -583,18 +585,18 @@ describe("article extract cleanup", () => {
     const axiosGetFn = mock(async (url: string) => {
       if (url === "https://example.com/a") {
         return {
-          status: 302,
-          headers: { location: ["/b", "/ignored"] },
           data: "",
+          headers: { location: ["/b", "/ignored"] },
+          status: 302,
         } as any;
       }
 
-      return { status: 200, headers: {}, data: "<html />" } as any;
+      return { data: "<html />", headers: {}, status: 200 } as any;
     });
 
     const html = await fetchHtml("https://example.com/a", {
-      isAllowedFeedUrlFn: async () => true,
       axiosGetFn: axiosGetFn as any,
+      isAllowedFeedUrlFn: async () => true,
     });
 
     expect(html).toBe("<html />");
@@ -610,8 +612,8 @@ describe("article extract cleanup", () => {
 
     const parseResponse = new Response("bad payload", { status: 400 });
     const fromParse = await POST(mockReq(), {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       parseAndValidateArticleUrlFn: async () => parseResponse,
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
     });
     expect(fromParse).toBe(parseResponse);
   });
@@ -628,14 +630,14 @@ describe("article extract cleanup", () => {
     const axiosError = { response: { status: 429 } };
     try {
       const axiosResult = await POST(mockReq(), {
-        requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-        parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+        errorFn: errorFn as any,
         fetchHtmlFn: async () => {
           throw axiosError;
         },
         isAxiosErrorFn: (() => true) as any,
+        parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+        requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         toErrorMessageFn: () => "upstream-throttled",
-        errorFn: errorFn as any,
       });
 
       expect(axiosResult.status).toBe(502);
@@ -654,14 +656,14 @@ describe("article extract cleanup", () => {
       errorFn.mockClear();
 
       const genericResult = await POST(mockReq(), {
-        requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-        parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+        errorFn: errorFn as any,
         fetchHtmlFn: async () => {
           throw new Error("boom");
         },
         isAxiosErrorFn: (() => false) as any,
+        parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+        requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         toErrorMessageFn: () => "normalized-boom",
-        errorFn: errorFn as any,
       });
 
       expect(genericResult.status).toBe(502);
@@ -684,12 +686,12 @@ describe("article extract cleanup", () => {
     const requestedUrls: string[] = [];
     const axiosGetFn = mock(async (url: string) => {
       requestedUrls.push(url);
-      return { status: 200, headers: {}, data: "<html />" } as any;
+      return { data: "<html />", headers: {}, status: 200 } as any;
     });
 
     await fetchHtml("https://example.com/article#comments", {
-      isAllowedFeedUrlFn: async () => true,
       axiosGetFn: axiosGetFn as any,
+      isAllowedFeedUrlFn: async () => true,
     });
 
     expect(requestedUrls).toHaveLength(1);
@@ -704,17 +706,17 @@ describe("article extract cleanup", () => {
       if (url === "https://example.com/a") {
         // Redirect target contains a fragment — common in tracking redirectors
         return {
-          status: 302,
-          headers: { location: "https://example.com/article#section-2" },
           data: "",
+          headers: { location: "https://example.com/article#section-2" },
+          status: 302,
         } as any;
       }
-      return { status: 200, headers: {}, data: "<html />" } as any;
+      return { data: "<html />", headers: {}, status: 200 } as any;
     });
 
     await fetchHtml("https://example.com/a", {
-      isAllowedFeedUrlFn: async () => true,
       axiosGetFn: axiosGetFn as any,
+      isAllowedFeedUrlFn: async () => true,
     });
 
     expect(requestedUrls).toHaveLength(2);
@@ -734,17 +736,17 @@ describe("article extract cleanup", () => {
       };
       if (chain[url]) {
         return {
-          status: 302,
-          headers: { location: chain[url] },
           data: "",
+          headers: { location: chain[url] },
+          status: 302,
         } as any;
       }
-      return { status: 200, headers: {}, data: "<html>final</html>" } as any;
+      return { data: "<html>final</html>", headers: {}, status: 200 } as any;
     });
 
     const html = await fetchHtml("https://example.com/a", {
-      isAllowedFeedUrlFn: async () => true,
       axiosGetFn: axiosGetFn as any,
+      isAllowedFeedUrlFn: async () => true,
     });
 
     expect(html).toBe("<html>final</html>");
@@ -756,14 +758,14 @@ describe("article extract cleanup", () => {
     const axiosGetFn = mock(async () => {
       const err: any = new Error("Request failed with status code 403");
       err.isAxiosError = true;
-      err.response = { status: 403, headers: { "x-datadome": "protected" } };
+      err.response = { headers: { "x-datadome": "protected" }, status: 403 };
       throw err;
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("DataDome");
@@ -775,14 +777,14 @@ describe("article extract cleanup", () => {
     const axiosGetFn = mock(async () => {
       const err: any = new Error("Request failed with status code 403");
       err.isAxiosError = true;
-      err.response = { status: 403, headers: {}, data: pxBody };
+      err.response = { data: pxBody, headers: {}, status: 403 };
       throw err;
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("PerimeterX");
@@ -793,17 +795,17 @@ describe("article extract cleanup", () => {
       const err: any = new Error("Request failed with status code 403");
       err.isAxiosError = true;
       err.response = {
-        status: 403,
-        headers: { "x-px-vid": "some-vid" },
         data: "",
+        headers: { "x-px-vid": "some-vid" },
+        status: 403,
       };
       throw err;
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("PerimeterX");
@@ -816,17 +818,17 @@ describe("article extract cleanup", () => {
       const err: any = new Error("Request failed with status code 403");
       err.isAxiosError = true;
       err.response = {
-        status: 403,
-        headers: { "cf-mitigated": "challenge", "set-cookie": "__cf_bm=abc" },
         data: cfBody,
+        headers: { "cf-mitigated": "challenge", "set-cookie": "__cf_bm=abc" },
+        status: 403,
       };
       throw err;
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("Cloudflare");
@@ -838,14 +840,14 @@ describe("article extract cleanup", () => {
     const axiosGetFn = mock(async () => {
       const err: any = new Error("Request failed with status code 403");
       err.isAxiosError = true;
-      err.response = { status: 403, headers: {}, data: recaptchaBody };
+      err.response = { data: recaptchaBody, headers: {}, status: 403 };
       throw err;
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
         isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("reCAPTCHA");
@@ -857,18 +859,18 @@ describe("article extract cleanup", () => {
       callCount++;
       if (url.href === "https://example.com/article") {
         return {
-          statusCode: 302,
+          body: "",
           headers: { location: "http://127.0.0.1/private" } as Record<
             string,
             string | string[] | undefined
           >,
-          body: "",
+          statusCode: 302,
         };
       }
       return {
-        statusCode: 200,
-        headers: {} as Record<string, string | string[] | undefined>,
         body: "ok",
+        headers: {} as Record<string, string | string[] | undefined>,
+        statusCode: 200,
       };
     };
 
@@ -897,10 +899,10 @@ describe("article extract cleanup", () => {
     const html = await fetchHtml(
       "https://example.com/article",
       {
-        isAllowedFeedUrlFn: async () => true,
         fingerprintFetchFn: mockFpFetch as any,
+        isAllowedFeedUrlFn: async () => true,
       },
-      { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+      { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
     );
 
     expect(html).toBe("<html>proxied once</html>");
@@ -918,8 +920,8 @@ describe("article extract cleanup", () => {
       const mockFpFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
           capturedHeaders = {
-            "sec-fetch-site": "cross-site",
             referer: opts?.referer ?? "",
+            "sec-fetch-site": "cross-site",
           };
           return {
             html: "<html>ok</html>",
@@ -931,10 +933,10 @@ describe("article extract cleanup", () => {
       await fetchHtml(
         "https://example.com/some-article-title",
         {
-          isAllowedFeedUrlFn: async () => true,
           fingerprintFetchFn: mockFpFetch as any,
+          isAllowedFeedUrlFn: async () => true,
         },
-        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
       );
 
       // The proxy path always supplies a DDG referer (cross-site navigation).
@@ -984,11 +986,11 @@ describe("article extract cleanup", () => {
         fetchHtml(
           "https://example.com/article",
           {
-            isAllowedFeedUrlFn: async () => true,
-            fingerprintFetchFn: fn as any,
             delayFn: async () => {},
+            fingerprintFetchFn: fn as any,
+            isAllowedFeedUrlFn: async () => true,
           },
-          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+          { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
@@ -1004,11 +1006,11 @@ describe("article extract cleanup", () => {
         fetchHtml(
           "https://example.com/article",
           {
-            isAllowedFeedUrlFn: async () => true,
-            fingerprintFetchFn: fn as any,
             delayFn: async () => {},
+            fingerprintFetchFn: fn as any,
+            isAllowedFeedUrlFn: async () => true,
           },
-          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+          { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
@@ -1024,11 +1026,11 @@ describe("article extract cleanup", () => {
         fetchHtml(
           "https://example.com/article",
           {
-            isAllowedFeedUrlFn: async () => true,
-            fingerprintFetchFn: fn as any,
             delayFn: async () => {},
+            fingerprintFetchFn: fn as any,
+            isAllowedFeedUrlFn: async () => true,
           },
-          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+          { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
@@ -1045,11 +1047,11 @@ describe("article extract cleanup", () => {
         fetchHtml(
           "https://example.com/article",
           {
-            isAllowedFeedUrlFn: async () => true,
-            fingerprintFetchFn: fn as any,
             delayFn: async () => {},
+            fingerprintFetchFn: fn as any,
+            isAllowedFeedUrlFn: async () => true,
           },
-          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+          { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
@@ -1064,11 +1066,11 @@ describe("article extract cleanup", () => {
         fetchHtml(
           "https://example.com/article",
           {
-            isAllowedFeedUrlFn: async () => true,
-            fingerprintFetchFn: fn as any,
             delayFn: async () => {},
+            fingerprintFetchFn: fn as any,
+            isAllowedFeedUrlFn: async () => true,
           },
-          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+          { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("429");
 
@@ -1088,11 +1090,11 @@ describe("article extract cleanup", () => {
       const html = await fetchHtml(
         "https://example.com/article",
         {
-          isAllowedFeedUrlFn: async () => true,
-          fingerprintFetchFn: mockFpFetch as any,
           delayFn: async () => {},
+          fingerprintFetchFn: mockFpFetch as any,
+          isAllowedFeedUrlFn: async () => true,
         },
-        { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+        { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
       );
 
       expect(html).toBe("<html>success</html>");
@@ -1122,11 +1124,11 @@ describe("article extract cleanup", () => {
         fetchHtml(
           "https://example.com/article",
           {
-            isAllowedFeedUrlFn: async () => true,
-            fingerprintFetchFn: mockFpFetch as any,
             delayFn: async () => {},
+            fingerprintFetchFn: mockFpFetch as any,
+            isAllowedFeedUrlFn: async () => true,
           },
-          { useProxy: true, proxyUrl: "socks5://127.0.0.1:1080" },
+          { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
@@ -1242,9 +1244,9 @@ describe("article extract cleanup", () => {
   describe("fetchHtmlWithFingerprint edge cases", () => {
     test("throws on redirect without Location header", async () => {
       const mockRequest = async () => ({
-        statusCode: 302,
-        headers: {} as Record<string, string | string[] | undefined>,
         body: "",
+        headers: {} as Record<string, string | string[] | undefined>,
+        statusCode: 302,
       });
 
       await expect(
@@ -1262,12 +1264,12 @@ describe("article extract cleanup", () => {
       const mockRequest = async () => {
         hop++;
         return {
-          statusCode: 301,
+          body: "",
           headers: { location: `https://example.com/hop${hop}` } as Record<
             string,
             string | string[] | undefined
           >,
-          body: "",
+          statusCode: 301,
         };
       };
 
@@ -1285,12 +1287,12 @@ describe("article extract cleanup", () => {
       const { CookieJar: Jar } = await import("tough-cookie");
       const jar = new Jar();
       const mockRequest = async () => ({
-        statusCode: 200,
+        body: "<html>ok</html>",
         headers: { "set-cookie": "sid=abc; Path=/" } as Record<
           string,
           string | string[] | undefined
         >,
-        body: "<html>ok</html>",
+        statusCode: 200,
       });
 
       await fetchHtmlWithFingerprint(
@@ -1309,15 +1311,15 @@ describe("article extract cleanup", () => {
 
   test("POST returns extracted content on success", async () => {
     const response = await POST(mockReq(), {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: async () => "<html />",
-      extractFromHtmlFn: async () => ({
-        title: "Title",
-        content: "<p>Real article content here that is long enough.</p>",
-      }),
-      sanitizeRawContentFn: (c) => c,
       cleanSanitizedHtmlFn: (c) => c,
+      extractFromHtmlFn: async () => ({
+        content: "<p>Real article content here that is long enough.</p>",
+        title: "Title",
+      }),
+      fetchHtmlFn: async () => "<html />",
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: (c) => c,
       warnFn: mock(() => {}),
     });
 
@@ -1330,13 +1332,13 @@ describe("article extract cleanup", () => {
     const warnFn = mock(() => {});
 
     await POST(mockReq(), {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: async () => "<html />",
-      extractFromHtmlFn: async () => null,
-      sanitizeRawContentFn: (c) => c,
       cleanSanitizedHtmlFn: (c) => c,
+      extractFromHtmlFn: async () => null,
+      fetchHtmlFn: async () => "<html />",
       infoFn: mock(() => {}),
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: (c) => c,
       warnFn: warnFn as any,
     });
 
@@ -1350,13 +1352,13 @@ describe("article extract cleanup", () => {
     const warnFn = mock(() => {});
 
     await POST(mockReq(), {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: async () => "<html />",
-      extractFromHtmlFn: async () => ({ title: "T", content: "<p>stuff</p>" }),
-      sanitizeRawContentFn: () => "",
       cleanSanitizedHtmlFn: () => "",
+      extractFromHtmlFn: async () => ({ content: "<p>stuff</p>", title: "T" }),
+      fetchHtmlFn: async () => "<html />",
       infoFn: mock(() => {}),
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: () => "",
       warnFn: warnFn as any,
     });
 
@@ -1390,9 +1392,10 @@ describe("article extract cleanup", () => {
     `;
 
     const response = await POST(mockReq(), {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () =>
-        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+      extractFromHtmlFn: async () => ({
+        content: footerOnlyExtraction,
+        title: "Cartoon: But the portions are huge!",
+      }),
       fetchHtmlFn: async () => `
         <html>
           <head>
@@ -1401,10 +1404,9 @@ describe("article extract cleanup", () => {
           </head>
         </html>
       `,
-      extractFromHtmlFn: async () => ({
-        title: "Cartoon: But the portions are huge!",
-        content: footerOnlyExtraction,
-      }),
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       warnFn: warnFn as any,
     });
 
@@ -1441,9 +1443,10 @@ describe("article extract cleanup", () => {
     `;
 
     const response = await POST(mockReq(), {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () =>
-        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+      extractFromHtmlFn: async () => ({
+        content: footerOnlyExtraction,
+        title: "Cartoon: But the portions are huge!",
+      }),
       fetchHtmlFn: async () => `
         <html>
           <head>
@@ -1452,12 +1455,11 @@ describe("article extract cleanup", () => {
           </head>
         </html>
       `,
-      extractFromHtmlFn: async () => ({
-        title: "Cartoon: But the portions are huge!",
-        content: footerOnlyExtraction,
-      }),
-      warnFn: warnFn as any,
       infoFn: mock(() => {}) as any,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      warnFn: warnFn as any,
     });
 
     expect(response.status).toBe(200);
@@ -1473,24 +1475,24 @@ describe("article extract cleanup", () => {
   test("POST uses extract cache when enabled", async () => {
     const fetchHtmlFn = mock(async () => "<html />");
     const extractFromHtmlFn = mock(async () => ({
-      title: "Title",
-      source: "Source",
       content: "cached-content",
+      source: "Source",
+      title: "Title",
     }));
     const infoFn = mock(() => {});
     const warnFn = mock(() => {});
 
     const deps = {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: fetchHtmlFn as any,
-      extractFromHtmlFn: extractFromHtmlFn as any,
-      sanitizeRawContentFn: (content: string) => content,
       cleanSanitizedHtmlFn: (content: string) => content,
+      extractFromHtmlFn: extractFromHtmlFn as any,
+      fetchHtmlFn: fetchHtmlFn as any,
       getHostnameFn: () => "example.com",
       infoFn: infoFn as any,
-      warnFn: warnFn as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: (content: string) => content,
       shouldUseExtractCacheFn: () => true,
+      warnFn: warnFn as any,
     };
 
     const firstResponse = await POST(mockReq(), deps);
@@ -1502,32 +1504,32 @@ describe("article extract cleanup", () => {
     expect(extractFromHtmlFn).toHaveBeenCalledTimes(1);
     expect(await secondResponse.json()).toEqual({
       content: "cached-content",
-      title: "Title",
       source: "Source",
+      title: "Title",
     });
   });
 
   test("POST bypasses extract cache when disabled", async () => {
     const fetchHtmlFn = mock(async () => "<html />");
     const extractFromHtmlFn = mock(async () => ({
-      title: "Title",
-      source: "Source",
       content: "uncached-content",
+      source: "Source",
+      title: "Title",
     }));
     const infoFn = mock(() => {});
     const warnFn = mock(() => {});
 
     const deps = {
-      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
-      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
-      fetchHtmlFn: fetchHtmlFn as any,
-      extractFromHtmlFn: extractFromHtmlFn as any,
-      sanitizeRawContentFn: (content: string) => content,
       cleanSanitizedHtmlFn: (content: string) => content,
+      extractFromHtmlFn: extractFromHtmlFn as any,
+      fetchHtmlFn: fetchHtmlFn as any,
       getHostnameFn: () => "example.com",
       infoFn: infoFn as any,
-      warnFn: warnFn as any,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: (content: string) => content,
       shouldUseExtractCacheFn: () => false,
+      warnFn: warnFn as any,
     };
 
     const firstResponse = await POST(mockReq(), deps);

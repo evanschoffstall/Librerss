@@ -4,6 +4,20 @@
  */
 
 import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
+
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { toast } from "sonner";
+
+import {
   toggleReadStatus,
   toggleStarredStatus,
 } from "@/app/dashboard/hooks/useArticleActions";
@@ -17,19 +31,7 @@ import {
 } from "@/app/dashboard/hooks/useArticleNavigation";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
-import { ArticleService, type Article } from "@/lib";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
-import { toast } from "sonner";
+import { type Article, ArticleService } from "@/lib";
 
 // ─── useArticleNavigation ─────────────────────────────────────────────────────
 
@@ -164,17 +166,17 @@ afterAll(() => {
 
 describe("useArticleHydration", () => {
   const createMockArticle = (overrides?: Partial<Article>): Article => ({
-    id: 1,
-    title: "Test Article",
-    link: "https://example.com/article",
     content: "Short content",
-    publicationDate: new Date("2024-01-01"),
     feedId: 1,
     feedName: "Test Feed",
     feedUrl: "https://example.com/feed",
+    id: 1,
     isRead: false,
     isStarred: false,
     lastChecked: new Date(),
+    link: "https://example.com/article",
+    publicationDate: new Date("2024-01-01"),
+    title: "Test Article",
     ...overrides,
   });
 
@@ -533,17 +535,17 @@ describe("useArticleHydration", () => {
 
 describe("useArticleReadState", () => {
   const createMockArticle = (overrides?: Partial<Article>): Article => ({
-    id: 1,
-    title: "Test Article",
-    link: "https://example.com/article",
     content: "Content",
-    publicationDate: new Date("2024-01-01"),
     feedId: 1,
     feedName: "Test Feed",
     feedUrl: "https://example.com/feed",
+    id: 1,
     isRead: false,
     isStarred: false,
     lastChecked: new Date(),
+    link: "https://example.com/article",
+    publicationDate: new Date("2024-01-01"),
+    title: "Test Article",
     ...overrides,
   });
 

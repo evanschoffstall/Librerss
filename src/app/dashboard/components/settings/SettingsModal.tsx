@@ -1,3 +1,15 @@
+import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
+
+import { useSettingsModalState } from "../../hooks/useSettingsModalState";
+
+import { SettingsCategoryList } from "./SettingsCategoryList";
+import {
+  SettingsDisplaySection,
+  type SettingsDisplaySectionProps,
+} from "./SettingsDisplaySection";
+import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
+import { SettingsProxySection } from "./SettingsProxySection";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,48 +29,39 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
-  generateOpml,
   type CategoryTreeNode,
+  generateOpml,
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
-import { useSettingsModalState } from "../../hooks/useSettingsModalState";
-import { SettingsCategoryList } from "./SettingsCategoryList";
-import {
-  SettingsDisplaySection,
-  type SettingsDisplaySectionProps,
-} from "./SettingsDisplaySection";
-import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
-import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
 interface SettingsModalProps extends SettingsDisplaySectionProps {
-  onClose: () => void;
   categories: CategoryTreeNode[];
   categoryOptions: string[];
-  pendingCategoryRemovalLabel: string | null;
-  selectedCategory: string;
-  onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
+  isPreviewMode?: boolean;
+  onAddCategory: (name: string) => boolean;
+  onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
+  onClose: () => void;
+  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
   onDropFeed: (
     key: string,
     targetCategory: string,
     targetIndex: number,
   ) => Promise<void>;
-  onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
-  onAddCategory: (name: string) => boolean;
-  onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
-  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
+  onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
   onRemoveCategory: (label: string) => Promise<boolean>;
   onRemoveFeed: (key: string) => Promise<void>;
+  onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
   onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
   onUpdateFeedSettings: (
     key: string,
     settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
   ) => Promise<boolean>;
-  isPreviewMode?: boolean;
+  pendingCategoryRemovalLabel: null | string;
+  selectedCategory: string;
 }
 
 const DEMO_OVERLAY_LABEL = "Not available in demo mode";
@@ -75,37 +78,37 @@ function DemoOverlay() {
 
 /** Shared body rendered inside both the Dialog and the Drawer. */
 function SettingsBody({
-  state,
-  categories,
-  pendingCategoryRemovalLabel,
-  pageSize,
-  showFavicons,
   backgroundMode,
-  onPageSizeChange,
-  onShowFaviconsChange,
-  onBackgroundModeChange,
+  categories,
   distillStrategy,
-  onDistillStrategyChange,
-  onRemoveCategory,
   isPreviewMode = false,
+  onBackgroundModeChange,
+  onDistillStrategyChange,
+  onPageSizeChange,
+  onRemoveCategory,
+  onShowFaviconsChange,
+  pageSize,
+  pendingCategoryRemovalLabel,
+  showFavicons,
+  state,
 }: SettingsDisplaySectionProps & {
-  state: ReturnType<typeof useSettingsModalState>;
   categories: CategoryTreeNode[];
-  pendingCategoryRemovalLabel: string | null;
-  onRemoveCategory: (label: string) => Promise<boolean>;
   isPreviewMode?: boolean;
+  onRemoveCategory: (label: string) => Promise<boolean>;
+  pendingCategoryRemovalLabel: null | string;
+  state: ReturnType<typeof useSettingsModalState>;
 }) {
   return (
     <div className="space-y-4 py-1 pr-3">
       <SettingsDisplaySection
-        pageSize={pageSize}
-        showFavicons={showFavicons}
         backgroundMode={backgroundMode}
+        distillStrategy={distillStrategy}
+        onBackgroundModeChange={onBackgroundModeChange}
+        onDistillStrategyChange={onDistillStrategyChange}
         onPageSizeChange={onPageSizeChange}
         onShowFaviconsChange={onShowFaviconsChange}
-        onBackgroundModeChange={onBackgroundModeChange}
-        distillStrategy={distillStrategy}
-        onDistillStrategyChange={onDistillStrategyChange}
+        pageSize={pageSize}
+        showFavicons={showFavicons}
       />
 
       <div className="relative">
@@ -123,16 +126,13 @@ function SettingsBody({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <input
-                ref={state.opmlInputRef}
-                type="file"
                 accept=".opml,.xml,text/xml,application/xml"
                 className="hidden"
                 onChange={state.handleOpmlFileChange}
+                ref={state.opmlInputRef}
+                type="file"
               />
               <Button
-                type="button"
-                size="sm"
-                variant="outline"
                 className="h-8"
                 onClick={() => {
                   const xml = generateOpml(categories);
@@ -143,17 +143,20 @@ function SettingsBody({
                   a.click();
                   URL.revokeObjectURL(a.href);
                 }}
+                size="sm"
+                type="button"
+                variant="outline"
               >
                 <Download className="mr-1.5 size-3.5" />
                 Export OPML
               </Button>
               <Button
-                type="button"
-                size="sm"
-                variant="outline"
                 className="h-8"
-                onClick={() => state.opmlInputRef.current?.click()}
                 disabled={state.isImportingOpml}
+                onClick={() => state.opmlInputRef.current?.click()}
+                size="sm"
+                type="button"
+                variant="outline"
               >
                 {state.isImportingOpml ? (
                   <Loader2 className="mr-1.5 size-3.5 animate-spin" />
@@ -170,31 +173,31 @@ function SettingsBody({
               <SettingsImportSkeleton />
             ) : (
               <SettingsCategoryList
-                categories={categories}
-                pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
-                newCategoryName={state.newCategoryName}
                 addingFeedInCategory={state.addingFeedInCategory}
-                newFeedName={state.newFeedName}
-                newFeedUrl={state.newFeedUrl}
-                isSavingFeed={state.isSavingFeed}
+                categories={categories}
+                drag={state.drag}
                 editingCategory={state.editingCategory}
                 editingCategoryName={state.editingCategoryName}
-                savingCategoryLabel={state.savingCategoryLabel}
-                drag={state.drag}
-                onNewCategoryNameChange={state.setNewCategoryName}
+                isSavingFeed={state.isSavingFeed}
+                newCategoryName={state.newCategoryName}
+                newFeedName={state.newFeedName}
+                newFeedUrl={state.newFeedUrl}
                 onAddCategory={state.handleAddCategory}
+                onAddFeed={(label) => void state.handleAddFeed(label)}
+                onCancelAddFeed={state.onCancelAddFeed}
+                onCancelCategoryEdit={state.onCancelCategoryEdit}
                 onEditingCategoryNameChange={state.setEditingCategoryName}
+                onNewCategoryNameChange={state.setNewCategoryName}
+                onNewFeedNameChange={state.setNewFeedName}
+                onNewFeedUrlChange={state.setNewFeedUrl}
+                onRemoveCategory={(label) => void onRemoveCategory(label)}
                 onSaveCategoryRename={(label) =>
                   void state.handleSaveCategoryRename(label)
                 }
-                onCancelCategoryEdit={state.onCancelCategoryEdit}
                 onStartCategoryEdit={state.onStartCategoryEdit}
                 onToggleAddFeed={state.onToggleAddFeed}
-                onRemoveCategory={(label) => void onRemoveCategory(label)}
-                onNewFeedNameChange={state.setNewFeedName}
-                onNewFeedUrlChange={state.setNewFeedUrl}
-                onAddFeed={(label) => void state.handleAddFeed(label)}
-                onCancelAddFeed={state.onCancelAddFeed}
+                pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
+                savingCategoryLabel={state.savingCategoryLabel}
                 sharedFeedRowProps={state.sharedFeedRowProps}
               />
             )}
@@ -211,63 +214,63 @@ function SettingsBody({
 }
 
 export const SettingsModal = ({
-  onClose,
+  backgroundMode,
   categories,
   categoryOptions,
-  pendingCategoryRemovalLabel,
-  selectedCategory,
-  pageSize,
-  showFavicons,
-  backgroundMode,
-  onPageSizeChange,
-  onShowFaviconsChange,
-  onBackgroundModeChange,
   distillStrategy,
-  onDistillStrategyChange,
-  onImportOpml,
-  onDropFeed,
-  onAddFeed,
+  isPreviewMode = false,
   onAddCategory,
-  onRenameCategory,
+  onAddFeed,
+  onBackgroundModeChange,
+  onClose,
+  onDistillStrategyChange,
   onDropCategory,
+  onDropFeed,
+  onImportOpml,
+  onPageSizeChange,
   onRemoveCategory,
   onRemoveFeed,
+  onRenameCategory,
   onRenameFeed,
   onSetFeedEnabled,
+  onShowFaviconsChange,
   onUpdateFeedSettings,
-  isPreviewMode = false,
+  pageSize,
+  pendingCategoryRemovalLabel,
+  selectedCategory,
+  showFavicons,
 }: SettingsModalProps) => {
   const isMobile = useIsMobile();
   const state = useSettingsModalState({
     categories,
     categoryOptions,
-    selectedCategory,
-    onImportOpml,
-    onDropFeed,
-    onAddFeed,
     onAddCategory,
-    onRenameCategory,
+    onAddFeed,
     onDropCategory,
+    onDropFeed,
+    onImportOpml,
     onRemoveFeed,
+    onRenameCategory,
     onRenameFeed,
     onSetFeedEnabled,
     onUpdateFeedSettings,
+    selectedCategory,
   });
 
   const bodyProps = {
-    state,
-    categories,
-    pendingCategoryRemovalLabel,
-    pageSize,
-    showFavicons,
     backgroundMode,
-    onPageSizeChange,
-    onShowFaviconsChange,
-    onBackgroundModeChange,
+    categories,
     distillStrategy,
-    onDistillStrategyChange,
-    onRemoveCategory,
     isPreviewMode,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    onPageSizeChange,
+    onRemoveCategory,
+    onShowFaviconsChange,
+    pageSize,
+    pendingCategoryRemovalLabel,
+    showFavicons,
+    state,
   } as const;
 
   const handleModalOpenChange = (open: boolean) => {
@@ -277,7 +280,7 @@ export const SettingsModal = ({
 
   if (isMobile) {
     return (
-      <Drawer open onOpenChange={handleModalOpenChange}>
+      <Drawer onOpenChange={handleModalOpenChange} open>
         <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-left">
@@ -299,7 +302,7 @@ export const SettingsModal = ({
   }
 
   return (
-    <Dialog open onOpenChange={handleModalOpenChange}>
+    <Dialog onOpenChange={handleModalOpenChange} open>
       <DialogContent className="h-[90vh] max-h-[90vh] max-w-3xl overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

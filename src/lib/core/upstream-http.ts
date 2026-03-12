@@ -1,24 +1,25 @@
-import { CONFIG } from "@/lib/config";
-import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 
-type FetchTextWithValidatedRedirectsDeps = {
+import { CONFIG } from "@/lib/config";
+import { stripUrlFragment } from "@/lib/utils/url";
+
+interface FetchTextWithValidatedRedirectsDeps {
   axiosGetFn?: typeof axios.get;
   isAxiosErrorFn?: typeof axios.isAxiosError;
-};
+}
 
-type FetchTextWithValidatedRedirectsOptions = {
-  url: string;
+interface FetchTextWithValidatedRedirectsOptions {
   assertAllowedUrl: (url: string) => Promise<void>;
-  maxRedirects: number;
   headers?: Record<string, string>;
-  timeoutMs?: number;
   maxContentLengthBytes?: number;
+  maxRedirects: number;
   onAxiosError?: (
     error: unknown,
     isAxiosError: typeof axios.isAxiosError,
   ) => void;
-};
+  timeoutMs?: number;
+  url: string;
+}
 
 export async function fetchTextWithValidatedRedirects(
   options: FetchTextWithValidatedRedirectsOptions,
@@ -38,12 +39,12 @@ export async function fetchTextWithValidatedRedirects(
 
     try {
       const response = await get(currentUrl, {
-        timeout: options.timeoutMs ?? CONFIG.FEED_REQUEST_TIMEOUT_MS,
+        headers: options.headers,
         maxContentLength:
           options.maxContentLengthBytes ?? CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
         maxRedirects: 0,
         responseType: "text",
-        headers: options.headers,
+        timeout: options.timeoutMs ?? CONFIG.FEED_REQUEST_TIMEOUT_MS,
         validateStatus: (status) => status >= 200 && status < 400,
       });
 

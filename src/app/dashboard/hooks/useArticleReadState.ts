@@ -1,9 +1,11 @@
 "use client";
 
-import { ArticleService, type Article } from "@/lib";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+
 import { getArticleKey } from "../services/article-collection";
+
+import { type Article, ArticleService } from "@/lib";
 
 interface UseArticleReadStateOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
@@ -70,9 +72,9 @@ export function useArticleReadState({
   );
 
   return {
-    updatingArticleState,
-    setUpdatingArticleState,
-    setArticleReadState,
     handleToggleReadState,
+    setArticleReadState,
+    setUpdatingArticleState,
+    updatingArticleState,
   };
 }

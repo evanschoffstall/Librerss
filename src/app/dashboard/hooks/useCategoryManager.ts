@@ -5,8 +5,8 @@
  * Feed-source CRUD lives in useFeedSourceActions.
  */
 
-import { FeedService, includesCategoryLabel } from "@/lib";
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import {
   addCategoryLabel,
   moveCategoryByDropInOrder,
@@ -14,8 +14,11 @@ import {
   renameCategoryAndRefresh,
 } from "../services/category-operations";
 import { hasCategoryLabelInTree } from "../services/category-tree";
+
 import type { FeedSourceActionState } from "./types";
 import { useFeedSourceActions } from "./useFeedSourceActions";
+
+import { FeedService, includesCategoryLabel } from "@/lib";
 
 interface UseCategoryManagerOptions extends FeedSourceActionState {
   usePlaceholderData?: boolean;
@@ -23,14 +26,14 @@ interface UseCategoryManagerOptions extends FeedSourceActionState {
 
 export function useCategoryManager({
   categories,
-  selectedCategory,
-  setCategories,
-  setSelectedCategory,
-  setFeed,
-  loadFeedSources,
-  fetchFeed,
   fetchAllFeeds,
   fetchCategoryFeeds,
+  fetchFeed,
+  loadFeedSources,
+  selectedCategory,
+  setCategories,
+  setFeed,
+  setSelectedCategory,
   usePlaceholderData = false,
 }: UseCategoryManagerOptions) {
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>(
@@ -40,9 +43,9 @@ export function useCategoryManager({
     [],
   );
   const [pendingCategoryRemovalLabel, setPendingCategoryRemovalLabel] =
-    useState<string | null>(null);
+    useState<null | string>(null);
   const hasLoadedOrderRef = useRef(false);
-  const savePendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savePendingRef = useRef<null | ReturnType<typeof setTimeout>>(null);
 
   // Load category order from DB on mount (skip in placeholder/preview mode)
   useEffect(() => {
@@ -108,23 +111,23 @@ export function useCategoryManager({
 
   const feedSourceActions = useFeedSourceActions({
     categories,
-    selectedCategory,
-    setCategories,
-    setSelectedCategory,
-    setFeed,
-    loadFeedSources,
-    fetchFeed,
+    ensureCategoryLabelExists,
     fetchAllFeeds,
     fetchCategoryFeeds,
-    ensureCategoryLabelExists,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
   });
 
   const addCategory = useCallback(
     (label: string) =>
       addCategoryLabel({
-        label,
         categories,
         customCategoryLabels,
+        label,
         setCustomCategoryLabels,
       }),
     [categories, customCategoryLabels, setCustomCategoryLabels],
@@ -134,14 +137,14 @@ export function useCategoryManager({
     async (currentLabel: string, nextLabel: string) => {
       return renameCategoryAndRefresh({
         categories,
-        customCategoryLabels,
-        selectedCategory,
         currentLabel,
+        customCategoryLabels,
+        loadFeedSources,
         nextLabel,
+        selectedCategory,
         setCustomCategoryLabels,
         setOrderedCategoryLabels,
         setSelectedCategory,
-        loadFeedSources,
       });
     },
     [
@@ -156,10 +159,11 @@ export function useCategoryManager({
   );
 
   const moveCategoryByDrop = useCallback(
-    async (label: string, targetIndex: number) =>
+    async (label: string, targetIndex: number) => {
       setOrderedCategoryLabels((current) =>
         moveCategoryByDropInOrder(current, label, targetIndex),
-      ),
+      );
+    },
     [],
   );
 
@@ -168,16 +172,16 @@ export function useCategoryManager({
       removeCategoryAndRefresh({
         categories,
         customCategoryLabels,
+        ensureCategoryLabelExists,
+        label,
+        loadFeedSources,
         pendingCategoryRemovalLabel,
         selectedCategory,
-        label,
-        setPendingCategoryRemovalLabel,
         setCategories,
         setCustomCategoryLabels,
         setOrderedCategoryLabels,
+        setPendingCategoryRemovalLabel,
         setSelectedCategory,
-        ensureCategoryLabelExists,
-        loadFeedSources,
       }),
     [
       categories,
@@ -200,25 +204,25 @@ export function useCategoryManager({
   );
 
   return {
-    // State
-    customCategoryLabels,
-    orderedCategoryLabels,
-    setOrderedCategoryLabels,
-    pendingCategoryRemovalLabel,
-    // Category actions
-    ensureCategoryLabelExists,
     addCategory,
-    renameCategory,
-    moveCategoryByDrop,
-    removeCategory,
     // Feed source actions (delegated)
     addFeedSource: feedSourceActions.addFeedSource,
-    removeFeedSource: feedSourceActions.removeFeedSource,
-    renameFeedSource: feedSourceActions.renameFeedSource,
-    setFeedSourceEnabled: feedSourceActions.setFeedSourceEnabled,
-    updateFeedSettings: feedSourceActions.updateFeedSettings,
-    moveFeedByDrop: feedSourceActions.moveFeedByDrop,
-    selectFeedByKey: feedSourceActions.selectFeedByKey,
+    // State
+    customCategoryLabels,
+    // Category actions
+    ensureCategoryLabelExists,
     importOpmlFeeds,
+    moveCategoryByDrop,
+    moveFeedByDrop: feedSourceActions.moveFeedByDrop,
+    orderedCategoryLabels,
+    pendingCategoryRemovalLabel,
+    removeCategory,
+    removeFeedSource: feedSourceActions.removeFeedSource,
+    renameCategory,
+    renameFeedSource: feedSourceActions.renameFeedSource,
+    selectFeedByKey: feedSourceActions.selectFeedByKey,
+    setFeedSourceEnabled: feedSourceActions.setFeedSourceEnabled,
+    setOrderedCategoryLabels,
+    updateFeedSettings: feedSourceActions.updateFeedSettings,
   };
 }

@@ -1,47 +1,31 @@
 import axios from "axios";
 
 export type BotDetection =
-  | { detected: false }
   | {
+      challengeCookies: string[];
       detected: true;
       provider: "Cloudflare" | "DataDome" | "PerimeterX" | "reCAPTCHA";
-      challengeCookies: string[];
-    };
-
-function headerText(headers: Record<string, unknown> | undefined, key: string) {
-  const value = headers?.[key];
-  return Array.isArray(value)
-    ? value.join(";").toLowerCase()
-    : String(value ?? "").toLowerCase();
-}
-
-function getChallengeCookies(headers: Record<string, unknown> | undefined) {
-  const setCookie = headers?.["set-cookie"];
-  return Array.isArray(setCookie)
-    ? setCookie.filter((v): v is string => typeof v === "string")
-    : typeof setCookie === "string"
-      ? [setCookie]
-      : [];
-}
+    }
+  | { detected: false };
 
 export function detectBotProtection(
   error: unknown,
   isAxiosError: typeof axios.isAxiosError,
-): { retryable: boolean; bot: BotDetection } {
+): { bot: BotDetection; retryable: boolean } {
   if (!isAxiosError(error))
-    return { retryable: false, bot: { detected: false } };
+    return { bot: { detected: false }, retryable: false };
   const resp = (
     error as {
       response?: {
-        status?: number;
-        headers?: Record<string, unknown>;
         data?: unknown;
+        headers?: Record<string, unknown>;
+        status?: number;
       };
     }
   ).response;
   const responseStatus = resp?.status;
   if (responseStatus !== 403 && responseStatus !== 429)
-    return { retryable: false, bot: { detected: false } };
+    return { bot: { detected: false }, retryable: false };
 
   const headers = resp?.headers;
   const challengeCookies = getChallengeCookies(headers);
@@ -54,8 +38,8 @@ export function detectBotProtection(
   const ddHeader = headerText(headers, "x-datadome");
   if (ddHeader === "protected") {
     return {
+      bot: { challengeCookies, detected: true, provider: "DataDome" },
       retryable: false,
-      bot: { detected: true, provider: "DataDome", challengeCookies },
     };
   }
 
@@ -64,8 +48,8 @@ export function detectBotProtection(
     responseHeaderKeys.some((h) => h.startsWith("x-px-"));
   if (isPx)
     return {
+      bot: { challengeCookies: [], detected: true, provider: "PerimeterX" },
       retryable: false,
-      bot: { detected: true, provider: "PerimeterX", challengeCookies: [] },
     };
 
   const isCloudflare =
@@ -75,8 +59,8 @@ export function detectBotProtection(
     );
   if (isCloudflare)
     return {
+      bot: { challengeCookies, detected: true, provider: "Cloudflare" },
       retryable: false,
-      bot: { detected: true, provider: "Cloudflare", challengeCookies },
     };
 
   const isRecaptcha =
@@ -85,9 +69,25 @@ export function detectBotProtection(
     ) || responseBodyLower.includes("i'm not a robot");
   if (isRecaptcha)
     return {
+      bot: { challengeCookies: [], detected: true, provider: "reCAPTCHA" },
       retryable: false,
-      bot: { detected: true, provider: "reCAPTCHA", challengeCookies: [] },
     };
 
-  return { retryable: true, bot: { detected: false } };
+  return { bot: { detected: false }, retryable: true };
+}
+
+function getChallengeCookies(headers: Record<string, unknown> | undefined) {
+  const setCookie = headers?.["set-cookie"];
+  return Array.isArray(setCookie)
+    ? setCookie.filter((v): v is string => typeof v === "string")
+    : typeof setCookie === "string"
+      ? [setCookie]
+      : [];
+}
+
+function headerText(headers: Record<string, unknown> | undefined, key: string) {
+  const value = headers?.[key];
+  return Array.isArray(value)
+    ? value.join(";").toLowerCase()
+    : String(value ?? "").toLowerCase();
 }

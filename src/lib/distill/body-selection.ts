@@ -39,94 +39,6 @@ const CONTENT_CLASS_PATTERNS = [
   "post-text",
 ] as const;
 
-function extractInnerHtml(
-  html: string,
-  startIdx: number,
-  openTagLength: number,
-  tagName: string,
-): string | null {
-  const afterOpen = startIdx + openTagLength;
-  const lowerTag = tagName.toLowerCase();
-  const re = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
-  re.lastIndex = afterOpen;
-  let depth = 1;
-  let m: RegExpExecArray | null;
-  while (depth > 0 && (m = re.exec(html)) !== null) {
-    if (m[1]?.toLowerCase() !== lowerTag) continue;
-    if (m[0].startsWith("</")) depth--;
-    else depth++;
-    if (depth === 0) return html.slice(afterOpen, m.index);
-  }
-  return null;
-}
-
-function findAllByTag(html: string, tagName: string): string[] {
-  const results: string[] = [];
-  const lowerTag = tagName.toLowerCase();
-  const re = /<([a-z][a-z0-9:-]*)\b[^>]*>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    if (m[1]?.toLowerCase() !== lowerTag) continue;
-    const inner = extractInnerHtml(html, m.index, m[0].length, tagName);
-    if (inner !== null) results.push(inner);
-  }
-  return results;
-}
-
-function findFirstByAttr(
-  html: string,
-  attr: string,
-  value: string,
-): string | null {
-  const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    if (readAttrValue(m[2] ?? "", attr) !== value) continue;
-    return extractInnerHtml(html, m.index, m[0].length, m[1]!);
-  }
-  return null;
-}
-
-function segmentMatch(attrValue: string, segment: string): boolean {
-  let start = 0;
-  while (start <= attrValue.length - segment.length) {
-    const idx = attrValue.indexOf(segment, start);
-    if (idx < 0) return false;
-    const leftOk = idx === 0 || /\s/.test(attrValue[idx - 1]!);
-    const end = idx + segment.length;
-    const rightOk =
-      end >= attrValue.length ||
-      /\s/.test(attrValue[end]!) ||
-      attrValue.startsWith("--", end);
-    if (leftOk && rightOk) return true;
-    start = idx + 1;
-  }
-  return false;
-}
-
-function classOrIdContains(attrsStr: string, segment: string): boolean {
-  const classVal = readAttrValue(attrsStr, "class") ?? "";
-  const idVal = readAttrValue(attrsStr, "id") ?? "";
-  return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
-}
-
-function findFirstByClassContains(
-  html: string,
-  patterns: readonly string[],
-  minLength: number,
-): string | null {
-  for (const pattern of patterns) {
-    const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) !== null) {
-      if (!classOrIdContains(m[2] ?? "", pattern)) continue;
-      const content = extractInnerHtml(html, m.index, m[0].length, m[1]!);
-      if (content && content.trim().length >= minLength) return content;
-    }
-  }
-  return null;
-}
-
 /**
  * Find the article body container in pre-cleaned HTML.
  * Tries semantic selectors and common CMS class patterns in priority order:
@@ -140,7 +52,7 @@ function findFirstByClassContains(
 export function findArticleBody(
   html: string,
   minLength: number,
-): string | null {
+): null | string {
   let body = findFirstByAttr(html, "itemprop", "articleBody");
   if (body && body.trim().length >= minLength) return body;
 
@@ -165,4 +77,92 @@ export function findArticleBody(
   }
 
   return null;
+}
+
+function classOrIdContains(attrsStr: string, segment: string): boolean {
+  const classVal = readAttrValue(attrsStr, "class") ?? "";
+  const idVal = readAttrValue(attrsStr, "id") ?? "";
+  return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
+}
+
+function extractInnerHtml(
+  html: string,
+  startIdx: number,
+  openTagLength: number,
+  tagName: string,
+): null | string {
+  const afterOpen = startIdx + openTagLength;
+  const lowerTag = tagName.toLowerCase();
+  const re = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
+  re.lastIndex = afterOpen;
+  let depth = 1;
+  let m: null | RegExpExecArray;
+  while (depth > 0 && (m = re.exec(html)) !== null) {
+    if (m[1]?.toLowerCase() !== lowerTag) continue;
+    if (m[0].startsWith("</")) depth--;
+    else depth++;
+    if (depth === 0) return html.slice(afterOpen, m.index);
+  }
+  return null;
+}
+
+function findAllByTag(html: string, tagName: string): string[] {
+  const results: string[] = [];
+  const lowerTag = tagName.toLowerCase();
+  const re = /<([a-z][a-z0-9:-]*)\b[^>]*>/gi;
+  let m: null | RegExpExecArray;
+  while ((m = re.exec(html)) !== null) {
+    if (m[1]?.toLowerCase() !== lowerTag) continue;
+    const inner = extractInnerHtml(html, m.index, m[0].length, tagName);
+    if (inner !== null) results.push(inner);
+  }
+  return results;
+}
+
+function findFirstByAttr(
+  html: string,
+  attr: string,
+  value: string,
+): null | string {
+  const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
+  let m: null | RegExpExecArray;
+  while ((m = re.exec(html)) !== null) {
+    if (readAttrValue(m[2] ?? "", attr) !== value) continue;
+    return extractInnerHtml(html, m.index, m[0].length, m[1]);
+  }
+  return null;
+}
+
+function findFirstByClassContains(
+  html: string,
+  patterns: readonly string[],
+  minLength: number,
+): null | string {
+  for (const pattern of patterns) {
+    const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
+    let m: null | RegExpExecArray;
+    while ((m = re.exec(html)) !== null) {
+      if (!classOrIdContains(m[2] ?? "", pattern)) continue;
+      const content = extractInnerHtml(html, m.index, m[0].length, m[1]);
+      if (content && content.trim().length >= minLength) return content;
+    }
+  }
+  return null;
+}
+
+function segmentMatch(attrValue: string, segment: string): boolean {
+  let start = 0;
+  while (start <= attrValue.length - segment.length) {
+    const idx = attrValue.indexOf(segment, start);
+    if (idx < 0) return false;
+    const leftOk = idx === 0 || /\s/.test(attrValue[idx - 1]);
+    const end = idx + segment.length;
+    const rightOk =
+      end >= attrValue.length ||
+      /\s/.test(attrValue[end]) ||
+      attrValue.startsWith("--", end);
+    if (leftOk && rightOk) return true;
+    start = idx + 1;
+  }
+  return false;
 }

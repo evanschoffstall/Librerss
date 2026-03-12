@@ -1,3 +1,7 @@
+import axios from "axios";
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -44,9 +48,6 @@ import {
   redactUrlForLogs,
   tryGetUrlHostname,
 } from "@/lib/utils/url";
-import axios from "axios";
-import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
 // ─── Inlined helpers (from route-helpers.ts) ─────────────────────────────────
 
@@ -61,27 +62,265 @@ function mapUpstreamExtractStatus(upstreamStatus?: number): 422 | 502 {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type ExtractPostDeps = {
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
-  parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
-  fetchHtmlFn?: typeof fetchHtml;
-  extractFromHtmlFn?: typeof distillArticle;
-  sanitizeRawContentFn?: typeof sanitizeRawContent;
+interface ExtractPostDeps {
   cleanSanitizedHtmlFn?: typeof cleanSanitizedHtml;
-  jsonErrorFn?: typeof jsonError;
-  toErrorMessageFn?: typeof toErrorMessage;
-  logAndRespondErrorFn?: typeof logAndRespondError;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
-  infoFn?: typeof logger.info;
-  warnFn?: typeof logger.warn;
   errorFn?: typeof logger.error;
+  extractFromHtmlFn?: typeof distillArticle;
+  fetchHtmlFn?: typeof fetchHtml;
+  infoFn?: typeof logger.info;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
+  jsonErrorFn?: typeof jsonError;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+  parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  sanitizeRawContentFn?: typeof sanitizeRawContent;
   shouldUseExtractCacheFn?: () => boolean;
-};
+  toErrorMessageFn?: typeof toErrorMessage;
+  warnFn?: typeof logger.warn;
+}
 
-function sanitizeHeaderValue(value: string | null, maxLen = 64): string | null {
-  if (!value) return null;
-  // Strip non-ASCII and control characters; truncate to prevent log bloat.
-  return value.replace(/[^\x20-\x7E]/g, "").slice(0, maxLen) || null;
+export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
+  // SECURITY: Require authentication — unauthenticated callers must not be
+  // able to trigger arbitrary outbound HTTP fetches from the server.
+  // Exception: placeholder snapshot URLs are served from local files only
+  // (no outbound fetch), so they bypass auth to support preview/explore mode.
+  const requireAuth =
+    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+  const parseArticleUrl =
+    deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
+  const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
+  const extractArticle = deps?.extractFromHtmlFn ?? distillArticle;
+  const sanitizeContent = deps?.sanitizeRawContentFn ?? sanitizeRawContent;
+  const cleanContent = deps?.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
+  const _info = deps?.infoFn ?? logger.info.bind(logger);
+  const _toJsonError = deps?.jsonErrorFn ?? jsonError;
+  const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
+  const _respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
+  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+  const warn = deps?.warnFn ?? logger.warn.bind(logger);
+  const errorLog = deps?.errorFn ?? logger.error.bind(logger);
+  const shouldUseCache = deps?.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
+  const verboseLoggingEnabled = isVerboseLoggingEnabled();
+  const context = createExtractRequestContext(request);
+
+  let articleUrl: null | string = null;
+  let useProxy = false;
+  let resolvedProxyUrl: string | undefined;
+
+  try {
+    const authResult = await requireAuth(request, {
+      rateLimit: {
+        key: "article-extract",
+        maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
+        windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
+      },
+    });
+
+    // If auth fails, allow through only for placeholder snapshot URLs
+    // (local files only — no outbound HTTP fetch, SSRF-safe).
+    const isAuthFailure = authResult instanceof Response;
+    let authUserId: number | undefined;
+    if (isAuthFailure) {
+      // Peek at the body to check for a placeholder URL before rejecting
+      const peekBody = await request
+        .clone()
+        .json()
+        .catch(() => null);
+      const peekUrl =
+        typeof peekBody?.url === "string" ? peekBody.url.trim() : "";
+      const isPlaceholderUrl = Boolean(
+        peekUrl && getPlaceholderSnapshotPathByArticleUrl(peekUrl),
+      );
+      if (!isPlaceholderUrl) return authResult;
+    } else {
+      authUserId = authResult.userId;
+    }
+
+    // Parse body once and extract both url and useProxy flag
+    const bodyResult = await parseJsonBodyOrResponse<{
+      distillStrategy?: string;
+      url?: string;
+      useProxy?: boolean;
+    }>(request);
+    if (bodyResult instanceof Response) return bodyResult;
+    useProxy = !isAuthFailure && bodyResult.useProxy === true;
+    const distillStrategy: DistillStrategy =
+      typeof bodyResult.distillStrategy === "string" &&
+      (DISTILL_STRATEGIES as readonly string[]).includes(
+        bodyResult.distillStrategy,
+      )
+        ? (bodyResult.distillStrategy as DistillStrategy)
+        : "custom";
+
+    // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
+    let allowInsecureTls = false;
+    if (useProxy && authUserId) {
+      const db = getDb();
+      const [row] = await db
+        .select({
+          allowInsecureTls: users.allowInsecureTls,
+          proxyPassword: users.proxyPassword,
+          proxyUrl: users.proxyUrl,
+          proxyUsername: users.proxyUsername,
+        })
+        .from(users)
+        .where(eq(users.id, authUserId))
+        .limit(1);
+      const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
+      const baseProxyUrl =
+        rawProxyUrl && rawProxyUrl !== "null" && rawProxyUrl !== "undefined"
+          ? rawProxyUrl
+          : undefined;
+      resolvedProxyUrl =
+        baseProxyUrl && row?.proxyUsername && row?.proxyPassword
+          ? injectProxyCredentials(
+              baseProxyUrl,
+              row.proxyUsername,
+              row.proxyPassword,
+            )
+          : baseProxyUrl;
+      allowInsecureTls = row?.allowInsecureTls ?? false;
+    }
+
+    // Build a cloned request with the same body for parseAndValidateArticleUrl
+    const clonedRequest = new NextRequest(request.url, {
+      body: JSON.stringify(bodyResult),
+      headers: request.headers,
+      method: request.method,
+    });
+
+    const parsedUrl = await parseArticleUrl(clonedRequest);
+    if (parsedUrl instanceof Response) return parsedUrl;
+    articleUrl = parsedUrl;
+
+    const cachedPayload = getCachedExtractResponse(articleUrl, shouldUseCache);
+    if (cachedPayload) {
+      return NextResponse.json(cachedPayload);
+    }
+
+    const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
+
+    // SECURITY: If unauthenticated (placeholder bypass path), only local
+    // snapshots are permitted — never allow outbound fetches without auth.
+    if (isAuthFailure && !localSnapshot) {
+      return jsonError("Unauthorized", 401);
+    }
+    const html =
+      localSnapshot?.html ??
+      (await fetchArticleHtml(articleUrl, undefined, {
+        allowInsecureTls,
+        proxyUrl: resolvedProxyUrl,
+        useProxy,
+      }));
+    const safeUrl = redactUrlForLogs(articleUrl);
+
+    const extractableHtml = preCleanHtml(html);
+
+    const extracted = await extractArticle(
+      extractableHtml,
+      articleUrl,
+      distillStrategy,
+      { contentLengthThreshold: 120 },
+    );
+
+    if (
+      !extracted ||
+      (!extracted.content?.trim() && !extracted.description?.trim())
+    ) {
+      warn(`Article extractor returned no content`, { url: safeUrl });
+    }
+
+    const content = resolveExtractedContent(
+      extractableHtml,
+      html,
+      articleUrl,
+      extracted,
+      sanitizeContent,
+      cleanContent,
+    );
+
+    if (!content.trim()) {
+      warn(`Article content empty after full extraction pipeline`, {
+        url: safeUrl,
+      });
+    }
+
+    const payload: ExtractResponsePayload = {
+      ...buildExtractPayload(content, extracted),
+    };
+
+    if (shouldUseCache()) {
+      setCachedExtractPayload(articleUrl, payload);
+    }
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    const safeArticleUrl = articleUrl ? redactUrlForLogs(articleUrl) : null;
+    const urlSuffix = safeArticleUrl ? ` for ${safeArticleUrl}` : "";
+
+    if (isAxiosError(error)) {
+      const upstreamStatus = error.response?.status;
+      const status = mapUpstreamExtractStatus(upstreamStatus);
+      const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
+      errorLog(
+        `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
+        {
+          connectionMode: useProxy ? "proxy" : "direct",
+          extractAttemptId: context.extractAttemptId,
+          // SECURITY: redact credentials from proxy URL before logging
+          proxyAddress: useProxy
+            ? resolvedProxyUrl
+              ? redactUrlForLogs(resolvedProxyUrl)
+              : null
+            : null,
+          requestId: context.requestId,
+          url: safeArticleUrl,
+          ...(verboseLoggingEnabled
+            ? buildAxiosFailureDiagnostics(error, isAxiosError)
+            : {}),
+        },
+      );
+      return jsonErrorWithReason(
+        status === 422
+          ? ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE
+          : ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
+        status,
+        toMessage(error),
+      );
+    }
+
+    errorLog(
+      `Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`,
+      {
+        connectionMode: useProxy ? "proxy" : "direct",
+        extractAttemptId: context.extractAttemptId,
+        // SECURITY: redact credentials from proxy URL before logging
+        proxyAddress: useProxy
+          ? resolvedProxyUrl
+            ? redactUrlForLogs(resolvedProxyUrl)
+            : null
+          : null,
+        requestId: context.requestId,
+        url: safeArticleUrl,
+      },
+    );
+    return jsonErrorWithReason(
+      ARTICLE_EXTRACTION_ERROR_MESSAGE,
+      502,
+      toMessage(error),
+    );
+  }
+}
+
+function buildExtractPayload(
+  content: string,
+  extracted: DistilledArticle | null | undefined,
+): ExtractResponsePayload {
+  return {
+    content,
+    source: extracted?.source ?? null,
+    title: extracted?.title ?? null,
+  };
 }
 
 function createExtractRequestContext(
@@ -96,17 +335,6 @@ function createExtractRequestContext(
   return {
     extractAttemptId,
     requestId,
-  };
-}
-
-function buildExtractPayload(
-  content: string,
-  extracted: DistilledArticle | null | undefined,
-): ExtractResponsePayload {
-  return {
-    content,
-    title: extracted?.title ?? null,
-    source: extracted?.source ?? null,
   };
 }
 
@@ -166,235 +394,8 @@ function resolveExtractedContent(
   return content;
 }
 
-export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
-  // SECURITY: Require authentication — unauthenticated callers must not be
-  // able to trigger arbitrary outbound HTTP fetches from the server.
-  // Exception: placeholder snapshot URLs are served from local files only
-  // (no outbound fetch), so they bypass auth to support preview/explore mode.
-  const requireAuth =
-    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
-  const parseArticleUrl =
-    deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
-  const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
-  const extractArticle = deps?.extractFromHtmlFn ?? distillArticle;
-  const sanitizeContent = deps?.sanitizeRawContentFn ?? sanitizeRawContent;
-  const cleanContent = deps?.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
-  const _info = deps?.infoFn ?? logger.info.bind(logger);
-  const _toJsonError = deps?.jsonErrorFn ?? jsonError;
-  const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
-  const _respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
-  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
-  const warn = deps?.warnFn ?? logger.warn.bind(logger);
-  const errorLog = deps?.errorFn ?? logger.error.bind(logger);
-  const shouldUseCache = deps?.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
-  const verboseLoggingEnabled = isVerboseLoggingEnabled();
-  const context = createExtractRequestContext(request);
-
-  let articleUrl: string | null = null;
-  let useProxy = false;
-  let resolvedProxyUrl: string | undefined;
-
-  try {
-    const authResult = await requireAuth(request, {
-      rateLimit: {
-        key: "article-extract",
-        windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
-        maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
-      },
-    });
-
-    // If auth fails, allow through only for placeholder snapshot URLs
-    // (local files only — no outbound HTTP fetch, SSRF-safe).
-    const isAuthFailure = authResult instanceof Response;
-    let authUserId: number | undefined;
-    if (isAuthFailure) {
-      // Peek at the body to check for a placeholder URL before rejecting
-      const peekBody = await request
-        .clone()
-        .json()
-        .catch(() => null);
-      const peekUrl =
-        typeof peekBody?.url === "string" ? peekBody.url.trim() : "";
-      const isPlaceholderUrl = Boolean(
-        peekUrl && getPlaceholderSnapshotPathByArticleUrl(peekUrl),
-      );
-      if (!isPlaceholderUrl) return authResult;
-    } else {
-      authUserId = authResult.userId;
-    }
-
-    // Parse body once and extract both url and useProxy flag
-    const bodyResult = await parseJsonBodyOrResponse<{
-      url?: string;
-      useProxy?: boolean;
-      distillStrategy?: string;
-    }>(request);
-    if (bodyResult instanceof Response) return bodyResult;
-    useProxy = !isAuthFailure && bodyResult.useProxy === true;
-    const distillStrategy: DistillStrategy =
-      typeof bodyResult.distillStrategy === "string" &&
-      (DISTILL_STRATEGIES as readonly string[]).includes(
-        bodyResult.distillStrategy,
-      )
-        ? (bodyResult.distillStrategy as DistillStrategy)
-        : "custom";
-
-    // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
-    let allowInsecureTls = false;
-    if (useProxy && authUserId) {
-      const db = getDb();
-      const [row] = await db
-        .select({
-          proxyUrl: users.proxyUrl,
-          allowInsecureTls: users.allowInsecureTls,
-          proxyUsername: users.proxyUsername,
-          proxyPassword: users.proxyPassword,
-        })
-        .from(users)
-        .where(eq(users.id, authUserId))
-        .limit(1);
-      const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
-      const baseProxyUrl =
-        rawProxyUrl && rawProxyUrl !== "null" && rawProxyUrl !== "undefined"
-          ? rawProxyUrl
-          : undefined;
-      resolvedProxyUrl =
-        baseProxyUrl && row?.proxyUsername && row?.proxyPassword
-          ? injectProxyCredentials(
-              baseProxyUrl,
-              row.proxyUsername,
-              row.proxyPassword,
-            )
-          : baseProxyUrl;
-      allowInsecureTls = row?.allowInsecureTls ?? false;
-    }
-
-    // Build a cloned request with the same body for parseAndValidateArticleUrl
-    const clonedRequest = new NextRequest(request.url, {
-      method: request.method,
-      headers: request.headers,
-      body: JSON.stringify(bodyResult),
-    });
-
-    const parsedUrl = await parseArticleUrl(clonedRequest);
-    if (parsedUrl instanceof Response) return parsedUrl;
-    articleUrl = parsedUrl;
-
-    const cachedPayload = getCachedExtractResponse(articleUrl, shouldUseCache);
-    if (cachedPayload) {
-      return NextResponse.json(cachedPayload);
-    }
-
-    const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
-
-    // SECURITY: If unauthenticated (placeholder bypass path), only local
-    // snapshots are permitted — never allow outbound fetches without auth.
-    if (isAuthFailure && !localSnapshot) {
-      return jsonError("Unauthorized", 401);
-    }
-    const html =
-      localSnapshot?.html ??
-      (await fetchArticleHtml(articleUrl, undefined, {
-        useProxy,
-        proxyUrl: resolvedProxyUrl,
-        allowInsecureTls,
-      }));
-    const safeUrl = redactUrlForLogs(articleUrl);
-
-    const extractableHtml = preCleanHtml(html);
-
-    const extracted = await extractArticle(
-      extractableHtml,
-      articleUrl,
-      distillStrategy,
-      { contentLengthThreshold: 120 },
-    );
-
-    if (
-      !extracted ||
-      (!extracted.content?.trim() && !extracted.description?.trim())
-    ) {
-      warn(`Article extractor returned no content`, { url: safeUrl });
-    }
-
-    const content = resolveExtractedContent(
-      extractableHtml,
-      html,
-      articleUrl,
-      extracted,
-      sanitizeContent,
-      cleanContent,
-    );
-
-    if (!content.trim()) {
-      warn(`Article content empty after full extraction pipeline`, {
-        url: safeUrl,
-      });
-    }
-
-    const payload: ExtractResponsePayload = {
-      ...buildExtractPayload(content, extracted),
-    };
-
-    if (shouldUseCache()) {
-      setCachedExtractPayload(articleUrl, payload);
-    }
-
-    return NextResponse.json(payload);
-  } catch (error) {
-    const safeArticleUrl = articleUrl ? redactUrlForLogs(articleUrl) : null;
-    const urlSuffix = safeArticleUrl ? ` for ${safeArticleUrl}` : "";
-
-    if (isAxiosError(error)) {
-      const upstreamStatus = error.response?.status;
-      const status = mapUpstreamExtractStatus(upstreamStatus);
-      const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
-      errorLog(
-        `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
-        {
-          url: safeArticleUrl,
-          extractAttemptId: context.extractAttemptId,
-          requestId: context.requestId,
-          connectionMode: useProxy ? "proxy" : "direct",
-          // SECURITY: redact credentials from proxy URL before logging
-          proxyAddress: useProxy
-            ? resolvedProxyUrl
-              ? redactUrlForLogs(resolvedProxyUrl)
-              : null
-            : null,
-          ...(verboseLoggingEnabled
-            ? buildAxiosFailureDiagnostics(error, isAxiosError)
-            : {}),
-        },
-      );
-      return jsonErrorWithReason(
-        status === 422
-          ? ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE
-          : ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
-        status,
-        toMessage(error),
-      );
-    }
-
-    errorLog(
-      `Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`,
-      {
-        url: safeArticleUrl,
-        extractAttemptId: context.extractAttemptId,
-        requestId: context.requestId,
-        connectionMode: useProxy ? "proxy" : "direct",
-        // SECURITY: redact credentials from proxy URL before logging
-        proxyAddress: useProxy
-          ? resolvedProxyUrl
-            ? redactUrlForLogs(resolvedProxyUrl)
-            : null
-          : null,
-      },
-    );
-    return jsonErrorWithReason(
-      ARTICLE_EXTRACTION_ERROR_MESSAGE,
-      502,
-      toMessage(error),
-    );
-  }
+function sanitizeHeaderValue(value: null | string, maxLen = 64): null | string {
+  if (!value) return null;
+  // Strip non-ASCII and control characters; truncate to prevent log bloat.
+  return value.replace(/[^\x20-\x7E]/g, "").slice(0, maxLen) || null;
 }

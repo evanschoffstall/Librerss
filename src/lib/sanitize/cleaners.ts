@@ -1,28 +1,25 @@
-import { maxArticleConsecutiveBlankLines } from "@/lib/config";
 import { hasApJunkClass, isRelatedHeading, readAttrValue } from "./patterns";
 import { purifyRawHtml } from "./purify";
+
+import { maxArticleConsecutiveBlankLines } from "@/lib/config";
 
 // Cached at first call — env does not change at runtime in a Node.js server
 // process, and this value is read on every article parse invocation.
 let _maxConsecutiveBlankLines: number | undefined;
-function getMaxConsecutiveBlankLines(): number {
-  return (_maxConsecutiveBlankLines ??= maxArticleConsecutiveBlankLines());
+export function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-function normalizeNoscriptForManipulation(rawHtml: string): string {
-  return rawHtml.replace(
-    /<noscript\b[^>]*>([\s\S]*?)<\/noscript>/gi,
-    (_match, innerHtml: string) => {
-      const plainText = toPlainText(innerHtml).replace(/\s+/g, " ").trim();
-      const blockElementCount = (
-        innerHtml.match(/<(?:p|h[1-6]|li|blockquote|figure|img)\b/gi) ?? []
-      ).length;
-      const isLikelyArticleFallback =
-        blockElementCount >= 3 && plainText.length >= 220;
-
-      return isLikelyArticleFallback ? innerHtml : "";
-    },
-  );
+export function normalizeArticleHtmlSpacing(html: string): string {
+  return stripEmptyTagBlocks(html)
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n[ \t]*\n+/g, "\n")
+    .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
+    .trim();
 }
 
 export function stripApJunkBlocks(html: string): string {
@@ -43,6 +40,117 @@ export function stripEmbeddedMediaBlocks(html: string): string {
   return html
     .replace(/<(iframe|video|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, "\n")
     .replace(/<(iframe|video|object|embed)\b[^>]*\/?>/gi, "\n");
+}
+
+/**
+ * Strip anchor elements whose inner content contains no visible text and no
+ * img child.  These are left behind when sanitize-html strips non-allowed
+ * children (SVG icons, buttons) from inside a link.
+ */
+export function stripEmptyAnchors(html: string): string {
+  return html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (match, inner: string) => {
+    if (/<img\b/i.test(inner)) return match;
+    return inner.replace(/<[^>]*>/g, "").trim().length === 0 ? "" : match;
+  });
+}
+
+/**
+ * Strip short inline content that appears between block-level elements at the
+ * top level of the document.  After sanitize-html strips non-allowed tags
+ * (div, span, figure, time, etc.), their text content is left as orphaned
+ * inline nodes — bylines, image credits, UI labels, timestamps, etc.
+ *
+ * Only segments whose plain-text length is under {@link maxTextLength} are
+ * removed.  Content inside block elements is never touched.
+ */
+export function stripOrphanedInlineContent(
+  html: string,
+  maxTextLength = 200,
+): string {
+  const blockBoundaryRe =
+    /<\/?(?:p|h[1-6]|ul|ol|li|blockquote|pre)\b[^>]*>|<(?:hr|img)\b[^>]*\/?>/gi;
+
+  const parts: { content: string; type: "gap" | "tag" }[] = [];
+  let lastIndex = 0;
+  let match: null | RegExpExecArray;
+
+  while ((match = blockBoundaryRe.exec(html)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ content: html.slice(lastIndex, match.index), type: "gap" });
+    }
+    parts.push({ content: match[0], type: "tag" });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < html.length) {
+    parts.push({ content: html.slice(lastIndex), type: "gap" });
+  }
+
+  // If no block boundaries were found, the content is purely inline — return as-is.
+  if (parts.every((p) => p.type === "gap")) return html;
+
+  // Track block-element nesting depth to identify top-level gaps.
+  let depth = 0;
+  let prevTagIsImg = false;
+  return parts
+    .map((part) => {
+      if (part.type === "tag") {
+        const tag = part.content;
+        prevTagIsImg = /^<img\b/i.test(tag);
+        if (/^<(?:hr|img)\b/i.test(tag)) {
+          /* self-closing — depth unchanged */
+        } else if (/^<\//i.test(tag)) {
+          depth = Math.max(0, depth - 1);
+        } else {
+          depth++;
+        }
+        return part.content;
+      }
+
+      // Gap at top level (depth === 0): strip if plain text is short AND
+      // the gap contains no semantic inline elements AND does not follow <img>
+      // (text after images is likely a caption).
+      if (depth === 0 && !prevTagIsImg) {
+        const hasSemanticInline = /<(?:a|strong|em|b|i|u|code)\b/i.test(
+          part.content,
+        );
+        if (!hasSemanticInline) {
+          const plainText = part.content
+            .replace(/<[^>]*>/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+          const looksLikeProse = wordCount >= 12 || /[.?!"“”]/.test(plainText);
+          if (
+            plainText.length > 0 &&
+            plainText.length <= maxTextLength &&
+            !looksLikeProse
+          ) {
+            return "";
+          }
+        }
+      }
+      prevTagIsImg = false;
+
+      return part.content;
+    })
+    .join("");
+}
+
+export function stripOrphanedRelatedBlocks(html: string): string {
+  const withoutHeadingLists = html.replace(
+    /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
+    (match, headingText: string) =>
+      isRelatedHeading(headingText) ? "" : match,
+  );
+
+  const withoutLooseHeadings = withoutHeadingLists.replace(
+    /<h[1-6]>([^<]*)<\/h[1-6]>/gi,
+    (match, headingText: string) =>
+      isRelatedHeading(headingText) ? "" : match,
+  );
+
+  return collapseExcessNewlines(withoutLooseHeadings);
 }
 
 /** Converts HTML to plain text by stripping tags and normalizing whitespace. */
@@ -98,6 +206,16 @@ function collapseExcessNewlines(html: string): string {
     );
 }
 
+function getMaxConsecutiveBlankLines(): number {
+  return (_maxConsecutiveBlankLines ??= maxArticleConsecutiveBlankLines());
+}
+
+function hasOnlyEmptyListItems(content: string): boolean {
+  const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
+  if (listItems.length === 0) return isEmptyInlineHtml(content);
+  return listItems.every((item) => isEmptyInlineHtml(item[1] ?? ""));
+}
+
 function isEmptyInlineHtml(content: string): boolean {
   const withoutFormattingTags = content.replace(
     /<\/?(?:strong|em|b|i|u|span)\b[^>]*>/gi,
@@ -111,10 +229,20 @@ function isEmptyInlineHtml(content: string): boolean {
   return withoutNbspEntities.trim().length === 0;
 }
 
-function hasOnlyEmptyListItems(content: string): boolean {
-  const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
-  if (listItems.length === 0) return isEmptyInlineHtml(content);
-  return listItems.every((item) => isEmptyInlineHtml(item[1] ?? ""));
+function normalizeNoscriptForManipulation(rawHtml: string): string {
+  return rawHtml.replace(
+    /<noscript\b[^>]*>([\s\S]*?)<\/noscript>/gi,
+    (_match, innerHtml: string) => {
+      const plainText = toPlainText(innerHtml).replace(/\s+/g, " ").trim();
+      const blockElementCount = (
+        innerHtml.match(/<(?:p|h[1-6]|li|blockquote|figure|img)\b/gi) ?? []
+      ).length;
+      const isLikelyArticleFallback =
+        blockElementCount >= 3 && plainText.length >= 220;
+
+      return isLikelyArticleFallback ? innerHtml : "";
+    },
+  );
 }
 
 function stripEmptyListItems(html: string): string {
@@ -138,165 +266,30 @@ function stripEmptyTagBlocks(html: string): string {
   );
 }
 
-export function stripOrphanedRelatedBlocks(html: string): string {
-  const withoutHeadingLists = html.replace(
-    /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
-    (match, headingText: string) =>
-      isRelatedHeading(headingText) ? "" : match,
-  );
-
-  const withoutLooseHeadings = withoutHeadingLists.replace(
-    /<h[1-6]>([^<]*)<\/h[1-6]>/gi,
-    (match, headingText: string) =>
-      isRelatedHeading(headingText) ? "" : match,
-  );
-
-  return collapseExcessNewlines(withoutLooseHeadings);
-}
-
-export function normalizeArticleHtmlSpacing(html: string): string {
-  return stripEmptyTagBlocks(html)
-    .replace(/\r\n?/g, "\n")
-    .replace(/\n[ \t]*\n+/g, "\n")
-    .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
-    .trim();
-}
-
-/**
- * Strip short inline content that appears between block-level elements at the
- * top level of the document.  After sanitize-html strips non-allowed tags
- * (div, span, figure, time, etc.), their text content is left as orphaned
- * inline nodes — bylines, image credits, UI labels, timestamps, etc.
- *
- * Only segments whose plain-text length is under {@link maxTextLength} are
- * removed.  Content inside block elements is never touched.
- */
-export function stripOrphanedInlineContent(
-  html: string,
-  maxTextLength = 200,
-): string {
-  const blockBoundaryRe =
-    /<\/?(?:p|h[1-6]|ul|ol|li|blockquote|pre)\b[^>]*>|<(?:hr|img)\b[^>]*\/?>/gi;
-
-  const parts: { type: "tag" | "gap"; content: string }[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = blockBoundaryRe.exec(html)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: "gap", content: html.slice(lastIndex, match.index) });
-    }
-    parts.push({ type: "tag", content: match[0] });
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < html.length) {
-    parts.push({ type: "gap", content: html.slice(lastIndex) });
-  }
-
-  // If no block boundaries were found, the content is purely inline — return as-is.
-  if (parts.every((p) => p.type === "gap")) return html;
-
-  // Track block-element nesting depth to identify top-level gaps.
-  let depth = 0;
-  let prevTagIsImg = false;
-  return parts
-    .map((part) => {
-      if (part.type === "tag") {
-        const tag = part.content;
-        prevTagIsImg = /^<img\b/i.test(tag);
-        if (/^<(?:hr|img)\b/i.test(tag)) {
-          /* self-closing — depth unchanged */
-        } else if (/^<\//i.test(tag)) {
-          depth = Math.max(0, depth - 1);
-        } else {
-          depth++;
-        }
-        return part.content;
-      }
-
-      // Gap at top level (depth === 0): strip if plain text is short AND
-      // the gap contains no semantic inline elements AND does not follow <img>
-      // (text after images is likely a caption).
-      if (depth === 0 && !prevTagIsImg) {
-        const hasSemanticInline = /<(?:a|strong|em|b|i|u|code)\b/i.test(
-          part.content,
-        );
-        if (!hasSemanticInline) {
-          const plainText = part.content
-            .replace(/<[^>]*>/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
-          const wordCount = plainText.split(/\s+/).filter(Boolean).length;
-          const looksLikeProse = wordCount >= 12 || /[.?!"“”]/.test(plainText);
-          if (
-            plainText.length > 0 &&
-            plainText.length <= maxTextLength &&
-            !looksLikeProse
-          ) {
-            return "";
-          }
-        }
-      }
-      prevTagIsImg = false;
-
-      return part.content;
-    })
-    .join("");
-}
-
-/**
- * Strip anchor elements whose inner content contains no visible text and no
- * img child.  These are left behind when sanitize-html strips non-allowed
- * children (SVG icons, buttons) from inside a link.
- */
-export function stripEmptyAnchors(html: string): string {
-  return html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (match, inner: string) => {
-    if (/<img\b/i.test(inner)) return match;
-    return inner.replace(/<[^>]*>/g, "").trim().length === 0 ? "" : match;
-  });
-}
-
-export function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
   apos: "'",
-  nbsp: " ",
-  mdash: "\u2014",
-  ndash: "\u2013",
-  ldquo: "\u201C",
-  rdquo: "\u201D",
-  lsquo: "\u2018",
-  rsquo: "\u2019",
-  hellip: "\u2026",
-  copy: "\u00A9",
-  reg: "\u00AE",
-  trade: "\u2122",
   bull: "\u2022",
-  middot: "\u00B7",
-  laquo: "\u00AB",
-  raquo: "\u00BB",
+  copy: "\u00A9",
   emdash: "\u2014",
   euro: "\u20AC",
+  gt: ">",
+  hellip: "\u2026",
+  laquo: "\u00AB",
+  ldquo: "\u201C",
+  lsquo: "\u2018",
+  lt: "<",
+  mdash: "\u2014",
+  middot: "\u00B7",
+  nbsp: " ",
+  ndash: "\u2013",
+  quot: '"',
+  raquo: "\u00BB",
+  rdquo: "\u201D",
+  reg: "\u00AE",
+  rsquo: "\u2019",
+  trade: "\u2122",
 };
-
-function decodeNumericEntity(raw: string, radix: 10 | 16): string {
-  try {
-    return String.fromCodePoint(Number.parseInt(raw, radix));
-  } catch {
-    return "";
-  }
-}
 
 export function decodeHtmlEntities(value: string): string {
   return value.replace(
@@ -321,6 +314,14 @@ export function toParagraphHtml(raw: string): string {
     .join("\n");
 }
 
+function decodeNumericEntity(raw: string, radix: 10 | 16): string {
+  try {
+    return String.fromCodePoint(Number.parseInt(raw, radix));
+  } catch {
+    return "";
+  }
+}
+
 function removeElementsByAttrPattern(
   html: string,
   attr: string,
@@ -328,19 +329,19 @@ function removeElementsByAttrPattern(
 ): string {
   const openRe = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
   let result = html;
-  let match: RegExpExecArray | null;
+  let match: null | RegExpExecArray;
   while ((match = openRe.exec(result)) !== null) {
     const attrValue = readAttrValue(match[2] ?? "", attr);
     if (attrValue === null || !pattern.test(attrValue)) continue;
 
-    const tagName = match[1]!.toLowerCase();
+    const tagName = match[1].toLowerCase();
     const afterOpen = match.index + match[0].length;
     const closeRe = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi;
     closeRe.lastIndex = afterOpen;
     let depth = 1;
     let endIdx = -1;
 
-    let m: RegExpExecArray | null;
+    let m: null | RegExpExecArray;
     while (depth > 0 && (m = closeRe.exec(result)) !== null) {
       if (m[1]?.toLowerCase() !== tagName) continue;
       if (m[0].startsWith("</")) depth--;

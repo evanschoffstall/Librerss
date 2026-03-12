@@ -16,7 +16,7 @@ export const STARRED_STATE = "user/-/state/com.google/starred";
  * Returns `null` if the ID does not start with the user-label prefix or if
  * the label portion is empty.
  */
-export function parseUserLabel(id: string): string | null {
+export function parseUserLabel(id: string): null | string {
   if (!id.startsWith(USER_LABEL_PREFIX)) return null;
   return id.slice(USER_LABEL_PREFIX.length) || null;
 }
@@ -25,11 +25,7 @@ export function parseUserLabel(id: string): string | null {
 
 const READER_ITEM_ID_PREFIX = "tag:google.com,2005:reader/item/";
 
-export function toReaderItemId(articleId: number): string {
-  return `${READER_ITEM_ID_PREFIX}${articleId.toString(16)}`;
-}
-
-export function parseReaderItemId(rawId: string): number | null {
+export function parseReaderItemId(rawId: string): null | number {
   const trimmed = rawId.trim();
   if (!trimmed) {
     return null;
@@ -52,4 +48,8 @@ export function parseReaderItemId(rawId: string): number | null {
   }
 
   return null;
+}
+
+export function toReaderItemId(articleId: number): string {
+  return `${READER_ITEM_ID_PREFIX}${articleId.toString(16)}`;
 }

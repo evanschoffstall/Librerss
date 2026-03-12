@@ -13,22 +13,23 @@ import {
   mock,
   test,
 } from "bun:test";
+
 import { createMockRequest } from "./support/test-utils";
 
 function registerModuleMocks() {
   mock.module("@/lib/db/db", () => ({
     getDb: () => ({
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            limit: () => Promise.resolve([]),
-          }),
-        }),
-      }),
       insert: () => ({
         into: () => ({
           values: () => ({
             returning: () => Promise.resolve([{ id: 1 }]),
+          }),
+        }),
+      }),
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([]),
           }),
         }),
       }),
@@ -62,9 +63,9 @@ describe("Auth API - Login", () => {
   test("POST /api/auth/login requires email and password", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const request = createMockRequest("https://example.com/api/auth/login", {
-      method: "POST",
       body: {},
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request);
@@ -74,9 +75,9 @@ describe("Auth API - Login", () => {
   test("POST /api/auth/login returns error for invalid credentials", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const request = createMockRequest("https://example.com/api/auth/login", {
-      method: "POST",
       body: { email: "test@example.com", password: "wrong" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request);
@@ -86,9 +87,9 @@ describe("Auth API - Login", () => {
   test("POST /api/auth/login validates email format", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const request = createMockRequest("https://example.com/api/auth/login", {
-      method: "POST",
       body: { email: "not-an-email", password: "Password123!" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request);
@@ -136,9 +137,9 @@ describe("Auth API - Login extended branches", () => {
   test("POST /api/auth/login returns 400 when password is empty string", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const request = createMockRequest("https://example.com/api/auth/login", {
-      method: "POST",
       body: { email: "user@example.com", password: "" },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
     const response = await POST(request);
     expect(response.status).toBe(400);
@@ -148,9 +149,9 @@ describe("Auth API - Login extended branches", () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const longPassword = "x".repeat(10_000);
     const request = createMockRequest("https://example.com/api/auth/login", {
-      method: "POST",
       body: { email: "user@example.com", password: longPassword },
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
     const response = await POST(request);
     expect(response.status).toBe(401);
@@ -159,19 +160,19 @@ describe("Auth API - Login extended branches", () => {
   test("POST /api/auth/login returns 400 when body is not valid JSON", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const rawRequest = new Request("https://example.com/api/auth/login", {
-      method: "POST",
+      body: "not-json{{",
       headers: {
         "content-type": "application/json",
         "sec-fetch-site": "same-origin",
       },
-      body: "not-json{{",
+      method: "POST",
     }) as any;
     rawRequest.cookies = {
-      get: () => undefined,
-      set: () => {},
       delete: () => {},
-      has: () => false,
+      get: () => undefined,
       getAll: () => [],
+      has: () => false,
+      set: () => {},
     };
     const response = await POST(rawRequest);
     expect(response.status).toBeGreaterThanOrEqual(400);
@@ -180,20 +181,20 @@ describe("Auth API - Login extended branches", () => {
   test("POST /api/auth/login returns 400 when body is JSON null", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const rawRequest = new Request("https://example.com/api/auth/login", {
-      method: "POST",
+      body: "null",
       headers: {
         "content-type": "application/json",
         "sec-fetch-site": "same-origin",
         "x-forwarded-for": "203.0.113.77, 198.51.100.2",
       },
-      body: "null",
+      method: "POST",
     }) as any;
     rawRequest.cookies = {
-      get: () => undefined,
-      set: () => {},
       delete: () => {},
-      has: () => false,
+      get: () => undefined,
       getAll: () => [],
+      has: () => false,
+      set: () => {},
     };
 
     const response = await POST(rawRequest);
@@ -212,8 +213,8 @@ describe("Auth API - Login extended branches", () => {
   test("POST /api/auth/login rejects CSRF-unsafe request", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const request = createMockRequest("https://example.com/api/auth/login", {
-      method: "POST",
       body: { email: "user@example.com", password: "ValidPass1!" },
+      method: "POST",
       // no sec-fetch-site → CSRF failure
     });
     const response = await POST(request);
@@ -225,9 +226,9 @@ describe("Auth API - Logout", () => {
   test("POST /api/auth/logout clears session", async () => {
     const { POST } = await import("@/app/api/auth/logout/route");
     const request = createMockRequest("https://example.com/api/auth/logout", {
-      method: "POST",
-      headers: { "sec-fetch-site": "same-origin" },
       cookies: { session: "test-session-token" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request);
@@ -237,8 +238,8 @@ describe("Auth API - Logout", () => {
   test("POST /api/auth/logout without session cookie still succeeds", async () => {
     const { POST } = await import("@/app/api/auth/logout/route");
     const request = createMockRequest("https://example.com/api/auth/logout", {
-      method: "POST",
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
     const response = await POST(request);
     expect(response.status).toBeLessThan(400);
@@ -306,7 +307,6 @@ describe("Auth API - Login success path", () => {
     try {
       const { POST } = await import("@/app/api/auth/login/route");
       const request = createMockRequest("https://example.com/api/auth/login", {
-        method: "POST",
         body: { email: "admin@admin.com", password: "admin" },
         // Use a distinct IP so previous tests' rate-limit state doesn't apply.
         // TRUSTED_PROXY_COUNT defaults to 1 so we need client+proxy in XFF.
@@ -314,6 +314,7 @@ describe("Auth API - Login success path", () => {
           "sec-fetch-site": "same-origin",
           "x-forwarded-for": "203.0.113.55, 10.0.0.1",
         },
+        method: "POST",
       });
       const response = await POST(request);
       expect(response.status).toBe(200);
@@ -333,9 +334,9 @@ describe("Auth API - Logout with session cookie", () => {
   test("POST /api/auth/logout with librerss_session cookie reaches deleteSessionByToken", async () => {
     const { POST } = await import("@/app/api/auth/logout/route");
     const request = createMockRequest("https://example.com/api/auth/logout", {
-      method: "POST",
-      headers: { "sec-fetch-site": "same-origin" },
       cookies: { librerss_session: "test-session-token-xyz" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
     const response = await POST(request);
     // Either succeeds (if usePlaceholderData=true) or fails with 5xx (db mock

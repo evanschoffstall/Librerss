@@ -15,10 +15,10 @@ afterEach(() => {
 
 function resetDbGlobalState() {
   const dbGlobal = globalThis as unknown as {
-    pool?: unknown;
     db?: unknown;
     hasLoggedInitialDbConnectionWarning?: boolean;
     hasRunInitialDbConnectivityCheck?: boolean;
+    pool?: unknown;
   };
   delete dbGlobal.pool;
   delete dbGlobal.db;
@@ -28,9 +28,9 @@ function resetDbGlobalState() {
 
 function restoreDbEnv(previousEnv: {
   DATABASE_URL?: string;
-  DB_MAX_CONNECTIONS?: string;
-  DB_IDLE_TIMEOUT_MS?: string;
   DB_EAGER_CONNECT_CHECK?: string;
+  DB_IDLE_TIMEOUT_MS?: string;
+  DB_MAX_CONNECTIONS?: string;
 }) {
   if (previousEnv.DATABASE_URL === undefined) {
     delete process.env.DATABASE_URL;
@@ -160,9 +160,9 @@ describe("db initialization", () => {
   test("getDb throws when DATABASE_URL is missing", async () => {
     const previousEnv = {
       DATABASE_URL: process.env.DATABASE_URL,
-      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
-      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
       DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
     };
     resetDbGlobalState();
     delete process.env.DATABASE_URL;
@@ -183,9 +183,9 @@ describe("db initialization", () => {
   test("getDb uses parsed pool config and caches the db instance", async () => {
     const previousEnv = {
       DATABASE_URL: process.env.DATABASE_URL,
-      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
-      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
       DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
     };
     resetDbGlobalState();
     process.env.DATABASE_URL = "postgres://example/test";
@@ -193,16 +193,16 @@ describe("db initialization", () => {
     process.env.DB_IDLE_TIMEOUT_MS = "2500";
     process.env.DB_EAGER_CONNECT_CHECK = "false";
 
-    let capturedPoolConfig: Record<string, unknown> | null = null;
+    let capturedPoolConfig: null | Record<string, unknown> = null;
     const queryMock = mock(async () => [{ ok: true }]);
     const drizzleMock = mock((pool: unknown) => ({ pool, tag: "db-instance" }));
 
     mock.module("pg", () => ({
       Pool: class MockPool {
+        query = queryMock;
         constructor(config: Record<string, unknown>) {
           capturedPoolConfig = config;
         }
-        query = queryMock;
       },
     }));
     mock.module("drizzle-orm/node-postgres", () => ({
@@ -234,9 +234,9 @@ describe("db initialization", () => {
   test("getDb falls back to default pool config on invalid env values", async () => {
     const previousEnv = {
       DATABASE_URL: process.env.DATABASE_URL,
-      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
-      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
       DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
     };
     resetDbGlobalState();
     process.env.DATABASE_URL = "postgres://example/test";
@@ -244,14 +244,14 @@ describe("db initialization", () => {
     process.env.DB_IDLE_TIMEOUT_MS = "-1";
     process.env.DB_EAGER_CONNECT_CHECK = "false";
 
-    let capturedPoolConfig: Record<string, unknown> | null = null;
+    let capturedPoolConfig: null | Record<string, unknown> = null;
 
     mock.module("pg", () => ({
       Pool: class MockPool {
+        query = mock(async () => [{ ok: true }]);
         constructor(config: Record<string, unknown>) {
           capturedPoolConfig = config;
         }
-        query = mock(async () => [{ ok: true }]);
       },
     }));
     mock.module("drizzle-orm/node-postgres", () => ({
@@ -278,9 +278,9 @@ describe("db initialization", () => {
   test("eager connectivity check logs warning only once", async () => {
     const previousEnv = {
       DATABASE_URL: process.env.DATABASE_URL,
-      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
-      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
       DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
     };
     resetDbGlobalState();
     process.env.DATABASE_URL = "postgres://example/test";
@@ -295,9 +295,9 @@ describe("db initialization", () => {
 
     mock.module("@/lib/logger", () => ({
       logger: {
-        warn: warnMock,
-        info: mock(() => {}),
         error: mock(() => {}),
+        info: mock(() => {}),
+        warn: warnMock,
       },
     }));
     mock.module("pg", () => ({

@@ -6,6 +6,10 @@
  * Target: 95%+ coverage (from 59% baseline)
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { NextRequest } from "next/server";
+
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
 import { logger } from "@/lib/logger";
@@ -17,14 +21,12 @@ import {
   requireMutableRequest,
   requireMutableUserAndJsonBody,
 } from "@/lib/server";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { NextRequest } from "next/server";
 
 /** Build a POST NextRequest that passes CSRF same-origin validation. */
 const buildMutableRequest = () =>
   new NextRequest("http://localhost/api/test", {
-    method: "POST",
     headers: { host: "localhost", origin: "http://localhost" },
+    method: "POST",
   });
 
 beforeEach(() => {
@@ -37,13 +39,34 @@ afterEach(() => {
 
 // ─── Test Utilities ──────────────────────────────────────────────────────────
 
+function createMutableRequest(
+  url = "http://localhost:3000/api/test",
+  options: {
+    additionalHeaders?: Record<string, string>;
+    body?: unknown;
+    cookies?: Record<string, string>;
+  } = {},
+): NextRequest {
+  const parsedUrl = new URL(url);
+  return createRequest(url, {
+    body: options.body,
+    cookies: options.cookies,
+    headers: {
+      host: parsedUrl.host,
+      origin: parsedUrl.origin,
+      ...options.additionalHeaders,
+    },
+    method: "POST",
+  });
+}
+
 function createRequest(
   url: string,
   options: {
-    method?: string;
-    headers?: Record<string, string>;
     body?: unknown;
     cookies?: Record<string, string>;
+    headers?: Record<string, string>;
+    method?: string;
   } = {},
 ): NextRequest {
   const headers = new Headers(options.headers ?? {});
@@ -57,8 +80,8 @@ function createRequest(
   }
 
   const requestInit = {
-    method: options.method ?? "GET",
     headers,
+    method: options.method ?? "GET",
     ...(options.body !== undefined
       ? { body: JSON.stringify(options.body) }
       : {}),
@@ -69,27 +92,6 @@ function createRequest(
   }
 
   return new NextRequest(url, requestInit);
-}
-
-function createMutableRequest(
-  url: string = "http://localhost:3000/api/test",
-  options: {
-    body?: unknown;
-    cookies?: Record<string, string>;
-    additionalHeaders?: Record<string, string>;
-  } = {},
-): NextRequest {
-  const parsedUrl = new URL(url);
-  return createRequest(url, {
-    method: "POST",
-    headers: {
-      host: parsedUrl.host,
-      origin: parsedUrl.origin,
-      ...options.additionalHeaders,
-    },
-    body: options.body,
-    cookies: options.cookies,
-  });
 }
 
 // ─── requireAuthenticatedUser ────────────────────────────────────────────────
@@ -190,10 +192,10 @@ describe("requireMutableRequest", () => {
 
   test("returns error when origin header missing", () => {
     const request = createRequest("http://localhost:3000/api/test", {
-      method: "POST",
       headers: {
         host: "localhost:3000",
       },
+      method: "POST",
     });
     const result = requireMutableRequest(request);
 
@@ -205,11 +207,11 @@ describe("requireMutableRequest", () => {
 
   test("returns error when origin does not match host", () => {
     const request = createRequest("http://localhost:3000/api/test", {
-      method: "POST",
       headers: {
         host: "localhost:3000",
         origin: "http://evil.com",
       },
+      method: "POST",
     });
     const result = requireMutableRequest(request);
 
@@ -229,8 +231,8 @@ describe("requireMutableRequest", () => {
       const result = requireMutableRequest(request, {
         rateLimit: {
           key: "test-mutation",
-          windowMs: 60_000,
           maxAttempts: 10,
+          windowMs: 60_000,
         },
       });
 
@@ -240,8 +242,8 @@ describe("requireMutableRequest", () => {
         request,
         "test-mutation",
         expect.objectContaining({
-          windowMs: 60_000,
           maxAttempts: 10,
+          windowMs: 60_000,
         }),
       );
     } finally {
@@ -259,9 +261,9 @@ describe("requireMutableRequest", () => {
       const result = requireMutableRequest(request, {
         rateLimit: {
           key: "explicit-request-scope",
-          windowMs: 30_000,
           maxAttempts: 5,
           scope: "request",
+          windowMs: 30_000,
         },
       });
 
@@ -271,8 +273,8 @@ describe("requireMutableRequest", () => {
         request,
         "explicit-request-scope",
         expect.objectContaining({
-          windowMs: 30_000,
           maxAttempts: 5,
+          windowMs: 30_000,
         }),
       );
     } finally {
@@ -290,9 +292,9 @@ describe("requireMutableRequest", () => {
       const result = requireMutableRequest(request, {
         rateLimit: {
           key: "user-scoped",
-          windowMs: 60_000,
           maxAttempts: 10,
           scope: "user",
+          windowMs: 60_000,
         },
       });
 
@@ -317,8 +319,8 @@ describe("requireMutableRequest", () => {
       const result = requireMutableRequest(request, {
         rateLimit: {
           key: "test-limit",
-          windowMs: 60_000,
           maxAttempts: 1,
+          windowMs: 60_000,
         },
       });
 
@@ -351,11 +353,11 @@ describe("requireMutableRequest", () => {
 describe("requireMutableAuthenticatedUser", () => {
   test("returns error when CSRF check fails", async () => {
     const request = createRequest("http://localhost:3000/api/test", {
-      method: "POST",
       headers: {
         host: "localhost:3000",
         // Missing origin header
       },
+      method: "POST",
     });
     const result = await requireMutableAuthenticatedUser(request);
 
@@ -417,9 +419,9 @@ describe("requireMutableAuthenticatedUser", () => {
       const result = await requireMutableAuthenticatedUser(request, {
         rateLimit: {
           key: "test-request-scope",
-          windowMs: 60_000,
           maxAttempts: 5,
           scope: "request",
+          windowMs: 60_000,
         },
       });
 
@@ -429,8 +431,8 @@ describe("requireMutableAuthenticatedUser", () => {
         request,
         "test-request-scope",
         expect.objectContaining({
-          windowMs: 60_000,
           maxAttempts: 5,
+          windowMs: 60_000,
         }),
       );
     } finally {
@@ -452,9 +454,9 @@ describe("requireMutableAuthenticatedUser", () => {
       const result = await requireMutableAuthenticatedUser(request, {
         rateLimit: {
           key: "test-user-scope",
-          windowMs: 60_000,
           maxAttempts: 10,
           scope: "user",
+          windowMs: 60_000,
         },
       });
 
@@ -465,8 +467,8 @@ describe("requireMutableAuthenticatedUser", () => {
           request,
           `test-user-scope:user:${result.userId}`,
           expect.objectContaining({
-            windowMs: 60_000,
             maxAttempts: 10,
+            windowMs: 60_000,
           }),
         );
       }
@@ -489,9 +491,9 @@ describe("requireMutableAuthenticatedUser", () => {
       const result = await requireMutableAuthenticatedUser(request, {
         rateLimit: {
           key: "test-user-scope",
-          windowMs: 60_000,
           maxAttempts: 10,
           scope: "user",
+          windowMs: 60_000,
         },
       });
 
@@ -524,9 +526,9 @@ describe("requireMutableAuthenticatedUser", () => {
       const result = await requireMutableAuthenticatedUser(request, {
         rateLimit: {
           key: "test-limit",
-          windowMs: 60_000,
           maxAttempts: 1,
           scope: "user",
+          windowMs: 60_000,
         },
       });
 
@@ -551,8 +553,8 @@ describe("requireMutableAuthenticatedUser", () => {
       const result = await requireMutableAuthenticatedUser(request, {
         rateLimit: {
           key: "default-scope",
-          windowMs: 60_000,
           maxAttempts: 5,
+          windowMs: 60_000,
         },
       });
 
@@ -563,8 +565,8 @@ describe("requireMutableAuthenticatedUser", () => {
         request,
         "default-scope",
         expect.objectContaining({
-          windowMs: 60_000,
           maxAttempts: 5,
+          windowMs: 60_000,
         }),
       );
     } finally {
@@ -579,12 +581,12 @@ describe("requireMutableAuthenticatedUser", () => {
 describe("requireMutableUserAndJsonBody", () => {
   test("returns error when CSRF check fails", async () => {
     const request = createRequest("http://localhost:3000/api/test", {
-      method: "POST",
+      body: { test: "data" },
       headers: {
         host: "localhost:3000",
         // Missing origin header
       },
-      body: { test: "data" },
+      method: "POST",
     });
     const result = await requireMutableUserAndJsonBody(request);
 
@@ -620,13 +622,13 @@ describe("requireMutableUserAndJsonBody", () => {
     try {
       // Create request with invalid JSON body
       const request = new NextRequest("http://localhost:3000/api/test", {
-        method: "POST",
+        body: "not valid json{",
         headers: {
+          "content-type": "application/json",
           host: "localhost:3000",
           origin: "http://localhost:3000",
-          "content-type": "application/json",
         },
-        body: "not valid json{",
+        method: "POST",
       });
 
       const result = await requireMutableUserAndJsonBody(request);
@@ -710,16 +712,16 @@ describe("requireMutableUserAndJsonBody", () => {
     process.env.DATABASE_URL = "";
 
     try {
-      type RequestBody = {
+      interface RequestBody {
         feedId: number;
-        title: string;
         tags?: string[];
-      };
+        title: string;
+      }
 
       const testBody: RequestBody = {
         feedId: 123,
-        title: "Test Feed",
         tags: ["tech", "news"],
+        title: "Test Feed",
       };
 
       const request = createMutableRequest("http://localhost:3000/api/test", {
@@ -753,9 +755,9 @@ describe("requireMutableUserAndJsonBody", () => {
       const result = await requireMutableUserAndJsonBody(request, {
         rateLimit: {
           key: "test-with-body",
-          windowMs: 30_000,
           maxAttempts: 3,
           scope: "user",
+          windowMs: 30_000,
         },
       });
 
@@ -766,8 +768,8 @@ describe("requireMutableUserAndJsonBody", () => {
           request,
           `test-with-body:user:${result.user.userId}`,
           expect.objectContaining({
-            windowMs: 30_000,
             maxAttempts: 3,
+            windowMs: 30_000,
           }),
         );
       }
@@ -796,9 +798,9 @@ describe("requireMutableUserAndJsonBody", () => {
       const result = await requireMutableUserAndJsonBody(request, {
         rateLimit: {
           key: "test-exceeded",
-          windowMs: 60_000,
           maxAttempts: 1,
           scope: "user",
+          windowMs: 60_000,
         },
       });
 
@@ -885,8 +887,8 @@ describe("logAndRespondError", () => {
     try {
       const testError = new Error("Validation failed");
       const response = logAndRespondError("Invalid input", testError, {
-        status: 422,
         publicMessage: "The provided data is invalid",
+        status: 422,
       });
 
       expect(response.status).toBe(422);
@@ -943,8 +945,8 @@ describe("logAndRespondError", () => {
       testError.stack = "Error: Complex error\n    at test.ts:123:45";
 
       logAndRespondError("Complex operation failed", testError, {
-        status: 503,
         publicMessage: "Service unavailable",
+        status: 503,
       });
 
       expect(errorMock).toHaveBeenCalledWith("Complex operation failed", {
@@ -998,9 +1000,9 @@ describe("request guards rate-limit scope", () => {
       const response = requireMutableRequest(request, {
         rateLimit: {
           key: "mutation",
-          windowMs: 60_000,
           maxAttempts: 5,
           scope: "request",
+          windowMs: 60_000,
         },
       });
 
@@ -1009,7 +1011,7 @@ describe("request guards rate-limit scope", () => {
       expect(check).toHaveBeenCalledWith(
         request,
         "mutation",
-        expect.objectContaining({ windowMs: 60_000, maxAttempts: 5 }),
+        expect.objectContaining({ maxAttempts: 5, windowMs: 60_000 }),
       );
     } finally {
       rateLimiter.check = originalCheck;
@@ -1027,9 +1029,9 @@ describe("request guards rate-limit scope", () => {
       const result = await requireMutableAuthenticatedUser(request, {
         rateLimit: {
           key: "article-extract",
-          windowMs: 60_000,
           maxAttempts: 5,
           scope: "user",
+          windowMs: 60_000,
         },
       });
 
@@ -1046,7 +1048,7 @@ describe("request guards rate-limit scope", () => {
       expect(check).toHaveBeenCalledWith(
         request,
         `article-extract:user:${result.userId}`,
-        expect.objectContaining({ windowMs: 60_000, maxAttempts: 5 }),
+        expect.objectContaining({ maxAttempts: 5, windowMs: 60_000 }),
       );
     } finally {
       rateLimiter.check = originalCheck;

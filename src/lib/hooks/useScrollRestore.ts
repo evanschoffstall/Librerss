@@ -14,73 +14,10 @@ const RESTORE_WINDOW_MS = 3000;
  * `ao` – distance (px) from the viewport top to that element's top at save time.
  *        Negative means the element was above the visible area.
  */
-type SavedState = { t: number; ai: number; ao: number };
-
-function parseSavedState(raw: string): SavedState | null {
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed !== null &&
-      typeof parsed === "object" &&
-      "t" in parsed &&
-      "ai" in parsed &&
-      "ao" in parsed
-    ) {
-      return parsed as SavedState;
-    }
-  } catch {
-    // Legacy plain-number format written by older versions of this hook.
-    const n = Number(raw);
-    if (Number.isFinite(n)) return { t: n, ai: -1, ao: 0 };
-  }
-  return null;
-}
-
-/**
- * Returns `el`'s top offset relative to the start of the scrollable content
- * (i.e. what scrollTop would need to be for that element to sit at the
- * very top of the viewport).
- */
-function elementOffsetInContent(el: Element, viewport: HTMLElement): number {
-  return (
-    el.getBoundingClientRect().top -
-    viewport.getBoundingClientRect().top +
-    viewport.scrollTop
-  );
-}
-
-function buildSavedState(
-  viewport: HTMLElement,
-  scrollTopOffset: number,
-): SavedState | null {
-  const top = viewport.scrollTop;
-  if (top <= scrollTopOffset) {
-    return null;
-  }
-
-  const contentWrapper = viewport.firstElementChild;
-  let anchorIndex = -1;
-  let anchorOffset = 0;
-
-  if (contentWrapper) {
-    const viewportTop = viewport.getBoundingClientRect().top;
-    const children = Array.from(contentWrapper.children);
-    for (let i = 0; i < children.length; i++) {
-      const childTop = children[i].getBoundingClientRect().top - viewportTop;
-      if (childTop >= -1) {
-        anchorIndex = i;
-        anchorOffset = childTop;
-        break;
-      }
-    }
-    if (anchorIndex === -1 && children.length > 0) {
-      anchorIndex = children.length - 1;
-      anchorOffset =
-        children[anchorIndex].getBoundingClientRect().top - viewportTop;
-    }
-  }
-
-  return { t: top, ai: anchorIndex, ao: anchorOffset };
+interface SavedState {
+  ai: number;
+  ao: number;
+  t: number;
 }
 
 /**
@@ -99,7 +36,7 @@ export function useScrollRestore(
   const viewportRef = useRef<HTMLElement | null>(null);
   const rafId = useRef<number>(0);
   const restoreScrollEventRafId = useRef<number>(0);
-  const savedStateRef = useRef<SavedState | null>(null);
+  const savedStateRef = useRef<null | SavedState>(null);
   const restoreDeadlineRef = useRef<number>(0);
   const isApplyingRestoreScrollRef = useRef(false);
   const offsetRef = useRef(scrollTopOffset);
@@ -196,7 +133,9 @@ export function useScrollRestore(
             // Immediately rough-position to clamp scrollTop above any sentinel
             // offset and avoid a one-frame flash before the rAF fires.
             viewport.scrollTop = Math.max(offsetRef.current, state.t);
-            requestAnimationFrame(() => restoreScrollIfNeeded());
+            requestAnimationFrame(() => {
+              restoreScrollIfNeeded();
+            });
           }
         }
       } catch {
@@ -218,7 +157,9 @@ export function useScrollRestore(
     const resizeObserver =
       typeof ResizeObserver === "undefined"
         ? null
-        : new ResizeObserver(() => restoreScrollIfNeeded());
+        : new ResizeObserver(() => {
+            restoreScrollIfNeeded();
+          });
 
     const observeCurrentChild = () => {
       resizeObserver?.disconnect();
@@ -309,7 +250,9 @@ export function useScrollRestore(
     } catch {
       /* ignore */
     }
-    requestAnimationFrame(() => restoreScrollIfNeeded());
+    requestAnimationFrame(() => {
+      restoreScrollIfNeeded();
+    });
   }, [restoreScrollIfNeeded, sessionKey]);
 
   // Kills the restore window without touching scrollTop or sessionStorage.
@@ -320,5 +263,72 @@ export function useScrollRestore(
     restoreDeadlineRef.current = 0;
   }, []);
 
-  return { ref: attachRef, invalidate, capture, settle };
+  return { capture, invalidate, ref: attachRef, settle };
+}
+
+function buildSavedState(
+  viewport: HTMLElement,
+  scrollTopOffset: number,
+): null | SavedState {
+  const top = viewport.scrollTop;
+  if (top <= scrollTopOffset) {
+    return null;
+  }
+
+  const contentWrapper = viewport.firstElementChild;
+  let anchorIndex = -1;
+  let anchorOffset = 0;
+
+  if (contentWrapper) {
+    const viewportTop = viewport.getBoundingClientRect().top;
+    const children = Array.from(contentWrapper.children);
+    for (let i = 0; i < children.length; i++) {
+      const childTop = children[i].getBoundingClientRect().top - viewportTop;
+      if (childTop >= -1) {
+        anchorIndex = i;
+        anchorOffset = childTop;
+        break;
+      }
+    }
+    if (anchorIndex === -1 && children.length > 0) {
+      anchorIndex = children.length - 1;
+      anchorOffset =
+        children[anchorIndex].getBoundingClientRect().top - viewportTop;
+    }
+  }
+
+  return { ai: anchorIndex, ao: anchorOffset, t: top };
+}
+
+/**
+ * Returns `el`'s top offset relative to the start of the scrollable content
+ * (i.e. what scrollTop would need to be for that element to sit at the
+ * very top of the viewport).
+ */
+function elementOffsetInContent(el: Element, viewport: HTMLElement): number {
+  return (
+    el.getBoundingClientRect().top -
+    viewport.getBoundingClientRect().top +
+    viewport.scrollTop
+  );
+}
+
+function parseSavedState(raw: string): null | SavedState {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      "t" in parsed &&
+      "ai" in parsed &&
+      "ao" in parsed
+    ) {
+      return parsed as SavedState;
+    }
+  } catch {
+    // Legacy plain-number format written by older versions of this hook.
+    const n = Number(raw);
+    if (Number.isFinite(n)) return { ai: -1, ao: 0, t: n };
+  }
+  return null;
 }

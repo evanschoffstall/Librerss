@@ -1,23 +1,6 @@
-import { getSearchParams } from "@/lib/api/http";
-import { type SessionUser } from "@/lib/auth/session";
-import { canUseArticleStatusesTable } from "@/lib/core/article-status";
-import { buildStreamConditions } from "@/lib/core/stream-conditions";
-import {
-  FEED_STREAM_PREFIX,
-  READING_LIST_STREAM,
-  STARRED_STATE,
-} from "@/lib/core/stream-ids";
-import { getDb } from "@/lib/db/db";
-import {
-  articleStatuses,
-  articles,
-  feedCategories,
-  feedSources,
-  feeds,
-} from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+
 import { withResolvedCategoryByUrl } from "./categories";
 import { ListedArticle, mapArticleAsItem } from "./mappers";
 import {
@@ -32,6 +15,25 @@ import {
   parseStreamPaging,
   shouldExcludeReadFromStream,
 } from "./stream-service";
+
+import { getSearchParams } from "@/lib/api/http";
+import { type SessionUser } from "@/lib/auth/session";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import { buildStreamConditions } from "@/lib/core/stream-conditions";
+import {
+  FEED_STREAM_PREFIX,
+  READING_LIST_STREAM,
+  STARRED_STATE,
+} from "@/lib/core/stream-ids";
+import { getDb } from "@/lib/db/db";
+import {
+  articles,
+  articleStatuses,
+  feedCategories,
+  feeds,
+  feedSources,
+} from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 
 export async function handleStreamContents(
   user: SessionUser,
@@ -49,7 +51,7 @@ export async function handleStreamContents(
 
   const feedUrl = isFeed ? streamId.slice(FEED_STREAM_PREFIX.length) : null;
   const searchParams = getSearchParams(request);
-  const { limit, offset, continuationId, isNetNewsWire } = parseStreamPaging(
+  const { continuationId, isNetNewsWire, limit, offset } = parseStreamPaging(
     searchParams,
     request.headers.get("user-agent") ?? "",
   );
@@ -70,32 +72,32 @@ export async function handleStreamContents(
 
   if (isStarredStream && !useArticleStatuses) {
     return NextResponse.json({
-      id: streamId,
       direction: "ltr",
-      updated: Math.floor(Date.now() / 1000),
+      id: streamId,
       items: [],
+      updated: Math.floor(Date.now() / 1000),
     });
   }
 
   async function queryRows(dateFilter: Date | null): Promise<ListedArticle[]> {
     const conditions = buildStreamConditions({
-      feedUrl,
-      dateFilter,
       continuationId,
-      starredOnly: isStarredStream,
+      dateFilter,
       excludeRead,
+      feedUrl,
+      starredOnly: isStarredStream,
       useArticleStatuses,
     });
 
     const baseSelect = {
       articleId: articles.id,
-      title: articles.title,
-      link: articles.link,
+      category: feedCategories.category,
       content: articles.content,
+      link: articles.link,
       publicationDate: articles.publicationDate,
       sourceName: feedSources.name,
       sourceUrl: feedSources.url,
-      category: feedCategories.category,
+      title: articles.title,
     };
 
     const fromClause = db
@@ -145,16 +147,16 @@ export async function handleStreamContents(
     rows.length === limit ? rows.at(-1)?.articleId : null;
 
   logger.info("[greader] stream/contents", {
-    userId: user.userId,
-    streamId,
-    limit,
-    isNetNewsWire,
-    offset,
-    continuationId,
-    ot: searchParams.get("ot"),
-    itemCount: rows.length,
-    usedOtFallback,
     continuation: nextContinuationId ? String(nextContinuationId) : null,
+    continuationId,
+    isNetNewsWire,
+    itemCount: rows.length,
+    limit,
+    offset,
+    ot: searchParams.get("ot"),
+    streamId,
+    usedOtFallback,
+    userId: user.userId,
   });
 
   const normalizedRows = await withResolvedCategoryByUrl(
@@ -164,10 +166,10 @@ export async function handleStreamContents(
   );
 
   return NextResponse.json({
-    id: streamId,
-    direction: "ltr",
-    updated: Math.floor(Date.now() / 1000),
     continuation: nextContinuationId ? String(nextContinuationId) : undefined,
+    direction: "ltr",
+    id: streamId,
     items: normalizedRows.map(mapArticleAsItem),
+    updated: Math.floor(Date.now() / 1000),
   });
 }

@@ -4,14 +4,12 @@ export {
   isExtractCacheEnabled,
   setCachedExtractPayload,
 } from "./cache";
-
 export type {
   CachedExtractResponse,
   ExtractRequestContext,
   ExtractResponsePayload,
   PlaceholderSnapshotHit,
 } from "./constants";
-
 export {
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,
   ARTICLE_EXTRACT_CACHE_TTL_MS,
@@ -23,9 +21,6 @@ export {
   EXTRACT_FINGERPRINT_POOL,
   PROXY_FINGERPRINT_POOL,
 } from "./constants";
-
 export { readPlaceholderSnapshotHtml } from "./snapshot";
-
 export { fetchHtml } from "./upstream";
-
 export { parseAndValidateArticleUrl } from "./validators";

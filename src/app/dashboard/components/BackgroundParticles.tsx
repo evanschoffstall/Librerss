@@ -2,43 +2,43 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-interface ParticlesProps {
-  className?: string;
-  quantity?: number;
-  staticity?: number;
-  ease?: number;
-  refresh?: boolean;
-  color?: "light" | "dark";
-}
-
-type Circle = {
-  originX: number;
-  originY: number;
-  size: number;
+interface Circle {
   alphaBase: number;
   alphaPhase: number;
   driftX: number;
   driftY: number;
+  originX: number;
+  originY: number;
+  size: number;
   sway: number;
-};
+}
+
+interface ParticlesProps {
+  className?: string;
+  color?: "dark" | "light";
+  ease?: number;
+  quantity?: number;
+  refresh?: boolean;
+  staticity?: number;
+}
 
 export default function BackgroundParticles({
   className = "",
-  quantity = 30,
-  staticity = 50,
-  ease = 50,
-  refresh = false,
   color = "light",
+  ease = 50,
+  quantity = 30,
+  refresh = false,
+  staticity = 50,
 }: ParticlesProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const circles = useRef<Circle[]>([]);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const frameRef = useRef<number | null>(null);
+  const frameRef = useRef<null | number>(null);
   const startedAtRef = useRef<number>(0);
-  const canvasSize = useRef<{ width: number; height: number }>({
-    width: 0,
+  const canvasSize = useRef<{ height: number; width: number }>({
     height: 0,
+    width: 0,
   });
   const pointerOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -50,13 +50,13 @@ export default function BackgroundParticles({
   const seedParticles = useCallback(
     (count: number, width: number, height: number): Circle[] =>
       Array.from({ length: count }, () => ({
-        originX: Math.random() * width,
-        originY: Math.random() * height,
-        size: Math.random() * 1.9 + 0.2,
         alphaBase: Math.random() * 0.45 + 0.08,
         alphaPhase: Math.random() * Math.PI * 2,
         driftX: (Math.random() - 0.5) * 0.24,
         driftY: (Math.random() - 0.5) * 0.24,
+        originX: Math.random() * width,
+        originY: Math.random() * height,
+        size: Math.random() * 1.9 + 0.2,
         sway: Math.random() * 3.8 + 0.2,
       })),
     [],
@@ -71,7 +71,7 @@ export default function BackgroundParticles({
     const dpr = window.devicePixelRatio || 1;
     const width = container.offsetWidth;
     const height = container.offsetHeight;
-    canvasSize.current = { width, height };
+    canvasSize.current = { height, width };
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
@@ -112,13 +112,13 @@ export default function BackgroundParticles({
     ) => {
       for (let i = 0; i < n; i++) {
         circles.current.push({
-          originX: Math.random() * (maxX - minX) + minX,
-          originY: Math.random() * (maxY - minY) + minY,
-          size: Math.random() * 1.9 + 0.2,
           alphaBase: Math.random() * 0.45 + 0.08,
           alphaPhase: Math.random() * Math.PI * 2,
           driftX: (Math.random() - 0.5) * 0.24,
           driftY: (Math.random() - 0.5) * 0.24,
+          originX: Math.random() * (maxX - minX) + minX,
+          originY: Math.random() * (maxY - minY) + minY,
+          size: Math.random() * 1.9 + 0.2,
           sway: Math.random() * 3.8 + 0.2,
         });
       }
@@ -145,7 +145,7 @@ export default function BackgroundParticles({
       }
 
       const elapsed = (now - startedAtRef.current) / 1000;
-      const { width, height } = canvasSize.current;
+      const { height, width } = canvasSize.current;
       const swayScale = staticity <= 0 ? 0 : 1 / staticity;
 
       ctx.clearRect(0, 0, width, height);
@@ -234,7 +234,7 @@ export default function BackgroundParticles({
   }, [refresh, initParticles]);
 
   return (
-    <div className={className} ref={canvasContainerRef} aria-hidden="true">
+    <div aria-hidden="true" className={className} ref={canvasContainerRef}>
       <canvas ref={canvasRef} />
     </div>
   );

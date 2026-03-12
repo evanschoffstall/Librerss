@@ -61,21 +61,46 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
+
 import { escapeArticleKey } from "./useArticleHydration";
 
 /** Value written to suppressSnapRef. */
-export type ScrollPinTarget = number | false;
+export type ScrollPinTarget = false | number;
+
+type CleanupRef = React.RefObject<(() => void) | null>;
+interface ScrollPinActions {
+  /**
+   * Activate collapse pin mode. Captures `scrollTop` and holds it stable
+   * via the ResizeObserver while the CSS max-height transition shrinks
+   * the card. Released after `collapseDuration + 80ms`.
+   *
+   * Fixes: scroll jumps to bottom on article collapse.
+   */
+  activateCollapsePin: (
+    savedViewport: HTMLElement | null,
+    savedScrollTop: null | number,
+  ) => void;
+
+  /**
+   * Activate expand suppress mode. Tells the ResizeObserver to skip
+   * entirely during the CSS max-height expansion. Released when the
+   * actual `transitionend` event fires on the article element.
+   *
+   * Fixes: scroll jumps erratically while expanding article + scrolling.
+   * Fixes: suppress timer expiring before transition (hydration latency).
+   */
+  activateExpandSuppress: (articleKey: string) => void;
+
+  /** Cancel any in-flight pin/suppress and restore normal mode. */
+  cancelPin: () => void;
+
+  /** ScrollTop captured at expand time — collapse restores to this value. */
+  preExpandScrollTop: React.RefObject<null | number>;
+  /** Viewport captured at expand time — used for collapse scroll-restore. */
+  preExpandViewport: React.RefObject<HTMLElement | null>;
+}
 
 type SnapRef = React.RefObject<ScrollPinTarget> | undefined;
-type CleanupRef = React.RefObject<(() => void) | null>;
-
-/**
- * Cancel any in-flight pin/suppress timer and restore normal mode.
- */
-export function cancelScrollPin(pinCleanupRef: CleanupRef) {
-  pinCleanupRef.current?.();
-  pinCleanupRef.current = null;
-}
 
 /**
  * Activate collapse pin mode. Writes `pinTarget` to `suppressSnapRef`,
@@ -88,9 +113,9 @@ export function activateCollapsePin(
   suppressSnapRef: SnapRef,
   pinCleanupRef: CleanupRef,
   preExpandViewport: React.RefObject<HTMLElement | null>,
-  preExpandScrollTop: React.RefObject<number | null>,
+  preExpandScrollTop: React.RefObject<null | number>,
   savedViewport: HTMLElement | null,
-  savedScrollTop: number | null,
+  savedScrollTop: null | number,
 ) {
   cancelScrollPin(pinCleanupRef);
   preExpandViewport.current = null;
@@ -131,7 +156,7 @@ export function activateExpandSuppress(
   suppressSnapRef: SnapRef,
   pinCleanupRef: CleanupRef,
   preExpandViewport: React.RefObject<HTMLElement | null>,
-  preExpandScrollTop: React.RefObject<number | null>,
+  preExpandScrollTop: React.RefObject<null | number>,
   articleKey: string,
 ) {
   cancelScrollPin(pinCleanupRef);
@@ -188,36 +213,12 @@ export function activateExpandSuppress(
   }
 }
 
-interface ScrollPinActions {
-  /**
-   * Activate collapse pin mode. Captures `scrollTop` and holds it stable
-   * via the ResizeObserver while the CSS max-height transition shrinks
-   * the card. Released after `collapseDuration + 80ms`.
-   *
-   * Fixes: scroll jumps to bottom on article collapse.
-   */
-  activateCollapsePin: (
-    savedViewport: HTMLElement | null,
-    savedScrollTop: number | null,
-  ) => void;
-
-  /**
-   * Activate expand suppress mode. Tells the ResizeObserver to skip
-   * entirely during the CSS max-height expansion. Released when the
-   * actual `transitionend` event fires on the article element.
-   *
-   * Fixes: scroll jumps erratically while expanding article + scrolling.
-   * Fixes: suppress timer expiring before transition (hydration latency).
-   */
-  activateExpandSuppress: (articleKey: string) => void;
-
-  /** Cancel any in-flight pin/suppress and restore normal mode. */
-  cancelPin: () => void;
-
-  /** Viewport captured at expand time — used for collapse scroll-restore. */
-  preExpandViewport: React.RefObject<HTMLElement | null>;
-  /** ScrollTop captured at expand time — collapse restores to this value. */
-  preExpandScrollTop: React.RefObject<number | null>;
+/**
+ * Cancel any in-flight pin/suppress timer and restore normal mode.
+ */
+export function cancelScrollPin(pinCleanupRef: CleanupRef) {
+  pinCleanupRef.current?.();
+  pinCleanupRef.current = null;
 }
 
 /**
@@ -227,18 +228,20 @@ interface ScrollPinActions {
  * is created and owned by DashboardView, passed in here as a parameter.
  */
 export function useScrollPin(
-  suppressSnapRef: React.RefObject<number | false> | undefined,
+  suppressSnapRef: React.RefObject<false | number> | undefined,
 ): ScrollPinActions {
   const pinCleanupRef = useRef<(() => void) | null>(null);
   const preExpandViewport = useRef<HTMLElement | null>(null);
-  const preExpandScrollTop = useRef<number | null>(null);
+  const preExpandScrollTop = useRef<null | number>(null);
 
-  const cancel = useCallback(() => cancelScrollPin(pinCleanupRef), []);
+  const cancel = useCallback(() => {
+    cancelScrollPin(pinCleanupRef);
+  }, []);
 
   useEffect(() => cancel, [cancel]);
 
   const collapse = useCallback(
-    (savedViewport: HTMLElement | null, savedScrollTop: number | null) =>
+    (savedViewport: HTMLElement | null, savedScrollTop: null | number) => {
       activateCollapsePin(
         suppressSnapRef,
         pinCleanupRef,
@@ -246,19 +249,21 @@ export function useScrollPin(
         preExpandScrollTop,
         savedViewport,
         savedScrollTop,
-      ),
+      );
+    },
     [suppressSnapRef],
   );
 
   const expand = useCallback(
-    (articleKey: string) =>
+    (articleKey: string) => {
       activateExpandSuppress(
         suppressSnapRef,
         pinCleanupRef,
         preExpandViewport,
         preExpandScrollTop,
         articleKey,
-      ),
+      );
+    },
     [suppressSnapRef],
   );
 
@@ -266,7 +271,7 @@ export function useScrollPin(
     activateCollapsePin: collapse,
     activateExpandSuppress: expand,
     cancelPin: cancel,
-    preExpandViewport,
     preExpandScrollTop,
+    preExpandViewport,
   };
 }

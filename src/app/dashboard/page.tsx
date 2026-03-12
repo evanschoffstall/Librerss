@@ -1,8 +1,10 @@
 "use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { Suspense } from "react";
+
 import { DashboardRouter } from "./DashboardRouter";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
   return (

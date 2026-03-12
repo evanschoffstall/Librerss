@@ -13,20 +13,20 @@ const CATEGORY_DRAG_DATA_KEY = "application/x-librerss-category-label";
 const hasDragType = (event: React.DragEvent<HTMLElement>, dragType: string) =>
   Array.from(event.dataTransfer.types).includes(dragType);
 
+export type UseSettingsDragReturn = ReturnType<typeof useSettingsDrag>;
+
 interface UseSettingsDragOptions {
+  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
   onDropFeed: (
     key: string,
     targetCategory: string,
     targetIndex: number,
   ) => Promise<void>;
-  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
 }
 
-export type UseSettingsDragReturn = ReturnType<typeof useSettingsDrag>;
-
 export function useSettingsDrag({
-  onDropFeed,
   onDropCategory,
+  onDropFeed,
 }: UseSettingsDragOptions) {
   // ── Payload guards ────────────────────────────────────────────────────────
 
@@ -40,13 +40,13 @@ export function useSettingsDrag({
 
   // ── Feed drag ─────────────────────────────────────────────────────────────
 
-  const [draggingFeedKey, setDraggingFeedKey] = useState<string | null>(null);
-  const draggingFeedKeyRef = useRef<string | null>(null);
-  const [movingFeedKey, setMovingFeedKey] = useState<string | null>(null);
-  const [feedDropTarget, setFeedDropTarget] = useState<{
+  const [draggingFeedKey, setDraggingFeedKey] = useState<null | string>(null);
+  const draggingFeedKeyRef = useRef<null | string>(null);
+  const [movingFeedKey, setMovingFeedKey] = useState<null | string>(null);
+  const [feedDropTarget, setFeedDropTarget] = useState<null | {
     categoryLabel: string;
     index: number;
-  } | null>(null);
+  }>(null);
 
   const handleFeedDragStart = useCallback(
     (event: React.DragEvent<HTMLButtonElement>, key: string) => {
@@ -116,10 +116,10 @@ export function useSettingsDrag({
   // ── Category drag ─────────────────────────────────────────────────────────
 
   const [draggingCategoryLabel, setDraggingCategoryLabel] = useState<
-    string | null
+    null | string
   >(null);
-  const draggingCategoryLabelRef = useRef<string | null>(null);
-  const [categoryDropIndex, setCategoryDropIndex] = useState<number | null>(
+  const draggingCategoryLabelRef = useRef<null | string>(null);
+  const [categoryDropIndex, setCategoryDropIndex] = useState<null | number>(
     null,
   );
 
@@ -175,20 +175,20 @@ export function useSettingsDrag({
   );
 
   return {
-    // Feed drag
-    draggingFeedKey,
-    movingFeedKey,
-    feedDropTarget,
-    onFeedDragStart: handleFeedDragStart,
-    onFeedDragEnd: handleFeedDragEnd,
-    onFeedDragOver: handleFeedDragOver,
-    onFeedDrop: handleFeedDrop,
+    categoryDropIndex,
     // Category drag
     draggingCategoryLabel,
-    categoryDropIndex,
-    onCategoryDragStart: handleCategoryDragStart,
+    // Feed drag
+    draggingFeedKey,
+    feedDropTarget,
+    movingFeedKey,
     onCategoryDragEnd: handleCategoryDragEnd,
     onCategoryDragOver: handleCategoryDragOver,
+    onCategoryDragStart: handleCategoryDragStart,
     onCategoryDrop: handleCategoryDrop,
+    onFeedDragEnd: handleFeedDragEnd,
+    onFeedDragOver: handleFeedDragOver,
+    onFeedDragStart: handleFeedDragStart,
+    onFeedDrop: handleFeedDrop,
   };
 }

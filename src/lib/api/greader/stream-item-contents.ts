@@ -1,18 +1,6 @@
-import { parseFormOrQueryParams } from "@/lib/api/http";
-import { type SessionUser } from "@/lib/auth/session";
-import { canUseArticleStatusesTable } from "@/lib/core/article-status";
-import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
-import { getDb } from "@/lib/db/db";
-import {
-  articleStatuses,
-  articles,
-  feedCategories,
-  feedSources,
-  feeds,
-} from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
 import { eq, inArray, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+
 import { withResolvedCategoryByUrl } from "./categories";
 import { MAX_STREAM_ITEMS } from "./constants";
 import { mapArticleAsItem } from "./mappers";
@@ -22,6 +10,20 @@ import {
   buildUserCategoryJoin,
   buildUserFeedJoin,
 } from "./stream-joins";
+
+import { parseFormOrQueryParams } from "@/lib/api/http";
+import { type SessionUser } from "@/lib/auth/session";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
+import { getDb } from "@/lib/db/db";
+import {
+  articles,
+  articleStatuses,
+  feedCategories,
+  feeds,
+  feedSources,
+} from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 
 export async function handleStreamItemContents(
   user: SessionUser,
@@ -38,15 +40,15 @@ export async function handleStreamItemContents(
 
   if (articleIds.length === 0) {
     logger.info("[greader] stream/items/contents", {
-      userId: user.userId,
       requestedItemCount: 0,
       returnedItemCount: 0,
+      userId: user.userId,
     });
 
     return NextResponse.json({
       id: READING_LIST_STREAM,
-      updated: Math.floor(Date.now() / 1000),
       items: [],
+      updated: Math.floor(Date.now() / 1000),
     });
   }
 
@@ -58,13 +60,13 @@ export async function handleStreamItemContents(
 
   const baseSelect = {
     articleId: articles.id,
-    title: articles.title,
-    link: articles.link,
+    category: feedCategories.category,
     content: articles.content,
+    link: articles.link,
     publicationDate: articles.publicationDate,
     sourceName: feedSources.name,
     sourceUrl: feedSources.url,
-    category: feedCategories.category,
+    title: articles.title,
   };
 
   const rows = await (useArticleStatuses
@@ -105,9 +107,9 @@ export async function handleStreamItemContents(
   });
 
   logger.info("[greader] stream/items/contents", {
-    userId: user.userId,
     requestedItemCount: articleIds.length,
     returnedItemCount: rows.length,
+    userId: user.userId,
   });
 
   const normalizedRows = await withResolvedCategoryByUrl(
@@ -118,7 +120,7 @@ export async function handleStreamItemContents(
 
   return NextResponse.json({
     id: READING_LIST_STREAM,
-    updated: Math.floor(Date.now() / 1000),
     items: normalizedRows.map(mapArticleAsItem),
+    updated: Math.floor(Date.now() / 1000),
   });
 }

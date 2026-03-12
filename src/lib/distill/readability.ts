@@ -1,5 +1,6 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
+
 import type { DistilledArticle, DistillOptions } from "./types";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
@@ -18,8 +19,8 @@ export async function readabilityDistill(
 
   return {
     content: result.content,
-    title: result.title ?? undefined,
     description: result.excerpt ?? undefined,
     source: url,
+    title: result.title ?? undefined,
   };
 }

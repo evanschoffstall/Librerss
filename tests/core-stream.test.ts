@@ -10,6 +10,8 @@
  * test files use mock.module() on their source modules, which interferes
  * with parallel test execution.
  */
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { resolveCategoryWithFallback } from "@/lib/api/greader/categories";
 import { TAG_MUTATIONS } from "@/lib/api/greader/constants";
 import { mapArticleAsItem, toReaderIconUrl } from "@/lib/api/greader/mappers";
@@ -18,7 +20,6 @@ import { notFoundResponse, textResponse } from "@/lib/api/http";
 import { buildStreamConditions } from "@/lib/core/stream-conditions";
 import { parseUserLabel, USER_LABEL_PREFIX } from "@/lib/core/stream-ids";
 import { toCategoryLookupKey } from "@/lib/utils/url";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -28,9 +29,9 @@ afterEach(() => mock.restore());
 describe("buildStreamConditions", () => {
   test("returns empty conditions for reading-list without filters", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: null,
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -39,9 +40,9 @@ describe("buildStreamConditions", () => {
 
   test("adds feed URL condition", () => {
     const conditions = buildStreamConditions({
-      feedUrl: "https://example.com/feed",
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: "https://example.com/feed",
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -50,9 +51,9 @@ describe("buildStreamConditions", () => {
 
   test("adds date-only filter", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: new Date("2024-01-01"),
       continuationId: null,
+      dateFilter: new Date("2024-01-01"),
+      feedUrl: null,
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -61,9 +62,9 @@ describe("buildStreamConditions", () => {
 
   test("combines feedUrl and dateFilter conditions", () => {
     const conditions = buildStreamConditions({
-      feedUrl: "https://example.com/feed",
-      dateFilter: new Date("2024-01-01"),
       continuationId: null,
+      dateFilter: new Date("2024-01-01"),
+      feedUrl: "https://example.com/feed",
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -72,9 +73,9 @@ describe("buildStreamConditions", () => {
 
   test("adds starred condition when useArticleStatuses is true", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: null,
       starredOnly: true,
       useArticleStatuses: true,
     });
@@ -83,9 +84,9 @@ describe("buildStreamConditions", () => {
 
   test("does not add starred condition when useArticleStatuses is false", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
+      dateFilter: null,
+      feedUrl: null,
       starredOnly: true,
       useArticleStatuses: false,
     });
@@ -94,11 +95,11 @@ describe("buildStreamConditions", () => {
 
   test("adds excludeRead filter when useArticleStatuses is true", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
-      starredOnly: false,
+      dateFilter: null,
       excludeRead: true,
+      feedUrl: null,
+      starredOnly: false,
       useArticleStatuses: true,
     });
     expect(conditions.length).toBeGreaterThan(0);
@@ -106,11 +107,11 @@ describe("buildStreamConditions", () => {
 
   test("does not add excludeRead when useArticleStatuses is false", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: null,
-      starredOnly: false,
+      dateFilter: null,
       excludeRead: true,
+      feedUrl: null,
+      starredOnly: false,
       useArticleStatuses: false,
     });
     expect(conditions).toEqual([]);
@@ -118,9 +119,9 @@ describe("buildStreamConditions", () => {
 
   test("adds continuation condition", () => {
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter: null,
       continuationId: 100,
+      dateFilter: null,
+      feedUrl: null,
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -129,11 +130,11 @@ describe("buildStreamConditions", () => {
 
   test("combines all filters", () => {
     const conditions = buildStreamConditions({
-      feedUrl: "https://example.com/feed",
-      dateFilter: new Date("2024-01-01"),
       continuationId: 50,
-      starredOnly: true,
+      dateFilter: new Date("2024-01-01"),
       excludeRead: true,
+      feedUrl: "https://example.com/feed",
+      starredOnly: true,
       useArticleStatuses: true,
     });
     // Should have: feedUrl+dateFilter combo, starredOnly, excludeRead, continuationId
@@ -157,15 +158,15 @@ describe("GReader mappers", () => {
   test("mapArticleAsItem produces correct structure", () => {
     const row = {
       articleId: 123,
-      title: "Test Article",
-      link: "https://example.com/article",
+      category: "Tech",
       content: "<p>Hello</p>",
+      isRead: true,
+      isStarred: false,
+      link: "https://example.com/article",
       publicationDate: new Date("2024-01-15T12:00:00Z"),
       sourceName: "Example Feed",
       sourceUrl: "https://example.com/feed",
-      category: "Tech",
-      isRead: true,
-      isStarred: false,
+      title: "Test Article",
     };
 
     const item = mapArticleAsItem(row);
@@ -184,15 +185,15 @@ describe("GReader mappers", () => {
   test("mapArticleAsItem includes starred category when starred", () => {
     const row = {
       articleId: 1,
-      title: "T",
-      link: "https://x.com",
+      category: null,
       content: "",
+      isRead: false,
+      isStarred: true,
+      link: "https://x.com",
       publicationDate: new Date(),
       sourceName: "S",
       sourceUrl: "https://x.com/feed",
-      category: null,
-      isRead: false,
-      isStarred: true,
+      title: "T",
     };
     const item = mapArticleAsItem(row);
     expect(item.categories).toContain("user/-/state/com.google/starred");
@@ -202,15 +203,15 @@ describe("GReader mappers", () => {
   test("mapArticleAsItem uses default category when category is null", () => {
     const row = {
       articleId: 1,
-      title: "T",
-      link: "https://x.com",
+      category: null,
       content: "",
+      isRead: false,
+      isStarred: false,
+      link: "https://x.com",
       publicationDate: new Date(),
       sourceName: "S",
       sourceUrl: "https://x.com/feed",
-      category: null,
-      isRead: false,
-      isStarred: false,
+      title: "T",
     };
     const item = mapArticleAsItem(row);
     expect(item.categories.some((c: string) => c.includes("label/"))).toBe(
@@ -221,15 +222,15 @@ describe("GReader mappers", () => {
   test("mapArticleAsItem uses default category when category is whitespace", () => {
     const row = {
       articleId: 1,
-      title: "T",
-      link: "https://x.com",
+      category: "   ",
       content: "",
+      isRead: false,
+      isStarred: false,
+      link: "https://x.com",
       publicationDate: new Date(),
       sourceName: "S",
       sourceUrl: "https://x.com/feed",
-      category: "   ",
-      isRead: false,
-      isStarred: false,
+      title: "T",
     };
     const item = mapArticleAsItem(row);
     expect(item.categories.some((c: string) => c.includes("label/"))).toBe(
@@ -357,13 +358,13 @@ describe("parseDistinctReaderArticleIds", () => {
 describe("GReader constants", () => {
   test("exports expected constants", () => {
     const constants = {
+      DEFAULT_STREAM_ITEMS: 20,
+      FEED_STREAM_PREFIX: "feed/",
       GOOGLE_LOGIN_PREFIX: "googlelogin auth=",
       MAX_STREAM_ITEMS: 10000,
-      DEFAULT_STREAM_ITEMS: 20,
       NETNEWSWIRE_MAX_STREAM_ITEMS: 10000,
-      FEED_STREAM_PREFIX: "feed/",
-      READING_LIST_STREAM: "user/-/state/com.google/reading-list",
       READ_STATE: "user/-/state/com.google/read",
+      READING_LIST_STREAM: "user/-/state/com.google/reading-list",
       STARRED_STATE: "user/-/state/com.google/starred",
       USER_LABEL_PREFIX: "user/-/label/",
     };

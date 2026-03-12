@@ -3,15 +3,16 @@
  * Runs before all tests
  */
 
+import { afterAll, afterEach, mock } from "bun:test";
+
+// Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
+import { Window } from "happy-dom";
+
 import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import * as realUrlModule from "@/lib/utils/url";
-import { afterAll, afterEach, mock } from "bun:test";
-
-// Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
-import { Window } from "happy-dom";
 
 const window = new Window();
 const document = window.document;

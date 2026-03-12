@@ -7,34 +7,34 @@ export const DEFAULT_STREAM_ITEMS = CONFIG.GREADER_DEFAULT_STREAM_ITEMS;
 export const NETNEWSWIRE_MAX_STREAM_ITEMS =
   CONFIG.GREADER_NETNEWSWIRE_MAX_ITEMS;
 
-type TagMutation = {
-  target: "a" | "r";
-  tag: string;
+interface TagMutation {
   patch: {
     isRead?: boolean;
     isStarred?: boolean;
   };
-};
+  tag: string;
+  target: "a" | "r";
+}
 
 export const TAG_MUTATIONS: TagMutation[] = [
   {
-    target: "a",
-    tag: READ_STATE,
     patch: { isRead: true },
-  },
-  {
-    target: "r",
     tag: READ_STATE,
-    patch: { isRead: false },
-  },
-  {
     target: "a",
-    tag: STARRED_STATE,
-    patch: { isStarred: true },
   },
   {
+    patch: { isRead: false },
+    tag: READ_STATE,
     target: "r",
+  },
+  {
+    patch: { isStarred: true },
     tag: STARRED_STATE,
+    target: "a",
+  },
+  {
     patch: { isStarred: false },
+    tag: STARRED_STATE,
+    target: "r",
   },
 ];

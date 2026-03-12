@@ -1,3 +1,9 @@
+import { sql } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
+import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "./constants";
+import { parseDistinctReaderArticleIds } from "./reader-item-params";
+
 import { parseFormOrQueryParams, textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import {
@@ -8,10 +14,35 @@ import { invalidateUserCache } from "@/lib/core/feed-cache";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
 import { FEED_STREAM_PREFIX, READING_LIST_STREAM } from "@/lib/core/stream-ids";
 import { getDb } from "@/lib/db/db";
-import { sql } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
-import { MAX_STREAM_ITEMS, TAG_MUTATIONS } from "./constants";
-import { parseDistinctReaderArticleIds } from "./reader-item-params";
+
+export async function handleEditTag(
+  user: SessionUser,
+  request: NextRequest,
+): Promise<Response> {
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
+  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"), {
+    maxItems: MAX_STREAM_ITEMS,
+  });
+
+  if (articleIds.length === 0) {
+    return textResponse("Error=InvalidParameters\n", 400);
+  }
+
+  const addTags = params.getAll("a");
+  const removeTags = params.getAll("r");
+
+  for (const mutation of TAG_MUTATIONS) {
+    const tags = mutation.target === "a" ? addTags : removeTags;
+    if (!tags.includes(mutation.tag)) continue;
+    await upsertArticleStatuses(user.userId, articleIds, mutation.patch);
+  }
+
+  invalidateUserCache(user.userId);
+  return textResponse("OK\n");
+}
 
 export async function handleMarkAllAsRead(
   user: SessionUser,
@@ -45,7 +76,10 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
   // (article_status_user_article_idx) independently per feed.
   // The read-count subquery uses a JOIN instead of article_id IN (subquery),
   // giving the planner a hash/loop join strategy instead of a semi-join.
-  type UnreadRow = { sourceUrl: string; unreadCount: number };
+  interface UnreadRow {
+    sourceUrl: string;
+    unreadCount: number;
+  }
   const rows: UnreadRow[] = useArticleStatuses
     ? await db
         .execute<UnreadRow>(
@@ -87,44 +121,15 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
     max: MAX_STREAM_ITEMS,
     unreadcounts: [
       {
-        id: READING_LIST_STREAM,
         count: totalUnread,
+        id: READING_LIST_STREAM,
         newestItemTimestampUsec: "0",
       },
       ...rows.map((row) => ({
-        id: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
         count: Number(row.unreadCount ?? 0),
+        id: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
         newestItemTimestampUsec: "0",
       })),
     ],
   });
-}
-
-export async function handleEditTag(
-  user: SessionUser,
-  request: NextRequest,
-): Promise<Response> {
-  const params = await parseFormOrQueryParams(request);
-  if (params instanceof Response) {
-    return params;
-  }
-  const articleIds = parseDistinctReaderArticleIds(params.getAll("i"), {
-    maxItems: MAX_STREAM_ITEMS,
-  });
-
-  if (articleIds.length === 0) {
-    return textResponse("Error=InvalidParameters\n", 400);
-  }
-
-  const addTags = params.getAll("a");
-  const removeTags = params.getAll("r");
-
-  for (const mutation of TAG_MUTATIONS) {
-    const tags = mutation.target === "a" ? addTags : removeTags;
-    if (!tags.includes(mutation.tag)) continue;
-    await upsertArticleStatuses(user.userId, articleIds, mutation.patch);
-  }
-
-  invalidateUserCache(user.userId);
-  return textResponse("OK\n");
 }

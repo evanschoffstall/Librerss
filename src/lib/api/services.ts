@@ -1,5 +1,18 @@
 // API service classes for LibreRSS
 
+import {
+  BATCH_REQUEST_TIMEOUT_MS,
+  type BatchFeedResponseItem,
+  createLinkedAbortController,
+  ensureArrayResponse,
+  getApiClient,
+  normalizeBatchItem,
+  parseReaderStreamItems,
+  type ReaderApiStreamResponse,
+  readerItemToArticle,
+  withRequestDeadline,
+} from "./http";
+
 import type {
   Article,
   AuthSession,
@@ -7,205 +20,32 @@ import type {
   FeedSource,
 } from "@/lib/core/types";
 import { normalizeDistinctUrlList } from "@/lib/utils/url";
-import {
-  BATCH_REQUEST_TIMEOUT_MS,
-  createLinkedAbortController,
-  ensureArrayResponse,
-  getApiClient,
-  normalizeBatchItem,
-  parseReaderStreamItems,
-  readerItemToArticle,
-  withRequestDeadline,
-  type BatchFeedResponseItem,
-  type ReaderApiStreamResponse,
-} from "./http";
 
 // ── AuthService ───────────────────────────────────────────────────────────────
 
-export class AuthService {
-  private static baseUrl = "/api/auth";
-
-  static async getSession(): Promise<AuthSession> {
-    const response = await getApiClient().get(`${this.baseUrl}/session`);
-    return response.data;
-  }
-
-  static async login(email: string, password: string): Promise<AuthUser> {
-    const response = await getApiClient().post(`${this.baseUrl}/login`, {
-      email,
-      password,
-    });
-    return response.data.user;
-  }
-
-  static async signup(email: string, password: string): Promise<AuthUser> {
-    const response = await getApiClient().post(`${this.baseUrl}/signup`, {
-      email,
-      password,
-    });
-    return response.data.user;
-  }
-
-  static async logout(): Promise<void> {
-    await getApiClient().post(`${this.baseUrl}/logout`);
-  }
+interface ProxySettings {
+  allowInsecureTls: boolean;
+  configured: boolean;
+  error?: string;
+  hasProxyPassword: boolean;
+  proxyUrl: null | string;
+  proxyUsername: null | string;
+  status: "checking" | "reachable" | "unreachable";
 }
 
 // ── FeedService ───────────────────────────────────────────────────────────────
 
-export class FeedService {
-  private static baseUrl = "/api";
-
-  static async getFeed(url: string): Promise<Article[]> {
-    const response = await withRequestDeadline(
-      getApiClient().get(
-        `${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`,
-      ),
-    );
-    return ensureArrayResponse<Article>(response.data);
-  }
-
-  static async getFeedSources(): Promise<FeedSource[]> {
-    const response = await withRequestDeadline(
-      getApiClient().get(`${this.baseUrl}/feeds`),
-    );
-    return ensureArrayResponse<FeedSource>(response.data);
-  }
-
-  static async getFeedsBatch(
-    urls: string[],
-    {
-      skipRefresh = false,
-      forceRefresh = false,
-      requestSource,
-      signal,
-    }: {
-      skipRefresh?: boolean;
-      forceRefresh?: boolean;
-      requestSource?: string;
-      signal?: AbortSignal;
-    } = {},
-  ): Promise<BatchFeedResponseItem[]> {
-    const normalizedUrls = normalizeDistinctUrlList(urls);
-    if (normalizedUrls.length === 0) return [];
-
-    const { controller, dispose } = createLinkedAbortController(signal);
-
-    try {
-      const response = await withRequestDeadline(
-        getApiClient().post(
-          `${this.baseUrl}/feeds/batch`,
-          { urls: normalizedUrls, skipRefresh, forceRefresh, requestSource },
-          { signal: controller.signal },
-        ),
-        BATCH_REQUEST_TIMEOUT_MS,
-        () => controller.abort(),
-      );
-
-      const batchItems = ensureArrayResponse<unknown>(response.data);
-      return batchItems.map(normalizeBatchItem);
-    } finally {
-      dispose();
-    }
-  }
-
-  static async createFeedSource(
-    source: Pick<FeedSource, "name" | "url"> & { category?: string },
-  ): Promise<FeedSource> {
-    const response = await getApiClient().post(`${this.baseUrl}/feeds`, source);
-    return response.data;
-  }
-
-  static async deleteFeedSource(id: number): Promise<FeedSource> {
-    const response = await getApiClient().delete(
-      `${this.baseUrl}/feeds?id=${id}`,
-    );
-    return response.data;
-  }
-
-  static async renameFeedSource(
-    id: number,
-    name: string,
-    url?: string,
-  ): Promise<FeedSource> {
-    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
-      id,
-      name,
-      url,
-    });
-    return response.data;
-  }
-
-  static async setFeedSourceEnabled(
-    id: number,
-    enabled: boolean,
-  ): Promise<FeedSource> {
-    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
-      id,
-      enabled,
-    });
-    return response.data;
-  }
-
-  static async updateFeedSettings(
-    id: number,
-    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
-  ): Promise<FeedSource> {
-    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
-      id,
-      ...settings,
-    });
-    return response.data;
-  }
-
-  static async getCategoryOrder(): Promise<string[]> {
-    const response = await getApiClient().get(
-      `${this.baseUrl}/feeds/category-order`,
-    );
-    return Array.isArray(response.data?.orderedLabels)
-      ? response.data.orderedLabels
-      : [];
-  }
-
-  static async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
-    await getApiClient().put(`${this.baseUrl}/feeds/category-order`, {
-      orderedLabels,
-    });
-  }
-}
-
-// ── ArticleService ────────────────────────────────────────────────────────────
-
-type ProxySettings = {
-  configured: boolean;
-  proxyUrl: string | null;
-  status: "reachable" | "unreachable" | "checking";
-  allowInsecureTls: boolean;
-  proxyUsername: string | null;
-  hasProxyPassword: boolean;
-  error?: string;
-};
-
 export class ArticleService {
   private static baseUrl = "/api";
   private static greaderBaseUrl = "/api/greader.php/reader/api/0";
-  private static proxySettingsRequest: Promise<ProxySettings> | null = null;
-
-  private static streamContentsUrl(streamId: string): string {
-    return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
-  }
-
-  static async getArticles(): Promise<Article[]> {
-    const response = await getApiClient().get(`${this.baseUrl}/articles`);
-    return response.data;
-  }
+  private static proxySettingsRequest: null | Promise<ProxySettings> = null;
 
   static async extractArticleContent(
     url: string,
     options?: {
-      useProxy?: boolean;
       distillStrategy?: string;
       signal?: AbortSignal;
+      useProxy?: boolean;
     },
   ): Promise<string> {
     const response = await getApiClient().post(
@@ -224,14 +64,8 @@ export class ArticleService {
       : "";
   }
 
-  static async getProxyStatus(): Promise<{
-    configured: boolean;
-    proxyUrl: string | null;
-    status: "reachable" | "unreachable" | "checking";
-  }> {
-    const response = await getApiClient().get(
-      `${this.baseUrl}/articles/proxy-status`,
-    );
+  static async getArticles(): Promise<Article[]> {
+    const response = await getApiClient().get(`${this.baseUrl}/articles`);
     return response.data;
   }
 
@@ -248,36 +82,13 @@ export class ArticleService {
     return this.proxySettingsRequest;
   }
 
-  static async saveProxyUrl(
-    proxyUrl: string | null,
-    options?: {
-      allowInsecureTls?: boolean;
-      proxyUsername?: string | null;
-      proxyPassword?: string | null;
-    },
-  ): Promise<ProxySettings> {
-    const response = await getApiClient().put(
-      `${this.baseUrl}/settings/proxy`,
-      { proxyUrl, ...options },
-    );
-    return response.data;
-  }
-
-  static async testBotDetection(options?: { useProxy?: boolean }): Promise<{
-    results: Array<{
-      site: string;
-      url: string;
-      protection: string;
-      success: boolean;
-      blocked: boolean;
-      statusCode?: number;
-      error?: string;
-      responseSize?: number;
-    }>;
+  static async getProxyStatus(): Promise<{
+    configured: boolean;
+    proxyUrl: null | string;
+    status: "checking" | "reachable" | "unreachable";
   }> {
-    const response = await getApiClient().post(
-      `${this.baseUrl}/settings/proxy/test-bot-detection`,
-      options ?? {},
+    const response = await getApiClient().get(
+      `${this.baseUrl}/articles/proxy-status`,
     );
     return response.data;
   }
@@ -296,6 +107,40 @@ export class ArticleService {
     });
   }
 
+  static async saveProxyUrl(
+    proxyUrl: null | string,
+    options?: {
+      allowInsecureTls?: boolean;
+      proxyPassword?: null | string;
+      proxyUsername?: null | string;
+    },
+  ): Promise<ProxySettings> {
+    const response = await getApiClient().put(
+      `${this.baseUrl}/settings/proxy`,
+      { proxyUrl, ...options },
+    );
+    return response.data;
+  }
+
+  static async testBotDetection(options?: { useProxy?: boolean }): Promise<{
+    results: {
+      blocked: boolean;
+      error?: string;
+      protection: string;
+      responseSize?: number;
+      site: string;
+      statusCode?: number;
+      success: boolean;
+      url: string;
+    }[];
+  }> {
+    const response = await getApiClient().post(
+      `${this.baseUrl}/settings/proxy/test-bot-detection`,
+      options ?? {},
+    );
+    return response.data;
+  }
+
   static async updateArticleStatus(
     articleId: number,
     updates: { isRead?: boolean; isStarred?: boolean },
@@ -304,5 +149,163 @@ export class ArticleService {
       articleId,
       ...updates,
     });
+  }
+
+  private static streamContentsUrl(streamId: string): string {
+    return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
+  }
+}
+
+// ── ArticleService ────────────────────────────────────────────────────────────
+
+export class AuthService {
+  private static baseUrl = "/api/auth";
+
+  static async getSession(): Promise<AuthSession> {
+    const response = await getApiClient().get(`${this.baseUrl}/session`);
+    return response.data;
+  }
+
+  static async login(email: string, password: string): Promise<AuthUser> {
+    const response = await getApiClient().post(`${this.baseUrl}/login`, {
+      email,
+      password,
+    });
+    return response.data.user;
+  }
+
+  static async logout(): Promise<void> {
+    await getApiClient().post(`${this.baseUrl}/logout`);
+  }
+
+  static async signup(email: string, password: string): Promise<AuthUser> {
+    const response = await getApiClient().post(`${this.baseUrl}/signup`, {
+      email,
+      password,
+    });
+    return response.data.user;
+  }
+}
+
+export class FeedService {
+  private static baseUrl = "/api";
+
+  static async createFeedSource(
+    source: Pick<FeedSource, "name" | "url"> & { category?: string },
+  ): Promise<FeedSource> {
+    const response = await getApiClient().post(`${this.baseUrl}/feeds`, source);
+    return response.data;
+  }
+
+  static async deleteFeedSource(id: number): Promise<FeedSource> {
+    const response = await getApiClient().delete(
+      `${this.baseUrl}/feeds?id=${id}`,
+    );
+    return response.data;
+  }
+
+  static async getCategoryOrder(): Promise<string[]> {
+    const response = await getApiClient().get(
+      `${this.baseUrl}/feeds/category-order`,
+    );
+    return Array.isArray(response.data?.orderedLabels)
+      ? response.data.orderedLabels
+      : [];
+  }
+
+  static async getFeed(url: string): Promise<Article[]> {
+    const response = await withRequestDeadline(
+      getApiClient().get(
+        `${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`,
+      ),
+    );
+    return ensureArrayResponse<Article>(response.data);
+  }
+
+  static async getFeedsBatch(
+    urls: string[],
+    {
+      forceRefresh = false,
+      requestSource,
+      signal,
+      skipRefresh = false,
+    }: {
+      forceRefresh?: boolean;
+      requestSource?: string;
+      signal?: AbortSignal;
+      skipRefresh?: boolean;
+    } = {},
+  ): Promise<BatchFeedResponseItem[]> {
+    const normalizedUrls = normalizeDistinctUrlList(urls);
+    if (normalizedUrls.length === 0) return [];
+
+    const { controller, dispose } = createLinkedAbortController(signal);
+
+    try {
+      const response = await withRequestDeadline(
+        getApiClient().post(
+          `${this.baseUrl}/feeds/batch`,
+          { forceRefresh, requestSource, skipRefresh, urls: normalizedUrls },
+          { signal: controller.signal },
+        ),
+        BATCH_REQUEST_TIMEOUT_MS,
+        () => {
+          controller.abort();
+        },
+      );
+
+      const batchItems = ensureArrayResponse<unknown>(response.data);
+      return batchItems.map(normalizeBatchItem);
+    } finally {
+      dispose();
+    }
+  }
+
+  static async getFeedSources(): Promise<FeedSource[]> {
+    const response = await withRequestDeadline(
+      getApiClient().get(`${this.baseUrl}/feeds`),
+    );
+    return ensureArrayResponse<FeedSource>(response.data);
+  }
+
+  static async renameFeedSource(
+    id: number,
+    name: string,
+    url?: string,
+  ): Promise<FeedSource> {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
+      id,
+      name,
+      url,
+    });
+    return response.data;
+  }
+
+  static async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
+    await getApiClient().put(`${this.baseUrl}/feeds/category-order`, {
+      orderedLabels,
+    });
+  }
+
+  static async setFeedSourceEnabled(
+    id: number,
+    enabled: boolean,
+  ): Promise<FeedSource> {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
+      enabled,
+      id,
+    });
+    return response.data;
+  }
+
+  static async updateFeedSettings(
+    id: number,
+    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  ): Promise<FeedSource> {
+    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
+      id,
+      ...settings,
+    });
+    return response.data;
   }
 }

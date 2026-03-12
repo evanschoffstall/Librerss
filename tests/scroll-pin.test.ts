@@ -5,6 +5,8 @@
  * src/app/dashboard/hooks/useSentinelLayout.ts
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import type { ScrollPinTarget } from "@/app/dashboard/hooks/useScrollPin";
 import {
   activateCollapsePin,
@@ -16,7 +18,6 @@ import {
   SENTINEL_HEIGHT,
   SENTINEL_SCROLL_OFFSET,
 } from "@/app/dashboard/hooks/useSentinelLayout";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -30,6 +31,14 @@ describe("SENTINEL_HEIGHT", () => {
 });
 
 // ─── Helper: build mock DOM elements ──────────────────────────────────────────
+
+function createPullRefs() {
+  return {
+    holding: { current: false } as React.RefObject<boolean>,
+    pulling: { current: false } as React.RefObject<boolean>,
+    touchActive: { current: false } as React.RefObject<boolean>,
+  };
+}
 
 /**
  * Build a minimal DOM structure matching the real Radix ScrollArea:
@@ -52,23 +61,23 @@ function createScrollDom(opts?: {
   const viewport = document.createElement("div");
   viewport.setAttribute("data-radix-scroll-area-viewport", "");
   Object.defineProperty(viewport, "clientHeight", {
+    configurable: true,
     value: viewportHeight,
     writable: true,
-    configurable: true,
   });
   Object.defineProperty(viewport, "scrollHeight", {
+    configurable: true,
     get() {
       return wrapper.offsetHeight;
     },
-    configurable: true,
   });
   let _scrollTop = 0;
   Object.defineProperty(viewport, "scrollTop", {
+    configurable: true,
     get: () => _scrollTop,
     set: (v: number) => {
       _scrollTop = Math.max(0, v);
     },
-    configurable: true,
   });
   viewport.scrollTo = ((opts: { top?: number }) => {
     if (opts?.top !== undefined) _scrollTop = Math.max(0, opts.top);
@@ -76,17 +85,18 @@ function createScrollDom(opts?: {
 
   const wrapper = document.createElement("div");
   Object.defineProperty(wrapper, "offsetHeight", {
+    configurable: true,
     get() {
       const pad = parseFloat(wrapper.style.paddingBottom) || 0;
       return contentHeight + sentinel.offsetHeight + pad;
     },
-    configurable: true,
   });
 
   const sentinel = document.createElement("div");
   sentinel.style.height = `${SENTINEL_HEIGHT}px`;
   let _sentinelOffsetHeight = SENTINEL_HEIGHT;
   Object.defineProperty(sentinel, "offsetHeight", {
+    configurable: true,
     get: () => {
       const h = sentinel.style.height;
       if (h === "0px") return 0;
@@ -95,7 +105,6 @@ function createScrollDom(opts?: {
     set: (v: number) => {
       _sentinelOffsetHeight = v;
     },
-    configurable: true,
   });
 
   const scrollbar = document.createElement("div");
@@ -107,19 +116,11 @@ function createScrollDom(opts?: {
   scrollRoot.appendChild(scrollbar);
   document.body.appendChild(scrollRoot);
 
-  return { scrollRoot, viewport, wrapper, sentinel, scrollbar };
+  return { scrollbar, scrollRoot, sentinel, viewport, wrapper };
 }
 
 function createSuppressRef(initial: ScrollPinTarget = false) {
   return { current: initial } as React.RefObject<ScrollPinTarget>;
-}
-
-function createPullRefs() {
-  return {
-    touchActive: { current: false } as React.RefObject<boolean>,
-    holding: { current: false } as React.RefObject<boolean>,
-    pulling: { current: false } as React.RefObject<boolean>,
-  };
 }
 
 // ─── attachSentinelLayout ─────────────────────────────────────────────────────
@@ -367,12 +368,12 @@ describe("attachSentinelLayout with ResizeObserver mock", () => {
       constructor(cb: () => void) {
         resizeCallbacks.push(cb);
       }
-      observe() {}
       disconnect() {}
+      observe() {}
     };
     (globalThis as any).MutationObserver = class {
-      observe() {}
       disconnect() {}
+      observe() {}
     };
   });
 
@@ -518,7 +519,7 @@ describe("activateCollapsePin", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     const mockVp = { scrollTop: 0 } as HTMLElement;
     activateCollapsePin(snapRef, cleanupRef, vpRef, topRef, mockVp, 250);
@@ -533,7 +534,7 @@ describe("activateCollapsePin", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     activateCollapsePin(snapRef, cleanupRef, vpRef, topRef, null, null);
 
@@ -548,7 +549,7 @@ describe("activateCollapsePin", () => {
     const vpRef = {
       current: document.createElement("div"),
     } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: 500 } as React.RefObject<number | null>;
+    const topRef = { current: 500 } as React.RefObject<null | number>;
 
     activateCollapsePin(snapRef, cleanupRef, vpRef, topRef, null, 200);
 
@@ -562,7 +563,7 @@ describe("activateCollapsePin", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     activateCollapsePin(snapRef, cleanupRef, vpRef, topRef, null, 200);
 
@@ -577,7 +578,7 @@ describe("activateCollapsePin", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     activateCollapsePin(snapRef, cleanupRef, vpRef, topRef, null, 200);
 
@@ -596,7 +597,7 @@ describe("activateCollapsePin", () => {
       },
     } as React.RefObject<(() => void) | null>;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     activateCollapsePin(snapRef, cleanupRef, vpRef, topRef, null, 300);
 
@@ -609,7 +610,7 @@ describe("activateCollapsePin", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     expect(() =>
       activateCollapsePin(undefined, cleanupRef, vpRef, topRef, null, 100),
@@ -626,7 +627,7 @@ describe("activateExpandSuppress", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     activateExpandSuppress(
       snapRef,
@@ -647,18 +648,18 @@ describe("activateExpandSuppress", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     // Create DOM structure matching article layout
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
     let _st = 150;
     Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
       get: () => _st,
       set: (v: number) => {
         _st = v;
       },
-      configurable: true,
     });
 
     const article = document.createElement("div");
@@ -690,7 +691,7 @@ describe("activateExpandSuppress", () => {
     const vpRef = {
       current: document.createElement("div"),
     } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: 999 } as React.RefObject<number | null>;
+    const topRef = { current: 999 } as React.RefObject<null | number>;
 
     // No matching element — should have cleared refs
     activateExpandSuppress(snapRef, cleanupRef, vpRef, topRef, "no-match");
@@ -708,7 +709,7 @@ describe("activateExpandSuppress", () => {
       },
     } as React.RefObject<(() => void) | null>;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     activateExpandSuppress(snapRef, cleanupRef, vpRef, topRef, "no-match");
 
@@ -720,7 +721,7 @@ describe("activateExpandSuppress", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     expect(() =>
       activateExpandSuppress(undefined, cleanupRef, vpRef, topRef, "key"),
@@ -733,7 +734,7 @@ describe("activateExpandSuppress", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
@@ -773,7 +774,7 @@ describe("activateExpandSuppress", () => {
       (() => void) | null
     >;
     const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
-    const topRef = { current: null } as React.RefObject<number | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");

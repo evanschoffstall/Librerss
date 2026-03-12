@@ -50,7 +50,7 @@ describe("greader services/stream-service", () => {
   });
 
   test("parseStreamId, parseOlderThanDate, and shouldExcludeReadFromStream branches", async () => {
-    const { parseStreamId, parseOlderThanDate, shouldExcludeReadFromStream } =
+    const { parseOlderThanDate, parseStreamId, shouldExcludeReadFromStream } =
       await import("@/lib/api/greader/stream-service");
     const { READ_STATE, READING_LIST_STREAM } =
       await import("@/lib/core/stream-ids");
@@ -91,8 +91,8 @@ describe("greader utils/mappers", () => {
     const { mapArticleAsItem } = await import("@/lib/api/greader/mappers");
     const {
       READ_STATE,
-      STARRED_STATE,
       READING_LIST_STREAM,
+      STARRED_STATE,
       USER_LABEL_PREFIX,
     } = await import("@/lib/core/stream-ids");
 
@@ -100,15 +100,15 @@ describe("greader utils/mappers", () => {
 
     const fullRow = {
       articleId: 123,
-      title: "Item title",
-      link: "https://example.com/item",
+      category: "Tech",
       content: "<p>body</p>",
+      isRead: true,
+      isStarred: true,
+      link: "https://example.com/item",
       publicationDate,
       sourceName: "Feed name",
       sourceUrl: "https://example.com/feed",
-      category: "Tech",
-      isRead: true,
-      isStarred: true,
+      title: "Item title",
     };
 
     const fullItem = mapArticleAsItem(fullRow as any);
@@ -131,8 +131,8 @@ describe("greader utils/mappers", () => {
 
     const fallbackRow = {
       ...fullRow,
-      content: "   ",
       category: "   ",
+      content: "   ",
       isRead: false,
       isStarred: false,
     };
@@ -156,9 +156,9 @@ describe("api/request helpers", () => {
     const { parseJsonBody } = await import("@/lib/api/http");
 
     const oversizedByHeader = new Request("https://example.com", {
-      method: "POST",
-      headers: { "content-length": "99999" },
       body: "{}",
+      headers: { "content-length": "99999" },
+      method: "POST",
     });
     const oversizedResult = await parseJsonBody(oversizedByHeader, {
       maxBytes: 10,
@@ -166,15 +166,15 @@ describe("api/request helpers", () => {
     expect(oversizedResult.ok).toBe(false);
 
     const malformed = new Request("https://example.com", {
-      method: "POST",
       body: "{bad-json",
+      method: "POST",
     });
     const malformedResult = await parseJsonBody(malformed, { maxBytes: 100 });
     expect(malformedResult.ok).toBe(false);
   });
 
   test("parseFormOrQueryParams handles GET, urlencoded, multipart fallback paths", async () => {
-    const { parseFormOrQueryParams, getSearchParams, asTrimmedString } =
+    const { asTrimmedString, getSearchParams, parseFormOrQueryParams } =
       await import("@/lib/api/http");
     const { parseDateOrNull } = await import("@/lib/utils/dates");
 
@@ -184,9 +184,9 @@ describe("api/request helpers", () => {
     expect((getParams as URLSearchParams).get("x")).toBe("1");
 
     const urlencodedRequest = new Request("https://example.com/path", {
-      method: "POST",
       body: "a=1&b=2",
       headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const formParams = await parseFormOrQueryParams(urlencodedRequest, {
       maxBytes: 100,
@@ -194,9 +194,9 @@ describe("api/request helpers", () => {
     expect((formParams as URLSearchParams).get("a")).toBe("1");
 
     const multipartBad = new Request("https://example.com/path", {
-      method: "POST",
       body: "--not-really-multipart",
       headers: { "content-type": "multipart/form-data; boundary=x" },
+      method: "POST",
     });
     const multipartResult = await parseFormOrQueryParams(multipartBad, {
       maxBytes: 100,
@@ -204,9 +204,9 @@ describe("api/request helpers", () => {
     expect(multipartResult).toBeInstanceOf(Response);
 
     const oversizedBody = new Request("https://example.com/path", {
-      method: "POST",
       body: "x=" + "a".repeat(50),
       headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const oversizedParams = await parseFormOrQueryParams(oversizedBody, {
       maxBytes: 10,
@@ -229,16 +229,16 @@ describe("lib/api/greader/subscription – handleSubscriptionEdit branches", () 
       await import("@/lib/api/greader/subscription");
 
     const user = {
-      userId: 1,
       email: "test@example.com",
       sessionToken: "tok",
+      userId: 1,
     };
     const req = new Request(
       "https://example.com/greader.php/api/0/subscription/edit",
       {
-        method: "POST",
         body: "s=not-a-feed-prefix-subscription&ac=edit",
         headers: { "content-type": "application/x-www-form-urlencoded" },
+        method: "POST",
       },
     );
 
@@ -252,17 +252,17 @@ describe("lib/api/greader/subscription – handleSubscriptionEdit branches", () 
       await import("@/lib/api/greader/subscription");
 
     const user = {
-      userId: 1,
       email: "test@example.com",
       sessionToken: "tok",
+      userId: 1,
     };
     const longUrl = "https://example.com/" + "a".repeat(2050);
     const req = new Request(
       "https://example.com/greader.php/api/0/subscription/quickadd",
       {
-        method: "POST",
         body: `quickadd=${encodeURIComponent(longUrl)}`,
         headers: { "content-type": "application/x-www-form-urlencoded" },
+        method: "POST",
       },
     );
 
@@ -277,16 +277,16 @@ describe("lib/api/greader/subscription – handleSubscriptionEdit branches", () 
       await import("@/lib/api/greader/subscription");
 
     const user = {
-      userId: 1,
       email: "test@example.com",
       sessionToken: "tok",
+      userId: 1,
     };
     const req = new Request(
       "https://example.com/greader.php/api/0/subscription/quickadd",
       {
-        method: "POST",
         body: `quickadd=not-a-valid-url-at-all`,
         headers: { "content-type": "application/x-www-form-urlencoded" },
+        method: "POST",
       },
     );
 
@@ -302,16 +302,16 @@ describe("lib/api/greader/subscription – parseFormOrQueryParams Response paths
     const { NextRequest } = await import("next/server");
     const { handleSubscriptionQuickAdd } =
       await import("@/lib/api/greader/subscription");
-    const user = { userId: 1, email: "test@example.com", sessionToken: "tok" };
+    const user = { email: "test@example.com", sessionToken: "tok", userId: 1 };
     const req = new NextRequest(
       "https://dummy.local/api/greader/subscription/quickadd",
       {
-        method: "POST",
         body: "quickadd=https%3A%2F%2Fexample.com%2Ffeed",
         headers: {
-          "content-type": "application/x-www-form-urlencoded",
           "content-length": "999999999",
+          "content-type": "application/x-www-form-urlencoded",
         },
+        method: "POST",
       },
     );
     const result = await handleSubscriptionQuickAdd(user as any, req);
@@ -322,16 +322,16 @@ describe("lib/api/greader/subscription – parseFormOrQueryParams Response paths
     const { NextRequest } = await import("next/server");
     const { handleSubscriptionEdit } =
       await import("@/lib/api/greader/subscription");
-    const user = { userId: 1, email: "test@example.com", sessionToken: "tok" };
+    const user = { email: "test@example.com", sessionToken: "tok", userId: 1 };
     const req = new NextRequest(
       "https://dummy.local/api/greader/subscription/edit",
       {
-        method: "POST",
         body: "s=feed%2Fhttps%3A%2F%2Fexample.com&ac=edit",
         headers: {
-          "content-type": "application/x-www-form-urlencoded",
           "content-length": "999999999",
+          "content-type": "application/x-www-form-urlencoded",
         },
+        method: "POST",
       },
     );
     const result = await handleSubscriptionEdit(user as any, req);

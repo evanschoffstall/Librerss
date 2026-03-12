@@ -1,14 +1,6 @@
-import { getSearchParams } from "@/lib/api/http";
-import { type SessionUser } from "@/lib/auth/session";
-import { canUseArticleStatusesTable } from "@/lib/core/article-status";
-import { buildStreamConditions } from "@/lib/core/stream-conditions";
-import * as StreamIds from "@/lib/core/stream-ids";
-import { getDb } from "@/lib/db/db";
-import { articleStatuses, articles, feedSources, feeds } from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
-import { isSafePositiveItemId } from "@/lib/utils/validation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+
 import { buildUserArticleStatusJoin, buildUserFeedJoin } from "./stream-joins";
 import { maybeRefreshGReaderStreamFeeds } from "./stream-refresh";
 import {
@@ -17,15 +9,15 @@ import {
   shouldExcludeReadFromStream,
 } from "./stream-service";
 
-function isMissingRelationError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const candidate = error as { code?: string; message?: string };
-  const message = String(candidate.message ?? "").toLowerCase();
-  return candidate.code === "42P01" || message.includes("does not exist");
-}
+import { getSearchParams } from "@/lib/api/http";
+import { type SessionUser } from "@/lib/auth/session";
+import { canUseArticleStatusesTable } from "@/lib/core/article-status";
+import { buildStreamConditions } from "@/lib/core/stream-conditions";
+import * as StreamIds from "@/lib/core/stream-ids";
+import { getDb } from "@/lib/db/db";
+import { articles, articleStatuses, feeds, feedSources } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
+import { isSafePositiveItemId } from "@/lib/utils/validation";
 
 export async function handleStreamItemIds(
   user: SessionUser,
@@ -39,7 +31,7 @@ export async function handleStreamItemIds(
     : null;
   const excludeRead = shouldExcludeReadFromStream(searchParams.getAll("xt"));
 
-  const { limit, offset, continuationId, isNetNewsWire } = parseStreamPaging(
+  const { continuationId, isNetNewsWire, limit, offset } = parseStreamPaging(
     searchParams,
     request.headers.get("user-agent") ?? "",
   );
@@ -57,22 +49,22 @@ export async function handleStreamItemIds(
   const userStatusJoin = buildUserArticleStatusJoin(user.userId);
 
   if (streamId === StreamIds.STARRED_STATE && !useArticleStatuses) {
-    return NextResponse.json({ itemRefs: [], continuation: undefined });
+    return NextResponse.json({ continuation: undefined, itemRefs: [] });
   }
 
   async function queryRows(dateFilter: Date | null): Promise<
-    Array<{
+    {
       articleId: number;
       isRead: boolean | null;
       isStarred: boolean | null;
-    }>
+    }[]
   > {
     const conditions = buildStreamConditions({
-      feedUrl,
-      dateFilter,
       continuationId,
-      starredOnly: streamId === StreamIds.STARRED_STATE,
+      dateFilter,
       excludeRead,
+      feedUrl,
+      starredOnly: streamId === StreamIds.STARRED_STATE,
       useArticleStatuses,
     });
 
@@ -108,11 +100,11 @@ export async function handleStreamItemIds(
       .offset(offset);
   }
 
-  let rows: Array<{
+  let rows: {
     articleId: number;
     isRead: boolean | null;
     isStarred: boolean | null;
-  }>;
+  }[];
 
   try {
     rows = await queryRows(sinceDate);
@@ -123,7 +115,7 @@ export async function handleStreamItemIds(
 
     useArticleStatuses = false;
     if (streamId === StreamIds.STARRED_STATE) {
-      return NextResponse.json({ itemRefs: [], continuation: undefined });
+      return NextResponse.json({ continuation: undefined, itemRefs: [] });
     }
     rows = await queryRows(sinceDate);
   }
@@ -142,25 +134,35 @@ export async function handleStreamItemIds(
       : undefined;
 
   logger.info("[greader] stream/items/ids", {
-    userId: user.userId,
-    streamId,
-    limit,
-    isNetNewsWire,
-    offset,
-    continuationId,
-    ot: searchParams.get("ot"),
-    excludeRead,
-    itemRefCount: safeRows.length,
-    droppedUnsafeItemRefCount: rows.length - safeRows.length,
-    usedOtFallback,
-    minItemId: itemIds.length > 0 ? Math.min(...itemIds) : null,
-    maxItemId: itemIds.length > 0 ? Math.max(...itemIds) : null,
-    sampleItemIds: itemIds.slice(0, 5),
     continuation: continuation ?? null,
+    continuationId,
+    droppedUnsafeItemRefCount: rows.length - safeRows.length,
+    excludeRead,
+    isNetNewsWire,
+    itemRefCount: safeRows.length,
+    limit,
+    maxItemId: itemIds.length > 0 ? Math.max(...itemIds) : null,
+    minItemId: itemIds.length > 0 ? Math.min(...itemIds) : null,
+    offset,
+    ot: searchParams.get("ot"),
+    sampleItemIds: itemIds.slice(0, 5),
+    streamId,
+    usedOtFallback,
+    userId: user.userId,
   });
 
   return NextResponse.json({
-    itemRefs: safeRows.map((row) => ({ id: String(row.articleId) })),
     continuation,
+    itemRefs: safeRows.map((row) => ({ id: String(row.articleId) })),
   });
+}
+
+function isMissingRelationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { code?: string; message?: string };
+  const message = String(candidate.message ?? "").toLowerCase();
+  return candidate.code === "42P01" || message.includes("does not exist");
 }

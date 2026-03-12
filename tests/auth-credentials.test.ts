@@ -1,3 +1,13 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { NextResponse } from "next/server";
+
+import {
+  normalizeEmailInput,
+  parseEmailPasswordFromFormData,
+  parseEmailPasswordFromRecord,
+  parseEmailPasswordFromSearchParams,
+} from "@/lib/auth/credentials";
 import {
   clearSessionCookie,
   hashPassword,
@@ -5,14 +15,6 @@ import {
   setSessionCookie,
   verifyPassword,
 } from "@/lib/auth/session";
-import {
-  normalizeEmailInput,
-  parseEmailPasswordFromFormData,
-  parseEmailPasswordFromRecord,
-  parseEmailPasswordFromSearchParams,
-} from "@/lib/auth/credentials";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { NextResponse } from "next/server";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -62,8 +64,8 @@ describe("parseEmailPasswordFromRecord", () => {
 
   test("accepts username as email key", () => {
     const result = parseEmailPasswordFromRecord({
-      username: "test@example.com",
       password: "secret123",
+      username: "test@example.com",
     });
     expect(result).toEqual({
       email: "test@example.com",
@@ -104,7 +106,7 @@ describe("parseEmailPasswordFromRecord", () => {
 
   test("accepts custom field keys", () => {
     const result = parseEmailPasswordFromRecord(
-      { user: "test@x.com", pass: "secret" },
+      { pass: "secret", user: "test@x.com" },
       { emailKeys: ["user"], passwordKeys: ["pass"] },
     );
     expect(result?.email).toBe("test@x.com");

@@ -1,11 +1,13 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { act, render, waitFor } from "@testing-library/react";
+import { useCallback, useEffect, useRef } from "react";
+
 import { usePullDownToRefresh } from "@/app/dashboard/hooks/usePullDownToRefresh";
 import {
   SENTINEL_HEIGHT,
   SENTINEL_SCROLL_OFFSET,
 } from "@/app/dashboard/hooks/useSentinelLayout";
-import { act, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { useCallback, useEffect, useRef } from "react";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -38,27 +40,27 @@ function createHarness(options: {
       if (node.dataset.pullHarnessReady === "true") return;
 
       Object.defineProperty(node, "clientHeight", {
-        value: 600,
         configurable: true,
+        value: 600,
       });
 
       Object.defineProperty(node, "scrollTop", {
+        configurable: true,
         get: () => viewportScrollTopRef.current,
         set: (value: number) => {
           viewportScrollTopRef.current = Math.max(0, value);
         },
-        configurable: true,
       });
 
       Object.defineProperty(node, "scrollHeight", {
+        configurable: true,
         get() {
           const wrapper = node.firstElementChild as HTMLElement | null;
           return wrapper?.offsetHeight ?? 0;
         },
-        configurable: true,
       });
 
-      node.scrollTo = ((input: ScrollToOptions | number, y?: number) => {
+      node.scrollTo = ((input: number | ScrollToOptions, y?: number) => {
         const top =
           typeof input === "number"
             ? (y ?? input)
@@ -74,13 +76,13 @@ function createHarness(options: {
       if (!node) return;
       if (node.dataset.pullHarnessReady === "true") return;
       Object.defineProperty(node, "offsetHeight", {
+        configurable: true,
         get() {
           const sentinelHeight = sentinelNodeRef.current?.offsetHeight ?? 0;
           const bottomPadding =
             Number.parseFloat(node.style.paddingBottom) || 0;
           return contentHeight + sentinelHeight + bottomPadding;
         },
-        configurable: true,
       });
       node.dataset.pullHarnessReady = "true";
     }, []);
@@ -92,11 +94,11 @@ function createHarness(options: {
         if (!node) return;
         if (node.dataset.pullHarnessReady === "true") return;
         Object.defineProperty(node, "offsetHeight", {
+          configurable: true,
           get() {
             const styleHeight = Number.parseFloat(node.style.height);
             return Number.isNaN(styleHeight) ? SENTINEL_HEIGHT : styleHeight;
           },
-          configurable: true,
         });
         node.dataset.pullHarnessReady = "true";
       },

@@ -1,7 +1,9 @@
-import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
-import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { render } from "@testing-library/react";
 import { createElement, type RefCallback } from "react";
+
+import { useScrollRestore } from "@/lib/hooks/useScrollRestore";
 
 type ResizeCallback = () => void;
 
@@ -57,11 +59,11 @@ describe("useScrollRestore", () => {
         this.callback = callback;
       }
 
+      disconnect() {}
+
       observe() {
         resizeCallbacks.push(this.callback);
       }
-
-      disconnect() {}
     }
 
     global.ResizeObserver =
@@ -114,27 +116,27 @@ describe("useScrollRestore", () => {
         });
 
         viewport.getBoundingClientRect = (() => ({
-          top: 100,
           bottom: 600,
+          height: 500,
           left: 0,
           right: 400,
+          toJSON: () => ({}),
+          top: 100,
           width: 400,
-          height: 500,
           x: 0,
           y: 100,
-          toJSON: () => ({}),
         })) as typeof viewport.getBoundingClientRect;
 
         anchor.getBoundingClientRect = (() => ({
-          top: 100 + anchorBaseOffset - internalScrollTop,
           bottom: 140 + anchorBaseOffset - internalScrollTop,
+          height: 40,
           left: 0,
           right: 400,
+          toJSON: () => ({}),
+          top: 100 + anchorBaseOffset - internalScrollTop,
           width: 400,
-          height: 40,
           x: 0,
           y: 100 + anchorBaseOffset - internalScrollTop,
-          toJSON: () => ({}),
         })) as typeof anchor.getBoundingClientRect;
       };
 
@@ -156,7 +158,7 @@ describe("useScrollRestore", () => {
 
     window.sessionStorage.setItem(
       "librerss:test:scroll",
-      JSON.stringify({ t: 300, ai: 1, ao: 10 }),
+      JSON.stringify({ ai: 1, ao: 10, t: 300 }),
     );
 
     const { container } = render(createElement(Harness));
@@ -221,15 +223,15 @@ describe("useScrollRestore", () => {
         });
 
         viewport.getBoundingClientRect = (() => ({
-          top: 0,
           bottom: 500,
+          height: 500,
           left: 0,
           right: 300,
+          toJSON: () => ({}),
+          top: 0,
           width: 300,
-          height: 500,
           x: 0,
           y: 0,
-          toJSON: () => ({}),
         })) as typeof viewport.getBoundingClientRect;
       };
 
@@ -303,7 +305,7 @@ describe("useScrollRestore", () => {
 
     window.sessionStorage.setItem(
       "librerss:test:clamp",
-      JSON.stringify({ t: 5000, ai: -1, ao: 0 }),
+      JSON.stringify({ ai: -1, ao: 0, t: 5000 }),
     );
 
     const { container } = render(createElement(Harness));
@@ -375,39 +377,39 @@ describe("useScrollRestore", () => {
         });
 
         viewport.getBoundingClientRect = (() => ({
-          top: 100,
           bottom: 600,
+          height: 500,
           left: 0,
           right: 400,
+          toJSON: () => ({}),
+          top: 100,
           width: 400,
-          height: 500,
           x: 0,
           y: 100,
-          toJSON: () => ({}),
         })) as typeof viewport.getBoundingClientRect;
 
         (children[0] as any).getBoundingClientRect = (() => ({
-          top: 60,
           bottom: 90,
+          height: 30,
           left: 0,
           right: 400,
+          toJSON: () => ({}),
+          top: 60,
           width: 400,
-          height: 30,
           x: 0,
           y: 60,
-          toJSON: () => ({}),
         })) as typeof viewport.getBoundingClientRect;
 
         (children[1] as any).getBoundingClientRect = (() => ({
-          top: 120,
           bottom: 150,
+          height: 30,
           left: 0,
           right: 400,
+          toJSON: () => ({}),
+          top: 120,
           width: 400,
-          height: 30,
           x: 0,
           y: 120,
-          toJSON: () => ({}),
         })) as typeof viewport.getBoundingClientRect;
       };
 

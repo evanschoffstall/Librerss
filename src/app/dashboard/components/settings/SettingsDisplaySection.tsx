@@ -1,3 +1,7 @@
+import { Monitor } from "lucide-react";
+
+import type { BackgroundMode } from "../../constants";
+
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -7,29 +11,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Monitor } from "lucide-react";
-import type { BackgroundMode } from "../../constants";
 
 export interface SettingsDisplaySectionProps {
-  pageSize: number;
-  showFavicons: boolean;
   backgroundMode: BackgroundMode;
+  distillStrategy: string;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
+  onDistillStrategyChange: (value: string) => void;
   onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
-  onBackgroundModeChange: (value: BackgroundMode) => void;
-  distillStrategy: string;
-  onDistillStrategyChange: (value: string) => void;
+  pageSize: number;
+  showFavicons: boolean;
 }
 
 export function SettingsDisplaySection({
-  pageSize,
-  showFavicons,
   backgroundMode,
+  distillStrategy,
+  onBackgroundModeChange,
+  onDistillStrategyChange,
   onPageSizeChange,
   onShowFaviconsChange,
-  onBackgroundModeChange,
-  distillStrategy,
-  onDistillStrategyChange,
+  pageSize,
+  showFavicons,
 }: SettingsDisplaySectionProps) {
   return (
     <section className="settings-card">
@@ -46,8 +48,10 @@ export function SettingsDisplaySection({
         <div className="row-between">
           <Label>Items per page</Label>
           <Select
+            onValueChange={(v) => {
+              onPageSizeChange(Number(v));
+            }}
             value={String(pageSize)}
-            onValueChange={(v) => onPageSizeChange(Number(v))}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select amount" />
@@ -62,18 +66,18 @@ export function SettingsDisplaySection({
         <div className="flex items-center justify-between">
           <Label htmlFor="show-favicons">Show favicons</Label>
           <Switch
-            id="show-favicons"
             checked={showFavicons}
+            id="show-favicons"
             onCheckedChange={onShowFaviconsChange}
           />
         </div>
         <div className="row-between">
           <Label>Background</Label>
           <Select
+            onValueChange={(value) => {
+              onBackgroundModeChange(value as BackgroundMode);
+            }}
             value={backgroundMode}
-            onValueChange={(value) =>
-              onBackgroundModeChange(value as BackgroundMode)
-            }
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select background" />
@@ -88,8 +92,8 @@ export function SettingsDisplaySection({
         <div className="row-between">
           <Label>Content extraction</Label>
           <Select
-            value={distillStrategy}
             onValueChange={onDistillStrategyChange}
+            value={distillStrategy}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select strategy" />

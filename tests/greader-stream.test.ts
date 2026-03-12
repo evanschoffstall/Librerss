@@ -5,10 +5,12 @@
  * Coverage: Main handler flow, stream types, pagination, filtering, query paths
  */
 
-import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
-import type { SessionUser } from "@/lib/auth/session";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { NextRequest } from "next/server";
+
+import type { SessionUser } from "@/lib/auth/session";
+import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
 
 beforeEach(() => mock.restore());
 
@@ -22,23 +24,23 @@ afterEach(() => {
 });
 
 const mockUser: SessionUser = {
-  sessionId: 1,
-  userId: 42,
   email: "test@example.com",
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+  sessionId: 1,
+  userId: 42,
 };
 
 const createMockArticle = (id: number, overrides = {}) => ({
   articleId: id,
-  title: `Article ${id}`,
-  link: `https://example.com/article/${id}`,
+  category: "Tech",
   content: `Content for article ${id}`,
+  isRead: false,
+  isStarred: false,
+  link: `https://example.com/article/${id}`,
   publicationDate: new Date(Date.now() - id * 1000 * 60),
   sourceName: `Source ${id}`,
   sourceUrl: `https://source${id}.com/feed`,
-  category: "Tech",
-  isRead: false,
-  isStarred: false,
+  title: `Article ${id}`,
   ...overrides,
 });
 
@@ -51,13 +53,13 @@ function createMockDb(mockRows: unknown[] = [], probeShouldFail = false) {
   const queryBuilder: Record<string, unknown> = {
     innerJoin: mock(() => queryBuilder),
     leftJoin: mock(() => queryBuilder),
-    where: mock(() => queryBuilder),
-    orderBy: mock(() => queryBuilder),
     limit: mock(() => queryBuilder),
     offset: mock(() => Promise.resolve(mockRows)),
+    orderBy: mock(() => queryBuilder),
     then: missingErr
       ? (_: unknown, reject: (e: Error) => void) => reject(missingErr)
       : (resolve: (v: unknown[]) => void) => resolve([]),
+    where: mock(() => queryBuilder),
   };
 
   return {
@@ -83,9 +85,9 @@ function setupMocks(
 
   mock.module("@/lib/logger", () => ({
     logger: {
+      error: mock(() => {}),
       info: mock(() => {}),
       warn: mock(() => {}),
-      error: mock(() => {}),
     },
   }));
 
@@ -469,9 +471,6 @@ describe("handleStreamContents", () => {
       const mockDb = {
         select: mock(() => ({
           from: mock(() => ({
-            limit: mock(() => ({
-              then: (resolve: (v: unknown[]) => void) => resolve([]),
-            })), // probe path
             innerJoin: mock(() => ({
               innerJoin: mock(() => ({
                 leftJoin: mock(() => ({
@@ -496,6 +495,9 @@ describe("handleStreamContents", () => {
                 })),
               })),
             })),
+            limit: mock(() => ({
+              then: (resolve: (v: unknown[]) => void) => resolve([]),
+            })), // probe path
           })),
         })),
       };
@@ -506,9 +508,9 @@ describe("handleStreamContents", () => {
 
       mock.module("@/lib/logger", () => ({
         logger: {
+          error: mock(() => {}),
           info: mock(() => {}),
           warn: mock(() => {}),
-          error: mock(() => {}),
         },
       }));
 

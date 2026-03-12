@@ -8,44 +8,44 @@ import type { CategoryTreeNode } from "@/lib/core/types";
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
 /**
- * Trims category labels and returns null when empty/missing.
+ * Compares category labels with consistent trimming/case-folding.
  */
-export function toOptionalCategoryLabel(label?: string | null): string | null {
-  const trimmed = label?.trim();
-  return trimmed ? trimmed : null;
-}
-
-/**
- * Returns a non-empty category label, defaulting to the canonical label.
- */
-export function toCategoryLabelOrDefault(label?: string | null): string {
-  return toOptionalCategoryLabel(label) ?? DEFAULT_CATEGORY_LABEL;
+export function isSameCategoryLabel(
+  left?: null | string,
+  right?: null | string,
+): boolean {
+  return normalizeCategoryLabelKey(left) === normalizeCategoryLabelKey(right);
 }
 
 /**
  * Stable key used for case-insensitive category label comparisons.
  */
-export function normalizeCategoryLabelKey(label?: string | null): string {
+export function normalizeCategoryLabelKey(label?: null | string): string {
   return label?.trim().toLowerCase() ?? "";
 }
 
 /**
- * Compares category labels with consistent trimming/case-folding.
+ * Returns a non-empty category label, defaulting to the canonical label.
  */
-export function isSameCategoryLabel(
-  left?: string | null,
-  right?: string | null,
-): boolean {
-  return normalizeCategoryLabelKey(left) === normalizeCategoryLabelKey(right);
+export function toCategoryLabelOrDefault(label?: null | string): string {
+  return toOptionalCategoryLabel(label) ?? DEFAULT_CATEGORY_LABEL;
+}
+
+/**
+ * Trims category labels and returns null when empty/missing.
+ */
+export function toOptionalCategoryLabel(label?: null | string): null | string {
+  const trimmed = label?.trim();
+  return trimmed ? trimmed : null;
 }
 
 const UNCATEGORIZED_VARIANTS = new Set([
-  "uncategorized",
-  "uncategorised",
-  "uncategoried", // common typo found in RSS feeds / OPML exports
+  "",
   "no category",
   "none",
-  "",
+  "uncategoried", // common typo found in RSS feeds / OPML exports
+  "uncategorised",
+  "uncategorized",
 ]);
 
 /**
@@ -53,7 +53,7 @@ const UNCATEGORIZED_VARIANTS = new Set([
  * @param label - Raw category label
  * @returns Normalized category label
  */
-export function normalizeCategory(label?: string | null): string {
+export function normalizeCategory(label?: null | string): string {
   const trimmed = toOptionalCategoryLabel(label);
 
   if (!trimmed) {

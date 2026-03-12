@@ -23,9 +23,9 @@ export async function distillArticle(
   switch (strategy) {
     case "custom":
       return customDistill(html, url, options);
-    case "readability":
-      return readabilityDistill(html, url, options);
     case "defuddle":
       return defuddleDistill(html, url, options);
+    case "readability":
+      return readabilityDistill(html, url, options);
   }
 }

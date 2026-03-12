@@ -1,29 +1,30 @@
-import { type Article, type CategoryTreeNode } from "@/lib";
-import { filterArticlesByState, type ArticleFilter } from "./article-filters";
+import { type ArticleFilter, filterArticlesByState } from "./article-filters";
 import { buildDisplayCategories } from "./category-display";
 import { findFeedNodeByKey, SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
 
-type DashboardViewModelInput = {
-  feed: Article[];
+import { type Article, type CategoryTreeNode } from "@/lib";
+
+interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
-  expandedArticleKey: string | null;
-  collapsingArticleKey: string | null;
-  searchTerm: string;
   categories: CategoryTreeNode[];
+  collapsingArticleKey: null | string;
   customCategoryLabels: string[];
+  expandedArticleKey: null | string;
+  feed: Article[];
   orderedCategoryLabels: string[];
+  searchTerm: string;
   selectedCategory: string;
-};
+}
 
 export function buildDashboardViewModel({
-  feed,
   articleFilter,
-  expandedArticleKey,
-  collapsingArticleKey,
-  searchTerm,
   categories,
+  collapsingArticleKey,
   customCategoryLabels,
+  expandedArticleKey,
+  feed,
   orderedCategoryLabels,
+  searchTerm,
   selectedCategory,
 }: DashboardViewModelInput) {
   const feedByState = filterArticlesByState(
@@ -73,12 +74,12 @@ export function buildDashboardViewModel({
   const categoryOptions = displayCategories.map((node) => node.label);
 
   return {
-    filteredFeed,
-    displayCategories,
-    sidebarCategories,
-    selectedCategoryNode,
-    selectedFeedUrl,
-    selectedFeed,
     categoryOptions,
+    displayCategories,
+    filteredFeed,
+    selectedCategoryNode,
+    selectedFeed,
+    selectedFeedUrl,
+    sidebarCategories,
   };
 }

@@ -1,21 +1,23 @@
-import { getDb } from "@/lib/db/db";
-import {
-  articleStatuses,
-  articles,
-  feedCategories,
-  feedSources,
-  feeds,
-} from "@/lib/db/schema";
 import { and, eq, lt } from "drizzle-orm";
+
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
 } from "./article-status";
 import {
   FEED_STREAM_PREFIX,
-  STARRED_STATE,
   parseUserLabel,
+  STARRED_STATE,
 } from "./stream-ids";
+
+import { getDb } from "@/lib/db/db";
+import {
+  articles,
+  articleStatuses,
+  feedCategories,
+  feeds,
+  feedSources,
+} from "@/lib/db/schema";
 
 // Upper bound for mark-all-as-read to prevent unbounded queries.
 const MARK_ALL_READ_LIMIT = 10_000;
@@ -30,11 +32,11 @@ export async function markStreamAsRead(
   userId: number,
   stream: string,
   deps?: {
-    db?: ReturnType<typeof getDb>;
-    canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;
-    upsertArticleStatusesFn?: typeof upsertArticleStatuses;
     /** Milliseconds since epoch — only mark articles published before this time. */
     beforeMs?: number;
+    canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;
+    db?: ReturnType<typeof getDb>;
+    upsertArticleStatusesFn?: typeof upsertArticleStatuses;
   },
 ): Promise<void> {
   const db = deps?.db ?? getDb();

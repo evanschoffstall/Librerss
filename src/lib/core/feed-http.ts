@@ -2,18 +2,20 @@
  * SSRF-safe HTTP fetching for RSS feed XML.
  */
 
-import { CONFIG } from "@/lib/config";
 import axios from "axios";
+
 import { assertPublicFeedUrl } from "./feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "./upstream-http";
 
+import { CONFIG } from "@/lib/config";
+
 const MAX_FEED_REDIRECTS = 5;
 
-type FeedHttpDeps = {
+interface FeedHttpDeps {
   assertPublicFeedUrlFn?: (url: string) => Promise<void>;
   axiosGetFn?: typeof axios.get;
   isAxiosErrorFn?: typeof axios.isAxiosError;
-};
+}
 
 export async function fetchFeedXml(
   url: string,
@@ -22,16 +24,14 @@ export async function fetchFeedXml(
   const assertUrl = deps?.assertPublicFeedUrlFn ?? assertPublicFeedUrl;
   return fetchTextWithValidatedRedirects(
     {
-      url,
       assertAllowedUrl: assertUrl,
-      maxRedirects: MAX_FEED_REDIRECTS,
-      timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-      maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
       headers: {
-        "User-Agent": CONFIG.FEED_REQUEST_USER_AGENT,
         Accept: CONFIG.FEED_REQUEST_ACCEPT,
         "Accept-Language": "en-US,en;q=0.8",
+        "User-Agent": CONFIG.FEED_REQUEST_USER_AGENT,
       },
+      maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+      maxRedirects: MAX_FEED_REDIRECTS,
       onAxiosError: (error, isAxiosError) => {
         if (!isAxiosError(error)) {
           return;
@@ -48,6 +48,8 @@ export async function fetchFeedXml(
           );
         }
       },
+      timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+      url,
     },
     {
       axiosGetFn: deps?.axiosGetFn,

@@ -1,3 +1,40 @@
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Circle,
+  CircleCheck,
+  Code,
+  Globe,
+  Mail,
+  Share2,
+  Star,
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import {
+  type KeyboardEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
+
+import {
+  useArticleExpansion,
+  useArticleHeights,
+} from "../hooks/useArticleExpansion";
+import { useFavicon } from "../hooks/useFavicon";
+import { useSwipeToRead } from "../hooks/useSwipeToRead";
+import { useSwipeToStar } from "../hooks/useSwipeToStar";
+import {
+  buildPreview,
+  getArticleSourceLabel,
+  getRichContentClass,
+} from "../services/article-content";
+import { setCachedFaviconIndex } from "../services/favicons";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,55 +61,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
-import {
-  ArrowUpRight,
-  CalendarDays,
-  Circle,
-  CircleCheck,
-  Code,
-  Globe,
-  Mail,
-  Share2,
-  Star,
-} from "lucide-react";
-import { useTheme } from "next-themes";
-import {
-  type KeyboardEvent,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { toast } from "sonner";
-import {
-  useArticleExpansion,
-  useArticleHeights,
-} from "../hooks/useArticleExpansion";
-import { useFavicon } from "../hooks/useFavicon";
-import { useSwipeToRead } from "../hooks/useSwipeToRead";
-import { useSwipeToStar } from "../hooks/useSwipeToStar";
-import {
-  buildPreview,
-  getArticleSourceLabel,
-  getRichContentClass,
-} from "../services/article-content";
-import { setCachedFaviconIndex } from "../services/favicons";
 
 interface ArticleCardProps {
-  articleKey: string;
   article: Article;
-  isExpanded: boolean;
-  useRichFormatting: boolean;
+  articleKey: string;
   hasScrapedContent: boolean;
+  isExpanded: boolean;
   isHydrating: boolean;
-  onToggle: (article: Article) => void;
-  showFavicon: boolean;
+  isUpdatingState: boolean;
   onExpandedSwipeRead: (article: Article) => void;
+  onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
-  isUpdatingState: boolean;
+  showFavicon: boolean;
+  useRichFormatting: boolean;
 }
 
 const iconBtnCls =
@@ -85,18 +87,18 @@ const TAP_DRIFT_PX = 4;
 const AFTER_SWIPE_BLOCK_MS = 350;
 
 export const ArticleCard = memo(function ArticleCard({
-  articleKey,
   article,
-  isExpanded,
-  useRichFormatting,
+  articleKey,
   hasScrapedContent,
+  isExpanded,
   isHydrating,
-  onToggle,
-  showFavicon,
+  isUpdatingState,
   onExpandedSwipeRead,
+  onToggle,
   onToggleRead,
   onToggleStarred,
-  isUpdatingState,
+  showFavicon,
+  useRichFormatting,
 }: ArticleCardProps) {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
@@ -112,29 +114,29 @@ export const ArticleCard = memo(function ArticleCard({
 
   const rawHtml = article.content || "";
   const {
+    collapsedPreview,
+    content,
+    hasOverflow,
     normalizedHtml,
     plainContent,
-    content,
     preview,
-    hasOverflow,
-    collapsedPreview,
   } = useMemo(() => {
     const normalized = normalizeArticleHtmlSpacing(rawHtml);
     const plain = toPlainText(normalized).trim();
     const body = plain || "No description available";
-    const { preview: p, hasOverflow: ho } = buildPreview(body);
+    const { hasOverflow: ho, preview: p } = buildPreview(body);
     return {
+      collapsedPreview: ho ? `${p}\u2026` : p,
+      content: body,
+      hasOverflow: ho,
       normalizedHtml: normalized,
       plainContent: plain,
-      content: body,
       preview: p,
-      hasOverflow: ho,
-      collapsedPreview: ho ? `${p}\u2026` : p,
     };
   }, [rawHtml]);
   const hasReadableContent = plainContent.length > 0;
 
-  const { phase, expandTransitionDone, onContentTransitionEnd } =
+  const { expandTransitionDone, onContentTransitionEnd, phase } =
     useArticleExpansion(isExpanded, isHydrating);
 
   const showSkeleton = phase === "loading";
@@ -146,20 +148,20 @@ export const ArticleCard = memo(function ArticleCard({
   const richContentClassName = getRichContentClass(isExpanded);
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
 
-  const { previewRef, fullContentRef, collapsedHeight, expandedHeight } =
+  const { collapsedHeight, expandedHeight, fullContentRef, previewRef } =
     useArticleHeights(content, preview, richContentClassName);
 
   const {
-    faviconUrl,
-    faviconTint,
     faviconCacheKey,
-    faviconIndex,
     faviconCandidates,
+    faviconIndex,
+    faviconTint,
+    faviconUrl,
     setFaviconIndex,
-  } = useFavicon({ primaryUrl: article.feedUrl, fallbackUrl: article.link });
+  } = useFavicon({ fallbackUrl: article.link, primaryUrl: article.feedUrl });
 
-  const pressStartPos = useRef<{ x: number; y: number } | null>(null);
-  const pressPointerIdRef = useRef<number | null>(null);
+  const pressStartPos = useRef<null | { x: number; y: number }>(null);
+  const pressPointerIdRef = useRef<null | number>(null);
   const pressMovedRef = useRef(false);
   const afterSwipeRef = useRef(0);
   const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -169,7 +171,7 @@ export const ArticleCard = memo(function ArticleCard({
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
-  const { swipeState: readSwipeState, containerRef: readSwipeRef } =
+  const { containerRef: readSwipeRef, swipeState: readSwipeState } =
     useSwipeToRead(() => {
       afterSwipeRef.current = Date.now();
       if (isExpanded) {
@@ -178,7 +180,7 @@ export const ArticleCard = memo(function ArticleCard({
       }
       onToggleRead(article);
     }, isUpdatingState);
-  const { swipeState: starSwipeState, containerRef: starSwipeRef } =
+  const { containerRef: starSwipeRef, swipeState: starSwipeState } =
     useSwipeToStar(() => {
       afterSwipeRef.current = Date.now();
       onToggleStarred(article);
@@ -285,8 +287,8 @@ export const ArticleCard = memo(function ArticleCard({
 
     try {
       await navigator.share({
-        title: article.title,
         text: article.title,
+        title: article.title,
         url: shareUrl,
       });
     } catch (error) {
@@ -337,7 +339,9 @@ export const ArticleCard = memo(function ArticleCard({
       selectShareLink();
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [isCopyLinkOpen]);
 
   useEffect(() => {
@@ -347,15 +351,17 @@ export const ArticleCard = memo(function ArticleCard({
       selectRawHtml();
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [isRawHtmlOpen]);
 
   // Gradient coordinate measurement for split header/content overlays
   const [gradientCoords, setGradientCoords] = useState({
-    cw: 0,
     ch: 0,
-    hy: 0,
+    cw: 0,
     cy: 0,
+    hy: 0,
   });
 
   const measureGradient = useCallback(() => {
@@ -364,10 +370,10 @@ export const ArticleCard = memo(function ArticleCard({
     const c = contentZoneRef.current;
     if (!a || !h || !c) return;
     setGradientCoords({
-      cw: a.offsetWidth,
       ch: a.offsetHeight,
-      hy: h.offsetTop,
+      cw: a.offsetWidth,
       cy: c.offsetTop,
+      hy: h.offsetTop,
     });
   }, []);
 
@@ -381,17 +387,19 @@ export const ArticleCard = memo(function ArticleCard({
     ro.observe(a);
     ro.observe(h);
     ro.observe(c);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+    };
   }, [measureGradient]);
 
-  const { cw, ch, hy, cy } = gradientCoords;
+  const { ch, cw, cy, hy } = gradientCoords;
   const gradientReady = cw > 0 && ch > 0;
 
   const headerGradientStyle: React.CSSProperties = gradientReady
-    ? { backgroundSize: `${cw}px ${ch}px`, backgroundPosition: `0px -${hy}px` }
+    ? { backgroundPosition: `0px -${hy}px`, backgroundSize: `${cw}px ${ch}px` }
     : {};
   const contentGradientStyle: React.CSSProperties = gradientReady
-    ? { backgroundSize: `${cw}px ${ch}px`, backgroundPosition: `0px -${cy}px` }
+    ? { backgroundPosition: `0px -${cy}px`, backgroundSize: `${cw}px ${ch}px` }
     : {};
 
   const gradientCls = `absolute inset-0 bg-gradient-to-br transition duration-1000 ${
@@ -403,13 +411,17 @@ export const ArticleCard = memo(function ArticleCard({
   const copyLinkInputBlock = (
     <div className="rounded-md border bg-muted/30 p-2">
       <Input
+        aria-label="Article link"
+        className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+        onFocus={(event) => {
+          event.currentTarget.select();
+        }}
+        readOnly
         ref={copyLinkInputRef}
         value={shareUrl || ""}
-        readOnly
-        className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
-        aria-label="Article link"
-        onClick={(event) => event.stopPropagation()}
-        onFocus={(event) => event.currentTarget.select()}
       />
     </div>
   );
@@ -417,10 +429,10 @@ export const ArticleCard = memo(function ArticleCard({
   const copyLinkSelectAction = (
     <div className="flex justify-end">
       <Button
-        type="button"
-        size="sm"
-        variant="outline"
         onClick={handleSelectShareLink}
+        size="sm"
+        type="button"
+        variant="outline"
       >
         Select
       </Button>
@@ -488,23 +500,20 @@ export const ArticleCard = memo(function ArticleCard({
         </div>
       )}
       <article
-        ref={articleSurfaceRef}
-        data-article-key={articleKey}
-        role="button"
-        tabIndex={0}
         aria-expanded={isExpanded}
+        className={`article-swipe-surface group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        data-article-key={articleKey}
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
+        onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerCancel}
+        ref={articleSurfaceRef}
+        role="button"
         style={{
-          touchAction: "pan-y",
-          WebkitTouchCallout: "none",
-          WebkitUserSelect: "none",
-          userSelect: "none",
           cursor: visuallyExpanded ? "default" : "pointer",
+          touchAction: "pan-y",
           transform: anySwiping ? `translateX(${swipeOffsetX}px)` : undefined,
           transition: anySwiping
             ? "none"
@@ -517,23 +526,26 @@ export const ArticleCard = memo(function ArticleCard({
               ]
                 .filter(Boolean)
                 .join(", "),
+          userSelect: "none",
+          WebkitTouchCallout: "none",
+          WebkitUserSelect: "none",
         }}
-        className={`article-swipe-surface group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        tabIndex={0}
       >
         {/* Header zone — sticky when expanded */}
         <div
-          ref={headerZoneRef}
           className={`relative ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-t-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
+          ref={headerZoneRef}
           style={{
             touchAction: "pan-y",
+            transition: `padding ${cardT}, background-color ${cardT}`,
+            userSelect: "none",
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
-            userSelect: "none",
-            transition: `padding ${cardT}, background-color ${cardT}`,
             ...(visuallyExpanded
               ? {
-                  WebkitBackdropFilter: "blur(24px)",
                   backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
                 }
               : undefined),
           }}
@@ -549,22 +561,17 @@ export const ArticleCard = memo(function ArticleCard({
                   new Date(article.publicationDate ?? Date.now()),
                 )}
                 <span
-                  className="size-1 shrink-0 rounded-full bg-border/80"
                   aria-hidden="true"
+                  className="size-1 shrink-0 rounded-full bg-border/80"
                 />
               </div>
               <div className="flex min-w-0 items-center gap-2">
                 {showFavicon ? (
                   faviconUrl ? (
                     <img
-                      src={faviconUrl}
                       alt=""
                       className="size-3 rounded-sm"
                       loading="lazy"
-                      referrerPolicy="no-referrer"
-                      onLoad={() => {
-                        setCachedFaviconIndex(faviconCacheKey, faviconIndex);
-                      }}
                       onError={() => {
                         setFaviconIndex((current) => {
                           const next = current + 1;
@@ -574,12 +581,17 @@ export const ArticleCard = memo(function ArticleCard({
                           return resolved;
                         });
                       }}
+                      onLoad={() => {
+                        setCachedFaviconIndex(faviconCacheKey, faviconIndex);
+                      }}
+                      referrerPolicy="no-referrer"
+                      src={faviconUrl}
                     />
                   ) : (
                     <span
+                      aria-hidden="true"
                       className="inline-flex size-3 shrink-0 items-center justify-center rounded-full"
                       style={{ backgroundColor: faviconTint.background }}
-                      aria-hidden="true"
                     >
                       <Globe
                         className="size-2"
@@ -597,16 +609,16 @@ export const ArticleCard = memo(function ArticleCard({
                 className={`-mr-1 ml-auto flex shrink-0 items-center gap-1 transition-opacity duration-150 ${visuallyExpanded || isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
               >
                 <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleRead(article);
-                  }}
-                  disabled={isUpdatingState}
                   aria-label={
                     article.isRead ? "Mark as unread" : "Mark as read"
                   }
                   className={iconBtnCls}
+                  disabled={isUpdatingState}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleRead(article);
+                  }}
+                  type="button"
                 >
                   {article.isRead ? (
                     <CircleCheck className="size-3.5 text-emerald-500/70 dark:text-emerald-400/60" />
@@ -616,16 +628,16 @@ export const ArticleCard = memo(function ArticleCard({
                 </button>
 
                 <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleStarred(article);
-                  }}
-                  disabled={isUpdatingState}
                   aria-label={
                     article.isStarred ? "Remove star" : "Star article"
                   }
                   className={iconBtnCls}
+                  disabled={isUpdatingState}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleStarred(article);
+                  }}
+                  type="button"
                 >
                   <Star
                     className={`size-3.5 ${
@@ -638,33 +650,35 @@ export const ArticleCard = memo(function ArticleCard({
 
                 {supportsNativeShare ? (
                   <button
-                    type="button"
-                    onClick={handleShare}
                     aria-label="Share article"
                     className={iconBtnCls}
+                    onClick={handleShare}
+                    type="button"
                   >
                     <Share2 className="size-3.5" />
                   </button>
                 ) : (
                   <DropdownMenu
-                    open={isShareMenuOpen}
                     onOpenChange={handleShareMenuOpenChange}
+                    open={isShareMenuOpen}
                   >
                     <DropdownMenuTrigger asChild>
                       <button
-                        type="button"
-                        onClick={(event) => event.stopPropagation()}
                         aria-label="Share article options"
                         className={iconBtnCls}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                        }}
+                        type="button"
                       >
                         <Share2 className="size-3.5" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      onClick={(event: React.MouseEvent) =>
-                        event.stopPropagation()
-                      }
+                      onClick={(event: React.MouseEvent) => {
+                        event.stopPropagation();
+                      }}
                     >
                       <DropdownMenuItem
                         disabled={!shareUrl}
@@ -677,38 +691,44 @@ export const ArticleCard = memo(function ArticleCard({
                         Copy link
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onSelect={() => setIsShareMenuOpen(false)}
                         asChild
+                        onSelect={() => {
+                          setIsShareMenuOpen(false);
+                        }}
                       >
                         <a
                           href={`mailto:?subject=${encodedShareTitle}&body=${encodedShareUrl}`}
-                          target="_blank"
                           rel="noopener noreferrer"
+                          target="_blank"
                         >
                           <Mail className="size-3.5" />
                           Email
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onSelect={() => setIsShareMenuOpen(false)}
                         asChild
+                        onSelect={() => {
+                          setIsShareMenuOpen(false);
+                        }}
                       >
                         <a
                           href={`https://www.reddit.com/submit?url=${encodedShareUrl}&title=${encodedShareTitle}`}
-                          target="_blank"
                           rel="noopener noreferrer"
+                          target="_blank"
                         >
                           Share to Reddit
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onSelect={() => setIsShareMenuOpen(false)}
                         asChild
+                        onSelect={() => {
+                          setIsShareMenuOpen(false);
+                        }}
                       >
                         <a
                           href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${article.title} ${shareUrl || ""}`.trim())}`}
-                          target="_blank"
                           rel="noopener noreferrer"
+                          target="_blank"
                         >
                           Share to Bluesky
                         </a>
@@ -719,25 +739,27 @@ export const ArticleCard = memo(function ArticleCard({
 
                 {isDevelopment ? (
                   <button
-                    type="button"
+                    aria-label="View raw article HTML"
+                    className={iconBtnCls}
                     onClick={(event) => {
                       event.stopPropagation();
                       setIsRawHtmlOpen(true);
                     }}
-                    aria-label="View raw article HTML"
-                    className={iconBtnCls}
+                    type="button"
                   >
                     <Code className="size-3.5" />
                   </button>
                 ) : null}
 
                 <a
-                  href={article.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
                   aria-label="Open article"
                   className={iconLinkCls}
+                  href={article.link}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  rel="noopener noreferrer"
+                  target="_blank"
                 >
                   <ArrowUpRight className="size-3.5" />
                 </a>
@@ -745,8 +767,8 @@ export const ArticleCard = memo(function ArticleCard({
             </div>
 
             <h3
-              style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
               className={`select-none font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
+              style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
             >
               {article.title}
             </h3>
@@ -758,9 +780,9 @@ export const ArticleCard = memo(function ArticleCard({
 
         {/* Content zone */}
         <div
+          className={`relative bg-card/70 ${visuallyExpanded ? "rounded-b-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
           ref={contentZoneRef}
           style={{ transition: `padding ${cardT}` }}
-          className={`relative bg-card/70 ${visuallyExpanded ? "rounded-b-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
         >
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl">
             <div className={gradientCls} style={contentGradientStyle} />
@@ -768,7 +790,6 @@ export const ArticleCard = memo(function ArticleCard({
           <div className="relative z-10">
             <div
               className="overflow-hidden article-swipe-body"
-              onTransitionEnd={onContentTransitionEnd}
               onClick={
                 visuallyExpanded
                   ? (e) => {
@@ -777,16 +798,17 @@ export const ArticleCard = memo(function ArticleCard({
                     }
                   : undefined
               }
+              onTransitionEnd={onContentTransitionEnd}
               style={{
-                touchAction: "pan-y",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
-                userSelect: "none",
                 maxHeight: expandTransitionDone
                   ? "none"
                   : hasOverflow
                     ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                     : "none",
+                touchAction: "pan-y",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
                 ...(hasOverflow &&
                 collapsedHeight === expandedHeight &&
                 !visuallyExpanded
@@ -822,11 +844,11 @@ export const ArticleCard = memo(function ArticleCard({
               ) : useRichFormatting ? (
                 <div
                   className={`${visibleRichContentClassName} anim-article-enter`}
+                  dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                   style={{
                     contain: visuallyExpanded ? "none" : "layout style paint",
                     willChange: visuallyExpanded ? "auto" : "contents",
                   }}
-                  dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                 />
               ) : (
                 <p
@@ -839,16 +861,16 @@ export const ArticleCard = memo(function ArticleCard({
 
             {/* Hidden measurement targets for height animation */}
             <p
-              ref={previewRef}
               aria-hidden="true"
               className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6"
+              ref={previewRef}
             >
               {`${preview}…`}
             </p>
             <div
-              ref={fullContentRef}
               aria-hidden="true"
               className="pointer-events-none h-0 overflow-hidden opacity-0"
+              ref={fullContentRef}
             >
               {useRichFormatting ? (
                 <div
@@ -866,10 +888,12 @@ export const ArticleCard = memo(function ArticleCard({
 
         {isDevelopment ? (
           isMobile ? (
-            <Drawer open={isRawHtmlOpen} onOpenChange={handleRawHtmlOpenChange}>
+            <Drawer onOpenChange={handleRawHtmlOpenChange} open={isRawHtmlOpen}>
               <DrawerContent
                 className="max-h-[85dvh]"
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
               >
                 <DrawerHeader className="space-y-2 text-left">
                   <div className="flex w-full items-start justify-between gap-3 text-left">
@@ -881,11 +905,13 @@ export const ArticleCard = memo(function ArticleCard({
                       </DrawerDescription>
                     </div>
                     <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onMouseDown={(event) => event.preventDefault()}
                       onClick={handleSelectRawHtml}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
                     >
                       Select
                     </Button>
@@ -894,23 +920,29 @@ export const ArticleCard = memo(function ArticleCard({
                 <div className="px-4 pb-6">
                   <div className="rounded-md border bg-muted/40 p-3">
                     <textarea
-                      ref={rawHtmlTextAreaRef}
-                      value={normalizedHtml}
-                      readOnly
                       aria-label="Raw article HTML"
                       className="h-[60dvh] min-h-[12rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
-                      onClick={(event) => event.stopPropagation()}
-                      onFocus={(event) => event.currentTarget.select()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                      }}
+                      onFocus={(event) => {
+                        event.currentTarget.select();
+                      }}
+                      readOnly
+                      ref={rawHtmlTextAreaRef}
+                      value={normalizedHtml}
                     />
                   </div>
                 </div>
               </DrawerContent>
             </Drawer>
           ) : (
-            <Dialog open={isRawHtmlOpen} onOpenChange={handleRawHtmlOpenChange}>
+            <Dialog onOpenChange={handleRawHtmlOpenChange} open={isRawHtmlOpen}>
               <DialogContent
                 className="max-w-3xl"
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
               >
                 <DialogHeader className="space-y-2 text-left">
                   <div className="flex w-full items-start justify-between gap-3 text-left">
@@ -922,11 +954,13 @@ export const ArticleCard = memo(function ArticleCard({
                       </DialogDescription>
                     </div>
                     <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onMouseDown={(event) => event.preventDefault()}
                       onClick={handleSelectRawHtml}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
                     >
                       Select
                     </Button>
@@ -934,13 +968,17 @@ export const ArticleCard = memo(function ArticleCard({
                 </DialogHeader>
                 <div className="rounded-md border bg-muted/40 p-3">
                   <textarea
-                    ref={rawHtmlTextAreaRef}
-                    value={normalizedHtml}
-                    readOnly
                     aria-label="Raw article HTML"
                     className="h-[65vh] min-h-[14rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
-                    onClick={(event) => event.stopPropagation()}
-                    onFocus={(event) => event.currentTarget.select()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onFocus={(event) => {
+                      event.currentTarget.select();
+                    }}
+                    readOnly
+                    ref={rawHtmlTextAreaRef}
+                    value={normalizedHtml}
                   />
                 </div>
               </DialogContent>
@@ -949,10 +987,12 @@ export const ArticleCard = memo(function ArticleCard({
         ) : null}
 
         {isMobile ? (
-          <Drawer open={isCopyLinkOpen} onOpenChange={handleCopyLinkOpenChange}>
+          <Drawer onOpenChange={handleCopyLinkOpenChange} open={isCopyLinkOpen}>
             <DrawerContent
               className="max-h-[45dvh]"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
             >
               <DrawerHeader>
                 <DrawerTitle>Copy Link</DrawerTitle>
@@ -967,10 +1007,12 @@ export const ArticleCard = memo(function ArticleCard({
             </DrawerContent>
           </Drawer>
         ) : (
-          <Dialog open={isCopyLinkOpen} onOpenChange={handleCopyLinkOpenChange}>
+          <Dialog onOpenChange={handleCopyLinkOpenChange} open={isCopyLinkOpen}>
             <DialogContent
               className="max-w-md"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
             >
               <DialogHeader>
                 <DialogTitle>Copy Link</DialogTitle>

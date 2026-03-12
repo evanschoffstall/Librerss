@@ -1,3 +1,10 @@
+import { and, eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
+import { withResolvedCategoryByUrl } from "./categories";
+import { toReaderIconUrl } from "./mappers";
+import { loadUserSubscriptionRows } from "./subscription-data";
+
 import { parseFormOrQueryParams, textResponse } from "@/lib/api/http";
 import { type SessionUser } from "@/lib/auth/session";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
@@ -16,113 +23,6 @@ import {
 import { feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { getUrlHostnameLabel, tryNormalizeFeedUrl } from "@/lib/utils/url";
-import { and, eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
-import { withResolvedCategoryByUrl } from "./categories";
-import { toReaderIconUrl } from "./mappers";
-import { loadUserSubscriptionRows } from "./subscription-data";
-
-export async function handleSubscriptionList(
-  user: SessionUser,
-): Promise<Response> {
-  const rows = await loadUserSubscriptionRows(user.userId);
-
-  const normalizedRows = await withResolvedCategoryByUrl(
-    user.userId,
-    rows,
-    (row) => row.url,
-  );
-
-  logger.info("[greader] subscription/list", {
-    userId: user.userId,
-    subscriptionCount: rows.length,
-  });
-
-  return NextResponse.json({
-    subscriptions: normalizedRows.map((row) => {
-      const iconUrl = toReaderIconUrl(row.url);
-      const categoryLabel = row.category?.trim() || null;
-      return {
-        id: `${FEED_STREAM_PREFIX}${row.url}`,
-        title: row.title,
-        url: row.url,
-        htmlUrl: row.url,
-        ...(iconUrl ? { iconUrl } : {}),
-        sortid: String(row.sourceId),
-        // Return an empty categories array for feeds with no resolved category
-        // so NNW leaves them at the account top level rather than treating them
-        // as belonging to "My Feeds" — which would cause an early return in
-        // syncFeedFolderRelationship when "My Feeds" is absent from tag/list.
-        categories: categoryLabel
-          ? [
-              {
-                id: `${USER_LABEL_PREFIX}${categoryLabel}`,
-                label: categoryLabel,
-              },
-            ]
-          : [],
-      };
-    }),
-  });
-}
-
-export async function handleSubscriptionQuickAdd(
-  user: SessionUser,
-  request: NextRequest,
-): Promise<Response> {
-  const params = await parseFormOrQueryParams(request);
-  if (params instanceof Response) {
-    return params;
-  }
-  const quickAdd = params.get("quickadd")?.trim() ?? "";
-
-  if (quickAdd.length > 2048) {
-    return NextResponse.json(
-      { numResults: 0, error: "Invalid feed URL" },
-      { status: 400 },
-    );
-  }
-
-  const normalizedUrl = tryNormalizeFeedUrl(quickAdd);
-  if (!normalizedUrl || !(await isAllowedFeedUrl(normalizedUrl))) {
-    return NextResponse.json(
-      { numResults: 0, error: "Invalid feed URL" },
-      { status: 400 },
-    );
-  }
-
-  const db = getDb();
-
-  // Ensure the global Feed record exists (1 query: upsert + RETURNING).
-  await ensureFeedRecordByUrl(db, normalizedUrl);
-
-  const fallbackName = getUrlHostnameLabel(normalizedUrl, normalizedUrl);
-
-  // Insert the subscription; ON CONFLICT DO NOTHING lets us detect duplicates
-  // without a prior existence SELECT.
-  const [source] = await db
-    .insert(feedSources)
-    .values({
-      userId: user.userId,
-      url: normalizedUrl,
-      name: fallbackName,
-    })
-    .onConflictDoNothing()
-    .returning({ id: feedSources.id });
-
-  if (!source) {
-    return NextResponse.json({
-      numResults: 0,
-      error: `Already subscribed! ${normalizedUrl}`,
-      streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
-    });
-  }
-
-  return NextResponse.json({
-    numResults: 1,
-    streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
-  });
-}
 
 export async function handleSubscriptionEdit(
   user: SessionUser,
@@ -158,7 +58,7 @@ export async function handleSubscriptionEdit(
 
       const feedId = await findFeedIdByUrl(tx, feedUrl);
       if (feedId) {
-        await removeUserFeedCategory(tx, { userId: user.userId, feedId });
+        await removeUserFeedCategory(tx, { feedId, userId: user.userId });
       }
     });
 
@@ -189,18 +89,18 @@ export async function handleSubscriptionEdit(
         const addLabel = parseUserLabel(addTag);
         if (addLabel) {
           await replaceUserFeedCategory(tx, {
-            userId: user.userId,
-            feedId,
             category: addLabel,
+            feedId,
+            userId: user.userId,
           });
         }
 
         const removeLabel = parseUserLabel(removeTag);
         if (removeLabel) {
           await removeUserFeedCategory(tx, {
-            userId: user.userId,
-            feedId,
             category: removeLabel,
+            feedId,
+            userId: user.userId,
           });
         }
       }
@@ -208,4 +108,106 @@ export async function handleSubscriptionEdit(
   });
 
   return textResponse("OK\n");
+}
+
+export async function handleSubscriptionList(
+  user: SessionUser,
+): Promise<Response> {
+  const rows = await loadUserSubscriptionRows(user.userId);
+
+  const normalizedRows = await withResolvedCategoryByUrl(
+    user.userId,
+    rows,
+    (row) => row.url,
+  );
+
+  logger.info("[greader] subscription/list", {
+    subscriptionCount: rows.length,
+    userId: user.userId,
+  });
+
+  return NextResponse.json({
+    subscriptions: normalizedRows.map((row) => {
+      const iconUrl = toReaderIconUrl(row.url);
+      const categoryLabel = row.category?.trim() || null;
+      return {
+        htmlUrl: row.url,
+        id: `${FEED_STREAM_PREFIX}${row.url}`,
+        title: row.title,
+        url: row.url,
+        ...(iconUrl ? { iconUrl } : {}),
+        // Return an empty categories array for feeds with no resolved category
+        // so NNW leaves them at the account top level rather than treating them
+        // as belonging to "My Feeds" — which would cause an early return in
+        // syncFeedFolderRelationship when "My Feeds" is absent from tag/list.
+        categories: categoryLabel
+          ? [
+              {
+                id: `${USER_LABEL_PREFIX}${categoryLabel}`,
+                label: categoryLabel,
+              },
+            ]
+          : [],
+        sortid: String(row.sourceId),
+      };
+    }),
+  });
+}
+
+export async function handleSubscriptionQuickAdd(
+  user: SessionUser,
+  request: NextRequest,
+): Promise<Response> {
+  const params = await parseFormOrQueryParams(request);
+  if (params instanceof Response) {
+    return params;
+  }
+  const quickAdd = params.get("quickadd")?.trim() ?? "";
+
+  if (quickAdd.length > 2048) {
+    return NextResponse.json(
+      { error: "Invalid feed URL", numResults: 0 },
+      { status: 400 },
+    );
+  }
+
+  const normalizedUrl = tryNormalizeFeedUrl(quickAdd);
+  if (!normalizedUrl || !(await isAllowedFeedUrl(normalizedUrl))) {
+    return NextResponse.json(
+      { error: "Invalid feed URL", numResults: 0 },
+      { status: 400 },
+    );
+  }
+
+  const db = getDb();
+
+  // Ensure the global Feed record exists (1 query: upsert + RETURNING).
+  await ensureFeedRecordByUrl(db, normalizedUrl);
+
+  const fallbackName = getUrlHostnameLabel(normalizedUrl, normalizedUrl);
+
+  // Insert the subscription; ON CONFLICT DO NOTHING lets us detect duplicates
+  // without a prior existence SELECT.
+  const [source] = await db
+    .insert(feedSources)
+    .values({
+      name: fallbackName,
+      url: normalizedUrl,
+      userId: user.userId,
+    })
+    .onConflictDoNothing()
+    .returning({ id: feedSources.id });
+
+  if (!source) {
+    return NextResponse.json({
+      error: `Already subscribed! ${normalizedUrl}`,
+      numResults: 0,
+      streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
+    });
+  }
+
+  return NextResponse.json({
+    numResults: 1,
+    streamId: `${FEED_STREAM_PREFIX}${normalizedUrl}`,
+  });
 }

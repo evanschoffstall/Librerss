@@ -8,11 +8,13 @@
  * - Edge cases for timestamp validation
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { NextRequest } from "next/server";
+
 import type { SessionUser } from "@/lib/auth/session";
 import { resetArticleStatusTableStateForTests } from "@/lib/core/article-status";
 import * as realFeedCacheModule from "@/lib/core/feed-cache";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { NextRequest } from "next/server";
 
 beforeEach(() => mock.restore());
 
@@ -33,10 +35,10 @@ afterEach(() => {
 });
 
 const mockUser: SessionUser = {
-  sessionId: 1,
-  userId: 42,
   email: "test@example.com",
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+  sessionId: 1,
+  userId: 42,
 };
 
 describe("handleUnreadCount", () => {
@@ -52,8 +54,8 @@ describe("handleUnreadCount", () => {
 
     const probeLimitMock = mock(async () => [{ id: 1 }]);
     const mockDb = {
-      select: mock(() => ({ from: mock(() => ({ limit: probeLimitMock })) })),
       execute: mock(async () => mockRows),
+      select: mock(() => ({ from: mock(() => ({ limit: probeLimitMock })) })),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -91,6 +93,7 @@ describe("handleUnreadCount", () => {
       { code: "42P01" },
     );
     const mockDb = {
+      execute: mock(async () => mockRows),
       select: mock(() => ({
         from: mock(() => ({
           limit: mock(async () => {
@@ -98,7 +101,6 @@ describe("handleUnreadCount", () => {
           }),
         })),
       })),
-      execute: mock(async () => mockRows),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -125,10 +127,10 @@ describe("handleUnreadCount", () => {
     ];
 
     const mockDb = {
+      execute: mock(async () => ({ rows: mockRows })),
       select: mock(() => ({
         from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })),
       })),
-      execute: mock(async () => ({ rows: mockRows })),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -149,10 +151,10 @@ describe("handleUnreadCount", () => {
 
   test("handles empty feed list", async () => {
     const mockDb = {
+      execute: mock(async () => []),
       select: mock(() => ({
         from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })),
       })),
-      execute: mock(async () => []),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -179,10 +181,10 @@ describe("handleUnreadCount", () => {
     ];
 
     const mockDb = {
+      execute: mock(async () => mockRows),
       select: mock(() => ({
         from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })),
       })),
-      execute: mock(async () => mockRows),
     };
 
     mock.module("@/lib/db/db", () => ({
@@ -273,7 +275,7 @@ describe("handleEditTag - error paths and edge cases", () => {
     const select = mock(() => ({
       from: mock(() => ({ limit: mock(async () => [{ id: 1 }]) })),
     }));
-    const db: Record<string, unknown> = { select, insert };
+    const db: Record<string, unknown> = { insert, select };
     db.transaction = async (cb: (tx: typeof db) => Promise<void>) => cb(db);
     return { db, insert };
   }
@@ -288,9 +290,9 @@ describe("handleEditTag - error paths and edge cases", () => {
     formData.append("a", "user/-/state/com.google/read");
     formData.append("a", "user/-/state/com.google/starred");
     const request = new NextRequest("https://example.com/api/edit-tag", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
       body: formData.toString(),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const response = await handleEditTag(mockUser, request);
     expect(response.status).toBe(200);
@@ -306,9 +308,9 @@ describe("handleEditTag - error paths and edge cases", () => {
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("a", "user/-/label/SomeCustomLabel");
     const request = new NextRequest("https://example.com/api/edit-tag", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
       body: formData.toString(),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const response = await handleEditTag(mockUser, request);
     expect(response.status).toBe(200);
@@ -325,9 +327,9 @@ describe("handleEditTag - error paths and edge cases", () => {
     formData.append("a", "user/-/state/com.google/read");
     formData.append("r", "user/-/state/com.google/starred");
     const request = new NextRequest("https://example.com/api/edit-tag", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
       body: formData.toString(),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const response = await handleEditTag(mockUser, request);
     expect(response.status).toBe(200);
@@ -344,9 +346,9 @@ describe("handleEditTag - error paths and edge cases", () => {
     formData.append("i", "tag:google.com,2005:reader/item/00000001");
     formData.append("a", "user/-/state/com.google/read");
     const request = new NextRequest("https://example.com/api/edit-tag", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
       body: formData.toString(),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const response = await handleEditTag(mockUser, request);
     expect(response.status).toBe(200);
@@ -362,9 +364,9 @@ describe("handleEditTag - error paths and edge cases", () => {
     formData.append("i", "also-invalid");
     formData.append("a", "user/-/state/com.google/read");
     const request = new NextRequest("https://example.com/api/edit-tag", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
       body: formData.toString(),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const response = await handleEditTag(mockUser, request);
     expect(response.status).toBe(400);
@@ -389,22 +391,22 @@ describe("lib/api/greader/tag – handleMarkAllAsRead early return on parse erro
   test("returns 413 when POST body exceeds limit", async () => {
     const { handleMarkAllAsRead } = await import("@/lib/api/greader/tag");
     const user = {
-      userId: 1,
       email: "test@example.com",
-      sessionToken: "tok",
-      sessionId: 0,
       expiresAt: new Date(),
+      sessionId: 0,
+      sessionToken: "tok",
+      userId: 1,
     };
     const bigBody = "s=" + "x".repeat(1024 * 1024 + 1);
     const req = new Request(
       "https://example.com/greader.php/api/0/mark-all-as-read",
       {
-        method: "POST",
         body: bigBody,
         headers: {
-          "content-type": "application/x-www-form-urlencoded",
           "content-length": String(Buffer.byteLength(bigBody)),
+          "content-type": "application/x-www-form-urlencoded",
         },
+        method: "POST",
       },
     );
     const result = await handleMarkAllAsRead(user as any, req as any);
@@ -418,15 +420,15 @@ describe("lib/api/greader/tag-labels – handleDisableTag early Response return"
   test("returns Response early when body is too large (line 78)", async () => {
     const { NextRequest } = await import("next/server");
     const { handleDisableTag } = await import("@/lib/api/greader/tag-labels");
-    const user = { userId: 1, email: "test@example.com", sessionToken: "tok" };
+    const user = { email: "test@example.com", sessionToken: "tok", userId: 1 };
     const req = new NextRequest("https://dummy.local/api/greader/tag/disable", {
-      method: "POST",
       body: "s=user%2Flabel%2FTest",
       headers: {
-        "content-type": "application/x-www-form-urlencoded",
         // Content-Length value drastically exceeds MAX_JSON_BODY_BYTES
         "content-length": "999999999",
+        "content-type": "application/x-www-form-urlencoded",
       },
+      method: "POST",
     });
     const result = await handleDisableTag(user as any, req);
     expect(result.status).toBe(413);

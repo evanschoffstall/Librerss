@@ -6,7 +6,7 @@ export function parseSocksProxy(proxyUrl: string): SocksClientOptions["proxy"] {
   return {
     host: parsed.hostname,
     port: Number(parsed.port) || 1080,
-    type: type as 4 | 5,
+    type: type,
     ...(parsed.username ? { userId: decodeURIComponent(parsed.username) } : {}),
     ...(parsed.password
       ? { password: decodeURIComponent(parsed.password) }

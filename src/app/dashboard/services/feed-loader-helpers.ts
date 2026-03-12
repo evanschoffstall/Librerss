@@ -1,13 +1,31 @@
-import type { Article } from "@/lib";
-import type { BatchFeedResponseItem } from "@/lib/api/http";
 import { getArticleKey } from "../services/article-collection";
 import type { FeedBatchSource } from "../services/feed-batch";
 
-export function isCanceledBatchRequest(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.name === "AbortError" || error.name === "CanceledError")
-  );
+import type { Article } from "@/lib";
+import type { BatchFeedResponseItem } from "@/lib/api/http";
+
+export function formatLastRefreshLabel(timestamp: Date | null): string {
+  if (!timestamp) {
+    return "never";
+  }
+
+  const elapsedMs = Date.now() - timestamp.getTime();
+  if (elapsedMs < 60_000) {
+    return "just now";
+  }
+
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours}h ago`;
+  }
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return `${elapsedDays}d ago`;
 }
 
 export function getNewestLastFetchedAt(
@@ -26,58 +44,17 @@ export function getNewestLastFetchedAt(
   }, null);
 }
 
-export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
-  let okCount = 0;
-  let missingCount = 0;
-  let errorCount = 0;
-
-  const articlesByUrl = batchResults.map((item) => {
-    if (item.ok) {
-      okCount += 1;
-    } else {
-      missingCount += 1;
-    }
-
-    if (item.error) {
-      errorCount += 1;
-    }
-
-    return {
-      url: item.url,
-      ok: item.ok,
-      articleCount: item.articles.length,
-      error: item.error ?? null,
-    };
-  });
-
-  return {
-    resultCount: batchResults.length,
-    okCount,
-    missingCount,
-    errorCount,
-    articlesByUrl,
-  };
-}
-
-export function resolveExpandedArticleKey(
-  currentKey: string | null,
-  articles: Article[],
-): string | null {
-  if (!currentKey) {
-    return null;
-  }
-
-  const hasExpandedArticle = articles.some(
-    (article) => getArticleKey(article) === currentKey,
-  );
-
-  return hasExpandedArticle ? currentKey : null;
-}
-
 export function getSourceNamesByUrl(
   sources: FeedBatchSource[],
 ): Map<string, string | undefined> {
   return new Map(sources.map((source) => [source.url, source.name] as const));
+}
+
+export function isCanceledBatchRequest(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "CanceledError")
+  );
 }
 
 /**
@@ -105,30 +82,54 @@ export function mergeHydratedContent(
   });
 }
 
+export function resolveExpandedArticleKey(
+  currentKey: null | string,
+  articles: Article[],
+): null | string {
+  if (!currentKey) {
+    return null;
+  }
+
+  const hasExpandedArticle = articles.some(
+    (article) => getArticleKey(article) === currentKey,
+  );
+
+  return hasExpandedArticle ? currentKey : null;
+}
+
 export type { BatchFeedResponseItem as FeedBatchResult };
 
 // ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────
 
-export function formatLastRefreshLabel(timestamp: Date | null): string {
-  if (!timestamp) {
-    return "never";
-  }
+export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
+  let okCount = 0;
+  let missingCount = 0;
+  let errorCount = 0;
 
-  const elapsedMs = Date.now() - timestamp.getTime();
-  if (elapsedMs < 60_000) {
-    return "just now";
-  }
+  const articlesByUrl = batchResults.map((item) => {
+    if (item.ok) {
+      okCount += 1;
+    } else {
+      missingCount += 1;
+    }
 
-  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes}m ago`;
-  }
+    if (item.error) {
+      errorCount += 1;
+    }
 
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) {
-    return `${elapsedHours}h ago`;
-  }
+    return {
+      articleCount: item.articles.length,
+      error: item.error ?? null,
+      ok: item.ok,
+      url: item.url,
+    };
+  });
 
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  return `${elapsedDays}d ago`;
+  return {
+    articlesByUrl,
+    errorCount,
+    missingCount,
+    okCount,
+    resultCount: batchResults.length,
+  };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
 import {
   attachSentinelLayout,
   SENTINEL_HEIGHT,
@@ -51,7 +52,7 @@ export function usePullDownToRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   onRefresh: () => void,
   disabled = false,
-  suppressSnapRef?: React.RefObject<number | false>,
+  suppressSnapRef?: React.RefObject<false | number>,
 ) {
   const [state, setState] = useState<PullState>(IDLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -97,12 +98,12 @@ export function usePullDownToRefresh(
     // scrollbar inset, ResizeObserver three-mode branching) to the extracted
     // sentinel layout engine. See useSentinelLayout.ts for full docs.
     const cleanupLayout = attachSentinelLayout(
-      { viewport, sentinel, wrapper, scrollRoot: root },
+      { scrollRoot: root, sentinel, viewport, wrapper },
       suppressSnapRef,
       {
-        touchActive: touchActiveRef,
         holding: holdingRef,
         pulling: pullingRef,
+        touchActive: touchActiveRef,
       },
     );
 
@@ -114,16 +115,16 @@ export function usePullDownToRefresh(
       if (committedRef.current && !disabledRef.current) {
         holdingRef.current = true;
         viewport.scrollTo({
-          top: SENTINEL_SCROLL_OFFSET - HOLD_PULL_PX,
           behavior: "smooth",
+          top: SENTINEL_SCROLL_OFFSET - HOLD_PULL_PX,
         });
         onRefreshRef.current();
         snapTimerRef.current = setTimeout(() => {
           resetPull();
           if (height > 0) {
             viewport.scrollTo({
-              top: SENTINEL_SCROLL_OFFSET,
               behavior: "smooth",
+              top: SENTINEL_SCROLL_OFFSET,
             });
           }
         }, REFRESH_HOLD_MS);
@@ -192,8 +193,8 @@ export function usePullDownToRefresh(
         const h = sh();
         if (h > 0) {
           viewport.scrollTo({
-            top: SENTINEL_SCROLL_OFFSET,
             behavior: "smooth",
+            top: SENTINEL_SCROLL_OFFSET,
           });
         }
       }
@@ -214,8 +215,8 @@ export function usePullDownToRefresh(
       const height = sh();
       if (height > 0 && viewport.scrollTop < SENTINEL_SCROLL_OFFSET) {
         viewport.scrollTo({
-          top: SENTINEL_SCROLL_OFFSET,
           behavior: "smooth",
+          top: SENTINEL_SCROLL_OFFSET,
         });
       }
     };
@@ -273,8 +274,8 @@ export function usePullDownToRefresh(
   return {
     pulling: state.pulling,
     readyToRefresh: state.readyToRefresh,
-    sentinelRef,
     sentinelHeight: SENTINEL_HEIGHT,
+    sentinelRef,
   };
 }
 

@@ -4,7 +4,7 @@ beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 describe("core/reader-item-id", () => {
   test("encodes and decodes hex/decimal reader ids", async () => {
-    const { toReaderItemId, parseReaderItemId } =
+    const { parseReaderItemId, toReaderItemId } =
       await import("@/lib/core/stream-ids");
 
     const encoded = toReaderItemId(255);
@@ -19,9 +19,9 @@ describe("core/reader-item-id", () => {
 describe("core/feed-parser", () => {
   test("date parsing, dedupe, ranges, and item mapping", async () => {
     const {
-      parseFeedItemDate,
       dedupePendingArticles,
       getPublicationDateRange,
+      parseFeedItemDate,
       toPendingArticle,
     } = await import("@/lib/core/feed-parser");
 
@@ -33,20 +33,20 @@ describe("core/feed-parser", () => {
     const now = new Date("2024-01-02T00:00:00.000Z");
     const items = [
       {
-        title: "Old",
-        link: " https://example.com/a ",
-        publicationDate: fallback,
         content: "x",
         feedId: 1,
         lastChecked: now,
+        link: " https://example.com/a ",
+        publicationDate: fallback,
+        title: "Old",
       },
       {
-        title: "New",
-        link: "https://example.com/a",
-        publicationDate: now,
         content: "long content",
         feedId: 1,
         lastChecked: now,
+        link: "https://example.com/a",
+        publicationDate: now,
+        title: "New",
       },
     ];
 
@@ -60,10 +60,10 @@ describe("core/feed-parser", () => {
 
     const mapped = toPendingArticle(
       {
-        title: "A",
+        contentSnippet: "snippet",
         link: "https://example.com/post",
         pubDate: "2024-01-03T00:00:00.000Z",
-        contentSnippet: "snippet",
+        title: "A",
       },
       7,
       now,

@@ -1,10 +1,12 @@
-import { logger } from "@/lib/logger";
-import { NextResponse } from "next/server";
 import { isIP } from "node:net";
 
+import { NextResponse } from "next/server";
+
+import { logger } from "@/lib/logger";
+
 interface RateLimitConfig {
-  windowMs: number;
   maxAttempts: number;
+  windowMs: number;
 }
 
 interface RateLimitEntry {
@@ -21,10 +23,10 @@ const MAX_RATE_LIMIT_ENTRIES = 100000;
  * For production with multiple servers, use Redis-based rate limiting.
  */
 export class RateLimiter {
-  private store = new Map<string, RateLimitEntry>();
-  private readonly cleanupTimer: ReturnType<typeof setInterval>;
   /** Cached once per instance so env is not re-read on every request. */
   private _trustedProxyCount: number | undefined;
+  private readonly cleanupTimer: ReturnType<typeof setInterval>;
+  private store = new Map<string, RateLimitEntry>();
 
   // Clean up expired entries every 5 minutes
   constructor() {
@@ -39,6 +41,66 @@ export class RateLimiter {
     // when it is the only remaining handle — important during tests and
     // hot-module reload where the module may be discarded before the timer fires.
     this.cleanupTimer.unref();
+  }
+
+  check(
+    request: Request,
+    key: string,
+    config: RateLimitConfig,
+  ): NextResponse | null {
+    const clientId = this.getClientIdentifier(request);
+    const rateLimitKey = `${key}:${clientId}`;
+    const now = Date.now();
+
+    const entry = this.store.get(rateLimitKey);
+
+    // Evict expired entry immediately (don't wait for periodic cleanup)
+    if (entry && entry.resetAt < now) {
+      this.store.delete(rateLimitKey);
+    }
+
+    // No entry or expired entry
+    if (!entry || entry.resetAt < now) {
+      this.store.set(rateLimitKey, {
+        count: 1,
+        resetAt: now + config.windowMs,
+      });
+      // SECURITY: Enforce bound after every insertion to prevent OOM
+      this.enforceBound();
+      return null;
+    }
+
+    // Increment count
+    entry.count += 1;
+
+    // Check if limit exceeded
+    if (entry.count > config.maxAttempts) {
+      const resetInSeconds = Math.ceil((entry.resetAt - now) / 1000);
+
+      logger.warn("Rate limit exceeded", {
+        clientId,
+        count: entry.count,
+        key,
+        maxAttempts: config.maxAttempts,
+      });
+
+      return NextResponse.json(
+        {
+          error: `Too many requests. Please try again in ${resetInSeconds} seconds.`,
+        },
+        {
+          headers: {
+            "Retry-After": String(resetInSeconds),
+            "X-RateLimit-Limit": String(config.maxAttempts),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
+          },
+          status: 429,
+        },
+      );
+    }
+
+    return null;
   }
 
   /** Cancels the periodic cleanup interval. Call during test teardown. */
@@ -102,8 +164,10 @@ export class RateLimiter {
     if (this._trustedProxyCount === undefined) {
       const raw = Number(process.env.TRUSTED_PROXY_COUNT ?? "1");
       if (!Number.isFinite(raw)) {
+        const configuredProxyCount =
+          process.env.TRUSTED_PROXY_COUNT ?? "undefined";
         logger.error(
-          `Invalid TRUSTED_PROXY_COUNT: "${process.env.TRUSTED_PROXY_COUNT}". Defaulting to 1.`,
+          `Invalid TRUSTED_PROXY_COUNT: "${configuredProxyCount}". Defaulting to 1.`,
         );
         this._trustedProxyCount = 1;
         return "unknown";
@@ -146,66 +210,6 @@ export class RateLimiter {
     // User-agent is intentionally NOT used: a shared UA across many genuine
     // users funnels them into one bucket; a bot that picks a unique UA escapes.
     return "unknown";
-  }
-
-  check(
-    request: Request,
-    key: string,
-    config: RateLimitConfig,
-  ): NextResponse | null {
-    const clientId = this.getClientIdentifier(request);
-    const rateLimitKey = `${key}:${clientId}`;
-    const now = Date.now();
-
-    const entry = this.store.get(rateLimitKey);
-
-    // Evict expired entry immediately (don't wait for periodic cleanup)
-    if (entry && entry.resetAt < now) {
-      this.store.delete(rateLimitKey);
-    }
-
-    // No entry or expired entry
-    if (!entry || entry.resetAt < now) {
-      this.store.set(rateLimitKey, {
-        count: 1,
-        resetAt: now + config.windowMs,
-      });
-      // SECURITY: Enforce bound after every insertion to prevent OOM
-      this.enforceBound();
-      return null;
-    }
-
-    // Increment count
-    entry.count += 1;
-
-    // Check if limit exceeded
-    if (entry.count > config.maxAttempts) {
-      const resetInSeconds = Math.ceil((entry.resetAt - now) / 1000);
-
-      logger.warn("Rate limit exceeded", {
-        key,
-        clientId,
-        count: entry.count,
-        maxAttempts: config.maxAttempts,
-      });
-
-      return NextResponse.json(
-        {
-          error: `Too many requests. Please try again in ${resetInSeconds} seconds.`,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(resetInSeconds),
-            "X-RateLimit-Limit": String(config.maxAttempts),
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
-          },
-        },
-      );
-    }
-
-    return null;
   }
 }
 

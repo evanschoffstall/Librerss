@@ -15,11 +15,8 @@
  * In that case: zero DB queries.
  */
 
-import { CONFIG } from "@/lib/config";
-import type { getDb } from "@/lib/db/db";
-import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
-import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
+
 import {
   type ArticleRow,
   buildRefreshPlan,
@@ -42,56 +39,57 @@ import {
   shouldRefreshFeed,
 } from "./feed-refresh";
 
-type FeedFetcherDependencies = {
-  ensureFeedRecordByUrl: typeof ensureFeedRecordByUrl;
+import { CONFIG } from "@/lib/config";
+import type { getDb } from "@/lib/db/db";
+import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
+import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
+
+interface FeedFetcherDependencies {
   buildRefreshPlan: typeof buildRefreshPlan;
-  executeParallelRefreshes: typeof executeParallelRefreshes;
-  mapRowsToArticleMap: typeof mapRowsToArticleMap;
-  queryTopArticlesPerFeed: typeof queryTopArticlesPerFeed;
-  resolveAuthorizedFeedRecords: typeof resolveAuthorizedFeedRecords;
-  getCachedBatch: typeof getCachedBatch;
-  invalidateUserCache: typeof invalidateUserCache;
-  setCachedBatch: typeof setCachedBatch;
   diagInfo: typeof diagInfo;
   diagWarn: typeof diagWarn;
+  ensureFeedRecordByUrl: typeof ensureFeedRecordByUrl;
+  executeParallelRefreshes: typeof executeParallelRefreshes;
+  getCachedBatch: typeof getCachedBatch;
+  invalidateUserCache: typeof invalidateUserCache;
+  mapRowsToArticleMap: typeof mapRowsToArticleMap;
+  queryTopArticlesPerFeed: typeof queryTopArticlesPerFeed;
   refreshFeedFromUpstream: typeof refreshFeedFromUpstream;
+  resolveAuthorizedFeedRecords: typeof resolveAuthorizedFeedRecords;
+  setCachedBatch: typeof setCachedBatch;
   shouldForceRefreshFeed: typeof shouldForceRefreshFeed;
   shouldRefreshFeed: typeof shouldRefreshFeed;
-};
+}
 
 const defaultFeedFetcherDependencies: FeedFetcherDependencies = {
-  ensureFeedRecordByUrl,
   buildRefreshPlan,
-  executeParallelRefreshes,
-  mapRowsToArticleMap,
-  queryTopArticlesPerFeed,
-  resolveAuthorizedFeedRecords,
-  getCachedBatch,
-  invalidateUserCache,
-  setCachedBatch,
   diagInfo,
   diagWarn,
+  ensureFeedRecordByUrl,
+  executeParallelRefreshes,
+  getCachedBatch,
+  invalidateUserCache,
+  mapRowsToArticleMap,
+  queryTopArticlesPerFeed,
   refreshFeedFromUpstream,
+  resolveAuthorizedFeedRecords,
+  setCachedBatch,
   shouldForceRefreshFeed,
   shouldRefreshFeed,
 };
 
 let feedFetcherDependencies = defaultFeedFetcherDependencies;
 
-export function setFeedFetcherDependenciesForTesting(
-  overrides: Partial<FeedFetcherDependencies>,
-): void {
-  feedFetcherDependencies = {
-    ...defaultFeedFetcherDependencies,
-    ...overrides,
-  };
+interface BatchFeedResult {
+  articles: Map<string, ArticleRow[]>;
+  cachedCount: number;
+  cooldownLimitedCount: number;
+  errors: Map<string, string>;
+  lastFetchedByUrl: Map<string, Date>;
+  refreshedCount: number;
+  /** How the system resolved the request: memory cache, DB cache, or upstream fetch. */
+  resolution: "cache" | "memory" | "upstream";
 }
-
-export function resetFeedFetcherDependenciesForTesting(): void {
-  feedFetcherDependencies = defaultFeedFetcherDependencies;
-}
-
-// ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Returned when the authenticated user doesn't own the requested feed source. */
 class FeedSourceNotFoundError extends Error {
@@ -101,266 +99,7 @@ class FeedSourceNotFoundError extends Error {
   }
 }
 
-export function isFeedSourceNotFoundError(
-  error: unknown,
-): error is FeedSourceNotFoundError {
-  return (
-    error instanceof FeedSourceNotFoundError ||
-    (error instanceof Error && error.name === "FeedSourceNotFoundError")
-  );
-}
-
-// ─── Batch fetch ──────────────────────────────────────────────────────────────
-
-type BatchFeedResult = {
-  articles: Map<string, ArticleRow[]>;
-  errors: Map<string, string>;
-  refreshedCount: number;
-  cachedCount: number;
-  cooldownLimitedCount: number;
-  /** How the system resolved the request: memory cache, DB cache, or upstream fetch. */
-  resolution: "memory" | "cache" | "upstream";
-  lastFetchedByUrl: Map<string, Date>;
-};
-
-function buildEmptyBatchResult(): BatchFeedResult {
-  return {
-    articles: new Map(),
-    errors: new Map(),
-    refreshedCount: 0,
-    cachedCount: 0,
-    cooldownLimitedCount: 0,
-    resolution: "cache",
-    lastFetchedByUrl: new Map(),
-  };
-}
-
-export async function fetchAndCacheFeedArticlesBatch(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  feedUrls: string[],
-  {
-    skipRefresh = false,
-    forceRefresh = false,
-    requestSource = "unspecified",
-  }: {
-    skipRefresh?: boolean;
-    forceRefresh?: boolean;
-    requestSource?: string;
-  } = {},
-): Promise<BatchFeedResult> {
-  if (feedUrls.length === 0) return buildEmptyBatchResult();
-
-  feedFetcherDependencies.diagInfo("Batch feed fetch started", {
-    userId,
-    requestedUrlCount: feedUrls.length,
-    skipRefresh,
-    forceRefresh,
-    requestSource,
-  });
-
-  // ── Per-user force-refresh cooldown (DB-backed, survives restarts) ───────
-  // Atomically check + claim: UPDATE returns a row only when the cooldown has
-  // elapsed, preventing concurrent requests from both passing the gate.
-  if (forceRefresh) {
-    const claimed = await db
-      .update(users)
-      .set({ lastForceRefreshedAt: new Date() })
-      .where(
-        and(
-          eq(users.id, userId),
-          sql`("last_force_refreshed_at" IS NULL OR "last_force_refreshed_at" < now() - (${CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES} * interval '1 minute'))`,
-        ),
-      )
-      .returning({ id: users.id });
-
-    if (claimed.length === 0) {
-      diagInfo("Force refresh blocked by per-user DB cooldown", {
-        userId,
-        requestSource,
-      });
-      forceRefresh = false;
-    }
-  }
-
-  // ── In-memory cache fast path (zero DB queries) ──────────────────────────
-  // Non-force requests: serve from memory if a cached result exists.
-  // Force requests: serve from memory only when every feed is still within
-  // the force-refresh cooldown — going to DB would produce the same result.
-  const cached = feedFetcherDependencies.getCachedBatch(userId, feedUrls);
-  if (cached) {
-    const allWithinCooldown =
-      forceRefresh &&
-      [...cached.lastFetchedByUrl.values()].every(
-        (d) => !feedFetcherDependencies.shouldForceRefreshFeed(d),
-      );
-
-    if (!forceRefresh || allWithinCooldown) {
-      const cachedCount = feedUrls.length;
-      feedFetcherDependencies.diagInfo(
-        "Batch feed fetch served from memory cache",
-        {
-          userId,
-          requestSource,
-          feedCount: cachedCount,
-          forceRefreshCooldownHit: allWithinCooldown,
-        },
-      );
-      return {
-        articles: cached.articles,
-        errors: cached.errors,
-        refreshedCount: 0,
-        cachedCount,
-        cooldownLimitedCount: allWithinCooldown ? cachedCount : 0,
-        resolution: "memory" as const,
-        lastFetchedByUrl: cached.lastFetchedByUrl,
-      };
-    }
-  }
-
-  // ── DB path: resolve ownership + feed records ────────────────────────────
-  const resolved = await feedFetcherDependencies.resolveAuthorizedFeedRecords(
-    db,
-    userId,
-    feedUrls,
-  );
-  if (!resolved) {
-    feedFetcherDependencies.diagWarn("Batch feed fetch denied: no owned URLs", {
-      userId,
-      requestedUrlCount: feedUrls.length,
-    });
-    return buildEmptyBatchResult();
-  }
-
-  const { allowedUrls, feedByUrl } = resolved;
-
-  feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
-    userId,
-    requestSource,
-    allowedUrlCount: allowedUrls.length,
-    missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
-    plan: feedFetcherDependencies.buildRefreshPlan(
-      feedByUrl,
-      allowedUrls,
-      skipRefresh,
-      forceRefresh,
-    ),
-  });
-
-  const {
-    errors: upstreamErrors,
-    refreshedCount,
-    cooldownLimitedCount,
-    refreshedUrls,
-  } = await feedFetcherDependencies.executeParallelRefreshes(
-    db,
-    feedByUrl,
-    allowedUrls,
-    skipRefresh,
-    forceRefresh,
-  );
-
-  if (!skipRefresh) {
-    if (refreshedCount > 0) {
-      feedFetcherDependencies.diagInfo("Batch feed upstream refresh executed", {
-        userId,
-        requestSource,
-        refreshedFeedCount: refreshedCount,
-        failedFeedCount: upstreamErrors.size,
-        failedUrls: [...upstreamErrors.keys()],
-      });
-    } else {
-      feedFetcherDependencies.diagInfo(
-        "Batch feed refresh skipped: all feeds fresh",
-        {
-          userId,
-          requestSource,
-          allowedUrlCount: allowedUrls.length,
-        },
-      );
-    }
-  }
-
-  const feedIds = allowedUrls
-    .map((u) => feedByUrl.get(u)?.id)
-    .filter((id): id is number => id !== undefined);
-
-  if (feedIds.length === 0) {
-    return {
-      articles: new Map(allowedUrls.map((u) => [u, []])),
-      errors: upstreamErrors,
-      refreshedCount,
-      cachedCount: allowedUrls.length - refreshedCount,
-      cooldownLimitedCount,
-      resolution:
-        refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
-      lastFetchedByUrl: new Map(),
-    };
-  }
-
-  // Derive lastFetchedByUrl from feed records. For feeds refreshed this cycle,
-  // use current time instead of stale pre-refresh timestamps so the memory
-  // cache stores accurate values for subsequent cooldown checks.
-  const now = new Date();
-  const lastFetchedByUrl = new Map<string, Date>(
-    allowedUrls
-      .map((u): [string, Date] | null => {
-        if (refreshedUrls.has(u)) return [u, now];
-        const feed = feedByUrl.get(u);
-        return feed ? [u, feed.lastFetched] : null;
-      })
-      .filter((e): e is [string, Date] => e !== null),
-  );
-
-  const rows = await feedFetcherDependencies.queryTopArticlesPerFeed(
-    db,
-    userId,
-    feedIds,
-  );
-  const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
-    rows,
-    feedByUrl,
-    allowedUrls,
-  );
-
-  feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
-    userId,
-    requestSource,
-    feedCount: articleMap.size,
-    totalArticles: rows.length,
-    upstreamErrorCount: upstreamErrors.size,
-    articlesByUrl: [...articleMap.entries()].map(([url, items]) => ({
-      url,
-      articleCount: items.length,
-      newestReturnedPublicationDate:
-        items.length > 0 ? items[0]!.publicationDate.toISOString() : null,
-      upstreamError: upstreamErrors.get(url) ?? null,
-    })),
-  });
-
-  // ── Populate in-memory cache ─────────────────────────────────────────────
-  // When feeds were refreshed upstream, other cached URL-set entries for this
-  // user may contain stale article data. Invalidate everything first, then
-  // store the fresh result so subsequent requests hit the cache.
-  if (refreshedCount > 0) feedFetcherDependencies.invalidateUserCache(userId);
-  feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
-    articles: articleMap,
-    errors: upstreamErrors,
-    lastFetchedByUrl,
-  });
-
-  return {
-    articles: articleMap,
-    errors: upstreamErrors,
-    refreshedCount,
-    cachedCount: allowedUrls.length - refreshedCount,
-    cooldownLimitedCount,
-    resolution: refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
-    lastFetchedByUrl,
-  };
-}
-
-// ─── Single-feed wrapper ──────────────────────────────────────────────────────
+// ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Thrown when an upstream feed refresh fails so callers can return a proper error. */
 class UpstreamFeedError extends Error {
@@ -368,15 +107,6 @@ class UpstreamFeedError extends Error {
     super(`Upstream feed fetch failed for ${feedUrl}: ${cause}`);
     this.name = "UpstreamFeedError";
   }
-}
-
-export function isUpstreamFeedError(
-  error: unknown,
-): error is UpstreamFeedError {
-  return (
-    error instanceof UpstreamFeedError ||
-    (error instanceof Error && error.name === "UpstreamFeedError")
-  );
 }
 
 /**
@@ -421,15 +151,15 @@ export async function fetchAndCacheFeedArticles(
 
   return db
     .select({
-      id: articles.id,
-      title: articles.title,
-      link: articles.link,
       content: articles.content,
-      publicationDate: articles.publicationDate,
       feedId: articles.feedId,
-      lastChecked: articles.lastChecked,
+      id: articles.id,
       isRead: sql<boolean>`coalesce(${articleStatuses.isRead}, false)`,
       isStarred: sql<boolean>`coalesce(${articleStatuses.isStarred}, false)`,
+      lastChecked: articles.lastChecked,
+      link: articles.link,
+      publicationDate: articles.publicationDate,
+      title: articles.title,
     })
     .from(articles)
     .leftJoin(
@@ -442,4 +172,276 @@ export async function fetchAndCacheFeedArticles(
     .where(eq(articles.feedId, feed.id))
     .orderBy(desc(articles.publicationDate))
     .limit(CONFIG.MAX_ARTICLES_PER_FEED);
+}
+
+// ─── Batch fetch ──────────────────────────────────────────────────────────────
+
+export async function fetchAndCacheFeedArticlesBatch(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  feedUrls: string[],
+  {
+    forceRefresh = false,
+    requestSource = "unspecified",
+    skipRefresh = false,
+  }: {
+    forceRefresh?: boolean;
+    requestSource?: string;
+    skipRefresh?: boolean;
+  } = {},
+): Promise<BatchFeedResult> {
+  if (feedUrls.length === 0) return buildEmptyBatchResult();
+
+  feedFetcherDependencies.diagInfo("Batch feed fetch started", {
+    forceRefresh,
+    requestedUrlCount: feedUrls.length,
+    requestSource,
+    skipRefresh,
+    userId,
+  });
+
+  // ── Per-user force-refresh cooldown (DB-backed, survives restarts) ───────
+  // Atomically check + claim: UPDATE returns a row only when the cooldown has
+  // elapsed, preventing concurrent requests from both passing the gate.
+  if (forceRefresh) {
+    const claimed = await db
+      .update(users)
+      .set({ lastForceRefreshedAt: new Date() })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`("last_force_refreshed_at" IS NULL OR "last_force_refreshed_at" < now() - (${CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES} * interval '1 minute'))`,
+        ),
+      )
+      .returning({ id: users.id });
+
+    if (claimed.length === 0) {
+      diagInfo("Force refresh blocked by per-user DB cooldown", {
+        requestSource,
+        userId,
+      });
+      forceRefresh = false;
+    }
+  }
+
+  // ── In-memory cache fast path (zero DB queries) ──────────────────────────
+  // Non-force requests: serve from memory if a cached result exists.
+  // Force requests: serve from memory only when every feed is still within
+  // the force-refresh cooldown — going to DB would produce the same result.
+  const cached = feedFetcherDependencies.getCachedBatch(userId, feedUrls);
+  if (cached) {
+    const allWithinCooldown =
+      forceRefresh &&
+      [...cached.lastFetchedByUrl.values()].every(
+        (d) => !feedFetcherDependencies.shouldForceRefreshFeed(d),
+      );
+
+    if (!forceRefresh || allWithinCooldown) {
+      const cachedCount = feedUrls.length;
+      feedFetcherDependencies.diagInfo(
+        "Batch feed fetch served from memory cache",
+        {
+          feedCount: cachedCount,
+          forceRefreshCooldownHit: allWithinCooldown,
+          requestSource,
+          userId,
+        },
+      );
+      return {
+        articles: cached.articles,
+        cachedCount,
+        cooldownLimitedCount: allWithinCooldown ? cachedCount : 0,
+        errors: cached.errors,
+        lastFetchedByUrl: cached.lastFetchedByUrl,
+        refreshedCount: 0,
+        resolution: "memory" as const,
+      };
+    }
+  }
+
+  // ── DB path: resolve ownership + feed records ────────────────────────────
+  const resolved = await feedFetcherDependencies.resolveAuthorizedFeedRecords(
+    db,
+    userId,
+    feedUrls,
+  );
+  if (!resolved) {
+    feedFetcherDependencies.diagWarn("Batch feed fetch denied: no owned URLs", {
+      requestedUrlCount: feedUrls.length,
+      userId,
+    });
+    return buildEmptyBatchResult();
+  }
+
+  const { allowedUrls, feedByUrl } = resolved;
+
+  feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
+    allowedUrlCount: allowedUrls.length,
+    missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
+    plan: feedFetcherDependencies.buildRefreshPlan(
+      feedByUrl,
+      allowedUrls,
+      skipRefresh,
+      forceRefresh,
+    ),
+    requestSource,
+    userId,
+  });
+
+  const {
+    cooldownLimitedCount,
+    errors: upstreamErrors,
+    refreshedCount,
+    refreshedUrls,
+  } = await feedFetcherDependencies.executeParallelRefreshes(
+    db,
+    feedByUrl,
+    allowedUrls,
+    skipRefresh,
+    forceRefresh,
+  );
+
+  if (!skipRefresh) {
+    if (refreshedCount > 0) {
+      feedFetcherDependencies.diagInfo("Batch feed upstream refresh executed", {
+        failedFeedCount: upstreamErrors.size,
+        failedUrls: [...upstreamErrors.keys()],
+        refreshedFeedCount: refreshedCount,
+        requestSource,
+        userId,
+      });
+    } else {
+      feedFetcherDependencies.diagInfo(
+        "Batch feed refresh skipped: all feeds fresh",
+        {
+          allowedUrlCount: allowedUrls.length,
+          requestSource,
+          userId,
+        },
+      );
+    }
+  }
+
+  const feedIds = allowedUrls
+    .map((u) => feedByUrl.get(u)?.id)
+    .filter((id): id is number => id !== undefined);
+
+  if (feedIds.length === 0) {
+    return {
+      articles: new Map(allowedUrls.map((u) => [u, []])),
+      cachedCount: allowedUrls.length - refreshedCount,
+      cooldownLimitedCount,
+      errors: upstreamErrors,
+      lastFetchedByUrl: new Map(),
+      refreshedCount,
+      resolution:
+        refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
+    };
+  }
+
+  // Derive lastFetchedByUrl from feed records. For feeds refreshed this cycle,
+  // use current time instead of stale pre-refresh timestamps so the memory
+  // cache stores accurate values for subsequent cooldown checks.
+  const now = new Date();
+  const lastFetchedByUrl = new Map<string, Date>(
+    allowedUrls
+      .map((u): [string, Date] | null => {
+        if (refreshedUrls.has(u)) return [u, now];
+        const feed = feedByUrl.get(u);
+        return feed ? [u, feed.lastFetched] : null;
+      })
+      .filter((e): e is [string, Date] => e !== null),
+  );
+
+  const rows = await feedFetcherDependencies.queryTopArticlesPerFeed(
+    db,
+    userId,
+    feedIds,
+  );
+  const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
+    rows,
+    feedByUrl,
+    allowedUrls,
+  );
+
+  feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
+    articlesByUrl: [...articleMap.entries()].map(([url, items]) => ({
+      articleCount: items.length,
+      newestReturnedPublicationDate:
+        items.length > 0 ? items[0].publicationDate.toISOString() : null,
+      upstreamError: upstreamErrors.get(url) ?? null,
+      url,
+    })),
+    feedCount: articleMap.size,
+    requestSource,
+    totalArticles: rows.length,
+    upstreamErrorCount: upstreamErrors.size,
+    userId,
+  });
+
+  // ── Populate in-memory cache ─────────────────────────────────────────────
+  // When feeds were refreshed upstream, other cached URL-set entries for this
+  // user may contain stale article data. Invalidate everything first, then
+  // store the fresh result so subsequent requests hit the cache.
+  if (refreshedCount > 0) feedFetcherDependencies.invalidateUserCache(userId);
+  feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
+    articles: articleMap,
+    errors: upstreamErrors,
+    lastFetchedByUrl,
+  });
+
+  return {
+    articles: articleMap,
+    cachedCount: allowedUrls.length - refreshedCount,
+    cooldownLimitedCount,
+    errors: upstreamErrors,
+    lastFetchedByUrl,
+    refreshedCount,
+    resolution: refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
+  };
+}
+
+export function isFeedSourceNotFoundError(
+  error: unknown,
+): error is FeedSourceNotFoundError {
+  return (
+    error instanceof FeedSourceNotFoundError ||
+    (error instanceof Error && error.name === "FeedSourceNotFoundError")
+  );
+}
+
+export function isUpstreamFeedError(
+  error: unknown,
+): error is UpstreamFeedError {
+  return (
+    error instanceof UpstreamFeedError ||
+    (error instanceof Error && error.name === "UpstreamFeedError")
+  );
+}
+
+// ─── Single-feed wrapper ──────────────────────────────────────────────────────
+
+export function resetFeedFetcherDependenciesForTesting(): void {
+  feedFetcherDependencies = defaultFeedFetcherDependencies;
+}
+
+export function setFeedFetcherDependenciesForTesting(
+  overrides: Partial<FeedFetcherDependencies>,
+): void {
+  feedFetcherDependencies = {
+    ...defaultFeedFetcherDependencies,
+    ...overrides,
+  };
+}
+
+function buildEmptyBatchResult(): BatchFeedResult {
+  return {
+    articles: new Map(),
+    cachedCount: 0,
+    cooldownLimitedCount: 0,
+    errors: new Map(),
+    lastFetchedByUrl: new Map(),
+    refreshedCount: 0,
+    resolution: "cache",
+  };
 }

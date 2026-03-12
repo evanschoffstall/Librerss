@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
@@ -12,36 +15,10 @@ import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { logAndRespondError, requireMutableRequest } from "@/lib/server";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
-import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
-type SignupPayload = {
+interface SignupPayload {
   email: string;
   password: string;
-};
-
-function parseSignupPayload(
-  payload: Record<string, unknown>,
-): SignupPayload | Response {
-  const email = normalizeEmailInput(payload.email);
-  const password = payload.password;
-
-  if (!email || !isValidEmail(email)) {
-    logger.warn("Signup attempt with invalid email", {
-      email: email ? "provided" : "missing",
-    });
-    return jsonError("A valid email is required", 400);
-  }
-
-  if (typeof password !== "string" || !isStrongPassword(password)) {
-    logger.warn("Signup attempt with weak password", { email });
-    return jsonError(
-      `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters and include at least 3 of: uppercase letter, lowercase letter, number, special character`,
-      400,
-    );
-  }
-
-  return { email, password };
 }
 
 export async function POST(request: NextRequest) {
@@ -49,8 +26,8 @@ export async function POST(request: NextRequest) {
     const requestError = requireMutableRequest(request, {
       rateLimit: {
         key: "signup",
-        windowMs: CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS,
         maxAttempts: CONFIG.RATE_LIMIT_SIGNUP_MAX_ATTEMPTS,
+        windowMs: CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS,
       },
     });
     if (requestError) {
@@ -105,7 +82,7 @@ export async function POST(request: NextRequest) {
     const [createdUser] = await db
       .insert(users)
       .values({ email, passwordHash })
-      .returning({ id: users.id, email: users.email });
+      .returning({ email: users.email, id: users.id });
 
     if (!createdUser) {
       logger.error("Failed to create user during signup", { email });
@@ -116,8 +93,8 @@ export async function POST(request: NextRequest) {
     const token = await createSession(createdUser.id);
 
     logger.info("User signed up successfully", {
-      userId: createdUser.id,
       email: createdUser.email,
+      userId: createdUser.id,
     });
 
     const response = NextResponse.json({ user: createdUser }, { status: 201 });
@@ -135,4 +112,28 @@ export async function POST(request: NextRequest) {
 
     return logAndRespondError("Signup error", error);
   }
+}
+
+function parseSignupPayload(
+  payload: Record<string, unknown>,
+): Response | SignupPayload {
+  const email = normalizeEmailInput(payload.email);
+  const password = payload.password;
+
+  if (!email || !isValidEmail(email)) {
+    logger.warn("Signup attempt with invalid email", {
+      email: email ? "provided" : "missing",
+    });
+    return jsonError("A valid email is required", 400);
+  }
+
+  if (typeof password !== "string" || !isStrongPassword(password)) {
+    logger.warn("Signup attempt with weak password", { email });
+    return jsonError(
+      `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters and include at least 3 of: uppercase letter, lowercase letter, number, special character`,
+      400,
+    );
+  }
+
+  return { email, password };
 }

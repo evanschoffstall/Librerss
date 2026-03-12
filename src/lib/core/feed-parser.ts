@@ -3,33 +3,27 @@
  * Pure transformations: no IO, no DB access.
  */
 
-import { parseDateOrFallback } from "@/lib/utils/dates";
+import Parser from "rss-parser";
+
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
 } from "@/lib/sanitize";
+import { parseDateOrFallback } from "@/lib/utils/dates";
 import { isValidUrl } from "@/lib/utils/url";
-import Parser from "rss-parser";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PendingArticle = {
-  title: string;
-  link: string;
-  publicationDate: Date;
+export interface PendingArticle {
   content: string;
   feedId: number;
   lastChecked: Date;
-};
+  link: string;
+  publicationDate: Date;
+  title: string;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-export function parseFeedItemDate(
-  value: string | undefined,
-  fallback: Date,
-): Date {
-  return parseDateOrFallback(value, fallback);
-}
 
 export function dedupePendingArticles(
   items: PendingArticle[],
@@ -63,8 +57,8 @@ export function dedupePendingArticles(
 }
 
 export function getPublicationDateRange(items: PendingArticle[]): {
-  newestPublicationDate: string | null;
-  oldestPublicationDate: string | null;
+  newestPublicationDate: null | string;
+  oldestPublicationDate: null | string;
 } {
   if (items.length === 0) {
     return { newestPublicationDate: null, oldestPublicationDate: null };
@@ -77,11 +71,18 @@ export function getPublicationDateRange(items: PendingArticle[]): {
   };
 }
 
+export function parseFeedItemDate(
+  value: string | undefined,
+  fallback: Date,
+): Date {
+  return parseDateOrFallback(value, fallback);
+}
+
 export function toPendingArticle(
   item: Parser.Item & { contentEncoded?: string },
   feedId: number,
   now: Date,
-): PendingArticle | null {
+): null | PendingArticle {
   if (!item.title || !item.link || !isValidUrl(item.link)) return null;
 
   // Prefer content:encoded (full article) over content/contentSnippet (excerpt)
@@ -90,11 +91,11 @@ export function toPendingArticle(
     item.contentEncoded || item.content || item.contentSnippet || "";
 
   return {
-    title: sanitizeArticleTitle(item.title),
-    link: item.link,
-    publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
     content: sanitizeAndTruncateArticleContent(rawContent),
     feedId,
     lastChecked: now,
+    link: item.link,
+    publicationDate: parseFeedItemDate(item.isoDate ?? item.pubDate, now),
+    title: sanitizeArticleTitle(item.title),
   };
 }

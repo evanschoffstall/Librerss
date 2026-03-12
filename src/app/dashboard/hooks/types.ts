@@ -1,12 +1,14 @@
-import type { Article, CategoryTreeNode } from "@/lib";
 import type { Dispatch, SetStateAction } from "react";
+
 import type { FeedSelectionFetchers } from "../services/selection";
+
+import type { Article, CategoryTreeNode } from "@/lib";
 
 export type FeedSourceActionState = FeedSelectionFetchers & {
   categories: CategoryTreeNode[];
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setCategories: Dispatch<SetStateAction<CategoryTreeNode[]>>;
-  setSelectedCategory: Dispatch<SetStateAction<string>>;
   setFeed: Dispatch<SetStateAction<Article[]>>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  setSelectedCategory: Dispatch<SetStateAction<string>>;
 };

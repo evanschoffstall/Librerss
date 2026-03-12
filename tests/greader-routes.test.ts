@@ -1,32 +1,29 @@
-import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { NextRequest } from "next/server";
+
+import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
-type SelectBehavior = {
-  limitResult?: unknown;
+interface SelectBehavior {
   limitError?: unknown;
-  whereResult?: unknown;
+  limitResult?: unknown;
   offsetResult?: unknown;
-};
+  whereResult?: unknown;
+}
 
 const selectBehaviors: SelectBehavior[] = [];
 
 function createSelectBuilder(behavior: SelectBehavior) {
-  let terminal: "where" | "limit" | "offset" | null = null;
+  let terminal: "limit" | "offset" | "where" | null = null;
 
   const builder = {
     from: () => builder,
+    groupBy: () => builder,
     innerJoin: () => builder,
     leftJoin: () => builder,
-    groupBy: () => builder,
-    orderBy: () => builder,
-    where: () => {
-      terminal = "where";
-      return builder;
-    },
     limit: () => {
       terminal = "limit";
       return builder;
@@ -35,12 +32,13 @@ function createSelectBuilder(behavior: SelectBehavior) {
       terminal = "offset";
       return builder;
     },
+    orderBy: () => builder,
     then: <TResult1 = unknown, TResult2 = never>(
       onfulfilled?:
-        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+        | ((value: unknown) => PromiseLike<TResult1> | TResult1)
         | null,
       onrejected?:
-        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+        | ((reason: unknown) => PromiseLike<TResult2> | TResult2)
         | null,
     ): Promise<TResult1 | TResult2> => {
       const valuePromise = (() => {
@@ -63,6 +61,10 @@ function createSelectBuilder(behavior: SelectBehavior) {
       })();
 
       return Promise.resolve(valuePromise).then(onfulfilled, onrejected);
+    },
+    where: () => {
+      terminal = "where";
+      return builder;
     },
   };
 
@@ -107,13 +109,13 @@ describe("greader route compatibility contracts", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/subscription/edit",
       {
-        method: "POST",
+        body: "ac=unsubscribe&s=feed/https%3A%2F%2Fone.example%2Frss.xml",
         headers: {
+          "content-type": "application/x-www-form-urlencoded",
           cookie: "librerss_session=session-token",
           "sec-fetch-site": "cross-site",
-          "content-type": "application/x-www-form-urlencoded",
         },
-        body: "ac=unsubscribe&s=feed/https%3A%2F%2Fone.example%2Frss.xml",
+        method: "POST",
       },
     );
 
@@ -159,12 +161,12 @@ describe("greader route compatibility contracts", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/accounts/ClientLogin",
       {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-          "content-length": "70000",
-        },
         body: "Email=test@example.com&Passwd=password",
+        headers: {
+          "content-length": "70000",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        method: "POST",
       },
     );
 
@@ -190,11 +192,11 @@ describe("greader route compatibility contracts", () => {
         },
       },
       {
-        whereResult: [
+        offsetResult: [
           { articleId: 42, isRead: false, isStarred: false },
           { articleId: 255, isRead: false, isStarred: false },
         ],
-        offsetResult: [
+        whereResult: [
           { articleId: 42, isRead: false, isStarred: false },
           { articleId: 255, isRead: false, isStarred: false },
         ],
@@ -219,8 +221,8 @@ describe("greader route compatibility contracts", () => {
     });
 
     const payload = (await response.json()) as {
-      itemRefs: Array<{ id: string }>;
       continuation?: string;
+      itemRefs: { id: string }[];
     };
 
     expect(response.status).toBe(200);
@@ -239,18 +241,18 @@ describe("greader route compatibility contracts", () => {
       {
         whereResult: [
           {
+            category: "Tech",
+            feedId: 10,
             sourceId: 1,
             title: "Feed One",
             url: "https://one.example/rss.xml",
-            feedId: 10,
-            category: "Tech",
           },
           {
+            category: null,
+            feedId: null,
             sourceId: 2,
             title: "Feed Two",
             url: "https://two.example/rss.xml",
-            feedId: null,
-            category: null,
           },
         ],
       },
@@ -278,12 +280,12 @@ describe("greader route compatibility contracts", () => {
     });
 
     const payload = (await response.json()) as {
-      subscriptions: Array<{
+      subscriptions: {
+        categories: { id: string; label: string }[];
+        iconUrl: string;
         id: string;
         title: string;
-        iconUrl: string;
-        categories: Array<{ id: string; label: string }>;
-      }>;
+      }[];
     };
 
     expect(response.status).toBe(200);
@@ -314,11 +316,11 @@ describe("greader route compatibility contracts", () => {
       {
         whereResult: [
           {
+            category: null,
+            feedId: 30,
             sourceId: 3,
             title: "BBC World",
             url: "https://feeds.bbci.co.uk/news/world/rss.xml",
-            feedId: 30,
-            category: null,
           },
         ],
       },
@@ -350,9 +352,9 @@ describe("greader route compatibility contracts", () => {
     });
 
     const payload = (await response.json()) as {
-      subscriptions: Array<{
-        categories: Array<{ id: string; label: string }>;
-      }>;
+      subscriptions: {
+        categories: { id: string; label: string }[];
+      }[];
     };
 
     expect(response.status).toBe(200);
@@ -393,7 +395,7 @@ describe("greader route compatibility contracts", () => {
     });
 
     const payload = (await response.json()) as {
-      tags: Array<{ id: string }>;
+      tags: { id: string }[];
     };
 
     expect(response.status).toBe(200);
@@ -435,7 +437,7 @@ describe("greader route compatibility contracts", () => {
     });
 
     const payload = (await response.json()) as {
-      tags: Array<{ id: string }>;
+      tags: { id: string }[];
     };
 
     expect(response.status).toBe(200);
@@ -464,10 +466,10 @@ describe("greader route compatibility contracts", () => {
     });
 
     const payload = (await response.json()) as {
+      isBloggerUser: boolean;
+      userEmail: string;
       userId: string;
       userName: string;
-      userEmail: string;
-      isBloggerUser: boolean;
     };
 
     expect(response.status).toBe(200);
@@ -523,12 +525,12 @@ describe("greader route compatibility contracts", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/edit-tag",
       {
-        method: "POST",
+        body: "i=tag:google.com,2005:reader/item/1&a=user/-/state/com.google/starred",
         headers: {
           authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
           "content-type": "application/x-www-form-urlencoded",
         },
-        body: "i=tag:google.com,2005:reader/item/1&a=user/-/state/com.google/starred",
+        method: "POST",
       },
     );
 
@@ -550,10 +552,10 @@ describe("greader route compatibility contracts", () => {
     const request = new NextRequest(
       "https://example.com/api/greader.php/reader/api/0/stream/items/ids?s=user/-/state/com.google/reading-list&n=1",
       {
-        method: "POST",
         headers: {
           authorization: `GoogleLogin auth=${PLACEHOLDER_ADMIN_USER.sessionToken}`,
         },
+        method: "POST",
       },
     );
 
@@ -570,32 +572,32 @@ describe("greader route compatibility contracts", () => {
     selectBehaviors.push(
       { whereResult: [{ url: "https://one.example/rss.xml" }] },
       {
-        whereResult: [
-          {
-            articleId: 101,
-            title: "From stream contents",
-            link: "https://one.example/articles/101",
-            content: "<p>hello</p>",
-            publicationDate: new Date("2024-01-01T00:00:00.000Z"),
-            sourceName: "One",
-            sourceUrl: "https://one.example/rss.xml",
-            category: null,
-            isRead: false,
-            isStarred: false,
-          },
-        ],
         offsetResult: [
           {
             articleId: 101,
-            title: "From stream contents",
-            link: "https://one.example/articles/101",
+            category: null,
             content: "<p>hello</p>",
+            isRead: false,
+            isStarred: false,
+            link: "https://one.example/articles/101",
             publicationDate: new Date("2024-01-01T00:00:00.000Z"),
             sourceName: "One",
             sourceUrl: "https://one.example/rss.xml",
+            title: "From stream contents",
+          },
+        ],
+        whereResult: [
+          {
+            articleId: 101,
             category: null,
+            content: "<p>hello</p>",
             isRead: false,
             isStarred: false,
+            link: "https://one.example/articles/101",
+            publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+            sourceName: "One",
+            sourceUrl: "https://one.example/rss.xml",
+            title: "From stream contents",
           },
         ],
       },

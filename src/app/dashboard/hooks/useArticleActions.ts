@@ -1,15 +1,18 @@
 "use client";
 
-import { ArticleService, type Article, type CategoryTreeNode } from "@/lib";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { getArticleKey } from "../services/article-collection";
+
 import {
-  useArticleHydration,
   type FeedExtractionSettings,
+  useArticleHydration,
 } from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
 import { useScrollPin } from "./useScrollPin";
+
+import { type Article, ArticleService, type CategoryTreeNode } from "@/lib";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
 
@@ -17,40 +20,40 @@ export const toggleReadStatus = (isRead: boolean) => !isRead;
 export const toggleStarredStatus = (isStarred: boolean) => !isStarred;
 
 interface UseArticleActionsOptions {
-  feed: Article[];
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  expandedArticleKey: string | null;
-  setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
-  articleFilter: "all" | "unread" | "read" | "starred";
-  usePlaceholderData?: boolean;
+  articleFilter: "all" | "read" | "starred" | "unread";
   categories?: CategoryTreeNode[];
   distillStrategy?: string;
+  expandedArticleKey: null | string;
+  feed: Article[];
   /** Called when any article begins expanding; settles scroll restore. */
   onExpand?: () => void;
+  setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   /**
    * Scroll-pin coordinate ref shared with usePullDownToRefresh.
    * See useScrollPin.ts for the full three-mode protocol documentation.
    */
-  suppressSnapRef?: React.RefObject<number | false>;
+  suppressSnapRef?: React.RefObject<false | number>;
+  usePlaceholderData?: boolean;
 }
 
 export function useArticleActions({
-  feed,
-  setFeed,
-  expandedArticleKey,
-  setExpandedArticleKey,
   articleFilter,
-  usePlaceholderData = false,
   categories,
   distillStrategy,
+  expandedArticleKey,
+  feed,
   onExpand,
+  setExpandedArticleKey,
+  setFeed,
   suppressSnapRef,
+  usePlaceholderData = false,
 }: UseArticleActionsOptions) {
   const {
-    updatingArticleState,
-    setUpdatingArticleState,
-    setArticleReadState,
     handleToggleReadState,
+    setArticleReadState,
+    setUpdatingArticleState,
+    updatingArticleState,
   } = useArticleReadState({ setFeed, usePlaceholderData });
 
   // Build a feedUrl → settings lookup from the category tree
@@ -70,13 +73,13 @@ export function useArticleActions({
   }, [categories]);
 
   const {
+    cancelHydration,
+    hydrateArticleContent,
     hydratedArticleLinks,
     hydratingArticleLinks,
-    hydrateArticleContent,
-    cancelHydration,
-  } = useArticleHydration({ setFeed, getFeedSettings, distillStrategy });
-  const autoHydratedExpandedKeyRef = useRef<string | null>(null);
-  const awaitingExpandedSyncKeyRef = useRef<string | null>(null);
+  } = useArticleHydration({ distillStrategy, getFeedSettings, setFeed });
+  const autoHydratedExpandedKeyRef = useRef<null | string>(null);
+  const awaitingExpandedSyncKeyRef = useRef<null | string>(null);
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
   // is restored from sessionStorage but hydratedArticleLinks is in-memory only.
@@ -122,9 +125,9 @@ export function useArticleActions({
   feedRef.current = feed;
 
   const scrollPin = useScrollPin(suppressSnapRef);
-  const collapseRemovalTimeoutRef = useRef<number | null>(null);
+  const collapseRemovalTimeoutRef = useRef<null | number>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
-    string | null
+    null | string
   >(null);
 
   useEffect(
@@ -287,14 +290,14 @@ export function useArticleActions({
   );
 
   return {
-    updatingArticleState,
-    hydratedArticleLinks,
-    hydratingArticleLinks,
     collapsingArticleKey,
     handleArticleToggle,
     handleExpandedSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
+    hydratedArticleLinks,
+    hydratingArticleLinks,
     setArticleReadState,
+    updatingArticleState,
   };
 }

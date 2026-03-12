@@ -7,11 +7,11 @@ describe("lib/core/feed-parser additional coverage", () => {
     const { toPendingArticle } = await import("@/lib/core/feed-parser");
 
     const item = {
-      title: "Test Article",
-      link: "https://example.com/article",
-      pubDate: "2024-01-01T00:00:00Z",
       content: "<p>Content</p>",
       contentSnippet: "Content",
+      link: "https://example.com/article",
+      pubDate: "2024-01-01T00:00:00Z",
+      title: "Test Article",
     };
 
     const result = toPendingArticle(item, 1, new Date());
@@ -28,9 +28,9 @@ describe("lib/core/feed-parser additional coverage", () => {
     const { toPendingArticle } = await import("@/lib/core/feed-parser");
 
     const item = {
-      title: "Test",
       link: "javascript:alert(1)",
       pubDate: "2024-01-01T00:00:00Z",
+      title: "Test",
     };
 
     const result = toPendingArticle(item, 1, new Date());
@@ -41,8 +41,8 @@ describe("lib/core/feed-parser additional coverage", () => {
     const { toPendingArticle } = await import("@/lib/core/feed-parser");
 
     const item = {
-      title: "Test",
       pubDate: "2024-01-01T00:00:00Z",
+      title: "Test",
     };
 
     const result = toPendingArticle(item, 1, new Date());

@@ -24,13 +24,6 @@ const RELATED_HEADING_RELATED_PREFIXES = [
   "you may also like",
 ] as const;
 
-function normalizePhrase(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[\s_-]+/g, " ")
-    .trim();
-}
-
 export function hasApJunkClass(attrs: string): boolean {
   const normalized = normalizePhrase(attrs);
   return AP_JUNK_CLASS_MARKERS.some((marker) => normalized.includes(marker));
@@ -67,11 +60,18 @@ export function isRelatedHeading(headingText: string): boolean {
 export function readAttrValue(
   attrsStr: string,
   attrName: string,
-): string | null {
+): null | string {
   const re = /\b([a-z][a-z0-9:-]*)=["']([^"']*)['"]/gi;
-  let m: RegExpExecArray | null;
+  let m: null | RegExpExecArray;
   while ((m = re.exec(attrsStr)) !== null) {
     if (m[1]?.toLowerCase() === attrName) return m[2] ?? null;
   }
   return null;
+}
+
+function normalizePhrase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ")
+    .trim();
 }

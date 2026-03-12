@@ -1,47 +1,49 @@
 "use client";
 
-import { type CategoryTreeNode } from "@/lib";
 import { useCallback } from "react";
+
 import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
   type FeedSelectionFetchers,
   refreshCurrentSelection,
 } from "../services/selection";
 
+import { type CategoryTreeNode } from "@/lib";
+
 type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
-  selectedCategory: string;
-  selectedFeedUrl?: string;
-  selectedCategoryNode?: CategoryTreeNode;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  onFeedSwitch: () => void;
   onBeforeRefresh?: () => void;
+  onFeedSwitch: () => void;
+  selectedCategory: string;
+  selectedCategoryNode?: CategoryTreeNode;
+  selectedFeedUrl?: string;
+  setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 };
 
 export function useDashboardViewHandlers({
-  selectedCategory,
-  selectedFeedUrl,
-  selectedCategoryNode,
-  setSelectedCategory,
-  setIsMobileSidebarOpen,
   fetchAllFeeds,
-  fetchFeed,
   fetchCategoryFeeds,
-  onFeedSwitch,
+  fetchFeed,
   onBeforeRefresh,
+  onFeedSwitch,
+  selectedCategory,
+  selectedCategoryNode,
+  selectedFeedUrl,
+  setIsMobileSidebarOpen,
+  setSelectedCategory,
 }: UseDashboardViewHandlersOptions) {
   const handleRefreshSelection = useCallback(() => {
     onBeforeRefresh?.();
     refreshCurrentSelection({
-      selectedCategory,
-      selectedFeedUrl,
-      selectedCategoryNode,
       fetchAllFeeds,
-      fetchFeed,
       fetchCategoryFeeds,
+      fetchFeed,
       forceRefresh: true,
-      requestSource: "manual-refresh",
       keepExistingFeed: true,
+      requestSource: "manual-refresh",
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
     });
   }, [
     onBeforeRefresh,
@@ -56,15 +58,15 @@ export function useDashboardViewHandlers({
   const handleAutoRefreshSelection = useCallback(() => {
     onBeforeRefresh?.();
     refreshCurrentSelection({
-      selectedCategory,
-      selectedFeedUrl,
-      selectedCategoryNode,
       fetchAllFeeds,
-      fetchFeed,
       fetchCategoryFeeds,
+      fetchFeed,
       forceRefresh: false,
-      requestSource: "auto-refresh",
       keepExistingFeed: true,
+      requestSource: "auto-refresh",
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
     });
   }, [
     onBeforeRefresh,
@@ -111,10 +113,10 @@ export function useDashboardViewHandlers({
   );
 
   return {
-    refreshFeedList: handleRefreshSelection,
     autoRefreshFeedList: handleAutoRefreshSelection,
-    handleRefreshSelection,
-    handleFeedClick,
     handleCategoryClick,
+    handleFeedClick,
+    handleRefreshSelection,
+    refreshFeedList: handleRefreshSelection,
   };
 }

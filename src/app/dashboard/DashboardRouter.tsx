@@ -1,11 +1,9 @@
 "use client";
 
-import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
-import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+
 import {
   ParticlesBackground,
   ParticlesBackgroundLight,
@@ -16,6 +14,10 @@ import { LoginView } from "./components/login/LoginView";
 import type { BackgroundMode } from "./constants";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
+
+import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
 
 export function DashboardRouter() {
   const searchParams = useSearchParams();
@@ -104,8 +106,8 @@ export function DashboardRouter() {
       <main className="h-full overflow-hidden bg-background">
         <div className="relative flex h-full items-center justify-center px-4">
           <div
-            className="pointer-events-none absolute size-64 rounded-full bg-primary/5 blur-3xl"
             aria-hidden="true"
+            className="pointer-events-none absolute size-64 rounded-full bg-primary/5 blur-3xl"
           />
           <div className="relative w-full max-w-3xl space-y-2">
             <Skeleton className="h-8 w-full rounded-xl" />
@@ -122,8 +124,8 @@ export function DashboardRouter() {
     return (
       <main className="h-full overflow-hidden bg-background">
         <LoginView
-          onAuthenticated={setCurrentUser}
           allowSignup={allowSignup}
+          onAuthenticated={setCurrentUser}
           onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
         />
       </main>
@@ -148,11 +150,11 @@ export function DashboardRouter() {
       ) : null}
       <div className="relative z-10 h-full">
         <DashboardView
-          usePlaceholderData={isPreviewMode || usePlaceholderData}
           backgroundMode={backgroundMode}
-          onBackgroundModeChange={setBackgroundMode}
           distillStrategy={distillStrategy}
+          onBackgroundModeChange={setBackgroundMode}
           onDistillStrategyChange={setDistillStrategy}
+          usePlaceholderData={isPreviewMode || usePlaceholderData}
         />
       </div>
     </main>

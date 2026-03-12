@@ -1,5 +1,8 @@
 "use client";
 
+import { Palette } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,10 +12,76 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Palette } from "lucide-react";
-import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "theme-notice-dismissed";
+
+export function ThemeNoticeDialog() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    // Check if user has already seen the notice
+    const dismissed = localStorage.getItem(STORAGE_KEY);
+    if (dismissed) {
+      return;
+    }
+
+    // Small delay to allow extensions to inject their modifications
+    const timer = setTimeout(() => {
+      const extensionDetected = detectVisualAdjustmentExtensions();
+      if (extensionDetected) {
+        setOpen(true);
+      }
+    }, 1200);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const handleDismiss = () => {
+    localStorage.setItem(STORAGE_KEY, "true");
+    setOpen(false);
+  };
+
+  return (
+    <Dialog
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleDismiss();
+        }
+      }}
+      open={open}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="gap-3">
+          <div className="mx-auto flex items-center justify-center">
+            <div className="relative flex size-12 items-center justify-center">
+              <div
+                aria-hidden="true"
+                className="absolute size-[4.5rem] rounded-full border border-border/15"
+              />
+              <div className="relative flex size-12 items-center justify-center rounded-full border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm">
+                <Palette className="size-5 text-primary" />
+              </div>
+            </div>
+          </div>
+          <DialogTitle className="text-center">
+            Native Theme Support
+          </DialogTitle>
+          <DialogDescription className="text-center">
+            LibreRSS ships carefully crafted dark and light themes. Disable Dark
+            Reader or similar extensions for the best experience.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="sm:justify-center">
+          <Button className="w-full sm:w-auto" onClick={handleDismiss}>
+            Got it
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /**
  * Detects if Dark Reader or similar visual adjustment extensions are active
@@ -52,71 +121,5 @@ function detectVisualAdjustmentExtensions(): boolean {
 
   return commonExtensionMarkers.some((attr) =>
     document.documentElement.hasAttribute(attr),
-  );
-}
-
-export function ThemeNoticeDialog() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    // Check if user has already seen the notice
-    const dismissed = localStorage.getItem(STORAGE_KEY);
-    if (dismissed) {
-      return;
-    }
-
-    // Small delay to allow extensions to inject their modifications
-    const timer = setTimeout(() => {
-      const extensionDetected = detectVisualAdjustmentExtensions();
-      if (extensionDetected) {
-        setOpen(true);
-      }
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleDismiss = () => {
-    localStorage.setItem(STORAGE_KEY, "true");
-    setOpen(false);
-  };
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          handleDismiss();
-        }
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="gap-3">
-          <div className="mx-auto flex items-center justify-center">
-            <div className="relative flex size-12 items-center justify-center">
-              <div
-                className="absolute size-[4.5rem] rounded-full border border-border/15"
-                aria-hidden="true"
-              />
-              <div className="relative flex size-12 items-center justify-center rounded-full border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm">
-                <Palette className="size-5 text-primary" />
-              </div>
-            </div>
-          </div>
-          <DialogTitle className="text-center">
-            Native Theme Support
-          </DialogTitle>
-          <DialogDescription className="text-center">
-            LibreRSS ships carefully crafted dark and light themes. Disable Dark
-            Reader or similar extensions for the best experience.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="sm:justify-center">
-          <Button onClick={handleDismiss} className="w-full sm:w-auto">
-            Got it
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

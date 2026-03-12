@@ -1,13 +1,19 @@
+import axios from "axios";
+import { CookieJar } from "tough-cookie";
+
+import {
+  ARTICLE_EXTRACT_SEC_CH_UA,
+  EXTRACT_403_RETRIES,
+  EXTRACT_FINGERPRINT_POOL,
+  PROXY_FINGERPRINT_POOL,
+} from "./constants";
+
 import { toBodySnippet } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
-import { redactUrlForLogs } from "@/lib/utils/url";
-import axios from "axios";
-import { CookieJar } from "tough-cookie";
 import {
+  type BotDetection,
   buildAxiosGet,
   buildDdgReferer,
   buildProxyConfig,
@@ -16,27 +22,23 @@ import {
   GotScrapingError,
   pickDiagnosticHeaders,
   SOCKS_PROTOCOLS,
-  type BotDetection,
 } from "@/lib/fetch";
-import {
-  ARTICLE_EXTRACT_SEC_CH_UA,
-  EXTRACT_403_RETRIES,
-  EXTRACT_FINGERPRINT_POOL,
-  PROXY_FINGERPRINT_POOL,
-} from "./constants";
+import { logger } from "@/lib/logger";
+import { toErrorMessage } from "@/lib/utils/errors";
+import { redactUrlForLogs } from "@/lib/utils/url";
 
-type FetchHtmlDeps = {
-  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+interface FetchHtmlDeps {
   axiosGetFn?: typeof axios.get;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
-  fingerprintFetchFn?: typeof fetchHtmlWithFingerprint;
   delayFn?: (ms: number) => Promise<void>;
-};
+  fingerprintFetchFn?: typeof fetchHtmlWithFingerprint;
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
+}
 
 interface FetchHtmlOptions {
-  useProxy?: boolean;
-  proxyUrl?: string;
   allowInsecureTls?: boolean;
+  proxyUrl?: string;
+  useProxy?: boolean;
 }
 
 export async function fetchHtml(
@@ -75,26 +77,26 @@ export async function fetchHtml(
           url,
           isAllowedUrl,
           {
-            proxyUrl: options.proxyUrl,
-            allowInsecureTls: options.allowInsecureTls,
-            cookieJar: new CookieJar(),
             accept: fp.accept,
-            referer: proxyReferer,
+            allowInsecureTls: options.allowInsecureTls,
             browserVersion: fp.chromeVersion,
+            cookieJar: new CookieJar(),
+            proxyUrl: options.proxyUrl,
+            referer: proxyReferer,
             secChUa: fp.secChUa,
           },
         );
         logger.info(
           `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
           {
-            url,
+            allowInsecureTls: options.allowInsecureTls ?? false,
             attempt: attempt + 1,
             attempts,
-            proxyMode,
-            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
-            allowInsecureTls: options.allowInsecureTls ?? false,
             headers: sentHeaders,
+            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
+            proxyMode,
             responseBodyLength: html.length,
+            url,
           },
         );
         return html;
@@ -128,23 +130,23 @@ export async function fetchHtml(
         logger.error(
           `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
           {
-            url,
+            allowInsecureTls: options.allowInsecureTls ?? false,
             attempt: attempt + 1,
             attempts,
-            proxyMode: gsErr?.proxyMode ?? proxyMode,
-            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
-            allowInsecureTls: options.allowInsecureTls ?? false,
             headers: gsErr?.requestHeaders,
+            proxyAddress: redactUrlForLogs(options.proxyUrl ?? ""),
+            proxyMode: gsErr?.proxyMode ?? proxyMode,
+            url,
             ...(gsErr && {
-              statusCode: gsErr.statusCode,
               redirectHop: gsErr.redirectHop,
               responseBodyLength: gsErr.responseBody.length,
               responseBodySnippet: toBodySnippet(gsErr.responseBody),
               responseHeaders: pickDiagnosticHeaders(gsErr.responseHeaders),
+              statusCode: gsErr.statusCode,
             }),
             error: err instanceof Error ? err.message : String(err),
             ...(ipBlocked && {
-              note: `${botProvider} challenge detected — requires JS execution or residential proxy to bypass`,
+              note: `${botProvider ?? "Unknown"} challenge detected — requires JS execution or residential proxy to bypass`,
             }),
             ...(!willRetry &&
               !ipBlocked &&
@@ -177,21 +179,21 @@ export async function fetchHtml(
     const directReferer = injectedGet ? undefined : buildDdgReferer(url);
 
     const requestHeaders: Record<string, string> = {
-      "User-Agent": ua,
       Accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "Accept-Language": "en-US,en;q=0.9",
       "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Accept-Language": "en-US,en;q=0.9",
       "Cache-Control": "max-age=0",
-      "Upgrade-Insecure-Requests": "1",
+      Priority: "u=0, i",
+      "sec-ch-ua": secChUa,
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": secChUaPlatform,
       "Sec-Fetch-Dest": "document",
       "Sec-Fetch-Mode": "navigate",
       "Sec-Fetch-Site": directReferer ? "cross-site" : "none",
       "Sec-Fetch-User": "?1",
-      "sec-ch-ua": secChUa,
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": secChUaPlatform,
-      Priority: "u=0, i",
+      "Upgrade-Insecure-Requests": "1",
+      "User-Agent": ua,
       ...(directReferer ? { Referer: directReferer } : undefined),
     } as Record<string, string>;
 
@@ -211,11 +213,6 @@ export async function fetchHtml(
     try {
       const html = await fetchTextWithValidatedRedirects(
         {
-          url,
-          maxRedirects: 5,
-          timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-          maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
-          headers: requestHeaders,
           assertAllowedUrl: async (candidateUrl) => {
             if (!(await isAllowedUrl(candidateUrl)))
               throw new Error(
@@ -223,9 +220,12 @@ export async function fetchHtml(
               );
             isFirstValidation = false;
           },
+          headers: requestHeaders,
+          maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+          maxRedirects: 5,
           onAxiosError: (error, isAxios) => {
             if (!isAxios(error)) return;
-            const { retryable, bot } = detectBotProtection(error, isAxiosError);
+            const { bot, retryable } = detectBotProtection(error, isAxiosError);
             if (bot.detected) {
               botDetection = bot;
               throw new Error(
@@ -234,6 +234,8 @@ export async function fetchHtml(
             }
             if (retryable) gotRetryable = true;
           },
+          timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+          url,
         },
         { axiosGetFn: axiosGet, isAxiosErrorFn: isAxiosError },
       );
@@ -241,14 +243,14 @@ export async function fetchHtml(
         logger.info(
           `Direct extraction attempt ${attempt + 1}/${attempts} succeeded`,
           {
-            url,
+            allowInsecureTls: insecureTls,
             attempt: attempt + 1,
             attempts,
-            proxyMode: axiosProxyMode,
-            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
-            allowInsecureTls: insecureTls,
             headers: requestHeaders,
+            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
+            proxyMode: axiosProxyMode,
             responseBodyLength: html.length,
+            url,
           },
         );
       return html;
@@ -260,14 +262,14 @@ export async function fetchHtml(
         logger.error(
           `Direct extraction attempt ${attempt + 1}/${attempts} failed (final)`,
           {
-            url,
+            allowInsecureTls: insecureTls,
             attempt: attempt + 1,
             attempts,
-            proxyMode: axiosProxyMode,
-            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
-            allowInsecureTls: insecureTls,
-            headers: requestHeaders,
             error: toErrorMessage(err),
+            headers: requestHeaders,
+            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
+            proxyMode: axiosProxyMode,
+            url,
           },
         );
       throw err;
@@ -280,18 +282,18 @@ export async function fetchHtml(
       BotDetection,
       { detected: true }
     >;
-    const { provider, challengeCookies } = detectedBot;
+    const { challengeCookies, provider } = detectedBot;
     const connectionMode = options?.useProxy ? "proxy" : "direct";
     const fallbackFp = PROXY_FINGERPRINT_POOL[0];
     const fpFallback = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
     const logCtx = {
-      url,
-      provider,
+      allowInsecureTls: options?.allowInsecureTls ?? false,
       connectionMode,
+      provider,
       proxyAddress: options?.useProxy
         ? redactUrlForLogs(options?.proxyUrl ?? "")
         : null,
-      allowInsecureTls: options?.allowInsecureTls ?? false,
+      url,
     };
     logger.info(
       `TLS fingerprint fallback started (${provider}, ${connectionMode})`,
@@ -311,10 +313,10 @@ export async function fetchHtml(
         url,
         isAllowedUrl,
         {
-          proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
-          allowInsecureTls: options?.allowInsecureTls,
           accept: fallbackFp.accept,
+          allowInsecureTls: options?.allowInsecureTls,
           cookieJar: fallbackJar,
+          proxyUrl: options?.useProxy ? options?.proxyUrl : undefined,
           referer: buildDdgReferer(url),
         },
       );
@@ -332,8 +334,8 @@ export async function fetchHtml(
         fallbackErr instanceof GotScrapingError ? fallbackErr : null;
       logger.error(`TLS fingerprint fallback failed (${provider})`, {
         ...logCtx,
-        headers: fallbackGsErr?.requestHeaders,
         error: toErrorMessage(fallbackErr),
+        headers: fallbackGsErr?.requestHeaders,
       });
     }
   }

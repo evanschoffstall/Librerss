@@ -1,26 +1,27 @@
 "use client";
 
-import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
 import Link from "next/link";
 
+import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 const features = [
   {
+    desc: "Access your feeds from anywhere",
     icon: Cloud,
     label: "Cloud Synced",
-    desc: "Access your feeds from anywhere",
   },
   {
+    desc: "No subscriptions, no ads",
     icon: Zap,
     label: "Instant & Free",
-    desc: "No subscriptions, no ads",
   },
   {
+    desc: "Add any source in seconds",
     icon: Rss,
     label: "Any RSS Feed",
-    desc: "Add any source in seconds",
   },
 ] as const;
 
@@ -78,10 +79,10 @@ const LandingView = () => {
           style={{ animationDelay: "var(--motion-delay-3)" }}
         >
           <div className="transition-transform anim-duration-ui anim-ease-ui hover:-translate-y-0.5">
-            <Button size="lg" className="h-12 px-8 text-base shadow-sm" asChild>
+            <Button asChild className="h-12 px-8 text-base shadow-sm" size="lg">
               <Link
-                href="/dashboard"
                 className="group inline-flex items-center"
+                href="/dashboard"
               >
                 Start Reading
                 <span className="landing-arrow-bob ml-2 inline-flex transition-transform anim-duration-ui anim-ease-ui group-hover:translate-x-1">
@@ -94,10 +95,10 @@ const LandingView = () => {
 
         {/* Feature pillars */}
         <div className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-3 sm:gap-4">
-          {features.map(({ icon: Icon, label, desc }, index) => (
+          {features.map(({ desc, icon: Icon, label }, index) => (
             <div
-              key={label}
               className="landing-reveal landing-feature group flex items-center gap-4 rounded-xl border border-border/20 p-4 transition-[transform,border-color,background-color] anim-duration-ui anim-ease-ui sm:flex-col sm:items-center sm:gap-3 sm:p-5 hover:-translate-y-1 hover:border-border/50 hover:bg-card/50"
+              key={label}
               style={{
                 animationDelay: `calc(var(--motion-delay-3) + (${index + 1} * var(--motion-delay-step)))`,
               }}
@@ -142,10 +143,10 @@ export default function Landing() {
             <p>
               Made with ❤️ by{" "}
               <a
-                href="https://github.com/evanschoffstall"
-                target="_blank"
-                rel="noreferrer"
                 className="underline-offset-2 hover:underline"
+                href="https://github.com/evanschoffstall"
+                rel="noreferrer"
+                target="_blank"
               >
                 Evan Schoffstall
               </a>

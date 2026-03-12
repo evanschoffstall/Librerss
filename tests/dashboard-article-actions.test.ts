@@ -4,14 +4,6 @@
  */
 
 import {
-  toggleReadStatus,
-  toggleStarredStatus,
-  useArticleActions,
-} from "@/app/dashboard/hooks/useArticleActions";
-import type { Article } from "@/lib";
-import { ArticleService } from "@/lib";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import {
   afterAll,
   afterEach,
   beforeAll,
@@ -21,7 +13,18 @@ import {
   mock,
   test,
 } from "bun:test";
+
+import { act, renderHook, waitFor } from "@testing-library/react";
+
 import { createMockArticle } from "./support/test-utils";
+
+import {
+  toggleReadStatus,
+  toggleStarredStatus,
+  useArticleActions,
+} from "@/app/dashboard/hooks/useArticleActions";
+import type { Article } from "@/lib";
+import { ArticleService } from "@/lib";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -76,17 +79,17 @@ describe("useArticleActions - State Management", () => {
   });
 
   const createMockArticle = (overrides?: Partial<Article>): Article => ({
-    id: 1,
-    title: "Test Article",
-    link: "https://example.com/article",
     content: "Test content",
-    publicationDate: new Date("2024-01-01"),
     feedId: 1,
     feedName: "Test Feed",
     feedUrl: "https://example.com/feed",
+    id: 1,
     isRead: false,
     isStarred: false,
     lastChecked: new Date(),
+    link: "https://example.com/article",
+    publicationDate: new Date("2024-01-01"),
+    title: "Test Article",
     ...overrides,
   });
 
@@ -104,11 +107,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -128,11 +131,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -156,11 +159,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -183,11 +186,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "starred",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -217,11 +220,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -251,11 +254,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "starred",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -277,11 +280,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -302,11 +305,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: articleKey,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: articleKey,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -327,11 +330,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -352,11 +355,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: articleKey,
-        setExpandedArticleKey,
         articleFilter: "unread",
+        expandedArticleKey: articleKey,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -378,11 +381,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -410,11 +413,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: articleKey,
-        setExpandedArticleKey,
         articleFilter: "unread",
+        expandedArticleKey: articleKey,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -440,11 +443,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -462,11 +465,11 @@ describe("useArticleActions - State Management", () => {
 
     const { unmount } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -482,11 +485,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article1, article2],
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "unread",
+        expandedArticleKey: null,
+        feed: [article1, article2],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -511,11 +514,11 @@ describe("useArticleActions - State Management", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: feedState,
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -537,11 +540,11 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: null,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: null,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -554,21 +557,21 @@ describe("useArticleActions - Article Hydration Integration", () => {
       id: 42,
       link: "https://example.com/reexpand",
     });
-    let expandedArticleKey: string | null = null;
+    let expandedArticleKey: null | string = null;
     const setFeed = mock(() => {});
     const setExpandedArticleKey = mock((updater: any) => {
       expandedArticleKey =
         typeof updater === "function" ? updater(expandedArticleKey) : updater;
     });
 
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       ({ expandedKey }) =>
         useArticleActions({
-          feed: [article],
-          setFeed,
-          expandedArticleKey: expandedKey,
-          setExpandedArticleKey,
           articleFilter: "all",
+          expandedArticleKey: expandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
         }),
       {
         initialProps: { expandedKey: expandedArticleKey },
@@ -619,11 +622,11 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: articleKey,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: articleKey,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -643,29 +646,29 @@ describe("useArticleActions - Article Hydration Integration", () => {
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
     Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
       value: 600,
       writable: true,
-      configurable: true,
     });
     Object.defineProperty(viewport, "scrollHeight", {
-      value: 2000,
       configurable: true,
+      value: 2000,
     });
     Object.defineProperty(viewport, "clientHeight", {
-      value: 400,
       configurable: true,
+      value: 400,
     });
     viewport.getBoundingClientRect = () =>
       ({
-        x: 0,
-        y: 100,
-        top: 100,
+        bottom: 500,
+        height: 400,
         left: 0,
         right: 500,
-        bottom: 500,
-        width: 500,
-        height: 400,
         toJSON: () => ({}),
+        top: 100,
+        width: 500,
+        x: 0,
+        y: 100,
       }) as DOMRect;
     viewport.scrollTo = mock(() => {}) as typeof viewport.scrollTo;
 
@@ -676,15 +679,15 @@ describe("useArticleActions - Article Hydration Integration", () => {
     );
     mockElement.getBoundingClientRect = () =>
       ({
-        x: 0,
-        y: 180,
-        top: 180,
+        bottom: 260,
+        height: 80,
         left: 0,
         right: 500,
-        bottom: 260,
-        width: 500,
-        height: 80,
         toJSON: () => ({}),
+        top: 180,
+        width: 500,
+        x: 0,
+        y: 180,
       }) as DOMRect;
     mockElement.closest = mock(() => viewport) as typeof mockElement.closest;
 
@@ -701,11 +704,11 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     const { result } = renderHook(() =>
       useArticleActions({
-        feed: [article],
-        setFeed,
-        expandedArticleKey: articleKey,
-        setExpandedArticleKey,
         articleFilter: "all",
+        expandedArticleKey: articleKey,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
       }),
     );
 
@@ -734,18 +737,18 @@ describe("useArticleActions - Article Hydration Integration", () => {
     const setExpandedArticleKey = mock(() => {});
 
     const { rerender } = renderHook(
-      ({ feed, expandedArticleKey }) =>
+      ({ expandedArticleKey, feed }) =>
         useArticleActions({
-          feed,
-          setFeed,
-          expandedArticleKey,
-          setExpandedArticleKey,
           articleFilter: "all",
+          expandedArticleKey,
+          feed,
+          setExpandedArticleKey,
+          setFeed,
         }),
       {
         initialProps: {
-          feed: [article],
           expandedArticleKey: article.link,
+          feed: [article],
         },
       },
     );
@@ -755,8 +758,8 @@ describe("useArticleActions - Article Hydration Integration", () => {
     });
 
     rerender({
-      feed: [{ ...article, content: "new feed content snapshot" }],
       expandedArticleKey: article.link,
+      feed: [{ ...article, content: "new feed content snapshot" }],
     });
 
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -776,21 +779,21 @@ describe("useArticleActions - Article Hydration Integration", () => {
         throw new Error("blocked");
       });
 
-    let expandedArticleKey: string | null = null;
+    let expandedArticleKey: null | string = null;
     const setFeed = mock(() => {});
     const setExpandedArticleKey = mock((updater: any) => {
       expandedArticleKey =
         typeof updater === "function" ? updater(expandedArticleKey) : updater;
     });
 
-    const { result, rerender } = renderHook(
+    const { rerender, result } = renderHook(
       ({ expandedKey }) =>
         useArticleActions({
-          feed: [article],
-          setFeed,
-          expandedArticleKey: expandedKey,
-          setExpandedArticleKey,
           articleFilter: "all",
+          expandedArticleKey: expandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
         }),
       { initialProps: { expandedKey: expandedArticleKey } },
     );

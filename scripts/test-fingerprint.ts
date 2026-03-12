@@ -32,11 +32,6 @@ function buildProxyUrl(
   return parsed.toString();
 }
 
-function redactProxyUrl(proxyUrl?: string): string {
-  if (!proxyUrl) return "Direct (no proxy)";
-  return proxyUrl.replace(/(\/\/)([^:]+):([^@]+)@/, "$1[user]:[pass]@");
-}
-
 async function checkFingerprint() {
   const baseProxyUrl =
     process.argv[2] || process.env.PROXY_URL || process.env.GLOBAL_PROXY_URL;
@@ -69,8 +64,8 @@ async function checkFingerprint() {
       FINGERPRINT_URL,
       async () => true, // Allow all URLs
       {
-        proxyUrl,
         allowInsecureTls,
+        proxyUrl,
       },
     );
 
@@ -144,6 +139,11 @@ async function checkFingerprint() {
     }
     process.exit(1);
   }
+}
+
+function redactProxyUrl(proxyUrl?: string): string {
+  if (!proxyUrl) return "Direct (no proxy)";
+  return proxyUrl.replace(/(\/\/)([^:]+):([^@]+)@/, "$1[user]:[pass]@");
 }
 
 checkFingerprint();

@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   asTrimmedString,
   buildAxiosFailureDiagnostics,
@@ -14,7 +16,6 @@ import {
   withRequestDeadline,
 } from "@/lib/api/http";
 import { parseDateOrNull } from "@/lib/utils/dates";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -52,17 +53,17 @@ describe("lib/api/reader-api", () => {
     const { readerItemToArticle } = await import("@/lib/api/http");
 
     const item = {
-      id: "tag:google.com,2005:reader/item/abc123",
-      title: "Test Article",
-      published: 1640000000,
       canonical: [{ href: "https://example.com/article" }],
-      summary: { content: "<p>Article content here</p>" },
+      categories: ["user/-/state/com.google/read"],
+      id: "tag:google.com,2005:reader/item/abc123",
       origin: {
+        htmlUrl: "https://example.com",
         streamId: "feed/https://example.com/feed.xml",
         title: "Example Feed",
-        htmlUrl: "https://example.com",
       },
-      categories: ["user/-/state/com.google/read"],
+      published: 1640000000,
+      summary: { content: "<p>Article content here</p>" },
+      title: "Test Article",
     };
 
     const result = readerItemToArticle(item, 0);
@@ -148,12 +149,12 @@ describe("lib/api/reader-api", () => {
     const { readerItemToArticle } = await import("@/lib/api/http");
 
     const item = {
-      title: "Placeholder",
       canonical: [{ href: "https://example.com/article" }],
       summary: {
         content:
           '<img style="display:block" src="https://static.files.bbci.co.uk/grey-placeholder.png" width="150" height="84" /><p>Body remains</p>',
       },
+      title: "Placeholder",
     };
 
     const result = readerItemToArticle(item, 0);
@@ -285,13 +286,13 @@ describe("lib/api/http/reader-mappers – readerItemToArticle", () => {
       await import("@/lib/api/http/reader-mappers");
     const { READ_STATE, STARRED_STATE } = await import("@/lib/core/stream-ids");
     const item = {
-      id: "tag:google.com,2005:reader/item/1a2b",
-      title: "Test Article",
       canonical: [{ href: "https://example.com/article" }],
+      categories: [READ_STATE, STARRED_STATE],
+      id: "tag:google.com,2005:reader/item/1a2b",
+      origin: { htmlUrl: "https://example.com", title: "Example Blog" },
       published: Math.floor(Date.now() / 1000) - 3600,
       summary: { content: "<p>content</p>" },
-      origin: { title: "Example Blog", htmlUrl: "https://example.com" },
-      categories: [READ_STATE, STARRED_STATE],
+      title: "Test Article",
     };
     const article = readerItemToArticle(item, 0);
     expect(article.title).toBe("Test Article");
@@ -326,9 +327,9 @@ describe("lib/api/http/request – parseJsonBodyOrResponse returns Response on b
   test("returns Response when body is not valid JSON (line 75)", async () => {
     const { parseJsonBodyOrResponse } = await import("@/lib/api/http/request");
     const req = new Request("https://dummy.local/api/endpoint", {
-      method: "POST",
       body: "not-valid-json!!!",
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseJsonBodyOrResponse(req);
     expect(result instanceof Response).toBe(true);
@@ -393,9 +394,9 @@ describe("request – parsing helpers", () => {
 describe("request – parseJsonBody", () => {
   test("parses valid JSON body", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: JSON.stringify({ name: "test" }),
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseJsonBody(request);
     expect(result.ok).toBe(true);
@@ -406,8 +407,8 @@ describe("request – parseJsonBody", () => {
 
   test("rejects empty body as invalid JSON", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: "",
+      method: "POST",
     });
     const result = await parseJsonBody(request);
     expect(result.ok).toBe(false);
@@ -415,9 +416,9 @@ describe("request – parseJsonBody", () => {
 
   test("rejects body exceeding content-length limit", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: "{}",
       headers: { "content-length": "999999999" },
+      method: "POST",
     });
     const result = await parseJsonBody(request, { maxBytes: 1024 });
     expect(result.ok).toBe(false);
@@ -425,8 +426,8 @@ describe("request – parseJsonBody", () => {
 
   test("rejects invalid JSON", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: "not json at all {{{",
+      method: "POST",
     });
     const result = await parseJsonBody(request);
     expect(result.ok).toBe(false);
@@ -434,9 +435,9 @@ describe("request – parseJsonBody", () => {
 
   test("parseJsonObjectBodyOrResponse rejects null payload", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: "null",
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseJsonObjectBodyOrResponse(request);
     expect(result).toBeInstanceOf(Response);
@@ -450,9 +451,9 @@ describe("request – parseJsonBody", () => {
 
   test("parseJsonObjectBodyOrResponse rejects array payload", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: JSON.stringify([1, 2, 3]),
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseJsonObjectBodyOrResponse(request);
     expect(result).toBeInstanceOf(Response);
@@ -463,9 +464,9 @@ describe("request – parseJsonBody", () => {
 
   test("parseJsonObjectBodyOrResponse accepts object payload", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: JSON.stringify({ name: "ok" }),
       headers: { "content-type": "application/json" },
+      method: "POST",
     });
     const result = await parseJsonObjectBodyOrResponse(request);
     expect(result).not.toBeInstanceOf(Response);
@@ -487,9 +488,9 @@ describe("request – parseFormOrQueryParams", () => {
 
   test("parses URL-encoded POST body", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: "username=test&password=secret",
       headers: { "content-type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
     const result = await parseFormOrQueryParams(request);
     expect(result).toBeInstanceOf(URLSearchParams);
@@ -498,12 +499,12 @@ describe("request – parseFormOrQueryParams", () => {
 
   test("rejects oversized POST body via content-length", async () => {
     const request = new Request("https://example.com/api", {
-      method: "POST",
       body: "x=y",
       headers: {
-        "content-type": "application/x-www-form-urlencoded",
         "content-length": "999999999",
+        "content-type": "application/x-www-form-urlencoded",
       },
+      method: "POST",
     });
     const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
     expect(result).toBeInstanceOf(Response);
@@ -537,47 +538,47 @@ describe("http diagnostics", () => {
       {
         code: "ECONNRESET",
         config: {
-          method: "get",
-          url: "https://example.com/feed.xml",
-          timeout: 2000,
-          maxRedirects: 3,
           headers: {
-            "User-Agent": "LibreRSS",
-            Authorization: "secret",
             Accept: ["application/xml", "text/xml"],
+            Authorization: "secret",
+            "User-Agent": "LibreRSS",
           },
+          maxRedirects: 3,
+          method: "get",
+          timeout: 2000,
+          url: "https://example.com/feed.xml",
         },
         response: {
-          status: 503,
-          statusText: "Service Unavailable",
+          data: "   temporary upstream failure   ",
           headers: {
-            Server: "cloudflare",
             "Retry-After": 120,
+            Server: "cloudflare",
             "Set-Cookie": "session=secret",
           },
-          data: "   temporary upstream failure   ",
+          status: 503,
+          statusText: "Service Unavailable",
         },
       },
       alwaysAxiosError,
     );
 
     expect(diagnostics).toMatchObject({
+      axiosErrorCode: "ECONNRESET",
+      requestMaxRedirects: 3,
+      requestTimeoutMs: 2000,
+      responseBodySnippet: "temporary upstream failure",
+      upstreamMethod: "GET",
       upstreamStatus: 503,
       upstreamStatusText: "Service Unavailable",
-      upstreamMethod: "GET",
       upstreamUrl: "https://example.com/feed.xml",
-      requestTimeoutMs: 2000,
-      requestMaxRedirects: 3,
-      axiosErrorCode: "ECONNRESET",
-      responseBodySnippet: "temporary upstream failure",
     });
     expect(diagnostics.requestHeaders).toEqual({
-      "user-agent": "LibreRSS",
       accept: "application/xml, text/xml",
+      "user-agent": "LibreRSS",
     });
     expect(diagnostics.responseHeaders).toEqual({
-      server: "cloudflare",
       "retry-after": "120",
+      server: "cloudflare",
     });
   });
 

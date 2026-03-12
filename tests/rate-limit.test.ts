@@ -1,5 +1,6 @@
-import { RateLimiter } from "@/lib/server";
 import { describe, expect, test } from "bun:test";
+
+import { RateLimiter } from "@/lib/server";
 
 describe("RateLimiter", () => {
   test("allows requests under limit", () => {
@@ -9,7 +10,7 @@ describe("RateLimiter", () => {
       headers: { "x-forwarded-for": "1.2.3.4" },
     });
 
-    const config = { windowMs: 60000, maxAttempts: 5 };
+    const config = { maxAttempts: 5, windowMs: 60000 };
 
     const result1 = limiter.check(request, "test", config);
     expect(result1).toBeNull();
@@ -27,7 +28,7 @@ describe("RateLimiter", () => {
       headers: { "x-forwarded-for": "1.2.3.5" },
     });
 
-    const config = { windowMs: 60000, maxAttempts: 2 };
+    const config = { maxAttempts: 2, windowMs: 60000 };
 
     limiter.check(request, "test", config);
     limiter.check(request, "test", config);
@@ -48,7 +49,7 @@ describe("RateLimiter", () => {
       headers: { "x-forwarded-for": "1.2.3.6" },
     });
 
-    const config = { windowMs: 10, maxAttempts: 1 };
+    const config = { maxAttempts: 1, windowMs: 10 };
 
     limiter.check(request, "test", config);
     const blocked = limiter.check(request, "test", config);
@@ -76,7 +77,7 @@ describe("RateLimiter", () => {
       headers: { "x-forwarded-for": "10.0.0.2, 192.168.1.1" },
     });
 
-    const config = { windowMs: 60000, maxAttempts: 1 };
+    const config = { maxAttempts: 1, windowMs: 60000 };
 
     limiter.check(request1, "test", config);
     const blocked = limiter.check(request1, "test", config);
@@ -95,7 +96,7 @@ describe("RateLimiter", () => {
 
     try {
       const limiter = new RateLimiter();
-      const config = { windowMs: 60000, maxAttempts: 1 };
+      const config = { maxAttempts: 1, windowMs: 60000 };
 
       const request1 = new Request("https://example.com", {
         headers: { "x-forwarded-for": "203.0.113.1, 10.0.0.1" },
@@ -124,7 +125,7 @@ describe("RateLimiter", () => {
 
     try {
       const limiter = new RateLimiter();
-      const config = { windowMs: 60000, maxAttempts: 1 };
+      const config = { maxAttempts: 1, windowMs: 60000 };
 
       const request1 = new Request("https://example.com", {
         headers: { "x-forwarded-for": "203.0.113.10, 10.0.0.2, 10.0.0.3" },
@@ -155,7 +156,7 @@ describe("RateLimiter", () => {
 
     try {
       const limiter = new RateLimiter();
-      const config = { windowMs: 60000, maxAttempts: 1 };
+      const config = { maxAttempts: 1, windowMs: 60000 };
 
       const request1 = new Request("https://example.com", {
         headers: { "x-forwarded-for": "203.0.113.10, 10.0.0.5" },
@@ -185,7 +186,7 @@ describe("RateLimiter", () => {
       headers: { "x-real-ip": "8.8.8.8" },
     });
 
-    const config = { windowMs: 60000, maxAttempts: 1 };
+    const config = { maxAttempts: 1, windowMs: 60000 };
 
     expect(limiter.check(request, "test", config)).toBeNull();
     const blocked = limiter.check(request, "test", config);
@@ -200,7 +201,7 @@ describe("RateLimiter", () => {
     const request1 = new Request("https://example.com");
     const request2 = new Request("https://example.com");
 
-    const config = { windowMs: 60000, maxAttempts: 1 };
+    const config = { maxAttempts: 1, windowMs: 60000 };
 
     limiter.check(request1, "test", config);
     // Both should share the same "unknown" bucket
@@ -217,7 +218,7 @@ describe("RateLimiter", () => {
       headers: { "x-forwarded-for": "1.2.3.7" },
     });
 
-    const config = { windowMs: 10, maxAttempts: 1 };
+    const config = { maxAttempts: 1, windowMs: 10 };
 
     limiter.check(request, "test", config);
 
@@ -239,7 +240,7 @@ describe("RateLimiter", () => {
       headers: { "x-forwarded-for": "1.2.3.8" },
     });
 
-    const config = { windowMs: 60000, maxAttempts: 1 };
+    const config = { maxAttempts: 1, windowMs: 60000 };
 
     limiter.check(request, "key1", config);
     const blocked1 = limiter.check(request, "key1", config);
@@ -275,8 +276,8 @@ describe("lib/server/rate-limit – edge cases", () => {
     });
 
     const result = rateLimiter.check(req, "test-rate-limit-key", {
-      windowMs: 60_000,
       maxAttempts: 100,
+      windowMs: 60_000,
     });
 
     expect(result).toBeNull();
@@ -297,7 +298,7 @@ describe("lib/server/rate-limit – cleanup purges expired entries", () => {
         headers: { "x-forwarded-for": "203.0.113.99" },
       }),
       "cleanup-test-key",
-      { windowMs: 1, maxAttempts: 0 },
+      { maxAttempts: 0, windowMs: 1 },
     );
 
     // Wait for expiry then call cleanup via internal timer trick

@@ -10,26 +10,17 @@ import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
 import { toCategoryLabelOrDefault } from "@/lib/utils/categories";
 import { tryGetUrlHostname } from "@/lib/utils/url";
 
-export type ListedArticle = {
+export interface ListedArticle {
   articleId: number;
-  title: string;
-  link: string;
+  category: null | string;
   content: string;
+  isRead: boolean | null;
+  isStarred: boolean | null;
+  link: string;
   publicationDate: Date;
   sourceName: string;
   sourceUrl: string;
-  category: string | null;
-  isRead: boolean | null;
-  isStarred: boolean | null;
-};
-
-export function toReaderIconUrl(feedUrl: string): string | null {
-  const hostname = tryGetUrlHostname(feedUrl);
-  if (!hostname) {
-    return null;
-  }
-
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
+  title: string;
 }
 
 export function mapArticleAsItem(row: ListedArticle) {
@@ -50,21 +41,30 @@ export function mapArticleAsItem(row: ListedArticle) {
   }
 
   return {
-    id: toReaderItemId(row.articleId),
-    crawlTimeMsec: String(row.publicationDate.getTime()),
-    timestampUsec: String(row.publicationDate.getTime() * 1000),
-    title: row.title,
-    published: publishedSec,
-    updated: publishedSec,
-    categories,
-    canonical: [{ href: row.link }],
     alternate: [{ href: row.link, type: "text/html" }],
-    summary: { direction: "ltr", content: previewContent },
-    content: { direction: "ltr", content: previewContent },
+    canonical: [{ href: row.link }],
+    categories,
+    content: { content: previewContent, direction: "ltr" },
+    crawlTimeMsec: String(row.publicationDate.getTime()),
+    id: toReaderItemId(row.articleId),
     origin: {
+      htmlUrl: row.sourceUrl,
       streamId: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
       title: row.sourceName,
-      htmlUrl: row.sourceUrl,
     },
+    published: publishedSec,
+    summary: { content: previewContent, direction: "ltr" },
+    timestampUsec: String(row.publicationDate.getTime() * 1000),
+    title: row.title,
+    updated: publishedSec,
   };
+}
+
+export function toReaderIconUrl(feedUrl: string): null | string {
+  const hostname = tryGetUrlHostname(feedUrl);
+  if (!hostname) {
+    return null;
+  }
+
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
 }

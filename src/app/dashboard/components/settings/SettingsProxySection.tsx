@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  Bug,
+  CheckCircle2,
+  Globe,
+  Info,
+  Loader2,
+  Save,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,188 +26,35 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ArticleService } from "@/lib/api/services";
-import {
-  Bug,
-  CheckCircle2,
-  Globe,
-  Info,
-  Loader2,
-  Save,
-  Trash2,
-  XCircle,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+
+interface BotResult {
+  blocked: boolean;
+  error?: string;
+  protection: string;
+  statusCode?: number;
+  success: boolean;
+}
+
+interface BotResultsCache {
+  checkedAt: number;
+  results: BotResult[];
+}
 
 type ProxyUIStatus =
+  | "checking"
   | "loading"
   | "none"
-  | "checking"
   | "reachable"
   | "unreachable";
 
-type BotResult = {
-  protection: string;
-  success: boolean;
-  blocked: boolean;
-  statusCode?: number;
-  error?: string;
-};
-
-type BotResultsCache = {
-  checkedAt: number;
-  results: BotResult[];
-};
-
 const ERROR_PREVIEW_CHARS = 88;
 const BOT_RESULTS_CACHE_KEY = "librerss:settings:proxy:bot-results:v1";
-
-function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}...`;
-}
-
-function formatElapsed(checkedAt: number, now: number) {
-  const elapsedSec = Math.max(0, Math.floor((now - checkedAt) / 1000));
-  if (elapsedSec < 60) return `${elapsedSec}s ago`;
-  const elapsedMin = Math.floor(elapsedSec / 60);
-  if (elapsedMin < 60) return `${elapsedMin}m ago`;
-  const elapsedHr = Math.floor(elapsedMin / 60);
-  if (elapsedHr < 24) return `${elapsedHr}h ago`;
-  const elapsedDay = Math.floor(elapsedHr / 24);
-  return `${elapsedDay}d ago`;
-}
-
-function StatusBadge({
-  status,
-}: {
-  status: Exclude<ProxyUIStatus, "loading">;
-}) {
-  if (status === "none") return null;
-  const cfg = {
-    checking: {
-      label: "Checking",
-      cls: "text-yellow-600 border-yellow-400/40 bg-yellow-50 dark:bg-yellow-950/30 dark:text-yellow-400",
-    },
-    reachable: {
-      label: "Connected",
-      cls: "text-green-600 border-green-400/40 bg-green-50 dark:bg-green-950/30 dark:text-green-400",
-    },
-    unreachable: {
-      label: "Unreachable",
-      cls: "text-destructive border-destructive/30 bg-destructive/5",
-    },
-  }[status];
-  return (
-    <Badge
-      variant="outline"
-      className={`h-5 gap-1 px-1.5 text-[10px] font-medium ${cfg.cls}`}
-    >
-      {status === "checking" && <Loader2 className="size-2.5 animate-spin" />}
-      {status === "reachable" && <CheckCircle2 className="size-2.5" />}
-      {status === "unreachable" && <XCircle className="size-2.5" />}
-      {cfg.label}
-    </Badge>
-  );
-}
-
-function BotResultBadge({ result }: { result: BotResult }) {
-  const base = "h-5 shrink-0 px-1.5 text-[10px]";
-  if (result.success && !result.blocked) {
-    return (
-      <Badge
-        variant="outline"
-        className={`${base} border-green-400/40 bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400`}
-      >
-        Passed
-      </Badge>
-    );
-  }
-  if (result.blocked && result.statusCode && result.statusCode > 0) {
-    return (
-      <Badge
-        variant="outline"
-        className={`${base} border-yellow-400/40 bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30 dark:text-yellow-400`}
-      >
-        Blocked
-      </Badge>
-    );
-  }
-  return (
-    <Badge
-      variant="outline"
-      className={`${base} border-destructive/30 bg-destructive/5 text-destructive`}
-    >
-      {result.error ? "Connection Error" : "Failed"}
-    </Badge>
-  );
-}
-
-function ProxySkeleton() {
-  return (
-    <section className="settings-card">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <Skeleton className="size-4 rounded" />
-            <Skeleton className="h-4 w-32" />
-          </div>
-          <Skeleton className="h-3 w-72" />
-        </div>
-        <Skeleton className="h-5 w-20 rounded-full" />
-      </div>
-
-      <Separator />
-
-      <div className="space-y-1.5">
-        <Skeleton className="h-3 w-14" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-9 flex-1" />
-          <Skeleton className="h-9 w-20" />
-          <Skeleton className="h-9 w-9" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="row-between">
-        <div className="flex items-center gap-1.5">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="size-3 rounded-full" />
-        </div>
-        <Skeleton className="h-5 w-9 rounded-full" />
-      </div>
-
-      <Separator />
-
-      <div className="space-y-3">
-        <div className="row-between">
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-36" />
-            <Skeleton className="h-3 w-64" />
-          </div>
-          <Skeleton className="h-8 w-24" />
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export function SettingsProxySection() {
   const [proxyUrl, setProxyUrl] = useState("");
   const [proxyStatus, setProxyStatus] = useState<ProxyUIStatus>("loading");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<null | string>(null);
   const [allowInsecureTls, setAllowInsecureTls] = useState(false);
   const [proxyUsername, setProxyUsername] = useState("");
   const [proxyPassword, setProxyPassword] = useState("");
@@ -203,8 +62,8 @@ export function SettingsProxySection() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [testingBot, setTestingBot] = useState(false);
   const [botResults, setBotResults] = useState<BotResult[] | null>(null);
-  const [botError, setBotError] = useState<string | null>(null);
-  const [botCheckedAt, setBotCheckedAt] = useState<number | null>(null);
+  const [botError, setBotError] = useState<null | string>(null);
+  const [botCheckedAt, setBotCheckedAt] = useState<null | number>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const resultsRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollToResultsRef = useRef(false);
@@ -224,7 +83,9 @@ export function SettingsProxySection() {
         );
         if (result.error) setError(result.error);
       })
-      .catch(() => setProxyStatus("none"));
+      .catch(() => {
+        setProxyStatus("none");
+      });
   }, []);
 
   useEffect(() => {
@@ -237,7 +98,7 @@ export function SettingsProxySection() {
         !Array.isArray(parsed?.results)
       )
         return;
-      setBotResults(parsed.results as BotResult[]);
+      setBotResults(parsed.results);
       setBotCheckedAt(parsed.checkedAt);
     } catch {
       // ignore malformed cache
@@ -245,8 +106,12 @@ export function SettingsProxySection() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNowTs(Date.now()), 30_000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => {
+      setNowTs(Date.now());
+    }, 30_000);
+    return () => {
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -289,8 +154,8 @@ export function SettingsProxySection() {
     try {
       const result = await ArticleService.saveProxyUrl(trimmed, {
         allowInsecureTls,
-        proxyUsername: proxyUsername.trim() || null,
         proxyPassword: proxyPassword || null,
+        proxyUsername: proxyUsername.trim() || null,
       });
       setProxyUrl(result.proxyUrl ?? "");
       setProxyUsername(result.proxyUsername ?? "");
@@ -320,8 +185,8 @@ export function SettingsProxySection() {
     setError(null);
     try {
       await ArticleService.saveProxyUrl(null, {
-        proxyUsername: null,
         proxyPassword: null,
+        proxyUsername: null,
       });
       setProxyUrl("");
       setProxyUsername("");
@@ -388,25 +253,25 @@ export function SettingsProxySection() {
           <Label className="text-xs text-muted-foreground">Proxy URL</Label>
           <div className="flex items-center gap-2">
             <Input
-              ref={inputRef}
-              type="text"
-              placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
-              value={proxyUrl}
+              className="h-9 font-mono text-sm"
+              disabled={saving}
               onChange={(e) => {
                 setProxyUrl(e.target.value);
                 setError(null);
               }}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              disabled={saving}
-              className="h-9 font-mono text-sm"
+              placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
+              ref={inputRef}
+              type="text"
+              value={proxyUrl}
             />
             <Button
-              type="button"
-              size="sm"
-              variant="outline"
               className="h-9 shrink-0 gap-1.5"
-              onClick={handleSave}
               disabled={saving || !proxyUrl.trim()}
+              onClick={handleSave}
+              size="sm"
+              type="button"
+              variant="outline"
             >
               {saving ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -417,12 +282,12 @@ export function SettingsProxySection() {
             </Button>
             {hasProxy && (
               <Button
-                type="button"
-                size="sm"
-                variant="ghost"
                 className="h-9 px-2 shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={handleClear}
                 disabled={saving}
+                onClick={handleClear}
+                size="sm"
+                type="button"
+                variant="ghost"
               >
                 <Trash2 className="size-3.5" />
               </Button>
@@ -437,7 +302,7 @@ export function SettingsProxySection() {
                     {previewText(error)}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[40rem] text-xs">
+                <TooltipContent className="max-w-[40rem] text-xs" side="top">
                   <p className="break-all">{error}</p>
                 </TooltipContent>
               </Tooltip>
@@ -449,26 +314,28 @@ export function SettingsProxySection() {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label
-              htmlFor="proxy-username"
               className="text-xs text-muted-foreground"
+              htmlFor="proxy-username"
             >
               Username
             </Label>
             <Input
-              id="proxy-username"
-              type="text"
               autoComplete="username"
-              placeholder="optional"
-              value={proxyUsername}
-              onChange={(e) => setProxyUsername(e.target.value)}
-              disabled={saving}
               className="h-9 font-mono text-sm"
+              disabled={saving}
+              id="proxy-username"
+              onChange={(e) => {
+                setProxyUsername(e.target.value);
+              }}
+              placeholder="optional"
+              type="text"
+              value={proxyUsername}
             />
           </div>
           <div className="space-y-1.5">
             <Label
-              htmlFor="proxy-password"
               className="text-xs text-muted-foreground"
+              htmlFor="proxy-password"
             >
               Password
               {hasProxyPassword && !proxyPassword && (
@@ -476,16 +343,18 @@ export function SettingsProxySection() {
               )}
             </Label>
             <Input
-              id="proxy-password"
-              type="password"
               autoComplete="current-password"
+              className="h-9 font-mono text-sm"
+              disabled={saving}
+              id="proxy-password"
+              onChange={(e) => {
+                setProxyPassword(e.target.value);
+              }}
               placeholder={
                 hasProxyPassword ? "leave blank to keep" : "optional"
               }
+              type="password"
               value={proxyPassword}
-              onChange={(e) => setProxyPassword(e.target.value)}
-              disabled={saving}
-              className="h-9 font-mono text-sm"
             />
           </div>
         </div>
@@ -496,8 +365,8 @@ export function SettingsProxySection() {
         <div className="row-between">
           <div className="flex items-center gap-1.5">
             <Label
-              htmlFor="allow-insecure-tls"
               className="cursor-pointer text-xs"
+              htmlFor="allow-insecure-tls"
             >
               Allow insecure TLS
             </Label>
@@ -505,16 +374,16 @@ export function SettingsProxySection() {
               <TooltipTrigger asChild>
                 <Info className="size-3 cursor-help text-muted-foreground" />
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-44 text-xs">
+              <TooltipContent className="max-w-44 text-xs" side="right">
                 Skips certificate validation. Use only for trusted private
                 proxies.
               </TooltipContent>
             </Tooltip>
           </div>
           <Switch
-            id="allow-insecure-tls"
             checked={allowInsecureTls}
             disabled={saving}
+            id="allow-insecure-tls"
             onCheckedChange={async (checked) => {
               const currentUrl = proxyUrl.trim();
               if (!currentUrl) return;
@@ -549,12 +418,12 @@ export function SettingsProxySection() {
               )}
             </div>
             <Button
-              type="button"
-              size="sm"
-              variant="outline"
               className="h-8 shrink-0 gap-1.5"
-              onClick={handleTestBotDetection}
               disabled={testingBot || saving}
+              onClick={handleTestBotDetection}
+              size="sm"
+              type="button"
+              variant="outline"
             >
               {testingBot ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -574,7 +443,7 @@ export function SettingsProxySection() {
                     {previewText(botError)}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[40rem] text-xs">
+                <TooltipContent className="max-w-[40rem] text-xs" side="top">
                   <p className="break-all">{botError}</p>
                 </TooltipContent>
               </Tooltip>
@@ -583,13 +452,13 @@ export function SettingsProxySection() {
 
           {botResults && (
             <div
-              ref={resultsRef}
               className="divide-y divide-border rounded-lg border bg-muted/30"
+              ref={resultsRef}
             >
               {botResults.map((r, i) => (
                 <div
-                  key={i}
                   className="flex items-center justify-between gap-3 px-3 py-2"
+                  key={i}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="shrink-0 text-xs font-medium">
@@ -608,8 +477,8 @@ export function SettingsProxySection() {
                           </span>
                         </TooltipTrigger>
                         <TooltipContent
-                          side="top"
                           className="max-w-[40rem] text-xs"
+                          side="top"
                         >
                           <p className="break-all">{r.error}</p>
                         </TooltipContent>
@@ -624,5 +493,147 @@ export function SettingsProxySection() {
         </div>
       </section>
     </TooltipProvider>
+  );
+}
+
+function BotResultBadge({ result }: { result: BotResult }) {
+  const base = "h-5 shrink-0 px-1.5 text-[10px]";
+  if (result.success && !result.blocked) {
+    return (
+      <Badge
+        className={`${base} border-green-400/40 bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400`}
+        variant="outline"
+      >
+        Passed
+      </Badge>
+    );
+  }
+  if (result.blocked && result.statusCode && result.statusCode > 0) {
+    return (
+      <Badge
+        className={`${base} border-yellow-400/40 bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30 dark:text-yellow-400`}
+        variant="outline"
+      >
+        Blocked
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      className={`${base} border-destructive/30 bg-destructive/5 text-destructive`}
+      variant="outline"
+    >
+      {result.error ? "Connection Error" : "Failed"}
+    </Badge>
+  );
+}
+
+function formatElapsed(checkedAt: number, now: number) {
+  const elapsedSec = Math.max(0, Math.floor((now - checkedAt) / 1000));
+  if (elapsedSec < 60) return `${elapsedSec}s ago`;
+  const elapsedMin = Math.floor(elapsedSec / 60);
+  if (elapsedMin < 60) return `${elapsedMin}m ago`;
+  const elapsedHr = Math.floor(elapsedMin / 60);
+  if (elapsedHr < 24) return `${elapsedHr}h ago`;
+  const elapsedDay = Math.floor(elapsedHr / 24);
+  return `${elapsedDay}d ago`;
+}
+
+function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}...`;
+}
+
+function ProxySkeleton() {
+  return (
+    <section className="settings-card">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="size-4 rounded" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-3 w-72" />
+        </div>
+        <Skeleton className="h-5 w-20 rounded-full" />
+      </div>
+
+      <Separator />
+
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-14" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 flex-1" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-9" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <div className="space-y-1.5">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="row-between">
+        <div className="flex items-center gap-1.5">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="size-3 rounded-full" />
+        </div>
+        <Skeleton className="h-5 w-9 rounded-full" />
+      </div>
+
+      <Separator />
+
+      <div className="space-y-3">
+        <div className="row-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-3 w-64" />
+          </div>
+          <Skeleton className="h-8 w-24" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: Exclude<ProxyUIStatus, "loading">;
+}) {
+  if (status === "none") return null;
+  const cfg = {
+    checking: {
+      cls: "text-yellow-600 border-yellow-400/40 bg-yellow-50 dark:bg-yellow-950/30 dark:text-yellow-400",
+      label: "Checking",
+    },
+    reachable: {
+      cls: "text-green-600 border-green-400/40 bg-green-50 dark:bg-green-950/30 dark:text-green-400",
+      label: "Connected",
+    },
+    unreachable: {
+      cls: "text-destructive border-destructive/30 bg-destructive/5",
+      label: "Unreachable",
+    },
+  }[status];
+  return (
+    <Badge
+      className={`h-5 gap-1 px-1.5 text-[10px] font-medium ${cfg.cls}`}
+      variant="outline"
+    >
+      {status === "checking" && <Loader2 className="size-2.5 animate-spin" />}
+      {status === "reachable" && <CheckCircle2 className="size-2.5" />}
+      {status === "unreachable" && <XCircle className="size-2.5" />}
+      {cfg.label}
+    </Badge>
   );
 }

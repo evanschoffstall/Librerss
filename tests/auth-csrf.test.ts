@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { requireSameOrigin } from "@/lib/auth/csrf";
 
 beforeEach(() => mock.restore());
@@ -8,11 +9,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         origin: "https://example.com",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -23,11 +24,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         origin: "https://evil.com",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -41,11 +42,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         referer: "https://example.com/page",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -56,11 +57,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         referer: "https://evil.com/page",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -71,11 +72,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         "sec-fetch-site": "cross-site",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -86,11 +87,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         "sec-fetch-site": "same-origin",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -112,11 +113,11 @@ describe("lib/auth/csrf additional coverage", () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
 
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         origin: "not-a-valid-url",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -136,8 +137,8 @@ describe("lib/auth/csrf – requireSameOrigin", () => {
   test("returns null for POST with sec-fetch-site: same-origin", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const req = new Request("https://example.com/api", {
-      method: "POST",
       headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
     expect(requireSameOrigin(req)).toBeNull();
   });
@@ -145,8 +146,8 @@ describe("lib/auth/csrf – requireSameOrigin", () => {
   test("returns 403 for POST with sec-fetch-site: cross-site", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const req = new Request("https://example.com/api", {
-      method: "POST",
       headers: { "sec-fetch-site": "cross-site" },
+      method: "POST",
     });
     const result = requireSameOrigin(req);
     expect(result instanceof Response).toBe(true);
@@ -156,8 +157,8 @@ describe("lib/auth/csrf – requireSameOrigin", () => {
   test("returns null for POST with matching Origin header", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const req = new Request("https://example.com/api", {
+      headers: { host: "example.com", origin: "https://example.com" },
       method: "POST",
-      headers: { origin: "https://example.com", host: "example.com" },
     });
     expect(requireSameOrigin(req)).toBeNull();
   });
@@ -165,8 +166,8 @@ describe("lib/auth/csrf – requireSameOrigin", () => {
   test("returns 403 for POST with mismatched Origin header", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const req = new Request("https://example.com/api", {
+      headers: { host: "example.com", origin: "https://attacker.com" },
       method: "POST",
-      headers: { origin: "https://attacker.com", host: "example.com" },
     });
     const result = requireSameOrigin(req);
     expect(result instanceof Response).toBe(true);
@@ -200,24 +201,24 @@ describe("csrf – requireSameOrigin", () => {
 
   test("allows POST with same-origin header", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         origin: "https://example.com",
         "sec-fetch-site": "same-origin",
       },
+      method: "POST",
     });
     expect(requireSameOrigin(request)).toBeNull();
   });
 
   test("rejects POST with cross-origin", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         origin: "https://evil.com",
         "sec-fetch-site": "cross-site",
       },
+      method: "POST",
     });
     const result = requireSameOrigin(request);
     expect(result).not.toBeNull();
@@ -226,8 +227,8 @@ describe("csrf – requireSameOrigin", () => {
 
   test("rejects POST with no origin, no referer, no sec-fetch-site", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: { host: "example.com" },
+      method: "POST",
     });
     const result = requireSameOrigin(request);
     expect(result).not.toBeNull();
@@ -236,33 +237,33 @@ describe("csrf – requireSameOrigin", () => {
 
   test("allows POST with same-site sec-fetch-site and no origin/referer", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         "sec-fetch-site": "same-origin",
       },
+      method: "POST",
     });
     expect(requireSameOrigin(request)).toBeNull();
   });
 
   test("allows POST with referer from same origin", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         referer: "https://example.com/dashboard",
       },
+      method: "POST",
     });
     expect(requireSameOrigin(request)).toBeNull();
   });
 
   test("rejects POST with referer from different origin", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "POST",
       headers: {
         host: "example.com",
         referer: "https://evil.com/page",
       },
+      method: "POST",
     });
     const result = requireSameOrigin(request);
     expect(result).not.toBeNull();
@@ -271,11 +272,11 @@ describe("csrf – requireSameOrigin", () => {
 
   test("rejects DELETE with sec-fetch-site cross-site", () => {
     const request = new Request("https://example.com/api/test", {
-      method: "DELETE",
       headers: {
         host: "example.com",
         "sec-fetch-site": "cross-site",
       },
+      method: "DELETE",
     });
     const result = requireSameOrigin(request);
     expect(result).not.toBeNull();

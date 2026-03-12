@@ -21,23 +21,21 @@ afterEach(() => mock.restore());
 // Allows per-test response sequencing without re-registering mock.module().
 
 interface MockResponse {
-  status: number;
-  headers: Record<string, string | string[]>;
   body: string;
+  headers: Record<string, string | string[]>;
+  status: number;
 }
 
 const defaultMockResponse: MockResponse = {
-  status: 200,
-  headers: { "content-type": "text/html", "x-custom": ["single-value"] },
   body: "<!DOCTYPE html><html></html>",
+  headers: { "content-type": "text/html", "x-custom": ["single-value"] },
+  status: 200,
 };
 
 const mockCtrl = {
-  responses: [] as MockResponse[],
   callIndex: 0,
-  errorOnCall: null as number | null,
   errorMessage: "mock get error",
-
+  errorOnCall: null as null | number,
   next(): MockResponse {
     if (this.errorOnCall !== null && this.callIndex === this.errorOnCall) {
       this.callIndex++;
@@ -51,11 +49,14 @@ const mockCtrl = {
     return { ...resp };
   },
 
-  setResponses(...responses: MockResponse[]) {
-    this.responses = responses;
+  reset() {
+    this.responses = [];
     this.callIndex = 0;
     this.errorOnCall = null;
+    this.errorMessage = "mock get error";
   },
+
+  responses: [] as MockResponse[],
 
   setErrorOnCall(callIndex: number, message = "session get error") {
     this.errorOnCall = callIndex;
@@ -63,11 +64,10 @@ const mockCtrl = {
     this.callIndex = 0;
   },
 
-  reset() {
-    this.responses = [];
+  setResponses(...responses: MockResponse[]) {
+    this.responses = responses;
     this.callIndex = 0;
     this.errorOnCall = null;
-    this.errorMessage = "mock get error";
   },
 };
 
@@ -83,11 +83,11 @@ mock.module("tlsclientwrapper", () => ({
       private _mc: unknown,
       private _opts: Record<string, unknown>,
     ) {}
-    get(_url: string, _opts: unknown) {
-      return Promise.resolve(mockCtrl.next());
-    }
     destroySession() {
       return Promise.resolve();
+    }
+    get(_url: string, _opts: unknown) {
+      return Promise.resolve(mockCtrl.next());
     }
   },
 }));
@@ -156,13 +156,13 @@ describe("tlsClientFetch – no proxy", () => {
 
   test("flattens single-item header arrays to strings (flattenHeaders)", async () => {
     mockCtrl.setResponses({
-      status: 200,
-      headers: {
-        "x-single": ["only-value"],
-        "x-multi": ["a", "b"],
-        "content-type": "text/html",
-      },
       body: "ok",
+      headers: {
+        "content-type": "text/html",
+        "x-multi": ["a", "b"],
+        "x-single": ["only-value"],
+      },
+      status: 200,
     });
     const result = await tlsClientFetch(
       new URL("https://example.com/"),
@@ -178,9 +178,9 @@ describe("tlsClientFetch – no proxy", () => {
 
   test("handles null/undefined header values in flattenHeaders", async () => {
     mockCtrl.setResponses({
-      status: 200,
-      headers: {},
       body: "ok",
+      headers: {},
+      status: 200,
     });
     const result = await tlsClientFetch(
       new URL("https://example.com/"),
@@ -324,9 +324,9 @@ describe("tlsClientFetch – SOCKS proxy, hostname routing", () => {
   test("hostname route: primary fails, DNS fails → returns failed primary (statusCode 0)", async () => {
     // Mock: every get() call returns statusCode 0 (connection failure)
     mockCtrl.setResponses({
-      status: 0,
-      headers: {},
       body: "SOCKS connection refused",
+      headers: {},
+      status: 0,
     });
     const result = await tlsClientFetch(
       new URL("https://no-dns.invalid.test/"),
@@ -344,8 +344,8 @@ describe("tlsClientFetch – SOCKS proxy, hostname routing", () => {
     // First call (hostname) → fail; second call (IP) → success
     // example.com reliably has A records in any network-enabled environment.
     mockCtrl.setResponses(
-      { status: 0, headers: {}, body: "SOCKS hostname fail" },
-      { status: 200, headers: {}, body: "IP fallback ok" },
+      { body: "SOCKS hostname fail", headers: {}, status: 0 },
+      { body: "IP fallback ok", headers: {}, status: 200 },
     );
     const result = await tlsClientFetch(
       new URL("https://example.com/"),
@@ -408,8 +408,8 @@ describe("tlsClientFetch – repeated SOCKS fallback (boundedSet/Map eviction)",
     // This triggers socksFallbackWarningEmitted.has() guard on second invocation
     for (let i = 0; i < 2; i++) {
       mockCtrl.setResponses(
-        { status: 0, headers: {}, body: "fail" },
-        { status: 200, headers: {}, body: "ok" },
+        { body: "fail", headers: {}, status: 0 },
+        { body: "ok", headers: {}, status: 200 },
       );
       const result = await tlsClientFetch(
         new URL("https://example.com/"),

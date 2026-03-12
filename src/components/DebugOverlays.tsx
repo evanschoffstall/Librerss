@@ -2,11 +2,13 @@
 
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+
 import { useDebugState } from "../lib";
+
 import "./components.css";
 
 export const DebugBorder = () => {
-  const { debug, toggleDebug, isClient } = useDebugState();
+  const { debug, isClient, toggleDebug } = useDebugState();
 
   useHotkeys("shift+d", toggleDebug);
 
@@ -20,7 +22,7 @@ export const DebugBorder = () => {
 };
 
 export const DebugGrid = () => {
-  const { debug, toggleDebug, isClient } = useDebugState();
+  const { debug, isClient, toggleDebug } = useDebugState();
 
   useHotkeys("shift+g", toggleDebug);
 
@@ -35,8 +37,8 @@ export const DebugGrid = () => {
 
   return (
     <div
-      id="debug-grid-overlay"
       className="debug-grid"
+      id="debug-grid-overlay"
       style={{ display: !isClient ? "none" : undefined }}
     />
   );
