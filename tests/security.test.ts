@@ -573,7 +573,7 @@ describe("parseJsonBody", () => {
 describe("parseFormOrQueryParams", () => {
   test("returns 413 when content-length exceeds configured max", async () => {
     const { parseFormOrQueryParams } = await import("@/lib/api/http");
-    const request = new Request("https://app.example.test/api/greader.php", {
+    const request = new Request("https://app.example.test/api/feeds", {
       body: "s=user/-/state/com.google/reading-list",
       headers: {
         "content-length": "2048",
@@ -592,7 +592,7 @@ describe("parseFormOrQueryParams", () => {
   test("returns 413 when UTF-8 body bytes exceed max", async () => {
     const { parseFormOrQueryParams } = await import("@/lib/api/http");
     const body = `q=${"x".repeat(2048)}`;
-    const request = new Request("https://app.example.test/api/greader.php", {
+    const request = new Request("https://app.example.test/api/feeds", {
       body,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
@@ -608,53 +608,8 @@ describe("parseFormOrQueryParams", () => {
   });
 });
 
-describe("greader reader-item hardening", () => {
-  test("parseDistinctReaderArticleIds dedupes and caps item IDs", async () => {
-    const { parseDistinctReaderArticleIds } =
-      await import("@/lib/api/greader/reader-item-params");
-
-    const ids = parseDistinctReaderArticleIds(
-      [
-        "tag:google.com,2005:reader/item/1",
-        "tag:google.com,2005:reader/item/1",
-        "tag:google.com,2005:reader/item/2",
-        "tag:google.com,2005:reader/item/3",
-      ],
-      { maxItems: 2 },
-    );
-
-    expect(ids).toEqual([1, 2]);
-  });
-
-  test("parseOlderThanDate ignores non-positive and invalid values", async () => {
-    const { parseOlderThanDate } =
-      await import("@/lib/api/greader/stream-service");
-
-    expect(parseOlderThanDate(new URLSearchParams("ot=0"))).toBeNull();
-    expect(parseOlderThanDate(new URLSearchParams("ot=-1"))).toBeNull();
-    expect(parseOlderThanDate(new URLSearchParams("ot=NaN"))).toBeNull();
-
-    const parsed = parseOlderThanDate(new URLSearchParams("ot=1700000000"));
-    expect(parsed).not.toBeNull();
-    expect(parsed?.getTime()).toBe(1700000000 * 1000);
-  });
-
-  test("shouldExcludeReadFromStream applies read exclusion to any stream", async () => {
-    const { shouldExcludeReadFromStream } =
-      await import("@/lib/api/greader/stream-service");
-
-    expect(shouldExcludeReadFromStream(["user/-/state/com.google/read"])).toBe(
-      true,
-    );
-
-    expect(shouldExcludeReadFromStream(["user/-/state/com.google/read"])).toBe(
-      true,
-    );
-
-    expect(shouldExcludeReadFromStream([])).toBe(false);
-  });
-
-  test("buildStreamConditions applies ot as older-than (<), not newer-than", async () => {
+describe("stream condition hardening", () => {
+  test("buildStreamConditions applies older-than filters with <, not >=", async () => {
     const { buildStreamConditions } =
       await import("@/lib/core/stream-conditions");
 
@@ -796,54 +751,6 @@ describe("RateLimiter trusted proxy extraction", () => {
   });
 });
 
-// ─── GReader ClientLogin: credentials must not be accepted via GET URL params ─
-
-describe("GReader ClientLogin – credential exposure via URL params (security regression)", () => {
-  test("GET request with credentials in URL params is rejected (not treated as login)", async () => {
-    const { handleClientLogin } = await import("@/lib/api/greader/auth");
-
-    // Attacker sends credentials in GET query params — these would appear in
-    // server access logs, browser history, and Referer headers.
-    const { NextRequest } = await import("next/server");
-    const request = new NextRequest(
-      "https://example.com/api/greader.php/accounts/ClientLogin?Email=user@test.com&Passwd=hunter2",
-      { method: "GET" },
-    );
-
-    const response = await handleClientLogin(request);
-    const body = await response.text();
-
-    // Must be rejected, not return a session token
-    expect(body).not.toContain("SID=");
-    expect(body).not.toContain("Auth=");
-    expect(response.status).toBe(400);
-  });
-
-  test("POST with credentials in body (not URL params) succeeds normally", async () => {
-    const previousDbUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "";
-    try {
-      const { handleClientLogin } = await import("@/lib/api/greader/auth");
-      const { NextRequest } = await import("next/server");
-      const request = new NextRequest(
-        "https://example.com/api/greader.php/accounts/ClientLogin",
-        {
-          body: "Email=admin%40admin.com&Passwd=admin",
-          headers: { "content-type": "application/x-www-form-urlencoded" },
-          method: "POST",
-        },
-      );
-      const response = await handleClientLogin(request);
-      const body = await response.text();
-      // Should authenticate successfully via POST body
-      expect(body).toContain("SID=");
-      expect(body).toContain("Auth=");
-    } finally {
-      process.env.DATABASE_URL = previousDbUrl;
-    }
-  });
-});
-
 // ─── Logger redacts proxy-related fields ─────────────────────────────────────
 
 describe("Logger – proxy credential redaction (security regression)", () => {
@@ -930,6 +837,12 @@ describe("utils/ssrf – isBlockedHost with IPv6-mapped private addresses", () =
 describe("ssrf", () => {
   test("normalizeHostname lowercases and trims", () => {
     expect(normalizeHostname("  EXAMPLE.COM.  ")).toBe("example.com");
+  });
+
+  test("normalizeHostname strips IPv6 URL brackets", () => {
+    expect(normalizeHostname("[2606:4700:4700::1111]")).toBe(
+      "2606:4700:4700::1111",
+    );
   });
 
   test("isBlockedHost blocks localhost", () => {
