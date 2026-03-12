@@ -152,7 +152,7 @@ export function stripUrlFragment(url: string): string {
 
 /**
  * Creates a stable lookup key for feed URLs, preserving path and query params.
- * Used for category resolution and feed matching across the GReader API.
+ * Used for category resolution and feed matching across feed-management flows.
  */
 export function toCategoryLookupKey(feedUrl: string): string {
   const trimmed = feedUrl.trim();
