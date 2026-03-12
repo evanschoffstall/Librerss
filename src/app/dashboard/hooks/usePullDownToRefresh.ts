@@ -9,6 +9,8 @@ import {
 } from "./useSentinelLayout";
 /** Distance (px into sentinel) user must pull to commit. */
 const PULL_THRESHOLD = 56;
+/** Ignore tiny settle drift near the hidden sentinel offset. */
+const PULL_ACTIVATION_BUFFER = 8;
 /** Hold height during refresh feedback. */
 const HOLD_PULL_PX = 44;
 /** Hold duration before snapping back. */
@@ -156,7 +158,7 @@ export function usePullDownToRefresh(
         return;
       }
 
-      if (st >= SENTINEL_SCROLL_OFFSET) {
+      if (st >= SENTINEL_SCROLL_OFFSET - PULL_ACTIVATION_BUFFER) {
         if (pullingRef.current && !holdingRef.current) {
           pullingRef.current = false;
           setState(IDLE);
