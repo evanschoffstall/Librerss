@@ -65,75 +65,25 @@ export function useFeedLoader({
     [],
   );
 
-  const syncLoading = useCallback(
-    (value: boolean) => {
-      loadingRef.current = value;
-      setLocalLoading(value);
-      setLoading(value);
-    },
-    [setLoading],
-  );
-
   const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
-    // In placeholder/preview mode, skip the API call entirely
-    if (usePlaceholderData) {
-      const defaults = buildDefaultCategories(true);
-      setCategories(defaults);
-      return defaults;
-    }
-
-    try {
-      const sources = await FeedService.getFeedSources();
-
-      if (sources.length === 0) {
-        const defaults = buildDefaultCategories(false);
-        setCategories(defaults);
-        return defaults;
-      }
-
-      const nextCategories = buildCategoriesFromSources(sources);
-      setCategories(nextCategories);
-      return nextCategories;
-    } catch (err) {
-      console.error("Feed source fetch error:", err);
-      const defaults = buildDefaultCategories(false);
-      setCategories(defaults);
-      return defaults;
-    }
+    const nextCategories = await loadFeedSourceTree(usePlaceholderData);
+    setCategories(nextCategories);
+    return nextCategories;
   }, [usePlaceholderData, setCategories]);
 
-  // Fetches the batch, falling back to placeholder data on error in dev mode.
-  // Returns null when the caller should abort (error already handled).
-  const fetchBatchOrPlaceholder = useCallback(
+  const loadBatchResults = useCallback(
     async (
       normalizedSources: FeedBatchSource[],
       options?: FeedFetchOptions,
       signal?: AbortSignal,
     ): Promise<FeedBatchResult[] | null> => {
-      const urls = normalizedSources.map((s) => s.url);
-      // In placeholder/preview mode, skip the API call and use local data directly
-      if (usePlaceholderData) {
-        return normalizedSources.map((source) => ({
-          articles: getPlaceholderArticlesForSource(source.url).map(
-            (article) => ({
-              ...article,
-              feedName: source.name,
-              feedUrl: source.url,
-            }),
-          ),
-          ok: true,
-          url: source.url,
-        }));
-      }
-
       try {
-        // Single fetch: returns cached articles and refreshes stale feeds in one pass
-        return await FeedService.getFeedsBatch(urls, {
-          forceRefresh: options?.forceRefresh === true,
-          requestSource: options?.requestSource,
+        return await resolveFeedBatchResults(
+          normalizedSources,
+          usePlaceholderData,
+          options,
           signal,
-          skipRefresh: options?.skipRefresh ?? false,
-        });
+        );
       } catch (error) {
         if (isCanceledBatchRequest(error)) {
           return null;
@@ -215,7 +165,7 @@ export function useFeedLoader({
           return;
         }
 
-        const batchResults = await fetchBatchOrPlaceholder(
+        const batchResults = await loadBatchResults(
           normalizedSources,
           options,
           abortController.signal,
@@ -244,23 +194,19 @@ export function useFeedLoader({
           ...summarizeBatchResults(batchResults),
         });
 
-        const newestLastFetchedAt = getNewestLastFetchedAt(batchResults);
+        const { articles, failedFeeds, newestLastFetchedAt, sourceNamesByUrl } =
+          buildFeedBatchOutcome(
+            normalizedSources,
+            batchResults,
+            usePlaceholderData,
+            getPlaceholderArticlesForSource,
+          );
 
         if (newestLastFetchedAt) {
           onFeedBatchLoaded?.(newestLastFetchedAt);
         }
 
-        const failedFeeds = batchResults.filter((item) => item.error);
-        const sourceNamesByUrl = getSourceNamesByUrl(normalizedSources);
-
         notifyFeedFailures(failedFeeds, batchResults.length, sourceNamesByUrl);
-
-        const articles = mapBatchResultsToArticles(
-          batchResults,
-          sourceNamesByUrl,
-          usePlaceholderData,
-          getPlaceholderArticlesForSource,
-        );
 
         if (articles.length > 0) {
           setFeed((currentFeed) => mergeHydratedContent(currentFeed, articles));
@@ -360,11 +306,6 @@ function notifyFeedFailures(
     return;
   }
 
-  const failedNames = failedFeeds.map((item) => {
-    const sourceName = sourceNamesByUrl.get(item.url);
-    return sourceName ?? item.url;
-  });
-
   if (failedFeeds.length === totalFeedCount) {
     toast.error("Unable to fetch feeds from upstream.", {
       description: "Try another feed or check back after the next refresh.",
@@ -372,10 +313,7 @@ function notifyFeedFailures(
     return;
   }
 
-  const failureLabel =
-    failedNames.length <= 3
-      ? failedNames.join(", ")
-      : `${failedNames.slice(0, 3).join(", ")} and ${failedNames.length - 3} more`;
+  const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
 
   toast.warning(`Some feeds failed to update: ${failureLabel}`, {
     description: "Showing cached articles. Check back after the next refresh.",
