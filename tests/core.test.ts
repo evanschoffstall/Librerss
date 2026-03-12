@@ -40,41 +40,6 @@ describe("feed-url-validator", () => {
   });
 });
 
-// ─── Reader Item ID ───────────────────────────────────────────────────────────
-
-describe("reader-item-id", () => {
-  test("toReaderItemId creates valid ID", async () => {
-    const { toReaderItemId } = await import("@/lib/core/stream-ids");
-    const id = toReaderItemId(123);
-    expect(id).toMatch(/^tag:google.com,2005:reader\/item\/[0-9a-f]+$/);
-  });
-
-  test("parseReaderItemId extracts article ID", async () => {
-    const { parseReaderItemId, toReaderItemId } =
-      await import("@/lib/core/stream-ids");
-    const encoded = toReaderItemId(456);
-    const decoded = parseReaderItemId(encoded);
-    expect(decoded).toBe(456);
-  });
-
-  test("parseReaderItemId returns null for invalid ID", async () => {
-    const { parseReaderItemId } = await import("@/lib/core/stream-ids");
-    expect(parseReaderItemId("invalid-id")).toBeNull();
-    expect(
-      parseReaderItemId("tag:google.com,2005:reader/item/invalid"),
-    ).toBeNull();
-  });
-
-  test("toReaderItemId handles large numbers", async () => {
-    const { parseReaderItemId, toReaderItemId } =
-      await import("@/lib/core/stream-ids");
-    const largeId = 999999999;
-    const encoded = toReaderItemId(largeId);
-    const decoded = parseReaderItemId(encoded);
-    expect(decoded).toBe(largeId);
-  });
-});
-
 // ─── Article Status ───────────────────────────────────────────────────────────
 
 describe("article-status", () => {

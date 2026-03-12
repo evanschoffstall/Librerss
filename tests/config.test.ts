@@ -181,8 +181,6 @@ describe("lib/config – envEnum and maxArticleConsecutiveBlankLines branches", 
   });
 });
 
-// ─── reader-api.ts ────────────────────────────────────────────────────────────
-
 describe("config", () => {
   test("CONFIG has required keys", () => {
     expect(CONFIG.FEED_CACHE_TTL_MINUTES).toBeGreaterThan(0);
@@ -204,14 +202,6 @@ describe("config", () => {
     expect(CONFIG.RATE_LIMIT_LOGIN_MAX_ATTEMPTS).toBeGreaterThan(0);
     expect(CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS).toBeGreaterThan(0);
     expect(CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS).toBeGreaterThan(0);
-  });
-
-  test("CONFIG GReader values are consistent", () => {
-    expect(CONFIG.GREADER_MAX_STREAM_ITEMS).toBeGreaterThan(0);
-    expect(CONFIG.GREADER_DEFAULT_STREAM_ITEMS).toBeGreaterThan(0);
-    expect(CONFIG.GREADER_DEFAULT_STREAM_ITEMS).toBeLessThanOrEqual(
-      CONFIG.GREADER_MAX_STREAM_ITEMS,
-    );
   });
 
   test("ENV flags are booleans", () => {

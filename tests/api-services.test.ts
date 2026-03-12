@@ -481,27 +481,6 @@ describe("ArticleService", () => {
     expect(content).toBe("");
   });
 
-  test("getReaderStream retrieves stream articles", async () => {
-    mockAxiosInstance.get = mock(async () => ({
-      data: {
-        items: [
-          {
-            canonical: [{ href: "https://example.com/1" }],
-            id: "1",
-            published: 1609459200,
-            title: "Article 1",
-          },
-        ],
-      },
-    }));
-
-    const articles = await ArticleService.getReaderStream(
-      "user/1/state/com.google/reading-list",
-    );
-
-    expect(articles.length).toBeGreaterThanOrEqual(0);
-  });
-
   test("markAllRead marks stream as read", async () => {
     mockAxiosInstance.post = mock(async () => ({ data: {} }));
 
@@ -557,19 +536,6 @@ describe("ArticleService", () => {
         isStarred: true,
       },
     );
-  });
-
-  test("getReaderStream constructs correct URL", async () => {
-    mockAxiosInstance.get = mock(async () => ({ data: { items: [] } }));
-
-    await ArticleService.getReaderStream("user/1/state/com.google/starred");
-
-    const callArgs = mockAxiosInstance.get.mock.calls[0];
-    expect(callArgs[0]).toContain(
-      "/api/greader.php/reader/api/0/stream/contents/",
-    );
-    expect(callArgs[0]).toContain("output=json");
-    expect(callArgs[0]).toContain("n=250");
   });
 
   test("extractArticleContent handles network errors", async () => {
@@ -859,21 +825,7 @@ describe("AuthService", () => {
   });
 });
 
-// ── api/services – ArticleService.getReaderStream ───────────────────────────
-
-describe("ArticleService – getReaderStream and markAllRead", () => {
-  test("getReaderStream fetches stream URL and maps items", async () => {
-    const mx = makeMockAxiosClient();
-    mx.get = mock(async () => ({ data: { items: [] } }));
-    setApiClientForTesting(mx);
-
-    const result = await ArticleService.getReaderStream(
-      "user/-/state/com.google/reading-list",
-    );
-    expect(Array.isArray(result)).toBe(true);
-    expect(mx.get).toHaveBeenCalledTimes(1);
-  });
-
+describe("ArticleService – markAllRead", () => {
   test("markAllRead posts to /api/articles/mark-all-read", async () => {
     const mx = makeMockAxiosClient();
     mx.post = mock(async () => ({ data: {} }));
