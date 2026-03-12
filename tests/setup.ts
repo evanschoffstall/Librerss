@@ -5,6 +5,7 @@
 
 import { afterAll, afterEach, mock } from "bun:test";
 
+import { cleanup } from "@testing-library/react";
 // Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
 import { Window } from "happy-dom";
 
@@ -26,6 +27,19 @@ global.Element = window.Element as any;
 global.HTMLElement = window.HTMLElement as any;
 global.Node = window.Node as any;
 global.window.SyntaxError = global.window.SyntaxError ?? SyntaxError;
+
+if (typeof global.TransitionEvent !== "function") {
+  class TransitionEventPolyfill extends window.Event {
+    propertyName: string;
+
+    constructor(type: string, init?: TransitionEventInit) {
+      super(type, init);
+      this.propertyName = init?.propertyName ?? "";
+    }
+  }
+
+  global.TransitionEvent = TransitionEventPolyfill as any;
+}
 
 if (typeof global.requestAnimationFrame !== "function") {
   global.requestAnimationFrame = ((callback: FrameRequestCallback) =>
@@ -51,6 +65,7 @@ if (!process.env.AUTH_SECRET) {
 }
 
 afterEach(() => {
+  cleanup();
   document.body.innerHTML = "";
   mock.restore();
   mock.module("@/lib/db/db", () => realDbModule);
