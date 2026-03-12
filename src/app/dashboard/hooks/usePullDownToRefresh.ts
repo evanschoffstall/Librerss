@@ -16,7 +16,7 @@ const HOLD_PULL_PX = 44;
 /** Hold duration before snapping back. */
 const REFRESH_HOLD_MS = 650;
 /** Fallback settle delay when scrollend is delayed or unsupported. */
-const RELEASE_SETTLE_MS = 120;
+const RELEASE_SETTLE_MS = 200;
 
 interface PullState {
   pulling: boolean;

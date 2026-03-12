@@ -246,7 +246,7 @@ describe("usePullDownToRefresh", () => {
     expect(viewport.scrollTop).toBe(75);
 
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 160));
+      await new Promise((resolve) => setTimeout(resolve, 240));
     });
 
     expect(viewport.scrollTop).toBe(SENTINEL_SCROLL_OFFSET);
