@@ -30,8 +30,10 @@ import {
   getPreviousArticle,
 } from "@/app/dashboard/hooks/useArticleNavigation";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
+import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
-import { type Article, ArticleService } from "@/lib";
+import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
+import { type Article, ArticleService, FeedService } from "@/lib";
 
 // ─── useArticleNavigation ─────────────────────────────────────────────────────
 
@@ -99,6 +101,167 @@ describe("useFeedRefresh", () => {
     };
 
     expect(canRefreshFeed(neverFetched, 5 * 60 * 1000)).toBe(true);
+  });
+});
+
+describe("useFeedRequestState", () => {
+  test("starts foreground requests and exposes loading state", () => {
+    const setLoading = mock(() => {});
+    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
+
+    let request: ReturnType<typeof result.current.beginRequest> | undefined;
+
+    act(() => {
+      request = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!request) {
+      throw new Error("expected request result");
+    }
+
+    expect(request.skippedDuplicate).toBe(false);
+    expect(result.current.loading).toBe(true);
+    expect(result.current.loadingEpoch).toBe(1);
+    expect(result.current.isCurrentRequest(request.requestId)).toBe(true);
+    expect(setLoading).toHaveBeenCalledWith(true);
+  });
+
+  test("skips duplicate requests without aborting the active request", () => {
+    const setLoading = mock(() => {});
+    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
+
+    let firstRequest:
+      | ReturnType<typeof result.current.beginRequest>
+      | undefined;
+
+    act(() => {
+      firstRequest = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!firstRequest) {
+      throw new Error("expected first request result");
+    }
+
+    if (firstRequest.skippedDuplicate) {
+      throw new Error("expected first request to start");
+    }
+
+    let duplicateRequest:
+      | ReturnType<typeof result.current.beginRequest>
+      | undefined;
+
+    act(() => {
+      duplicateRequest = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!duplicateRequest) {
+      throw new Error("expected duplicate request result");
+    }
+
+    expect(duplicateRequest).toEqual({
+      requestId: firstRequest.requestId,
+      skippedDuplicate: true,
+    });
+    expect(firstRequest.abortController.signal.aborted).toBe(false);
+    expect(result.current.isCurrentRequest(firstRequest.requestId)).toBe(true);
+    expect(result.current.loadingEpoch).toBe(1);
+  });
+
+  test("cancelPendingRequest aborts the active request and clears loading", () => {
+    const setLoading = mock(() => {});
+    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
+
+    let request: ReturnType<typeof result.current.beginRequest> | undefined;
+
+    act(() => {
+      request = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!request) {
+      throw new Error("expected request result");
+    }
+
+    if (request.skippedDuplicate) {
+      throw new Error("expected request to start");
+    }
+
+    let canceledRequestId: number | undefined;
+
+    act(() => {
+      canceledRequestId = result.current.cancelPendingRequest();
+    });
+
+    if (canceledRequestId === undefined) {
+      throw new Error("expected canceled request id");
+    }
+
+    expect(request.abortController.signal.aborted).toBe(true);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.isCurrentRequest(canceledRequestId)).toBe(true);
+    expect(setLoading).toHaveBeenLastCalledWith(false);
+  });
+});
+
+describe("useCategoryOrderState", () => {
+  const originalGetCategoryOrder = FeedService.getCategoryOrder;
+  const originalSaveCategoryOrder = FeedService.saveCategoryOrder;
+
+  afterEach(() => {
+    FeedService.getCategoryOrder = originalGetCategoryOrder;
+    FeedService.saveCategoryOrder = originalSaveCategoryOrder;
+  });
+
+  test("skips loading category order in placeholder mode", async () => {
+    FeedService.getCategoryOrder = mock(async () => ["News"]);
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: true }),
+    );
+
+    await runWithAct(async () => {
+      await Promise.resolve();
+    });
+
+    expect(FeedService.getCategoryOrder).not.toHaveBeenCalled();
+    expect(result.current.orderedCategoryLabels).toEqual([]);
+  });
+
+  test("debounces category order persistence", async () => {
+    FeedService.getCategoryOrder = mock(async () => []);
+    FeedService.saveCategoryOrder = mock(async () => {});
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: false }),
+    );
+
+    act(() => {
+      result.current.setOrderedCategoryLabels(["News", "Tech"]);
+    });
+
+    await runWithAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+
+    expect(FeedService.saveCategoryOrder).toHaveBeenCalledWith([
+      "News",
+      "Tech",
+    ]);
   });
 });
 

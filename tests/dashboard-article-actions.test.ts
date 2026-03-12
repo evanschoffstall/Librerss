@@ -807,4 +807,75 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
   });
+
+  test("changing distill strategy re-extracts the expanded article", async () => {
+    const article = createMockArticle({
+      id: 77,
+      link: "https://example.com/strategy-refresh",
+    });
+
+    let expandedArticleKey: null | string = null;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater ?? null);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ expandedKey, strategy }) =>
+        useArticleActions({
+          articleFilter: "all",
+          distillStrategy: strategy,
+          expandedArticleKey: expandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          expandedKey: expandedArticleKey,
+          strategy: "custom",
+        },
+      },
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(article);
+    });
+    rerender({ expandedKey: expandedArticleKey, strategy: "custom" });
+
+    await waitFor(() => {
+      expect(
+        (ArticleService.extractArticleContent as ReturnType<typeof mock>).mock
+          .calls.length,
+      ).toBeGreaterThan(0);
+    });
+    const initialExtractCallCount = (
+      ArticleService.extractArticleContent as ReturnType<typeof mock>
+    ).mock.calls.length;
+    expect(ArticleService.extractArticleContent).toHaveBeenLastCalledWith(
+      article.link,
+      expect.objectContaining({
+        distillStrategy: "custom",
+        useProxy: undefined,
+      }),
+    );
+
+    rerender({ expandedKey: expandedArticleKey, strategy: "readability" });
+
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(
+        initialExtractCallCount + 1,
+      );
+    });
+    expect(ArticleService.extractArticleContent).toHaveBeenLastCalledWith(
+      article.link,
+      expect.objectContaining({
+        distillStrategy: "readability",
+        useProxy: undefined,
+      }),
+    );
+  });
 });
