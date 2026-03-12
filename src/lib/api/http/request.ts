@@ -135,13 +135,13 @@ export async function parseJsonObjectBodyOrResponse(
 export function parseNonNegativeInt(value: unknown): null | number {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) return null;
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return null;
   return parsed;
 }
 
 export function parsePositiveInt(value: unknown): null | number {
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     return null;
   }
 

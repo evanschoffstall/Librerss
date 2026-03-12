@@ -86,8 +86,9 @@ export async function refreshFeedFromUpstream(
 
     const feedXml = await fetchXml(feed.url);
     const parsed = await parseFeedXml(feedXml);
+    const parsedItems = Array.isArray(parsed.items) ? parsed.items : [];
 
-    const mappedItems = parsed.items
+    const mappedItems = parsedItems
       .map((item) => toPending(item, feed.id, now))
       .filter((item): item is PendingArticle => item !== null);
     const validItems = dedupe(mappedItems);
@@ -98,7 +99,7 @@ export async function refreshFeedFromUpstream(
       feedId: feed.id,
       newestPublicationDate: publicationDateRange.newestPublicationDate,
       oldestPublicationDate: publicationDateRange.oldestPublicationDate,
-      parsedItemCount: parsed.items.length,
+      parsedItemCount: parsedItems.length,
       url: feed.url,
     });
 
