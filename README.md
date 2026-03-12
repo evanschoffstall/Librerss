@@ -16,7 +16,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT License" /></a>
 </p>
 
-<p>A self-hosted, open-source RSS reader built for calm, focused reading.<br/>Fast feeds. Clean layouts. No clutter.</p>
+<p>A self-hosted, open-source RSS feed platform built for calm, focused reading.<br/>Fast feeds. Clean layouts. No clutter.</p>
 
 <br/>
 
@@ -26,9 +26,7 @@
 
 ## What is LibreRSS?
 
-LibreRSS is a **self-hosted RSS reader** you run on your own server. Subscribe to any RSS or Atom feed, organize sources into categories, and read distraction-free articles — all from a single dashboard you fully control.
-
-It also implements the **GReader API**, so native clients like **NetNewsWire** and **Reeder** connect without any plugins or adapters.
+LibreRSS is a **self-hosted RSS feed platform** you run on your own server. Subscribe to any RSS or Atom feed, organize sources into categories, and read distraction-free articles from a single dashboard you fully control.
 
 ---
 
@@ -39,7 +37,7 @@ It also implements the **GReader API**, so native clients like **NetNewsWire** a
 | 📡  | **Universal feed support**   | Subscribe to any RSS, Atom, or JSON feed          |
 | 🗂️  | **Category organization**    | Group feeds into custom categories                |
 | 🧘  | **Distraction-free reading** | Clean article view, no clutter                    |
-| 🔗  | **GReader API**              | Works natively with NetNewsWire, Reeder, and more |
+| 🧩  | **Flexible feed management** | Organize, refresh, and manage sources from one UI |
 | 🌙  | **Dark & light mode**        | Dark by default with manual override              |
 | 🔒  | **Self-hosted**              | Your data stays on your server, always            |
 | 🚪  | **Invite-only mode**         | Restrict registration via `ALLOW_SIGNUP` env flag |
@@ -81,8 +79,6 @@ bun dev
 ```
 
 Open **[http://localhost:3000](http://localhost:3000)** and you're up.
-
-> **GReader clients** — point them at `http://localhost:3000/api/greader.php`
 
 ---
 
@@ -126,8 +122,8 @@ Inserts a user into the database. Password must be at least 8 characters.
 librerss/
 ├── src/
 │   ├── app/
-│   │   ├── api/          # Feed, article, and GReader API routes
-│   │   ├── dashboard/    # Main reader UI
+│   │   ├── api/          # Feed, article, auth, and settings routes
+│   │   ├── dashboard/    # Main dashboard UI
 │   │   └── landing/      # Login and marketing page
 │   └── lib/
 │       ├── api/          # HTTP client, services, response helpers
