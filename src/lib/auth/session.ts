@@ -211,9 +211,8 @@ export function setSessionCookie(response: NextResponse, token: string): void {
 
 /**
  * Authenticate a user by email and password, returning a fresh session token
- * on success.  Shared by both the regular `/api/auth/login` route and the
- * GReader `ClientLogin` endpoint so that security measures (scrypt params,
- * placeholder-mode checks) stay in a single code path.
+ * on success. Shared by the authentication routes so that security measures
+ * (scrypt params, placeholder-mode checks) stay in a single code path.
  */
 // SECURITY: constant-time dummy hash — used when the email is not found so
 // that verifyPassword always runs, preventing timing-based email enumeration.

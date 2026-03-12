@@ -161,9 +161,6 @@ interface ConfigKeys {
   FEED_REQUEST_TIMEOUT_MS: number;
   // ── Strings (user agent, accept headers) ──
   FEED_REQUEST_USER_AGENT: string;
-  GREADER_DEFAULT_STREAM_ITEMS: number;
-  GREADER_MAX_STREAM_ITEMS: number;
-  GREADER_NETNEWSWIRE_MAX_ITEMS: number;
   // ── Enum ──
   LOG_LEVEL: "error" | "info" | "none" | "verbose" | "warn";
   MAX_ALL_ARTICLES_LIMIT: number;

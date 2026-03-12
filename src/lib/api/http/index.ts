@@ -11,8 +11,6 @@ export {
   isVerboseLoggingEnabled,
   toBodySnippet,
 } from "./diagnostics";
-export type { ReaderApiItem, ReaderApiStreamResponse } from "./reader-mappers";
-export { parseReaderStreamItems, readerItemToArticle } from "./reader-mappers";
 export {
   asTrimmedString,
   getSearchParams,

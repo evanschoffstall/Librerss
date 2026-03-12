@@ -25,8 +25,8 @@ const MARK_ALL_READ_LIMIT = 10_000;
 /**
  * Mark all articles in a stream as read for the given user.
  *
- * Shared by the web UI `/api/articles/mark-all-read` route and the
- * GReader-compatible `/api/greader.php/.../mark-all-as-read` handler.
+ * Shared by mark-all-read flows that operate on feed, label, or starred
+ * streams.
  */
 export async function markStreamAsRead(
   userId: number,
