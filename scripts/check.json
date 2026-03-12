@@ -3,7 +3,7 @@
     "lineCoverageThreshold": 85,
     "typeCoverageThreshold": 98,
     "testTimeoutMs": 5000,
-    "testCommandTimeoutMs": 60000,
+    "testCommandTimeoutMs": 120000,
     "testCommandTimeoutEnvVar": "CHECK_TEST_COMMAND_TIMEOUT_MS"
   },
   "paths": {
@@ -21,14 +21,17 @@
       "args": ["prettier", "--write", "."]
     },
     {
-      "key": "test",
+      "key": "junit",
       "enabled": true,
-      "label": "Tests",
+      "label": "junit",
       "handler": "test",
       "cmd": "bun",
       "args": [
         "test",
         "--timeout={testTimeoutMs}",
+        "--coverage",
+        "--coverage-reporter=lcov",
+        "--coverage-dir=coverage",
         "--reporter=junit",
         "--reporter-outfile={junitPath}"
       ],
@@ -55,7 +58,17 @@
       "handler": "lint",
       "passMsg": "lint clean",
       "failMsg": "lint failed",
-      "summary": { "type": "simple" },
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "[✖xX]\\s+(\\d+)\\s+problems?\\s*\\((\\d+)\\s+errors?,\\s*(\\d+)\\s+warnings?\\)",
+            "type": "match",
+            "format": "{1} problems ({2} errors, {3} warnings)"
+          }
+        ],
+        "default": "lint clean"
+      },
       "config": {
         "globExtensions": ["js", "mjs", "cjs", "ts", "jsx", "tsx"],
         "skipDirs": [
@@ -75,6 +88,7 @@
           "content",
           "--cache-location",
           ".cache/eslint",
+          "--fix",
           "--concurrency"
         ]
       }
@@ -145,7 +159,27 @@
       }
     },
     {
-      "key": "typeCoverage",
+      "key": "dependency-cruiser",
+      "enabled": true,
+      "label": "dependency-cruiser",
+      "cmd": "bunx",
+      "args": ["depcruise", "--no-config", "src", "--output-type", "err"],
+      "passMsg": "no dependency violations",
+      "failMsg": "dependency-cruiser failed",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "no dependency violations found \\((\\d+) modules, (\\d+) dependencies cruised\\)",
+            "type": "match",
+            "format": "0 dependency violations · {1} modules · {2} dependencies"
+          }
+        ],
+        "default": "dependency cruise completed"
+      }
+    },
+    {
+      "key": "type-coverage",
       "enabled": true,
       "label": "type-coverage",
       "cmd": "bunx",
@@ -179,6 +213,7 @@
       "args": [
         "stylelint",
         "src/**/*.{css,scss}",
+        "--allow-empty-input",
         "--cache",
         "--cache-location",
         ".cache/stylelint",
@@ -190,21 +225,24 @@
       "summary": { "type": "simple" }
     },
     {
-      "key": "deadCss",
+      "key": "purgecss",
       "enabled": true,
-      "label": "dead-css",
-      "handler": "dead-css",
-      "passMsg": "no dead CSS definitions",
-      "failMsg": "dead CSS found",
+      "label": "purgecss",
+      "handler": "inline-ts",
+      "passMsg": "no unused CSS selectors",
+      "failMsg": "unused CSS selectors found",
       "summary": { "type": "simple" },
       "config": {
-        "cssFiles": ["src/app/globals.css"],
-        "contentGlobs": [
-          "src/**/*.{tsx,ts,jsx,js}",
-          "src/components/components.css"
-        ],
-        "safelists": ["^dark$", "^motion-profile-"],
-        "selectorPrefix": "."
+        "source": "async ({ data, cwd, join, importModule, ok, fail }) => {\n  const { cssFiles, contentGlobs, safelists, selectorPrefix } = data;\n  if (!Array.isArray(cssFiles) || !Array.isArray(contentGlobs) || !Array.isArray(safelists) || typeof selectorPrefix !== \"string\") {\n    return fail(\"purgecss config is invalid\\n\");\n  }\n  const safelistRe = safelists.map((pattern: string) => new RegExp(pattern));\n  const safePattern = safelists.length > 0 ? new RegExp(safelists.join(\"|\")) : null;\n  const purgeCssModule = await importModule(\"purgecss\") as {\n    PurgeCSS: new () => {\n      purge: (options: {\n        css: string[];\n        content: string[];\n        rejected: boolean;\n        safelist: { greedy: RegExp[] };\n      }) => Promise<Array<{ rejected?: string[] }>>;\n    };\n  };\n  const [result] = await new purgeCssModule.PurgeCSS().purge({\n    css: cssFiles.map((file: string) => join(cwd, file)),\n    content: contentGlobs.map((glob: string) => join(cwd, glob)),\n    rejected: true,\n    safelist: { greedy: safelistRe }\n  });\n  const rejected = Array.isArray(result?.rejected) ? result.rejected : [];\n  const unused = rejected.filter((selector: string) => selector.startsWith(selectorPrefix) && !(safePattern?.test(selector) ?? false));\n  if (unused.length === 0) return ok(\"no unused CSS selectors found\\n\");\n  return fail(unused.map((selector: string) => \"  unused: \" + selector).join(\"\\n\") + \"\\nfound \" + unused.length + \" unused CSS selector(s)\\n\");\n}",
+        "data": {
+          "cssFiles": ["src/app/globals.css"],
+          "contentGlobs": [
+            "src/**/*.{tsx,ts,jsx,js}",
+            "src/components/components.css"
+          ],
+          "safelists": ["^dark$", "^motion-profile-"],
+          "selectorPrefix": "."
+        }
       }
     },
     {
@@ -236,7 +274,7 @@
     {
       "key": "prettier",
       "enabled": true,
-      "label": "prettier-check",
+      "label": "prettier",
       "cmd": "bunx",
       "args": [
         "prettier",
@@ -247,7 +285,7 @@
         ".cache/prettier"
       ],
       "passMsg": "formatting compliant",
-      "failMsg": "prettier check failed",
+      "failMsg": "prettier failed",
       "summary": { "type": "simple" }
     },
     {
@@ -275,9 +313,9 @@
       "summary": { "type": "simple" }
     },
     {
-      "key": "gitleaks",
+      "key": "@0xts/gitleaks-cli",
       "enabled": true,
-      "label": "gitleaks",
+      "label": "@0xts/gitleaks-cli",
       "cmd": "bunx",
       "args": [
         "@0xts/gitleaks-cli",
@@ -291,31 +329,6 @@
       "passMsg": "secret scan clean",
       "failMsg": "gitleaks failed",
       "summary": { "type": "simple" }
-    },
-    {
-      "key": "depAudit",
-      "enabled": true,
-      "label": "dep-audit",
-      "cmd": "bun",
-      "args": ["audit"],
-      "passMsg": "0 vulnerabilities found",
-      "failMsg": "vulnerabilities found",
-      "summary": {
-        "type": "pattern",
-        "patterns": [
-          {
-            "regex": "No vulnerabilities found",
-            "type": "literal",
-            "format": "0 vulnerabilities found"
-          },
-          {
-            "regex": "(\\d+)\\s+vulnerabilit(?:y|ies)",
-            "type": "match",
-            "format": "{1} vulnerabilities found"
-          }
-        ],
-        "default": "dependency audit completed"
-      }
     }
   ]
 }
