@@ -1,35 +1,34 @@
 "use client";
 
-import { type RefObject, useCallback, useRef, useState } from "react";
+import { type RefObject, useCallback } from "react";
 import { toast } from "sonner";
 
-import {
-  buildCategoriesFromSources,
-  buildDefaultCategories,
-  findFeedNodeByUrl,
-  getAllFeedNodes,
-} from "../services/category-tree";
+import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-tree";
 import {
   buildBatchRequestSignature,
   FEED_LOADING_FAILSAFE_MS,
   type FeedBatchSource,
-  mapBatchResultsToArticles,
   mapFeedNodesToBatchSources,
   normalizeFeedBatchSources,
 } from "../services/feed-batch";
 import {
+  buildFeedBatchOutcome,
+  formatFeedFailureLabel,
+} from "../services/feed-batch-outcome";
+import { resolveFeedBatchResults } from "../services/feed-batch-resolver";
+import {
   type FeedBatchResult,
-  getNewestLastFetchedAt,
-  getSourceNamesByUrl,
   isCanceledBatchRequest,
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
 } from "../services/feed-loader-helpers";
+import { loadFeedSourceTree } from "../services/feed-source-tree";
 import type { FeedFetchOptions } from "../services/selection";
 
+import { useFeedRequestState } from "./useFeedRequestState";
+
 import type { Article, CategoryTreeNode } from "@/lib";
-import { FeedService } from "@/lib";
 import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 
@@ -52,12 +51,8 @@ export function useFeedLoader({
   setLoading,
   usePlaceholderData,
 }: UseFeedLoaderOptions) {
-  const currentRequestIdRef = useRef(0);
-  const activeRequestSignatureRef = useRef<null | string>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadingRef = useRef(false);
-  const [loading, setLocalLoading] = useState(false);
-  const [loadingEpoch, setLoadingEpoch] = useState(0);
+  const feedRequestState = useFeedRequestState({ setLoading });
+  const { loading, loadingEpoch } = feedRequestState;
 
   const logRefreshDiagnostics = useCallback(
     (event: string, details: Record<string, unknown>) => {
@@ -176,12 +171,28 @@ export function useFeedLoader({
       const keepExistingFeed = options?.keepExistingFeed === true;
       const forceRefresh = options?.forceRefresh === true;
       const isBackground = keepExistingFeed && !forceRefresh;
-      if (isBackground && loadingRef.current) {
+      if (isBackground && feedRequestState.isLoading()) {
         return;
       }
 
-      const requestId = currentRequestIdRef.current + 1;
-      currentRequestIdRef.current = requestId;
+      const normalizedSources = normalizeFeedBatchSources(sources);
+      const requestSignature = buildBatchRequestSignature(normalizedSources);
+
+      const requestState = feedRequestState.beginRequest({
+        forceRefresh,
+        isBackground,
+        requestSignature,
+      });
+
+      if (requestState.skippedDuplicate) {
+        logRefreshDiagnostics("refresh:skipped-duplicate", {
+          requestId: requestState.requestId,
+          requestSignature,
+        });
+        return;
+      }
+
+      const { abortController, requestId } = requestState;
 
       logRefreshDiagnostics("refresh:start", {
         forceRefresh: options?.forceRefresh === true,
@@ -191,31 +202,6 @@ export function useFeedLoader({
         sourceCount: sources.length,
       });
 
-      // Cancel any previous request
-      abortControllerRef.current?.abort();
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      const normalizedSources = normalizeFeedBatchSources(sources);
-      const requestSignature = buildBatchRequestSignature(normalizedSources);
-
-      if (
-        loadingRef.current &&
-        activeRequestSignatureRef.current === requestSignature &&
-        options?.forceRefresh !== true
-      ) {
-        logRefreshDiagnostics("refresh:skipped-duplicate", {
-          requestId,
-          requestSignature,
-        });
-        return;
-      }
-
-      activeRequestSignatureRef.current = requestSignature;
-      if (!isBackground) {
-        syncLoading(true);
-        setLoadingEpoch((e) => e + 1);
-      }
       if (!options?.keepExistingFeed) {
         setFeed([]);
       }
@@ -246,9 +232,8 @@ export function useFeedLoader({
           });
           return;
         }
-        if (currentRequestIdRef.current !== requestId) {
+        if (!feedRequestState.isCurrentRequest(requestId)) {
           logRefreshDiagnostics("refresh:stale-request", {
-            currentRequestId: currentRequestIdRef.current,
             requestId,
           });
           return;
@@ -297,9 +282,8 @@ export function useFeedLoader({
           }
         }
       } finally {
-        if (currentRequestIdRef.current === requestId) {
-          activeRequestSignatureRef.current = null;
-          syncLoading(false);
+        if (feedRequestState.isCurrentRequest(requestId)) {
+          feedRequestState.finishRequest(requestId);
           logRefreshDiagnostics("refresh:finished", {
             requestId,
           });
@@ -310,9 +294,9 @@ export function useFeedLoader({
       usePlaceholderData,
       setFeed,
       setExpandedArticleKey,
-      syncLoading,
+      feedRequestState,
       logRefreshDiagnostics,
-      fetchBatchOrPlaceholder,
+      loadBatchResults,
       handleEmptyBatchResult,
       onFeedBatchLoaded,
     ],
@@ -349,15 +333,11 @@ export function useFeedLoader({
   );
 
   const cancelPendingRequest = useCallback(() => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-    activeRequestSignatureRef.current = null;
-    currentRequestIdRef.current += 1;
-    syncLoading(false);
+    const requestId = feedRequestState.cancelPendingRequest();
     logRefreshDiagnostics("refresh:forced-reset", {
-      requestId: currentRequestIdRef.current,
+      requestId,
     });
-  }, [logRefreshDiagnostics, syncLoading]);
+  }, [feedRequestState, logRefreshDiagnostics]);
 
   return {
     cancelPendingRequest,
