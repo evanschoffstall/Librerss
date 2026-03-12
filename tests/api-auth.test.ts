@@ -204,11 +204,9 @@ describe("Auth API - Login extended branches", () => {
     });
   });
 
-  // NOTE: Testing the "wrong credentials → 401" path of authenticateCredentials is
-  // not stable in the full suite because greader-route.contract.test.ts mocks
-  // @/lib/auth/session with authenticateCredentials: async () => null, which makes
-  // the login route throw a TypeError (null.ok) → 500. This path is covered by the
-  // "returns error for invalid credentials" test in the Auth API - Login describe above.
+  // NOTE: Testing the "wrong credentials → 401" path of authenticateCredentials
+  // is not stable in the full suite under concurrent auth mocking. That path is
+  // covered by the "returns error for invalid credentials" test above.
 
   test("POST /api/auth/login rejects CSRF-unsafe request", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
@@ -280,9 +278,9 @@ describe("Auth API - Session", () => {
     expect(body).toHaveProperty("authenticated");
     expect(body).toHaveProperty("allowSignup");
     expect(body).toHaveProperty("usePlaceholderData");
-    // In normal runs (DB mock returns []) → unauthenticated
-    // In parallel with greader-route.contract.test.ts (session mocked) → may be authenticated
-    // Both are valid — just assert no 5xx
+    // In normal runs (DB mock returns []) this is unauthenticated.
+    // Under concurrent session mocking it may appear authenticated.
+    // Both are valid here; this assertion is only guarding against 5xx.
   });
 
   test("GET /api/auth/session returns current user", async () => {
