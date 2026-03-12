@@ -34,11 +34,14 @@ export async function markStreamAsRead(
   deps?: {
     /** Milliseconds since epoch — only mark articles published before this time. */
     beforeMs?: number;
+
     canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;
     db?: ReturnType<typeof getDb>;
     upsertArticleStatusesFn?: typeof upsertArticleStatuses;
   },
 ): Promise<void> {
+  const userLabel = parseUserLabel(stream);
+
   const db = deps?.db ?? getDb();
   const canUseArticleStatuses =
     deps?.canUseArticleStatusesTableFn ?? canUseArticleStatusesTable;
@@ -101,7 +104,7 @@ export async function markStreamAsRead(
         and(
           eq(feedCategories.feedId, feeds.id),
           eq(feedCategories.userId, userId),
-          eq(feedCategories.category, parseUserLabel(stream)!),
+          eq(feedCategories.category, userLabel ?? ""),
         ),
       )
       .where(beforeDate ? lt(articles.publicationDate, beforeDate) : undefined)

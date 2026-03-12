@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -34,7 +34,7 @@ import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 
 interface UseFeedLoaderOptions {
-  categoriesRef: React.MutableRefObject<CategoryTreeNode[]>;
+  categoriesRef: RefObject<CategoryTreeNode[]>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
@@ -173,8 +173,9 @@ export function useFeedLoader({
       // Background refreshes (auto-refresh without force) must not replace
       // visible articles with skeleton loaders or race the failsafe timer.
       // Yield to any in-flight loading request rather than aborting it.
-      const isBackground =
-        options?.keepExistingFeed === true && options?.forceRefresh !== true;
+      const keepExistingFeed = options?.keepExistingFeed === true;
+      const forceRefresh = options?.forceRefresh === true;
+      const isBackground = keepExistingFeed && !forceRefresh;
       if (isBackground && loadingRef.current) {
         return;
       }
@@ -381,7 +382,7 @@ function notifyFeedFailures(
 
   const failedNames = failedFeeds.map((item) => {
     const sourceName = sourceNamesByUrl.get(item.url);
-    return sourceName || item.url;
+    return sourceName ?? item.url;
   });
 
   if (failedFeeds.length === totalFeedCount) {

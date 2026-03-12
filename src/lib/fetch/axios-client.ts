@@ -26,7 +26,7 @@ export function buildAxiosGet(
         proxy: false as const,
       });
   }
-  if (proxyConfig && proxyConfig.mode === "http") {
+  if (proxyConfig) {
     return (reqUrl, config) =>
       extractionAxios.get(reqUrl, {
         ...config,

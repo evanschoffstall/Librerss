@@ -72,15 +72,10 @@ export function SettingsProxySection() {
     ArticleService.getProxySettings()
       .then((result) => {
         setProxyUrl(result.proxyUrl ?? "");
-        setAllowInsecureTls(result.allowInsecureTls ?? false);
+        setAllowInsecureTls(result.allowInsecureTls);
         setProxyUsername(result.proxyUsername ?? "");
-        setHasProxyPassword(result.hasProxyPassword ?? false);
-        setProxyStatus(
-          !result.proxyUrl
-            ? "none"
-            : (result.status ??
-                (result.configured ? "reachable" : "unreachable")),
-        );
+        setHasProxyPassword(result.hasProxyPassword);
+        setProxyStatus(result.proxyUrl === null ? "none" : result.status);
         if (result.error) setError(result.error);
       })
       .catch(() => {
@@ -92,10 +87,11 @@ export function SettingsProxySection() {
     try {
       const raw = window.localStorage.getItem(BOT_RESULTS_CACHE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<BotResultsCache>;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isBotResultsCache(parsed)) return;
       if (
-        typeof parsed?.checkedAt !== "number" ||
-        !Array.isArray(parsed?.results)
+        typeof parsed.checkedAt !== "number" ||
+        !Array.isArray(parsed.results)
       )
         return;
       setBotResults(parsed.results);
@@ -159,7 +155,7 @@ export function SettingsProxySection() {
       });
       setProxyUrl(result.proxyUrl ?? "");
       setProxyUsername(result.proxyUsername ?? "");
-      setHasProxyPassword(result.hasProxyPassword ?? false);
+      setHasProxyPassword(result.hasProxyPassword);
       if (proxyPassword) setProxyPassword("");
       if (result.error) {
         setError(result.error);
@@ -167,9 +163,7 @@ export function SettingsProxySection() {
       } else if (!result.proxyUrl) {
         setProxyStatus("none");
       } else {
-        setProxyStatus(
-          result.status ?? (result.configured ? "reachable" : "unreachable"),
-        );
+        setProxyStatus(result.status);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save proxy URL");
@@ -259,7 +253,11 @@ export function SettingsProxySection() {
                 setProxyUrl(e.target.value);
                 setError(null);
               }}
-              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void handleSave();
+                }
+              }}
               placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
               ref={inputRef}
               type="text"
@@ -268,7 +266,9 @@ export function SettingsProxySection() {
             <Button
               className="h-9 shrink-0 gap-1.5"
               disabled={saving || !proxyUrl.trim()}
-              onClick={handleSave}
+              onClick={() => {
+                void handleSave();
+              }}
               size="sm"
               type="button"
               variant="outline"
@@ -284,7 +284,9 @@ export function SettingsProxySection() {
               <Button
                 className="h-9 px-2 shrink-0 text-muted-foreground hover:text-destructive"
                 disabled={saving}
-                onClick={handleClear}
+                onClick={() => {
+                  void handleClear();
+                }}
                 size="sm"
                 type="button"
                 variant="ghost"
@@ -384,17 +386,19 @@ export function SettingsProxySection() {
             checked={allowInsecureTls}
             disabled={saving}
             id="allow-insecure-tls"
-            onCheckedChange={async (checked) => {
+            onCheckedChange={(checked) => {
               const currentUrl = proxyUrl.trim();
               if (!currentUrl) return;
               setAllowInsecureTls(checked);
-              try {
-                await ArticleService.saveProxyUrl(currentUrl, {
-                  allowInsecureTls: checked,
-                });
-              } catch {
-                setAllowInsecureTls(!checked);
-              }
+              void (async () => {
+                try {
+                  await ArticleService.saveProxyUrl(currentUrl, {
+                    allowInsecureTls: checked,
+                  });
+                } catch {
+                  setAllowInsecureTls(!checked);
+                }
+              })();
             }}
           />
         </div>
@@ -420,7 +424,9 @@ export function SettingsProxySection() {
             <Button
               className="h-8 shrink-0 gap-1.5"
               disabled={testingBot || saving}
-              onClick={handleTestBotDetection}
+              onClick={() => {
+                void handleTestBotDetection();
+              }}
               size="sm"
               type="button"
               variant="outline"
@@ -537,6 +543,14 @@ function formatElapsed(checkedAt: number, now: number) {
   if (elapsedHr < 24) return `${elapsedHr}h ago`;
   const elapsedDay = Math.floor(elapsedHr / 24);
   return `${elapsedDay}d ago`;
+}
+
+function isBotResultsCache(value: unknown): value is BotResultsCache {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return "checkedAt" in value && "results" in value;
 }
 
 function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {

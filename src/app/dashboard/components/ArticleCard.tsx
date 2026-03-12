@@ -557,9 +557,7 @@ export const ArticleCard = memo(function ArticleCard({
             <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
               <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
                 <CalendarDays className="size-3" />
-                {formatRelativeDate(
-                  new Date(article.publicationDate ?? Date.now()),
-                )}
+                {formatRelativeDate(new Date(article.publicationDate))}
                 <span
                   aria-hidden="true"
                   className="size-1 shrink-0 rounded-full bg-border/80"
@@ -652,7 +650,9 @@ export const ArticleCard = memo(function ArticleCard({
                   <button
                     aria-label="Share article"
                     className={iconBtnCls}
-                    onClick={handleShare}
+                    onClick={(event) => {
+                      void handleShare(event);
+                    }}
                     type="button"
                   >
                     <Share2 className="size-3.5" />

@@ -18,6 +18,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthService, type AuthUser } from "@/lib";
 
+interface AuthErrorResponse {
+  error?: unknown;
+}
+
 interface LoginViewProps {
   allowSignup: boolean;
   onAuthenticated: (user: AuthUser) => void;
@@ -75,8 +79,8 @@ export const LoginView = ({
       toast.success(mode === "signup" ? "Account created." : "Welcome back.");
     } catch (error: unknown) {
       const message =
-        axios.isAxiosError(error) &&
-        typeof error.response?.data?.error === "string"
+        axios.isAxiosError<AuthErrorResponse>(error) &&
+        typeof error.response?.data.error === "string"
           ? error.response.data.error
           : "Authentication failed.";
       toast.error(message);
@@ -173,7 +177,9 @@ export const LoginView = ({
           <Button
             className="w-full"
             disabled={isSubmitting}
-            onClick={handleSubmit}
+            onClick={() => {
+              void handleSubmit();
+            }}
           >
             {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
             {mode === "signup" ? "Create account" : "Continue"}

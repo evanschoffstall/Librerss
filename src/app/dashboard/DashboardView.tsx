@@ -541,7 +541,10 @@ export const DashboardView = ({
           onBackgroundModeChange={onBackgroundModeChange}
           onClose={handleCloseSettings}
           onDistillStrategyChange={onDistillStrategyChange}
-          onDropCategory={categoryManager.moveCategoryByDrop}
+          onDropCategory={(label, targetIndex) => {
+            categoryManager.moveCategoryByDrop(label, targetIndex);
+            return Promise.resolve();
+          }}
           onDropFeed={categoryManager.moveFeedByDrop}
           onImportOpml={categoryManager.importOpmlFeeds}
           onPageSizeChange={setPageSize}

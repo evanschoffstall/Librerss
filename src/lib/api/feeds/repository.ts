@@ -55,10 +55,10 @@ export async function deleteFeedSourceForUser(
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
 
-  const [deletedSource] = await db.transaction(async (tx) => {
+  const deletedSources = await db.transaction(async (tx) => {
     // Single query: lock feedSource row and fetch its feedId via LEFT JOIN,
     // eliminating a separate SELECT feeds round-trip.
-    const [sourceToDelete] = await tx
+    const sourceRows = await tx
       .select({ ...feedSourceFields, feedId: feeds.id })
       .from(feedSources)
       .leftJoin(feeds, eq(feeds.url, feedSources.url))
@@ -66,9 +66,11 @@ export async function deleteFeedSourceForUser(
       .for("update")
       .limit(1);
 
-    if (!sourceToDelete) return [];
+    if (sourceRows.length === 0) return [];
 
-    if (sourceToDelete.feedId) {
+    const sourceToDelete = sourceRows[0];
+
+    if (sourceToDelete.feedId !== null) {
       await tx
         .delete(feedCategories)
         .where(
@@ -85,7 +87,7 @@ export async function deleteFeedSourceForUser(
       .returning(feedSourceFields);
   });
 
-  return deletedSource ?? null;
+  return deletedSources[0] ?? null;
 }
 
 export async function listFeedSourcesForUser(
@@ -125,17 +127,19 @@ export async function renameFeedSourceForUser(
   const db = getDb();
   const normalizedUrl = normalizeFeedUrl(url);
 
-  const [updatedSource] = await db.transaction(async (tx) => {
+  const updatedSources = await db.transaction(async (tx) => {
     // Lock the row inside the transaction so concurrent renames serialize and
     // can't race between the URL read and the category transfer.
-    const [existingSource] = await tx
+    const existingSources = await tx
       .select({ id: feedSources.id, url: feedSources.url })
       .from(feedSources)
       .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
       .for("update")
       .limit(1);
 
-    if (!existingSource) return [];
+    if (existingSources.length === 0) return [];
+
+    const existingSource = existingSources[0];
 
     if (existingSource.url !== normalizedUrl) {
       // These two lookups are independent — run them concurrently.
@@ -145,8 +149,8 @@ export async function renameFeedSourceForUser(
       ]);
       let previousCategory = DEFAULT_CATEGORY_LABEL;
 
-      if (previousFeedId) {
-        const [existingCategory] = await tx
+      if (previousFeedId !== null) {
+        const existingCategoryRows = await tx
           .select({ category: feedCategories.category })
           .from(feedCategories)
           .where(
@@ -157,10 +161,14 @@ export async function renameFeedSourceForUser(
           )
           .limit(1);
 
-        previousCategory = toCategoryLabelOrDefault(existingCategory?.category);
+        const previousCategoryValue =
+          existingCategoryRows.length > 0
+            ? existingCategoryRows[0].category
+            : null;
+        previousCategory = toCategoryLabelOrDefault(previousCategoryValue);
       }
 
-      if (previousFeedId) {
+      if (previousFeedId !== null) {
         await removeUserFeedCategory(tx, {
           feedId: previousFeedId,
           userId,
@@ -181,7 +189,7 @@ export async function renameFeedSourceForUser(
       .returning(feedSourceFields);
   });
 
-  return updatedSource ?? null;
+  return updatedSources[0] ?? null;
 }
 
 export async function setFeedSourceEnabledForUser(
@@ -191,13 +199,13 @@ export async function setFeedSourceEnabledForUser(
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
 
-  const [updatedSource] = await db
+  const updatedSources = await db
     .update(feedSources)
     .set({ enabled })
     .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
     .returning(feedSourceFields);
 
-  return updatedSource ?? null;
+  return updatedSources[0] ?? null;
 }
 
 export function toFeedSourceResponse(
@@ -215,20 +223,28 @@ export async function updateFeedSettingsForUser(
   settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
-  const setClause: Record<string, boolean> = {};
+  const setClause: {
+    extractionDisabled?: boolean;
+    proxyEnabled?: boolean;
+  } = {};
   if (typeof settings.extractionDisabled === "boolean")
     setClause.extractionDisabled = settings.extractionDisabled;
   if (typeof settings.proxyEnabled === "boolean")
     setClause.proxyEnabled = settings.proxyEnabled;
-  if (Object.keys(setClause).length === 0) return null;
+  if (
+    setClause.extractionDisabled === undefined &&
+    setClause.proxyEnabled === undefined
+  ) {
+    return null;
+  }
 
-  const [updatedSource] = await db
+  const updatedSources = await db
     .update(feedSources)
     .set(setClause)
     .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
     .returning(feedSourceFields);
 
-  return updatedSource ?? null;
+  return updatedSources[0] ?? null;
 }
 
 async function upsertFeedSource(
@@ -237,7 +253,7 @@ async function upsertFeedSource(
   name: string,
   normalizedUrl: string,
 ): Promise<CreateFeedSourceResult> {
-  const [existingSource] = await tx
+  const existingSources = await tx
     .select(feedSourceFields)
     .from(feedSources)
     .where(
@@ -245,8 +261,9 @@ async function upsertFeedSource(
     )
     .limit(1);
 
-  if (existingSource) {
-    const [updatedSource] = await tx
+  if (existingSources.length > 0) {
+    const existingSource = existingSources[0];
+    const updatedSources = await tx
       .update(feedSources)
       .set({ enabled: true, name })
       .where(
@@ -257,21 +274,21 @@ async function upsertFeedSource(
       )
       .returning(feedSourceFields);
 
-    if (!updatedSource) {
+    if (updatedSources.length === 0) {
       throw new Error("Failed to update feed source");
     }
 
-    return { isNew: false, sourceRecord: updatedSource };
+    return { isNew: false, sourceRecord: updatedSources[0] };
   }
 
-  const [createdSource] = await tx
+  const createdSources = await tx
     .insert(feedSources)
     .values({ enabled: true, name, url: normalizedUrl, userId })
     .returning(feedSourceFields);
 
-  if (!createdSource) {
+  if (createdSources.length === 0) {
     throw new Error("Failed to create feed source");
   }
 
-  return { isNew: true, sourceRecord: createdSource };
+  return { isNew: true, sourceRecord: createdSources[0] };
 }

@@ -217,7 +217,7 @@ export const FeedList = memo(function FeedList({
           key="feed-list"
         >
           {animatedItems.map(({ exiting, item: article, key: cardKey }) => {
-            const articleLink = article.link?.trim() ?? "";
+            const articleLink = article.link.trim();
             return (
               <div
                 className={
@@ -231,16 +231,16 @@ export const FeedList = memo(function FeedList({
                 <ArticleCard
                   article={article}
                   articleKey={cardKey}
-                  hasScrapedContent={Boolean(hydratedArticleLinks[articleLink])}
+                  hasScrapedContent={hydratedArticleLinks[articleLink]}
                   isExpanded={expandedArticleKey === cardKey}
-                  isHydrating={Boolean(hydratingArticleLinks[articleLink])}
-                  isUpdatingState={Boolean(updatingArticleState[cardKey])}
+                  isHydrating={hydratingArticleLinks[articleLink]}
+                  isUpdatingState={updatingArticleState[cardKey]}
                   onExpandedSwipeRead={onExpandedSwipeRead}
                   onToggle={onToggle}
                   onToggleRead={onToggleRead}
                   onToggleStarred={onToggleStarred}
                   showFavicon={showFavicons}
-                  useRichFormatting={Boolean(hydratedArticleLinks[articleLink])}
+                  useRichFormatting={hydratedArticleLinks[articleLink]}
                 />
               </div>
             );

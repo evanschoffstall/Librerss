@@ -29,17 +29,15 @@ const defineUserScopedIndexes = (
   userId: CompositeIndexColumns[number],
   indexes: readonly UserScopedIndexSpec[],
 ) =>
-  Object.fromEntries(
-    indexes.map(([key, name, column, unique]) => [
-      key,
-      unique
-        ? defineUniqueIndex(
-            name,
-            ...([userId, column] as CompositeIndexColumns),
-          )
-        : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
-    ]),
+  indexes.map(([, name, column, unique]) =>
+    unique
+      ? defineUniqueIndex(name, ...([userId, column] as CompositeIndexColumns))
+      : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
   );
+
+const defineSingleUniqueIndex = (
+  indexConfig: ReturnType<typeof defineUniqueIndex>,
+) => [indexConfig];
 
 const defineUserOwnedAuditColumns = () => ({
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
@@ -83,15 +81,10 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
   },
-  (table) => ({
-    tokenHashIdx: uniqueIndex("session_token_hash_idx").on(table.tokenHash),
-    // Speeds up session-limit enforcement: SELECT WHERE userId ORDER BY createdAt
-    userCreatedAtIdx: defineIndex(
-      "session_user_created_at_idx",
-      table.userId,
-      table.createdAt,
-    ),
-  }),
+  (table) => [
+    uniqueIndex("session_token_hash_idx").on(table.tokenHash),
+    defineIndex("session_user_created_at_idx", table.userId, table.createdAt),
+  ],
 );
 
 export const feeds = pgTable("Feed", {
@@ -121,16 +114,14 @@ export const articles = pgTable(
     }).notNull(),
     title: text("title").notNull(),
   },
-  (table) => ({
-    // Speeds up per-feed article lookups (WHERE feed_id = ?)
-    feedIdIdx: defineIndex("article_feed_id_idx", table.feedId),
-    // Speeds up the common query pattern: WHERE feed_id = ? ORDER BY publication_date DESC
-    feedIdPubDateIdx: defineIndex(
+  (table) => [
+    defineIndex("article_feed_id_idx", table.feedId),
+    defineIndex(
       "article_feed_id_pub_date_idx",
       table.feedId,
       table.publicationDate,
     ),
-  }),
+  ],
 );
 
 export const feedSources = pgTable(
@@ -146,13 +137,9 @@ export const feedSources = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
   },
-  (table) => ({
-    userUrlIdx: defineUniqueIndex(
-      "feed_source_user_url_idx",
-      table.userId,
-      table.url,
-    ),
-  }),
+  (table) => [
+    defineUniqueIndex("feed_source_user_url_idx", table.userId, table.url),
+  ],
 );
 
 export const feedCategories = pgTable(
@@ -182,9 +169,10 @@ export const categoryOrders = pgTable(
     orderedLabels: text("ordered_labels").notNull().default("[]"),
     ...defineUserOwnedAuditColumns(),
   },
-  (table) => ({
-    userIdx: defineUniqueIndex("category_order_user_idx", table.userId),
-  }),
+  (table) =>
+    defineSingleUniqueIndex(
+      defineUniqueIndex("category_order_user_idx", table.userId),
+    ),
 );
 
 export const articleStatuses = pgTable(

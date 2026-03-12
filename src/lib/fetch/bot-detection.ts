@@ -29,7 +29,7 @@ export function detectBotProtection(
 
   const headers = resp?.headers;
   const challengeCookies = getChallengeCookies(headers);
-  const responseBody = String(resp?.data ?? "");
+  const responseBody = typeof resp?.data === "string" ? resp.data : "";
   const responseBodyLower = responseBody.toLowerCase();
   const responseHeaderKeys = Object.keys(headers ?? {}).map((h) =>
     h.toLowerCase(),
@@ -89,5 +89,7 @@ function headerText(headers: Record<string, unknown> | undefined, key: string) {
   const value = headers?.[key];
   return Array.isArray(value)
     ? value.join(";").toLowerCase()
-    : String(value ?? "").toLowerCase();
+    : typeof value === "string"
+      ? value.toLowerCase()
+      : "";
 }

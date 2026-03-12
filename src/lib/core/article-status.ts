@@ -97,14 +97,8 @@ export async function upsertArticleStatuses(
         .values(chunk)
         .onConflictDoUpdate({
           set: {
-            isRead:
-              changes.isRead !== undefined
-                ? changes.isRead
-                : sql`${articleStatuses.isRead}`,
-            isStarred:
-              changes.isStarred !== undefined
-                ? changes.isStarred
-                : sql`${articleStatuses.isStarred}`,
+            isRead: changes.isRead ?? sql`${articleStatuses.isRead}`,
+            isStarred: changes.isStarred ?? sql`${articleStatuses.isStarred}`,
             updatedAt: now,
           },
           target: [articleStatuses.userId, articleStatuses.articleId],

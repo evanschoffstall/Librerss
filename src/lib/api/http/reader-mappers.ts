@@ -49,16 +49,17 @@ export function readerItemToArticle(
   const publicationDate = new Date(resolvePublishedTimestamp(item));
   const canonicalLink = item.canonical?.[0]?.href;
   const alternateLink = item.alternate?.[0]?.href;
-  const link = canonicalLink || alternateLink || `about:reader-item-${index}`;
+  const link = canonicalLink ?? alternateLink ?? `about:reader-item-${index}`;
   const originFeedUrl =
-    item.origin?.htmlUrl ||
+    item.origin?.htmlUrl ??
     (item.origin?.streamId?.startsWith("feed/")
       ? item.origin.streamId.slice("feed/".length)
       : undefined);
   const categories = item.categories ?? [];
+  const title = item.title?.trim();
 
   return {
-    content: sanitizeArticleHtml(item.summary?.content || ""),
+    content: sanitizeArticleHtml(item.summary?.content ?? ""),
     feedId: 0,
     feedName: item.origin?.title,
     feedUrl: originFeedUrl,
@@ -68,7 +69,7 @@ export function readerItemToArticle(
     lastChecked: new Date(),
     link,
     publicationDate,
-    title: item.title?.trim() || "Untitled",
+    title: title === undefined || title === "" ? "Untitled" : title,
   };
 }
 

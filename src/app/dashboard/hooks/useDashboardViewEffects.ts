@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { type RefObject, useEffect } from "react";
 import { toast } from "sonner";
 
 import { DASHBOARD_EVENTS } from "../constants";
@@ -17,7 +17,7 @@ interface UseDashboardBroadcastsOptions {
 }
 
 type UseDashboardInitializationOptions = FeedSelectionFetchers & {
-  hasInitializedDashboardRef: React.MutableRefObject<boolean>;
+  hasInitializedDashboardRef: RefObject<boolean>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setIsCategoriesLoading: React.Dispatch<React.SetStateAction<boolean>>;

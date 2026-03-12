@@ -102,9 +102,11 @@ export function requireMutableRequest(
   return null;
 }
 
-export async function requireMutableUserAndJsonBody<TBody extends object>(
+export async function requireMutableUserAndJsonBody<
+  TBody extends object = Record<string, unknown>,
+>(
   request: NextRequest,
-  options?: MutationRequestOptions,
+  options?: MutationRequestOptions & { __bodyType?: TBody },
 ): Promise<Response | { body: TBody; user: AuthenticatedUser }> {
   const user = await requireMutableAuthenticatedUser(request, options);
   if (user instanceof Response) {

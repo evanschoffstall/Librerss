@@ -327,7 +327,6 @@ function removeCategoryFromLocalState(
   }
 
   const destination = nextCategories[targetIndex];
-  destination.children = destination.children ?? [];
   destination.children.push(
     ...sourceFeeds.map((feed) => ({
       ...feed,

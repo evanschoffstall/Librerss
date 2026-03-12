@@ -78,7 +78,7 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
   // giving the planner a hash/loop join strategy instead of a semi-join.
   interface UnreadRow extends Record<string, unknown> {
     sourceUrl: string;
-    unreadCount: number;
+    unreadCount: null | number;
   }
   const rows: UnreadRow[] = useArticleStatuses
     ? await db
@@ -113,7 +113,7 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
         );
 
   const totalUnread = rows.reduce(
-    (acc, row) => acc + Number(row.unreadCount ?? 0),
+    (acc, row) => acc + (row.unreadCount ?? 0),
     0,
   );
 
@@ -126,7 +126,7 @@ export async function handleUnreadCount(user: SessionUser): Promise<Response> {
         newestItemTimestampUsec: "0",
       },
       ...rows.map((row) => ({
-        count: Number(row.unreadCount ?? 0),
+        count: row.unreadCount ?? 0,
         id: `${FEED_STREAM_PREFIX}${row.sourceUrl}`,
         newestItemTimestampUsec: "0",
       })),

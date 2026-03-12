@@ -213,7 +213,7 @@ function getMaxConsecutiveBlankLines(): number {
 function hasOnlyEmptyListItems(content: string): boolean {
   const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
   if (listItems.length === 0) return isEmptyInlineHtml(content);
-  return listItems.every((item) => isEmptyInlineHtml(item[1] ?? ""));
+  return listItems.every((item) => isEmptyInlineHtml(item[1]));
 }
 
 function isEmptyInlineHtml(content: string): boolean {
@@ -331,7 +331,7 @@ function removeElementsByAttrPattern(
   let result = html;
   let match: null | RegExpExecArray;
   while ((match = openRe.exec(result)) !== null) {
-    const attrValue = readAttrValue(match[2] ?? "", attr);
+    const attrValue = readAttrValue(match[2], attr);
     if (attrValue === null || !pattern.test(attrValue)) continue;
 
     const tagName = match[1].toLowerCase();
@@ -343,7 +343,7 @@ function removeElementsByAttrPattern(
 
     let m: null | RegExpExecArray;
     while (depth > 0 && (m = closeRe.exec(result)) !== null) {
-      if (m[1]?.toLowerCase() !== tagName) continue;
+      if (m[1].toLowerCase() !== tagName) continue;
       if (m[0].startsWith("</")) depth--;
       else depth++;
       if (depth === 0) endIdx = m.index + m[0].length;
@@ -395,13 +395,10 @@ export function preCleanHtml(rawHtml: string): string {
     const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
     if (items.length === 0) return ulBlock;
     const allBareLinks = items.every((m) =>
-      /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
+      /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test(m[1].trim()),
     );
     if (allBareLinks && items.length >= 8) return "";
-    if (
-      allBareLinks &&
-      items.every((m) => SOCIAL_SHARE_LINK_RE.test(m[1] ?? ""))
-    )
+    if (allBareLinks && items.every((m) => SOCIAL_SHARE_LINK_RE.test(m[1])))
       return "";
     return ulBlock;
   });

@@ -159,7 +159,7 @@ export function useCategoryManager({
   );
 
   const moveCategoryByDrop = useCallback(
-    async (label: string, targetIndex: number) => {
+    (label: string, targetIndex: number) => {
       setOrderedCategoryLabels((current) =>
         moveCategoryByDropInOrder(current, label, targetIndex),
       );

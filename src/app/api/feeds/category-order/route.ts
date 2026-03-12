@@ -15,13 +15,14 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDb();
-    const [row] = await db
+    const rows = await db
       .select({ orderedLabels: categoryOrders.orderedLabels })
       .from(categoryOrders)
       .where(eq(categoryOrders.userId, user.userId))
       .limit(1);
 
-    const labels: string[] = row ? safeParseLabelArray(row.orderedLabels) : [];
+    const labels =
+      rows.length === 0 ? [] : safeParseLabelArray(rows[0].orderedLabels);
     return NextResponse.json({ orderedLabels: labels });
   } catch (error) {
     return logAndRespondError("Error reading category order", error);

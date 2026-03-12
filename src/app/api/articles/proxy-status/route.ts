@@ -17,13 +17,13 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof Response) return authResult;
 
   const db = getDb();
-  const [user] = await db
+  const rows = await db
     .select({ proxyUrl: users.proxyUrl })
     .from(users)
     .where(eq(users.id, authResult.userId))
     .limit(1);
 
-  const proxyUrl = user?.proxyUrl?.trim() || null;
+  const proxyUrl = rows.length === 0 ? null : (rows[0].proxyUrl?.trim() ?? "");
   if (!proxyUrl) {
     logger.info("Proxy status check: no proxy configured", {
       userId: authResult.userId,

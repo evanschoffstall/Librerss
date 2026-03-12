@@ -333,7 +333,7 @@ export function SettingsCategoryAccordionItem({
             <div
               className={`rounded-md border border-dashed px-3 py-4 text-center text-xs transition-colors ${
                 feedDropTarget?.categoryLabel === categoryNode.label &&
-                feedDropTarget?.index === 0
+                feedDropTarget.index === 0
                   ? "border-primary bg-primary/5 text-foreground"
                   : "border-border/50 text-muted-foreground/60"
               }`}

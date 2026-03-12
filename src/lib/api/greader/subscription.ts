@@ -129,7 +129,11 @@ export async function handleSubscriptionList(
   return NextResponse.json({
     subscriptions: normalizedRows.map((row) => {
       const iconUrl = toReaderIconUrl(row.url);
-      const categoryLabel = row.category?.trim() || null;
+      const categoryLabel = row.category?.trim();
+      const normalizedCategoryLabel =
+        categoryLabel === undefined || categoryLabel === ""
+          ? null
+          : categoryLabel;
       return {
         htmlUrl: row.url,
         id: `${FEED_STREAM_PREFIX}${row.url}`,
@@ -140,11 +144,11 @@ export async function handleSubscriptionList(
         // so NNW leaves them at the account top level rather than treating them
         // as belonging to "My Feeds" — which would cause an early return in
         // syncFeedFolderRelationship when "My Feeds" is absent from tag/list.
-        categories: categoryLabel
+        categories: normalizedCategoryLabel
           ? [
               {
-                id: `${USER_LABEL_PREFIX}${categoryLabel}`,
-                label: categoryLabel,
+                id: `${USER_LABEL_PREFIX}${normalizedCategoryLabel}`,
+                label: normalizedCategoryLabel,
               },
             ]
           : [],
@@ -188,7 +192,7 @@ export async function handleSubscriptionQuickAdd(
 
   // Insert the subscription; ON CONFLICT DO NOTHING lets us detect duplicates
   // without a prior existence SELECT.
-  const [source] = await db
+  const sources = await db
     .insert(feedSources)
     .values({
       name: fallbackName,
@@ -198,7 +202,7 @@ export async function handleSubscriptionQuickAdd(
     .onConflictDoNothing()
     .returning({ id: feedSources.id });
 
-  if (!source) {
+  if (sources.length === 0) {
     return NextResponse.json({
       error: `Already subscribed! ${normalizedUrl}`,
       numResults: 0,

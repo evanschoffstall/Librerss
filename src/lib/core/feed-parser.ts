@@ -88,7 +88,7 @@ export function toPendingArticle(
   // Prefer content:encoded (full article) over content/contentSnippet (excerpt)
   // content:encoded is mapped to contentEncoded via rss-parser customFields
   const rawContent =
-    item.contentEncoded || item.content || item.contentSnippet || "";
+    item.contentEncoded ?? item.content ?? item.contentSnippet ?? "";
 
   return {
     content: sanitizeAndTruncateArticleContent(rawContent),

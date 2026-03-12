@@ -128,7 +128,9 @@ function SettingsBody({
               <input
                 accept=".opml,.xml,text/xml,application/xml"
                 className="hidden"
-                onChange={state.handleOpmlFileChange}
+                onChange={(event) => {
+                  void state.handleOpmlFileChange(event);
+                }}
                 ref={state.opmlInputRef}
                 type="file"
               />

@@ -14,10 +14,10 @@ import { purifyRawHtml } from "./purify";
 import { CONFIG } from "@/lib/config";
 
 function isKnownPlaceholderImage(
-  attribs: Record<string, string> | undefined,
+  attribs: Record<string, string | undefined> | undefined,
 ): boolean {
   if (!attribs) return false;
-  const source = (attribs.src || "").trim().toLowerCase();
+  const source = (attribs.src ?? "").trim().toLowerCase();
   if (!source) return false;
   return (
     source.includes("grey-placeholder") ||
@@ -27,7 +27,9 @@ function isKnownPlaceholderImage(
   );
 }
 
-function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
+function isTooSmallImage(
+  attribs: Record<string, string | undefined> | undefined,
+): boolean {
   if (!attribs) return false;
   const width = parseDimension(attribs.width);
   const height = parseDimension(attribs.height);

@@ -64,7 +64,7 @@ export function readAttrValue(
   const re = /\b([a-z][a-z0-9:-]*)=["']([^"']*)['"]/gi;
   let m: null | RegExpExecArray;
   while ((m = re.exec(attrsStr)) !== null) {
-    if (m[1]?.toLowerCase() === attrName) return m[2] ?? null;
+    if (m[1].toLowerCase() === attrName) return m[2];
   }
   return null;
 }

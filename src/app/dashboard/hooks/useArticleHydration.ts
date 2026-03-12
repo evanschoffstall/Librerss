@@ -61,11 +61,12 @@ export function useArticleHydration({
   const hydrateArticleContent = useCallback(
     async (article: Article, options?: HydrateArticleContentOptions) => {
       const forceHydration = options?.force ?? false;
-      const link = article.link?.trim();
+      const link = article.link.trim();
       if (!link || !isValidUrl(link)) return;
 
       // Check per-feed extraction settings
-      const feedUrl = article.feedUrl?.trim();
+      const feedUrl =
+        typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
       const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
       if (settings?.extractionDisabled) return;
 
@@ -119,15 +120,15 @@ export function useArticleHydration({
           return rest;
         });
         const serverReason = (() => {
-          if (!axios.isAxiosError(error)) return undefined;
+          if (!axios.isAxiosError<Record<string, unknown>>(error))
+            return undefined;
           const data = error.response?.data;
           if (!data || typeof data !== "object") return undefined;
-          const dataRecord = data as Record<string, unknown>;
-          const reason = dataRecord.reason;
+          const reason = data.reason;
           if (typeof reason === "string") {
             return reason;
           }
-          const message = dataRecord.error;
+          const message = data.error;
           return typeof message === "string" ? message : undefined;
         })();
         toast.error(

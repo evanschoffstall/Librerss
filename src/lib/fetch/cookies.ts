@@ -21,24 +21,31 @@ export function generateBrowserHeaders(
   opts?: { accept?: string; referer?: string; secChUa?: string },
 ): Record<string, string> {
   const c = CHROME_HEADERS_BASE;
-  const headers: Record<string, string> = {
-    Accept: opts?.accept ?? c.Accept,
-    "Cache-Control": c["Cache-Control"],
-    "Sec-Ch-Ua": opts?.secChUa ?? c["Sec-Ch-Ua"],
-    "Sec-Ch-Ua-Mobile": c["Sec-Ch-Ua-Mobile"],
-    "Sec-Ch-Ua-Platform": c["Sec-Ch-Ua-Platform"],
-    "Sec-Fetch-Dest": c["Sec-Fetch-Dest"],
-    "Sec-Fetch-Mode": c["Sec-Fetch-Mode"],
-    "Sec-Fetch-Site": opts?.referer ? "cross-site" : c["Sec-Fetch-Site"],
-    "Sec-Fetch-User": c["Sec-Fetch-User"],
-    "Upgrade-Insecure-Requests": c["Upgrade-Insecure-Requests"],
-    "User-Agent": c["User-Agent"],
-    ...(opts?.referer ? { Referer: opts.referer } : {}),
-    "Accept-Encoding": c["Accept-Encoding"],
-    "Accept-Language": c["Accept-Language"],
-    priority: c.priority,
-  };
-  return headers;
+  const entries: [string, string][] = [
+    ["Cache-Control", c["Cache-Control"]],
+    ["Sec-Ch-Ua", opts?.secChUa ?? c["Sec-Ch-Ua"]],
+    ["Sec-Ch-Ua-Mobile", c["Sec-Ch-Ua-Mobile"]],
+    ["Sec-Ch-Ua-Platform", c["Sec-Ch-Ua-Platform"]],
+    ["Upgrade-Insecure-Requests", c["Upgrade-Insecure-Requests"]],
+    ["User-Agent", c["User-Agent"]],
+    ["Accept", opts?.accept ?? c.Accept],
+    ["Sec-Fetch-Site", opts?.referer ? "cross-site" : c["Sec-Fetch-Site"]],
+    ["Sec-Fetch-Mode", c["Sec-Fetch-Mode"]],
+    ["Sec-Fetch-User", c["Sec-Fetch-User"]],
+    ["Sec-Fetch-Dest", c["Sec-Fetch-Dest"]],
+  ];
+
+  if (opts?.referer) {
+    entries.push(["Referer", opts.referer]);
+  }
+
+  entries.push(
+    ["Accept-Encoding", c["Accept-Encoding"]],
+    ["Accept-Language", c["Accept-Language"]],
+    ["priority", c.priority],
+  );
+
+  return Object.fromEntries(entries);
 }
 
 export function storeCookiesFromResponse(

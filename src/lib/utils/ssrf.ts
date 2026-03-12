@@ -89,7 +89,7 @@ function expandIpv6ToHextets(raw: string): null | number[] {
       return null;
     }
 
-    return [...head, ...Array(8 - specifiedLength).fill(0), ...tail];
+    return [...head, ...Array<number>(8 - specifiedLength).fill(0), ...tail];
   }
 
   if (specifiedLength !== 8) {

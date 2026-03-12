@@ -103,7 +103,7 @@ export function useArticleActions({
     if (feed.length === 0) return;
 
     const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
-    const link = article?.link?.trim() ?? "";
+    const link = article?.link.trim() ?? "";
     if (
       article &&
       link &&
@@ -148,7 +148,7 @@ export function useArticleActions({
       awaitingExpandedSyncKeyRef.current = null;
       autoHydratedExpandedKeyRef.current = null;
 
-      const link = article.link?.trim();
+      const link = article.link.trim();
       if (link) cancelHydration(link);
 
       scrollPin.activateCollapsePin(

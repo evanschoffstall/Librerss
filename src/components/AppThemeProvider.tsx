@@ -31,7 +31,7 @@ function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const dashboardView = searchParams?.get("view") || "dashboard";
+  const dashboardView = searchParams.get("view") ?? "dashboard";
   const shouldOffsetForDashboardBar =
     pathname === "/dashboard" && dashboardView === "dashboard";
 
@@ -100,7 +100,7 @@ function ThemeModeToggle() {
 
   const isDark = (resolvedTheme ?? "dark") === "dark";
   const isDashboardRoute = pathname === "/dashboard";
-  const dashboardView = searchParams?.get("view") || "dashboard";
+  const dashboardView = searchParams.get("view") ?? "dashboard";
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {

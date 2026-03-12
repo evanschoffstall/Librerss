@@ -22,7 +22,7 @@ export function getDb() {
   }
 
   const pool =
-    globalForDb.pool ||
+    globalForDb.pool ??
     new Pool({
       allowExitOnIdle: true,
       connectionString: getConnectionString(),

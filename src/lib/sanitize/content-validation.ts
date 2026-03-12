@@ -20,18 +20,14 @@ function stripShareEngagementToolbars(content: string): string {
   return content.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
     const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
     if (items.length === 0) return ulBlock;
-    const socialCount = items.filter((m) =>
-      isSocialShareListItem(m[1] ?? ""),
-    ).length;
+    const socialCount = items.filter((m) => isSocialShareListItem(m[1])).length;
     if (socialCount >= 2 && socialCount >= items.length / 2) return "";
 
     // Strip sidebar-style nav lists where every item is a single bare link
     const allBareLinks =
       items.length >= 2 &&
       items.length <= 6 &&
-      items.every((m) =>
-        /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test((m[1] ?? "").trim()),
-      );
+      items.every((m) => /^\s*<a\b[^>]*>[\s\S]*?<\/a>\s*$/i.test(m[1].trim()));
     if (allBareLinks) return "";
 
     const lower = ulBlock.toLowerCase();
@@ -154,7 +150,7 @@ function parseLeadMediaAndHeadingPrefix(content: string): {
   imagePrefix += leadingWhitespace;
   cursor += leadingWhitespace.length;
 
-  while (true) {
+  for (;;) {
     const beforeImage = cursor;
     let segment = "";
 
@@ -192,7 +188,7 @@ function parseLeadMediaAndHeadingPrefix(content: string): {
     imagePrefix += segment;
   }
 
-  while (true) {
+  for (;;) {
     const heading = consumeLeadingToken(
       content.slice(cursor),
       LEADING_HEADING_RE,
@@ -224,7 +220,7 @@ function removeLeadingDuplicateImage(content: string): string {
 
   const imageSrcMatches = [
     ...afterLeadImage.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi),
-  ].map((match) => normalizeImageSource(match[1] ?? ""));
+  ].map((match) => normalizeImageSource(match[1]));
 
   const hasDuplicateImageSource = imageSrcMatches.includes(firstSrc);
   if (!hasDuplicateImageSource) return content;

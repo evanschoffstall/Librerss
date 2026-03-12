@@ -141,7 +141,7 @@ export async function executeParallelRefreshes(
     }
 
     if (staleFeeds.length > 0) {
-      const concurrency: number = CONFIG.FEED_BATCH_CONCURRENCY ?? 8;
+      const concurrency: number = CONFIG.FEED_BATCH_CONCURRENCY;
       const results = await settledWithConcurrency(
         staleFeeds.map((feed) => () => refreshFeedFromUpstream(db, feed)),
         concurrency,
@@ -226,16 +226,21 @@ export function mapRowsToArticleMap(
       continue;
     }
 
-    result.get(url)!.push({
-      content: normalizeArticleHtmlSpacing(String(row.content ?? "")),
+    const articlesForUrl = result.get(url);
+    if (!articlesForUrl) continue;
+
+    articlesForUrl.push({
+      content: normalizeArticleHtmlSpacing(
+        typeof row.content === "string" ? row.content : "",
+      ),
       feedId,
       id,
       isRead: Boolean(row.isRead),
       isStarred: Boolean(row.isStarred),
       lastChecked: new Date(row.lastChecked as Date | string),
-      link: String(row.link ?? ""),
+      link: typeof row.link === "string" ? row.link : "",
       publicationDate: new Date(row.publicationDate as Date | string),
-      title: String(row.title ?? ""),
+      title: typeof row.title === "string" ? row.title : "",
     });
   }
 
@@ -386,7 +391,8 @@ async function settledWithConcurrency<T>(
   tasks: (() => Promise<T>)[],
   concurrency: number,
 ): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  const results = [] as PromiseSettledResult<T>[];
+  results.length = tasks.length;
   let nextIndex = 0;
 
   async function worker() {

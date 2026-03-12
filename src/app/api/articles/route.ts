@@ -116,7 +116,7 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
 
     const db = getDbForRoute();
 
-    const [ownedFeed] = await db
+    const ownedFeeds = await db
       .select({ id: feeds.id })
       .from(feeds)
       .innerJoin(
@@ -130,11 +130,11 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
       .where(eq(feeds.id, payload.feedId))
       .limit(1);
 
-    if (!ownedFeed) {
+    if (ownedFeeds.length === 0) {
       return jsonError("Feed not found for authenticated user", 403);
     }
 
-    const [newArticle] = await db
+    const newArticles = await db
       .insert(articles)
       .values({
         content,
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
       })
       .returning();
 
-    return NextResponse.json(newArticle);
+    return NextResponse.json(newArticles[0]);
   } catch (error) {
     return respondError("Articles POST error", error);
   }

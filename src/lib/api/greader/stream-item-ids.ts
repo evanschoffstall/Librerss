@@ -130,7 +130,7 @@ export async function handleStreamItemIds(
   const itemIds = safeRows.map((row) => row.articleId);
   const continuation =
     safeRows.length === limit
-      ? (safeRows.at(-1)?.articleId?.toString() ?? undefined)
+      ? (safeRows.at(-1)?.articleId.toString() ?? undefined)
       : undefined;
 
   logger.info("[greader] stream/items/ids", {
@@ -153,7 +153,7 @@ export async function handleStreamItemIds(
 
   return NextResponse.json({
     continuation,
-    itemRefs: safeRows.map((row) => ({ id: String(row.articleId) })),
+    itemRefs: safeRows.map((row) => ({ id: row.articleId.toString() })),
   });
 }
 
@@ -163,6 +163,6 @@ function isMissingRelationError(error: unknown): boolean {
   }
 
   const candidate = error as { code?: string; message?: string };
-  const message = String(candidate.message ?? "").toLowerCase();
+  const message = (candidate.message ?? "").toLowerCase();
   return candidate.code === "42P01" || message.includes("does not exist");
 }

@@ -12,11 +12,11 @@ import { parsePageTitle, readMetaTagContent } from "@/lib/sanitize";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
 
-export async function customDistill(
+export function customDistill(
   html: string,
   url: string,
   options?: DistillOptions,
-): Promise<DistilledArticle | null> {
+): DistilledArticle | null {
   const threshold = options?.contentLengthThreshold ?? DEFAULT_MIN_BODY_LENGTH;
 
   const body = findArticleBody(html, threshold);

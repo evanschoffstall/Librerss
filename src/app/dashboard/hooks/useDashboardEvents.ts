@@ -43,54 +43,57 @@ export function useDashboardEvents({
   usePlaceholderData = false,
 }: UseDashboardEventsOptions) {
   useEffect(() => {
-    const handleMarkAllRead = async () => {
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
-      );
-
-      if (usePlaceholderData) {
-        onMarkAllReadLocally?.();
-        toast.success("Marked all as read.");
+    const handleMarkAllRead = () => {
+      void (async () => {
         window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
         );
-        return;
-      }
 
-      const streams = collectMarkAllReadStreams(
-        selectedCategory,
-        selectedFeedUrl,
-        selectedCategoryNode,
-      );
+        if (usePlaceholderData) {
+          onMarkAllReadLocally?.();
+          toast.success("Marked all as read.");
+          window.dispatchEvent(
+            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          );
+          return;
+        }
 
-      if (streams.length === 0) {
-        toast.info("No readable feed selected.");
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        const streams = collectMarkAllReadStreams(
+          selectedCategory,
+          selectedFeedUrl,
+          selectedCategoryNode,
         );
-        return;
-      }
 
-      try {
-        await Promise.all(
-          Array.from(new Set(streams)).map((stream) =>
-            ArticleService.markAllRead(stream),
-          ),
-        );
-        toast.success("Marked all as read.");
-        onRefresh();
-      } catch (error) {
-        console.error("Mark all read error:", error);
-        toast.error("Unable to mark all as read right now.");
-      } finally {
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-        );
-      }
+        if (streams.length === 0) {
+          toast.info("No readable feed selected.");
+          window.dispatchEvent(
+            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          );
+          return;
+        }
+
+        try {
+          await Promise.all(
+            Array.from(new Set(streams)).map((stream) =>
+              ArticleService.markAllRead(stream),
+            ),
+          );
+          toast.success("Marked all as read.");
+          onRefresh();
+        } catch (error) {
+          console.error("Mark all read error:", error);
+          toast.error("Unable to mark all as read right now.");
+        } finally {
+          window.dispatchEvent(
+            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          );
+        }
+      })();
     };
 
     const handleSearchChange = (event: Event) => {
-      const term = (event as CustomEvent<{ term?: string }>).detail?.term ?? "";
+      const detail = (event as CustomEvent<{ term?: string }>).detail;
+      const term = typeof detail.term === "string" ? detail.term : "";
       onSearchChange(term);
     };
 
@@ -154,11 +157,12 @@ function collectMarkAllReadStreams(
     return [`feed/${selectedFeedUrl}`];
   }
 
-  if (!selectedCategoryNode?.children?.length) {
+  const childNodes = selectedCategoryNode?.children;
+  if (childNodes === undefined || childNodes.length === 0) {
     return [];
   }
 
-  return selectedCategoryNode.children
+  return childNodes
     .map((node) => node.data?.url)
     .filter((url): url is string => Boolean(url))
     .map((url) => `feed/${url}`);

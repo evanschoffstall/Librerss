@@ -88,9 +88,8 @@ export function readMetaTagContent(rawHtml: string, keys: string[]): string {
     for (const match of tag.matchAll(
       /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
     )) {
-      const attributeName = match[1]?.toLowerCase();
-      const attributeValue = (match[2] ?? match[3] ?? "").trim();
-      if (!attributeName) continue;
+      const attributeName = match[1].toLowerCase();
+      const attributeValue = (match[2] || match[3] || "").trim();
       attributes[attributeName] = attributeValue;
     }
 

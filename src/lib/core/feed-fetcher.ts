@@ -119,7 +119,7 @@ export async function fetchAndCacheFeedArticles(
   userId: number,
   feedUrl: string,
 ): Promise<ArticleRow[]> {
-  const [userSource] = await db
+  const userSources = await db
     .select({ id: feedSources.id })
     .from(feedSources)
     .where(
@@ -131,7 +131,7 @@ export async function fetchAndCacheFeedArticles(
     )
     .limit(1);
 
-  if (!userSource) throw new FeedSourceNotFoundError(feedUrl);
+  if (userSources.length === 0) throw new FeedSourceNotFoundError(feedUrl);
 
   const feed = (await feedFetcherDependencies.ensureFeedRecordByUrl(
     db,

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
   if (result instanceof Response) return result;
 
   const db = getDb();
-  const [user] = await db
+  const rows = await db
     .select({
       allowInsecureTls: users.allowInsecureTls,
       proxyPassword: users.proxyPassword,
@@ -47,15 +47,18 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
     .where(eq(users.id, result.auth.userId))
     .limit(1);
 
-  const proxyUrl = user?.proxyUrl?.trim() || null;
+  if (rows.length === 0) return unconfiguredResponse();
+  const user = rows[0];
+
+  const proxyUrl = user.proxyUrl?.trim() ?? "";
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
     proxyUrl,
     result.probe,
     "Proxy unreachable on GET",
-    user?.allowInsecureTls ?? false,
-    user?.proxyUsername ?? null,
-    user?.proxyPassword ?? null,
+    user.allowInsecureTls,
+    user.proxyUsername,
+    user.proxyPassword,
   );
 }
 
@@ -133,7 +136,7 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   }
 
   const db = getDb();
-  const [updated] = await db
+  const updatedRows = await db
     .update(users)
     .set({
       proxyUrl,
@@ -148,9 +151,12 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
       proxyUsername: users.proxyUsername,
     });
 
-  const effectiveTls = updated?.allowInsecureTls ?? false;
-  const effectiveUsername = updated?.proxyUsername ?? null;
-  const effectivePassword = updated?.proxyPassword ?? null;
+  const effectiveTls =
+    updatedRows.length === 0 ? false : updatedRows[0].allowInsecureTls;
+  const effectiveUsername =
+    updatedRows.length === 0 ? null : updatedRows[0].proxyUsername;
+  const effectivePassword =
+    updatedRows.length === 0 ? null : updatedRows[0].proxyPassword;
 
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(

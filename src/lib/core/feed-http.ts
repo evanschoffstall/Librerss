@@ -38,9 +38,12 @@ export async function fetchFeedXml(
         }
 
         const status = error.response?.status;
-        const dataDomeHeader = String(
-          error.response?.headers?.["x-datadome"] ?? "",
-        ).toLowerCase();
+        const responseHeaders = error.response?.headers as
+          | Record<string, unknown>
+          | undefined;
+        const xDataDome = responseHeaders?.["x-datadome"];
+        const dataDomeHeader =
+          typeof xDataDome === "string" ? xDataDome.toLowerCase() : "";
 
         if (status === 403 && dataDomeHeader === "protected") {
           throw new Error(

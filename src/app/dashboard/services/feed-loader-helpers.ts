@@ -70,12 +70,12 @@ export function mergeHydratedContent(
 
   const previousContentByLink = new Map<string, string>();
   for (const a of previousFeed) {
-    const link = a.link?.trim();
+    const link = a.link.trim();
     if (link) previousContentByLink.set(link, a.content);
   }
 
   return freshArticles.map((a) => {
-    const link = a.link?.trim();
+    const link = a.link.trim();
     if (!link) return a;
     const prev = previousContentByLink.get(link);
     return prev && prev !== a.content ? { ...a, content: prev } : a;

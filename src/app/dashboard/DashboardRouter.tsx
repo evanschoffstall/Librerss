@@ -61,7 +61,7 @@ export function DashboardRouter() {
     }
 
     try {
-      const parsedValue = JSON.parse(legacyValue);
+      const parsedValue: unknown = JSON.parse(legacyValue);
       if (typeof parsedValue === "boolean") {
         setBackgroundMode(parsedValue ? "particles" : "none");
       }

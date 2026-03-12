@@ -36,7 +36,11 @@ export function toCategoryLabelOrDefault(label?: null | string): string {
  */
 export function toOptionalCategoryLabel(label?: null | string): null | string {
   const trimmed = label?.trim();
-  return trimmed ? trimmed : null;
+  if (trimmed === undefined || trimmed === "") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 const UNCATEGORIZED_VARIANTS = new Set([

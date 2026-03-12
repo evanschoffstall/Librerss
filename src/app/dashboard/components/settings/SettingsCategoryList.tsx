@@ -10,8 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
 
-type CategoryLabelHandler = (categoryLabel: string) => void;
+interface AddCategoryControlsProps {
+  buttonClassName: string;
+  buttonLabel: string;
+  buttonVariant?: "default" | "outline";
+  inputPlaceholder: string;
+  newCategoryName: string;
+  onAddCategory: () => void;
+  onNewCategoryNameChange: TextChangeHandler;
+}
 
+type CategoryLabelHandler = (categoryLabel: string) => void;
 interface SettingsCategoryListProps {
   addingFeedInCategory: null | string;
   categories: CategoryTreeNode[];
@@ -38,6 +47,7 @@ interface SettingsCategoryListProps {
   savingCategoryLabel: null | string;
   sharedFeedRowProps: SharedFeedRowProps;
 }
+
 type SharedFeedRowProps = Omit<
   SettingsFeedRowProps,
   | "categoryLabel"
@@ -114,26 +124,14 @@ export function SettingsCategoryList({
             Add a category to start organizing your feeds.
           </p>
         </div>
-        <div className="flex w-full max-w-xs items-center gap-2">
-          <Input
-            className="h-8 text-sm"
-            onChange={(e) => {
-              onNewCategoryNameChange(e.target.value);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && onAddCategory()}
-            placeholder="Category name…"
-            value={newCategoryName}
-          />
-          <Button
-            className="shrink-0"
-            disabled={!newCategoryName.trim()}
-            onClick={onAddCategory}
-            size="sm"
-          >
-            <Plus className="mr-1.5 size-3.5" />
-            Add
-          </Button>
-        </div>
+        <AddCategoryControls
+          buttonClassName="shrink-0"
+          buttonLabel="Add"
+          inputPlaceholder="Category name…"
+          newCategoryName={newCategoryName}
+          onAddCategory={onAddCategory}
+          onNewCategoryNameChange={onNewCategoryNameChange}
+        />
       </div>
     );
   }
@@ -166,7 +164,9 @@ export function SettingsCategoryList({
             onCategoryDragEnd={drag.onCategoryDragEnd}
             onCategoryDragOver={drag.onCategoryDragOver}
             onCategoryDragStart={drag.onCategoryDragStart}
-            onCategoryDrop={drag.onCategoryDrop}
+            onCategoryDrop={(event, index) => {
+              void drag.onCategoryDrop(event, index);
+            }}
             onEditingCategoryNameChange={onEditingCategoryNameChange}
             onNewFeedNameChange={onNewFeedNameChange}
             onNewFeedUrlChange={onNewFeedUrlChange}
@@ -190,34 +190,66 @@ export function SettingsCategoryList({
             onDragOver={(event) => {
               drag.onCategoryDragOver(event, categories.length);
             }}
-            onDrop={(event) => drag.onCategoryDrop(event, categories.length)}
+            onDrop={(event) => {
+              void drag.onCategoryDrop(event, categories.length);
+            }}
           >
             Drop category here
           </div>
         )}
 
-        <div className="flex items-center gap-2 rounded-md border border-dashed p-2.5">
-          <Input
-            className="h-8 text-sm"
-            onChange={(e) => {
-              onNewCategoryNameChange(e.target.value);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && onAddCategory()}
-            placeholder="New category name..."
-            value={newCategoryName}
+        <div className="rounded-md border border-dashed p-2.5">
+          <AddCategoryControls
+            buttonClassName="h-8 shrink-0"
+            buttonLabel="Add Category"
+            buttonVariant="outline"
+            inputPlaceholder="New category name..."
+            newCategoryName={newCategoryName}
+            onAddCategory={onAddCategory}
+            onNewCategoryNameChange={onNewCategoryNameChange}
           />
-          <Button
-            className="h-8 shrink-0"
-            disabled={!newCategoryName.trim()}
-            onClick={onAddCategory}
-            size="sm"
-            variant="outline"
-          >
-            <Plus className="mr-1.5 size-3.5" />
-            Add Category
-          </Button>
         </div>
       </Accordion>
+    </div>
+  );
+}
+
+function AddCategoryControls({
+  buttonClassName,
+  buttonLabel,
+  buttonVariant,
+  inputPlaceholder,
+  newCategoryName,
+  onAddCategory,
+  onNewCategoryNameChange,
+}: AddCategoryControlsProps) {
+  return (
+    <div className="flex w-full max-w-xs items-center gap-2">
+      <Input
+        className="h-8 text-sm"
+        onChange={(event) => {
+          onNewCategoryNameChange(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            onAddCategory();
+          }
+        }}
+        placeholder={inputPlaceholder}
+        value={newCategoryName}
+      />
+      <Button
+        className={buttonClassName}
+        disabled={!newCategoryName.trim()}
+        onClick={() => {
+          onAddCategory();
+        }}
+        size="sm"
+        variant={buttonVariant}
+      >
+        <Plus className="mr-1.5 size-3.5" />
+        {buttonLabel}
+      </Button>
     </div>
   );
 }

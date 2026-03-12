@@ -61,13 +61,13 @@ export async function POST(request: NextRequest) {
     const { email, password } = parsedPayload;
 
     // Check for existing user
-    const [existingUser] = await db
+    const existingUsers = await db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
 
-    if (existingUser) {
+    if (existingUsers.length > 0) {
       logger.warn("Signup attempt with existing email", { email });
       // Don't reveal that email exists (prevents enumeration)
       return jsonError(
@@ -79,15 +79,16 @@ export async function POST(request: NextRequest) {
     // Create user
     const passwordHash = await hashPassword(password);
 
-    const [createdUser] = await db
+    const createdUsers = await db
       .insert(users)
       .values({ email, passwordHash })
       .returning({ email: users.email, id: users.id });
 
-    if (!createdUser) {
+    if (createdUsers.length === 0) {
       logger.error("Failed to create user during signup", { email });
       return jsonError("Failed to create account", 500);
     }
+    const createdUser = createdUsers[0];
 
     // Create session
     const token = await createSession(createdUser.id);

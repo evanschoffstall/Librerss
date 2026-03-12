@@ -74,7 +74,7 @@ const hydrateFaviconIndexCache = () => {
       return;
     }
 
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") {
       return;
     }

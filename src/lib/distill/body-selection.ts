@@ -98,7 +98,7 @@ function extractInnerHtml(
   let depth = 1;
   let m: null | RegExpExecArray;
   while (depth > 0 && (m = re.exec(html)) !== null) {
-    if (m[1]?.toLowerCase() !== lowerTag) continue;
+    if (m[1].toLowerCase() !== lowerTag) continue;
     if (m[0].startsWith("</")) depth--;
     else depth++;
     if (depth === 0) return html.slice(afterOpen, m.index);
@@ -112,7 +112,7 @@ function findAllByTag(html: string, tagName: string): string[] {
   const re = /<([a-z][a-z0-9:-]*)\b[^>]*>/gi;
   let m: null | RegExpExecArray;
   while ((m = re.exec(html)) !== null) {
-    if (m[1]?.toLowerCase() !== lowerTag) continue;
+    if (m[1].toLowerCase() !== lowerTag) continue;
     const inner = extractInnerHtml(html, m.index, m[0].length, tagName);
     if (inner !== null) results.push(inner);
   }
@@ -127,7 +127,7 @@ function findFirstByAttr(
   const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
   let m: null | RegExpExecArray;
   while ((m = re.exec(html)) !== null) {
-    if (readAttrValue(m[2] ?? "", attr) !== value) continue;
+    if (readAttrValue(m[2], attr) !== value) continue;
     return extractInnerHtml(html, m.index, m[0].length, m[1]);
   }
   return null;
@@ -142,7 +142,7 @@ function findFirstByClassContains(
     const re = /<([a-z][a-z0-9:-]*)\b([^>]*)>/gi;
     let m: null | RegExpExecArray;
     while ((m = re.exec(html)) !== null) {
-      if (!classOrIdContains(m[2] ?? "", pattern)) continue;
+      if (!classOrIdContains(m[2], pattern)) continue;
       const content = extractInnerHtml(html, m.index, m[0].length, m[1]);
       if (content && content.trim().length >= minLength) return content;
     }

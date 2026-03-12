@@ -35,9 +35,9 @@ const globalForFetch = globalThis as unknown as {
 };
 
 const socksRoutePreference =
-  globalForFetch.socksRoutePreference || new Map<string, "hostname" | "ip">();
+  globalForFetch.socksRoutePreference ?? new Map<string, "hostname" | "ip">();
 const socksFallbackWarningEmitted =
-  globalForFetch.socksFallbackWarningEmitted || new Set<string>();
+  globalForFetch.socksFallbackWarningEmitted ?? new Set<string>();
 
 globalForFetch.socksRoutePreference = socksRoutePreference;
 globalForFetch.socksFallbackWarningEmitted = socksFallbackWarningEmitted;

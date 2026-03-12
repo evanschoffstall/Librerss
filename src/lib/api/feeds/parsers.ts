@@ -38,7 +38,13 @@ export async function assertAllowedFeedUrl(
 
 export function getRequestedFeedUrl(request: NextRequest): null | string {
   const requestUrl = new URL(request.url);
-  return requestUrl.searchParams.get("url")?.trim() || null;
+  const requestedUrl = requestUrl.searchParams.get("url");
+  if (requestedUrl === null) {
+    return null;
+  }
+
+  const trimmedUrl = requestedUrl.trim();
+  return trimmedUrl === "" ? null : trimmedUrl;
 }
 
 export async function parseCreateFeedPayload(

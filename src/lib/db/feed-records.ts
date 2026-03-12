@@ -27,30 +27,30 @@ export async function ensureFeedRecordByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
 ): Promise<FeedRecordRow> {
-  const [record] = await executor
+  const records = await executor
     .insert(feeds)
     .values({ url: feedUrl })
     .onConflictDoUpdate({ set: { url: feedUrl }, target: feeds.url })
     .returning(feedRecordFields);
 
-  if (!record) {
+  if (records.length === 0) {
     throw new Error("Unable to resolve feed record");
   }
 
-  return record;
+  return records[0];
 }
 
 export async function findFeedIdByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
 ): Promise<null | number> {
-  const [feed] = await executor
+  const feedsByUrl = await executor
     .select({ id: feeds.id })
     .from(feeds)
     .where(eq(feeds.url, feedUrl))
     .limit(1);
 
-  return feed?.id ?? null;
+  return feedsByUrl.length === 0 ? null : feedsByUrl[0].id;
 }
 
 export async function removeUserFeedCategory(

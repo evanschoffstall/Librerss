@@ -32,7 +32,7 @@ export async function getUserOwnedArticleById(
   userId: number,
   articleId: number,
 ): Promise<null | UserOwnedArticle> {
-  const [article] = await db
+  const articlesById = await db
     .select(articleSelect)
     .from(articles)
     .innerJoin(feeds, eq(feeds.id, articles.feedId))
@@ -40,7 +40,7 @@ export async function getUserOwnedArticleById(
     .where(eq(articles.id, articleId))
     .limit(1);
 
-  return article ?? null;
+  return articlesById[0] ?? null;
 }
 
 export async function listUserOwnedArticles(

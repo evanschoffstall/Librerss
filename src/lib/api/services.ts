@@ -23,6 +23,18 @@ import { normalizeDistinctUrlList } from "@/lib/utils/url";
 
 // ── AuthService ───────────────────────────────────────────────────────────────
 
+interface ArticleExtractResponse {
+  content?: unknown;
+}
+
+interface AuthSessionResponse {
+  user: AuthUser;
+}
+
+interface CategoryOrderResponse {
+  orderedLabels?: unknown;
+}
+
 interface ProxySettings {
   allowInsecureTls: boolean;
   configured: boolean;
@@ -33,14 +45,39 @@ interface ProxySettings {
   status: "checking" | "reachable" | "unreachable";
 }
 
+interface ProxyStatusResponse {
+  configured: boolean;
+  proxyUrl: null | string;
+  status: "checking" | "reachable" | "unreachable";
+}
+
+interface TestBotDetectionResponse {
+  results: {
+    blocked: boolean;
+    error?: string;
+    protection: string;
+    responseSize?: number;
+    site: string;
+    statusCode?: number;
+    success: boolean;
+    url: string;
+  }[];
+}
+
+const articleServiceBaseUrl = "/api";
+const articleServiceGreaderBaseUrl = "/api/greader.php/reader/api/0";
+const authServiceBaseUrl = "/api/auth";
+const feedServiceBaseUrl = "/api";
+let proxySettingsRequest: null | Promise<ProxySettings> = null;
+
+function getReaderStreamContentsUrl(streamId: string): string {
+  return `${articleServiceGreaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
+}
+
 // ── FeedService ───────────────────────────────────────────────────────────────
 
-export class ArticleService {
-  private static baseUrl = "/api";
-  private static greaderBaseUrl = "/api/greader.php/reader/api/0";
-  private static proxySettingsRequest: null | Promise<ProxySettings> = null;
-
-  static async extractArticleContent(
+export const ArticleService = {
+  async extractArticleContent(
     url: string,
     options?: {
       distillStrategy?: string;
@@ -48,8 +85,8 @@ export class ArticleService {
       useProxy?: boolean;
     },
   ): Promise<string> {
-    const response = await getApiClient().post(
-      `${this.baseUrl}/articles/extract`,
+    const response = await getApiClient().post<ArticleExtractResponse>(
+      `${articleServiceBaseUrl}/articles/extract`,
       {
         url,
         ...(options?.useProxy && { useProxy: true }),
@@ -59,55 +96,54 @@ export class ArticleService {
       },
       { signal: options?.signal },
     );
-    return typeof response.data?.content === "string"
+    return typeof response.data.content === "string"
       ? response.data.content
       : "";
-  }
+  },
 
-  static async getArticles(): Promise<Article[]> {
-    const response = await getApiClient().get(`${this.baseUrl}/articles`);
-    return response.data;
-  }
-
-  static async getProxySettings(): Promise<ProxySettings> {
-    if (!this.proxySettingsRequest) {
-      this.proxySettingsRequest = getApiClient()
-        .get(`${this.baseUrl}/settings/proxy`)
-        .then((response) => response.data)
-        .finally(() => {
-          this.proxySettingsRequest = null;
-        });
-    }
-
-    return this.proxySettingsRequest;
-  }
-
-  static async getProxyStatus(): Promise<{
-    configured: boolean;
-    proxyUrl: null | string;
-    status: "checking" | "reachable" | "unreachable";
-  }> {
-    const response = await getApiClient().get(
-      `${this.baseUrl}/articles/proxy-status`,
+  async getArticles(): Promise<Article[]> {
+    const response = await getApiClient().get<Article[]>(
+      `${articleServiceBaseUrl}/articles`,
     );
     return response.data;
-  }
+  },
 
-  static async getReaderStream(streamId: string): Promise<Article[]> {
+  async getProxySettings(): Promise<ProxySettings> {
+    proxySettingsRequest ??= getApiClient()
+      .get<ProxySettings>(`${articleServiceBaseUrl}/settings/proxy`)
+      .then((response) => response.data)
+      .finally(() => {
+        proxySettingsRequest = null;
+      });
+
+    return proxySettingsRequest;
+  },
+
+  async getProxyStatus(): Promise<ProxyStatusResponse> {
+    const response = await getApiClient().get<ProxyStatusResponse>(
+      `${articleServiceBaseUrl}/articles/proxy-status`,
+    );
+    return response.data;
+  },
+
+  async getReaderStream(streamId: string): Promise<Article[]> {
     const response = await getApiClient().get<ReaderApiStreamResponse>(
-      this.streamContentsUrl(streamId),
+      getReaderStreamContentsUrl(streamId),
     );
     const items = parseReaderStreamItems(response.data);
     return items.map((item, index) => readerItemToArticle(item, index));
-  }
+  },
 
-  static async markAllRead(streamId: string): Promise<void> {
-    await getApiClient().post(`${this.baseUrl}/articles/mark-all-read`, {
-      streamId,
-    });
-  }
+  async markAllRead(streamId: string): Promise<void> {
+    await getApiClient().post(
+      `${articleServiceBaseUrl}/articles/mark-all-read`,
+      {
+        streamId,
+      },
+    );
+  },
 
-  static async saveProxyUrl(
+  async saveProxyUrl(
     proxyUrl: null | string,
     options?: {
       allowInsecureTls?: boolean;
@@ -115,114 +151,111 @@ export class ArticleService {
       proxyUsername?: null | string;
     },
   ): Promise<ProxySettings> {
-    const response = await getApiClient().put(
-      `${this.baseUrl}/settings/proxy`,
+    const response = await getApiClient().put<ProxySettings>(
+      `${articleServiceBaseUrl}/settings/proxy`,
       { proxyUrl, ...options },
     );
     return response.data;
-  }
+  },
 
-  static async testBotDetection(options?: { useProxy?: boolean }): Promise<{
-    results: {
-      blocked: boolean;
-      error?: string;
-      protection: string;
-      responseSize?: number;
-      site: string;
-      statusCode?: number;
-      success: boolean;
-      url: string;
-    }[];
-  }> {
-    const response = await getApiClient().post(
-      `${this.baseUrl}/settings/proxy/test-bot-detection`,
+  async testBotDetection(options?: {
+    useProxy?: boolean;
+  }): Promise<TestBotDetectionResponse> {
+    const response = await getApiClient().post<TestBotDetectionResponse>(
+      `${articleServiceBaseUrl}/settings/proxy/test-bot-detection`,
       options ?? {},
     );
     return response.data;
-  }
+  },
 
-  static async updateArticleStatus(
+  async updateArticleStatus(
     articleId: number,
     updates: { isRead?: boolean; isStarred?: boolean },
   ): Promise<void> {
-    await getApiClient().post(`${this.baseUrl}/articles/status`, {
+    await getApiClient().post(`${articleServiceBaseUrl}/articles/status`, {
       articleId,
       ...updates,
     });
-  }
-
-  private static streamContentsUrl(streamId: string): string {
-    return `${this.greaderBaseUrl}/stream/contents/${encodeURIComponent(streamId)}?output=json&n=250`;
-  }
-}
+  },
+};
 
 // ── ArticleService ────────────────────────────────────────────────────────────
 
-export class AuthService {
-  private static baseUrl = "/api/auth";
-
-  static async getSession(): Promise<AuthSession> {
-    const response = await getApiClient().get(`${this.baseUrl}/session`);
+export const AuthService = {
+  async getSession(): Promise<AuthSession> {
+    const response = await getApiClient().get<AuthSession>(
+      `${authServiceBaseUrl}/session`,
+    );
     return response.data;
-  }
+  },
 
-  static async login(email: string, password: string): Promise<AuthUser> {
-    const response = await getApiClient().post(`${this.baseUrl}/login`, {
-      email,
-      password,
-    });
+  async login(email: string, password: string): Promise<AuthUser> {
+    const response = await getApiClient().post<AuthSessionResponse>(
+      `${authServiceBaseUrl}/login`,
+      {
+        email,
+        password,
+      },
+    );
     return response.data.user;
-  }
+  },
 
-  static async logout(): Promise<void> {
-    await getApiClient().post(`${this.baseUrl}/logout`);
-  }
+  async logout(): Promise<void> {
+    await getApiClient().post(`${authServiceBaseUrl}/logout`);
+  },
 
-  static async signup(email: string, password: string): Promise<AuthUser> {
-    const response = await getApiClient().post(`${this.baseUrl}/signup`, {
-      email,
-      password,
-    });
+  async signup(email: string, password: string): Promise<AuthUser> {
+    const response = await getApiClient().post<AuthSessionResponse>(
+      `${authServiceBaseUrl}/signup`,
+      {
+        email,
+        password,
+      },
+    );
     return response.data.user;
-  }
-}
+  },
+};
 
-export class FeedService {
-  private static baseUrl = "/api";
-
-  static async createFeedSource(
+export const FeedService = {
+  async createFeedSource(
     source: Pick<FeedSource, "name" | "url"> & { category?: string },
   ): Promise<FeedSource> {
-    const response = await getApiClient().post(`${this.baseUrl}/feeds`, source);
-    return response.data;
-  }
-
-  static async deleteFeedSource(id: number): Promise<FeedSource> {
-    const response = await getApiClient().delete(
-      `${this.baseUrl}/feeds?id=${id}`,
+    const response = await getApiClient().post<FeedSource>(
+      `${feedServiceBaseUrl}/feeds`,
+      source,
     );
     return response.data;
-  }
+  },
 
-  static async getCategoryOrder(): Promise<string[]> {
-    const response = await getApiClient().get(
-      `${this.baseUrl}/feeds/category-order`,
+  async deleteFeedSource(id: number): Promise<FeedSource> {
+    const response = await getApiClient().delete<FeedSource>(
+      `${feedServiceBaseUrl}/feeds?id=${id}`,
     );
-    return Array.isArray(response.data?.orderedLabels)
-      ? response.data.orderedLabels
+    return response.data;
+  },
+
+  async getCategoryOrder(): Promise<string[]> {
+    const response = await getApiClient().get<CategoryOrderResponse>(
+      `${feedServiceBaseUrl}/feeds/category-order`,
+    );
+    const { orderedLabels } = response.data;
+    return Array.isArray(orderedLabels)
+      ? orderedLabels.filter(
+          (label): label is string => typeof label === "string",
+        )
       : [];
-  }
+  },
 
-  static async getFeed(url: string): Promise<Article[]> {
+  async getFeed(url: string): Promise<Article[]> {
     const response = await withRequestDeadline(
-      getApiClient().get(
-        `${this.baseUrl}/feeds?url=${encodeURIComponent(url)}`,
+      getApiClient().get<Article[]>(
+        `${feedServiceBaseUrl}/feeds?url=${encodeURIComponent(url)}`,
       ),
     );
     return ensureArrayResponse<Article>(response.data);
-  }
+  },
 
-  static async getFeedsBatch(
+  async getFeedsBatch(
     urls: string[],
     {
       forceRefresh = false,
@@ -244,7 +277,7 @@ export class FeedService {
     try {
       const response = await withRequestDeadline(
         getApiClient().post(
-          `${this.baseUrl}/feeds/batch`,
+          `${feedServiceBaseUrl}/feeds/batch`,
           { forceRefresh, requestSource, skipRefresh, urls: normalizedUrls },
           { signal: controller.signal },
         ),
@@ -259,53 +292,62 @@ export class FeedService {
     } finally {
       dispose();
     }
-  }
+  },
 
-  static async getFeedSources(): Promise<FeedSource[]> {
+  async getFeedSources(): Promise<FeedSource[]> {
     const response = await withRequestDeadline(
-      getApiClient().get(`${this.baseUrl}/feeds`),
+      getApiClient().get<FeedSource[]>(`${feedServiceBaseUrl}/feeds`),
     );
     return ensureArrayResponse<FeedSource>(response.data);
-  }
+  },
 
-  static async renameFeedSource(
+  async renameFeedSource(
     id: number,
     name: string,
     url?: string,
   ): Promise<FeedSource> {
-    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
-      id,
-      name,
-      url,
-    });
+    const response = await getApiClient().patch<FeedSource>(
+      `${feedServiceBaseUrl}/feeds`,
+      {
+        id,
+        name,
+        url,
+      },
+    );
     return response.data;
-  }
+  },
 
-  static async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
-    await getApiClient().put(`${this.baseUrl}/feeds/category-order`, {
+  async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
+    await getApiClient().put(`${feedServiceBaseUrl}/feeds/category-order`, {
       orderedLabels,
     });
-  }
+  },
 
-  static async setFeedSourceEnabled(
+  async setFeedSourceEnabled(
     id: number,
     enabled: boolean,
   ): Promise<FeedSource> {
-    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
-      enabled,
-      id,
-    });
+    const response = await getApiClient().patch<FeedSource>(
+      `${feedServiceBaseUrl}/feeds`,
+      {
+        enabled,
+        id,
+      },
+    );
     return response.data;
-  }
+  },
 
-  static async updateFeedSettings(
+  async updateFeedSettings(
     id: number,
     settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
   ): Promise<FeedSource> {
-    const response = await getApiClient().patch(`${this.baseUrl}/feeds`, {
-      id,
-      ...settings,
-    });
+    const response = await getApiClient().patch<FeedSource>(
+      `${feedServiceBaseUrl}/feeds`,
+      {
+        id,
+        ...settings,
+      },
+    );
     return response.data;
-  }
-}
+  },
+};

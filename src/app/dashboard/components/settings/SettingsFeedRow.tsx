@@ -103,10 +103,10 @@ export function SettingsFeedRow({
   const settingsBusy = isUpdatingSettings || isTogglingEnabled || isDeleting;
   const isDropBefore =
     feedDropTarget?.categoryLabel === categoryLabel &&
-    feedDropTarget?.index === index;
+    feedDropTarget.index === index;
   const isDropAfter =
     feedDropTarget?.categoryLabel === categoryLabel &&
-    feedDropTarget?.index === index + 1;
+    feedDropTarget.index === index + 1;
 
   const [pendingSetting, setPendingSetting] = useState<
     "extraction" | "proxy" | null

@@ -79,6 +79,12 @@ interface ExtractPostDeps {
   warnFn?: typeof logger.warn;
 }
 
+interface ExtractRequestBody {
+  distillStrategy?: string;
+  url?: string;
+  useProxy?: boolean;
+}
+
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   // SECURITY: Require authentication — unauthenticated callers must not be
   // able to trigger arbitrary outbound HTTP fetches from the server.
@@ -122,12 +128,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     let authUserId: number | undefined;
     if (isAuthFailure) {
       // Peek at the body to check for a placeholder URL before rejecting
-      const peekBody = await request
+      const peekBody: unknown = await request
         .clone()
         .json()
         .catch(() => null);
-      const peekUrl =
-        typeof peekBody?.url === "string" ? peekBody.url.trim() : "";
+      const peekUrl = getRequestUrl(peekBody);
       const isPlaceholderUrl = Boolean(
         peekUrl && getPlaceholderSnapshotPathByArticleUrl(peekUrl),
       );
@@ -137,11 +142,8 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     }
 
     // Parse body once and extract both url and useProxy flag
-    const bodyResult = await parseJsonBodyOrResponse<{
-      distillStrategy?: string;
-      url?: string;
-      useProxy?: boolean;
-    }>(request);
+    const bodyResult =
+      await parseJsonBodyOrResponse<ExtractRequestBody>(request);
     if (bodyResult instanceof Response) return bodyResult;
     useProxy = !isAuthFailure && bodyResult.useProxy === true;
     const distillStrategy: DistillStrategy =
@@ -156,7 +158,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     let allowInsecureTls = false;
     if (useProxy && authUserId) {
       const db = getDb();
-      const [row] = await db
+      const rows = await db
         .select({
           allowInsecureTls: users.allowInsecureTls,
           proxyPassword: users.proxyPassword,
@@ -166,20 +168,26 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         .from(users)
         .where(eq(users.id, authUserId))
         .limit(1);
-      const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
+      const row = rows.length === 0 ? null : rows[0];
+      const rawProxyUrl = row?.proxyUrl?.trim();
       const baseProxyUrl =
-        rawProxyUrl && rawProxyUrl !== "null" && rawProxyUrl !== "undefined"
+        rawProxyUrl !== undefined &&
+        rawProxyUrl !== "" &&
+        rawProxyUrl !== "null" &&
+        rawProxyUrl !== "undefined"
           ? rawProxyUrl
           : undefined;
       resolvedProxyUrl =
-        baseProxyUrl && row?.proxyUsername && row?.proxyPassword
+        baseProxyUrl !== undefined &&
+        row?.proxyUsername !== null &&
+        row?.proxyPassword !== null
           ? injectProxyCredentials(
               baseProxyUrl,
-              row.proxyUsername,
-              row.proxyPassword,
+              row?.proxyUsername ?? "",
+              row?.proxyPassword ?? "",
             )
           : baseProxyUrl;
-      allowInsecureTls = row?.allowInsecureTls ?? false;
+      allowInsecureTls = row === null ? false : row.allowInsecureTls;
     }
 
     // Build a cloned request with the same body for parseAndValidateArticleUrl
@@ -223,10 +231,10 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       { contentLengthThreshold: 120 },
     );
 
-    if (
-      !extracted ||
-      (!extracted.content?.trim() && !extracted.description?.trim())
-    ) {
+    const extractedContent = extracted?.content.trim() ?? "";
+    const extractedDescription = (extracted?.description ?? "").trim();
+
+    if (!extracted || (!extractedContent && !extractedDescription)) {
       warn(`Article extractor returned no content`, { url: safeUrl });
     }
 
@@ -328,8 +336,8 @@ function createExtractRequestContext(
 ): ExtractRequestContext {
   const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const requestId = sanitizeHeaderValue(
-    request.headers?.get("x-request-id") ??
-      request.headers?.get("x-correlation-id"),
+    request.headers.get("x-request-id") ??
+      request.headers.get("x-correlation-id"),
   );
 
   return {
@@ -354,6 +362,15 @@ function getCachedExtractResponse(
   return cachedPayload;
 }
 
+function getRequestUrl(value: unknown): string {
+  if (typeof value !== "object" || value === null) {
+    return "";
+  }
+
+  const url = (value as { url?: unknown }).url;
+  return typeof url === "string" ? url.trim() : "";
+}
+
 function resolveExtractedContent(
   extractableHtml: string,
   originalHtml: string,
@@ -363,8 +380,9 @@ function resolveExtractedContent(
   cleanContent: (sanitizedContent: string, articleUrl: string) => string,
 ): string {
   // 1. Sanitize the extracted article body container (if found)
-  const rawContent =
-    extracted?.content?.trim() || extracted?.description?.trim() || "";
+  const extractedContent = extracted?.content.trim() ?? "";
+  const extractedDescription = (extracted?.description ?? "").trim();
+  const rawContent = extractedContent || extractedDescription;
 
   const sanitizedContent = sanitizeContent(rawContent);
 

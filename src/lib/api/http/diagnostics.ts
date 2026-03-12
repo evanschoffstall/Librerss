@@ -37,7 +37,7 @@ export function toBodySnippet(
     "toString" in data &&
     typeof (data as { toString: unknown }).toString === "function"
   ) {
-    const text = String((data as { toString: () => string }).toString());
+    const text = (data as { toString: () => string }).toString();
     const compact = text.replace(/\s+/g, " ").trim();
     if (!compact || compact === "[object Object]") return undefined;
     return compact.length > maxLength

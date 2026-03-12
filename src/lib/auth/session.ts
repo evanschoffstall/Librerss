@@ -180,7 +180,7 @@ export async function getUserFromSessionToken(
   const db = getDb();
   const tokenHash = hashSessionToken(token);
 
-  const [activeSession] = await db
+  const activeSessions = await db
     .select({
       email: users.email,
       expiresAt: sessions.expiresAt,
@@ -197,7 +197,7 @@ export async function getUserFromSessionToken(
     )
     .limit(1);
 
-  return activeSession ?? null;
+  return activeSessions[0] ?? null;
 }
 
 export function setSessionCookie(response: NextResponse, token: string): void {
@@ -250,7 +250,7 @@ export async function authenticateCredentials(
 
   const db = getDb();
 
-  const [user] = await db
+  const usersByEmail = await db
     .select({
       email: users.email,
       id: users.id,
@@ -262,12 +262,15 @@ export async function authenticateCredentials(
 
   // Always call verifyPassword — even when the user is not found — to prevent
   // timing-based email enumeration via response-time measurement.
-  const hashToVerify = user?.passwordHash ?? DUMMY_HASH;
+  const hashToVerify =
+    usersByEmail.length === 0 ? DUMMY_HASH : usersByEmail[0].passwordHash;
   const isValid = await verifyPassword(password, hashToVerify);
 
-  if (!user || !isValid) {
+  if (usersByEmail.length === 0 || !isValid) {
     return { ok: false };
   }
+
+  const user = usersByEmail[0];
 
   const token = await createSession(user.id);
   return { email: user.email, ok: true, token, userId: user.id };

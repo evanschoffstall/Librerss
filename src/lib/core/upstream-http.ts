@@ -25,8 +25,11 @@ export async function fetchTextWithValidatedRedirects(
   options: FetchTextWithValidatedRedirectsOptions,
   deps?: FetchTextWithValidatedRedirectsDeps,
 ): Promise<string> {
-  const get = deps?.axiosGetFn ?? axios.get;
-  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
+  const get =
+    deps?.axiosGetFn ??
+    ((...args: Parameters<typeof axios.get>) => axios.get(...args));
+  const isAxiosError =
+    deps?.isAxiosErrorFn ?? ((error: unknown) => axios.isAxiosError(error));
 
   // Strip any fragment from the initial URL before the first hop. URL fragments
   // are client-side navigation hints that must not appear in HTTP request URIs
@@ -53,7 +56,7 @@ export async function fetchTextWithValidatedRedirects(
           throw new Error("Too many redirects");
         }
 
-        const locationHeader = response.headers?.location;
+        const locationHeader = getHeaderValue(response.headers, "location");
         const location = Array.isArray(locationHeader)
           ? locationHeader[0]
           : locationHeader;
@@ -78,4 +81,16 @@ export async function fetchTextWithValidatedRedirects(
   }
 
   throw new Error("Too many redirects");
+}
+
+function getHeaderValue(
+  headers: unknown,
+  name: string,
+): string | string[] | undefined {
+  if (typeof headers !== "object" || headers === null) return undefined;
+
+  const candidate = (headers as Record<string, unknown>)[name];
+  return typeof candidate === "string" || Array.isArray(candidate)
+    ? candidate
+    : undefined;
 }

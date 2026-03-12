@@ -56,7 +56,7 @@ export function buildDashboardViewModel({
         (feedNode) => feedNode.data?.enabled !== false,
       ),
     }))
-    .filter((category) => (category.children?.length ?? 0) > 0);
+    .filter((category) => category.children.length > 0);
 
   const sidebarCategories = [
     SYSTEM_ALL_FEEDS_CATEGORY,

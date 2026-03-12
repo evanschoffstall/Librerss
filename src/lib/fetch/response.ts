@@ -17,34 +17,58 @@ export class GotScrapingError extends Error {
 }
 
 export function decompressBody(buf: Buffer, encoding: string): Promise<string> {
-  if (encoding === "br")
+  if (encoding === "br") {
     return new Promise((resolve, reject) => {
       zlib.brotliDecompress(buf, (err, r) => {
-        err ? reject(err) : resolve(r.toString("utf-8"));
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve(r.toString("utf-8"));
       });
     });
-  if (encoding === "gzip" || encoding === "x-gzip")
+  }
+  if (encoding === "gzip" || encoding === "x-gzip") {
     return new Promise((resolve, reject) => {
       zlib.gunzip(buf, (err, r) => {
-        err ? reject(err) : resolve(r.toString("utf-8"));
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve(r.toString("utf-8"));
       });
     });
-  if (encoding === "deflate")
+  }
+  if (encoding === "deflate") {
     return new Promise((resolve, reject) => {
       zlib.inflate(buf, (err, r) => {
-        err ? reject(err) : resolve(r.toString("utf-8"));
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve(r.toString("utf-8"));
       });
     });
+  }
   if (encoding === "zstd") {
     const decompressZstd = (zlib as Record<string, unknown>).zstdDecompress as
       | typeof zlib.brotliDecompress
       | undefined;
-    if (decompressZstd)
+    if (decompressZstd) {
       return new Promise((resolve, reject) => {
         decompressZstd(buf, (err, r) => {
-          err ? reject(err) : resolve(r.toString("utf-8"));
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          resolve(r.toString("utf-8"));
         });
       });
+    }
   }
   return Promise.resolve(buf.toString("utf-8"));
 }

@@ -50,12 +50,13 @@ export function DashboardTopHeaderBar() {
   useEffect(() => {
     const handleTitleChange = (event: Event) => {
       const detail = (event as CustomEvent<{ title?: string }>).detail;
-      setTitle(detail?.title?.trim() || "LibreRSS");
+      const title = typeof detail.title === "string" ? detail.title.trim() : "";
+      setTitle(title === "" ? "LibreRSS" : title);
     };
 
     const handleSearchSync = (event: Event) => {
       const detail = (event as CustomEvent<{ term?: string }>).detail;
-      setSearch(detail?.term ?? "");
+      setSearch(typeof detail.term === "string" ? detail.term : "");
     };
 
     const handleEnterPreview = () => {

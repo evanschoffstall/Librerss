@@ -52,13 +52,13 @@ const normalizeImportUrl = (rawUrl: string): null | string => {
 export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const parser = new DOMParser();
   const document = parser.parseFromString(opmlXml, "text/xml");
-  const parserError = document.getElementsByTagName("parsererror")[0];
+  const parserError = document.getElementsByTagName("parsererror").item(0);
 
   if (parserError) {
     throw new Error("Invalid OPML file.");
   }
 
-  const body = document.getElementsByTagName("body")[0];
+  const body = document.getElementsByTagName("body").item(0);
   if (!body) {
     throw new Error("OPML body is missing.");
   }
@@ -85,8 +85,11 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
       });
     } else {
       // This is a category/group outline — its label becomes the category for children.
+      const outlineLabel = getOutlineLabel(outline);
       const groupCategory =
-        getOutlineLabel(outline) || parentCategory || DEFAULT_CATEGORY_LABEL;
+        outlineLabel === ""
+          ? (parentCategory ?? DEFAULT_CATEGORY_LABEL)
+          : outlineLabel;
 
       const childOutlines = Array.from(outline.children).filter(
         (child): child is Element => child.tagName.toLowerCase() === "outline",
@@ -130,8 +133,13 @@ export const generateOpml = (categories: CategoryTreeNode[]): string => {
       `<outline text="${escapeXml(cat.label)}" title="${escapeXml(cat.label)}">`,
     );
     for (const feed of feeds) {
+      const feedUrl = feed.data?.url;
+      if (!feedUrl) {
+        continue;
+      }
+
       lines.push(
-        `<outline type="rss" text="${escapeXml(feed.label)}" title="${escapeXml(feed.label)}" xmlUrl="${escapeXml(feed.data!.url)}" />`,
+        `<outline type="rss" text="${escapeXml(feed.label)}" title="${escapeXml(feed.label)}" xmlUrl="${escapeXml(feedUrl)}" />`,
       );
     }
     lines.push("</outline>");

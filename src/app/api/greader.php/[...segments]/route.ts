@@ -60,9 +60,9 @@ function createReaderResourceHandlers(
     "subscription/list": () => handleSubscriptionList(user),
     "subscription/quickadd": () => handleSubscriptionQuickAdd(user, request),
     "tag/list": () => handleTagList(user),
-    token: () => handleToken(),
+    token: () => Promise.resolve(handleToken()),
     "unread-count": () => handleUnreadCount(user),
-    "user-info": () => handleUserInfo(user),
+    "user-info": () => Promise.resolve(handleUserInfo(user)),
   };
 }
 
@@ -82,15 +82,24 @@ function getEditToken(): string {
   return _editToken;
 }
 
+function getReaderResourceHandler(
+  request: NextRequest,
+  user: SessionUser,
+  resource: string,
+): ReaderResourceHandler | undefined {
+  const handlers = createReaderResourceHandlers(request, user);
+  return Object.hasOwn(handlers, resource) ? handlers[resource] : undefined;
+}
+
 async function handleReaderRequest(
   request: NextRequest,
   user: SessionUser,
   segments: string[],
 ): Promise<Response> {
   const resource = segments.slice(3).join("/");
-  const handler = createReaderResourceHandlers(request, user)[resource];
+  const handler = getReaderResourceHandler(request, user, resource);
 
-  if (handler) return handler();
+  if (handler !== undefined) return handler();
 
   if (resource.startsWith("stream/contents/")) {
     return handleStreamContents(user, request, resource);
@@ -99,12 +108,12 @@ async function handleReaderRequest(
   return notFoundResponse();
 }
 
-async function handleToken(): Promise<Response> {
+function handleToken(): Response {
   logger.info("[greader] token requested");
   return textResponse(`${getEditToken()}\n`);
 }
 
-async function handleUserInfo(user: SessionUser): Promise<Response> {
+function handleUserInfo(user: SessionUser): Response {
   return NextResponse.json({
     isBloggerUser: false,
     signupTimeSec: 0,
@@ -194,8 +203,15 @@ async function handleRequest(
 ): Promise<Response> {
   try {
     const { segments } = await context.params;
-    return dispatch(request, segments);
+    return await dispatch(request, segments);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("AUTH_SECRET environment variable is required")
+    ) {
+      throw error;
+    }
+
     logger.error(`[greader] Unhandled ${method} error`, {
       error: error instanceof Error ? error : undefined,
     });

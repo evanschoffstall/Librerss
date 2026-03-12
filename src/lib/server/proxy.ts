@@ -82,14 +82,14 @@ export async function detectProxyProtocol(
       if (response[0] !== 0x05) {
         finish(
           "http",
-          `server replied ${response.length}B, first byte 0x${response[0]?.toString(16) ?? "??"} → not SOCKS`,
+          `server replied ${response.length}B, first byte 0x${response[0].toString(16)} → not SOCKS`,
         );
         return;
       }
       if (response.length < 2) return;
       finish(
         "socks5",
-        `server replied ${response.length}B, version 0x${response[0]?.toString(16) ?? "??"}, method 0x${response[1]?.toString(16) ?? "??"} → SOCKS5`,
+        `server replied ${response.length}B, version 0x${response[0].toString(16)}, method 0x${response[1].toString(16)} → SOCKS5`,
       );
     });
     socket.on("timeout", () => {
