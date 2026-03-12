@@ -69,8 +69,8 @@ const LandingView = () => {
           className="landing-reveal mx-auto mb-9 max-w-lg text-base text-muted-foreground sm:mb-12 sm:text-xl"
           style={{ animationDelay: "var(--motion-delay-2)" }}
         >
-          A free, open-source cloud reader for RSS. All your sources in one
-          calm, focused inbox.
+          A free, open-source feed hub for RSS. All your sources in one calm,
+          focused inbox.
         </p>
 
         {/* Single CTA */}
@@ -84,7 +84,7 @@ const LandingView = () => {
                 className="group inline-flex items-center"
                 href="/dashboard"
               >
-                Start Reading
+                Open Dashboard
                 <span className="landing-arrow-bob ml-2 inline-flex transition-transform anim-duration-ui anim-ease-ui group-hover:translate-x-1">
                   <ArrowRight className="h-4 w-4" />
                 </span>
@@ -131,7 +131,7 @@ export default function Landing() {
               <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm">
                 <Rss className="size-3 shrink-0" />
                 <span className="truncate">
-                  Open-source · Self-hostable · GReader compatible
+                  Open-source · Self-hostable · Feed-first
                 </span>
               </div>
             </div>
