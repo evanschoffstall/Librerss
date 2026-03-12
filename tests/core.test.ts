@@ -651,6 +651,45 @@ describe("feed-refresh", () => {
     }
   });
 
+  test("refreshFeedFromUpstream treats malformed parser items as empty feed content", async () => {
+    const { refreshFeedFromUpstream } = await importFeedRefresh();
+
+    const values = mock(() => ({ onConflictDoUpdate: mock(async () => []) }));
+    const insert = mock(() => ({ values }));
+
+    const where = mock(async () => []);
+    const set = mock(() => ({ where }));
+    const update = mock(() => ({ set }));
+
+    const result = await refreshFeedFromUpstream(
+      { insert, update } as unknown as any,
+      {
+        id: 11,
+        lastFetched: new Date("2026-02-23T00:00:00.000Z"),
+        lastFetchError: null,
+        url: "https://example.com/malformed.xml",
+      },
+      {
+        dedupePendingArticlesFn: (rows) => rows,
+        fetchFeedXmlFn: async () => "<rss />",
+        getPublicationDateRangeFn: () => ({
+          newestPublicationDate: null,
+          oldestPublicationDate: null,
+        }),
+        parseFeedXmlFn: async () => ({ items: undefined as never }),
+        toPendingArticleFn: mock(() => {
+          throw new Error(
+            "toPendingArticle should not run for malformed items",
+          );
+        }) as any,
+      },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(insert).toHaveBeenCalledTimes(0);
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
   test("refreshFeedFromUpstream tolerates cooldown update failure after fetch error", async () => {
     const { CONFIG } = await import("@/lib/config");
     const { refreshFeedFromUpstream } = await importFeedRefresh();
