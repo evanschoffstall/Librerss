@@ -46,9 +46,6 @@
  * At expand start, `suppressSnapRef = -1`. The ResizeObserver skips entirely
  * — no `ensureMinOverflow()`, no `scrollTop` writes — so browser scroll
  * anchoring handles expansion naturally and user scrolling is unimpeded.
- * CSS scroll anchoring is also disabled on the viewport (`overflow-anchor:
- * none`) to prevent the browser from adjusting `scrollTop` as the article
- * grows above the anchor point during user scroll.
  * Released when the actual `transitionend` event fires for `max-height` on
  * the article element, with a 3s safety fallback.
  *
@@ -177,15 +174,7 @@ export function activateExpandSuppress(
 
     if (suppressSnapRef) suppressSnapRef.current = -1;
 
-    // Disable CSS scroll anchoring on the viewport during expansion.
-    // Without this, as the user scrolls into the expanding article,
-    // the browser picks an anchor element inside the card. The
-    // still-growing parts above the anchor trigger automatic scrollTop
-    // increases, causing visible "jump down" during user scroll.
-    vp.style.overflowAnchor = "none";
-
     const release = () => {
-      vp.style.overflowAnchor = "";
       if (suppressSnapRef) suppressSnapRef.current = false;
     };
 

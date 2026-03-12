@@ -673,12 +673,38 @@ describe("activateExpandSuppress", () => {
     expect(vpRef.current).toBe(viewport);
     expect(topRef.current).toBe(150);
     expect(cleanupRef.current).not.toBeNull();
-    expect(viewport.style.overflowAnchor).toBe("none");
 
-    // Cleanup releases to false and restores overflow-anchor
+    // Cleanup releases suppress mode.
     cleanupRef.current!();
     expect(snapRef.current).toBe(false);
-    expect(viewport.style.overflowAnchor).toBe("");
+
+    document.body.removeChild(viewport);
+  });
+
+  test("preserves native scroll anchoring during expand suppress", () => {
+    const snapRef = { current: false as ScrollPinTarget };
+    const cleanupRef = { current: null } as React.RefObject<
+      (() => void) | null
+    >;
+    const vpRef = { current: null } as React.RefObject<HTMLElement | null>;
+    const topRef = { current: null } as React.RefObject<null | number>;
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.style.overflowAnchor = "auto";
+
+    const article = document.createElement("div");
+    article.setAttribute("data-article-key", "anchor-test");
+    viewport.appendChild(article);
+    document.body.appendChild(viewport);
+
+    activateExpandSuppress(snapRef, cleanupRef, vpRef, topRef, "anchor-test");
+
+    expect(snapRef.current).toBe(-1);
+    expect(viewport.style.overflowAnchor).toBe("auto");
+
+    cleanupRef.current!();
+    expect(viewport.style.overflowAnchor).toBe("auto");
 
     document.body.removeChild(viewport);
   });
@@ -745,14 +771,12 @@ describe("activateExpandSuppress", () => {
 
     activateExpandSuppress(snapRef, cleanupRef, vpRef, topRef, "trans-test");
     expect(snapRef.current).toBe(-1);
-    expect(viewport.style.overflowAnchor).toBe("none");
 
     // Fire transitionend with wrong property — should NOT release
     const wrongEvent = new Event("transitionend") as any;
     wrongEvent.propertyName = "opacity";
     article.dispatchEvent(wrongEvent);
     expect(snapRef.current).toBe(-1);
-    expect(viewport.style.overflowAnchor).toBe("none");
 
     // Fire transitionend with max-height — schedules release after 80ms
     const correctEvent = new Event("transitionend") as any;
@@ -763,7 +787,6 @@ describe("activateExpandSuppress", () => {
     // Wait for the 80ms release timer to fire
     await new Promise((r) => setTimeout(r, 100));
     expect(snapRef.current).toBe(false);
-    expect(viewport.style.overflowAnchor).toBe("");
 
     document.body.removeChild(viewport);
   });
