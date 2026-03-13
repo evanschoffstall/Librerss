@@ -2,6 +2,7 @@
   "thresholds": {
     "lineCoverageThreshold": 85,
     "typeCoverageThreshold": 98,
+    "checkSuiteTimeoutEnvVar": "CHECK_SUITE_TIMEOUT_MS",
     "testTimeoutMs": 5000,
     "testCommandTimeoutMs": 120000,
     "testCommandTimeoutEnvVar": "CHECK_TEST_COMMAND_TIMEOUT_MS"
@@ -21,121 +22,12 @@
       "args": ["prettier", "--write", "."]
     },
     {
-      "key": "junit",
-      "enabled": true,
-      "label": "junit",
-      "handler": "test",
-      "cmd": "bun",
-      "args": [
-        "test",
-        "--timeout={testTimeoutMs}",
-        "--coverage",
-        "--coverage-reporter=lcov",
-        "--coverage-dir=coverage",
-        "--reporter=junit",
-        "--reporter-outfile={junitPath}"
-      ],
-      "passMsg": "",
-      "failMsg": "",
-      "summary": {
-        "type": "test-runner"
-      }
-    },
-    {
-      "key": "types",
-      "enabled": true,
-      "label": "tsc",
-      "cmd": "tsc",
-      "args": ["--noEmit"],
-      "passMsg": "typecheck clean",
-      "failMsg": "typecheck failed",
-      "summary": {
-        "type": "pattern",
-        "patterns": [
-          {
-            "regex": ":\\s+error\\s+TS\\d+:",
-            "type": "count",
-            "format": "{count} TypeScript errors"
-          }
-        ],
-        "default": "typecheck clean"
-      }
-    },
-    {
-      "key": "lint",
-      "enabled": true,
-      "label": "eslint",
-      "handler": "lint",
-      "passMsg": "lint clean",
-      "failMsg": "lint failed",
-      "summary": {
-        "type": "pattern",
-        "patterns": [
-          {
-            "regex": "[✖xX]\\s+(\\d+)\\s+problems?\\s*\\((\\d+)\\s+errors?,\\s*(\\d+)\\s+warnings?\\)",
-            "type": "match",
-            "format": "{1} problems ({2} errors, {3} warnings)"
-          }
-        ],
-        "default": "lint clean"
-      },
-      "config": {
-        "globExtensions": ["js", "mjs", "cjs", "ts", "jsx", "tsx"],
-        "skipDirs": [
-          "node_modules",
-          ".next",
-          "dist",
-          "build",
-          "coverage",
-          ".cache"
-        ],
-        "maxFiles": 5000,
-        "args": [
-          "eslint",
-          ".",
-          "--cache",
-          "--cache-strategy",
-          "content",
-          "--cache-location",
-          ".cache/eslint",
-          "--fix",
-          "--concurrency"
-        ]
-      }
-    },
-    {
-      "key": "jscpd",
-      "enabled": true,
-      "label": "jscpd",
-      "cmd": "bunx",
-      "args": ["jscpd", "--config", ".jscpd.json"],
-      "passMsg": "no duplicate stats detected",
-      "failMsg": "duplicates found",
-      "summary": {
-        "type": "pattern",
-        "patterns": [
-          {
-            "regex": "│ Total:",
-            "type": "table-row",
-            "cellSep": "│",
-            "format": "{4} clones · {5} lines · {6} tokens · {1} files"
-          },
-          {
-            "regex": "Found\\s+(\\d+)\\s+clones?",
-            "type": "match",
-            "format": "{1} clones"
-          }
-        ],
-        "default": "no duplicate stats detected"
-      }
-    },
-    {
       "key": "knip",
       "enabled": true,
       "label": "knip",
       "cmd": "bunx",
       "args": ["knip", "--config", "knip.json", "--cache"],
-      "passMsg": "unused dependency check clean",
+      "passMsg": "",
       "failMsg": "knip failed",
       "summary": { "type": "simple" }
     },
@@ -145,7 +37,7 @@
       "label": "madge",
       "cmd": "bunx",
       "args": ["madge@8", "--circular", "--extensions", "ts,tsx", "src"],
-      "passMsg": "0 circular dependencies",
+      "passMsg": "",
       "failMsg": "circular dependencies found",
       "outputFilter": {
         "type": "stripLines",
@@ -174,7 +66,7 @@
       "label": "dependency-cruiser",
       "cmd": "bunx",
       "args": ["depcruise", "--no-config", "src", "--output-type", "err"],
-      "passMsg": "no dependency violations",
+      "passMsg": "",
       "failMsg": "dependency-cruiser failed",
       "summary": {
         "type": "pattern",
@@ -186,33 +78,6 @@
           }
         ],
         "default": "dependency cruise completed"
-      }
-    },
-    {
-      "key": "type-coverage",
-      "enabled": true,
-      "label": "type-coverage",
-      "cmd": "bunx",
-      "args": [
-        "type-coverage",
-        "--at-least",
-        "{typeCoverageThreshold}",
-        "--cache",
-        "--cache-directory",
-        ".cache/type-coverage"
-      ],
-      "passMsg": "type coverage completed",
-      "failMsg": "type coverage below threshold",
-      "summary": {
-        "type": "pattern",
-        "patterns": [
-          {
-            "regex": "\\((\\d+)\\s*\\/\\s*(\\d+)\\)\\s*([\\d.]+)%",
-            "type": "match",
-            "format": "{3}% ({1}/{2}) · threshold {typeCoverageThreshold}%"
-          }
-        ],
-        "default": "type coverage completed"
       }
     },
     {
@@ -230,7 +95,7 @@
         "--cache-strategy",
         "content"
       ],
-      "passMsg": "stylelint clean",
+      "passMsg": "",
       "failMsg": "stylelint failed",
       "summary": { "type": "simple" }
     },
@@ -239,7 +104,7 @@
       "enabled": true,
       "label": "purgecss",
       "handler": "inline-ts",
-      "passMsg": "no unused CSS selectors",
+      "passMsg": "",
       "failMsg": "unused CSS selectors found",
       "summary": { "type": "simple" },
       "config": {
@@ -267,7 +132,7 @@
         "--files",
         "next-env.test-d.ts"
       ],
-      "passMsg": "type definition tests clean",
+      "passMsg": "",
       "failMsg": "tsd failed",
       "summary": { "type": "simple" }
     },
@@ -277,7 +142,7 @@
       "label": "secretlint",
       "cmd": "bunx",
       "args": ["secretlint", "**/*", "--secretlintignore", ".secretlintignore"],
-      "passMsg": "no secret findings",
+      "passMsg": "",
       "failMsg": "secretlint failed",
       "summary": { "type": "simple" }
     },
@@ -294,7 +159,7 @@
         "--cache-location",
         ".cache/prettier"
       ],
-      "passMsg": "formatting compliant",
+      "passMsg": "",
       "failMsg": "prettier failed",
       "summary": { "type": "simple" }
     },
@@ -318,7 +183,7 @@
         "--quiet",
         "src"
       ],
-      "passMsg": "rule scan clean",
+      "passMsg": "",
       "failMsg": "semgrep failed",
       "summary": { "type": "simple" }
     },
@@ -336,9 +201,149 @@
         "-c",
         ".gitleaks.toml"
       ],
-      "passMsg": "secret scan clean",
+      "passMsg": "",
       "failMsg": "gitleaks failed",
       "summary": { "type": "simple" }
+    },
+    {
+      "key": "type-coverage",
+      "enabled": true,
+      "label": "type-coverage",
+      "cmd": "bunx",
+      "args": [
+        "type-coverage",
+        "--at-least",
+        "{typeCoverageThreshold}",
+        "--cache",
+        "--cache-directory",
+        ".cache/type-coverage"
+      ],
+      "passMsg": "",
+      "failMsg": "type coverage below threshold",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "\\((\\d+)\\s*\\/\\s*(\\d+)\\)\\s*([\\d.]+)%",
+            "type": "match",
+            "format": "{3}% ({1}/{2}) · threshold {typeCoverageThreshold}%"
+          }
+        ],
+        "default": "type coverage completed"
+      }
+    },
+    {
+      "key": "jscpd",
+      "enabled": true,
+      "label": "jscpd",
+      "cmd": "bunx",
+      "args": ["jscpd", "--config", ".jscpd.json"],
+      "passMsg": "",
+      "failMsg": "duplicates found",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "│ Total:",
+            "type": "table-row",
+            "cellSep": "│",
+            "format": "{4} clones · {5} lines · {6} tokens · {1} files"
+          },
+          {
+            "regex": "Found\\s+(\\d+)\\s+clones?",
+            "type": "match",
+            "format": "{1} clones"
+          }
+        ],
+        "default": "no duplicate stats detected"
+      }
+    },
+    {
+      "key": "junit",
+      "enabled": true,
+      "label": "junit",
+      "handler": "test",
+      "timeoutMs": "{testCommandTimeoutMs}",
+      "cmd": "bun",
+      "args": [
+        "test",
+        "--timeout={testTimeoutMs}",
+        "--coverage",
+        "--coverage-reporter=lcov",
+        "--coverage-dir=coverage",
+        "--reporter=junit",
+        "--reporter-outfile={junitPath}"
+      ],
+      "passMsg": "",
+      "failMsg": "",
+      "summary": {
+        "coverageLabel": "lcov-coverage",
+        "coveragePathToken": "lcovPath",
+        "reportPathToken": "junitPath",
+        "type": "test-runner"
+      }
+    },
+    {
+      "key": "types",
+      "enabled": true,
+      "label": "tsc",
+      "cmd": "tsc",
+      "args": ["--noEmit"],
+      "passMsg": "",
+      "failMsg": "typecheck failed",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": ":\\s+error\\s+TS\\d+:",
+            "type": "count",
+            "format": "{count} TypeScript errors"
+          }
+        ],
+        "default": ""
+      }
+    },
+    {
+      "key": "lint",
+      "enabled": true,
+      "label": "eslint",
+      "handler": "lint",
+      "passMsg": "",
+      "failMsg": "lint failed",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "[✖xX]\\s+(\\d+)\\s+problems?\\s*\\((\\d+)\\s+errors?,\\s*(\\d+)\\s+warnings?\\)",
+            "type": "match",
+            "format": "{1} problems ({2} errors, {3} warnings)"
+          }
+        ],
+        "default": ""
+      },
+      "config": {
+        "globExtensions": ["js", "mjs", "cjs", "ts", "jsx", "tsx"],
+        "skipDirs": [
+          "node_modules",
+          ".next",
+          "dist",
+          "build",
+          "coverage",
+          ".cache"
+        ],
+        "maxFiles": 5000,
+        "args": [
+          "eslint",
+          ".",
+          "--cache",
+          "--cache-strategy",
+          "content",
+          "--cache-location",
+          ".cache/eslint",
+          "--fix",
+          "--concurrency"
+        ]
+      }
     }
   ]
 }
