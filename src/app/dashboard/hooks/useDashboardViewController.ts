@@ -4,7 +4,6 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -29,11 +28,7 @@ import {
 import { useDashboardViewHandlers } from "./useDashboardViewHandlers";
 import { useDashboardViewState } from "./useDashboardViewState";
 import { useFeedLoader } from "./useFeedLoader";
-import {
-  FEED_PULL_OFFSET,
-  useFeedPullOffset,
-  useFeedPullRefresh,
-} from "./useFeedSurface";
+import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
 import { useFeedVisibilityObserver } from "./useFeedVisibilityObserver";
 
 import { type Article } from "@/lib";
@@ -211,7 +206,6 @@ export function useDashboardViewController({
         selectedCategory,
       }),
     [
-      articleFilter,
       categories,
       collapsingArticleKey,
       customCategoryLabels,
@@ -324,22 +318,6 @@ export function useDashboardViewController({
     },
     [feedScrollRef],
   );
-
-  const hasSentinelSnapMountedRef = useRef(false);
-  useLayoutEffect(() => {
-    if (!hasSentinelSnapMountedRef.current) {
-      hasSentinelSnapMountedRef.current = true;
-      return;
-    }
-    const root = feedScrollRootRef.current;
-    const wrapper = feedWrapperRef.current;
-    if (!root || !wrapper) return;
-    const viewport =
-      root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
-      root;
-    wrapper.style.paddingBottom = "9999px";
-    viewport.scrollTop = FEED_PULL_OFFSET;
-  }, [articleFilter, selectedCategory]);
 
   const {
     autoRefreshFeedList,
@@ -484,7 +462,7 @@ export function useDashboardViewController({
     topBar: {
       articleFilter,
       lastRefreshLabel,
-      loading: loading || isQuickFilterPending,
+      loading,
       setArticleFilter,
     },
   };

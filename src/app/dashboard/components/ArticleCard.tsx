@@ -214,7 +214,13 @@ export const ArticleCard = memo(function ArticleCard({
   const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
   const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
 
+  const isExpandedBodyTarget = (target: EventTarget | null) =>
+    visuallyExpanded &&
+    target instanceof Node &&
+    contentZoneRef.current?.contains(target);
+
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (isExpandedBodyTarget(e.target)) return;
     if (shouldBlockArticleInteraction()) {
       e.stopPropagation();
       return;
@@ -225,6 +231,7 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (isExpandedBodyTarget(e.target)) return;
     if (pressPointerIdRef.current !== e.pointerId) return;
     const start = pressStartPos.current;
     if (!start) return;
@@ -234,11 +241,13 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
+    if (isExpandedBodyTarget(e.target)) return;
     if (pressPointerIdRef.current !== e.pointerId) return;
     pressPointerIdRef.current = null;
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+    if (isExpandedBodyTarget(e.target)) return;
     if (pressPointerIdRef.current !== e.pointerId) return;
     pressPointerIdRef.current = null;
     pressStartPos.current = null;
@@ -526,9 +535,9 @@ export const ArticleCard = memo(function ArticleCard({
               ]
                 .filter(Boolean)
                 .join(", "),
-          userSelect: "none",
-          WebkitTouchCallout: "none",
-          WebkitUserSelect: "none",
+          userSelect: visuallyExpanded ? "text" : "none",
+          WebkitTouchCallout: visuallyExpanded ? "default" : "none",
+          WebkitUserSelect: visuallyExpanded ? "text" : "none",
         }}
         tabIndex={0}
       >
@@ -800,15 +809,16 @@ export const ArticleCard = memo(function ArticleCard({
               }
               onTransitionEnd={onContentTransitionEnd}
               style={{
+                cursor: visuallyExpanded ? "text" : undefined,
                 maxHeight: expandTransitionDone
                   ? "none"
                   : hasOverflow
                     ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                     : "none",
                 touchAction: "pan-y",
-                userSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
+                userSelect: visuallyExpanded ? "text" : "none",
+                WebkitTouchCallout: visuallyExpanded ? "default" : "none",
+                WebkitUserSelect: visuallyExpanded ? "text" : "none",
                 ...(hasOverflow &&
                 collapsedHeight === expandedHeight &&
                 !visuallyExpanded

@@ -147,7 +147,7 @@ export const FeedList = memo(function FeedList({
     <>
       {loading ? (
         <div
-          className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 px-1 py-2 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
+          className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
           key="feed-loading"
         >
           {Array.from({ length: 6 }).map((_, index) => (
