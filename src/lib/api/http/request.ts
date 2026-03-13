@@ -148,16 +148,6 @@ export function parsePositiveInt(value: unknown): null | number {
   return parsed;
 }
 
-export function parseUnixTimestampSeconds(value: unknown): Date | null {
-  const seconds = parsePositiveInt(value);
-  if (!seconds) {
-    return null;
-  }
-
-  const parsed = new Date(seconds * 1000);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
 function isBodyTooLargeByHeader(request: Request, maxBytes: number): boolean {
   const contentLengthHeader = request.headers.get("content-length");
   if (!contentLengthHeader) {

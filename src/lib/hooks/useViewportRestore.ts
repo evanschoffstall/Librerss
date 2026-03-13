@@ -331,8 +331,7 @@ function readSavedScroll(sessionKey: string): null | SavedScroll {
     if (!isSavedScroll(parsed)) return null;
     return parsed;
   } catch {
-    const legacy = Number(storage.getItem(sessionKey));
-    return Number.isFinite(legacy) ? { ai: -1, ao: 0, t: legacy } : null;
+    return null;
   }
 }
 

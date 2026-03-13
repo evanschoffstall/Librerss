@@ -20,7 +20,6 @@ export {
   parseJsonObjectBodyOrResponse,
   parseNonNegativeInt,
   parsePositiveInt,
-  parseUnixTimestampSeconds,
 } from "./request";
 export type { BatchFeedResponseItem } from "./responses";
 export {
