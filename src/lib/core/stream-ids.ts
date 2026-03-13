@@ -5,7 +5,6 @@
 export const FEED_STREAM_PREFIX = "feed/";
 export const USER_LABEL_PREFIX = "user/-/label/";
 export const READING_LIST_STREAM = "user/-/state/com.google/reading-list";
-export const READ_STATE = "user/-/state/com.google/read";
 export const STARRED_STATE = "user/-/state/com.google/starred";
 
 /**

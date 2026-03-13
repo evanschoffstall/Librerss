@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "../constants";
 
 import { ArticleService, type CategoryTreeNode } from "@/lib";
+import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 
 interface UseDashboardEventsOptions {
   fetchAllFeeds: () => Promise<void>;
@@ -150,7 +151,7 @@ function collectMarkAllReadStreams(
   selectedCategoryNode: CategoryTreeNode | undefined,
 ): string[] {
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    return ["user/-/state/com.google/reading-list"];
+    return [READING_LIST_STREAM];
   }
 
   if (selectedFeedUrl) {
