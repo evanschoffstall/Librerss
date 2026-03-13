@@ -9,6 +9,7 @@ export const FEED_PULL_OFFSET = 110;
 
 const PULL_BUFFER = 8;
 const PULL_THRESHOLD = 56;
+const TOUCH_PULL_ACTIVATION_DISTANCE = 16;
 const HOLD_OFFSET = 44;
 const HOLD_MS = 650;
 const RELEASE_MS = 200;
@@ -43,6 +44,9 @@ export function useFeedPullRefresh(
   const [state, setState] = useState(IDLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const touchActiveRef = useRef(false);
+  const touchLastScrollTopRef = useRef(FEED_PULL_OFFSET);
+  const touchPullActiveRef = useRef(false);
+  const touchPullEligibleRef = useRef(false);
   const pullingRef = useRef(false);
   const holdingRef = useRef(false);
   const committedRef = useRef(false);
@@ -63,11 +67,17 @@ export function useFeedPullRefresh(
     const viewport =
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
-    const sentinel = sentinelRef.current;
-    const wrapper = sentinel?.parentElement;
+    const wrapper = viewport.firstElementChild as HTMLElement | null;
+    const sentinel =
+      wrapper?.firstElementChild instanceof HTMLElement &&
+      wrapper.firstElementChild.tagName === "DIV"
+        ? wrapper.firstElementChild
+        : sentinelRef.current;
     if (!sentinel || !wrapper) return;
 
     const reset = () => {
+      touchPullActiveRef.current = false;
+      touchPullEligibleRef.current = false;
       pullingRef.current = false;
       holdingRef.current = false;
       committedRef.current = false;
@@ -77,6 +87,8 @@ export function useFeedPullRefresh(
       releaseTimerRef.current = undefined;
       setState(IDLE);
     };
+
+    const hasActiveLock = () => typeof lockRef?.current === "number";
 
     const syncLayout = (pinTarget?: number) => {
       viewport.style.overscrollBehaviorY = "none";
@@ -93,17 +105,13 @@ export function useFeedPullRefresh(
       wrapper.style.paddingBottom = required > 0 ? `${required}px` : "";
       if (typeof pinTarget === "number") {
         viewport.scrollTop = pinTarget;
-      } else if (
-        !touchActiveRef.current &&
-        !holdingRef.current &&
-        !pullingRef.current &&
-        viewport.scrollTop < FEED_PULL_OFFSET
-      ) {
-        viewport.scrollTop = FEED_PULL_OFFSET;
       }
     };
 
     syncLayout();
+    if (viewport.scrollTop < FEED_PULL_OFFSET) {
+      viewport.scrollTop = FEED_PULL_OFFSET;
+    }
     const overflowObserver =
       typeof MutationObserver === "undefined"
         ? null
@@ -131,6 +139,7 @@ export function useFeedPullRefresh(
     resizeObserver?.observe(wrapper);
 
     const commitOrReset = () => {
+      if (hasActiveLock()) return;
       if (viewport.scrollTop >= FEED_PULL_OFFSET) return;
       if (committedRef.current && !disabledRef.current) {
         holdingRef.current = true;
@@ -153,17 +162,44 @@ export function useFeedPullRefresh(
       clearTimeout(releaseTimerRef.current);
       releaseTimerRef.current = setTimeout(() => {
         releaseTimerRef.current = undefined;
-        if (!touchActiveRef.current && !holdingRef.current) commitOrReset();
+        if (
+          !hasActiveLock() &&
+          !touchActiveRef.current &&
+          !holdingRef.current
+        ) {
+          commitOrReset();
+        }
       }, RELEASE_MS);
     };
 
     const handleScroll = () => {
-      if (typeof lockRef?.current === "number") return;
+      if (hasActiveLock()) return;
       if (viewport.scrollTop < 0) {
         viewport.scrollTop = 0;
         return;
       }
       if (holdingRef.current) return;
+      if (touchActiveRef.current && !touchPullEligibleRef.current) {
+        touchLastScrollTopRef.current = viewport.scrollTop;
+        if (pullingRef.current) reset();
+        return;
+      }
+      if (
+        touchActiveRef.current &&
+        touchPullEligibleRef.current &&
+        !touchPullActiveRef.current
+      ) {
+        const pullDistance = FEED_PULL_OFFSET - viewport.scrollTop;
+        const isPullingTowardRefresh =
+          viewport.scrollTop < touchLastScrollTopRef.current &&
+          pullDistance >= TOUCH_PULL_ACTIVATION_DISTANCE;
+        touchLastScrollTopRef.current = viewport.scrollTop;
+        if (!isPullingTowardRefresh) {
+          if (pullingRef.current) reset();
+          return;
+        }
+        touchPullActiveRef.current = true;
+      }
       if (viewport.scrollTop >= FEED_PULL_OFFSET - PULL_BUFFER) {
         if (pullingRef.current) reset();
         return;
@@ -182,6 +218,10 @@ export function useFeedPullRefresh(
 
     const handleTouchStart = () => {
       touchActiveRef.current = true;
+      touchLastScrollTopRef.current = viewport.scrollTop;
+      touchPullActiveRef.current = false;
+      touchPullEligibleRef.current =
+        viewport.scrollTop <= FEED_PULL_OFFSET + PULL_BUFFER;
       clearTimeout(holdTimerRef.current);
       clearTimeout(releaseTimerRef.current);
       if (holdingRef.current) {
@@ -192,6 +232,11 @@ export function useFeedPullRefresh(
 
     const handleTouchEnd = () => {
       touchActiveRef.current = false;
+      if (hasActiveLock()) return;
+      if (!touchPullActiveRef.current) {
+        touchPullEligibleRef.current = false;
+        return;
+      }
       if (committedRef.current && !disabledRef.current) {
         commitOrReset();
         return;
@@ -201,12 +246,14 @@ export function useFeedPullRefresh(
 
     const handleTouchCancel = () => {
       touchActiveRef.current = false;
+      if (hasActiveLock()) return;
       reset();
       scheduleRelease();
     };
 
     const handleScrollEnd = () => {
-      if (typeof lockRef?.current === "number") return;
+      if (hasActiveLock()) return;
+      if (!pullingRef.current && !committedRef.current) return;
       if (!touchActiveRef.current && !holdingRef.current) commitOrReset();
     };
 

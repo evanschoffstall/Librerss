@@ -24,10 +24,28 @@ const waitForMs = async (ms: number) => {
   await new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-function renderPullHarness(onRefresh: () => void, disabled = false) {
+function createRect(top: number, height: number) {
+  return {
+    bottom: top + height,
+    height,
+    left: 0,
+    right: 300,
+    toJSON: () => ({}),
+    top,
+    width: 300,
+    x: 0,
+    y: top,
+  };
+}
+
+function renderPullHarness(
+  onRefresh: () => void,
+  disabled = false,
+  lockRef?: React.RefObject<false | number>,
+) {
   function Harness({ isDisabled }: { isDisabled: boolean }) {
     const rootRef = useRef<HTMLDivElement | null>(null);
-    const pull = useFeedPullRefresh(rootRef, onRefresh, isDisabled);
+    const pull = useFeedPullRefresh(rootRef, onRefresh, isDisabled, lockRef);
 
     const setViewportRef = useCallback((node: HTMLDivElement | null) => {
       if (!node || node.dataset.ready === "true") return;
@@ -207,6 +225,169 @@ describe("useFeedPullRefresh", () => {
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
       expect(onRefresh).not.toHaveBeenCalled();
     });
+
+    unmount();
+  });
+
+  test("wheel or trackpad upward scroll can still trigger refresh", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+
+    act(() => {
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.scrollTop = 40;
+      viewport.dispatchEvent(new Event("scroll"));
+      viewport.dispatchEvent(new Event("scrollend"));
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+      expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
+    });
+
+    unmount();
+  });
+
+  test("touch scrolling from below the top does not enter pull refresh or jump back", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+
+    act(() => {
+      viewport.scrollTop = 260;
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = 100;
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(viewport.scrollTop).toBe(100);
+
+    act(() => {
+      viewport.dispatchEvent(new Event("touchend"));
+    });
+
+    await waitForMs(250);
+    expect(viewport.scrollTop).toBe(100);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  test("scrollend after ordinary touch scrolling near the top does not snap back", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+
+    act(() => {
+      viewport.scrollTop = 260;
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = 100;
+      viewport.dispatchEvent(new Event("scroll"));
+      viewport.dispatchEvent(new Event("touchend"));
+      viewport.dispatchEvent(new Event("scrollend"));
+    });
+
+    await waitForMs(250);
+    expect(viewport.scrollTop).toBe(100);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  test("touch scrolling from the rest position into the feed does not arm pull refresh", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+
+    act(() => {
+      viewport.scrollTop = FEED_PULL_OFFSET;
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = 220;
+      viewport.dispatchEvent(new Event("scroll"));
+      viewport.dispatchEvent(new Event("touchend"));
+    });
+
+    await waitForMs(250);
+    expect(viewport.scrollTop).toBe(220);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  test("small near-top touch drags do not arm pull refresh or snap back", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+
+    act(() => {
+      viewport.scrollTop = FEED_PULL_OFFSET;
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = FEED_PULL_OFFSET - 10;
+      viewport.dispatchEvent(new Event("scroll"));
+      viewport.dispatchEvent(new Event("touchend"));
+      viewport.dispatchEvent(new Event("scrollend"));
+    });
+
+    await waitForMs(250);
+    expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 10);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  test("resize after touch scrolling near the top does not snap back to the rest offset", async () => {
+    const originalResizeObserver = global.ResizeObserver;
+    let resizeCallback: (() => void) | undefined;
+
+    class ResizeObserverMock {
+      constructor(callback: () => void) {
+        resizeCallback = callback;
+      }
+
+      disconnect() {}
+
+      observe() {}
+    }
+
+    global.ResizeObserver =
+      ResizeObserverMock as unknown as typeof ResizeObserver;
+
+    try {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
+
+      act(() => {
+        viewport.scrollTop = 150;
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 100;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+      });
+
+      act(() => {
+        resizeCallback?.();
+      });
+
+      await waitForMs(250);
+      expect(viewport.scrollTop).toBe(100);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
+    } finally {
+      global.ResizeObserver = originalResizeObserver;
+    }
+  });
+
+  test("touch release does not override an active scroll lock", async () => {
+    const onRefresh = mock(() => {});
+    const lockRef = { current: 180 as false | number };
+    const { unmount, viewport } = renderPullHarness(onRefresh, false, lockRef);
+
+    act(() => {
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = 40;
+      viewport.dispatchEvent(new Event("touchend"));
+    });
+
+    await waitForMs(250);
+    expect(viewport.scrollTop).toBe(40);
+    expect(onRefresh).not.toHaveBeenCalled();
 
     unmount();
   });
