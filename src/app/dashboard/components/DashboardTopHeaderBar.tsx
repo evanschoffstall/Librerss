@@ -33,6 +33,7 @@ const toolbarBtnClass =
 
 export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
+  const [isSearchPending, setIsSearchPending] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("LibreRSS");
   const [search, setSearch] = useState("");
@@ -59,6 +60,11 @@ export function DashboardTopHeaderBar() {
       setSearch(typeof detail.term === "string" ? detail.term : "");
     };
 
+    const handleSearchPending = (event: Event) => {
+      const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
+      setIsSearchPending(detail.pending === true);
+    };
+
     const handleEnterPreview = () => {
       setIsPreviewMode(true);
     };
@@ -77,6 +83,10 @@ export function DashboardTopHeaderBar() {
       DASHBOARD_EVENTS.SEARCH_SYNC,
       handleSearchSync as EventListener,
     );
+    window.addEventListener(
+      DASHBOARD_EVENTS.SEARCH_PENDING,
+      handleSearchPending as EventListener,
+    );
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
     window.addEventListener(
       DASHBOARD_EVENTS.MARK_ALL_READ_START,
@@ -94,6 +104,10 @@ export function DashboardTopHeaderBar() {
       window.removeEventListener(
         DASHBOARD_EVENTS.SEARCH_SYNC,
         handleSearchSync as EventListener,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SEARCH_PENDING,
+        handleSearchPending as EventListener,
       );
       window.removeEventListener(
         DASHBOARD_EVENTS.ENTER_PREVIEW,
@@ -165,9 +179,15 @@ export function DashboardTopHeaderBar() {
         </h1>
 
         <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
+          {isSearchPending ? (
+            <Loader2 className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground/60" />
+          ) : (
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
+          )}
           <Input
-            className="h-9 border-transparent bg-muted/30 pl-9 text-sm focus-visible:bg-background"
+            className={`h-9 border-transparent pl-9 text-sm focus-visible:bg-background ${
+              isSearchPending ? "bg-muted/45" : "bg-muted/30"
+            }`}
             onChange={(e) => {
               handleSearchChange(e.target.value);
             }}

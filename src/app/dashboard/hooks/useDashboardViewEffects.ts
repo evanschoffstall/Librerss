@@ -12,6 +12,7 @@ import {
 import type { CategoryTreeNode } from "@/lib";
 
 interface UseDashboardBroadcastsOptions {
+  isSearchPending: boolean;
   searchTerm: string;
   selectedFeed?: string;
 }
@@ -33,6 +34,7 @@ interface UseFeedLoadingTimeoutOptions {
 }
 
 export function useDashboardBroadcasts({
+  isSearchPending,
   searchTerm,
   selectedFeed,
 }: UseDashboardBroadcastsOptions) {
@@ -51,6 +53,14 @@ export function useDashboardBroadcasts({
       }),
     );
   }, [searchTerm]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.SEARCH_PENDING, {
+        detail: { pending: isSearchPending },
+      }),
+    );
+  }, [isSearchPending]);
 }
 
 export function useDashboardInitialization({

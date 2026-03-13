@@ -14,6 +14,7 @@ export const DASHBOARD_EVENTS = {
   OPEN_SETTINGS: "dashboard:open-settings",
   REFRESH: "dashboard:refresh",
   SEARCH_CHANGE: "dashboard:search-change",
+  SEARCH_PENDING: "dashboard:search-pending",
   SEARCH_SYNC: "dashboard:search-sync",
   TITLE_CHANGE: "dashboard:title-change",
 } as const;

@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -169,6 +170,13 @@ export function useDashboardViewController({
     orderedCategoryLabels,
     setOrderedCategoryLabels,
   } = categoryManager;
+  const deferredArticleFilter = useDeferredValue(articleFilter);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const isSearchPending = searchTerm !== deferredSearchTerm;
+  const isQuickFilterPending =
+    articleFilter !== deferredArticleFilter &&
+    searchTerm === deferredSearchTerm;
+  const isFeedListLoading = loading || isQuickFilterPending || isSearchPending;
 
   const onArticleToggle = useCallback(
     (article: Article) => void handleArticleToggle(article),
@@ -192,14 +200,14 @@ export function useDashboardViewController({
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
-        articleFilter,
+        articleFilter: deferredArticleFilter,
         categories,
         collapsingArticleKey,
         customCategoryLabels,
         expandedArticleKey,
         feed,
         orderedCategoryLabels,
-        searchTerm,
+        searchTerm: deferredSearchTerm,
         selectedCategory,
       }),
     [
@@ -207,10 +215,11 @@ export function useDashboardViewController({
       categories,
       collapsingArticleKey,
       customCategoryLabels,
+      deferredArticleFilter,
+      deferredSearchTerm,
       expandedArticleKey,
       feed,
       orderedCategoryLabels,
-      searchTerm,
       selectedCategory,
     ],
   );
@@ -242,7 +251,13 @@ export function useDashboardViewController({
 
   useEffect(() => {
     setVisibleCount(pageSize);
-  }, [articleFilter, pageSize, searchTerm, selectedCategory, setVisibleCount]);
+  }, [
+    articleFilter,
+    deferredSearchTerm,
+    pageSize,
+    selectedCategory,
+    setVisibleCount,
+  ]);
 
   useFeedVisibilityObserver({
     pageSize,
@@ -272,7 +287,11 @@ export function useDashboardViewController({
     );
   }, [categories, customCategoryLabels, setOrderedCategoryLabels]);
 
-  useDashboardBroadcasts({ searchTerm, selectedFeed });
+  useDashboardBroadcasts({
+    isSearchPending,
+    searchTerm,
+    selectedFeed,
+  });
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
@@ -354,7 +373,7 @@ export function useDashboardViewController({
   } = useFeedPullRefresh(
     feedScrollRootRef,
     refreshFeedList,
-    loading,
+    isFeedListLoading,
     suppressSnapRef,
   );
 
@@ -420,7 +439,7 @@ export function useDashboardViewController({
       hydratedArticleLinks,
       hydratingArticleLinks,
       isPulling,
-      loading,
+      loading: isFeedListLoading,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
       onArticleToggle,
@@ -465,7 +484,7 @@ export function useDashboardViewController({
     topBar: {
       articleFilter,
       lastRefreshLabel,
-      loading,
+      loading: loading || isQuickFilterPending,
       setArticleFilter,
     },
   };
