@@ -367,7 +367,9 @@ describe("useViewportRestore", () => {
         const viewport = root?.querySelector<HTMLElement>(
           "[data-radix-scroll-area-viewport]",
         );
-        const items = root?.querySelectorAll<HTMLElement>("[data-item]") ?? [];
+        const items = Array.from(
+          root?.querySelectorAll<HTMLElement>("[data-item]") ?? [],
+        );
         if (!viewport || items.length < 2) return;
 
         let top = 180;

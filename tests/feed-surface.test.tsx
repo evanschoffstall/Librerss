@@ -444,6 +444,22 @@ describe("useFeedScrollLock", () => {
     }
   });
 
+  test("collapse lock without a saved target uses the hidden rest offset", () => {
+    const lockRef = { current: false as false | number };
+    const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
+    const viewport = document.createElement("div");
+    viewport.scrollTop = 260;
+
+    act(() => {
+      result.current.activateCollapseLock(viewport, null);
+    });
+
+    expect(lockRef.current).toBe(FEED_PULL_OFFSET);
+    expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
+
+    unmount();
+  });
+
   test("expand lock releases after the max-height transition ends", async () => {
     const lockRef = { current: false as false | number };
     const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
@@ -472,6 +488,75 @@ describe("useFeedScrollLock", () => {
     await waitFor(() => {
       expect(lockRef.current).toBe(false);
     });
+
+    unmount();
+  });
+
+  test("expand lock scrolls the article top into view when it starts below the viewport", () => {
+    const lockRef = { current: false as false | number };
+    const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.scrollTop = 260;
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get: () => 2000,
+    });
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get: () => 500,
+    });
+    viewport.getBoundingClientRect = (() =>
+      createRect(100, 500)) as typeof viewport.getBoundingClientRect;
+
+    const article = document.createElement("article");
+    article.setAttribute("data-article-key", "article-4");
+    article.getBoundingClientRect = (() =>
+      createRect(760, 40)) as typeof article.getBoundingClientRect;
+    viewport.append(article);
+    document.body.append(viewport);
+
+    act(() => {
+      result.current.activateExpandLock("article-4");
+    });
+
+    expect(result.current.preExpandScrollTop.current).toBe(260);
+    expect(viewport.scrollTop).toBe(920);
+    expect(lockRef.current).toBe(-1);
+
+    unmount();
+  });
+
+  test("expand lock keeps scroll position when the article top is already visible", () => {
+    const lockRef = { current: false as false | number };
+    const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.scrollTop = 260;
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get: () => 2000,
+    });
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get: () => 500,
+    });
+    viewport.getBoundingClientRect = (() =>
+      createRect(100, 500)) as typeof viewport.getBoundingClientRect;
+
+    const article = document.createElement("article");
+    article.setAttribute("data-article-key", "article-5");
+    article.getBoundingClientRect = (() =>
+      createRect(260, 40)) as typeof article.getBoundingClientRect;
+    viewport.append(article);
+    document.body.append(viewport);
+
+    act(() => {
+      result.current.activateExpandLock("article-5");
+    });
+
+    expect(viewport.scrollTop).toBe(260);
+    expect(lockRef.current).toBe(-1);
 
     unmount();
   });

@@ -322,7 +322,7 @@ export function useFeedScrollLock(
   const activateCollapseLock = useCallback(
     (savedViewport: HTMLElement | null, savedScrollTop: null | number) => {
       cancelLock();
-      const target = savedScrollTop ?? FEED_PULL_HEIGHT;
+      const target = savedScrollTop ?? FEED_PULL_OFFSET;
       const releaseDelay = getScrollLockReleaseMs();
       clearPreExpandState(true);
       if (lockRef) lockRef.current = target;
@@ -357,6 +357,7 @@ export function useFeedScrollLock(
         articleKey,
         scrollTop: viewport.scrollTop,
       });
+      scrollExpandedArticleIntoView(article, viewport);
       if (lockRef) lockRef.current = -1;
 
       const release = () => {
@@ -391,6 +392,14 @@ export function useFeedScrollLock(
     preExpandScrollTop,
     preExpandViewport,
   };
+}
+
+function clampViewportScrollTop(viewport: HTMLElement, target: number) {
+  const maxScrollTop = Math.max(
+    FEED_PULL_OFFSET,
+    viewport.scrollHeight - viewport.clientHeight,
+  );
+  return Math.min(maxScrollTop, Math.max(FEED_PULL_OFFSET, target));
 }
 
 function clearPersistedPreExpandScroll() {
@@ -492,6 +501,22 @@ function readPersistedPreExpandScroll(
   } catch {
     return null;
   }
+}
+
+function scrollExpandedArticleIntoView(
+  article: HTMLElement,
+  viewport: HTMLElement,
+) {
+  const articleTop = article.getBoundingClientRect().top;
+  const viewportRect = viewport.getBoundingClientRect();
+  if (articleTop >= viewportRect.top && articleTop <= viewportRect.bottom) {
+    return;
+  }
+
+  viewport.scrollTop = clampViewportScrollTop(
+    viewport,
+    viewport.scrollTop + articleTop - viewportRect.top,
+  );
 }
 
 function writePersistedPreExpandScroll(saved: PersistedPreExpandScroll) {
