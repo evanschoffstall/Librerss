@@ -5,9 +5,7 @@ interface FaviconCacheEntry {
   index: number;
 }
 const faviconIndexCache = new Map<string, FaviconCacheEntry>();
-// v2: changed from bare index to { index, failedAt } to support TTL on failures
 const FAVICON_CACHE_STORAGE_KEY = "librerss:favicon-index-cache:v2";
-const FAVICON_CACHE_V1_KEY = "librerss:favicon-index-cache:v1";
 const MAX_FAVICON_CACHE_ENTRIES = 400;
 /** Retry failed favicon lookups after 24 hours */
 const FAVICON_FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +48,7 @@ const persistFaviconIndexCache = () => {
 
 const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
   if (entry.index !== -1) return false;
-  if (!entry.failedAt) return true; // legacy entry without timestamp — retry
+  if (typeof entry.failedAt !== "number") return true;
   return Date.now() - entry.failedAt > FAVICON_FAILURE_TTL_MS;
 };
 
@@ -60,13 +58,6 @@ const hydrateFaviconIndexCache = () => {
   }
 
   hasHydratedFaviconIndexCache = true;
-
-  // Remove v1 cache (bare index format) on first hydration
-  try {
-    window.localStorage.removeItem(FAVICON_CACHE_V1_KEY);
-  } catch {
-    // Ignore.
-  }
 
   try {
     const raw = window.localStorage.getItem(FAVICON_CACHE_STORAGE_KEY);
@@ -81,15 +72,11 @@ const hydrateFaviconIndexCache = () => {
 
     for (const [key, value] of Object.entries(parsed)) {
       const isValidKey = typeof key === "string" && key.length > 0;
-
-      // Support both v2 shape { index, failedAt? } and legacy bare number
       if (!isValidKey) continue;
 
       let entry: FaviconCacheEntry | null = null;
 
-      if (typeof value === "number" && Number.isInteger(value) && value >= -1) {
-        entry = { index: value };
-      } else if (
+      if (
         value &&
         typeof value === "object" &&
         "index" in value &&

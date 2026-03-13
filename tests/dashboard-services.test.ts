@@ -844,11 +844,9 @@ describe("dashboard favicons comprehensive", () => {
     expect(getFaviconCacheKey(undefined, "bad")).toBeNull();
   });
 
-  test("hydrate loads valid persisted entries and drops expired failures", async () => {
-    const v1Key = "librerss:favicon-index-cache:v1";
+  test("hydrate loads valid persisted entries and drops stale failure entries", async () => {
     const v2Key = "librerss:favicon-index-cache:v2";
 
-    window.localStorage.setItem(v1Key, "legacy");
     window.localStorage.setItem(
       v2Key,
       JSON.stringify({
@@ -856,8 +854,7 @@ describe("dashboard favicons comprehensive", () => {
           failedAt: Date.now() - 25 * 60 * 60 * 1000,
           index: -1,
         },
-        "legacy-failed.example.com": { index: -1 },
-        "legacy-number.example.com": 2,
+        "missing-timestamp.example.com": { index: -1 },
         "ok.example.com": { index: 4 },
       }),
     );
@@ -866,10 +863,8 @@ describe("dashboard favicons comprehensive", () => {
       await import("@/app/dashboard/services/favicons");
 
     expect(getCachedFaviconIndex("ok.example.com")).toBe(4);
-    expect(getCachedFaviconIndex("legacy-number.example.com")).toBe(2);
     expect(getCachedFaviconIndex("expired.example.com")).toBe(0);
-    expect(getCachedFaviconIndex("legacy-failed.example.com")).toBe(0);
-    expect(window.localStorage.getItem(v1Key)).toBeNull();
+    expect(getCachedFaviconIndex("missing-timestamp.example.com")).toBe(0);
   });
 
   test("cache index set/get works for success and failure entries", async () => {
