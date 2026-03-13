@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
@@ -18,13 +17,29 @@ import { DashboardView } from "./DashboardView";
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
+import type { AuthSession } from "@/lib/core/types";
 
-export function DashboardRouter() {
-  const searchParams = useSearchParams();
-  const [isSessionLoading, setIsSessionLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [allowSignup, setAllowSignup] = useState(true);
-  const [usePlaceholderData, setUsePlaceholderData] = useState(false);
+interface DashboardRouterProps {
+  hasPreviewQuery: boolean;
+  initialSession?: AuthSession;
+}
+
+export function DashboardRouter({
+  hasPreviewQuery,
+  initialSession,
+}: DashboardRouterProps) {
+  const [isSessionLoading, setIsSessionLoading] = useState(
+    initialSession === undefined,
+  );
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(
+    initialSession?.authenticated === true ? initialSession.user : null,
+  );
+  const [allowSignup, setAllowSignup] = useState(
+    initialSession?.allowSignup ?? true,
+  );
+  const [usePlaceholderData, setUsePlaceholderData] = useState(
+    initialSession?.usePlaceholderData ?? false,
+  );
   const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
     DASHBOARD_PREVIEW_STORAGE_KEY,
     false,
@@ -40,8 +55,6 @@ export function DashboardRouter() {
   );
 
   const isLightMode = (resolvedTheme ?? "dark") === "light";
-  const hasPreviewQuery =
-    searchParams.get("preview") === "1" || searchParams.get("explore") === "1";
 
   useEffect(() => {
     if (!hasPreviewQuery) {
@@ -53,29 +66,15 @@ export function DashboardRouter() {
   }, [hasPreviewQuery, setIsPreviewMode]);
 
   useEffect(() => {
-    const legacyValue = localStorage.getItem(
-      "librerss:showParticlesBackground",
-    );
-    if (legacyValue === null) {
-      return;
-    }
+    let isCanceled = false;
 
-    try {
-      const parsedValue: unknown = JSON.parse(legacyValue);
-      if (typeof parsedValue === "boolean") {
-        setBackgroundMode(parsedValue ? "particles" : "none");
-      }
-    } catch {
-      // ignore invalid persisted legacy values
-    }
-
-    localStorage.removeItem("librerss:showParticlesBackground");
-  }, [setBackgroundMode]);
-
-  useEffect(() => {
     const loadSession = async () => {
       try {
         const session = await AuthService.getSession();
+        if (isCanceled) {
+          return;
+        }
+
         setAllowSignup(session.allowSignup);
         setUsePlaceholderData(session.usePlaceholderData);
         if (
@@ -86,14 +85,24 @@ export function DashboardRouter() {
         }
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
+        if (isCanceled) {
+          return;
+        }
+
         setAllowSignup(true);
         setCurrentUser(null);
       } finally {
-        setIsSessionLoading(false);
+        if (!isCanceled) {
+          setIsSessionLoading(false);
+        }
       }
     };
 
     void loadSession();
+
+    return () => {
+      isCanceled = true;
+    };
   }, [hasPreviewQuery, setIsPreviewMode]);
 
   const handleEnterPreview = () => {
