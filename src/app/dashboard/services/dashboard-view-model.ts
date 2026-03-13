@@ -4,6 +4,9 @@ import { findFeedNodeByKey, SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
 
 import { type Article, type CategoryTreeNode } from "@/lib";
 
+const articleContentSearchTextCache = new WeakMap<Article, string>();
+const articleTitleSearchTextCache = new WeakMap<Article, string>();
+
 interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
   categories: CategoryTreeNode[];
@@ -34,12 +37,7 @@ export function buildDashboardViewModel({
     collapsingArticleKey,
   );
 
-  const loweredSearchTerm = searchTerm.toLowerCase();
-  const filteredFeed = feedByState.filter(
-    (article) =>
-      article.title.toLowerCase().includes(loweredSearchTerm) ||
-      (article.content || "").toLowerCase().includes(loweredSearchTerm),
-  );
+  const filteredFeed = filterArticlesBySearchTerm(feedByState, searchTerm);
 
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 
@@ -82,4 +80,48 @@ export function buildDashboardViewModel({
     selectedFeedUrl,
     sidebarCategories,
   };
+}
+
+export function filterArticlesBySearchTerm(
+  articles: Article[],
+  searchTerm: string,
+) {
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  if (normalizedSearchTerm === "") {
+    return articles;
+  }
+
+  return articles.filter((article) =>
+    isArticleSearchMatch(article, normalizedSearchTerm),
+  );
+}
+
+function getArticleContentSearchText(article: Article) {
+  const cached = articleContentSearchTextCache.get(article);
+  if (cached) {
+    return cached;
+  }
+
+  const searchText = article.content.toLowerCase();
+  articleContentSearchTextCache.set(article, searchText);
+  return searchText;
+}
+
+function getArticleTitleSearchText(article: Article) {
+  const cached = articleTitleSearchTextCache.get(article);
+  if (cached) {
+    return cached;
+  }
+
+  const searchText = article.title.toLowerCase();
+  articleTitleSearchTextCache.set(article, searchText);
+  return searchText;
+}
+
+function isArticleSearchMatch(article: Article, normalizedSearchTerm: string) {
+  if (getArticleTitleSearchText(article).includes(normalizedSearchTerm)) {
+    return true;
+  }
+
+  return getArticleContentSearchText(article).includes(normalizedSearchTerm);
 }

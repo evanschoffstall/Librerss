@@ -14,6 +14,7 @@ import {
   getArticleSourceLabel,
   getRichContentClass,
 } from "@/app/dashboard/services/article-content";
+import { filterArticlesBySearchTerm } from "@/app/dashboard/services/dashboard-view-model";
 import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
@@ -44,6 +45,54 @@ describe("article-content services", () => {
   test("getUrlHostnameDisplayLabel handles invalid URLs", async () => {
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
     expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
+  });
+});
+
+describe("dashboard-view-model search filtering", () => {
+  test("returns the same array when the search term is blank", () => {
+    const articles = [
+      {
+        content: "Alpha body",
+        feedId: 1,
+        id: 1,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Alpha",
+      },
+    ];
+
+    expect(filterArticlesBySearchTerm(articles, "   ")).toBe(articles);
+  });
+
+  test("matches against article title and content case-insensitively", () => {
+    const articles = [
+      {
+        content: "Gamma body",
+        feedId: 1,
+        id: 1,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Alpha",
+      },
+      {
+        content: "Delta body",
+        feedId: 1,
+        id: 2,
+        lastChecked: new Date("2024-01-02T00:00:00.000Z"),
+        link: "https://example.com/b",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        title: "Beta",
+      },
+    ];
+
+    expect(filterArticlesBySearchTerm(articles, "alpha")).toEqual([
+      articles[0],
+    ]);
+    expect(filterArticlesBySearchTerm(articles, "DELTA")).toEqual([
+      articles[1],
+    ]);
   });
 });
 
