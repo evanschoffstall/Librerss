@@ -83,7 +83,7 @@ export const FeedList = memo(function FeedList({
     () => filteredFeed.slice(0, visibleCount),
     [filteredFeed, visibleCount],
   );
-  const animatedItems = useAnimatedList(visibleFeed, getArticleKey);
+  const animatedItems = useAnimatedList(visibleFeed, getArticleKey, 12);
   const hasAnyVisible = animatedItems.length > 0;
 
   const exitRef = useCallback((el: HTMLDivElement | null) => {

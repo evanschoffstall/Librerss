@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 export const EXIT_CLEANUP_MS = 340;
 const EXIT_DURATION_MS = EXIT_CLEANUP_MS;
+const DEFAULT_MAX_ANIMATED_EXITS = 12;
 
 interface AnimatedItem<T> {
   exiting: boolean;
@@ -19,6 +20,7 @@ interface AnimatedItem<T> {
 export function useAnimatedList<T>(
   items: T[],
   getKey: (item: T) => string,
+  maxAnimatedExits = DEFAULT_MAX_ANIMATED_EXITS,
 ): AnimatedItem<T>[] {
   const [exitingMap, setExitingMap] = useState<
     Map<string, { index: number; item: T }>
@@ -31,6 +33,13 @@ export function useAnimatedList<T>(
   // Detect newly removed items by diffing against previous order
   // Using items as the dep so this only runs when the list reference changes
   useEffect(() => {
+    const clearExitTimers = () => {
+      for (const timer of timersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      timersRef.current.clear();
+    };
+
     const prev = prevOrderRef.current;
     const cKeys = new Set(items.map(getKey));
     const newExiting = new Map<string, { index: number; item: T }>();
@@ -46,6 +55,14 @@ export function useAnimatedList<T>(
     prevOrderRef.current = items.map((item) => ({ item, key: getKey(item) }));
 
     if (newExiting.size === 0) return;
+
+    if (newExiting.size > maxAnimatedExits) {
+      clearExitTimers();
+      setExitingMap((currentMap) =>
+        currentMap.size === 0 ? currentMap : new Map(),
+      );
+      return;
+    }
 
     setExitingMap((m) => {
       const next = new Map(m);
@@ -73,7 +90,7 @@ export function useAnimatedList<T>(
         }, EXIT_DURATION_MS),
       );
     }
-  }, [items, getKey]);
+  }, [items, getKey, maxAnimatedExits]);
 
   useEffect(
     () => () => {

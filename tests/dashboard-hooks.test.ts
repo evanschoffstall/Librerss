@@ -17,6 +17,7 @@ import {
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 
+import { useAnimatedList } from "@/app/dashboard/hooks/useAnimatedList";
 import {
   toggleReadStatus,
   toggleStarredStatus,
@@ -34,6 +35,8 @@ import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderSta
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
 import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
 import { type Article, ArticleService, FeedService } from "@/lib";
+
+const getStringKey = (item: string) => item;
 
 // ─── useArticleNavigation ─────────────────────────────────────────────────────
 
@@ -215,6 +218,48 @@ describe("useFeedRequestState", () => {
     expect(result.current.loading).toBe(false);
     expect(result.current.isCurrentRequest(canceledRequestId)).toBe(true);
     expect(setLoading).toHaveBeenLastCalledWith(false);
+  });
+});
+
+describe("useAnimatedList", () => {
+  test("keeps small removals mounted long enough to animate out", async () => {
+    const { rerender, result } = renderHook(
+      ({ items }: { items: string[] }) =>
+        useAnimatedList(items, getStringKey, 2),
+      {
+        initialProps: { items: ["a", "b", "c"] },
+      },
+    );
+
+    act(() => {
+      rerender({ items: ["a", "c"] });
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([
+        { exiting: false, item: "a", key: "a" },
+        { exiting: true, item: "b", key: "b" },
+        { exiting: false, item: "c", key: "c" },
+      ]);
+    });
+  });
+
+  test("skips exit animations for bulk removals", async () => {
+    const { rerender, result } = renderHook(
+      ({ items }: { items: string[] }) =>
+        useAnimatedList(items, getStringKey, 2),
+      {
+        initialProps: { items: ["a", "b", "c", "d"] },
+      },
+    );
+
+    act(() => {
+      rerender({ items: ["a"] });
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([{ exiting: false, item: "a", key: "a" }]);
+    });
   });
 });
 
