@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
 const RESTORE_WINDOW_MS = 3000;
-const TOUCH_SETTLE_MS = 1000;
-const INPUT_WINDOW_MS = 250;
 
 interface SavedScroll {
   ai: number;
@@ -19,8 +17,6 @@ export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
   const applyRafRef = useRef(0);
   const pendingRef = useRef<null | SavedScroll>(null);
   const restoreUntilRef = useRef(0);
-  const touchUntilRef = useRef(0);
-  const lastInputAtRef = useRef(0);
   const applyingRef = useRef(false);
   const offsetRef = useRef(scrollOffset);
   offsetRef.current = scrollOffset;
@@ -78,8 +74,6 @@ export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
 
       pendingRef.current = saved;
       restoreUntilRef.current = Date.now() + RESTORE_WINDOW_MS;
-      touchUntilRef.current = 0;
-      lastInputAtRef.current = 0;
       viewport.scrollTop = Math.max(offsetRef.current, saved.t);
       requestAnimationFrame(restore);
     },
@@ -114,34 +108,12 @@ export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
           });
     mutationObserver?.observe(viewport, { childList: true });
 
-    const markInput = () => {
-      lastInputAtRef.current = Date.now();
-    };
-
     const handleTouchStart = () => {
-      touchUntilRef.current = 0;
       stopRestore();
-      markInput();
-    };
-
-    const handleTouchEnd = () => {
-      touchUntilRef.current = Date.now() + TOUCH_SETTLE_MS;
-      markInput();
-    };
-
-    const handleTouchCancel = () => {
-      touchUntilRef.current = 0;
     };
 
     const handleScroll = () => {
       if (applyingRef.current) return;
-
-      const now = Date.now();
-      const restoreActive = now <= restoreUntilRef.current;
-      const recentInput =
-        now <= touchUntilRef.current ||
-        now - lastInputAtRef.current <= INPUT_WINDOW_MS;
-      if (restoreActive && !recentInput) return;
 
       stopRestore();
       cancelAnimationFrame(saveRafRef.current);
@@ -153,34 +125,25 @@ export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
       });
     };
 
-    viewport.addEventListener("pointerdown", markInput, { passive: true });
-    viewport.addEventListener("wheel", markInput, { passive: true });
     viewport.addEventListener("touchstart", handleTouchStart, {
-      passive: true,
-    });
-    viewport.addEventListener("touchend", handleTouchEnd, { passive: true });
-    viewport.addEventListener("touchcancel", handleTouchCancel, {
       passive: true,
     });
     viewport.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
-      viewport.removeEventListener("pointerdown", markInput);
-      viewport.removeEventListener("wheel", markInput);
       viewport.removeEventListener("touchstart", handleTouchStart);
-      viewport.removeEventListener("touchend", handleTouchEnd);
-      viewport.removeEventListener("touchcancel", handleTouchCancel);
       viewport.removeEventListener("scroll", handleScroll);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
       cancelAnimationFrame(saveRafRef.current);
       cancelAnimationFrame(applyRafRef.current);
       applyingRef.current = false;
-      touchUntilRef.current = 0;
     };
   }, [restore, sessionKey, stopRestore]);
 
   const invalidate = useCallback(() => {
+    cancelAnimationFrame(saveRafRef.current);
+    saveRafRef.current = 0;
     stopRestore();
     clearSavedScroll(sessionKey);
     if (viewportRef.current) viewportRef.current.scrollTop = offsetRef.current;
@@ -197,15 +160,12 @@ export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
     }
 
     restoreUntilRef.current = Date.now() + RESTORE_WINDOW_MS;
-    touchUntilRef.current = 0;
-    lastInputAtRef.current = 0;
     writeSavedScroll(sessionKey, saved);
     requestAnimationFrame(restore);
   }, [restore, sessionKey]);
 
   const settle = useCallback(() => {
     stopRestore();
-    touchUntilRef.current = 0;
   }, [stopRestore]);
 
   return { capture, invalidate, ref: attachRef, settle };

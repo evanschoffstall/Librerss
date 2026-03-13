@@ -23,6 +23,91 @@ const waitForRaf = async () => {
   await new Promise((resolve) => setTimeout(resolve, 20));
 };
 
+function prepareAnchoredViewport(
+  viewport: HTMLElement,
+  items: readonly HTMLElement[],
+) {
+  let top = 180;
+  Object.defineProperty(viewport, "scrollTop", {
+    configurable: true,
+    get: () => top,
+    set: (value: number) => {
+      top = value;
+    },
+  });
+  Object.defineProperty(viewport, "scrollHeight", {
+    configurable: true,
+    get: () => 1600,
+  });
+  Object.defineProperty(viewport, "clientHeight", {
+    configurable: true,
+    get: () => 500,
+  });
+  viewport.getBoundingClientRect = (() =>
+    createRect(100, 500)) as typeof viewport.getBoundingClientRect;
+  items[0].getBoundingClientRect = (() =>
+    createRect(100, 20)) as typeof viewport.getBoundingClientRect;
+  items[1].getBoundingClientRect = (() =>
+    createRect(140, 30)) as typeof viewport.getBoundingClientRect;
+}
+
+function prepareBasicViewport(viewport: HTMLElement) {
+  let top = 0;
+  Object.defineProperty(viewport, "scrollTop", {
+    configurable: true,
+    get: () => top,
+    set: (value: number) => {
+      top = value;
+    },
+  });
+  Object.defineProperty(viewport, "scrollHeight", {
+    configurable: true,
+    get: () => 1500,
+  });
+  Object.defineProperty(viewport, "clientHeight", {
+    configurable: true,
+    get: () => 500,
+  });
+}
+
+function RestoreAnchoredListHarness({
+  onReady,
+  sessionKey,
+}: {
+  onReady: (restore: ReturnType<typeof useViewportRestore>) => void;
+  sessionKey: string;
+}) {
+  const restore = useViewportRestore(sessionKey, 110);
+  onReady(restore);
+
+  const rootRef: RefCallback<HTMLDivElement> = (root) => {
+    restore.ref(root);
+    const viewport = root?.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    const items = Array.from(
+      root?.querySelectorAll<HTMLElement>("[data-item]") ?? [],
+    );
+    if (!viewport || items.length < 2) return;
+    prepareAnchoredViewport(viewport, items);
+  };
+
+  return createElement(
+    "div",
+    { ref: rootRef },
+    createElement(
+      "div",
+      { "data-radix-scroll-area-viewport": "" },
+      createElement(
+        "div",
+        null,
+        createElement("div", { "data-item": "0" }),
+        createElement("div", { "data-item": "1" }),
+      ),
+    ),
+  );
+}
+
 describe("useViewportRestore", () => {
   beforeEach(() => {
     mock.restore();
@@ -43,22 +128,7 @@ describe("useViewportRestore", () => {
           "[data-radix-scroll-area-viewport]",
         );
         if (!viewport) return;
-        let top = 0;
-        Object.defineProperty(viewport, "scrollTop", {
-          configurable: true,
-          get: () => top,
-          set: (value: number) => {
-            top = value;
-          },
-        });
-        Object.defineProperty(viewport, "scrollHeight", {
-          configurable: true,
-          get: () => 1500,
-        });
-        Object.defineProperty(viewport, "clientHeight", {
-          configurable: true,
-          get: () => 500,
-        });
+        prepareBasicViewport(viewport);
       };
 
       return createElement(
@@ -83,58 +153,14 @@ describe("useViewportRestore", () => {
 
   test("captures and clears persisted scroll state", async () => {
     let capture = () => {};
-
-    function Harness() {
-      const restore = useViewportRestore("restore:persist", 110);
-      capture = restore.capture;
-      const rootRef: RefCallback<HTMLDivElement> = (root) => {
-        restore.ref(root);
-        const viewport = root?.querySelector<HTMLElement>(
-          "[data-radix-scroll-area-viewport]",
-        );
-        const items = root?.querySelectorAll<HTMLElement>("[data-item]") ?? [];
-        if (!viewport || items.length < 2) return;
-        let top = 180;
-        Object.defineProperty(viewport, "scrollTop", {
-          configurable: true,
-          get: () => top,
-          set: (value: number) => {
-            top = value;
-          },
-        });
-        Object.defineProperty(viewport, "scrollHeight", {
-          configurable: true,
-          get: () => 1600,
-        });
-        Object.defineProperty(viewport, "clientHeight", {
-          configurable: true,
-          get: () => 500,
-        });
-        viewport.getBoundingClientRect = (() =>
-          createRect(100, 500)) as typeof viewport.getBoundingClientRect;
-        items[0].getBoundingClientRect = (() =>
-          createRect(100, 20)) as typeof viewport.getBoundingClientRect;
-        items[1].getBoundingClientRect = (() =>
-          createRect(140, 30)) as typeof viewport.getBoundingClientRect;
-      };
-
-      return createElement(
-        "div",
-        { ref: rootRef },
-        createElement(
-          "div",
-          { "data-radix-scroll-area-viewport": "" },
-          createElement(
-            "div",
-            null,
-            createElement("div", { "data-item": "0" }),
-            createElement("div", { "data-item": "1" }),
-          ),
-        ),
-      );
-    }
-
-    const { container } = render(createElement(Harness));
+    const { container } = render(
+      createElement(RestoreAnchoredListHarness, {
+        onReady: (restore) => {
+          capture = restore.capture;
+        },
+        sessionKey: "restore:persist",
+      }),
+    );
     const viewport = container.querySelector<HTMLElement>(
       "[data-radix-scroll-area-viewport]",
     );
@@ -573,6 +599,90 @@ describe("useViewportRestore", () => {
     expect(window.sessionStorage.getItem("restore:touch")).toBe(
       JSON.stringify({ ai: -1, ao: 0, t: 190 }),
     );
+  });
+
+  test("scrolling without a preceding input event still cancels restore and saves the new position", async () => {
+    function Harness() {
+      const restore = useViewportRestore("restore:scroll-only", 110);
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        restore.ref(root);
+        const viewport = root?.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        if (!viewport) return;
+        let top = 0;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get: () => top,
+          set: (value: number) => {
+            top = value;
+          },
+        });
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get: () => 1500,
+        });
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get: () => 500,
+        });
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement("div", { "data-radix-scroll-area-viewport": "" }),
+      );
+    }
+
+    window.sessionStorage.setItem(
+      "restore:scroll-only",
+      JSON.stringify({ ai: -1, ao: 0, t: 260 }),
+    );
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    await waitForRaf();
+    expect(viewport?.scrollTop).toBe(260);
+
+    act(() => {
+      if (viewport) viewport.scrollTop = 190;
+      viewport?.dispatchEvent(new Event("scroll"));
+    });
+
+    await waitForRaf();
+    expect(window.sessionStorage.getItem("restore:scroll-only")).toBe(
+      JSON.stringify({ ai: -1, ao: 0, t: 190 }),
+    );
+  });
+
+  test("invalidate prevents a queued scroll save from rewriting cleared state", async () => {
+    let invalidate = () => {};
+    const { container } = render(
+      createElement(RestoreAnchoredListHarness, {
+        onReady: (restore) => {
+          invalidate = restore.invalidate;
+        },
+        sessionKey: "restore:invalidate-race",
+      }),
+    );
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) throw new Error("missing viewport");
+
+    act(() => {
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+      invalidate();
+    });
+
+    await waitForRaf();
+    expect(window.sessionStorage.getItem("restore:invalidate-race")).toBeNull();
+    expect(viewport.scrollTop).toBe(110);
   });
 
   test("tolerates inaccessible session storage", () => {
