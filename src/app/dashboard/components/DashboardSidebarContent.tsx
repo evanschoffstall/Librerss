@@ -1,43 +1,45 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { type CategoryTreeNode } from "@/lib";
 import { Rss } from "lucide-react";
 import { memo } from "react";
+
 import { FeedCategory } from "./feed/FeedCategory";
+
+import { Skeleton } from "@/components/ui/skeleton";
+import { type CategoryTreeNode } from "@/lib";
 
 const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
 
-type DashboardSidebarContentProps = {
+interface DashboardSidebarContentProps {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
-  sidebarCategories: CategoryTreeNode[];
-  selectedCategory: string;
-  showFavicons: boolean;
   onCategoryClick: (categoryNode: CategoryTreeNode) => void;
   onFeedClick: (feedNode: CategoryTreeNode) => void;
-};
+  selectedCategory: string;
+  showFavicons: boolean;
+  sidebarCategories: CategoryTreeNode[];
+}
 
 export const DashboardSidebarContent = memo(function DashboardSidebarContent({
   isCategoriesLoading,
   isSidebarVisible,
-  sidebarCategories,
-  selectedCategory,
-  showFavicons,
   onCategoryClick,
   onFeedClick,
+  selectedCategory,
+  showFavicons,
+  sidebarCategories,
 }: DashboardSidebarContentProps) {
   return (
     <>
       {isCategoriesLoading ? (
-        <div key="sidebar-loading" className={sidebarPanelCls}>
+        <div className={sidebarPanelCls} key="sidebar-loading">
           {[3, 2, 4].map((count, groupIndex) => (
-            <div key={groupIndex} className="space-y-0.5">
+            <div className="space-y-0.5" key={groupIndex}>
               <div className="px-1.5">
                 <Skeleton className="h-6 w-20 rounded" />
               </div>
               {Array.from({ length: count }).map((_, itemIndex) => (
                 <div
-                  key={itemIndex}
                   className="mx-1 flex items-center justify-between gap-2 rounded-lg border-l-2 border-transparent px-2 py-2"
+                  key={itemIndex}
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <Skeleton
@@ -54,7 +56,7 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
           ))}
         </div>
       ) : (
-        <div key="sidebar-content" className={sidebarPanelCls}>
+        <div className={sidebarPanelCls} key="sidebar-content">
           {sidebarCategories.length === 0 ? (
             <div className="flex flex-col items-center gap-2.5 px-2 py-10 text-center">
               <div className="flex size-9 items-center justify-center rounded-lg border border-border/30 bg-card/50">
@@ -68,10 +70,10 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
           ) : (
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
               <div
-                key={categoryNode.key}
                 className={`space-y-0.5 anim-fade-in-load-slow transition-opacity anim-duration-ui anim-ease-ui ${
                   isSidebarVisible ? "opacity-100" : "opacity-0"
                 }`}
+                key={categoryNode.key}
                 style={{
                   animationDelay: `${index * 35}ms`,
                   transitionDelay: `${index * 35}ms`,
@@ -79,13 +81,15 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
               >
                 <div className="px-1.5">
                   <button
-                    type="button"
                     className={`w-full cursor-pointer rounded px-1.5 py-1 text-left font-sans text-[0.65rem] font-semibold uppercase tracking-[0.07em] transition-colors ${
                       selectedCategory === categoryNode.key
                         ? "bg-muted/60 text-foreground"
                         : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
                     }`}
-                    onClick={() => onCategoryClick(categoryNode)}
+                    onClick={() => {
+                      onCategoryClick(categoryNode);
+                    }}
+                    type="button"
                   >
                     {categoryNode.label}
                   </button>
@@ -93,11 +97,11 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                 {(categoryNode.children ?? []).map(
                   (feedNode: CategoryTreeNode) => (
                     <FeedCategory
-                      key={feedNode.key}
                       category={feedNode}
                       isActive={selectedCategory === feedNode.key}
-                      showFavicon={showFavicons}
+                      key={feedNode.key}
                       onClick={onFeedClick}
+                      showFavicon={showFavicons}
                     />
                   ),
                 )}

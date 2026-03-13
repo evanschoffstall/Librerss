@@ -1,80 +1,82 @@
 "use client";
 
-import {
-  DEFAULT_CATEGORY_LABEL,
-  isSameCategoryLabel,
-  parseOpmlFeedImport,
-  type CategoryTreeNode,
-  type OpmlFeedImportEntry,
-} from "@/lib";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { useSettingsDrag, type UseSettingsDragReturn } from "./useSettingsDrag";
+
+import {
+  type CategoryTreeNode,
+  DEFAULT_CATEGORY_LABEL,
+  isSameCategoryLabel,
+  type OpmlFeedImportEntry,
+  parseOpmlFeedImport,
+} from "@/lib";
+
+interface SharedFeedRowProps {
+  deletingKey: null | string;
+  draggingFeedKey: UseSettingsDragReturn["draggingFeedKey"];
+  editingFeedKey: null | string;
+  editingFeedName: string;
+  editingFeedUrl: string;
+  feedDropTarget: UseSettingsDragReturn["feedDropTarget"];
+  movingFeedKey: UseSettingsDragReturn["movingFeedKey"];
+  onCancelFeedEdit: () => void;
+  onEditingFeedNameChange: (value: string) => void;
+  onEditingFeedUrlChange: (value: string) => void;
+  onFeedDragEnd: UseSettingsDragReturn["onFeedDragEnd"];
+  onFeedDragOver: UseSettingsDragReturn["onFeedDragOver"];
+  onFeedDragStart: UseSettingsDragReturn["onFeedDragStart"];
+  onFeedDrop: UseSettingsDragReturn["onFeedDrop"];
+  onRemoveFeed: (key: string) => void;
+  onSaveFeedRename: (key: string) => void;
+  onStartFeedEdit: (key: string, name: string, url: string) => void;
+  onToggleExtractionDisabled: (key: string, disabled: boolean) => void;
+  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
+  onToggleProxyEnabled: (key: string, enabled: boolean) => void;
+  savingFeedKey: null | string;
+  selectedCategory: string;
+  togglingFeedKey: null | string;
+  updatingSettingsKey: null | string;
+}
 
 interface UseSettingsModalStateOptions {
   categories: CategoryTreeNode[];
   categoryOptions: string[];
-  selectedCategory: string;
-  onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
+  onAddCategory: (name: string) => boolean;
+  onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
+  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
   onDropFeed: (
     key: string,
     targetCategory: string,
     targetIndex: number,
   ) => Promise<void>;
-  onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
-  onAddCategory: (name: string) => boolean;
-  onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
-  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
+  onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
   onRemoveFeed: (key: string) => Promise<void>;
+  onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
   onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
   onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
   onUpdateFeedSettings: (
     key: string,
     settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
   ) => Promise<boolean>;
-}
-
-interface SharedFeedRowProps {
   selectedCategory: string;
-  editingFeedKey: string | null;
-  editingFeedName: string;
-  editingFeedUrl: string;
-  savingFeedKey: string | null;
-  deletingKey: string | null;
-  movingFeedKey: UseSettingsDragReturn["movingFeedKey"];
-  draggingFeedKey: UseSettingsDragReturn["draggingFeedKey"];
-  feedDropTarget: UseSettingsDragReturn["feedDropTarget"];
-  onFeedDragStart: UseSettingsDragReturn["onFeedDragStart"];
-  onFeedDragEnd: UseSettingsDragReturn["onFeedDragEnd"];
-  onFeedDragOver: UseSettingsDragReturn["onFeedDragOver"];
-  onFeedDrop: UseSettingsDragReturn["onFeedDrop"];
-  onEditingFeedNameChange: (value: string) => void;
-  onEditingFeedUrlChange: (value: string) => void;
-  onSaveFeedRename: (key: string) => void;
-  onCancelFeedEdit: () => void;
-  onStartFeedEdit: (key: string, name: string, url: string) => void;
-  onRemoveFeed: (key: string) => void;
-  onToggleFeedEnabled: (key: string, enabled: boolean) => void;
-  onToggleExtractionDisabled: (key: string, disabled: boolean) => void;
-  onToggleProxyEnabled: (key: string, enabled: boolean) => void;
-  togglingFeedKey: string | null;
-  updatingSettingsKey: string | null;
 }
 
 export function useSettingsModalState({
   categories,
   categoryOptions,
-  selectedCategory,
-  onImportOpml,
-  onDropFeed,
-  onAddFeed,
   onAddCategory,
-  onRenameCategory,
+  onAddFeed,
   onDropCategory,
+  onDropFeed,
+  onImportOpml,
   onRemoveFeed,
+  onRenameCategory,
   onRenameFeed,
   onSetFeedEnabled,
   onUpdateFeedSettings,
+  selectedCategory,
 }: UseSettingsModalStateOptions) {
   // ── Add-feed form state ───────────────────────────────────────────────────
   const [newFeedName, setNewFeedName] = useState("");
@@ -84,30 +86,30 @@ export function useSettingsModalState({
     categoryOptions[0] ?? DEFAULT_CATEGORY_LABEL,
   );
   const [addingFeedInCategory, setAddingFeedInCategory] = useState<
-    string | null
+    null | string
   >(null);
   const [isSavingFeed, setIsSavingFeed] = useState(false);
 
   // ── Category edit state ───────────────────────────────────────────────────
-  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<null | string>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
-  const [savingCategoryLabel, setSavingCategoryLabel] = useState<string | null>(
+  const [savingCategoryLabel, setSavingCategoryLabel] = useState<null | string>(
     null,
   );
 
   // ── Feed edit state ───────────────────────────────────────────────────────
-  const [editingFeedKey, setEditingFeedKey] = useState<string | null>(null);
+  const [editingFeedKey, setEditingFeedKey] = useState<null | string>(null);
   const [editingFeedName, setEditingFeedName] = useState("");
   const [editingFeedUrl, setEditingFeedUrl] = useState("");
-  const [savingFeedKey, setSavingFeedKey] = useState<string | null>(null);
-  const [deletingKey, setDeletingKey] = useState<string | null>(null);
-  const [togglingFeedKey, setTogglingFeedKey] = useState<string | null>(null);
-  const [updatingSettingsKey, setUpdatingSettingsKey] = useState<string | null>(
+  const [savingFeedKey, setSavingFeedKey] = useState<null | string>(null);
+  const [deletingKey, setDeletingKey] = useState<null | string>(null);
+  const [togglingFeedKey, setTogglingFeedKey] = useState<null | string>(null);
+  const [updatingSettingsKey, setUpdatingSettingsKey] = useState<null | string>(
     null,
   );
 
   // ── Drag state ────────────────────────────────────────────────────────────
-  const drag = useSettingsDrag({ onDropFeed, onDropCategory });
+  const drag = useSettingsDrag({ onDropCategory, onDropFeed });
 
   // ── OPML state ────────────────────────────────────────────────────────────
   const [isImportingOpml, setIsImportingOpml] = useState(false);
@@ -289,74 +291,76 @@ export function useSettingsModalState({
   // ── Shared feed-row props ─────────────────────────────────────────────────
 
   const sharedFeedRowProps: SharedFeedRowProps = {
-    selectedCategory,
+    deletingKey,
+    draggingFeedKey: drag.draggingFeedKey,
     editingFeedKey,
     editingFeedName,
     editingFeedUrl,
-    savingFeedKey,
-    deletingKey,
-    movingFeedKey: drag.movingFeedKey,
-    draggingFeedKey: drag.draggingFeedKey,
     feedDropTarget: drag.feedDropTarget,
-    onFeedDragStart: drag.onFeedDragStart,
-    onFeedDragEnd: drag.onFeedDragEnd,
-    onFeedDragOver: drag.onFeedDragOver,
-    onFeedDrop: drag.onFeedDrop,
+    movingFeedKey: drag.movingFeedKey,
+    onCancelFeedEdit: clearFeedEdit,
     onEditingFeedNameChange: setEditingFeedName,
     onEditingFeedUrlChange: setEditingFeedUrl,
+    onFeedDragEnd: drag.onFeedDragEnd,
+    onFeedDragOver: drag.onFeedDragOver,
+    onFeedDragStart: drag.onFeedDragStart,
+    onFeedDrop: drag.onFeedDrop,
+    onRemoveFeed: (key: string) => void handleRemoveFeed(key),
     onSaveFeedRename: (key: string) => void handleSaveFeedRename(key),
-    onCancelFeedEdit: clearFeedEdit,
     onStartFeedEdit: (key: string, name: string, url: string) => {
       setEditingFeedKey(key);
       setEditingFeedName(name);
       setEditingFeedUrl(url);
     },
-    onRemoveFeed: (key: string) => void handleRemoveFeed(key),
-    onToggleFeedEnabled: (key: string, enabled: boolean) =>
-      void handleToggleFeedEnabled(key, enabled),
     onToggleExtractionDisabled: (key: string, disabled: boolean) =>
       void handleToggleExtractionDisabled(key, disabled),
+    onToggleFeedEnabled: (key: string, enabled: boolean) =>
+      void handleToggleFeedEnabled(key, enabled),
     onToggleProxyEnabled: (key: string, enabled: boolean) =>
       void handleToggleProxyEnabled(key, enabled),
+    savingFeedKey,
+    selectedCategory,
     togglingFeedKey,
     updatingSettingsKey,
   };
 
   return {
-    // State
-    newFeedName,
-    setNewFeedName,
-    newFeedUrl,
-    setNewFeedUrl,
-    newCategoryName,
-    setNewCategoryName,
     addingFeedInCategory,
-    setAddingFeedInCategory,
-    isSavingFeed,
+    drag,
     editingCategory,
     editingCategoryName,
-    setEditingCategoryName,
-    savingCategoryLabel,
-    isImportingOpml,
-    opmlInputRef,
-    drag,
-    sharedFeedRowProps,
+    handleAddCategory,
     // Handlers
     handleAddFeed,
-    handleAddCategory,
-    handleSaveCategoryRename,
     handleOpmlFileChange,
+    handleSaveCategoryRename,
+    isImportingOpml,
+    isSavingFeed,
+    newCategoryName,
+    // State
+    newFeedName,
+    newFeedUrl,
+    onCancelAddFeed: () => {
+      setAddingFeedInCategory(null);
+    },
+    onCancelCategoryEdit: clearCategoryEdit,
     // Callbacks
     onStartCategoryEdit: (label: string) => {
       setEditingCategory(label);
       setEditingCategoryName(label);
     },
-    onCancelCategoryEdit: clearCategoryEdit,
     onToggleAddFeed: (label: string) => {
       setAddingFeedInCategory(addingFeedInCategory === label ? null : label);
       setNewFeedName("");
       setNewFeedUrl("");
     },
-    onCancelAddFeed: () => setAddingFeedInCategory(null),
+    opmlInputRef,
+    savingCategoryLabel,
+    setAddingFeedInCategory,
+    setEditingCategoryName,
+    setNewCategoryName,
+    setNewFeedName,
+    setNewFeedUrl,
+    sharedFeedRowProps,
   };
 }

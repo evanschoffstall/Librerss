@@ -1,11 +1,8 @@
 "use client";
 
-import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
 import { useTheme } from "next-themes";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+
 import {
   ParticlesBackground,
   ParticlesBackgroundLight,
@@ -17,12 +14,32 @@ import type { BackgroundMode } from "./constants";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 
-export function DashboardRouter() {
-  const searchParams = useSearchParams();
-  const [isSessionLoading, setIsSessionLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [allowSignup, setAllowSignup] = useState(true);
-  const [usePlaceholderData, setUsePlaceholderData] = useState(false);
+import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AuthService, type AuthUser, useLocalStorage } from "@/lib";
+import type { AuthSession } from "@/lib/core/types";
+
+interface DashboardRouterProps {
+  hasPreviewQuery: boolean;
+  initialSession?: AuthSession;
+}
+
+export function DashboardRouter({
+  hasPreviewQuery,
+  initialSession,
+}: DashboardRouterProps) {
+  const [isSessionLoading, setIsSessionLoading] = useState(
+    initialSession === undefined,
+  );
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(
+    initialSession?.authenticated === true ? initialSession.user : null,
+  );
+  const [allowSignup, setAllowSignup] = useState(
+    initialSession?.allowSignup ?? true,
+  );
+  const [usePlaceholderData, setUsePlaceholderData] = useState(
+    initialSession?.usePlaceholderData ?? false,
+  );
   const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
     DASHBOARD_PREVIEW_STORAGE_KEY,
     false,
@@ -38,8 +55,6 @@ export function DashboardRouter() {
   );
 
   const isLightMode = (resolvedTheme ?? "dark") === "light";
-  const hasPreviewQuery =
-    searchParams.get("preview") === "1" || searchParams.get("explore") === "1";
 
   useEffect(() => {
     if (!hasPreviewQuery) {
@@ -51,29 +66,15 @@ export function DashboardRouter() {
   }, [hasPreviewQuery, setIsPreviewMode]);
 
   useEffect(() => {
-    const legacyValue = localStorage.getItem(
-      "librerss:showParticlesBackground",
-    );
-    if (legacyValue === null) {
-      return;
-    }
+    let isCanceled = false;
 
-    try {
-      const parsedValue = JSON.parse(legacyValue);
-      if (typeof parsedValue === "boolean") {
-        setBackgroundMode(parsedValue ? "particles" : "none");
-      }
-    } catch {
-      // ignore invalid persisted legacy values
-    }
-
-    localStorage.removeItem("librerss:showParticlesBackground");
-  }, [setBackgroundMode]);
-
-  useEffect(() => {
     const loadSession = async () => {
       try {
         const session = await AuthService.getSession();
+        if (isCanceled) {
+          return;
+        }
+
         setAllowSignup(session.allowSignup);
         setUsePlaceholderData(session.usePlaceholderData);
         if (
@@ -84,14 +85,24 @@ export function DashboardRouter() {
         }
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
+        if (isCanceled) {
+          return;
+        }
+
         setAllowSignup(true);
         setCurrentUser(null);
       } finally {
-        setIsSessionLoading(false);
+        if (!isCanceled) {
+          setIsSessionLoading(false);
+        }
       }
     };
 
     void loadSession();
+
+    return () => {
+      isCanceled = true;
+    };
   }, [hasPreviewQuery, setIsPreviewMode]);
 
   const handleEnterPreview = () => {
@@ -104,8 +115,8 @@ export function DashboardRouter() {
       <main className="h-full overflow-hidden bg-background">
         <div className="relative flex h-full items-center justify-center px-4">
           <div
-            className="pointer-events-none absolute size-64 rounded-full bg-primary/5 blur-3xl"
             aria-hidden="true"
+            className="pointer-events-none absolute size-64 rounded-full bg-primary/5 blur-3xl"
           />
           <div className="relative w-full max-w-3xl space-y-2">
             <Skeleton className="h-8 w-full rounded-xl" />
@@ -122,8 +133,8 @@ export function DashboardRouter() {
     return (
       <main className="h-full overflow-hidden bg-background">
         <LoginView
-          onAuthenticated={setCurrentUser}
           allowSignup={allowSignup}
+          onAuthenticated={setCurrentUser}
           onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
         />
       </main>
@@ -148,11 +159,11 @@ export function DashboardRouter() {
       ) : null}
       <div className="relative z-10 h-full">
         <DashboardView
-          usePlaceholderData={isPreviewMode || usePlaceholderData}
           backgroundMode={backgroundMode}
-          onBackgroundModeChange={setBackgroundMode}
           distillStrategy={distillStrategy}
+          onBackgroundModeChange={setBackgroundMode}
           onDistillStrategyChange={setDistillStrategy}
+          usePlaceholderData={isPreviewMode || usePlaceholderData}
         />
       </div>
     </main>

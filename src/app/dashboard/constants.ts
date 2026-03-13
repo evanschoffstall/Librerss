@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_LABEL, type CategoryTreeNode } from "@/lib";
+import { type CategoryTreeNode, DEFAULT_CATEGORY_LABEL } from "@/lib";
 
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 export const ALL_FEEDS_LABEL = "All Feeds";
@@ -6,16 +6,17 @@ export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
 
 /** Canonical event names for the dashboard window event bus. */
 export const DASHBOARD_EVENTS = {
-  REFRESH: "dashboard:refresh",
-  MARK_ALL_READ: "dashboard:mark-all-read",
-  MARK_ALL_READ_START: "dashboard:mark-all-read-start",
-  MARK_ALL_READ_END: "dashboard:mark-all-read-end",
-  OPEN_SETTINGS: "dashboard:open-settings",
-  OPEN_FEEDS_SIDEBAR: "dashboard:open-feeds-sidebar",
-  SEARCH_CHANGE: "dashboard:search-change",
-  TITLE_CHANGE: "dashboard:title-change",
-  SEARCH_SYNC: "dashboard:search-sync",
   ENTER_PREVIEW: "dashboard:enter-preview",
+  MARK_ALL_READ: "dashboard:mark-all-read",
+  MARK_ALL_READ_END: "dashboard:mark-all-read-end",
+  MARK_ALL_READ_START: "dashboard:mark-all-read-start",
+  OPEN_FEEDS_SIDEBAR: "dashboard:open-feeds-sidebar",
+  OPEN_SETTINGS: "dashboard:open-settings",
+  REFRESH: "dashboard:refresh",
+  SEARCH_CHANGE: "dashboard:search-change",
+  SEARCH_PENDING: "dashboard:search-pending",
+  SEARCH_SYNC: "dashboard:search-sync",
+  TITLE_CHANGE: "dashboard:title-change",
 } as const;
 
 export const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
@@ -23,9 +24,9 @@ export const FEED_SCROLL_SESSION_KEY = "librerss:scroll:feed";
 
 export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   {
+    children: [],
     key: "0",
     label: DEFAULT_CATEGORY_LABEL,
-    children: [],
   },
 ];
 

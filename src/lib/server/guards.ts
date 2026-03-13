@@ -1,15 +1,43 @@
+import { NextRequest } from "next/server";
+
+import { rateLimiter } from "./rate-limit";
+
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { requireSameOrigin } from "@/lib/auth/csrf";
 import { getUserFromRequest } from "@/lib/auth/session";
 import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { logger } from "@/lib/logger";
 import { toError } from "@/lib/utils/errors";
-import { NextRequest } from "next/server";
-import { rateLimiter } from "./rate-limit";
 
 export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>
 >;
+
+interface MutationRequestOptions {
+  rateLimit?: {
+    key: string;
+    maxAttempts: number;
+    // "request" = keyed by client IP (no auth required).
+    // "user"    = keyed by userId (checked after auth in requireMutableAuthenticatedUser).
+    scope?: "request" | "user";
+    windowMs: number;
+  };
+}
+
+export function logAndRespondError(
+  message: string,
+  error: unknown,
+  options?: {
+    publicMessage?: string;
+    status?: number;
+  },
+): Response {
+  logger.error(message, { error: toError(error) });
+  return jsonError(
+    options?.publicMessage ?? "Internal Server Error",
+    options?.status ?? 500,
+  );
+}
 
 export async function requireAuthenticatedUser(
   request: NextRequest,
@@ -17,49 +45,16 @@ export async function requireAuthenticatedUser(
   // In placeholder mode, bypass authentication entirely
   if (RUNTIME_FLAGS.usePlaceholderData) {
     return {
-      sessionId: 0,
-      userId: PLACEHOLDER_ADMIN_USER.id,
       email: PLACEHOLDER_ADMIN_USER.email,
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+      sessionId: 0,
+      userId: PLACEHOLDER_ADMIN_USER.id,
     };
   }
 
   const user = await getUserFromRequest(request);
   if (!user) return jsonError("Unauthorized", 401);
   return user;
-}
-
-type MutationRequestOptions = {
-  rateLimit?: {
-    key: string;
-    windowMs: number;
-    maxAttempts: number;
-    // "request" = keyed by client IP (no auth required).
-    // "user"    = keyed by userId (checked after auth in requireMutableAuthenticatedUser).
-    scope?: "request" | "user";
-  };
-};
-
-// Validates CSRF and applies request-scoped (IP-based) rate limiting.
-// User-scoped rate limiting is handled separately in requireMutableAuthenticatedUser
-// because it requires a resolved userId.
-export function requireMutableRequest(
-  request: Request,
-  options?: MutationRequestOptions,
-): Response | null {
-  const sameOriginError = requireSameOrigin(request);
-  if (sameOriginError) return sameOriginError;
-
-  const rl = options?.rateLimit;
-  if (rl && (rl.scope ?? "request") === "request") {
-    const rateLimitError = rateLimiter.check(request, rl.key, {
-      windowMs: rl.windowMs,
-      maxAttempts: rl.maxAttempts,
-    });
-    if (rateLimitError) return rateLimitError;
-  }
-
-  return null;
 }
 
 export async function requireMutableAuthenticatedUser(
@@ -77,7 +72,7 @@ export async function requireMutableAuthenticatedUser(
     const rateLimitError = rateLimiter.check(
       request,
       `${rl.key}:user:${user.userId}`,
-      { windowMs: rl.windowMs, maxAttempts: rl.maxAttempts },
+      { maxAttempts: rl.maxAttempts, windowMs: rl.windowMs },
     );
     if (rateLimitError) return rateLimitError;
   }
@@ -85,12 +80,34 @@ export async function requireMutableAuthenticatedUser(
   return user;
 }
 
+// Validates CSRF and applies request-scoped (IP-based) rate limiting.
+// User-scoped rate limiting is handled separately in requireMutableAuthenticatedUser
+// because it requires a resolved userId.
+export function requireMutableRequest(
+  request: Request,
+  options?: MutationRequestOptions,
+): null | Response {
+  const sameOriginError = requireSameOrigin(request);
+  if (sameOriginError) return sameOriginError;
+
+  const rl = options?.rateLimit;
+  if (rl && (rl.scope ?? "request") === "request") {
+    const rateLimitError = rateLimiter.check(request, rl.key, {
+      maxAttempts: rl.maxAttempts,
+      windowMs: rl.windowMs,
+    });
+    if (rateLimitError) return rateLimitError;
+  }
+
+  return null;
+}
+
 export async function requireMutableUserAndJsonBody<
-  TBody extends Record<string, unknown>,
+  TBody extends object = Record<string, unknown>,
 >(
   request: NextRequest,
-  options?: MutationRequestOptions,
-): Promise<{ user: AuthenticatedUser; body: TBody } | Response> {
+  options?: MutationRequestOptions & { __bodyType?: TBody },
+): Promise<Response | { body: TBody; user: AuthenticatedUser }> {
   const user = await requireMutableAuthenticatedUser(request, options);
   if (user instanceof Response) {
     return user;
@@ -101,20 +118,5 @@ export async function requireMutableUserAndJsonBody<
     return body;
   }
 
-  return { user, body: body as TBody };
-}
-
-export function logAndRespondError(
-  message: string,
-  error: unknown,
-  options?: {
-    status?: number;
-    publicMessage?: string;
-  },
-): Response {
-  logger.error(message, { error: toError(error) });
-  return jsonError(
-    options?.publicMessage ?? "Internal Server Error",
-    options?.status ?? 500,
-  );
+  return { body: body as TBody, user };
 }

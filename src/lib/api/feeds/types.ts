@@ -1,46 +1,46 @@
 import { getDb } from "@/lib/db/db";
 
+export interface CreateFeedPayload {
+  category: string;
+  name: string;
+  url: string;
+}
+
+export interface CreateFeedSourceResult {
+  isNew: boolean;
+  sourceRecord: FeedSourceRecord;
+}
+
+export type FeedSourceListRow = FeedSourceRecord & {
+  category: null | string;
+};
+
+export interface FeedSourceRecord {
+  enabled?: boolean;
+  extractionDisabled?: boolean;
+  id: number;
+  name: string;
+  proxyEnabled?: boolean;
+  url: string;
+}
+
 export type FeedTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
 
-export type CreateFeedPayload = {
+export interface RenameFeedPayload {
   name: string;
-  url: string;
-  category: string;
-};
-
-export type RenameFeedPayload = {
   sourceId: number;
-  name: string;
   url: string;
-};
+}
 
-export type ToggleFeedEnabledPayload = {
-  sourceId: number;
+export interface ToggleFeedEnabledPayload {
   enabled: boolean;
-};
-
-export type UpdateFeedSettingsPayload = {
   sourceId: number;
+}
+
+export interface UpdateFeedSettingsPayload {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;
-};
-
-export type FeedSourceRecord = {
-  id: number;
-  name: string;
-  url: string;
-  enabled?: boolean;
-  extractionDisabled?: boolean;
-  proxyEnabled?: boolean;
-};
-
-export type FeedSourceListRow = FeedSourceRecord & {
-  category: string | null;
-};
-
-export type CreateFeedSourceResult = {
-  sourceRecord: FeedSourceRecord;
-  isNew: boolean;
-};
+  sourceId: number;
+}

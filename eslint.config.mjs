@@ -1,17 +1,47 @@
 import pluginJs from "@eslint/js";
+import pluginTypeScriptEslint from "@typescript-eslint/eslint-plugin";
+import pluginTypeScriptEslintRaw from "@typescript-eslint/eslint-plugin/use-at-your-own-risk/raw-plugin";
 import pluginBoundaries from "eslint-plugin-boundaries";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginImport from "eslint-plugin-import";
 import pluginNoOnlyTests from "eslint-plugin-no-only-tests";
+import perfectionist from "eslint-plugin-perfectionist";
 import pluginPromise from "eslint-plugin-promise";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import pluginRegexp from "eslint-plugin-regexp";
 import pluginSecurity from "eslint-plugin-security";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 import pluginSonarjs from "eslint-plugin-sonarjs";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import globals from "globals";
-import tseslint from "typescript-eslint";
+
+const typeScriptFiles = ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"];
+const sourceTypeScriptFiles = [
+  "src/**/*.ts",
+  "src/**/*.tsx",
+  "src/**/*.mts",
+  "src/**/*.cts",
+];
+
+function scopeConfigs(configs, files, languageOptions = undefined) {
+  return configs.map((config) => ({
+    ...config,
+    files,
+    ...(languageOptions
+      ? {
+          languageOptions: {
+            ...config.languageOptions,
+            ...languageOptions,
+            parserOptions: {
+              ...config.languageOptions?.parserOptions,
+              ...languageOptions.parserOptions,
+            },
+          },
+        }
+      : {}),
+  }));
+}
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -22,17 +52,17 @@ export default [
   },
   {
     ignores: [
-      "**/node_modules/**",
-      "**/.next/**",
-      "**/dist/**",
-      "**/build/**",
-      "**/coverage/**",
-      "**/.cache/**",
+      ".cache/**",
+      ".next/**",
+      "build/**",
+      "coverage/**",
+      "dist/**",
       "drizzle/meta/**",
+      "node_modules/**",
       "src/components/ui/**",
     ],
   },
-  { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"] },
+  { files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"] },
   {
     languageOptions: {
       globals: {
@@ -42,17 +72,47 @@ export default [
     },
   },
   pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...scopeConfigs(
+    pluginTypeScriptEslintRaw.flatConfigs["flat/strict"],
+    typeScriptFiles,
+  ),
+  ...scopeConfigs(
+    pluginTypeScriptEslintRaw.flatConfigs["flat/stylistic"],
+    typeScriptFiles,
+  ),
+  ...scopeConfigs(
+    pluginTypeScriptEslintRaw.flatConfigs["flat/strict-type-checked"],
+    sourceTypeScriptFiles,
+    {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  ),
+  ...scopeConfigs(
+    pluginTypeScriptEslintRaw.flatConfigs["flat/stylistic-type-checked"],
+    sourceTypeScriptFiles,
+    {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  ),
   {
     plugins: {
+      "@typescript-eslint": pluginTypeScriptEslint,
       boundaries: pluginBoundaries,
       "eslint-comments": pluginEslintComments,
       import: pluginImport,
       "no-only-tests": pluginNoOnlyTests,
+      perfectionist,
       promise: pluginPromise,
       "react-hooks": pluginReactHooks,
       regexp: pluginRegexp,
       security: pluginSecurity,
+      "simple-import-sort": simpleImportSort,
       sonarjs: pluginSonarjs,
       unicorn: pluginUnicorn,
       "unused-imports": pluginUnusedImports,
@@ -70,11 +130,67 @@ export default [
       "security/detect-unsafe-regex": "error",
       "sonarjs/no-identical-functions": "error",
       "unicorn/no-abusive-eslint-disable": "error",
+      "simple-import-sort/exports": "error",
+      "simple-import-sort/imports": [
+        "error",
+        {
+          groups: [
+            ["^node:", "^bun:"],
+            ["^@?\\w"],
+            ["^\\.\\.(?!/?$)", "^\\.\\./?$"],
+            ["^\\./(?=.*/)(?!/?$)", "^\\.(?!/?$)", "^\\./?$"],
+          ],
+        },
+      ],
       eqeqeq: ["error", "always"],
       "no-console": "off",
       "no-throw-literal": "error",
       "no-useless-return": "error",
       "unused-imports/no-unused-imports": "error",
+    },
+  },
+  {
+    files: sourceTypeScriptFiles,
+    rules: {
+      "@typescript-eslint/no-base-to-string": "error",
+      "@typescript-eslint/no-confusing-void-expression": "error",
+      "@typescript-eslint/no-deprecated": "error",
+      "@typescript-eslint/no-extraneous-class": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unnecessary-condition": "error",
+      "@typescript-eslint/no-unnecessary-type-parameters": "error",
+      "@typescript-eslint/no-unnecessary-type-conversion": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-unused-expressions": "error",
+      "@typescript-eslint/prefer-nullish-coalescing": "error",
+      "@typescript-eslint/require-await": "error",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        {
+          allowAny: false,
+          allowBoolean: true,
+          allowNever: false,
+          allowNullish: false,
+          allowNumber: true,
+          allowRegExp: false,
+        },
+      ],
+      "@typescript-eslint/return-await": ["error", "in-try-catch"],
+      "@typescript-eslint/unbound-method": "error",
+    },
+  },
+  {
+    files: typeScriptFiles,
+    rules: {
+      "@typescript-eslint/no-empty-function": "off",
+      ...perfectionist.configs["recommended-natural"].rules,
+      "perfectionist/sort-exports": "off",
+      "perfectionist/sort-imports": "off",
     },
   },
   {
@@ -117,6 +233,12 @@ export default [
     },
   },
   {
+    files: ["tests/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
     files: ["src/**/*.{js,mjs,cjs,ts,jsx,tsx}"],
     rules: {
       "no-console": [
@@ -136,6 +258,9 @@ export default [
   {
     files: ["tests/**/*.{ts,tsx}"],
     rules: {
+      "@typescript-eslint/no-dynamic-delete": "off",
+      "@typescript-eslint/no-extraneous-class": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/ban-ts-comment": "off",

@@ -1,21 +1,22 @@
+import net from "node:net";
+
 import { resolvesToBlockedAddress } from "@/lib/core/dns-cache";
 import { SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
-import { isBlockedHost } from "@/lib/utils/ssrf";
+import { isBlockedHost, normalizeHostname } from "@/lib/utils/ssrf";
 import { redactUrlForLogs } from "@/lib/utils/url";
-import net from "node:net";
 
-export type ProxyStatus = "reachable" | "unreachable" | "checking";
-
-export type ProxySettingsResponse = {
-  proxyUrl: string | null;
-  configured: boolean;
-  status: ProxyStatus;
+export interface ProxySettingsResponse {
   allowInsecureTls: boolean;
-  proxyUsername: string | null;
-  hasProxyPassword: boolean;
+  configured: boolean;
   error?: string;
-};
+  hasProxyPassword: boolean;
+  proxyUrl: null | string;
+  proxyUsername: null | string;
+  status: ProxyStatus;
+}
+
+export type ProxyStatus = "checking" | "reachable" | "unreachable";
 
 export const MAX_PROXY_URL_LENGTH = 2048;
 // Proxy credential fields are stored in DB columns of type text (unbounded).
@@ -27,115 +28,36 @@ const BARE_HOST_PORT_RE = /^[\w.-]+:\d{1,5}$/;
 const PROBE_TIMEOUT_MS = 4000;
 
 /**
- * Perform a SOCKS5 auth probe: send greeting + auth sub-negotiation without
- * issuing a CONNECT to any destination. Returns true if the server accepts
- * auth (or no-auth). This validates credentials without touching any external
- * host.
- */
-async function socks5AuthProbe(
-  host: string,
-  port: number,
-  username?: string,
-  password?: string,
-): Promise<boolean> {
-  const hasCredentials = !!username && !!password;
-  // When credentials are provided, offer ONLY user/pass (0x02) — this forces the server
-  // to verify them. Offering no-auth (0x00) alongside allows the server to bypass
-  // credential checking by selecting no-auth, giving a false "success" result.
-  const greeting = hasCredentials
-    ? Buffer.from([0x05, 0x01, 0x02]) // VER, NMETHODS=1, user/pass only
-    : Buffer.from([0x05, 0x01, 0x00]); // VER, NMETHODS=1, no-auth only
-  return new Promise<boolean>((resolve) => {
-    const socket = new net.Socket();
-    socket.setTimeout(PROBE_TIMEOUT_MS);
-    let stage: "greeting" | "auth" = "greeting";
-    const finish = (ok: boolean) => {
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(ok);
-    };
-    socket.on("connect", () => socket.write(greeting));
-    socket.on("data", (data: Buffer) => {
-      if (stage === "greeting") {
-        if (data.length < 2 || data[0] !== 0x05) return finish(false);
-        const method = data[1];
-        if (method === 0xff) return finish(false); // no acceptable method
-        if (method === 0x00) return finish(true); // no-auth accepted
-        if (method === 0x02 && hasCredentials) {
-          stage = "auth";
-          const user = Buffer.from(username!, "utf8");
-          const pass = Buffer.from(password!, "utf8");
-          const msg = Buffer.alloc(3 + user.length + pass.length);
-          msg[0] = 0x01;
-          msg[1] = user.length;
-          user.copy(msg, 2);
-          msg[2 + user.length] = pass.length;
-          pass.copy(msg, 3 + user.length);
-          socket.write(msg);
-          return;
-        }
-        finish(false);
-      } else {
-        // auth sub-negotiation response: VER=1, STATUS (0x00=success)
-        finish(data.length >= 2 && data[0] === 0x01 && data[1] === 0x00);
-      }
-    });
-    socket.on("timeout", () => finish(false));
-    socket.on("error", () => finish(false));
-    socket.connect(port, host);
-  });
-}
-
-function parseHostPort(
-  proxyUrl: string,
-): { host: string; port: number } | null {
-  try {
-    const parsed = new URL(proxyUrl);
-    return {
-      host: parsed.hostname,
-      port:
-        Number(parsed.port) ||
-        (parsed.protocol === "https:"
-          ? 443
-          : parsed.protocol.startsWith("socks")
-            ? 1080
-            : 8080),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Detect whether a proxy speaks SOCKS by sending a SOCKS5 greeting.
  * Returns "socks5" if the server replies with 0x05, otherwise "http".
  */
 export async function detectProxyProtocol(
   host: string,
   port: number,
-): Promise<"socks5" | "http"> {
-  if (isBlockedHost(host)) {
+): Promise<"http" | "socks5"> {
+  const normalizedHost = normalizeHostname(host);
+  if (isBlockedHost(normalizedHost)) {
     logger.error("Proxy protocol detection blocked: internal hostname", {
-      host,
+      host: normalizedHost,
       port,
     });
     return "http";
   }
   // DNS rebinding prevention: re-resolve at probe time.
-  if (await resolvesToBlockedAddress(host)) {
+  if (await resolvesToBlockedAddress(normalizedHost)) {
     logger.error(
       "Proxy protocol detection blocked: hostname resolves to private address",
-      { host, port },
+      { host: normalizedHost, port },
     );
     return "http";
   }
-  const ctx = { host, port };
+  const ctx = { host: normalizedHost, port };
   logger.info("Proxy protocol detection started", ctx);
   return new Promise((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
     let response = Buffer.alloc(0);
-    const finish = (proto: "socks5" | "http", reason: string) => {
+    const finish = (proto: "http" | "socks5", reason: string) => {
       socket.removeAllListeners();
       socket.destroy();
       logger.info("Proxy protocol detection completed", {
@@ -161,23 +83,23 @@ export async function detectProxyProtocol(
       if (response[0] !== 0x05) {
         finish(
           "http",
-          `server replied ${response.length}B, first byte 0x${response[0]?.toString(16) ?? "??"} → not SOCKS`,
+          `server replied ${response.length}B, first byte 0x${response[0].toString(16)} → not SOCKS`,
         );
         return;
       }
       if (response.length < 2) return;
       finish(
         "socks5",
-        `server replied ${response.length}B, version 0x${response[0]?.toString(16) ?? "??"}, method 0x${response[1]?.toString(16) ?? "??"} → SOCKS5`,
+        `server replied ${response.length}B, version 0x${response[0].toString(16)}, method 0x${response[1].toString(16)} → SOCKS5`,
       );
     });
-    socket.on("timeout", () =>
-      finish("http", "timeout waiting for SOCKS reply"),
-    );
-    socket.on("error", (err) =>
-      finish("http", `socket error: ${(err as Error).message}`),
-    );
-    socket.connect(port, host);
+    socket.on("timeout", () => {
+      finish("http", "timeout waiting for SOCKS reply");
+    });
+    socket.on("error", (err) => {
+      finish("http", `socket error: ${err.message}`);
+    });
+    socket.connect(port, normalizedHost);
   });
 }
 
@@ -188,15 +110,15 @@ export async function detectProxyProtocol(
  */
 export async function normalizeProxyUrl(
   raw: string,
-  probeFn?: (host: string, port: number) => Promise<"socks5" | "http">,
+  probeFn?: (host: string, port: number) => Promise<"http" | "socks5">,
   dnsCheckFn?: (host: string) => Promise<boolean>,
-): Promise<string | null> {
+): Promise<null | string> {
   const needsScheme = BARE_HOST_PORT_RE.test(raw);
   const input = needsScheme ? `http://${raw}` : raw;
   logger.info("Proxy URL normalization started", {
-    raw: redactUrlForLogs(raw),
     input: redactUrlForLogs(input),
     needsScheme,
+    raw: redactUrlForLogs(raw),
   });
   let parsed: URL;
   try {
@@ -209,28 +131,29 @@ export async function normalizeProxyUrl(
   }
   if (!VALID_PROTOCOLS.has(parsed.protocol)) {
     logger.error("Proxy URL normalization failed: invalid protocol", {
-      raw,
       protocol: parsed.protocol,
+      raw: redactUrlForLogs(raw),
     });
     return null;
   }
 
   // Already explicitly SOCKS — apply SSRF guards before accepting.
   if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
-    if (isBlockedHost(parsed.hostname)) {
+    const host = normalizeHostname(parsed.hostname);
+    if (isBlockedHost(host)) {
       logger.error("Proxy URL rejected: internal hostname (SOCKS)", {
+        host,
         raw: redactUrlForLogs(raw),
-        host: parsed.hostname,
       });
       return null;
     }
     const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
-    if (await dnsCheck(parsed.hostname)) {
+    if (await dnsCheck(host)) {
       logger.error(
         "Proxy URL rejected: hostname resolves to blocked address (SOCKS)",
         {
+          host,
           raw: redactUrlForLogs(raw),
-          host: parsed.hostname,
         },
       );
       return null;
@@ -248,16 +171,16 @@ export async function normalizeProxyUrl(
   // SSRF guard: block internal/private hostnames before any TCP probe.
   if (isBlockedHost(hp.host)) {
     logger.error("Proxy URL rejected: internal hostname", {
-      raw: redactUrlForLogs(raw),
       host: hp.host,
+      raw: redactUrlForLogs(raw),
     });
     return null;
   }
   const dnsCheck = dnsCheckFn ?? resolvesToBlockedAddress;
   if (await dnsCheck(hp.host)) {
     logger.error("Proxy URL rejected: hostname resolves to blocked address", {
-      raw: redactUrlForLogs(raw),
       host: hp.host,
+      raw: redactUrlForLogs(raw),
     });
     return null;
   }
@@ -266,9 +189,9 @@ export async function normalizeProxyUrl(
   const normalized =
     proto === "socks5" ? `socks5://${hp.host}:${hp.port}` : input;
   logger.info("Proxy URL normalization completed", {
-    raw: redactUrlForLogs(raw),
-    normalized: redactUrlForLogs(normalized),
     detectedProtocol: proto,
+    normalized: redactUrlForLogs(normalized),
+    raw: redactUrlForLogs(raw),
   });
   return normalized;
 }
@@ -306,7 +229,7 @@ export async function probeProxy(
   }
 
   // For SOCKS5 with embedded credentials, do a full auth handshake.
-  let parsed: URL | null = null;
+  let parsed: null | URL = null;
   try {
     parsed = new URL(proxyUrl);
   } catch {
@@ -352,10 +275,108 @@ export async function probeProxy(
     socket.on("error", (err) => {
       socket.destroy();
       logger.error(
-        `Proxy probe failed: socket error (proxyUrl=${safeProxyUrl} error=${(err as Error).message})`,
+        `Proxy probe failed: socket error (proxyUrl=${safeProxyUrl} error=${err.message})`,
       );
       resolve(false);
     });
     socket.connect(hp.port, hp.host);
+  });
+}
+
+function parseHostPort(
+  proxyUrl: string,
+): null | { host: string; port: number } {
+  try {
+    const parsed = new URL(proxyUrl);
+    const host = normalizeHostname(parsed.hostname);
+    if (!host) {
+      return null;
+    }
+
+    return {
+      host,
+      port:
+        Number(parsed.port) ||
+        (parsed.protocol === "https:"
+          ? 443
+          : parsed.protocol.startsWith("socks")
+            ? 1080
+            : 8080),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Perform a SOCKS5 auth probe: send greeting + auth sub-negotiation without
+ * issuing a CONNECT to any destination. Returns true if the server accepts
+ * auth (or no-auth). This validates credentials without touching any external
+ * host.
+ */
+async function socks5AuthProbe(
+  host: string,
+  port: number,
+  username?: string,
+  password?: string,
+): Promise<boolean> {
+  const hasCredentials = !!username && !!password;
+  // When credentials are provided, offer ONLY user/pass (0x02) — this forces the server
+  // to verify them. Offering no-auth (0x00) alongside allows the server to bypass
+  // credential checking by selecting no-auth, giving a false "success" result.
+  const greeting = hasCredentials
+    ? Buffer.from([0x05, 0x01, 0x02]) // VER, NMETHODS=1, user/pass only
+    : Buffer.from([0x05, 0x01, 0x00]); // VER, NMETHODS=1, no-auth only
+  return new Promise<boolean>((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(PROBE_TIMEOUT_MS);
+    let stage: "auth" | "greeting" = "greeting";
+    const finish = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.on("connect", () => socket.write(greeting));
+    socket.on("data", (data: Buffer) => {
+      if (stage === "greeting") {
+        if (data.length < 2 || data[0] !== 0x05) {
+          finish(false);
+          return;
+        }
+        const method = data[1];
+        if (method === 0xff) {
+          finish(false);
+          return;
+        } // no acceptable method
+        if (method === 0x00) {
+          finish(true);
+          return;
+        } // no-auth accepted
+        if (method === 0x02 && hasCredentials) {
+          stage = "auth";
+          const user = Buffer.from(username, "utf8");
+          const pass = Buffer.from(password, "utf8");
+          const msg = Buffer.alloc(3 + user.length + pass.length);
+          msg[0] = 0x01;
+          msg[1] = user.length;
+          user.copy(msg, 2);
+          msg[2 + user.length] = pass.length;
+          pass.copy(msg, 3 + user.length);
+          socket.write(msg);
+          return;
+        }
+        finish(false);
+      } else {
+        // auth sub-negotiation response: VER=1, STATUS (0x00=success)
+        finish(data.length >= 2 && data[0] === 0x01 && data[1] === 0x00);
+      }
+    });
+    socket.on("timeout", () => {
+      finish(false);
+    });
+    socket.on("error", () => {
+      finish(false);
+    });
+    socket.connect(port, host);
   });
 }

@@ -1,10 +1,12 @@
-import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import React from "react";
+
 import { ENV } from "../lib";
+
 import "./globals.css";
+import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -12,18 +14,18 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "LibreRSS",
   description: "Free cloud RSS Service",
   icons: {
-    icon: "/favicon.svg",
     apple: "/favicon.svg",
+    icon: "/favicon.svg",
   },
+  title: "LibreRSS",
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  width: "device-width",
 };
 
 export default function RootLayout({

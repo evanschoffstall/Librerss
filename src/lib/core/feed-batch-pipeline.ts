@@ -3,166 +3,62 @@
  * Each helper handles one distinct step of the batch feed-fetch pipeline.
  */
 
+import { and, eq, inArray, sql } from "drizzle-orm";
+
+import {
+  type FeedRecord,
+  refreshFeedFromUpstream,
+  shouldForceRefreshFeed,
+  shouldRefreshFeed,
+  type UpstreamRefreshResult,
+} from "./feed-refresh";
+
 import { CONFIG } from "@/lib/config";
 import type { getDb } from "@/lib/db/db";
 import { feedRecordFields } from "@/lib/db/feed-records";
 import { feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
-import { and, eq, inArray, sql } from "drizzle-orm";
-import {
-  type FeedRecord,
-  type UpstreamRefreshResult,
-  refreshFeedFromUpstream,
-  shouldForceRefreshFeed,
-  shouldRefreshFeed,
-} from "./feed-refresh";
 
 // ─── Concurrency helper ──────────────────────────────────────────────────────
 
-async function settledWithConcurrency<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number,
-): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (nextIndex < tasks.length) {
-      const i = nextIndex++;
-      try {
-        results[i] = { status: "fulfilled", value: await tasks[i]!() };
-      } catch (reason) {
-        results[i] = { status: "rejected", reason };
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()),
-  );
-  return results;
+export interface ArticleRow {
+  content: string;
+  feedId: number;
+  id: number;
+  isRead: boolean;
+  isStarred: boolean;
+  lastChecked: Date;
+  link: string;
+  publicationDate: Date;
+  title: string;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ArticleRow = {
-  id: number;
-  title: string;
-  link: string;
-  content: string;
-  publicationDate: Date;
-  feedId: number;
-  lastChecked: Date;
-  isRead: boolean;
-  isStarred: boolean;
-};
-
-type RankedRow = {
-  id: unknown;
-  title: unknown;
-  link: unknown;
+interface RankedRow extends Record<string, unknown> {
   content: unknown;
-  publicationDate: unknown;
   feedId: unknown;
-  lastChecked: unknown;
+  id: unknown;
   isRead: unknown;
   isStarred: unknown;
-};
-
-type RefreshDecision = {
-  url: string;
-  decision:
-    | "missing-feed-record"
-    | "skip-refresh-flag"
-    | "refresh-force"
-    | "force-cooldown-use-cache"
-    | "refresh-stale"
-    | "use-cache";
-  lastFetched?: Date;
-};
-
-// ─── Step 1–3: Ownership + feed record resolution ────────────────────────────
-
-/**
- * Verifies ownership of the requested URLs, loads (or creates) their Feed
- * records, and returns the allowed URL list with the feed-by-URL map.
- * Returns null when no URLs are owned by the user.
- *
- * Uses a single JOIN query to resolve both ownership and feed records in one
- * DB round-trip (previously two separate queries).
- */
-export async function resolveAuthorizedFeedRecords(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  feedUrls: string[],
-): Promise<{
-  allowedUrls: string[];
-  feedByUrl: Map<string, FeedRecord>;
-} | null> {
-  // Single query: ownership check + feed record load via LEFT JOIN.
-  const joinedRows = await db
-    .select({
-      sourceUrl: feedSources.url,
-      feedId: feeds.id,
-      feedUrl: feeds.url,
-      lastFetched: feeds.lastFetched,
-      lastFetchError: feeds.lastFetchError,
-    })
-    .from(feedSources)
-    .leftJoin(feeds, eq(feeds.url, feedSources.url))
-    .where(
-      and(
-        eq(feedSources.userId, userId),
-        eq(feedSources.enabled, true),
-        inArray(feedSources.url, feedUrls),
-      ),
-    );
-
-  if (joinedRows.length === 0) return null;
-
-  const allowedUrls = feedUrls.filter((u) =>
-    joinedRows.some((r) => r.sourceUrl === u),
-  );
-  if (allowedUrls.length === 0) return null;
-
-  const feedByUrl = new Map<string, FeedRecord>();
-  for (const row of joinedRows) {
-    if (
-      row.feedId !== null &&
-      row.feedUrl !== null &&
-      row.lastFetched !== null
-    ) {
-      feedByUrl.set(row.sourceUrl, {
-        id: row.feedId,
-        url: row.feedUrl,
-        lastFetched: row.lastFetched,
-        lastFetchError: row.lastFetchError,
-      });
-    }
-  }
-
-  const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
-  if (missingUrls.length > 0) {
-    // Insert missing feed records and get them back in one round-trip.
-    // onConflictDoUpdate with a no-op SET guarantees RETURNING always fires
-    // even when a concurrent insert beat us to it (race-safe).
-    const newFeeds = await db
-      .insert(feeds)
-      .values(missingUrls.map((url) => ({ url })))
-      .onConflictDoUpdate({
-        target: feeds.url,
-        set: { url: sql`excluded.url` },
-      })
-      .returning(feedRecordFields);
-
-    for (const f of newFeeds) feedByUrl.set(f.url, f);
-  }
-
-  return { allowedUrls, feedByUrl };
+  lastChecked: unknown;
+  link: unknown;
+  publicationDate: unknown;
+  title: unknown;
 }
 
-// ─── Step 3b: Refresh decisions (for diagnostics) ────────────────────────────
+interface RefreshDecision {
+  decision:
+    | "force-cooldown-use-cache"
+    | "missing-feed-record"
+    | "refresh-force"
+    | "refresh-stale"
+    | "skip-refresh-flag"
+    | "use-cache";
+  lastFetched?: Date;
+  url: string;
+}
 
 export function buildRefreshPlan(
   feedByUrl: Map<string, FeedRecord>,
@@ -172,31 +68,31 @@ export function buildRefreshPlan(
 ): RefreshDecision[] {
   return allowedUrls.map((url) => {
     const feed = feedByUrl.get(url);
-    if (!feed) return { url, decision: "missing-feed-record" };
-    if (skipRefresh) return { url, decision: "skip-refresh-flag" };
+    if (!feed) return { decision: "missing-feed-record", url };
+    if (skipRefresh) return { decision: "skip-refresh-flag", url };
 
     const isStale = shouldRefreshFeed(feed.lastFetched);
     const canForceRefresh = shouldForceRefreshFeed(feed.lastFetched);
 
     if (forceRefresh && (canForceRefresh || feed.lastFetchError !== null)) {
-      return { url, decision: "refresh-force", lastFetched: feed.lastFetched };
+      return { decision: "refresh-force", lastFetched: feed.lastFetched, url };
     }
     if (forceRefresh && !canForceRefresh) {
       return {
-        url,
         decision: "force-cooldown-use-cache",
         lastFetched: feed.lastFetched,
+        url,
       };
     }
     return {
-      url,
       decision: isStale ? "refresh-stale" : "use-cache",
       lastFetched: feed.lastFetched,
+      url,
     };
   });
 }
 
-// ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
+// ─── Step 1–3: Ownership + feed record resolution ────────────────────────────
 
 /**
  * Runs all stale feed refreshes concurrently and surfaces both fresh and
@@ -210,9 +106,9 @@ export async function executeParallelRefreshes(
   skipRefresh: boolean,
   forceRefresh: boolean,
 ): Promise<{
+  cooldownLimitedCount: number;
   errors: Map<string, string>;
   refreshedCount: number;
-  cooldownLimitedCount: number;
   refreshedUrls: Set<string>;
 }> {
   const upstreamErrors = new Map<string, string>();
@@ -245,7 +141,7 @@ export async function executeParallelRefreshes(
     }
 
     if (staleFeeds.length > 0) {
-      const concurrency: number = CONFIG.FEED_BATCH_CONCURRENCY ?? 8;
+      const concurrency: number = CONFIG.FEED_BATCH_CONCURRENCY;
       const results = await settledWithConcurrency(
         staleFeeds.map((feed) => () => refreshFeedFromUpstream(db, feed)),
         concurrency,
@@ -265,8 +161,8 @@ export async function executeParallelRefreshes(
               : String(settlement.reason);
           upstreamErrors.set(url, reason);
           logger.warn("Unexpected refresh settlement rejection", {
-            url,
             reason,
+            url,
           });
         }
       }
@@ -281,14 +177,77 @@ export async function executeParallelRefreshes(
   }
 
   return {
+    cooldownLimitedCount,
     errors: upstreamErrors,
     refreshedCount: refreshedUrls.size,
-    cooldownLimitedCount,
     refreshedUrls,
   };
 }
 
-// ─── Step 5: Query articles ───────────────────────────────────────────────────
+// ─── Step 3b: Refresh decisions (for diagnostics) ────────────────────────────
+
+export function mapRowsToArticleMap(
+  rows: RankedRow[],
+  feedByUrl: Map<string, FeedRecord>,
+  allowedUrls: string[],
+): Map<string, ArticleRow[]> {
+  const idToUrl = new Map<number, string>(
+    allowedUrls
+      .map((u): [number, string] | null => {
+        const id = feedByUrl.get(u)?.id;
+        return id !== undefined ? [id, u] : null;
+      })
+      .filter((e): e is [number, string] => e !== null),
+  );
+
+  const result = new Map<string, ArticleRow[]>(allowedUrls.map((u) => [u, []]));
+
+  for (const row of rows) {
+    // SECURITY: Validate row shape before coercion to prevent NaN/undefined injection
+    if (!isValidRankedRow(row)) {
+      logger.warn("Skipping malformed article row from database", {
+        rowKeys: Object.keys(row),
+      });
+      continue;
+    }
+
+    const url = idToUrl.get(Number(row.feedId));
+    if (!url) continue;
+
+    const id = Number(row.id);
+    const feedId = Number(row.feedId);
+
+    // Additional safety: reject NaN after coercion
+    if (!Number.isFinite(id) || !Number.isFinite(feedId)) {
+      logger.warn("Skipping article with invalid numeric ID", {
+        feedId: row.feedId,
+        id: row.id,
+      });
+      continue;
+    }
+
+    const articlesForUrl = result.get(url);
+    if (!articlesForUrl) continue;
+
+    articlesForUrl.push({
+      content: normalizeArticleHtmlSpacing(
+        typeof row.content === "string" ? row.content : "",
+      ),
+      feedId,
+      id,
+      isRead: Boolean(row.isRead),
+      isStarred: Boolean(row.isStarred),
+      lastChecked: new Date(row.lastChecked as Date | string),
+      link: typeof row.link === "string" ? row.link : "",
+      publicationDate: new Date(row.publicationDate as Date | string),
+      title: typeof row.title === "string" ? row.title : "",
+    });
+  }
+
+  return result;
+}
+
+// ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
 
 export async function queryTopArticlesPerFeed(
   db: ReturnType<typeof getDb>,
@@ -327,6 +286,86 @@ export async function queryTopArticlesPerFeed(
     : (queryResult as { rows: RankedRow[] }).rows;
 }
 
+// ─── Step 5: Query articles ───────────────────────────────────────────────────
+
+/**
+ * Verifies ownership of the requested URLs, loads (or creates) their Feed
+ * records, and returns the allowed URL list with the feed-by-URL map.
+ * Returns null when no URLs are owned by the user.
+ *
+ * Uses a single JOIN query to resolve both ownership and feed records in one
+ * DB round-trip (previously two separate queries).
+ */
+export async function resolveAuthorizedFeedRecords(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  feedUrls: string[],
+): Promise<null | {
+  allowedUrls: string[];
+  feedByUrl: Map<string, FeedRecord>;
+}> {
+  // Single query: ownership check + feed record load via LEFT JOIN.
+  const joinedRows = await db
+    .select({
+      feedId: feeds.id,
+      feedUrl: feeds.url,
+      lastFetched: feeds.lastFetched,
+      lastFetchError: feeds.lastFetchError,
+      sourceUrl: feedSources.url,
+    })
+    .from(feedSources)
+    .leftJoin(feeds, eq(feeds.url, feedSources.url))
+    .where(
+      and(
+        eq(feedSources.userId, userId),
+        eq(feedSources.enabled, true),
+        inArray(feedSources.url, feedUrls),
+      ),
+    );
+
+  if (joinedRows.length === 0) return null;
+
+  const allowedUrls = feedUrls.filter((u) =>
+    joinedRows.some((r) => r.sourceUrl === u),
+  );
+  if (allowedUrls.length === 0) return null;
+
+  const feedByUrl = new Map<string, FeedRecord>();
+  for (const row of joinedRows) {
+    if (
+      row.feedId !== null &&
+      row.feedUrl !== null &&
+      row.lastFetched !== null
+    ) {
+      feedByUrl.set(row.sourceUrl, {
+        id: row.feedId,
+        lastFetched: row.lastFetched,
+        lastFetchError: row.lastFetchError,
+        url: row.feedUrl,
+      });
+    }
+  }
+
+  const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
+  if (missingUrls.length > 0) {
+    // Insert missing feed records and get them back in one round-trip.
+    // onConflictDoUpdate with a no-op SET guarantees RETURNING always fires
+    // even when a concurrent insert beat us to it (race-safe).
+    const newFeeds = await db
+      .insert(feeds)
+      .values(missingUrls.map((url) => ({ url })))
+      .onConflictDoUpdate({
+        set: { url: sql`excluded.url` },
+        target: feeds.url,
+      })
+      .returning(feedRecordFields);
+
+    for (const f of newFeeds) feedByUrl.set(f.url, f);
+  }
+
+  return { allowedUrls, feedByUrl };
+}
+
 // ─── Step 5b: Result assembly ─────────────────────────────────────────────────
 
 function isValidRankedRow(row: RankedRow): boolean {
@@ -348,58 +387,27 @@ function isValidRankedRow(row: RankedRow): boolean {
   );
 }
 
-export function mapRowsToArticleMap(
-  rows: RankedRow[],
-  feedByUrl: Map<string, FeedRecord>,
-  allowedUrls: string[],
-): Map<string, ArticleRow[]> {
-  const idToUrl = new Map<number, string>(
-    allowedUrls
-      .map((u): [number, string] | null => {
-        const id = feedByUrl.get(u)?.id;
-        return id !== undefined ? [id, u] : null;
-      })
-      .filter((e): e is [number, string] => e !== null),
-  );
+async function settledWithConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const results = [] as PromiseSettledResult<T>[];
+  results.length = tasks.length;
+  let nextIndex = 0;
 
-  const result = new Map<string, ArticleRow[]>(allowedUrls.map((u) => [u, []]));
-
-  for (const row of rows) {
-    // SECURITY: Validate row shape before coercion to prevent NaN/undefined injection
-    if (!isValidRankedRow(row)) {
-      logger.warn("Skipping malformed article row from database", {
-        rowKeys: Object.keys(row),
-      });
-      continue;
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const i = nextIndex++;
+      try {
+        results[i] = { status: "fulfilled", value: await tasks[i]() };
+      } catch (reason) {
+        results[i] = { reason, status: "rejected" };
+      }
     }
-
-    const url = idToUrl.get(Number(row.feedId));
-    if (!url) continue;
-
-    const id = Number(row.id);
-    const feedId = Number(row.feedId);
-
-    // Additional safety: reject NaN after coercion
-    if (!Number.isFinite(id) || !Number.isFinite(feedId)) {
-      logger.warn("Skipping article with invalid numeric ID", {
-        id: row.id,
-        feedId: row.feedId,
-      });
-      continue;
-    }
-
-    result.get(url)!.push({
-      id,
-      title: String(row.title ?? ""),
-      link: String(row.link ?? ""),
-      content: normalizeArticleHtmlSpacing(String(row.content ?? "")),
-      publicationDate: new Date(row.publicationDate as string | Date),
-      feedId,
-      lastChecked: new Date(row.lastChecked as string | Date),
-      isRead: Boolean(row.isRead),
-      isStarred: Boolean(row.isStarred),
-    });
   }
 
-  return result;
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()),
+  );
+  return results;
 }

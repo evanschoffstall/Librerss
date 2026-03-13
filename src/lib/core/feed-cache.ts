@@ -12,43 +12,30 @@
  *   - Force-refresh request (caller bypasses cache)
  */
 
-import { CONFIG } from "@/lib/config";
 import type { ArticleRow } from "./feed-batch-pipeline";
+
+import { CONFIG } from "@/lib/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type CachedBatchResult = {
+interface CachedBatchResult {
   articles: Map<string, ArticleRow[]>;
-  errors: Map<string, string>;
-  lastFetchedByUrl: Map<string, Date>;
   /** Epoch-ms when this entry was written. */
   cachedAt: number;
-};
+  errors: Map<string, string>;
+  lastFetchedByUrl: Map<string, Date>;
+}
 
-type CacheEntry = {
+interface CacheEntry {
   result: CachedBatchResult;
   /** Sorted, joined URL key for quick comparison. */
   urlKey: string;
-};
+}
 
 // ─── Cache store ──────────────────────────────────────────────────────────────
 
 const userCaches = new Map<number, Map<string, CacheEntry>>();
 const MAX_ENTRIES_PER_USER = 8;
-
-function buildUrlKey(urls: string[]): string {
-  return [...urls].sort().join("\0");
-}
-
-function ttlMs(): number {
-  return (CONFIG.FEED_CACHE_TTL_MINUTES as number) * 60_000;
-}
-
-function isFresh(entry: CacheEntry): boolean {
-  return Date.now() - entry.result.cachedAt < ttlMs();
-}
-
-// ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Returns a cached batch result if one exists and is still within TTL.
@@ -68,6 +55,16 @@ export function getCachedBatch(
     return null;
   }
   return entry.result;
+}
+
+/**
+ * Drops all cached batches for a user.
+ * Call after any mutation that changes a user's feeds or articles:
+ * add/delete/rename feed source, category change, article status change
+ * that could affect the returned data, or upstream refresh.
+ */
+export function invalidateUserCache(userId: number): void {
+  userCaches.delete(userId);
 }
 
 /** Stores a batch result in the cache. Evicts oldest entries when full. */
@@ -91,17 +88,21 @@ export function setCachedBatch(
   }
 
   userMap.set(key, {
-    urlKey: key,
     result: { ...result, cachedAt: Date.now() },
+    urlKey: key,
   });
 }
 
-/**
- * Drops all cached batches for a user.
- * Call after any mutation that changes a user's feeds or articles:
- * add/delete/rename feed source, category change, article status change
- * that could affect the returned data, or upstream refresh.
- */
-export function invalidateUserCache(userId: number): void {
-  userCaches.delete(userId);
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+function buildUrlKey(urls: string[]): string {
+  return [...urls].sort().join("\0");
+}
+
+function isFresh(entry: CacheEntry): boolean {
+  return Date.now() - entry.result.cachedAt < ttlMs();
+}
+
+function ttlMs(): number {
+  return CONFIG.FEED_CACHE_TTL_MINUTES * 60_000;
 }

@@ -1,19 +1,20 @@
 import { expect, test } from "bun:test";
+
 import { buildRefreshPlan } from "../src/lib/core/feed-batch-pipeline";
 import type { FeedRecord } from "../src/lib/core/feed-refresh";
 
 test("buildRefreshPlan returns per-feed refresh decisions", () => {
   const skippedFeed: FeedRecord = {
     id: 1,
-    url: "https://skip.example/feed.xml",
     lastFetched: new Date(0),
     lastFetchError: null,
+    url: "https://skip.example/feed.xml",
   };
   const forceRetryFeed: FeedRecord = {
     id: 2,
-    url: "https://retry.example/feed.xml",
     lastFetched: new Date(),
     lastFetchError: "upstream failed",
+    url: "https://retry.example/feed.xml",
   };
 
   expect(
@@ -25,20 +26,20 @@ test("buildRefreshPlan returns per-feed refresh decisions", () => {
     ),
   ).toEqual([
     {
-      url: skippedFeed.url,
       decision: "skip-refresh-flag",
+      url: skippedFeed.url,
     },
     {
-      url: "https://missing.example/feed.xml",
       decision: "missing-feed-record",
+      url: "https://missing.example/feed.xml",
     },
   ]);
 
   expect(
     buildRefreshPlan(
       new Map([
-        [skippedFeed.url, skippedFeed],
         [forceRetryFeed.url, forceRetryFeed],
+        [skippedFeed.url, skippedFeed],
       ]),
       [skippedFeed.url, forceRetryFeed.url],
       false,
@@ -46,14 +47,14 @@ test("buildRefreshPlan returns per-feed refresh decisions", () => {
     ),
   ).toEqual([
     {
-      url: skippedFeed.url,
       decision: "refresh-force",
       lastFetched: skippedFeed.lastFetched,
+      url: skippedFeed.url,
     },
     {
-      url: forceRetryFeed.url,
       decision: "refresh-force",
       lastFetched: forceRetryFeed.lastFetched,
+      url: forceRetryFeed.url,
     },
   ]);
 });

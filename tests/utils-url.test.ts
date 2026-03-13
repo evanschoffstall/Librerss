@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   DEFAULT_CATEGORY_LABEL,
   findCategoryByLabel,
@@ -10,6 +12,7 @@ import {
 } from "@/lib/utils/categories";
 import {
   getUrlHostnameLabel,
+  injectProxyCredentials,
   isValidUrl,
   normalizeDistinctUrlList,
   normalizeFeedUrl,
@@ -17,9 +20,7 @@ import {
   toCategoryLookupKey,
   tryGetUrlHostname,
   tryNormalizeFeedUrl,
-  injectProxyCredentials,
 } from "@/lib/utils/url";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -752,7 +753,7 @@ describe("lib/utils/categories", () => {
   });
 
   test("normalizeCategory returns default for empty input", async () => {
-    const { normalizeCategory, DEFAULT_CATEGORY_LABEL } =
+    const { DEFAULT_CATEGORY_LABEL, normalizeCategory } =
       await import("@/lib/utils/categories");
     expect(normalizeCategory("")).toBe(DEFAULT_CATEGORY_LABEL);
     expect(normalizeCategory(null)).toBe(DEFAULT_CATEGORY_LABEL);
@@ -761,7 +762,7 @@ describe("lib/utils/categories", () => {
   });
 
   test("normalizeCategory normalizes uncategorized variants", async () => {
-    const { normalizeCategory, DEFAULT_CATEGORY_LABEL } =
+    const { DEFAULT_CATEGORY_LABEL, normalizeCategory } =
       await import("@/lib/utils/categories");
     expect(normalizeCategory("uncategorized")).toBe(DEFAULT_CATEGORY_LABEL);
     expect(normalizeCategory("Uncategorised")).toBe(DEFAULT_CATEGORY_LABEL);
@@ -796,8 +797,8 @@ describe("lib/utils/categories", () => {
   test("findCategoryByLabel finds matching category node", async () => {
     const { findCategoryByLabel } = await import("@/lib/utils/categories");
     const categories = [
-      { key: "tech", label: "Tech", feedSources: [] },
-      { key: "news", label: "News", feedSources: [] },
+      { feedSources: [], key: "tech", label: "Tech" },
+      { feedSources: [], key: "news", label: "News" },
     ];
     const result = findCategoryByLabel(categories, "tech");
     expect(result?.label).toBe("Tech");
@@ -806,8 +807,8 @@ describe("lib/utils/categories", () => {
   test("findCategoryByLabel returns undefined when not found", async () => {
     const { findCategoryByLabel } = await import("@/lib/utils/categories");
     const categories = [
-      { key: "tech", label: "Tech", feedSources: [] },
-      { key: "news", label: "News", feedSources: [] },
+      { feedSources: [], key: "tech", label: "Tech" },
+      { feedSources: [], key: "news", label: "News" },
     ];
     const result = findCategoryByLabel(categories, "Sports");
     expect(result).toBeUndefined();

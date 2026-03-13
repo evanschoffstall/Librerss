@@ -1,3 +1,6 @@
+import { and, eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import {
   asTrimmedString,
   jsonError,
@@ -24,81 +27,24 @@ import {
 } from "@/lib/server";
 import { parseDateOrNull } from "@/lib/utils/dates";
 import { isValidUrl } from "@/lib/utils/url";
-import { and, eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-type ArticlesRouteDeps = {
+interface ArticlesRouteDeps {
+  getDbFn?: typeof getDb;
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  logAndRespondErrorFn?: typeof logAndRespondError;
   requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
-  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
-  getDbFn?: typeof getDb;
-  logAndRespondErrorFn?: typeof logAndRespondError;
-};
-
-type CreateArticlePayload = {
-  rawTitle: string;
-  link: string;
-  rawContent: string;
-  feedId: number;
-  publicationDate: Date;
-  lastChecked: Date;
-};
-
-function parseCreateArticleDates(
-  payload: Record<string, unknown>,
-): { publicationDate: Date; lastChecked: Date } | Response {
-  const publicationDate = payload.publication_date
-    ? parseDateOrNull(payload.publication_date)
-    : new Date();
-  const lastChecked = payload.last_checked
-    ? parseDateOrNull(payload.last_checked)
-    : new Date();
-
-  if (!publicationDate || !lastChecked) {
-    return jsonError(
-      "publication_date and last_checked must be valid ISO dates",
-      400,
-    );
-  }
-
-  return { publicationDate, lastChecked };
 }
 
-function parseCreateArticlePayload(
-  payload: Record<string, unknown>,
-): CreateArticlePayload | Response {
-  const rawTitle = asTrimmedString(payload.title);
-  const link = asTrimmedString(payload.link);
-  const rawContent = typeof payload.content === "string" ? payload.content : "";
-  const feedId = parsePositiveInt(payload.feed_id);
-
-  if (!rawTitle) {
-    return jsonError("Title is required", 400);
-  }
-
-  if (!link || !isValidUrl(link)) {
-    return jsonError("A valid article link is required", 400);
-  }
-
-  if (!feedId) {
-    return jsonError("A valid feed_id is required", 400);
-  }
-
-  const parsedDates = parseCreateArticleDates(payload);
-  if (parsedDates instanceof Response) {
-    return parsedDates;
-  }
-
-  return {
-    rawTitle,
-    link,
-    rawContent,
-    feedId,
-    publicationDate: parsedDates.publicationDate,
-    lastChecked: parsedDates.lastChecked,
-  };
+interface CreateArticlePayload {
+  feedId: number;
+  lastChecked: Date;
+  link: string;
+  publicationDate: Date;
+  rawContent: string;
+  rawTitle: string;
 }
 
 export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
@@ -170,7 +116,7 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
 
     const db = getDbForRoute();
 
-    const [ownedFeed] = await db
+    const ownedFeeds = await db
       .select({ id: feeds.id })
       .from(feeds)
       .innerJoin(
@@ -184,24 +130,79 @@ export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
       .where(eq(feeds.id, payload.feedId))
       .limit(1);
 
-    if (!ownedFeed) {
+    if (ownedFeeds.length === 0) {
       return jsonError("Feed not found for authenticated user", 403);
     }
 
-    const [newArticle] = await db
+    const newArticles = await db
       .insert(articles)
       .values({
-        title,
-        link: payload.link,
-        publicationDate: payload.publicationDate,
         content,
         feedId: payload.feedId,
         lastChecked: payload.lastChecked,
+        link: payload.link,
+        publicationDate: payload.publicationDate,
+        title,
       })
       .returning();
 
-    return NextResponse.json(newArticle);
+    return NextResponse.json(newArticles[0]);
   } catch (error) {
     return respondError("Articles POST error", error);
   }
+}
+
+function parseCreateArticleDates(
+  payload: Record<string, unknown>,
+): Response | { lastChecked: Date; publicationDate: Date } {
+  const publicationDate = payload.publication_date
+    ? parseDateOrNull(payload.publication_date)
+    : new Date();
+  const lastChecked = payload.last_checked
+    ? parseDateOrNull(payload.last_checked)
+    : new Date();
+
+  if (!publicationDate || !lastChecked) {
+    return jsonError(
+      "publication_date and last_checked must be valid ISO dates",
+      400,
+    );
+  }
+
+  return { lastChecked, publicationDate };
+}
+
+function parseCreateArticlePayload(
+  payload: Record<string, unknown>,
+): CreateArticlePayload | Response {
+  const rawTitle = asTrimmedString(payload.title);
+  const link = asTrimmedString(payload.link);
+  const rawContent = typeof payload.content === "string" ? payload.content : "";
+  const feedId = parsePositiveInt(payload.feed_id);
+
+  if (!rawTitle) {
+    return jsonError("Title is required", 400);
+  }
+
+  if (!link || !isValidUrl(link)) {
+    return jsonError("A valid article link is required", 400);
+  }
+
+  if (!feedId) {
+    return jsonError("A valid feed_id is required", 400);
+  }
+
+  const parsedDates = parseCreateArticleDates(payload);
+  if (parsedDates instanceof Response) {
+    return parsedDates;
+  }
+
+  return {
+    feedId,
+    lastChecked: parsedDates.lastChecked,
+    link,
+    publicationDate: parsedDates.publicationDate,
+    rawContent,
+    rawTitle,
+  };
 }

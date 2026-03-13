@@ -1,56 +1,18 @@
+import { sql } from "drizzle-orm";
+
 import { getDb } from "@/lib/db/db";
 import { articleStatuses } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { sql } from "drizzle-orm";
 
 // ── ArticleStatus table availability ──────────────────────────────────────────
 
-let articleStatusesTableState: "unknown" | "available" | "missing" = "unknown";
+let articleStatusesTableState: "available" | "missing" | "unknown" = "unknown";
 let warnedMissingArticleStatusesTable = false;
 
-function isMissingArticleStatusesTableError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const candidate = error as {
-    code?: string;
-    message?: string;
-    cause?: unknown;
-  };
-
-  const hasMissingRelationCode = candidate.code === "42P01";
-  const mentionsArticleStatuses =
-    typeof candidate.message === "string" &&
-    candidate.message.toLowerCase().includes("articlestatus");
-
-  if (hasMissingRelationCode && mentionsArticleStatuses) {
-    return true;
-  }
-
-  return isMissingArticleStatusesTableError(candidate.cause);
-}
-
-function warnMissingArticleStatusesTable(): void {
-  if (warnedMissingArticleStatusesTable) {
-    return;
-  }
-
-  warnedMissingArticleStatusesTable = true;
-  logger.warn(
-    "ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
-  );
-}
-
-export function resetArticleStatusTableStateForTests(): void {
-  articleStatusesTableState = "unknown";
-  warnedMissingArticleStatusesTable = false;
-}
-
-type ArticleStatusDeps = {
+interface ArticleStatusDeps {
   db?: ReturnType<typeof getDb>;
   warn?: (message: string) => void;
-};
+}
 
 export async function canUseArticleStatusesTable(
   deps?: ArticleStatusDeps,
@@ -88,7 +50,10 @@ export async function canUseArticleStatusesTable(
   }
 }
 
-// ── Batch upsert ──────────────────────────────────────────────────────────────
+export function resetArticleStatusTableStateForTests(): void {
+  articleStatusesTableState = "unknown";
+  warnedMissingArticleStatusesTable = false;
+}
 
 export async function upsertArticleStatuses(
   userId: number,
@@ -112,11 +77,11 @@ export async function upsertArticleStatuses(
   // `changes`, preserve the existing value via COALESCE on the excluded row
   // and the current DB row (defaulting to false for new rows).
   const values = articleIds.map((articleId) => ({
-    userId,
     articleId,
     isRead: changes.isRead ?? false,
     isStarred: changes.isStarred ?? false,
     updatedAt: now,
+    userId,
   }));
 
   // Process in chunks of 500 to stay within PG parameter limits.
@@ -131,19 +96,49 @@ export async function upsertArticleStatuses(
         .insert(articleStatuses)
         .values(chunk)
         .onConflictDoUpdate({
-          target: [articleStatuses.userId, articleStatuses.articleId],
           set: {
-            isRead:
-              changes.isRead !== undefined
-                ? changes.isRead
-                : sql`${articleStatuses.isRead}`,
-            isStarred:
-              changes.isStarred !== undefined
-                ? changes.isStarred
-                : sql`${articleStatuses.isStarred}`,
+            isRead: changes.isRead ?? sql`${articleStatuses.isRead}`,
+            isStarred: changes.isStarred ?? sql`${articleStatuses.isStarred}`,
             updatedAt: now,
           },
+          target: [articleStatuses.userId, articleStatuses.articleId],
         });
     }
   });
+}
+
+function isMissingArticleStatusesTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    cause?: unknown;
+    code?: string;
+    message?: string;
+  };
+
+  const hasMissingRelationCode = candidate.code === "42P01";
+  const mentionsArticleStatuses =
+    typeof candidate.message === "string" &&
+    candidate.message.toLowerCase().includes("articlestatus");
+
+  if (hasMissingRelationCode && mentionsArticleStatuses) {
+    return true;
+  }
+
+  return isMissingArticleStatusesTableError(candidate.cause);
+}
+
+// ── Batch upsert ──────────────────────────────────────────────────────────────
+
+function warnMissingArticleStatusesTable(): void {
+  if (warnedMissingArticleStatusesTable) {
+    return;
+  }
+
+  warnedMissingArticleStatusesTable = true;
+  logger.warn(
+    "ArticleStatus table is missing; read/starred state will be treated as unavailable until database schema is provisioned.",
+  );
 }

@@ -3,20 +3,21 @@
  * Tests for src/lib/api/service.ts
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   resetApiClientForTesting,
   setApiClientForTesting,
 } from "@/lib/api/http";
 import { ArticleService, AuthService, FeedService } from "@/lib/api/services";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Create a mock axios instance
 const mockAxiosInstance: any = {
+  delete: mock(async () => ({ data: {} })),
   get: mock(async () => ({ data: [] })),
+  patch: mock(async () => ({ data: {} })),
   post: mock(async () => ({ data: {} })),
   put: mock(async () => ({ data: {} })),
-  patch: mock(async () => ({ data: {} })),
-  delete: mock(async () => ({ data: {} })),
 };
 
 function resetMockAxiosInstance() {
@@ -39,10 +40,10 @@ describe("AuthService", () => {
 
   test("getSession retrieves user session", async () => {
     const mockSession = {
-      user: { id: 1, email: "test@example.com" },
-      authenticated: true,
       allowSignup: false,
+      authenticated: true,
       usePlaceholderData: false,
+      user: { email: "test@example.com", id: 1 },
     };
     (mockAxiosInstance.get as any) = mock(async () => ({ data: mockSession }));
 
@@ -53,7 +54,7 @@ describe("AuthService", () => {
   });
 
   test("login authenticates user", async () => {
-    const mockUser = { id: 1, email: "test@example.com" };
+    const mockUser = { email: "test@example.com", id: 1 };
     mockAxiosInstance.post = mock(async () => ({ data: { user: mockUser } }));
 
     const user = await AuthService.login("test@example.com", "password123");
@@ -66,7 +67,7 @@ describe("AuthService", () => {
   });
 
   test("signup creates new user", async () => {
-    const mockUser = { id: 1, email: "newuser@example.com" };
+    const mockUser = { email: "newuser@example.com", id: 1 };
     mockAxiosInstance.post = mock(async () => ({ data: { user: mockUser } }));
 
     const user = await AuthService.signup("newuser@example.com", "password123");
@@ -121,22 +122,22 @@ describe("FeedService", () => {
   test("getFeed retrieves single feed articles", async () => {
     const mockArticles = [
       {
-        id: 1,
-        title: "Article 1",
-        link: "https://example.com/1",
         content: "Content 1",
-        publicationDate: new Date("2024-01-01"),
         feedId: 1,
+        id: 1,
         lastChecked: new Date("2024-01-01"),
+        link: "https://example.com/1",
+        publicationDate: new Date("2024-01-01"),
+        title: "Article 1",
       },
       {
-        id: 2,
-        title: "Article 2",
-        link: "https://example.com/2",
         content: "Content 2",
-        publicationDate: new Date("2024-01-02"),
         feedId: 1,
+        id: 2,
         lastChecked: new Date("2024-01-02"),
+        link: "https://example.com/2",
+        publicationDate: new Date("2024-01-02"),
+        title: "Article 2",
       },
     ];
     (mockAxiosInstance.get as any) = mock(async () => ({ data: mockArticles }));
@@ -174,14 +175,14 @@ describe("FeedService", () => {
   test("getFeedsBatch fetches multiple feeds", async () => {
     const mockBatch = [
       {
-        url: "https://example.com/feed1",
         articles: [{ id: 1, title: "Article 1" }],
         ok: true,
+        url: "https://example.com/feed1",
       },
       {
-        url: "https://example.com/feed2",
         articles: [{ id: 2, title: "Article 2" }],
         ok: true,
+        url: "https://example.com/feed2",
       },
     ];
     mockAxiosInstance.post = mock(async () => ({ data: mockBatch }));
@@ -287,9 +288,9 @@ describe("FeedService", () => {
     mockAxiosInstance.post = mock(async () => ({ data: newFeed }));
 
     await FeedService.createFeedSource({
+      category: "Technology",
       name: "Tech Feed",
       url: "https://example.com/feed",
-      category: "Technology",
     });
 
     const callArgs = mockAxiosInstance.post.mock.calls[0];
@@ -422,22 +423,22 @@ describe("ArticleService", () => {
   test("getArticles retrieves all articles", async () => {
     const mockArticles = [
       {
-        id: 1,
-        title: "Article 1",
-        link: "https://example.com/1",
         content: "Content 1",
-        publicationDate: new Date("2024-01-01"),
         feedId: 1,
+        id: 1,
         lastChecked: new Date("2024-01-01"),
+        link: "https://example.com/1",
+        publicationDate: new Date("2024-01-01"),
+        title: "Article 1",
       },
       {
-        id: 2,
-        title: "Article 2",
-        link: "https://example.com/2",
         content: "Content 2",
-        publicationDate: new Date("2024-01-02"),
         feedId: 1,
+        id: 2,
         lastChecked: new Date("2024-01-02"),
+        link: "https://example.com/2",
+        publicationDate: new Date("2024-01-02"),
+        title: "Article 2",
       },
     ];
     mockAxiosInstance.get = mock(async () => ({ data: mockArticles }));
@@ -478,27 +479,6 @@ describe("ArticleService", () => {
     );
 
     expect(content).toBe("");
-  });
-
-  test("getReaderStream retrieves stream articles", async () => {
-    mockAxiosInstance.get = mock(async () => ({
-      data: {
-        items: [
-          {
-            id: "1",
-            title: "Article 1",
-            canonical: [{ href: "https://example.com/1" }],
-            published: 1609459200,
-          },
-        ],
-      },
-    }));
-
-    const articles = await ArticleService.getReaderStream(
-      "user/1/state/com.google/reading-list",
-    );
-
-    expect(articles.length).toBeGreaterThanOrEqual(0);
   });
 
   test("markAllRead marks stream as read", async () => {
@@ -558,19 +538,6 @@ describe("ArticleService", () => {
     );
   });
 
-  test("getReaderStream constructs correct URL", async () => {
-    mockAxiosInstance.get = mock(async () => ({ data: { items: [] } }));
-
-    await ArticleService.getReaderStream("user/1/state/com.google/starred");
-
-    const callArgs = mockAxiosInstance.get.mock.calls[0];
-    expect(callArgs[0]).toContain(
-      "/api/greader.php/reader/api/0/stream/contents/",
-    );
-    expect(callArgs[0]).toContain("output=json");
-    expect(callArgs[0]).toContain("n=250");
-  });
-
   test("extractArticleContent handles network errors", async () => {
     mockAxiosInstance.post = mock(async () => {
       throw new Error("Network error");
@@ -603,9 +570,9 @@ describe("Service Error Handling", () => {
   test("services handle server errors", async () => {
     mockAxiosInstance.post = mock(async () => {
       const error = new Error("Server error") as Error & {
-        response?: { status: number; data: { error: string } };
+        response?: { data: { error: string }; status: number };
       };
-      error.response = { status: 500, data: { error: "Server error" } };
+      error.response = { data: { error: "Server error" }, status: 500 };
       throw error;
     });
 
@@ -640,17 +607,17 @@ afterEach(() => {
 });
 
 const makeMockAxiosClient = (): {
+  delete: ReturnType<typeof mock>;
   get: ReturnType<typeof mock>;
+  patch: ReturnType<typeof mock>;
   post: ReturnType<typeof mock>;
   put: ReturnType<typeof mock>;
-  patch: ReturnType<typeof mock>;
-  delete: ReturnType<typeof mock>;
 } => ({
+  delete: mock(async () => ({ data: {} })),
   get: mock(async () => ({ data: {} })),
+  patch: mock(async () => ({ data: {} })),
   post: mock(async () => ({ data: {} })),
   put: mock(async () => ({ data: {} })),
-  patch: mock(async () => ({ data: {} })),
-  delete: mock(async () => ({ data: {} })),
 });
 
 describe("FeedService – renameFeedSource, setFeedSourceEnabled, getCategoryOrder", () => {
@@ -685,13 +652,13 @@ describe("FeedService – renameFeedSource, setFeedSourceEnabled, getCategoryOrd
 
   test("setFeedSourceEnabled patches /api/feeds with enabled flag", async () => {
     const mx = makeMockAxiosClient();
-    mx.patch = mock(async () => ({ data: { id: 3, enabled: false } }));
+    mx.patch = mock(async () => ({ data: { enabled: false, id: 3 } }));
     setApiClientForTesting(mx);
 
     const result = (await FeedService.setFeedSourceEnabled(3, false)) as any;
     expect(mx.patch).toHaveBeenCalledWith("/api/feeds", {
-      id: 3,
       enabled: false,
+      id: 3,
     });
     expect(result.enabled).toBe(false);
   });
@@ -699,7 +666,7 @@ describe("FeedService – renameFeedSource, setFeedSourceEnabled, getCategoryOrd
   test("updateFeedSettings patches /api/feeds with settings", async () => {
     const mx = makeMockAxiosClient();
     mx.patch = mock(async () => ({
-      data: { id: 7, extractionDisabled: true, proxyEnabled: false },
+      data: { extractionDisabled: true, id: 7, proxyEnabled: false },
     }));
     setApiClientForTesting(mx);
 
@@ -708,8 +675,8 @@ describe("FeedService – renameFeedSource, setFeedSourceEnabled, getCategoryOrd
       proxyEnabled: false,
     })) as any;
     expect(mx.patch).toHaveBeenCalledWith("/api/feeds", {
-      id: 7,
       extractionDisabled: true,
+      id: 7,
       proxyEnabled: false,
     });
     expect(result.extractionDisabled).toBe(true);
@@ -770,11 +737,11 @@ describe("ArticleService – getProxyStatus, testBotDetection", () => {
     const mx = makeMockAxiosClient();
     const results = [
       {
-        site: "example.com",
-        url: "https://example.com",
-        protection: "none",
-        success: true,
         blocked: false,
+        protection: "none",
+        site: "example.com",
+        success: true,
+        url: "https://example.com",
       },
     ];
     mx.post = mock(async () => ({ data: { results } }));
@@ -805,10 +772,10 @@ describe("AuthService", () => {
   test("getSession fetches /api/auth/session", async () => {
     const mx = makeMockAxiosClient();
     const session = {
-      authenticated: true,
-      user: { id: 1, email: "a@b.com", createdAt: new Date() },
       allowSignup: false,
+      authenticated: true,
       usePlaceholderData: false,
+      user: { createdAt: new Date(), email: "a@b.com", id: 1 },
     };
     mx.get = mock(async () => ({ data: session }));
     setApiClientForTesting(mx);
@@ -821,7 +788,7 @@ describe("AuthService", () => {
   test("login posts credentials and returns user", async () => {
     const mx = makeMockAxiosClient();
     mx.post = mock(async () => ({
-      data: { user: { id: 1, email: "user@example.com" } },
+      data: { user: { email: "user@example.com", id: 1 } },
     }));
     setApiClientForTesting(mx);
 
@@ -836,7 +803,7 @@ describe("AuthService", () => {
   test("signup posts credentials and returns user", async () => {
     const mx = makeMockAxiosClient();
     mx.post = mock(async () => ({
-      data: { user: { id: 2, email: "new@example.com" } },
+      data: { user: { email: "new@example.com", id: 2 } },
     }));
     setApiClientForTesting(mx);
 
@@ -858,21 +825,7 @@ describe("AuthService", () => {
   });
 });
 
-// ── api/services – ArticleService.getReaderStream ───────────────────────────
-
-describe("ArticleService – getReaderStream and markAllRead", () => {
-  test("getReaderStream fetches stream URL and maps items", async () => {
-    const mx = makeMockAxiosClient();
-    mx.get = mock(async () => ({ data: { items: [] } }));
-    setApiClientForTesting(mx);
-
-    const result = await ArticleService.getReaderStream(
-      "user/-/state/com.google/reading-list",
-    );
-    expect(Array.isArray(result)).toBe(true);
-    expect(mx.get).toHaveBeenCalledTimes(1);
-  });
-
+describe("ArticleService – markAllRead", () => {
   test("markAllRead posts to /api/articles/mark-all-read", async () => {
     const mx = makeMockAxiosClient();
     mx.post = mock(async () => ({ data: {} }));

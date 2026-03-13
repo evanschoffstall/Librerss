@@ -3,6 +3,8 @@
  * Tests for src/lib/core/feed-fetcher.ts
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   fetchAndCacheFeedArticles,
   fetchAndCacheFeedArticlesBatch,
@@ -17,10 +19,18 @@ import {
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-url-validator";
 import type { getDb } from "@/lib/db/db";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Mock dependencies
 const mockDb = {
+  insert: mock(() => ({
+    into: mock(() => ({
+      values: mock(() => ({
+        onConflictDoNothing: mock(() => ({
+          returning: mock(() => Promise.resolve([])),
+        })),
+      })),
+    })),
+  })),
   select: mock(() => ({
     from: mock(() => ({
       leftJoin: mock(() => ({
@@ -38,15 +48,9 @@ const mockDb = {
       })),
     })),
   })),
-  insert: mock(() => ({
-    into: mock(() => ({
-      values: mock(() => ({
-        onConflictDoNothing: mock(() => ({
-          returning: mock(() => Promise.resolve([])),
-        })),
-      })),
-    })),
-  })),
+  transaction: mock(async (callback: any) => {
+    return callback(mockDb);
+  }),
   update: mock(() => ({
     set: mock(() => ({
       where: mock(() => ({
@@ -54,46 +58,43 @@ const mockDb = {
       })),
     })),
   })),
-  transaction: mock(async (callback: any) => {
-    return callback(mockDb);
-  }),
 } as unknown as ReturnType<typeof getDb>;
 
 function createFeedRecord(overrides: Partial<FeedRecord> = {}): FeedRecord {
   return {
     id: 1,
-    url: "https://example.com/feed",
     lastFetched: new Date(Date.now() - 1000 * 60 * 60),
     lastFetchError: null,
+    url: "https://example.com/feed",
     ...overrides,
   };
 }
 
 function registerModuleMocks() {
   setFeedFetcherDependenciesForTesting({
-    getCachedBatch: mock(() => null),
-    setCachedBatch: mock(() => {}),
-    invalidateUserCache: mock(() => {}),
+    diagInfo: mock(() => {}),
+    diagWarn: mock(() => {}),
     ensureFeedRecordByUrl: mock(async () => createFeedRecord()),
+    executeParallelRefreshes: mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>(),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>(["https://example.com/feed"]),
+    })),
+    getCachedBatch: mock(() => null),
+    invalidateUserCache: mock(() => {}),
+    mapRowsToArticleMap: mock(() => new Map()),
+    queryTopArticlesPerFeed: mock(async () => []),
     refreshFeedFromUpstream: mock(async () => ({ ok: true as const })),
-    shouldRefreshFeed: mock((lastFetched: Date | null) => {
-      if (!lastFetched) return true;
-      return Date.now() - lastFetched.getTime() > 1000 * 60 * 30;
-    }),
     resolveAuthorizedFeedRecords: mock(async () => ({
       allowedUrls: ["https://example.com/feed"],
       feedByUrl: new Map([["https://example.com/feed", createFeedRecord()]]),
     })),
-    executeParallelRefreshes: mock(async () => ({
-      errors: new Map<string, string>(),
-      refreshedCount: 1,
-      cooldownLimitedCount: 0,
-      refreshedUrls: new Set<string>(["https://example.com/feed"]),
-    })),
-    queryTopArticlesPerFeed: mock(async () => []),
-    mapRowsToArticleMap: mock(() => new Map()),
-    diagInfo: mock(() => {}),
-    diagWarn: mock(() => {}),
+    setCachedBatch: mock(() => {}),
+    shouldRefreshFeed: mock((lastFetched: Date | null) => {
+      if (!lastFetched) return true;
+      return Date.now() - lastFetched.getTime() > 1000 * 60 * 30;
+    }),
   });
 }
 
@@ -229,6 +230,17 @@ describe("Feed Fetcher - Batch Operations", () => {
 
   test("fetchAndCacheFeedArticlesBatch handles multiple feeds", async () => {
     setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map<string, string>(),
+        refreshedCount: 2,
+        refreshedUrls: new Set<string>([
+          "https://example.com/feed1",
+          "https://example.com/feed2",
+        ]),
+      })),
+      mapRowsToArticleMap: mock(() => new Map()),
+      queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed1", "https://example.com/feed2"],
         feedByUrl: new Map([
@@ -242,17 +254,6 @@ describe("Feed Fetcher - Batch Operations", () => {
           ],
         ]),
       })),
-      executeParallelRefreshes: mock(async () => ({
-        errors: new Map<string, string>(),
-        refreshedCount: 2,
-        cooldownLimitedCount: 0,
-        refreshedUrls: new Set<string>([
-          "https://example.com/feed1",
-          "https://example.com/feed2",
-        ]),
-      })),
-      queryTopArticlesPerFeed: mock(async () => []),
-      mapRowsToArticleMap: mock(() => new Map()),
     });
 
     const result = await fetchAndCacheFeedArticlesBatch(mockDb, 1, [
@@ -278,6 +279,14 @@ describe("Feed Fetcher - Batch Operations", () => {
 
   test("fetchAndCacheFeedArticlesBatch handles upstream errors", async () => {
     setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map([["https://example.com/feed", "Network error"]]),
+        refreshedCount: 0,
+        refreshedUrls: new Set<string>(),
+      })),
+      mapRowsToArticleMap: mock(() => new Map()),
+      queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
         feedByUrl: new Map([
@@ -287,14 +296,6 @@ describe("Feed Fetcher - Batch Operations", () => {
           ],
         ]),
       })),
-      executeParallelRefreshes: mock(async () => ({
-        errors: new Map([["https://example.com/feed", "Network error"]]),
-        refreshedCount: 0,
-        cooldownLimitedCount: 0,
-        refreshedUrls: new Set<string>(),
-      })),
-      queryTopArticlesPerFeed: mock(async () => []),
-      mapRowsToArticleMap: mock(() => new Map()),
     });
 
     const result = await fetchAndCacheFeedArticlesBatch(mockDb, 1, [
@@ -307,18 +308,18 @@ describe("Feed Fetcher - Batch Operations", () => {
 
   test("fetchAndCacheFeedArticlesBatch handles feeds without records", async () => {
     setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map<string, string>(),
+        refreshedCount: 0,
+        refreshedUrls: new Set<string>(),
+      })),
+      mapRowsToArticleMap: mock(() => new Map()),
+      queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
         feedByUrl: new Map(),
       })),
-      executeParallelRefreshes: mock(async () => ({
-        errors: new Map<string, string>(),
-        refreshedCount: 0,
-        cooldownLimitedCount: 0,
-        refreshedUrls: new Set<string>(),
-      })),
-      queryTopArticlesPerFeed: mock(async () => []),
-      mapRowsToArticleMap: mock(() => new Map()),
     });
 
     const result = await fetchAndCacheFeedArticlesBatch(mockDb, 1, [
@@ -334,15 +335,15 @@ describe("Feed Fetcher - Single Feed Operations", () => {
     const mockDbLocal = {
       select: mock(() => ({
         from: mock(() => ({
-          where: mock(() => ({
-            limit: mock(() => Promise.resolve([])),
-          })),
           leftJoin: mock(() => ({
             where: mock(() => ({
               orderBy: mock(() => ({
                 limit: mock(() => Promise.resolve([])),
               })),
             })),
+          })),
+          where: mock(() => ({
+            limit: mock(() => Promise.resolve([])),
           })),
         })),
       })),
@@ -364,19 +365,19 @@ describe("Feed Fetcher - Single Feed Operations", () => {
     const mockDbLocal = {
       select: mock(() => ({
         from: mock(() => ({
-          where: mock(() => ({
-            limit: mock(() =>
-              Promise.resolve([
-                { id: 1, userId: 1, url: "https://example.com/feed" },
-              ]),
-            ),
-          })),
           leftJoin: mock(() => ({
             where: mock(() => ({
               orderBy: mock(() => ({
                 limit: mock(() => Promise.resolve([])),
               })),
             })),
+          })),
+          where: mock(() => ({
+            limit: mock(() =>
+              Promise.resolve([
+                { id: 1, url: "https://example.com/feed", userId: 1 },
+              ]),
+            ),
           })),
         })),
       })),
@@ -398,26 +399,26 @@ describe("Feed Fetcher - Single Feed Operations", () => {
           lastFetched: new Date(Date.now() - 1000 * 60 * 60 * 24),
         }),
       ),
-      shouldRefreshFeed: mock(() => true),
       refreshFeedFromUpstream: mock(async () => ({ ok: true as const })),
+      shouldRefreshFeed: mock(() => true),
     });
 
     const mockDbLocal = {
       select: mock(() => ({
         from: mock(() => ({
-          where: mock(() => ({
-            limit: mock(() =>
-              Promise.resolve([
-                { id: 1, userId: 1, url: "https://example.com/feed" },
-              ]),
-            ),
-          })),
           leftJoin: mock(() => ({
             where: mock(() => ({
               orderBy: mock(() => ({
                 limit: mock(() => Promise.resolve([])),
               })),
             })),
+          })),
+          where: mock(() => ({
+            limit: mock(() =>
+              Promise.resolve([
+                { id: 1, url: "https://example.com/feed", userId: 1 },
+              ]),
+            ),
           })),
         })),
       })),
@@ -439,11 +440,11 @@ describe("Feed Fetcher - Single Feed Operations", () => {
           lastFetched: new Date(Date.now() - 1000 * 60 * 60 * 24),
         }),
       ),
-      shouldRefreshFeed: mock(() => true),
       refreshFeedFromUpstream: mock(async () => ({
-        ok: false,
         error: "Network timeout",
+        ok: false,
       })),
+      shouldRefreshFeed: mock(() => true),
     });
 
     const mockDbLocal = {
@@ -452,7 +453,7 @@ describe("Feed Fetcher - Single Feed Operations", () => {
           where: mock(() => ({
             limit: mock(() =>
               Promise.resolve([
-                { id: 1, userId: 1, url: "https://example.com/feed" },
+                { id: 1, url: "https://example.com/feed", userId: 1 },
               ]),
             ),
           })),
@@ -479,26 +480,26 @@ describe("Feed Fetcher - Single Feed Operations", () => {
           lastFetched: new Date(),
         }),
       ),
-      shouldRefreshFeed: mock(() => false),
       refreshFeedFromUpstream: mock(async () => ({ ok: true as const })),
+      shouldRefreshFeed: mock(() => false),
     });
 
     const mockDbLocal = {
       select: mock(() => ({
         from: mock(() => ({
-          where: mock(() => ({
-            limit: mock(() =>
-              Promise.resolve([
-                { id: 1, userId: 1, url: "https://example.com/feed" },
-              ]),
-            ),
-          })),
           leftJoin: mock(() => ({
             where: mock(() => ({
               orderBy: mock(() => ({
                 limit: mock(() => Promise.resolve([])),
               })),
             })),
+          })),
+          where: mock(() => ({
+            limit: mock(() =>
+              Promise.resolve([
+                { id: 1, url: "https://example.com/feed", userId: 1 },
+              ]),
+            ),
           })),
         })),
       })),

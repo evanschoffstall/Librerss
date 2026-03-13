@@ -1,37 +1,46 @@
+import { and, desc, eq } from "drizzle-orm";
+
 import { type getDb } from "@/lib/db/db";
 import { articles, feeds, feedSources } from "@/lib/db/schema";
 import {
   normalizeArticleHtmlSpacing,
   stripOrphanedRelatedBlocks,
 } from "@/lib/sanitize";
-import { and, desc, eq } from "drizzle-orm";
 
-type UserOwnedArticle = {
-  id: number;
-  title: string;
-  link: string;
-  content: string | null;
-  publicationDate: Date;
-  lastChecked: Date;
+interface UserOwnedArticle {
+  content: null | string;
   feedId: number;
-};
+  id: number;
+  lastChecked: Date;
+  link: string;
+  publicationDate: Date;
+  title: string;
+}
 
 const articleSelect = {
-  id: articles.id,
-  title: articles.title,
-  link: articles.link,
   content: articles.content,
-  publicationDate: articles.publicationDate,
-  lastChecked: articles.lastChecked,
   feedId: articles.feedId,
+  id: articles.id,
+  lastChecked: articles.lastChecked,
+  link: articles.link,
+  publicationDate: articles.publicationDate,
+  title: articles.title,
 };
 
-function enabledFeedSourceJoin(userId: number) {
-  return and(
-    eq(feedSources.url, feeds.url),
-    eq(feedSources.userId, userId),
-    eq(feedSources.enabled, true),
-  );
+export async function getUserOwnedArticleById(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  articleId: number,
+): Promise<null | UserOwnedArticle> {
+  const articlesById = await db
+    .select(articleSelect)
+    .from(articles)
+    .innerJoin(feeds, eq(feeds.id, articles.feedId))
+    .innerJoin(feedSources, enabledFeedSourceJoin(userId))
+    .where(eq(articles.id, articleId))
+    .limit(1);
+
+  return articlesById[0] ?? null;
 }
 
 export async function listUserOwnedArticles(
@@ -48,24 +57,8 @@ export async function listUserOwnedArticles(
     .limit(limit);
 }
 
-export async function getUserOwnedArticleById(
-  db: ReturnType<typeof getDb>,
-  userId: number,
-  articleId: number,
-): Promise<UserOwnedArticle | null> {
-  const [article] = await db
-    .select(articleSelect)
-    .from(articles)
-    .innerJoin(feeds, eq(feeds.id, articles.feedId))
-    .innerJoin(feedSources, enabledFeedSourceJoin(userId))
-    .where(eq(articles.id, articleId))
-    .limit(1);
-
-  return article ?? null;
-}
-
 export function withNormalizedArticleContent<
-  T extends { content: string | null },
+  T extends { content: null | string },
 >(article: T): T {
   if (!article.content) {
     return article;
@@ -77,4 +70,12 @@ export function withNormalizedArticleContent<
       stripOrphanedRelatedBlocks(article.content),
     ),
   };
+}
+
+function enabledFeedSourceJoin(userId: number) {
+  return and(
+    eq(feedSources.url, feeds.url),
+    eq(feedSources.userId, userId),
+    eq(feedSources.enabled, true),
+  );
 }

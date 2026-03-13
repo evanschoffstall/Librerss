@@ -3,17 +3,28 @@
  * Checks protocol, credentials, blocked hostnames/IPs, and DNS resolution.
  */
 
+import { isIP } from "node:net";
+
+import { resolvesToBlockedAddress } from "./dns-cache";
+
 import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
 } from "@/lib/utils/ssrf";
 import { isValidUrl } from "@/lib/utils/url";
-import { isIP } from "node:net";
-import { resolvesToBlockedAddress } from "./dns-cache";
 
 export const PUBLIC_FEED_URL_ERROR =
   "Feed URL must use http or https and resolve to a public host";
+
+export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
+  try {
+    await assertPublicFeedUrl(raw);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function assertPublicFeedUrl(rawUrl: string): Promise<void> {
   if (!isValidUrl(rawUrl)) {
@@ -41,15 +52,6 @@ async function assertPublicFeedUrl(rawUrl: string): Promise<void> {
 
   if (await resolvesToBlockedAddress(host)) {
     throw new Error("Blocked resolved feed address");
-  }
-}
-
-export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
-  try {
-    await assertPublicFeedUrl(raw);
-    return true;
-  } catch {
-    return false;
   }
 }
 

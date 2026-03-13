@@ -1,3 +1,13 @@
+import { and, eq } from "drizzle-orm";
+
+import type {
+  CreateFeedPayload,
+  CreateFeedSourceResult,
+  FeedSourceListRow,
+  FeedSourceRecord,
+  FeedTransaction,
+} from "./types";
+
 import { getDb } from "@/lib/db/db";
 import {
   ensureFeedRecordByUrl,
@@ -12,60 +22,15 @@ import {
   toCategoryLabelOrDefault,
 } from "@/lib/utils/categories";
 import { normalizeFeedUrl } from "@/lib/utils/url";
-import { and, eq } from "drizzle-orm";
-import type {
-  CreateFeedPayload,
-  CreateFeedSourceResult,
-  FeedSourceListRow,
-  FeedSourceRecord,
-  FeedTransaction,
-} from "./types";
 
 const feedSourceFields = {
-  id: feedSources.id,
-  name: feedSources.name,
-  url: feedSources.url,
   enabled: feedSources.enabled,
   extractionDisabled: feedSources.extractionDisabled,
+  id: feedSources.id,
+  name: feedSources.name,
   proxyEnabled: feedSources.proxyEnabled,
+  url: feedSources.url,
 };
-
-export function toFeedSourceResponse(
-  row: FeedSourceListRow,
-): FeedSourceListRow {
-  return {
-    ...row,
-    category: toCategoryLabelOrDefault(row.category),
-  };
-}
-
-export async function listFeedSourcesForUser(
-  userId: number,
-): Promise<FeedSourceListRow[]> {
-  const db = getDb();
-
-  return db
-    .select({
-      id: feedSources.id,
-      name: feedSources.name,
-      url: feedSources.url,
-      enabled: feedSources.enabled,
-      extractionDisabled: feedSources.extractionDisabled,
-      proxyEnabled: feedSources.proxyEnabled,
-      category: feedCategories.category,
-    })
-    .from(feedSources)
-    .leftJoin(feeds, eq(feeds.url, feedSources.url))
-    .leftJoin(
-      feedCategories,
-      and(
-        eq(feedCategories.feedId, feeds.id),
-        eq(feedCategories.userId, userId),
-      ),
-    )
-    .where(eq(feedSources.userId, userId))
-    .orderBy(feedSources.name);
-}
 
 export async function createOrUpdateFeedSource(
   tx: FeedTransaction,
@@ -76,80 +41,12 @@ export async function createOrUpdateFeedSource(
   const feed = await ensureFeedRecordByUrl(tx, normalizedUrl);
 
   await replaceUserFeedCategory(tx, {
-    userId,
-    feedId: feed.id,
     category: normalizeCategory(payload.category),
+    feedId: feed.id,
+    userId,
   });
 
   return upsertFeedSource(tx, userId, payload.name, normalizedUrl);
-}
-
-export async function renameFeedSourceForUser(
-  userId: number,
-  sourceId: number,
-  name: string,
-  url: string,
-): Promise<FeedSourceRecord | null> {
-  const db = getDb();
-  const normalizedUrl = normalizeFeedUrl(url);
-
-  const [updatedSource] = await db.transaction(async (tx) => {
-    // Lock the row inside the transaction so concurrent renames serialize and
-    // can't race between the URL read and the category transfer.
-    const [existingSource] = await tx
-      .select({ id: feedSources.id, url: feedSources.url })
-      .from(feedSources)
-      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-      .for("update")
-      .limit(1);
-
-    if (!existingSource) return [];
-
-    if (existingSource.url !== normalizedUrl) {
-      // These two lookups are independent — run them concurrently.
-      const [nextFeed, previousFeedId] = await Promise.all([
-        ensureFeedRecordByUrl(tx, normalizedUrl),
-        findFeedIdByUrl(tx, existingSource.url),
-      ]);
-      let previousCategory = DEFAULT_CATEGORY_LABEL;
-
-      if (previousFeedId) {
-        const [existingCategory] = await tx
-          .select({ category: feedCategories.category })
-          .from(feedCategories)
-          .where(
-            and(
-              eq(feedCategories.userId, userId),
-              eq(feedCategories.feedId, previousFeedId),
-            ),
-          )
-          .limit(1);
-
-        previousCategory = toCategoryLabelOrDefault(existingCategory?.category);
-      }
-
-      if (previousFeedId) {
-        await removeUserFeedCategory(tx, {
-          userId,
-          feedId: previousFeedId,
-        });
-      }
-
-      await replaceUserFeedCategory(tx, {
-        userId,
-        feedId: nextFeed.id,
-        category: previousCategory,
-      });
-    }
-
-    return tx
-      .update(feedSources)
-      .set({ name, url: normalizedUrl })
-      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
-      .returning(feedSourceFields);
-  });
-
-  return updatedSource ?? null;
 }
 
 export async function deleteFeedSourceForUser(
@@ -158,10 +55,10 @@ export async function deleteFeedSourceForUser(
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
 
-  const [deletedSource] = await db.transaction(async (tx) => {
+  const deletedSources = await db.transaction(async (tx) => {
     // Single query: lock feedSource row and fetch its feedId via LEFT JOIN,
     // eliminating a separate SELECT feeds round-trip.
-    const [sourceToDelete] = await tx
+    const sourceRows = await tx
       .select({ ...feedSourceFields, feedId: feeds.id })
       .from(feedSources)
       .leftJoin(feeds, eq(feeds.url, feedSources.url))
@@ -169,9 +66,11 @@ export async function deleteFeedSourceForUser(
       .for("update")
       .limit(1);
 
-    if (!sourceToDelete) return [];
+    if (sourceRows.length === 0) return [];
 
-    if (sourceToDelete.feedId) {
+    const sourceToDelete = sourceRows[0];
+
+    if (sourceToDelete.feedId !== null) {
       await tx
         .delete(feedCategories)
         .where(
@@ -188,7 +87,109 @@ export async function deleteFeedSourceForUser(
       .returning(feedSourceFields);
   });
 
-  return deletedSource ?? null;
+  return deletedSources[0] ?? null;
+}
+
+export async function listFeedSourcesForUser(
+  userId: number,
+): Promise<FeedSourceListRow[]> {
+  const db = getDb();
+
+  return db
+    .select({
+      category: feedCategories.category,
+      enabled: feedSources.enabled,
+      extractionDisabled: feedSources.extractionDisabled,
+      id: feedSources.id,
+      name: feedSources.name,
+      proxyEnabled: feedSources.proxyEnabled,
+      url: feedSources.url,
+    })
+    .from(feedSources)
+    .leftJoin(feeds, eq(feeds.url, feedSources.url))
+    .leftJoin(
+      feedCategories,
+      and(
+        eq(feedCategories.feedId, feeds.id),
+        eq(feedCategories.userId, userId),
+      ),
+    )
+    .where(eq(feedSources.userId, userId))
+    .orderBy(feedSources.name);
+}
+
+export async function renameFeedSourceForUser(
+  userId: number,
+  sourceId: number,
+  name: string,
+  url: string,
+): Promise<FeedSourceRecord | null> {
+  const db = getDb();
+  const normalizedUrl = normalizeFeedUrl(url);
+
+  const updatedSources = await db.transaction(async (tx) => {
+    // Lock the row inside the transaction so concurrent renames serialize and
+    // can't race between the URL read and the category transfer.
+    const existingSources = await tx
+      .select({ id: feedSources.id, url: feedSources.url })
+      .from(feedSources)
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+      .for("update")
+      .limit(1);
+
+    if (existingSources.length === 0) return [];
+
+    const existingSource = existingSources[0];
+
+    if (existingSource.url !== normalizedUrl) {
+      // These two lookups are independent — run them concurrently.
+      const [nextFeed, previousFeedId] = await Promise.all([
+        ensureFeedRecordByUrl(tx, normalizedUrl),
+        findFeedIdByUrl(tx, existingSource.url),
+      ]);
+      let previousCategory = DEFAULT_CATEGORY_LABEL;
+
+      if (previousFeedId !== null) {
+        const existingCategoryRows = await tx
+          .select({ category: feedCategories.category })
+          .from(feedCategories)
+          .where(
+            and(
+              eq(feedCategories.userId, userId),
+              eq(feedCategories.feedId, previousFeedId),
+            ),
+          )
+          .limit(1);
+
+        const previousCategoryValue =
+          existingCategoryRows.length > 0
+            ? existingCategoryRows[0].category
+            : null;
+        previousCategory = toCategoryLabelOrDefault(previousCategoryValue);
+      }
+
+      if (previousFeedId !== null) {
+        await removeUserFeedCategory(tx, {
+          feedId: previousFeedId,
+          userId,
+        });
+      }
+
+      await replaceUserFeedCategory(tx, {
+        category: previousCategory,
+        feedId: nextFeed.id,
+        userId,
+      });
+    }
+
+    return tx
+      .update(feedSources)
+      .set({ name, url: normalizedUrl })
+      .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
+      .returning(feedSourceFields);
+  });
+
+  return updatedSources[0] ?? null;
 }
 
 export async function setFeedSourceEnabledForUser(
@@ -198,13 +199,22 @@ export async function setFeedSourceEnabledForUser(
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
 
-  const [updatedSource] = await db
+  const updatedSources = await db
     .update(feedSources)
     .set({ enabled })
     .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
     .returning(feedSourceFields);
 
-  return updatedSource ?? null;
+  return updatedSources[0] ?? null;
+}
+
+export function toFeedSourceResponse(
+  row: FeedSourceListRow,
+): FeedSourceListRow {
+  return {
+    ...row,
+    category: toCategoryLabelOrDefault(row.category),
+  };
 }
 
 export async function updateFeedSettingsForUser(
@@ -213,20 +223,28 @@ export async function updateFeedSettingsForUser(
   settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
-  const setClause: Record<string, boolean> = {};
+  const setClause: {
+    extractionDisabled?: boolean;
+    proxyEnabled?: boolean;
+  } = {};
   if (typeof settings.extractionDisabled === "boolean")
     setClause.extractionDisabled = settings.extractionDisabled;
   if (typeof settings.proxyEnabled === "boolean")
     setClause.proxyEnabled = settings.proxyEnabled;
-  if (Object.keys(setClause).length === 0) return null;
+  if (
+    setClause.extractionDisabled === undefined &&
+    setClause.proxyEnabled === undefined
+  ) {
+    return null;
+  }
 
-  const [updatedSource] = await db
+  const updatedSources = await db
     .update(feedSources)
     .set(setClause)
     .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
     .returning(feedSourceFields);
 
-  return updatedSource ?? null;
+  return updatedSources[0] ?? null;
 }
 
 async function upsertFeedSource(
@@ -235,7 +253,7 @@ async function upsertFeedSource(
   name: string,
   normalizedUrl: string,
 ): Promise<CreateFeedSourceResult> {
-  const [existingSource] = await tx
+  const existingSources = await tx
     .select(feedSourceFields)
     .from(feedSources)
     .where(
@@ -243,10 +261,11 @@ async function upsertFeedSource(
     )
     .limit(1);
 
-  if (existingSource) {
-    const [updatedSource] = await tx
+  if (existingSources.length > 0) {
+    const existingSource = existingSources[0];
+    const updatedSources = await tx
       .update(feedSources)
-      .set({ name, enabled: true })
+      .set({ enabled: true, name })
       .where(
         and(
           eq(feedSources.id, existingSource.id),
@@ -255,21 +274,21 @@ async function upsertFeedSource(
       )
       .returning(feedSourceFields);
 
-    if (!updatedSource) {
+    if (updatedSources.length === 0) {
       throw new Error("Failed to update feed source");
     }
 
-    return { sourceRecord: updatedSource, isNew: false };
+    return { isNew: false, sourceRecord: updatedSources[0] };
   }
 
-  const [createdSource] = await tx
+  const createdSources = await tx
     .insert(feedSources)
-    .values({ userId, name, url: normalizedUrl, enabled: true })
+    .values({ enabled: true, name, url: normalizedUrl, userId })
     .returning(feedSourceFields);
 
-  if (!createdSource) {
+  if (createdSources.length === 0) {
     throw new Error("Failed to create feed source");
   }
 
-  return { sourceRecord: createdSource, isNew: true };
+  return { isNew: true, sourceRecord: createdSources[0] };
 }

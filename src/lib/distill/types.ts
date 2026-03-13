@@ -1,4 +1,4 @@
-export type DistillStrategy = "custom" | "readability" | "defuddle";
+export type DistillStrategy = "custom" | "defuddle" | "readability";
 
 export const DISTILL_STRATEGIES: readonly DistillStrategy[] = [
   "custom",
@@ -8,9 +8,9 @@ export const DISTILL_STRATEGIES: readonly DistillStrategy[] = [
 
 export interface DistilledArticle {
   content: string;
-  title?: string;
   description?: string;
   source?: string;
+  title?: string;
 }
 
 export interface DistillOptions {

@@ -1,5 +1,6 @@
-import type { Article } from "@/lib";
 import { getArticleKey } from "./article-collection";
+
+import type { Article } from "@/lib";
 
 export const ARTICLE_FILTER_OPTIONS = [
   "all",
@@ -13,8 +14,8 @@ export type ArticleFilter = (typeof ARTICLE_FILTER_OPTIONS)[number];
 export function filterArticlesByState(
   articles: Article[],
   articleFilter: ArticleFilter,
-  expandedArticleKey: string | null,
-  collapsingArticleKey: string | null,
+  expandedArticleKey: null | string,
+  collapsingArticleKey: null | string,
 ): Article[] {
   return articles.filter((article) => {
     if (articleFilter === "all") {

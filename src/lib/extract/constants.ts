@@ -5,30 +5,30 @@ import { CHROME } from "@/lib/fetch/constants";
 // ══════════════════════════════════════════════════════════════════════════════
 
 const EXTRACT = {
-  retries403: 2,
-  cacheTtlMs: 10 * 60 * 1000,
   cacheMaxEntries: 500,
+  cacheTtlMs: 10 * 60 * 1000,
   errors: {
+    extraction: "Failed to extract article content",
     upstreamFetch: "Failed to fetch article content from upstream",
     upstreamRequest: "Upstream request failed",
-    extraction: "Failed to extract article content",
   },
+  retries403: 2,
 } as const;
 
 export const EXTRACT_FINGERPRINT_POOL = [
   {
-    ua: CHROME.userAgent,
     secChUa: CHROME.secChUa,
     secChUaPlatform: CHROME.secChUaPlatform,
+    ua: CHROME.userAgent,
   },
 ] as const;
 
 export const PROXY_FINGERPRINT_POOL = [
   {
-    chromeVersion: CHROME.version,
-    ua: CHROME.userAgent,
-    secChUa: CHROME.secChUa,
     accept: CHROME.accept,
+    chromeVersion: CHROME.version,
+    secChUa: CHROME.secChUa,
+    ua: CHROME.userAgent,
   },
 ] as const;
 
@@ -46,23 +46,23 @@ export const ARTICLE_EXTRACT_SEC_CH_UA = CHROME.secChUa;
 
 // ─── Module types (merged from types.ts) ─────────────────────────────────────
 
-export type ExtractResponsePayload = {
-  content: string;
-  title: string | null;
-  source: string | null;
-};
-
-export type CachedExtractResponse = {
+export interface CachedExtractResponse {
   expiresAt: number;
   payload: ExtractResponsePayload;
-};
+}
 
-export type PlaceholderSnapshotHit = {
+export interface ExtractRequestContext {
+  extractAttemptId: string;
+  requestId: null | string;
+}
+
+export interface ExtractResponsePayload {
+  content: string;
+  source: null | string;
+  title: null | string;
+}
+
+export interface PlaceholderSnapshotHit {
   html: string;
   snapshotPath: string;
-};
-
-export type ExtractRequestContext = {
-  extractAttemptId: string;
-  requestId: string | null;
-};
+}

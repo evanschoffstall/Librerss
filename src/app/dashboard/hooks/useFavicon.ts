@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+
 import {
   getCachedFaviconIndex,
   getFaviconCacheKey,
@@ -14,24 +15,24 @@ import {
 } from "../services/favicons";
 
 interface UseFaviconOptions {
-  /** Primary URL (e.g. feedUrl). */
-  primaryUrl?: string;
   /** Fallback URL (e.g. article link). Omit for single-URL use cases. */
   fallbackUrl?: string;
+  /** Primary URL (e.g. feedUrl). */
+  primaryUrl?: string;
 }
 
 interface UseFaviconResult {
-  faviconUrl: string | undefined;
-  faviconTint: { foreground: string; background: string };
-  faviconCacheKey: string | null;
-  faviconIndex: number;
+  faviconCacheKey: null | string;
   faviconCandidates: string[];
+  faviconIndex: number;
+  faviconTint: { background: string; foreground: string };
+  faviconUrl: string | undefined;
   setFaviconIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export function useFavicon({
-  primaryUrl,
   fallbackUrl,
+  primaryUrl,
 }: UseFaviconOptions): UseFaviconResult {
   const faviconCandidates = useMemo(
     () => getMergedFaviconCandidates(primaryUrl, fallbackUrl),
@@ -56,11 +57,11 @@ export function useFavicon({
   }, [faviconCacheKey]);
 
   return {
-    faviconUrl,
-    faviconTint,
     faviconCacheKey,
-    faviconIndex,
     faviconCandidates,
+    faviconIndex,
+    faviconTint,
+    faviconUrl,
     setFaviconIndex,
   };
 }

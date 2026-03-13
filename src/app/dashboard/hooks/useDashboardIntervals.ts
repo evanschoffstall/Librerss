@@ -1,8 +1,9 @@
 "use client";
 
-import { clientFeedCacheTtlMinutes } from "@/lib/config";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
+
+import { clientFeedCacheTtlMinutes } from "@/lib/config";
 
 interface UseDashboardIntervalsOptions {
   autoRefreshFeedList: () => void;
@@ -18,7 +19,9 @@ export function useDashboardIntervals({
       setRelativeRefreshTick((current) => current + 1);
     }, 30_000);
 
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [setRelativeRefreshTick]);
 
   // Keep a ref to the latest callback so the interval never resets when

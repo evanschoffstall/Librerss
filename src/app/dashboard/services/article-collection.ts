@@ -10,8 +10,7 @@ export const getArticleKey = (article: Article) => article.link.trim();
 
 // ─── Dedup & sort ─────────────────────────────────────────────────────────────
 
-const getArticleContentLength = (article: Article) =>
-  article.content?.length ?? 0;
+const getArticleContentLength = (article: Article) => article.content.length;
 
 const getArticleTimestamp = (article: Article) =>
   new Date(article.publicationDate).getTime();
@@ -30,7 +29,7 @@ export const dedupeAndSortArticles = (articles: Article[]): Article[] => {
   const uniqueArticles = new Map<string, Article>();
 
   for (const article of articles) {
-    if (!article.link?.trim()) continue;
+    if (!article.link.trim()) continue;
 
     const key = article.link.trim();
     const existing = uniqueArticles.get(key);

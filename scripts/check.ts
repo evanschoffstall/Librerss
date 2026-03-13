@@ -1,74 +1,74 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { availableParallelism, cpus } from "node:os";
-import { join } from "node:path";
-import "ts-morph";
+import { dirname, join } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Config types
 // ---------------------------------------------------------------------------
 
-type SummaryPattern = {
-  regex: string;
-  type: "match" | "literal" | "table-row";
-  format: string;
-  cellSep?: string;
-};
-type Summary =
-  | { type: "simple" }
-  | { type: "test-runner" }
-  | { type: "pattern"; patterns: SummaryPattern[]; default: string };
+interface CheckConfig {
+  coverageExcludedFiles: string[];
+  paths: { junitPath: string; lcovPath: string };
+  steps: StepConfig[];
+  thresholds: {
+    checkSuiteTimeoutEnvVar?: string;
+    checkSuiteTimeoutMs?: number;
+    lineCoverageThreshold: number;
+    testCommandTimeoutEnvVar: string;
+    testCommandTimeoutMs: number;
+    testTimeoutMs: number;
+    typeCoverageThreshold: number;
+  };
+}
+interface InlineTypeScriptConfig {
+  data?: Record<string, unknown>;
+  source: string;
+}
 
-type LintConfig = {
-  globExtensions: string[];
-  skipDirs: string[];
-  maxFiles: number;
+interface LintConfig {
   args: string[];
-};
+  globExtensions: string[];
+  maxFiles: number;
+  skipDirs: string[];
+}
 
-type TsPruneConfig = {
-  project: string;
-  skip?: string;
-  ignore?: string;
-  actionableLinePattern: string;
-  usedInTestsMarker: string;
-};
+interface OutputFilter {
+  pattern: string;
+  type: "stripLines";
+}
 
-type DeadCssConfig = {
-  cssFiles: string[];
-  contentGlobs: string[];
-  safelists: string[];
-  selectorPrefix: string;
-};
-
-type OutputFilter = { type: "stripLines"; pattern: string };
-
-type StepConfig = {
+interface StepConfig {
+  args?: string[];
+  cmd?: string;
+  config?: InlineTypeScriptConfig | LintConfig | Record<string, unknown>;
+  enabled?: boolean;
+  failMsg?: string;
+  handler?: string;
   key: string;
   label: string;
-  handler?: string;
-  cmd?: string;
-  args?: string[];
-  passMsg?: string;
-  failMsg?: string;
-  preRun?: boolean;
-  enabled?: boolean;
   outputFilter?: OutputFilter;
+  passMsg?: string;
+  preRun?: boolean;
   summary?: Summary;
-  config?: LintConfig | TsPruneConfig | DeadCssConfig | Record<string, unknown>;
-};
+  timeoutMs?: number | string;
+}
 
-type CheckConfig = {
-  thresholds: {
-    lineCoverageThreshold: number;
-    typeCoverageThreshold: number;
-    testTimeoutMs: number;
-    testCommandTimeoutMs: number;
-    testCommandTimeoutEnvVar: string;
-  };
-  paths: { junitPath: string; lcovPath: string };
-  coverageExcludedFiles: string[];
-  steps: StepConfig[];
-};
+type Summary =
+  | {
+      coverageLabel?: string;
+      coveragePathToken?: string;
+      reportPathToken?: string;
+      type: "test-runner";
+    }
+  | { default: string; patterns: SummaryPattern[]; type: "pattern" }
+  | { type: "simple" };
+
+interface SummaryPattern {
+  cellSep?: string;
+  format: string;
+  regex: string;
+  type: "count" | "literal" | "match" | "table-row";
+}
 
 // ---------------------------------------------------------------------------
 // Load config
@@ -78,11 +78,77 @@ const CFG: CheckConfig = JSON.parse(
   readFileSync(join(import.meta.dir, "check.json"), "utf8"),
 ) as CheckConfig;
 
-const TEST_COMMAND_TIMEOUT_MS = Number.parseInt(
-  process.env[CFG.thresholds.testCommandTimeoutEnvVar] ??
-    String(CFG.thresholds.testCommandTimeoutMs),
-  10,
+const PROJECT_MANIFEST = (() => {
+  try {
+    return JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+  } catch {
+    return {} as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+    };
+  }
+})();
+
+const DECLARED_BUNX_TARGETS = (() => {
+  const targets = new Set<string>();
+  const dependencyNames = new Set<string>([
+    ...Object.keys(PROJECT_MANIFEST.dependencies ?? {}),
+    ...Object.keys(PROJECT_MANIFEST.devDependencies ?? {}),
+    ...Object.keys(PROJECT_MANIFEST.optionalDependencies ?? {}),
+    ...Object.keys(PROJECT_MANIFEST.peerDependencies ?? {}),
+  ]);
+
+  for (const dependencyName of dependencyNames) {
+    targets.add(dependencyName);
+
+    try {
+      const packageJson = JSON.parse(
+        readFileSync(
+          join(process.cwd(), "node_modules", dependencyName, "package.json"),
+          "utf8",
+        ),
+      ) as { bin?: Record<string, string> | string };
+
+      if (typeof packageJson.bin === "string") {
+        targets.add(
+          dependencyName.includes("/")
+            ? (dependencyName.split("/").at(-1) ?? dependencyName)
+            : dependencyName,
+        );
+        continue;
+      }
+
+      for (const binName of Object.keys(packageJson.bin ?? {}))
+        targets.add(binName);
+    } catch {
+      continue;
+    }
+  }
+
+  return targets;
+})();
+
+const TEST_COMMAND_TIMEOUT_MS = resolveTimeoutMs(
+  CFG.thresholds.testCommandTimeoutEnvVar,
+  CFG.thresholds.testCommandTimeoutMs,
+  CFG.thresholds.testCommandTimeoutMs,
 );
+const SUITE_TIMEOUT_MS = resolveTimeoutMs(
+  CFG.thresholds.checkSuiteTimeoutEnvVar ?? "",
+  CFG.thresholds.checkSuiteTimeoutMs,
+  TEST_COMMAND_TIMEOUT_MS,
+);
+const SUITE_LABEL =
+  process.env["npm_lifecycle_event"]?.trim() || "quality suite";
 
 // Auto-derive tokens: {key} → scalar thresholds, {key} → cwd-joined paths.
 // Every key added to "thresholds" or "paths" in check.json becomes a usable
@@ -96,8 +162,139 @@ const TOKENS: Record<string, string> = (() => {
   return t;
 })();
 
-const JUNIT_PATH = TOKENS["{junitPath}"] ?? "";
-const LCOV_PATH = TOKENS["{lcovPath}"] ?? "";
+interface Command {
+  durationMs?: number;
+  exitCode: number;
+  notFound?: boolean;
+  output: string;
+  timedOut: boolean;
+}
+
+interface CoverageSummary {
+  covered: number;
+  found: number;
+  issues: string[];
+  ok: boolean;
+  pct: number;
+}
+
+interface InlineTypeScriptContext {
+  cwd: string;
+  data: Record<string, unknown>;
+  dirname: typeof dirname;
+  existsSync: typeof existsSync;
+  fail: (output: string, durationMs?: number) => Command;
+  importModule: (specifier: string) => Promise<unknown>;
+  join: typeof join;
+  ok: (output: string, durationMs?: number) => Command;
+  readFileSync: typeof readFileSync;
+  step: StepConfig;
+}
+
+interface InlineTypeScriptOverrides {
+  importModule?: (specifier: string) => Promise<unknown>;
+}
+type InlineTypeScriptRunner = (
+  context: InlineTypeScriptContext,
+) => Command | Promise<Command>;
+
+interface RunOptions {
+  extraEnv?: Record<string, string>;
+  label?: string;
+  timeoutMs?: number;
+}
+
+type StepRunner = (
+  step: StepConfig,
+  timeoutMs?: number,
+  extraArgs?: string[],
+) => Promise<Command>;
+
+interface TestResult {
+  file?: string;
+  line?: string;
+  message?: string;
+  name: string;
+  suite?: string;
+}
+
+interface TestRunnerArtifacts {
+  coverageLabel: string;
+  coverageReportPath: string;
+  testReportPath: string;
+}
+
+interface TestSummary {
+  failed: number;
+  failedTests: TestResult[];
+  issues: string[];
+  ok: boolean;
+  passed: number;
+  skipped: number;
+  skippedTests: TestResult[];
+}
+
+export function resolveTimeoutMs(
+  envVarName: string,
+  configuredMs: number | undefined,
+  fallbackMs: number,
+): number {
+  return (
+    (envVarName ? parsePositiveTimeoutMs(process.env[envVarName]) : null) ??
+    parsePositiveTimeoutMs(configuredMs) ??
+    fallbackMs
+  );
+}
+
+function getBunxCommandTarget(args: string[]): null | string {
+  const target = args.find((arg) => !arg.startsWith("-"));
+  return target && target.length > 0 ? target : null;
+}
+
+function hasExplicitPackageVersion(specifier: string): boolean {
+  if (!specifier.startsWith("@")) return specifier.includes("@");
+
+  const slashIndex = specifier.indexOf("/");
+  if (slashIndex < 0) return false;
+  return specifier.includes("@", slashIndex + 1);
+}
+
+function hasMissingSignal(output: string): boolean {
+  const text = stripAnsi(output);
+  return [
+    /command not found:/i,
+    /should be provided by a local binary/i,
+    /cannot find package ['"][^'"]+['"]/i,
+    /cannot find module ['"][^'"]+['"]/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isBunxCommandAvailable(args: string[]): boolean {
+  const target = getBunxCommandTarget(args);
+  if (!target) return true;
+  if (hasExplicitPackageVersion(target)) return true;
+
+  const packageName = stripPackageVersion(target);
+  return (
+    DECLARED_BUNX_TARGETS.has(target) || DECLARED_BUNX_TARGETS.has(packageName)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parsePositiveTimeoutMs(
+  value: number | string | undefined,
+): null | number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? Math.trunc(value) : null;
+  }
+  if (typeof value !== "string") return null;
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
 
 // Substitute {token} placeholders in args, including embedded (e.g. --flag={token})
 function resolveArgs(args: string[]): string[] {
@@ -106,45 +303,118 @@ function resolveArgs(args: string[]): string[] {
   );
 }
 
-type TestResult = {
-  file?: string;
-  line?: string;
-  suite?: string;
-  name: string;
-  message?: string;
-};
-type Command = {
-  exitCode: number;
-  timedOut: boolean;
-  output: string;
-  durationMs?: number;
-  notFound?: boolean;
-};
+function resolvePathToken(tokenName: string | undefined): string {
+  if (!tokenName) return "";
+  return TOKENS[`{${tokenName}}`] ?? "";
+}
+
+function resolveScalarToken(value: string): string {
+  return value.replace(
+    /\{(\w+)\}/g,
+    (whole, key) => TOKENS[`{${key}}`] ?? whole,
+  );
+}
+
+function resolveStepTimeoutMsValue(step: StepConfig): null | number {
+  if (typeof step.timeoutMs === "number") {
+    return parsePositiveTimeoutMs(step.timeoutMs);
+  }
+  if (typeof step.timeoutMs !== "string") return null;
+
+  return parsePositiveTimeoutMs(resolveScalarToken(step.timeoutMs));
+}
+
+function stripPackageVersion(specifier: string): string {
+  if (!specifier.startsWith("@"))
+    return specifier.split("@", 2)[0] ?? specifier;
+
+  const slashIndex = specifier.indexOf("/");
+  if (slashIndex < 0) return specifier;
+
+  const versionIndex = specifier.indexOf("@", slashIndex + 1);
+  return versionIndex < 0 ? specifier : specifier.slice(0, versionIndex);
+}
+
+function toCommand(value: unknown, fallbackDurationMs: number): Command | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.exitCode !== "number" ||
+    typeof value.timedOut !== "boolean" ||
+    typeof value.output !== "string"
+  )
+    return null;
+  return withMissingDetection({
+    durationMs:
+      typeof value.durationMs === "number"
+        ? value.durationMs
+        : fallbackDurationMs,
+    exitCode: value.exitCode,
+    notFound: value.notFound === true ? true : undefined,
+    output: value.output,
+    timedOut: value.timedOut,
+  });
+}
+
+function toInlineTypeScriptConfig(
+  config: StepConfig["config"],
+): InlineTypeScriptConfig | null {
+  if (!isRecord(config)) return null;
+  const source = config["source"];
+  const data = config["data"];
+  if (typeof source !== "string") return null;
+  return {
+    data: isRecord(data) ? data : {},
+    source,
+  };
+}
+
+function withMissingDetection(result: Command): Command {
+  if (!hasMissingSignal(result.output)) return result;
+  return {
+    ...result,
+    notFound: true,
+  };
+}
 
 const ANSI = {
-  reset: "\x1b[0m",
   bold: "\x1b[1m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
   cyan: "\x1b[36m",
   gray: "\x1b[90m",
+  green: "\x1b[32m",
+  red: "\x1b[31m",
+  reset: "\x1b[0m",
+  yellow: "\x1b[33m",
 } as const;
 
 const paint = (text: string, ...codes: string[]) =>
   `${codes.join("")}${text}${ANSI.reset}`;
-const passFail = (ok: boolean) =>
-  paint(ok ? "PASS" : "FAIL", ANSI.bold, ok ? ANSI.green : ANSI.red);
+const passFail = (status: "fail" | "pass") =>
+  paint(
+    status === "pass" ? "PASS" : "FAIL",
+    ANSI.bold,
+    status === "pass" ? ANSI.green : ANSI.red,
+  );
+const SUMMARY_LABEL_WIDTH = 13;
+const formatSummaryLabel = (label: string): string => {
+  if (label.length <= SUMMARY_LABEL_WIDTH)
+    return label.padEnd(SUMMARY_LABEL_WIDTH);
+  return `${label.slice(0, SUMMARY_LABEL_WIDTH - 3)}...`;
+};
 const formatDuration = (ms: number): string => {
   if (ms < 1000) return `${ms.toFixed(0)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 };
-const row = (label: string, ok: boolean, details = "", durationMs?: number) => {
+const row = (
+  label: string,
+  status: "fail" | "pass",
+  details = "",
+  durationMs?: number,
+) => {
   const timing =
     durationMs !== undefined
       ? ` ${paint(formatDuration(durationMs), ANSI.gray)}`
       : "";
-  return `${passFail(ok)} ${paint(label.padEnd(13), ANSI.bold)} ${details}${timing}`;
+  return `${passFail(status)} ${paint(formatSummaryLabel(label), ANSI.bold)} ${details}${timing}`;
 };
 const divider = () => paint("────────────────────────────────", ANSI.gray);
 const stripAnsi = (v: string): string => {
@@ -173,149 +443,36 @@ const attrs = (raw: string) =>
 const toTest = (a: Record<string, string>): TestResult => ({
   file: a.file,
   line: a.line,
-  suite: a.classname,
   name: a.name ?? "(unnamed test)",
+  suite: a.classname,
 });
-const where = ({ file, line, suite, name }: TestResult) =>
+const where = ({ file, line, name, suite }: TestResult) =>
   `${file ?? "unknown-file"}${line ? `:${line}` : ""} - ${suite ? `${suite} > ` : ""}${name}`;
 
-function getConcurrency(n: number): number {
-  if (n < 50) return 1;
-  const c =
-    typeof availableParallelism === "function"
-      ? availableParallelism()
-      : cpus().length;
-  return c <= 4
-    ? Math.max(2, c)
-    : c <= 8
-      ? c - 1
-      : Math.min(8, Math.max(4, Math.ceil(c / 2)));
+interface DelayHandle<T> {
+  cancel(): void;
+  promise: Promise<T>;
 }
 
-async function estLintFiles(cfg: LintConfig): Promise<number> {
-  const glob = new Bun.Glob(`**/*.{${cfg.globExtensions.join(",")}}`);
-  let count = 0;
-  for await (const fp of glob.scan({ cwd: process.cwd(), absolute: false })) {
-    if (
-      cfg.skipDirs.some((d) => fp.startsWith(`${d}/`) || fp.includes(`/${d}/`))
-    )
-      continue;
-    if (++count >= cfg.maxFiles) return count;
-  }
-  return count;
+interface KillableProcess {
+  exited: Promise<null | number>;
+  kill(signal?: number | string): void;
 }
 
-function printTests(label: string, color: string, tests: TestResult[]) {
-  if (!tests.length) return;
-  console.log(`\n${paint(label, ANSI.bold, color)}`);
-  for (const test of tests)
-    console.log(
-      `  ${paint("•", color)} ${paint(where(test), color)}${test.message ? ` [${test.message}]` : ""}`,
-    );
+interface StreamCollector {
+  done: Promise<void>;
+  getOutput: () => string;
 }
 
-function parseTests(reportPath: string) {
-  if (!existsSync(reportPath)) {
-    console.error(
-      paint(
-        `❌ [test-summary] Report file not found: ${reportPath}`,
-        ANSI.red,
-        ANSI.bold,
-      ),
-    );
-    return {
-      passed: 0,
-      failed: 1,
-      skipped: 0,
-      failedTests: [
-        {
-          name: "JUnit report missing",
-          message: `Report file not found: ${reportPath}`,
-        },
-      ],
-      skippedTests: [],
-      ok: false,
-    };
-  }
-  const failed: TestResult[] = [];
-  const skipped: TestResult[] = [];
-  let passed = 0;
-  const matches = Array.from(
-    readFileSync(reportPath, "utf8").matchAll(
-      /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g,
-    ),
-  );
-  for (const m of matches) {
-    const test = toTest(attrs(m[1] ?? ""));
-    const body = m[2] ?? "";
-    const isSkip = /<skipped\b/.test(body);
-    const isFail = body.includes("<failure") || body.includes("<error");
-    if (isSkip) skipped.push(test);
-    if (isFail)
-      failed.push({
-        ...test,
-        message: attrs(body.match(/<(?:failure|error)\b([^>]*)>/)?.[1] ?? "")
-          .message,
-      });
-    if (!isSkip && !isFail) passed += 1;
-  }
-  return {
-    passed,
-    failed: failed.length,
-    skipped: skipped.length,
-    failedTests: failed,
-    skippedTests: skipped,
-    ok: failed.length === 0,
-  };
+function appendTimedOutMessage(
+  output: string,
+  label: string,
+  timeoutMs: number,
+): string {
+  const timeoutLine = makeTimedOutCommand(label, timeoutMs).output;
+  if (!output.trim()) return timeoutLine;
+  return `${output.endsWith("\n") ? output : `${output}\n`}${timeoutLine}`;
 }
-
-function parseCoverage(path: string) {
-  if (!existsSync(path)) {
-    console.error(
-      `${paint("FAIL", ANSI.bold, ANSI.red)} Coverage report not found at ${path}`,
-    );
-    return { covered: 0, found: 0, pct: 0, ok: false };
-  }
-  const hits = new Map<string, Map<number, number>>();
-  let file = "";
-  let include = false;
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    if (line.startsWith("SF:")) {
-      file = line.slice(3);
-      include = !CFG.coverageExcludedFiles.includes(file);
-      if (include && !hits.has(file)) hits.set(file, new Map<number, number>());
-      continue;
-    }
-    if (!include || !file || !line.startsWith("DA:")) continue;
-    const [lineRaw, hitRaw] = line.slice(3).split(",");
-    const lineNo = Number.parseInt(lineRaw ?? "", 10);
-    const hit = Number.parseInt(hitRaw ?? "", 10);
-    if (!Number.isFinite(lineNo) || !Number.isFinite(hit)) continue;
-    const map = hits.get(file);
-    if (!map) continue;
-    map.set(lineNo, Math.max(hit, map.get(lineNo) ?? 0));
-  }
-  const allHits = [...hits.values()].flatMap((m) => [...m.values()]);
-  const found = allHits.length;
-  const covered = allHits.filter((h) => h > 0).length;
-  if (!found) {
-    console.error(
-      `${paint("FAIL", ANSI.bold, ANSI.red)} No executable lines found in coverage report`,
-    );
-    return { covered, found: 0, pct: 0, ok: false };
-  }
-  const pct = (covered / found) * 100;
-  return {
-    covered,
-    found,
-    pct,
-    ok: pct >= CFG.thresholds.lineCoverageThreshold,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Output filters
-// ---------------------------------------------------------------------------
 
 function applyOutputFilter(filter: OutputFilter, output: string): string {
   if (filter.type === "stripLines")
@@ -327,24 +484,12 @@ function applyOutputFilter(filter: OutputFilter, output: string): string {
   return output;
 }
 
-// ---------------------------------------------------------------------------
-// Summary builders
-// ---------------------------------------------------------------------------
-
-function resolveSummaryTokens(
-  format: string,
-  match: RegExpMatchArray | null,
-): string {
-  return format.replace(/\{(\w+)\}/g, (whole, key) => {
-    if (/^\d+$/.test(key)) return match?.[Number(key)] ?? "";
-    return TOKENS[`{${key}}`] ?? whole;
-  });
-}
-
 function buildSummary(step: StepConfig, cmd: Command): string {
+  if (cmd.exitCode === 0 && step.passMsg !== undefined) return step.passMsg;
+
   const { summary } = step;
   if (!summary || summary.type === "simple") {
-    if (cmd.exitCode === 0) return step.passMsg ?? "passed";
+    if (cmd.exitCode === 0) return "passed";
     const firstError = splitLines(cmd.output).find((l) => !l.startsWith("$ "));
     return firstError
       ? `${step.failMsg ?? "failed"}: ${firstError}`
@@ -354,7 +499,14 @@ function buildSummary(step: StepConfig, cmd: Command): string {
   // pattern
   const n = norm(cmd.output);
   for (const pat of summary.patterns) {
-    if (pat.type === "literal") {
+    if (pat.type === "count") {
+      const count = Array.from(n.matchAll(new RegExp(pat.regex, "gim"))).length;
+      if (count > 0)
+        return resolveSummaryTokens(
+          pat.format.replaceAll("{count}", String(count)),
+          null,
+        );
+    } else if (pat.type === "literal") {
       if (new RegExp(pat.regex, "i").test(n))
         return resolveSummaryTokens(pat.format, null);
     } else if (pat.type === "match") {
@@ -380,6 +532,202 @@ function buildSummary(step: StepConfig, cmd: Command): string {
   return summary.default;
 }
 
+// ---------------------------------------------------------------------------
+// Output filters
+// ---------------------------------------------------------------------------
+
+function createDelay<T>(ms: number, value: T): DelayHandle<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      timeoutId = undefined;
+      resolve(value);
+    }, ms);
+    timeoutId.unref?.();
+  });
+
+  return {
+    cancel() {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+    },
+    promise,
+  };
+}
+
+async function estLintFiles(cfg: LintConfig): Promise<number> {
+  const glob = new Bun.Glob(`**/*.{${cfg.globExtensions.join(",")}}`);
+  let count = 0;
+  for await (const fp of glob.scan({ absolute: false, cwd: process.cwd() })) {
+    if (
+      cfg.skipDirs.some((d) => fp.startsWith(`${d}/`) || fp.includes(`/${d}/`))
+    )
+      continue;
+    if (++count >= cfg.maxFiles) return count;
+  }
+  return count;
+}
+
+function getConcurrency(n: number): number {
+  if (n < 50) return 1;
+  const c =
+    typeof availableParallelism === "function"
+      ? availableParallelism()
+      : cpus().length;
+  return c <= 4
+    ? Math.max(2, c)
+    : c <= 8
+      ? c - 1
+      : Math.min(8, Math.max(4, Math.ceil(c / 2)));
+}
+
+// ---------------------------------------------------------------------------
+// Summary builders
+// ---------------------------------------------------------------------------
+
+function getRemainingTimeoutMs(deadlineMs: number): number {
+  return Math.max(1, deadlineMs - Date.now());
+}
+
+function getTestRunnerArtifacts(step: StepConfig): TestRunnerArtifacts {
+  if (step.summary?.type !== "test-runner") {
+    return {
+      coverageLabel: "coverage",
+      coverageReportPath: "",
+      testReportPath: "",
+    };
+  }
+
+  return {
+    coverageLabel: step.summary.coverageLabel ?? "coverage",
+    coverageReportPath: resolvePathToken(step.summary.coveragePathToken),
+    testReportPath: resolvePathToken(step.summary.reportPathToken),
+  };
+}
+
+function makeTimedOutCommand(label: string, timeoutMs: number): Command {
+  return {
+    exitCode: 124,
+    output: `${label} exceeded the ${formatDuration(timeoutMs)} timeout\n`,
+    timedOut: true,
+  };
+}
+
+function parseCoverage(path: string): CoverageSummary {
+  if (!existsSync(path)) {
+    return {
+      covered: 0,
+      found: 0,
+      issues: [
+        `${paint("FAIL", ANSI.bold, ANSI.red)} No coverage report found at ${path}`,
+      ],
+      ok: false,
+      pct: 0,
+    };
+  }
+  const hits = new Map<string, Map<number, number>>();
+  let file = "";
+  let include = false;
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+    if (line.startsWith("SF:")) {
+      file = line.slice(3);
+      include = !CFG.coverageExcludedFiles.includes(file);
+      if (include && !hits.has(file)) hits.set(file, new Map<number, number>());
+      continue;
+    }
+    if (!include || !file || !line.startsWith("DA:")) continue;
+    const [lineRaw, hitRaw] = line.slice(3).split(",");
+    const lineNo = Number.parseInt(lineRaw ?? "", 10);
+    const hit = Number.parseInt(hitRaw ?? "", 10);
+    if (!Number.isFinite(lineNo) || !Number.isFinite(hit)) continue;
+    const map = hits.get(file);
+    if (!map) continue;
+    map.set(lineNo, Math.max(hit, map.get(lineNo) ?? 0));
+  }
+  const allHits = Array.from(hits.values()).flatMap((m) =>
+    Array.from(m.values()),
+  );
+  const found = allHits.length;
+  const covered = allHits.filter((h) => h > 0).length;
+  if (!found) {
+    return {
+      covered,
+      found: 0,
+      issues: [
+        `${paint("FAIL", ANSI.bold, ANSI.red)} No executable lines found in coverage report`,
+      ],
+      ok: false,
+      pct: 0,
+    };
+  }
+  const pct = (covered / found) * 100;
+  return {
+    covered,
+    found,
+    issues: [],
+    ok: pct >= CFG.thresholds.lineCoverageThreshold,
+    pct,
+  };
+}
+
+function parseTests(reportPath: string): TestSummary {
+  if (!existsSync(reportPath)) {
+    return {
+      failed: 1,
+      failedTests: [
+        {
+          message: `Report file not found: ${reportPath}`,
+          name: "Test report missing",
+        },
+      ],
+      issues: [
+        paint(
+          `FAIL [test-summary] Report file not found: ${reportPath}`,
+          ANSI.red,
+          ANSI.bold,
+        ),
+      ],
+      ok: false,
+      passed: 0,
+      skipped: 0,
+      skippedTests: [],
+    };
+  }
+  const failed: TestResult[] = [];
+  const skipped: TestResult[] = [];
+  let passed = 0;
+  const matches = Array.from(
+    readFileSync(reportPath, "utf8").matchAll(
+      /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g,
+    ),
+  );
+  for (const m of matches) {
+    const test = toTest(attrs(m[1] ?? ""));
+    const body = m[2] ?? "";
+    const isSkip = /<skipped\b/.test(body);
+    const isFail = body.includes("<failure") || body.includes("<error");
+    if (isSkip) skipped.push(test);
+    if (isFail)
+      failed.push({
+        ...test,
+        message: attrs(body.match(/<(?:failure|error)\b([^>]*)>/)?.[1] ?? "")
+          .message,
+      });
+    if (!isSkip && !isFail) passed += 1;
+  }
+  return {
+    failed: failed.length,
+    failedTests: failed,
+    issues: [],
+    ok: failed.length === 0,
+    passed,
+    skipped: skipped.length,
+    skippedTests: skipped,
+  };
+}
+
 function printStepOutput(label: string, output: string) {
   console.log(`\n${paint(label, ANSI.bold)}`);
   if (!output.trim()) console.log(paint("(no output)", ANSI.gray));
@@ -389,61 +737,155 @@ function printStepOutput(label: string, output: string) {
     );
 }
 
-async function runDeadCss(cfg: DeadCssConfig): Promise<Command> {
-  const startMs = Date.now();
-  const cwd = process.cwd();
-  const { cssFiles, contentGlobs, safelists, selectorPrefix } = cfg;
-  const safelistRe = safelists.map((s) => new RegExp(s));
-  const safePattern = new RegExp(safelists.join("|"));
-  try {
-    const { PurgeCSS } = await import("purgecss");
-    const [result] = await new PurgeCSS().purge({
-      css: cssFiles.map((f) => join(cwd, f)),
-      content: contentGlobs.map((g) => join(cwd, g)),
-      rejected: true,
-      safelist: { greedy: safelistRe },
-    });
-    const dead = (result?.rejected ?? []).filter(
-      (s) => s.startsWith(selectorPrefix) && !safePattern.test(s),
+function printTests(label: string, color: string, tests: TestResult[]) {
+  if (!tests.length) return;
+  console.log(`\n${paint(label, ANSI.bold, color)}`);
+  for (const test of tests)
+    console.log(
+      `  ${paint("•", color)} ${paint(where(test), color)}${test.message ? ` [${test.message}]` : ""}`,
     );
-    const durationMs = Date.now() - startMs;
-    if (!dead.length)
-      return {
-        exitCode: 0,
-        timedOut: false,
-        output: "no dead CSS definitions found\n",
-        durationMs,
-      };
-    return {
-      exitCode: 1,
-      timedOut: false,
-      output: `${dead.map((s) => `  dead: ${s}`).join("\n")}\nfound ${dead.length} unused CSS selector(s)\n`,
-      durationMs,
-    };
-  } catch (e) {
-    return {
-      exitCode: 1,
-      timedOut: false,
-      output: `dead-css check failed: ${e instanceof Error ? e.message : String(e)}\n`,
-      durationMs: Date.now() - startMs,
-    };
+}
+
+function resolveSummaryTokens(
+  format: string,
+  match: null | RegExpMatchArray,
+): string {
+  return format.replace(/\{(\w+)\}/g, (whole, key) => {
+    if (/^\d+$/.test(key)) return match?.[Number(key)] ?? "";
+    return TOKENS[`{${key}}`] ?? whole;
+  });
+}
+
+async function withStepTimeout(
+  label: string,
+  stepPromise: Promise<Command>,
+  timeoutMs?: number,
+): Promise<Command> {
+  if (timeoutMs === undefined || timeoutMs <= 0) return stepPromise;
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      stepPromise,
+      new Promise<Command>((resolve) => {
+        timeoutId = setTimeout(() => {
+          resolve(makeTimedOutCommand(label, timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 }
 
-async function run(
+const PROCESS_KILL_GRACE_MS = 250;
+const STREAM_FLUSH_GRACE_MS = 250;
+
+function createStreamCollector(
+  stream: null | ReadableStream<Uint8Array> | undefined,
+): StreamCollector {
+  let output = "";
+
+  if (!stream) {
+    return {
+      done: Promise.resolve(),
+      getOutput: () => output,
+    };
+  }
+
+  const done = (async () => {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      for (;;) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+        if (value) output += decoder.decode(value, { stream: true });
+      }
+    } catch {
+      // Ignore collector errors so timeouts can still return partial output.
+    } finally {
+      output += decoder.decode();
+      reader.releaseLock();
+    }
+  })();
+
+  return {
+    done,
+    getOutput: () => output,
+  };
+}
+
+async function flushCollectors(collectors: StreamCollector[]): Promise<void> {
+  const delay = createDelay(STREAM_FLUSH_GRACE_MS, undefined);
+  try {
+    await Promise.race([
+      Promise.all(collectors.map((collector) => collector.done)),
+      delay.promise,
+    ]);
+  } finally {
+    delay.cancel();
+  }
+}
+
+async function terminateProcess(child: KillableProcess): Promise<void> {
+  try {
+    child.kill();
+  } catch {
+    return;
+  }
+
+  const exited = child.exited.catch(() => null);
+  const gracefulDelay = createDelay(PROCESS_KILL_GRACE_MS, false);
+  const exitedGracefully = await Promise.race([
+    exited.then(() => true),
+    gracefulDelay.promise,
+  ]);
+  gracefulDelay.cancel();
+  if (exitedGracefully) return;
+
+  try {
+    child.kill("SIGKILL");
+  } catch {
+    // Ignore hard-kill failures. The caller will still return buffered output.
+  }
+
+  const killDelay = createDelay(PROCESS_KILL_GRACE_MS, null);
+  try {
+    await Promise.race([exited, killDelay.promise]);
+  } finally {
+    killDelay.cancel();
+  }
+}
+
+const INLINE_TS_TRANSPILE = new Bun.Transpiler({ loader: "ts" });
+const INLINE_TS_RUNNER_CACHE = new Map<string, InlineTypeScriptRunner>();
+
+export async function run(
   cmd: string,
   args: string[],
-  timeoutMs?: number,
-  extraEnv?: Record<string, string>,
+  options: RunOptions = {},
 ): Promise<Command> {
   const startMs = Date.now();
+  const { extraEnv, label = cmd, timeoutMs } = options;
+  if (cmd === "bunx" && !isBunxCommandAvailable(args)) {
+    const target = getBunxCommandTarget(args) ?? "bunx target";
+    return {
+      durationMs: 0,
+      exitCode: 127,
+      notFound: true,
+      output: `command not found: ${target}`,
+      timedOut: false,
+    };
+  }
   if (!Bun.which(cmd))
     return {
-      exitCode: 127,
-      timedOut: false,
-      output: `command not found: ${cmd}`,
-      notFound: true,
       durationMs: 0,
+      exitCode: 127,
+      notFound: true,
+      output: `command not found: ${cmd}`,
+      timedOut: false,
     };
   const env: Record<string, string | undefined> = {
     ...process.env,
@@ -455,158 +897,164 @@ async function run(
   const child = Bun.spawn([cmd, ...args], {
     cwd: process.cwd(),
     env,
+    stderr: "pipe",
     stdin: "ignore",
     stdout: "pipe",
-    stderr: "pipe",
   });
-  const stdoutP = child.stdout
-    ? new Response(child.stdout).text()
-    : Promise.resolve("");
-  const stderrP = child.stderr
-    ? new Response(child.stderr).text()
-    : Promise.resolve("");
-  let timedOut = false;
-  const timeout =
+  const stdoutCollector = createStreamCollector(child.stdout);
+  const stderrCollector = createStreamCollector(child.stderr);
+  const timeoutDelay =
     timeoutMs && timeoutMs > 0
-      ? setTimeout(() => {
-          timedOut = true;
-          child.kill();
-        }, timeoutMs)
+      ? createDelay(timeoutMs, { kind: "timeout" as const })
       : null;
-  const [exitCode, stdout, stderr] = await Promise.all([
-    child.exited,
-    stdoutP,
-    stderrP,
-  ]);
-  if (timeout) clearTimeout(timeout);
-  const durationMs = Date.now() - startMs;
-  const output = `${stdout}${stderr}`;
-  return timedOut
-    ? { exitCode: 124, timedOut: true, output, durationMs }
-    : { exitCode: exitCode ?? 1, timedOut: false, output, durationMs };
+  const exitPromise = child.exited.then((exitCode) => ({
+    exitCode: exitCode ?? 1,
+    kind: "exit" as const,
+  }));
+  const outcome = await Promise.race(
+    timeoutDelay ? [exitPromise, timeoutDelay.promise] : [exitPromise],
+  );
+  timeoutDelay?.cancel();
+
+  if (outcome.kind === "timeout") {
+    const activeTimeoutMs = timeoutMs ?? 1;
+    await terminateProcess(child);
+    await flushCollectors([stdoutCollector, stderrCollector]);
+    return {
+      durationMs: Date.now() - startMs,
+      exitCode: 124,
+      output: appendTimedOutMessage(
+        `${stdoutCollector.getOutput()}${stderrCollector.getOutput()}`,
+        label,
+        activeTimeoutMs,
+      ),
+      timedOut: true,
+    };
+  }
+
+  await flushCollectors([stdoutCollector, stderrCollector]);
+  return withMissingDetection({
+    durationMs: Date.now() - startMs,
+    exitCode: outcome.exitCode,
+    output: `${stdoutCollector.getOutput()}${stderrCollector.getOutput()}`,
+    timedOut: false,
+  });
 }
 
-async function runLint(cfg: LintConfig, extraArgs: string[]): Promise<Command> {
+export async function runInlineTypeScriptStep(
+  step: StepConfig,
+  overrides: InlineTypeScriptOverrides = {},
+): Promise<Command> {
+  const startMs = Date.now();
+  const inlineConfig = toInlineTypeScriptConfig(step.config);
+  if (!inlineConfig)
+    return withMissingDetection({
+      durationMs: Date.now() - startMs,
+      exitCode: 1,
+      output: `${step.label} is missing a valid inline TypeScript config\n`,
+      timedOut: false,
+    });
+
+  const makeResult = (exitCode: number, output: string, durationMs?: number) =>
+    withMissingDetection({
+      durationMs,
+      exitCode,
+      output,
+      timedOut: false,
+    });
+
+  try {
+    const runner = compileInlineTypeScriptRunner(inlineConfig.source);
+    const result = await runner({
+      cwd: process.cwd(),
+      data: inlineConfig.data ?? {},
+      dirname,
+      existsSync,
+      fail: (output, durationMs) => makeResult(1, output, durationMs),
+      importModule:
+        overrides.importModule ?? ((specifier) => import(specifier)),
+      join,
+      ok: (output, durationMs) => makeResult(0, output, durationMs),
+      readFileSync,
+      step,
+    });
+    const durationMs = Date.now() - startMs;
+    return (
+      toCommand(result, durationMs) ??
+      makeResult(
+        1,
+        `${step.label} returned an invalid inline TypeScript result\n`,
+        durationMs,
+      )
+    );
+  } catch (e) {
+    return makeResult(
+      1,
+      `${step.label} failed: ${e instanceof Error ? e.message : String(e)}\n`,
+      Date.now() - startMs,
+    );
+  }
+}
+
+function compileInlineTypeScriptRunner(source: string): InlineTypeScriptRunner {
+  const cached = INLINE_TS_RUNNER_CACHE.get(source);
+  if (cached) return cached;
+
+  const jsSource = INLINE_TS_TRANSPILE.transformSync(
+    `const __runner = (${source});`,
+  );
+  const factory = new Function(
+    `"use strict";\n${jsSource}\nreturn __runner;`,
+  ) as () => InlineTypeScriptRunner | unknown;
+  const runner = factory();
+  if (typeof runner !== "function") {
+    throw new Error(
+      "inline TypeScript config must evaluate to an anonymous function",
+    );
+  }
+
+  INLINE_TS_RUNNER_CACHE.set(source, runner as InlineTypeScriptRunner);
+  return runner as InlineTypeScriptRunner;
+}
+
+async function runLint(
+  step: StepConfig,
+  cfg: LintConfig,
+  extraArgs: string[],
+  timeoutMs?: number,
+): Promise<Command> {
   const envC = process.env.ESLINT_CONCURRENCY;
   const fileCount = await estLintFiles(cfg);
   const concurrency =
     envC && /^\d+$/.test(envC)
       ? Number.parseInt(envC, 10)
       : getConcurrency(fileCount);
-  return run("bunx", [...cfg.args, String(concurrency), ...extraArgs]);
-}
-
-async function runTsPrune(
-  cfg: TsPruneConfig,
-  argv?: string[],
-): Promise<Command> {
-  // CLI --config override: load from file and recurse
-  const overridePath = argv
-    ? (() => {
-        const cfgIdx = argv.indexOf("--config");
-        if (cfgIdx >= 0) return argv[cfgIdx + 1] ?? null;
-        return argv.find((a) => a.startsWith("--config="))?.slice(9) ?? null;
-      })()
-    : null;
-  if (overridePath !== null) {
-    const absPath = join(process.cwd(), overridePath);
-    if (!existsSync(absPath))
-      return {
-        exitCode: 1,
-        timedOut: false,
-        output: `ts-prune config file not found: ${absPath}\n`,
-      };
-    const raw = JSON.parse(readFileSync(absPath, "utf8")) as unknown;
-    if (!raw || typeof raw !== "object")
-      return {
-        exitCode: 1,
-        timedOut: false,
-        output: `Invalid ts-prune config at ${absPath}: expected an object\n`,
-      };
-    const r = raw as Record<string, unknown>;
-    return runTsPrune(
-      {
-        project: typeof r.project === "string" ? r.project : cfg.project,
-        skip: typeof r.skip === "string" ? r.skip : cfg.skip,
-        ignore: typeof r.ignore === "string" ? r.ignore : cfg.ignore,
-        actionableLinePattern: cfg.actionableLinePattern,
-        usedInTestsMarker: cfg.usedInTestsMarker,
-      },
-      undefined,
-    );
-  }
-  try {
-    const { project, skip, ignore, actionableLinePattern, usedInTestsMarker } =
-      cfg;
-    let ignoreRe: RegExp | null = null;
-    if (ignore) {
-      try {
-        ignoreRe = new RegExp(ignore);
-      } catch (e) {
-        throw new Error(
-          `Invalid regex in ts-prune config: ${ignore} (${e instanceof Error ? e.message : "unknown error"})`,
-        );
-      }
-    }
-    const tsArgs = ["ts-prune", "-p", project];
-    if (skip) tsArgs.push("--skip", skip);
-    if (ignore) tsArgs.push("--ignore", ignore);
-    const result = await run("bunx", tsArgs);
-    if (result.timedOut) return result;
-    const actionableRe = new RegExp(actionableLinePattern);
-    const actionable = result.output
-      .split(/\r?\n/)
-      .filter(
-        (l) =>
-          actionableRe.test(l.trim()) &&
-          (l.includes(usedInTestsMarker) || !ignoreRe?.test(l)),
-      );
-    if (actionable.length > 0)
-      return {
-        exitCode: 1,
-        timedOut: false,
-        output: `${actionable.join("\n")}\nts-prune found ${actionable.length} actionable unused export(s)\n`,
-      };
-    return result;
-  } catch (e) {
-    return {
-      exitCode: 1,
-      timedOut: false,
-      output: `ts-prune failed: ${e instanceof Error ? e.message : "unknown error"}\n`,
-    };
-  }
+  return run("bunx", [...cfg.args, String(concurrency), ...extraArgs], {
+    label: step.label,
+    timeoutMs,
+  });
 }
 
 // Handler registry — keyed by step "handler" field
-const HANDLERS: Record<string, (step: StepConfig) => Promise<Command>> = {
-  lint: (step) => runLint(step.config as LintConfig, []),
-  "ts-prune": (step) => runTsPrune(step.config as TsPruneConfig),
-  "dead-css": (step) => runDeadCss(step.config as DeadCssConfig),
-  test: (step) =>
-    run("bun", resolveArgs(step.args ?? []), TEST_COMMAND_TIMEOUT_MS),
+const HANDLERS: Record<string, StepRunner> = {
+  "inline-ts": (step, timeoutMs) =>
+    withStepTimeout(step.label, runInlineTypeScriptStep(step), timeoutMs),
+  lint: (step, timeoutMs, extraArgs = []) =>
+    runLint(step, step.config as LintConfig, extraArgs, timeoutMs),
+  test: (step, timeoutMs, extraArgs = []) => {
+    const artifacts = getTestRunnerArtifacts(step);
+    if (artifacts.testReportPath)
+      mkdirSync(dirname(artifacts.testReportPath), { recursive: true });
+    return run("bun", [...resolveArgs(step.args ?? []), ...extraArgs], {
+      label: step.label,
+      timeoutMs,
+    });
+  },
 };
 
-function runStep(step: StepConfig): Promise<Command> {
-  if (step.handler)
-    return (
-      HANDLERS[step.handler]?.(step) ??
-      Promise.resolve({
-        exitCode: 1,
-        timedOut: false,
-        output: `unknown handler: ${step.handler}`,
-      })
-    );
-  if (!step.cmd)
-    return Promise.resolve({
-      exitCode: 1,
-      timedOut: false,
-      output: `step "${step.key}" missing cmd`,
-    });
-  return run(step.cmd, resolveArgs(step.args ?? []));
-}
-
-async function runCheckSuite(keyFilter?: Set<string> | null) {
+export async function runCheckSuite(keyFilter?: null | Set<string>) {
   const startedAtMs = Date.now();
+  const deadlineMs = startedAtMs + SUITE_TIMEOUT_MS;
   process.stdout.write(paint("⏳ Please wait ... ", ANSI.bold, ANSI.cyan));
 
   const preRunSteps = keyFilter
@@ -617,20 +1065,23 @@ async function runCheckSuite(keyFilter?: Set<string> | null) {
       !s.preRun && s.enabled !== false && (!keyFilter || keyFilter.has(s.key)),
   );
 
-  for (const step of preRunSteps) await runStep(step);
+  const preRunResults = await runStepBatch(preRunSteps, deadlineMs);
+  const preRunTimedOut = Object.values(preRunResults).some(
+    (run) => run.timedOut,
+  );
+  const executedMainSteps = preRunTimedOut ? [] : mainSteps;
+  const mainResults = preRunTimedOut
+    ? {}
+    : await runStepBatch(mainSteps, deadlineMs);
+  const runs = { ...preRunResults, ...mainResults };
 
-  const runs = Object.fromEntries(
-    await Promise.all(
-      mainSteps.map(async (s) => [s.key, await runStep(s)] as const),
-    ),
-  ) as Record<string, Command>;
-
-  const timedOut = Object.values(runs).some((r) => r.timedOut);
-  const missingLabels = mainSteps
-    .filter((s) => runs[s.key]?.notFound)
+  const timedOut = Object.values(runs).some((result) => result.timedOut);
+  const allExecutedSteps = [...preRunSteps, ...executedMainSteps];
+  const missingSteps = allExecutedSteps
+    .filter((step) => runs[step.key]?.notFound)
     .map((s) => s.label);
 
-  for (const step of mainSteps) {
+  for (const step of allExecutedSteps) {
     if (runs[step.key]?.notFound) continue;
     printStepOutput(
       step.label,
@@ -640,55 +1091,73 @@ async function runCheckSuite(keyFilter?: Set<string> | null) {
     );
   }
 
-  const runTests = !keyFilter || keyFilter.has("test");
-  const tests = runTests
-    ? parseTests(JUNIT_PATH)
-    : {
-        passed: 0,
-        failed: 0,
-        skipped: 0,
-        failedTests: [],
-        skippedTests: [],
-        ok: true,
-      };
-  const coverage = runTests ? parseCoverage(LCOV_PATH) : null;
+  const selectedTestRunnerStep = executedMainSteps.find(
+    (step) => step.summary?.type === "test-runner",
+  );
+  const testRunnerArtifacts = selectedTestRunnerStep
+    ? getTestRunnerArtifacts(selectedTestRunnerStep)
+    : null;
+  const runTests = !timedOut && selectedTestRunnerStep !== undefined;
+  const tests =
+    runTests && testRunnerArtifacts
+      ? parseTests(testRunnerArtifacts.testReportPath)
+      : {
+          failed: 0,
+          failedTests: [],
+          issues: [],
+          ok: true,
+          passed: 0,
+          skipped: 0,
+          skippedTests: [],
+        };
+  const coverage =
+    runTests && testRunnerArtifacts?.coverageReportPath
+      ? parseCoverage(testRunnerArtifacts.coverageReportPath)
+      : null;
 
-  type CheckRow = {
-    k: string;
-    ok: boolean;
+  interface CheckRow {
     d: string;
+    k: string;
     ms?: number;
-    stpk: string | null;
-  };
-  const checks: CheckRow[] = mainSteps.map((step) => {
+    status: "fail" | "pass";
+    stpk: null | string;
+  }
+  const checks: CheckRow[] = executedMainSteps.map((step) => {
     const cmd = runs[step.key];
     const isTestRunner = step.summary?.type === "test-runner";
-    const d = isTestRunner
-      ? `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${cmd.exitCode}`
-      : buildSummary(step, cmd);
+    const status: "fail" | "pass" =
+      cmd.exitCode === 0 && (!isTestRunner || tests.ok) ? "pass" : "fail";
+    const d =
+      isTestRunner && status === "fail"
+        ? `${tests.passed} passed · ${tests.failed} failed · ${tests.skipped} skipped · runner exit ${cmd.exitCode}`
+        : buildSummary(step, cmd);
     return {
-      k: step.label,
-      ok: cmd.exitCode === 0 && (!isTestRunner || tests.ok),
       d,
+      k: step.label,
       ms: cmd.durationMs,
+      status,
       stpk: step.key,
     };
   });
 
   if (coverage)
     checks.push({
-      k: "Coverage",
-      ok: coverage.ok,
       d: `${coverage.pct.toFixed(2)}% (${coverage.covered}/${coverage.found}) · threshold ${CFG.thresholds.lineCoverageThreshold.toFixed(1)}%`,
+      k: testRunnerArtifacts?.coverageLabel ?? "coverage",
+      status: coverage.ok ? "pass" : "fail",
       stpk: null,
     });
+
+  for (const issue of [...tests.issues, ...(coverage?.issues ?? [])]) {
+    console.log(`\n${issue}`);
+  }
 
   printTests("Failed tests", ANSI.red, tests.failedTests);
   printTests("Skipped tests", ANSI.gray, tests.skippedTests);
 
-  if (missingLabels.length > 0)
+  if (missingSteps.length > 0)
     console.log(
-      `\n${paint("missing/not found:", ANSI.bold, ANSI.yellow)} ${paint(missingLabels.join(", "), ANSI.yellow)}`,
+      `\n${paint("missing/not found:", ANSI.bold, ANSI.yellow)} ${paint(missingSteps.join(", "), ANSI.yellow)}`,
     );
 
   const presentChecks = checks.filter(
@@ -698,15 +1167,15 @@ async function runCheckSuite(keyFilter?: Set<string> | null) {
   console.log(`\n${paint("Quality Summary", ANSI.bold, ANSI.cyan)}`);
   console.log(divider());
   for (const check of presentChecks)
-    console.log(row(check.k, check.ok, check.d, check.ms));
+    console.log(row(check.k, check.status, check.d, check.ms));
   console.log(divider());
 
-  const allOk = presentChecks.every((c) => c.ok) && !timedOut;
+  const allOk = presentChecks.every((c) => c.status !== "fail") && !timedOut;
   const elapsedSeconds = ((Date.now() - startedAtMs) / 1000).toFixed(2);
   console.log(
     row(
       "Overall",
-      allOk,
+      allOk ? "pass" : "fail",
       `${allOk ? "all checks passed" : "one or more checks failed"} (in ${elapsedSeconds} seconds)`,
     ),
   );
@@ -714,11 +1183,21 @@ async function runCheckSuite(keyFilter?: Set<string> | null) {
 
   if (timedOut) {
     console.error(
-      `Check command failed: bun test exceeded the ${TEST_COMMAND_TIMEOUT_MS / 1000}-second failsafe timeout. Please try again.`,
+      `Check command failed: ${SUITE_LABEL} exceeded the ${(SUITE_TIMEOUT_MS / 1000).toFixed(2)}-second overall timeout. Please try again.`,
     );
     process.exit(1);
   }
   if (!allOk) process.exit(1);
+}
+
+function getStepTimeoutMs(step: StepConfig, deadlineMs: number): number {
+  const remainingTimeoutMs = getRemainingTimeoutMs(deadlineMs);
+  const configuredTimeoutMs = resolveStepTimeoutMsValue(step);
+  if (configuredTimeoutMs !== null) {
+    return Math.min(configuredTimeoutMs, remainingTimeoutMs);
+  }
+
+  return remainingTimeoutMs;
 }
 
 async function main() {
@@ -728,15 +1207,16 @@ async function main() {
     process.stdout.write(
       output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
     );
-  if (command === "lint") {
-    const step = CFG.steps.find((s) => s.handler === "lint");
-    const result = await runLint(step?.config as LintConfig, args);
-    writeOut(result.output);
-    process.exit(result.exitCode);
-  }
-  if (command === "ts-prune") {
-    const step = CFG.steps.find((s) => s.handler === "ts-prune");
-    const result = await runTsPrune(step?.config as TsPruneConfig, args);
+  const directStep =
+    command && !command.startsWith("--")
+      ? CFG.steps.find((step) => step.key === command && step.enabled !== false)
+      : undefined;
+  if (directStep) {
+    const result = await runStep(
+      directStep,
+      getStepTimeoutMs(directStep, Date.now() + SUITE_TIMEOUT_MS),
+      args,
+    );
     writeOut(result.output);
     process.exit(result.exitCode);
   }
@@ -747,4 +1227,49 @@ async function main() {
   await runCheckSuite(flagKeys.length > 0 ? new Set(flagKeys) : null);
 }
 
-await main();
+function runStep(
+  step: StepConfig,
+  timeoutMs?: number,
+  extraArgs: string[] = [],
+): Promise<Command> {
+  if (step.handler)
+    return (
+      HANDLERS[step.handler]?.(step, timeoutMs, extraArgs) ??
+      Promise.resolve({
+        exitCode: 1,
+        output: `unknown handler: ${step.handler}`,
+        timedOut: false,
+      })
+    );
+  if (!step.cmd)
+    return Promise.resolve({
+      exitCode: 1,
+      output: `step "${step.key}" missing cmd`,
+      timedOut: false,
+    });
+  return run(step.cmd, [...resolveArgs(step.args ?? []), ...extraArgs], {
+    label: step.label,
+    timeoutMs,
+  });
+}
+
+async function runStepBatch(
+  steps: StepConfig[],
+  deadlineMs: number,
+): Promise<Record<string, Command>> {
+  return Object.fromEntries(
+    await Promise.all(
+      steps.map(
+        async (step) =>
+          [
+            step.key,
+            await runStep(step, getStepTimeoutMs(step, deadlineMs)),
+          ] as const,
+      ),
+    ),
+  ) as Record<string, Command>;
+}
+
+export { applyOutputFilter, buildSummary, parseCoverage, parseTests };
+
+if (import.meta.main) void main();

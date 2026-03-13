@@ -1,29 +1,33 @@
-import { type Article, type CategoryTreeNode } from "@/lib";
-import { filterArticlesByState, type ArticleFilter } from "./article-filters";
+import { type ArticleFilter, filterArticlesByState } from "./article-filters";
 import { buildDisplayCategories } from "./category-display";
 import { findFeedNodeByKey, SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
 
-type DashboardViewModelInput = {
-  feed: Article[];
+import { type Article, type CategoryTreeNode } from "@/lib";
+
+const articleContentSearchTextCache = new WeakMap<Article, string>();
+const articleTitleSearchTextCache = new WeakMap<Article, string>();
+
+interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
-  expandedArticleKey: string | null;
-  collapsingArticleKey: string | null;
-  searchTerm: string;
   categories: CategoryTreeNode[];
+  collapsingArticleKey: null | string;
   customCategoryLabels: string[];
+  expandedArticleKey: null | string;
+  feed: Article[];
   orderedCategoryLabels: string[];
+  searchTerm: string;
   selectedCategory: string;
-};
+}
 
 export function buildDashboardViewModel({
-  feed,
   articleFilter,
-  expandedArticleKey,
-  collapsingArticleKey,
-  searchTerm,
   categories,
+  collapsingArticleKey,
   customCategoryLabels,
+  expandedArticleKey,
+  feed,
   orderedCategoryLabels,
+  searchTerm,
   selectedCategory,
 }: DashboardViewModelInput) {
   const feedByState = filterArticlesByState(
@@ -33,12 +37,7 @@ export function buildDashboardViewModel({
     collapsingArticleKey,
   );
 
-  const loweredSearchTerm = searchTerm.toLowerCase();
-  const filteredFeed = feedByState.filter(
-    (article) =>
-      article.title.toLowerCase().includes(loweredSearchTerm) ||
-      (article.content || "").toLowerCase().includes(loweredSearchTerm),
-  );
+  const filteredFeed = filterArticlesBySearchTerm(feedByState, searchTerm);
 
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 
@@ -55,7 +54,7 @@ export function buildDashboardViewModel({
         (feedNode) => feedNode.data?.enabled !== false,
       ),
     }))
-    .filter((category) => (category.children?.length ?? 0) > 0);
+    .filter((category) => category.children.length > 0);
 
   const sidebarCategories = [
     SYSTEM_ALL_FEEDS_CATEGORY,
@@ -73,12 +72,56 @@ export function buildDashboardViewModel({
   const categoryOptions = displayCategories.map((node) => node.label);
 
   return {
-    filteredFeed,
-    displayCategories,
-    sidebarCategories,
-    selectedCategoryNode,
-    selectedFeedUrl,
-    selectedFeed,
     categoryOptions,
+    displayCategories,
+    filteredFeed,
+    selectedCategoryNode,
+    selectedFeed,
+    selectedFeedUrl,
+    sidebarCategories,
   };
+}
+
+export function filterArticlesBySearchTerm(
+  articles: Article[],
+  searchTerm: string,
+) {
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  if (normalizedSearchTerm === "") {
+    return articles;
+  }
+
+  return articles.filter((article) =>
+    isArticleSearchMatch(article, normalizedSearchTerm),
+  );
+}
+
+function getArticleContentSearchText(article: Article) {
+  const cached = articleContentSearchTextCache.get(article);
+  if (cached) {
+    return cached;
+  }
+
+  const searchText = article.content.toLowerCase();
+  articleContentSearchTextCache.set(article, searchText);
+  return searchText;
+}
+
+function getArticleTitleSearchText(article: Article) {
+  const cached = articleTitleSearchTextCache.get(article);
+  if (cached) {
+    return cached;
+  }
+
+  const searchText = article.title.toLowerCase();
+  articleTitleSearchTextCache.set(article, searchText);
+  return searchText;
+}
+
+function isArticleSearchMatch(article: Article, normalizedSearchTerm: string) {
+  if (getArticleTitleSearchText(article).includes(normalizedSearchTerm)) {
+    return true;
+  }
+
+  return getArticleContentSearchText(article).includes(normalizedSearchTerm);
 }

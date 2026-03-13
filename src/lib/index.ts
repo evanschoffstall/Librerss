@@ -1,10 +1,8 @@
 // Main library exports - organized by domain
 
 // Core: types, constants, utilities, hooks
-export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
-
 export { ENV } from "./config";
-
+export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
 export { useDebugState } from "./hooks/useDebugState";
 export { useLocalStorage } from "./hooks/useLocalStorage";
 export { useSessionState } from "./hooks/useSessionState";
@@ -24,7 +22,7 @@ export {
   replaceCategoryLabel,
 } from "./utils/categories";
 export { formatRelativeDate } from "./utils/dates";
-export { generateOpml, parseOpmlFeedImport } from "./utils/opml";
 export type { OpmlFeedImportEntry } from "./utils/opml";
+export { generateOpml, parseOpmlFeedImport } from "./utils/opml";
 export { isValidUrl } from "./utils/url";
 export { isSafePositiveItemId } from "./utils/validation";

@@ -11,13 +11,13 @@ import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 const PREVIEW_LIMIT = 170;
 
 export function buildPreview(content: string): {
-  preview: string;
   hasOverflow: boolean;
+  preview: string;
 } {
   const hasOverflow = content.length > PREVIEW_LIMIT;
 
   if (!hasOverflow) {
-    return { preview: content, hasOverflow };
+    return { hasOverflow, preview: content };
   }
 
   const candidate = content.slice(0, PREVIEW_LIMIT + 1);
@@ -27,7 +27,7 @@ export function buildPreview(content: string): {
       ? candidate.slice(0, lastSpace)
       : content.slice(0, PREVIEW_LIMIT);
 
-  return { preview: safeCut.trimEnd(), hasOverflow };
+  return { hasOverflow, preview: safeCut.trimEnd() };
 }
 
 // ── Source label ──────────────────────────────────────────────────────────────

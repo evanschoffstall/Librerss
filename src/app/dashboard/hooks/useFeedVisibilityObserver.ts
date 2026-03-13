@@ -4,17 +4,17 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 
 interface UseFeedVisibilityObserverOptions {
-  sentinelRef: RefObject<Element | null>;
   pageSize: number;
-  totalFeedItems: number;
+  sentinelRef: RefObject<Element | null>;
   setVisibleCount: Dispatch<SetStateAction<number>>;
+  totalFeedItems: number;
 }
 
 export function useFeedVisibilityObserver({
-  sentinelRef,
   pageSize,
-  totalFeedItems,
+  sentinelRef,
   setVisibleCount,
+  totalFeedItems,
 }: UseFeedVisibilityObserverOptions) {
   // Keep a ref so the observer callback always sees the latest value without
   // needing to reconnect the observer whenever totalFeedItems changes.
@@ -40,6 +40,8 @@ export function useFeedVisibilityObserver({
 
     observer.observe(sentinel);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [pageSize, sentinelRef, setVisibleCount]);
 }

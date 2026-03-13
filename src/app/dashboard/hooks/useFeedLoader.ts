@@ -1,92 +1,58 @@
 "use client";
 
-import type { Article, CategoryTreeNode } from "@/lib";
-import { FeedService } from "@/lib";
-import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
-import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
-import { useCallback, useRef, useState } from "react";
+import { type RefObject, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  buildCategoriesFromSources,
-  buildDefaultCategories,
-  findFeedNodeByUrl,
-  getAllFeedNodes,
-} from "../services/category-tree";
+
+import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-tree";
 import {
   buildBatchRequestSignature,
   FEED_LOADING_FAILSAFE_MS,
-  mapBatchResultsToArticles,
+  type FeedBatchSource,
   mapFeedNodesToBatchSources,
   normalizeFeedBatchSources,
-  type FeedBatchSource,
 } from "../services/feed-batch";
 import {
-  getNewestLastFetchedAt,
-  getSourceNamesByUrl,
+  buildFeedBatchOutcome,
+  formatFeedFailureLabel,
+} from "../services/feed-batch-outcome";
+import { resolveFeedBatchResults } from "../services/feed-batch-resolver";
+import {
+  type FeedBatchResult,
   isCanceledBatchRequest,
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
-  type FeedBatchResult,
 } from "../services/feed-loader-helpers";
+import { loadFeedSourceTree } from "../services/feed-source-tree";
 import type { FeedFetchOptions } from "../services/selection";
 
+import { useFeedRequestState } from "./useFeedRequestState";
+
+import type { Article, CategoryTreeNode } from "@/lib";
+import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
+import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
+
 interface UseFeedLoaderOptions {
-  usePlaceholderData: boolean;
-  categoriesRef: React.MutableRefObject<CategoryTreeNode[]>;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
-  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  categoriesRef: RefObject<CategoryTreeNode[]>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
-}
-
-function notifyFeedFailures(
-  failedFeeds: FeedBatchResult[],
-  totalFeedCount: number,
-  sourceNamesByUrl: Map<string, string | undefined>,
-) {
-  if (failedFeeds.length === 0) {
-    return;
-  }
-
-  const failedNames = failedFeeds.map((item) => {
-    const sourceName = sourceNamesByUrl.get(item.url);
-    return sourceName || item.url;
-  });
-
-  if (failedFeeds.length === totalFeedCount) {
-    toast.error("Unable to fetch feeds from upstream.", {
-      description: "Try another feed or check back after the next refresh.",
-    });
-    return;
-  }
-
-  const failureLabel =
-    failedNames.length <= 3
-      ? failedNames.join(", ")
-      : `${failedNames.slice(0, 3).join(", ")} and ${failedNames.length - 3} more`;
-
-  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
-    description: "Showing cached articles. Check back after the next refresh.",
-  });
+  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
+  setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  usePlaceholderData: boolean;
 }
 
 export function useFeedLoader({
-  usePlaceholderData,
   categoriesRef,
-  setFeed,
+  onFeedBatchLoaded,
   setCategories,
   setExpandedArticleKey,
+  setFeed,
   setLoading,
-  onFeedBatchLoaded,
+  usePlaceholderData,
 }: UseFeedLoaderOptions) {
-  const currentRequestIdRef = useRef(0);
-  const activeRequestSignatureRef = useRef<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadingRef = useRef(false);
-  const [loading, setLocalLoading] = useState(false);
-  const [loadingEpoch, setLoadingEpoch] = useState(0);
+  const feedRequestState = useFeedRequestState({ setLoading });
+  const { loading, loadingEpoch } = feedRequestState;
 
   const logRefreshDiagnostics = useCallback(
     (event: string, details: Record<string, unknown>) => {
@@ -99,75 +65,25 @@ export function useFeedLoader({
     [],
   );
 
-  const syncLoading = useCallback(
-    (value: boolean) => {
-      loadingRef.current = value;
-      setLocalLoading(value);
-      setLoading(value);
-    },
-    [setLoading],
-  );
-
   const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
-    // In placeholder/preview mode, skip the API call entirely
-    if (usePlaceholderData) {
-      const defaults = buildDefaultCategories(true);
-      setCategories(defaults);
-      return defaults;
-    }
-
-    try {
-      const sources = await FeedService.getFeedSources();
-
-      if (sources.length === 0) {
-        const defaults = buildDefaultCategories(false);
-        setCategories(defaults);
-        return defaults;
-      }
-
-      const nextCategories = buildCategoriesFromSources(sources);
-      setCategories(nextCategories);
-      return nextCategories;
-    } catch (err) {
-      console.error("Feed source fetch error:", err);
-      const defaults = buildDefaultCategories(false);
-      setCategories(defaults);
-      return defaults;
-    }
+    const nextCategories = await loadFeedSourceTree(usePlaceholderData);
+    setCategories(nextCategories);
+    return nextCategories;
   }, [usePlaceholderData, setCategories]);
 
-  // Fetches the batch, falling back to placeholder data on error in dev mode.
-  // Returns null when the caller should abort (error already handled).
-  const fetchBatchOrPlaceholder = useCallback(
+  const loadBatchResults = useCallback(
     async (
       normalizedSources: FeedBatchSource[],
       options?: FeedFetchOptions,
       signal?: AbortSignal,
     ): Promise<FeedBatchResult[] | null> => {
-      const urls = normalizedSources.map((s) => s.url);
-      // In placeholder/preview mode, skip the API call and use local data directly
-      if (usePlaceholderData) {
-        return normalizedSources.map((source) => ({
-          url: source.url,
-          articles: getPlaceholderArticlesForSource(source.url).map(
-            (article) => ({
-              ...article,
-              feedName: source.name,
-              feedUrl: source.url,
-            }),
-          ),
-          ok: true,
-        }));
-      }
-
       try {
-        // Single fetch: returns cached articles and refreshes stale feeds in one pass
-        return await FeedService.getFeedsBatch(urls, {
-          skipRefresh: options?.skipRefresh ?? false,
-          forceRefresh: options?.forceRefresh === true,
-          requestSource: options?.requestSource,
+        return await resolveFeedBatchResults(
+          normalizedSources,
+          usePlaceholderData,
+          options,
           signal,
-        });
+        );
       } catch (error) {
         if (isCanceledBatchRequest(error)) {
           return null;
@@ -202,48 +118,40 @@ export function useFeedLoader({
       // Background refreshes (auto-refresh without force) must not replace
       // visible articles with skeleton loaders or race the failsafe timer.
       // Yield to any in-flight loading request rather than aborting it.
-      const isBackground =
-        options?.keepExistingFeed === true && options?.forceRefresh !== true;
-      if (isBackground && loadingRef.current) {
+      const keepExistingFeed = options?.keepExistingFeed === true;
+      const forceRefresh = options?.forceRefresh === true;
+      const isBackground = keepExistingFeed && !forceRefresh;
+      if (isBackground && feedRequestState.isLoading()) {
         return;
       }
-
-      const requestId = currentRequestIdRef.current + 1;
-      currentRequestIdRef.current = requestId;
-
-      logRefreshDiagnostics("refresh:start", {
-        requestId,
-        sourceCount: sources.length,
-        forceRefresh: options?.forceRefresh === true,
-        requestSource: options?.requestSource ?? "unspecified",
-        skipRefresh: options?.skipRefresh ?? usePlaceholderData,
-      });
-
-      // Cancel any previous request
-      abortControllerRef.current?.abort();
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
 
       const normalizedSources = normalizeFeedBatchSources(sources);
       const requestSignature = buildBatchRequestSignature(normalizedSources);
 
-      if (
-        loadingRef.current &&
-        activeRequestSignatureRef.current === requestSignature &&
-        options?.forceRefresh !== true
-      ) {
+      const requestState = feedRequestState.beginRequest({
+        forceRefresh,
+        isBackground,
+        requestSignature,
+      });
+
+      if (requestState.skippedDuplicate) {
         logRefreshDiagnostics("refresh:skipped-duplicate", {
-          requestId,
+          requestId: requestState.requestId,
           requestSignature,
         });
         return;
       }
 
-      activeRequestSignatureRef.current = requestSignature;
-      if (!isBackground) {
-        syncLoading(true);
-        setLoadingEpoch((e) => e + 1);
-      }
+      const { abortController, requestId } = requestState;
+
+      logRefreshDiagnostics("refresh:start", {
+        forceRefresh: options?.forceRefresh === true,
+        requestId,
+        requestSource: options?.requestSource ?? "unspecified",
+        skipRefresh: options?.skipRefresh ?? usePlaceholderData,
+        sourceCount: sources.length,
+      });
+
       if (!options?.keepExistingFeed) {
         setFeed([]);
       }
@@ -257,7 +165,7 @@ export function useFeedLoader({
           return;
         }
 
-        const batchResults = await fetchBatchOrPlaceholder(
+        const batchResults = await loadBatchResults(
           normalizedSources,
           options,
           abortController.signal,
@@ -274,10 +182,9 @@ export function useFeedLoader({
           });
           return;
         }
-        if (currentRequestIdRef.current !== requestId) {
+        if (!feedRequestState.isCurrentRequest(requestId)) {
           logRefreshDiagnostics("refresh:stale-request", {
             requestId,
-            currentRequestId: currentRequestIdRef.current,
           });
           return;
         }
@@ -287,23 +194,19 @@ export function useFeedLoader({
           ...summarizeBatchResults(batchResults),
         });
 
-        const newestLastFetchedAt = getNewestLastFetchedAt(batchResults);
+        const { articles, failedFeeds, newestLastFetchedAt, sourceNamesByUrl } =
+          buildFeedBatchOutcome(
+            normalizedSources,
+            batchResults,
+            usePlaceholderData,
+            getPlaceholderArticlesForSource,
+          );
 
         if (newestLastFetchedAt) {
           onFeedBatchLoaded?.(newestLastFetchedAt);
         }
 
-        const failedFeeds = batchResults.filter((item) => item.error);
-        const sourceNamesByUrl = getSourceNamesByUrl(normalizedSources);
-
         notifyFeedFailures(failedFeeds, batchResults.length, sourceNamesByUrl);
-
-        const articles = mapBatchResultsToArticles(
-          batchResults,
-          sourceNamesByUrl,
-          usePlaceholderData,
-          getPlaceholderArticlesForSource,
-        );
 
         if (articles.length > 0) {
           setFeed((currentFeed) => mergeHydratedContent(currentFeed, articles));
@@ -311,8 +214,8 @@ export function useFeedLoader({
             resolveExpandedArticleKey(currentKey, articles),
           );
           logRefreshDiagnostics("refresh:applied", {
-            requestId,
             articleCount: articles.length,
+            requestId,
           });
         } else {
           logRefreshDiagnostics("refresh:empty-after-map", {
@@ -325,9 +228,8 @@ export function useFeedLoader({
           }
         }
       } finally {
-        if (currentRequestIdRef.current === requestId) {
-          activeRequestSignatureRef.current = null;
-          syncLoading(false);
+        if (feedRequestState.isCurrentRequest(requestId)) {
+          feedRequestState.finishRequest(requestId);
           logRefreshDiagnostics("refresh:finished", {
             requestId,
           });
@@ -338,9 +240,9 @@ export function useFeedLoader({
       usePlaceholderData,
       setFeed,
       setExpandedArticleKey,
-      syncLoading,
+      feedRequestState,
       logRefreshDiagnostics,
-      fetchBatchOrPlaceholder,
+      loadBatchResults,
       handleEmptyBatchResult,
       onFeedBatchLoaded,
     ],
@@ -349,7 +251,7 @@ export function useFeedLoader({
   const fetchFeed = useCallback(
     async (url: string, options?: FeedFetchOptions) => {
       const sourceName = findFeedNodeByUrl(categoriesRef.current, url)?.label;
-      await fetchFeedBatch([{ url, name: sourceName }], options);
+      await fetchFeedBatch([{ name: sourceName, url }], options);
     },
     [fetchFeedBatch, categoriesRef],
   );
@@ -377,24 +279,43 @@ export function useFeedLoader({
   );
 
   const cancelPendingRequest = useCallback(() => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-    activeRequestSignatureRef.current = null;
-    currentRequestIdRef.current += 1;
-    syncLoading(false);
+    const requestId = feedRequestState.cancelPendingRequest();
     logRefreshDiagnostics("refresh:forced-reset", {
-      requestId: currentRequestIdRef.current,
+      requestId,
     });
-  }, [logRefreshDiagnostics, syncLoading]);
+  }, [feedRequestState, logRefreshDiagnostics]);
 
   return {
-    loading,
-    loadingEpoch,
-    loadFeedSources,
-    fetchFeed,
-    fetchCategoryFeeds,
-    fetchAllFeeds,
     cancelPendingRequest,
     FEED_LOADING_FAILSAFE_MS,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    loading,
+    loadingEpoch,
   };
+}
+
+function notifyFeedFailures(
+  failedFeeds: FeedBatchResult[],
+  totalFeedCount: number,
+  sourceNamesByUrl: Map<string, string | undefined>,
+) {
+  if (failedFeeds.length === 0) {
+    return;
+  }
+
+  if (failedFeeds.length === totalFeedCount) {
+    toast.error("Unable to fetch feeds from upstream.", {
+      description: "Try another feed or check back after the next refresh.",
+    });
+    return;
+  }
+
+  const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
+
+  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
+    description: "Showing cached articles. Check back after the next refresh.",
+  });
 }

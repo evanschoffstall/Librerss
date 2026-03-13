@@ -1,10 +1,11 @@
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { getDb } from "@/lib/db/db";
 import { categoryOrders } from "@/lib/db/schema";
 import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
-import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,31 +15,17 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDb();
-    const [row] = await db
+    const rows = await db
       .select({ orderedLabels: categoryOrders.orderedLabels })
       .from(categoryOrders)
       .where(eq(categoryOrders.userId, user.userId))
       .limit(1);
 
-    const labels: string[] = row ? safeParseLabelArray(row.orderedLabels) : [];
+    const labels =
+      rows.length === 0 ? [] : safeParseLabelArray(rows[0].orderedLabels);
     return NextResponse.json({ orderedLabels: labels });
   } catch (error) {
     return logAndRespondError("Error reading category order", error);
-  }
-}
-
-/**
- * Safely parses the stored JSON string into a string array.
- * Returns an empty array if the value is malformed.
- */
-function safeParseLabelArray(raw: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is string => typeof item === "string");
-  } catch {
-    // Intentionally return empty array for malformed JSON
-    return [];
   }
 }
 
@@ -68,20 +55,35 @@ export async function PUT(request: NextRequest) {
     await db
       .insert(categoryOrders)
       .values({
-        userId: user.userId,
         orderedLabels: serializedLabels,
         updatedAt: new Date(),
+        userId: user.userId,
       })
       .onConflictDoUpdate({
-        target: categoryOrders.userId,
         set: {
           orderedLabels: serializedLabels,
           updatedAt: new Date(),
         },
+        target: categoryOrders.userId,
       });
 
     return NextResponse.json({ orderedLabels: labels });
   } catch (error) {
     return logAndRespondError("Error saving category order", error);
+  }
+}
+
+/**
+ * Safely parses the stored JSON string into a string array.
+ * Returns an empty array if the value is malformed.
+ */
+function safeParseLabelArray(raw: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    // Intentionally return empty array for malformed JSON
+    return [];
   }
 }

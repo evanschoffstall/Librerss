@@ -1,23 +1,25 @@
-import { CONFIG } from "@/lib/config";
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
-import { sessions, users } from "@/lib/db/schema";
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
-import type { NextRequest, NextResponse } from "next/server";
 import {
   createHash,
   randomBytes,
   scrypt as scryptCallback,
-  timingSafeEqual,
   type ScryptOptions,
+  timingSafeEqual,
 } from "node:crypto";
 import { promisify } from "node:util";
+
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
+import type { NextRequest, NextResponse } from "next/server";
+
+import { CONFIG } from "@/lib/config";
+import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
+import { getDb } from "@/lib/db/db";
+import { sessions, users } from "@/lib/db/schema";
 
 // Re-type the promisify wrapper to include the optional options parameter that
 // @types/node does not expose through the standard promisify overloads.
 const scrypt = promisify(scryptCallback) as (
-  password: string | Buffer,
-  salt: string | Buffer,
+  password: Buffer | string,
+  salt: Buffer | string,
   keylen: number,
   options?: ScryptOptions,
 ) => Promise<Buffer>;
@@ -25,12 +27,12 @@ const scrypt = promisify(scryptCallback) as (
 export const SESSION_COOKIE_NAME = "librerss_session";
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 
-export type SessionUser = {
-  sessionId: number;
-  userId: number;
+export interface SessionUser {
   email: string;
   expiresAt: Date;
-};
+  sessionId: number;
+  userId: number;
+}
 
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -49,12 +51,12 @@ const hashSessionToken = (token: string) =>
 // New passwords are always hashed with V2.  verifyPassword detects the format
 // and falls back to V1 params automatically, so no DB migration is needed and
 // existing users' passwords continue to work.
-const SCRYPT_V1 = { N: 16384, r: 8, p: 1 } as const; // legacy (read-only)
-const SCRYPT_V2 = { N: 16384, r: 8, p: 1 } as const; // current — bump N when runtime allows
+const SCRYPT_V1 = { N: 16384, p: 1, r: 8 } as const; // legacy (read-only)
+const SCRYPT_V2 = { N: 16384, p: 1, r: 8 } as const; // current — bump N when runtime allows
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
-  const key = (await scrypt(password, salt, 64, SCRYPT_V2)) as Buffer;
+  const key = await scrypt(password, salt, 64, SCRYPT_V2);
   return `v2:${salt}:${key.toString("hex")}`;
 }
 
@@ -70,7 +72,7 @@ export async function verifyPassword(
   const [salt, keyHex] = stripped.split(":");
   if (!salt || !keyHex) return false;
 
-  const derived = (await scrypt(password, salt, 64, params)) as Buffer;
+  const derived = await scrypt(password, salt, 64, params);
   const stored = Buffer.from(keyHex, "hex");
 
   if (derived.length !== stored.length) return false;
@@ -80,17 +82,10 @@ export async function verifyPassword(
 
 const baseCookieOptions = {
   httpOnly: true,
+  path: "/",
   sameSite: "lax" as const,
   secure: process.env.NODE_ENV === "production",
-  path: "/",
 };
-
-export function setSessionCookie(response: NextResponse, token: string): void {
-  response.cookies.set(SESSION_COOKIE_NAME, token, {
-    ...baseCookieOptions,
-    maxAge: SESSION_DURATION_MS / 1000,
-  });
-}
 
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE_NAME, "", {
@@ -137,7 +132,7 @@ export async function createSession(userId: number): Promise<string> {
     }
 
     // Create new session
-    await tx.insert(sessions).values({ userId, tokenHash, expiresAt });
+    await tx.insert(sessions).values({ expiresAt, tokenHash, userId });
   });
 
   return token;
@@ -153,9 +148,18 @@ export async function deleteSessionByToken(token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
+export async function getUserFromRequest(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) {
+    return null;
+  }
+
+  return getUserFromSessionToken(token);
+}
+
 export async function getUserFromSessionToken(
   token: string,
-): Promise<SessionUser | null> {
+): Promise<null | SessionUser> {
   if (!token) {
     return null;
   }
@@ -166,22 +170,22 @@ export async function getUserFromSessionToken(
     }
 
     return {
-      sessionId: 0,
-      userId: PLACEHOLDER_ADMIN_USER.id,
       email: PLACEHOLDER_ADMIN_USER.email,
       expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
+      sessionId: 0,
+      userId: PLACEHOLDER_ADMIN_USER.id,
     };
   }
 
   const db = getDb();
   const tokenHash = hashSessionToken(token);
 
-  const [activeSession] = await db
+  const activeSessions = await db
     .select({
-      sessionId: sessions.id,
-      userId: users.id,
       email: users.email,
       expiresAt: sessions.expiresAt,
+      sessionId: sessions.id,
+      userId: users.id,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -193,25 +197,22 @@ export async function getUserFromSessionToken(
     )
     .limit(1);
 
-  return activeSession ?? null;
+  return activeSessions[0] ?? null;
 }
 
-export async function getUserFromRequest(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) {
-    return null;
-  }
-
-  return getUserFromSessionToken(token);
+export function setSessionCookie(response: NextResponse, token: string): void {
+  response.cookies.set(SESSION_COOKIE_NAME, token, {
+    ...baseCookieOptions,
+    maxAge: SESSION_DURATION_MS / 1000,
+  });
 }
 
 // ── Shared credential authentication ─────────────────────────────────────────
 
 /**
  * Authenticate a user by email and password, returning a fresh session token
- * on success.  Shared by both the regular `/api/auth/login` route and the
- * GReader `ClientLogin` endpoint so that security measures (scrypt params,
- * placeholder-mode checks) stay in a single code path.
+ * on success. Shared by the authentication routes so that security measures
+ * (scrypt params, placeholder-mode checks) stay in a single code path.
  */
 // SECURITY: constant-time dummy hash — used when the email is not found so
 // that verifyPassword always runs, preventing timing-based email enumeration.
@@ -222,7 +223,7 @@ export async function authenticateCredentials(
   email: string,
   password: string,
 ): Promise<
-  { ok: true; userId: number; email: string; token: string } | { ok: false }
+  { email: string; ok: true; token: string; userId: number } | { ok: false }
 > {
   if (RUNTIME_FLAGS.usePlaceholderData) {
     if (email !== PLACEHOLDER_ADMIN_USER.email) {
@@ -239,19 +240,19 @@ export async function authenticateCredentials(
 
     const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
     return {
-      ok: true,
-      userId: PLACEHOLDER_ADMIN_USER.id,
       email: PLACEHOLDER_ADMIN_USER.email,
+      ok: true,
       token,
+      userId: PLACEHOLDER_ADMIN_USER.id,
     };
   }
 
   const db = getDb();
 
-  const [user] = await db
+  const usersByEmail = await db
     .select({
-      id: users.id,
       email: users.email,
+      id: users.id,
       passwordHash: users.passwordHash,
     })
     .from(users)
@@ -260,13 +261,16 @@ export async function authenticateCredentials(
 
   // Always call verifyPassword — even when the user is not found — to prevent
   // timing-based email enumeration via response-time measurement.
-  const hashToVerify = user?.passwordHash ?? DUMMY_HASH;
+  const hashToVerify =
+    usersByEmail.length === 0 ? DUMMY_HASH : usersByEmail[0].passwordHash;
   const isValid = await verifyPassword(password, hashToVerify);
 
-  if (!user || !isValid) {
+  if (usersByEmail.length === 0 || !isValid) {
     return { ok: false };
   }
 
+  const user = usersByEmail[0];
+
   const token = await createSession(user.id);
-  return { ok: true, userId: user.id, email: user.email, token };
+  return { email: user.email, ok: true, token, userId: user.id };
 }

@@ -1,11 +1,13 @@
-import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+
 import type { PlaceholderSnapshotHit } from "./constants";
+
+import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 
 export async function readPlaceholderSnapshotHtml(
   url: string,
-): Promise<PlaceholderSnapshotHit | null> {
+): Promise<null | PlaceholderSnapshotHit> {
   const snapshotPath = getPlaceholderSnapshotPathByArticleUrl(url);
   if (!snapshotPath) return null;
 

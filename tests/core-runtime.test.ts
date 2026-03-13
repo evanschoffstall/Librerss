@@ -59,7 +59,7 @@ describe("core/runtime and utils/rate-limit", () => {
     process.env.DATABASE_URL = "";
     process.env.ALLOW_SIGNUP = "off";
 
-    const { RUNTIME_FLAGS, PLACEHOLDER_ADMIN_USER } =
+    const { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } =
       await import("@/lib/core/runtime");
     expect(RUNTIME_FLAGS.hasDatabaseUrl).toBe(false);
     expect(RUNTIME_FLAGS.usePlaceholderData).toBe(true);
@@ -99,11 +99,11 @@ describe("core/runtime and utils/rate-limit", () => {
       });
 
       expect(
-        limiter.check(request, "key", { windowMs: 1000, maxAttempts: 1 }),
+        limiter.check(request, "key", { maxAttempts: 1, windowMs: 1000 }),
       ).toBeNull();
       const blocked = limiter.check(request, "key", {
-        windowMs: 1000,
         maxAttempts: 1,
+        windowMs: 1000,
       });
       expect(blocked?.status).toBe(429);
     } finally {

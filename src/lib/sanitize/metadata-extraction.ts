@@ -6,31 +6,6 @@ import {
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
 
-export function readMetaTagContent(rawHtml: string, keys: string[]): string {
-  const keySet = new Set(keys.map((key) => key.toLowerCase()));
-  const metaTags = rawHtml.match(/<meta\b[^>]*>/gi) ?? [];
-
-  for (const tag of metaTags) {
-    const attributes: Record<string, string> = {};
-
-    for (const match of tag.matchAll(
-      /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
-    )) {
-      const attributeName = match[1]?.toLowerCase();
-      const attributeValue = (match[2] ?? match[3] ?? "").trim();
-      if (!attributeName) continue;
-      attributes[attributeName] = attributeValue;
-    }
-
-    const key = (attributes.property || attributes.name || "").toLowerCase();
-    const content = attributes.content;
-    if (!key || !content) continue;
-    if (keySet.has(key)) return decodeHtmlEntities(content);
-  }
-
-  return "";
-}
-
 export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   const imageUrl = readMetaTagContent(rawHtml, [
     "og:image",
@@ -78,29 +53,51 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
 }
 
 /** Parse page title from HTML via og:title, first `<h1>`, or `<title>`. */
-export function parsePageTitle(html: string): string | null {
+export function parsePageTitle(html: string): null | string {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
   for (const tag of metaTags) {
-    const propMatch = tag.match(
-      /property=["']og:title["'][^>]*content=["']([^"']+)["']/i,
-    );
+    const propMatch =
+      /property=["']og:title["'][^>]*content=["']([^"']+)["']/i.exec(tag);
     if (propMatch?.[1]) return propMatch[1];
-    const reverseMatch = tag.match(
-      /content=["']([^"']+)["'][^>]*property=["']og:title["']/i,
-    );
+    const reverseMatch =
+      /content=["']([^"']+)["'][^>]*property=["']og:title["']/i.exec(tag);
     if (reverseMatch?.[1]) return reverseMatch[1];
   }
 
-  const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  const h1 = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
   if (h1) {
     const text = h1[1].replace(/<[^>]*>/g, "").trim();
     if (text) return text;
   }
 
-  const titleTag = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
   if (titleTag) {
     const text = titleTag[1].replace(/<[^>]*>/g, "").trim();
     if (text) return text;
   }
   return null;
+}
+
+export function readMetaTagContent(rawHtml: string, keys: string[]): string {
+  const keySet = new Set(keys.map((key) => key.toLowerCase()));
+  const metaTags = rawHtml.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of metaTags) {
+    const attributes: Record<string, string> = {};
+
+    for (const match of tag.matchAll(
+      /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
+    )) {
+      const attributeName = match[1].toLowerCase();
+      const attributeValue = (match[2] || match[3] || "").trim();
+      attributes[attributeName] = attributeValue;
+    }
+
+    const key = (attributes.property || attributes.name || "").toLowerCase();
+    const content = attributes.content;
+    if (!key || !content) continue;
+    if (keySet.has(key)) return decodeHtmlEntities(content);
+  }
+
+  return "";
 }

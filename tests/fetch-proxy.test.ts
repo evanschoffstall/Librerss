@@ -6,8 +6,9 @@
  * No module mocks used. Tests pure proxy URL parsing logic.
  */
 
-import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch";
 
 beforeEach(() => {
   mock.restore();
@@ -71,8 +72,8 @@ describe("buildProxyConfig", () => {
       expect(config).not.toBe(false);
       if (config !== false && config.mode === "http") {
         expect(config.proxy.auth).toEqual({
-          username: "user",
           password: "pass",
+          username: "user",
         });
       }
     });
@@ -84,8 +85,8 @@ describe("buildProxyConfig", () => {
       expect(config).not.toBe(false);
       if (config !== false && config.mode === "http") {
         expect(config.proxy.auth).toEqual({
-          username: "user@example",
           password: "p@ss:word",
+          username: "user@example",
         });
       }
     });
@@ -94,7 +95,7 @@ describe("buildProxyConfig", () => {
       const config = buildProxyConfig("http://user@proxy.example.com:8080");
       expect(config).not.toBe(false);
       if (config !== false && config.mode === "http") {
-        expect(config.proxy.auth).toEqual({ username: "user", password: "" });
+        expect(config.proxy.auth).toEqual({ password: "", username: "user" });
       }
     });
 
@@ -143,8 +144,8 @@ describe("buildProxyConfig", () => {
       expect(config).not.toBe(false);
       if (config !== false && config.mode === "http") {
         expect(config.proxy.auth).toEqual({
-          username: "admin",
           password: "secret",
+          username: "admin",
         });
       }
     });
@@ -395,7 +396,7 @@ describe("buildProxyConfig", () => {
       const config = buildProxyConfig("http://user:@proxy.example.com:8080");
       expect(config).not.toBe(false);
       if (config !== false && config.mode === "http") {
-        expect(config.proxy.auth).toEqual({ username: "user", password: "" });
+        expect(config.proxy.auth).toEqual({ password: "", username: "user" });
       }
     });
   });
@@ -505,9 +506,9 @@ describe("fetch/axios-client – buildAxiosGet branches", () => {
     const mockHttpAgent = {};
     const mockHttpsAgent = {};
     const proxyConfig = {
-      mode: "socks" as const,
       httpAgent: mockHttpAgent,
       httpsAgent: mockHttpsAgent,
+      mode: "socks" as const,
     };
     const result = buildAxiosGet(
       undefined,
@@ -609,9 +610,9 @@ describe("buildAxiosGet – proxy mode branches", () => {
   test("returns socks proxy wrapper when proxyConfig mode is socks", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
     const proxyConfig = {
-      mode: "socks" as const,
       httpAgent: {},
       httpsAgent: {},
+      mode: "socks" as const,
     } as any;
     const fn = buildAxiosGet(undefined, proxyConfig, false, undefined);
     expect(typeof fn).toBe("function");

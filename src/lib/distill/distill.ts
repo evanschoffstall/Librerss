@@ -22,10 +22,10 @@ export async function distillArticle(
 ): Promise<DistilledArticle | null> {
   switch (strategy) {
     case "custom":
-      return customDistill(html, url, options);
-    case "readability":
-      return readabilityDistill(html, url, options);
+      return Promise.resolve(customDistill(html, url, options));
     case "defuddle":
-      return defuddleDistill(html, url, options);
+      return Promise.resolve(defuddleDistill(html, url, options));
+    case "readability":
+      return Promise.resolve(readabilityDistill(html, url, options));
   }
 }

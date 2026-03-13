@@ -1,0 +1,134 @@
+import { getApiClient } from "./http";
+
+import type { Article } from "@/lib/core/types";
+
+interface ArticleExtractResponse {
+  content?: unknown;
+}
+
+interface ProxySettings {
+  allowInsecureTls: boolean;
+  configured: boolean;
+  error?: string;
+  hasProxyPassword: boolean;
+  proxyUrl: null | string;
+  proxyUsername: null | string;
+  status: "checking" | "reachable" | "unreachable";
+}
+
+interface ProxyStatusResponse {
+  configured: boolean;
+  proxyUrl: null | string;
+  status: "checking" | "reachable" | "unreachable";
+}
+
+interface TestBotDetectionResponse {
+  results: {
+    blocked: boolean;
+    error?: string;
+    protection: string;
+    responseSize?: number;
+    site: string;
+    statusCode?: number;
+    success: boolean;
+    url: string;
+  }[];
+}
+
+const articleServiceBaseUrl = "/api";
+let proxySettingsRequest: null | Promise<ProxySettings> = null;
+
+export const ArticleService = {
+  async extractArticleContent(
+    url: string,
+    options?: {
+      distillStrategy?: string;
+      signal?: AbortSignal;
+      useProxy?: boolean;
+    },
+  ): Promise<string> {
+    const response = await getApiClient().post<ArticleExtractResponse>(
+      `${articleServiceBaseUrl}/articles/extract`,
+      {
+        url,
+        ...(options?.useProxy && { useProxy: true }),
+        ...(options?.distillStrategy && {
+          distillStrategy: options.distillStrategy,
+        }),
+      },
+      { signal: options?.signal },
+    );
+    return typeof response.data.content === "string"
+      ? response.data.content
+      : "";
+  },
+
+  async getArticles(): Promise<Article[]> {
+    const response = await getApiClient().get<Article[]>(
+      `${articleServiceBaseUrl}/articles`,
+    );
+    return response.data;
+  },
+
+  async getProxySettings(): Promise<ProxySettings> {
+    proxySettingsRequest ??= getApiClient()
+      .get<ProxySettings>(`${articleServiceBaseUrl}/settings/proxy`)
+      .then((response) => response.data)
+      .finally(() => {
+        proxySettingsRequest = null;
+      });
+
+    return proxySettingsRequest;
+  },
+
+  async getProxyStatus(): Promise<ProxyStatusResponse> {
+    const response = await getApiClient().get<ProxyStatusResponse>(
+      `${articleServiceBaseUrl}/articles/proxy-status`,
+    );
+    return response.data;
+  },
+
+  async markAllRead(streamId: string): Promise<void> {
+    await getApiClient().post(
+      `${articleServiceBaseUrl}/articles/mark-all-read`,
+      {
+        streamId,
+      },
+    );
+  },
+
+  async saveProxyUrl(
+    proxyUrl: null | string,
+    options?: {
+      allowInsecureTls?: boolean;
+      proxyPassword?: null | string;
+      proxyUsername?: null | string;
+    },
+  ): Promise<ProxySettings> {
+    const response = await getApiClient().put<ProxySettings>(
+      `${articleServiceBaseUrl}/settings/proxy`,
+      { proxyUrl, ...options },
+    );
+    return response.data;
+  },
+
+  async testBotDetection(options?: {
+    useProxy?: boolean;
+  }): Promise<TestBotDetectionResponse> {
+    const response = await getApiClient().post<TestBotDetectionResponse>(
+      `${articleServiceBaseUrl}/settings/proxy/test-bot-detection`,
+      options ?? {},
+    );
+    return response.data;
+  },
+
+  async updateArticleStatus(
+    articleId: number,
+    updates: { isRead?: boolean; isStarred?: boolean },
+  ): Promise<void> {
+    await getApiClient().post(`${articleServiceBaseUrl}/articles/status`, {
+      articleId,
+      ...updates,
+    });
+  },
+};

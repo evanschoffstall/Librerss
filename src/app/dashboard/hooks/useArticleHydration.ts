@@ -1,23 +1,24 @@
 "use client";
 
-import { ArticleService, isValidUrl, type Article } from "@/lib";
 import axios from "axios";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { type Article, ArticleService, isValidUrl } from "@/lib";
 
 export interface FeedExtractionSettings {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;
 }
 
-interface UseArticleHydrationOptions {
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  getFeedSettings?: (feedUrl: string) => FeedExtractionSettings | undefined;
-  distillStrategy?: string;
-}
-
 interface HydrateArticleContentOptions {
   force?: boolean;
+}
+
+interface UseArticleHydrationOptions {
+  distillStrategy?: string;
+  getFeedSettings?: (feedUrl: string) => FeedExtractionSettings | undefined;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
 }
 
 /** Safely escape an article key for use in a CSS attribute selector. */
@@ -28,9 +29,9 @@ export function escapeArticleKey(articleKey: string): string {
 }
 
 export function useArticleHydration({
-  setFeed,
-  getFeedSettings,
   distillStrategy,
+  getFeedSettings,
+  setFeed,
 }: UseArticleHydrationOptions) {
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
     Record<string, boolean>
@@ -48,9 +49,9 @@ export function useArticleHydration({
           `[data-article-key="${escapeArticleKey(articleKey)}"]`,
         )
         ?.scrollIntoView({
+          behavior: "auto",
           block: "nearest",
           inline: "nearest",
-          behavior: "auto",
         });
     } catch {
       // invalid selector — skip
@@ -60,11 +61,12 @@ export function useArticleHydration({
   const hydrateArticleContent = useCallback(
     async (article: Article, options?: HydrateArticleContentOptions) => {
       const forceHydration = options?.force ?? false;
-      const link = article.link?.trim();
+      const link = article.link.trim();
       if (!link || !isValidUrl(link)) return;
 
       // Check per-feed extraction settings
-      const feedUrl = article.feedUrl?.trim();
+      const feedUrl =
+        typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
       const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
       if (settings?.extractionDisabled) return;
 
@@ -86,9 +88,9 @@ export function useArticleHydration({
         const extractedContent = await ArticleService.extractArticleContent(
           link,
           {
-            useProxy: settings?.proxyEnabled,
             distillStrategy,
             signal: abortController.signal,
+            useProxy: settings?.proxyEnabled,
           },
         );
 
@@ -117,9 +119,18 @@ export function useArticleHydration({
           const { [link]: _, ...rest } = current;
           return rest;
         });
-        const serverReason = axios.isAxiosError(error)
-          ? (error.response?.data?.reason ?? error.response?.data?.error)
-          : undefined;
+        const serverReason = (() => {
+          if (!axios.isAxiosError<Record<string, unknown>>(error))
+            return undefined;
+          const data = error.response?.data;
+          if (!data || typeof data !== "object") return undefined;
+          const reason = data.reason;
+          if (typeof reason === "string") {
+            return reason;
+          }
+          const message = data.error;
+          return typeof message === "string" ? message : undefined;
+        })();
         toast.error(
           serverReason
             ? `Unable to extract article: ${serverReason}`
@@ -159,10 +170,10 @@ export function useArticleHydration({
   }, []);
 
   return {
+    cancelHydration,
+    hydrateArticleContent,
     hydratedArticleLinks,
     hydratingArticleLinks,
     scrollArticleIntoView,
-    hydrateArticleContent,
-    cancelHydration,
   };
 }

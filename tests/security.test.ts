@@ -9,13 +9,14 @@
  *   5. URL validation (MEDIUM)
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
 } from "@/lib/utils/ssrf";
 import { isStrongPassword } from "@/lib/utils/validation";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {
   mock.restore();
@@ -423,12 +424,12 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
       password: string,
       salt: string,
       keylen: number,
-      options?: { N: number; r: number; p: number },
+      options?: { N: number; p: number; r: number },
     ) => Promise<Buffer>;
 
     const password = "LegacyPass1!";
     const salt = "deadbeef1234";
-    const key = await scryptAsync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+    const key = await scryptAsync(password, salt, 64, { N: 16384, p: 1, r: 8 });
     const legacyHash = `${salt}:${key.toString("hex")}`;
 
     const { verifyPassword } = await import("@/lib/auth/session");
@@ -501,10 +502,10 @@ describe("requireSameOrigin", () => {
   test("rejects unsafe request when both Origin and Referer are missing", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const req = new Request("https://app.example.test/api/auth/login", {
-      method: "POST",
       headers: {
         host: "app.example.test",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(req);
@@ -515,11 +516,11 @@ describe("requireSameOrigin", () => {
   test("accepts unsafe request when Referer origin matches host", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const req = new Request("https://app.example.test/api/auth/login", {
-      method: "POST",
       headers: {
         host: "app.example.test",
         referer: "https://app.example.test/dashboard",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(req);
@@ -531,12 +532,12 @@ describe("parseJsonBody", () => {
   test("returns 413 when content-length exceeds configured max", async () => {
     const { parseJsonBody } = await import("@/lib/api/http");
     const req = new Request("https://app.example.test/api/feeds", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "content-length": "2048",
-      },
       body: "{}",
+      headers: {
+        "content-length": "2048",
+        "content-type": "application/json",
+      },
+      method: "POST",
     });
 
     const result = await parseJsonBody<Record<string, unknown>>(req, {
@@ -552,11 +553,11 @@ describe("parseJsonBody", () => {
     const { parseJsonBody } = await import("@/lib/api/http");
     const payload = JSON.stringify({ data: "x".repeat(2048) });
     const req = new Request("https://app.example.test/api/feeds", {
-      method: "POST",
+      body: payload,
       headers: {
         "content-type": "application/json",
       },
-      body: payload,
+      method: "POST",
     });
 
     const result = await parseJsonBody<Record<string, unknown>>(req, {
@@ -572,13 +573,13 @@ describe("parseJsonBody", () => {
 describe("parseFormOrQueryParams", () => {
   test("returns 413 when content-length exceeds configured max", async () => {
     const { parseFormOrQueryParams } = await import("@/lib/api/http");
-    const request = new Request("https://app.example.test/api/greader.php", {
-      method: "POST",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-        "content-length": "2048",
-      },
+    const request = new Request("https://app.example.test/api/feeds", {
       body: "s=user/-/state/com.google/reading-list",
+      headers: {
+        "content-length": "2048",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      method: "POST",
     });
 
     const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
@@ -591,12 +592,12 @@ describe("parseFormOrQueryParams", () => {
   test("returns 413 when UTF-8 body bytes exceed max", async () => {
     const { parseFormOrQueryParams } = await import("@/lib/api/http");
     const body = `q=${"x".repeat(2048)}`;
-    const request = new Request("https://app.example.test/api/greader.php", {
-      method: "POST",
+    const request = new Request("https://app.example.test/api/feeds", {
+      body,
       headers: {
         "content-type": "application/x-www-form-urlencoded",
       },
-      body,
+      method: "POST",
     });
 
     const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
@@ -607,61 +608,16 @@ describe("parseFormOrQueryParams", () => {
   });
 });
 
-describe("greader reader-item hardening", () => {
-  test("parseDistinctReaderArticleIds dedupes and caps item IDs", async () => {
-    const { parseDistinctReaderArticleIds } =
-      await import("@/lib/api/greader/reader-item-params");
-
-    const ids = parseDistinctReaderArticleIds(
-      [
-        "tag:google.com,2005:reader/item/1",
-        "tag:google.com,2005:reader/item/1",
-        "tag:google.com,2005:reader/item/2",
-        "tag:google.com,2005:reader/item/3",
-      ],
-      { maxItems: 2 },
-    );
-
-    expect(ids).toEqual([1, 2]);
-  });
-
-  test("parseOlderThanDate ignores non-positive and invalid values", async () => {
-    const { parseOlderThanDate } =
-      await import("@/lib/api/greader/stream-service");
-
-    expect(parseOlderThanDate(new URLSearchParams("ot=0"))).toBeNull();
-    expect(parseOlderThanDate(new URLSearchParams("ot=-1"))).toBeNull();
-    expect(parseOlderThanDate(new URLSearchParams("ot=NaN"))).toBeNull();
-
-    const parsed = parseOlderThanDate(new URLSearchParams("ot=1700000000"));
-    expect(parsed).not.toBeNull();
-    expect(parsed?.getTime()).toBe(1700000000 * 1000);
-  });
-
-  test("shouldExcludeReadFromStream applies read exclusion to any stream", async () => {
-    const { shouldExcludeReadFromStream } =
-      await import("@/lib/api/greader/stream-service");
-
-    expect(shouldExcludeReadFromStream(["user/-/state/com.google/read"])).toBe(
-      true,
-    );
-
-    expect(shouldExcludeReadFromStream(["user/-/state/com.google/read"])).toBe(
-      true,
-    );
-
-    expect(shouldExcludeReadFromStream([])).toBe(false);
-  });
-
-  test("buildStreamConditions applies ot as older-than (<), not newer-than", async () => {
+describe("stream condition hardening", () => {
+  test("buildStreamConditions applies older-than filters with <, not >=", async () => {
     const { buildStreamConditions } =
       await import("@/lib/core/stream-conditions");
 
     const dateFilter = new Date("2024-01-01T00:00:00.000Z");
     const conditions = buildStreamConditions({
-      feedUrl: null,
-      dateFilter,
       continuationId: null,
+      dateFilter,
+      feedUrl: null,
       starredOnly: false,
       useArticleStatuses: false,
     });
@@ -669,7 +625,7 @@ describe("greader reader-item hardening", () => {
     expect(conditions.length).toBe(1);
 
     const queryChunks = (
-      conditions[0] as unknown as { queryChunks?: Array<{ value?: string[] }> }
+      conditions[0] as unknown as { queryChunks?: { value?: string[] }[] }
     ).queryChunks;
 
     const operators = (queryChunks ?? [])
@@ -710,8 +666,8 @@ describe("logger redaction", () => {
 
     try {
       logger.info("security-log", {
-        token: "secret-token",
         nested: { authorization: "Bearer abc", email: "admin@example.test" },
+        token: "secret-token",
       });
     } finally {
       console.log = originalLog;
@@ -748,10 +704,10 @@ describe("requireSameOrigin", () => {
   test("allows unsafe requests with same-origin Sec-Fetch-Site when Origin is absent", async () => {
     const { requireSameOrigin } = await import("@/lib/auth/csrf");
     const request = new Request("https://example.com/api/auth/login", {
-      method: "POST",
       headers: {
         "sec-fetch-site": "same-origin",
       },
+      method: "POST",
     });
 
     const result = requireSameOrigin(request);
@@ -768,18 +724,18 @@ describe("RateLimiter trusted proxy extraction", () => {
     const limiter = new RateLimiter();
 
     try {
-      const config = { windowMs: 60_000, maxAttempts: 1 };
+      const config = { maxAttempts: 1, windowMs: 60_000 };
       const requestA = new Request("https://example.com/api/auth/login", {
-        method: "POST",
         headers: {
           "x-forwarded-for": "203.0.113.10, 10.0.0.5",
         },
+        method: "POST",
       });
       const requestB = new Request("https://example.com/api/auth/login", {
-        method: "POST",
         headers: {
           "x-forwarded-for": "198.51.100.20, 10.0.0.5",
         },
+        method: "POST",
       });
 
       expect(limiter.check(requestA, "login", config)).toBeNull();
@@ -795,54 +751,6 @@ describe("RateLimiter trusted proxy extraction", () => {
   });
 });
 
-// ─── GReader ClientLogin: credentials must not be accepted via GET URL params ─
-
-describe("GReader ClientLogin – credential exposure via URL params (security regression)", () => {
-  test("GET request with credentials in URL params is rejected (not treated as login)", async () => {
-    const { handleClientLogin } = await import("@/lib/api/greader/auth");
-
-    // Attacker sends credentials in GET query params — these would appear in
-    // server access logs, browser history, and Referer headers.
-    const { NextRequest } = await import("next/server");
-    const request = new NextRequest(
-      "https://example.com/api/greader.php/accounts/ClientLogin?Email=user@test.com&Passwd=hunter2",
-      { method: "GET" },
-    );
-
-    const response = await handleClientLogin(request);
-    const body = await response.text();
-
-    // Must be rejected, not return a session token
-    expect(body).not.toContain("SID=");
-    expect(body).not.toContain("Auth=");
-    expect(response.status).toBe(400);
-  });
-
-  test("POST with credentials in body (not URL params) succeeds normally", async () => {
-    const previousDbUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "";
-    try {
-      const { handleClientLogin } = await import("@/lib/api/greader/auth");
-      const { NextRequest } = await import("next/server");
-      const request = new NextRequest(
-        "https://example.com/api/greader.php/accounts/ClientLogin",
-        {
-          method: "POST",
-          headers: { "content-type": "application/x-www-form-urlencoded" },
-          body: "Email=admin%40admin.com&Passwd=admin",
-        },
-      );
-      const response = await handleClientLogin(request);
-      const body = await response.text();
-      // Should authenticate successfully via POST body
-      expect(body).toContain("SID=");
-      expect(body).toContain("Auth=");
-    } finally {
-      process.env.DATABASE_URL = previousDbUrl;
-    }
-  });
-});
-
 // ─── Logger redacts proxy-related fields ─────────────────────────────────────
 
 describe("Logger – proxy credential redaction (security regression)", () => {
@@ -854,9 +762,9 @@ describe("Logger – proxy credential redaction (security regression)", () => {
     };
     const result = logger.sanitizeValue(
       {
-        proxyUrl: `http://${"user"}:${"secret"}@proxy.host:8080`,
-        proxyAddress: `socks5://${"user"}:${"pass"}@10.0.0.1:1080`,
         normalField: "visible",
+        proxyAddress: `socks5://${"user"}:${"pass"}@10.0.0.1:1080`,
+        proxyUrl: `http://${"user"}:${"secret"}@proxy.host:8080`,
       },
       0,
     ) as Record<string, unknown>;
@@ -880,32 +788,32 @@ describe("Extract route – x-request-id header sanitization (security regressio
     const longId = "A".repeat(512);
 
     const authUser = {
-      sessionId: 1,
-      userId: 1,
       email: "test@example.com",
       expiresAt: new Date(Date.now() + 86_400_000),
+      sessionId: 1,
+      userId: 1,
     };
 
     const request = new NextRequest(
       "https://example.com/api/articles/extract",
       {
-        method: "POST",
         body: JSON.stringify({ url: "https://example.com/article" }),
         headers: {
           "content-type": "application/json",
-          "x-request-id": longId,
           origin: "https://example.com",
           "sec-fetch-site": "same-origin",
+          "x-request-id": longId,
         },
+        method: "POST",
       },
     );
 
     // Abort early via URL validation — confirms the sanitization ran without
     // crashing and the route did not return a 500.
     const response = await POST(request, {
-      requireMutableAuthenticatedUserFn: async () => authUser,
       parseAndValidateArticleUrlFn: async () =>
         new Response(JSON.stringify({ error: "test abort" }), { status: 400 }),
+      requireMutableAuthenticatedUserFn: async () => authUser,
     });
     expect(response.status).toBeLessThan(500);
   });
@@ -929,6 +837,12 @@ describe("utils/ssrf – isBlockedHost with IPv6-mapped private addresses", () =
 describe("ssrf", () => {
   test("normalizeHostname lowercases and trims", () => {
     expect(normalizeHostname("  EXAMPLE.COM.  ")).toBe("example.com");
+  });
+
+  test("normalizeHostname strips IPv6 URL brackets", () => {
+    expect(normalizeHostname("[2606:4700:4700::1111]")).toBe(
+      "2606:4700:4700::1111",
+    );
   });
 
   test("isBlockedHost blocks localhost", () => {

@@ -3,7 +3,8 @@
  * Tests for src/app/dashboard/services/
  */
 
-import { describe, expect, test, afterEach, beforeEach, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   dedupeAndSortArticles,
   getArticleKey,
@@ -13,6 +14,13 @@ import {
   getArticleSourceLabel,
   getRichContentClass,
 } from "@/app/dashboard/services/article-content";
+import { filterArticlesBySearchTerm } from "@/app/dashboard/services/dashboard-view-model";
+import {
+  buildFeedBatchOutcome,
+  formatFeedFailureLabel,
+} from "@/app/dashboard/services/feed-batch-outcome";
+import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-batch-resolver";
+import { loadFeedSourceTree } from "@/app/dashboard/services/feed-source-tree";
 
 // ─── Article Content Services ─────────────────────────────────────────────────
 
@@ -37,6 +45,253 @@ describe("article-content services", () => {
   test("getUrlHostnameDisplayLabel handles invalid URLs", async () => {
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
     expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
+  });
+});
+
+describe("dashboard-view-model search filtering", () => {
+  test("returns the same array when the search term is blank", () => {
+    const articles = [
+      {
+        content: "Alpha body",
+        feedId: 1,
+        id: 1,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Alpha",
+      },
+    ];
+
+    expect(filterArticlesBySearchTerm(articles, "   ")).toBe(articles);
+  });
+
+  test("matches against article title and content case-insensitively", () => {
+    const articles = [
+      {
+        content: "Gamma body",
+        feedId: 1,
+        id: 1,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Alpha",
+      },
+      {
+        content: "Delta body",
+        feedId: 1,
+        id: 2,
+        lastChecked: new Date("2024-01-02T00:00:00.000Z"),
+        link: "https://example.com/b",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        title: "Beta",
+      },
+    ];
+
+    expect(filterArticlesBySearchTerm(articles, "alpha")).toEqual([
+      articles[0],
+    ]);
+    expect(filterArticlesBySearchTerm(articles, "DELTA")).toEqual([
+      articles[1],
+    ]);
+  });
+});
+
+describe("feed-batch-resolver", () => {
+  test("returns placeholder batch results without calling the API", async () => {
+    const fetchFeedsBatch = mock(async () => {
+      throw new Error("placeholder mode should not call the API");
+    });
+    const placeholderArticle = {
+      content: "Preview",
+      feedId: 1,
+      id: 1,
+      lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+      link: "https://example.com/article",
+      publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+      title: "Placeholder Article",
+    };
+
+    const results = await resolveFeedBatchResults(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      true,
+      undefined,
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: () => [placeholderArticle],
+      },
+    );
+
+    expect(fetchFeedsBatch).not.toHaveBeenCalled();
+    expect(results).toEqual([
+      {
+        articles: [
+          {
+            ...placeholderArticle,
+            feedName: "Example Feed",
+            feedUrl: "https://example.com/feed.xml",
+          },
+        ],
+        ok: true,
+        url: "https://example.com/feed.xml",
+      },
+    ]);
+  });
+
+  test("passes normalized URLs and fetch options through to the batch API", async () => {
+    const signal = new AbortController().signal;
+    const batchResults = [
+      {
+        articles: [],
+        error: "temporary upstream failure",
+        ok: false,
+        url: "https://example.com/feed.xml",
+      },
+    ];
+    const fetchFeedsBatch = mock(async () => batchResults);
+
+    const results = await resolveFeedBatchResults(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      false,
+      {
+        forceRefresh: true,
+        requestSource: "dashboard-refresh",
+        skipRefresh: true,
+      },
+      signal,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: () => [],
+      },
+    );
+
+    expect(fetchFeedsBatch).toHaveBeenCalledWith(
+      ["https://example.com/feed.xml"],
+      {
+        forceRefresh: true,
+        requestSource: "dashboard-refresh",
+        signal,
+        skipRefresh: true,
+      },
+    );
+    expect(results).toBe(batchResults);
+  });
+});
+
+describe("feed-source-tree", () => {
+  test("returns placeholder defaults without loading feed sources", async () => {
+    const getFeedSources = mock(async () => {
+      throw new Error("placeholder mode should not fetch feed sources");
+    });
+    const placeholderCategories = [{ key: "demo", label: "Demo" }];
+
+    const result = await loadFeedSourceTree(true, {
+      buildCategoriesFromSources: mock(() => []),
+      buildDefaultCategories: mock(() => placeholderCategories as never),
+      getFeedSources,
+    });
+
+    expect(getFeedSources).not.toHaveBeenCalled();
+    expect(result).toBe(placeholderCategories);
+  });
+
+  test("maps fetched feed sources into categories", async () => {
+    const feedSources = [
+      { id: 1, name: "Feed", url: "https://example.com/feed.xml" },
+    ];
+    const categories = [{ key: "feed:1", label: "Feed" }];
+
+    const result = await loadFeedSourceTree(false, {
+      buildCategoriesFromSources: mock(() => categories as never),
+      buildDefaultCategories: mock(() => []),
+      getFeedSources: mock(async () => feedSources as never),
+    });
+
+    expect(result).toBe(categories);
+  });
+
+  test("falls back to defaults when feed source loading fails", async () => {
+    const fallbackCategories = [{ key: "all", label: "All Feeds" }];
+
+    const result = await loadFeedSourceTree(false, {
+      buildCategoriesFromSources: mock(() => []),
+      buildDefaultCategories: mock(() => fallbackCategories as never),
+      getFeedSources: mock(async () => {
+        throw new Error("network down");
+      }),
+    });
+
+    expect(result).toBe(fallbackCategories);
+  });
+});
+
+describe("feed-batch-outcome", () => {
+  test("builds enriched articles and tracks the newest fetch time", () => {
+    const timestamp = new Date("2024-01-02T00:00:00.000Z");
+
+    const outcome = buildFeedBatchOutcome(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      [
+        {
+          articles: [
+            {
+              content: "Preview",
+              feedId: 1,
+              id: 1,
+              lastChecked: timestamp,
+              link: "https://example.com/article",
+              publicationDate: timestamp,
+              title: "Article",
+            },
+          ],
+          lastFetchedAt: timestamp,
+          ok: true,
+          url: "https://example.com/feed.xml",
+        },
+      ],
+      false,
+      () => [],
+    );
+
+    expect(outcome.newestLastFetchedAt).toEqual(timestamp);
+    expect(outcome.failedFeeds).toEqual([]);
+    expect(outcome.articles).toEqual([
+      {
+        content: "Preview",
+        feedId: 1,
+        feedName: "Example Feed",
+        feedUrl: "https://example.com/feed.xml",
+        id: 1,
+        lastChecked: timestamp,
+        link: "https://example.com/article",
+        publicationDate: timestamp,
+        title: "Article",
+      },
+    ]);
+  });
+
+  test("formats a compact failure label for long upstream failure lists", () => {
+    const failureLabel = formatFeedFailureLabel(
+      [
+        { articles: [], error: "down", ok: false, url: "https://one.example" },
+        { articles: [], error: "down", ok: false, url: "https://two.example" },
+        {
+          articles: [],
+          error: "down",
+          ok: false,
+          url: "https://three.example",
+        },
+        { articles: [], error: "down", ok: false, url: "https://four.example" },
+      ],
+      new Map([
+        ["https://four.example", "Four"],
+        ["https://one.example", "One"],
+        ["https://three.example", "Three"],
+        ["https://two.example", "Two"],
+      ]),
+    );
+
+    expect(failureLabel).toBe("One, Two, Three and 1 more");
   });
 });
 
@@ -73,13 +328,13 @@ describe("article-collection – getArticleKey", () => {
   test("returns trimmed link", async () => {
     expect(
       getArticleKey({
-        id: 1,
-        title: "Test",
-        link: " https://example.com/article ",
         content: "",
-        publicationDate: new Date(),
-        lastChecked: new Date(),
         feedId: 1,
+        id: 1,
+        lastChecked: new Date(),
+        link: " https://example.com/article ",
+        publicationDate: new Date(),
+        title: "Test",
       }),
     ).toBe("https://example.com/article");
   });
@@ -90,22 +345,22 @@ describe("article-collection – dedupeAndSortArticles", () => {
     const now = new Date();
     const articles = [
       {
-        id: 1,
-        title: "First",
-        link: "https://example.com/1",
         content: "Content A",
-        publicationDate: now,
-        lastChecked: now,
         feedId: 1,
+        id: 1,
+        lastChecked: now,
+        link: "https://example.com/1",
+        publicationDate: now,
+        title: "First",
       },
       {
-        id: 2,
-        title: "Duplicate",
-        link: "https://example.com/1",
         content: "Content B - longer",
-        publicationDate: now,
-        lastChecked: now,
         feedId: 1,
+        id: 2,
+        lastChecked: now,
+        link: "https://example.com/1",
+        publicationDate: now,
+        title: "Duplicate",
       },
     ];
     const result = dedupeAndSortArticles(articles);
@@ -119,22 +374,22 @@ describe("article-collection – dedupeAndSortArticles", () => {
     const earlier = new Date(now.getTime() - 86400000);
     const articles = [
       {
-        id: 1,
-        title: "Old",
-        link: "https://example.com/old",
         content: "",
-        publicationDate: earlier,
-        lastChecked: now,
         feedId: 1,
+        id: 1,
+        lastChecked: now,
+        link: "https://example.com/old",
+        publicationDate: earlier,
+        title: "Old",
       },
       {
-        id: 2,
-        title: "New",
-        link: "https://example.com/new",
         content: "",
-        publicationDate: now,
-        lastChecked: now,
         feedId: 1,
+        id: 2,
+        lastChecked: now,
+        link: "https://example.com/new",
+        publicationDate: now,
+        title: "New",
       },
     ];
     const result = dedupeAndSortArticles(articles);
@@ -146,22 +401,22 @@ describe("article-collection – dedupeAndSortArticles", () => {
     const now = new Date();
     const articles = [
       {
-        id: 1,
-        title: "No Link",
-        link: "",
         content: "",
-        publicationDate: now,
-        lastChecked: now,
         feedId: 1,
+        id: 1,
+        lastChecked: now,
+        link: "",
+        publicationDate: now,
+        title: "No Link",
       },
       {
-        id: 2,
-        title: "Has Link",
-        link: "https://example.com",
         content: "",
-        publicationDate: now,
-        lastChecked: now,
         feedId: 1,
+        id: 2,
+        lastChecked: now,
+        link: "https://example.com",
+        publicationDate: now,
+        title: "Has Link",
       },
     ];
     const result = dedupeAndSortArticles(articles);
@@ -174,22 +429,22 @@ describe("article-collection – dedupeAndSortArticles", () => {
     const newer = new Date("2024-06-01");
     const articles = [
       {
-        id: 1,
-        title: "Old",
-        link: "https://example.com/1",
         content: "Same",
-        publicationDate: older,
-        lastChecked: older,
         feedId: 1,
+        id: 1,
+        lastChecked: older,
+        link: "https://example.com/1",
+        publicationDate: older,
+        title: "Old",
       },
       {
-        id: 2,
-        title: "New",
-        link: "https://example.com/1",
         content: "Same",
-        publicationDate: newer,
-        lastChecked: newer,
         feedId: 1,
+        id: 2,
+        lastChecked: newer,
+        link: "https://example.com/1",
+        publicationDate: newer,
+        title: "New",
       },
     ];
     const result = dedupeAndSortArticles(articles);
@@ -205,13 +460,13 @@ describe("article-collection – dedupeAndSortArticles", () => {
     const now = new Date();
     const articles = [
       {
-        id: 1,
-        title: "Blank",
-        link: "   ",
         content: "",
-        publicationDate: now,
-        lastChecked: now,
         feedId: 1,
+        id: 1,
+        lastChecked: now,
+        link: "   ",
+        publicationDate: now,
+        title: "Blank",
       },
     ];
     expect(dedupeAndSortArticles(articles)).toHaveLength(0);
@@ -258,68 +513,68 @@ describe("article-content – buildPreview", () => {
 describe("article-content – getArticleSourceLabel", () => {
   test("uses feed name when available", async () => {
     const article = {
-      id: 1,
-      title: "Test",
-      link: "https://example.com",
       content: "",
-      publicationDate: new Date(),
-      lastChecked: new Date(),
       feedId: 1,
       feedName: "My Feed",
+      id: 1,
+      lastChecked: new Date(),
+      link: "https://example.com",
+      publicationDate: new Date(),
+      title: "Test",
     };
     expect(getArticleSourceLabel(article)).toBe("My Feed");
   });
 
   test("falls back to hostname when no feed name", async () => {
     const article = {
-      id: 1,
-      title: "Test",
-      link: "https://example.com/article",
       content: "",
-      publicationDate: new Date(),
-      lastChecked: new Date(),
       feedId: 1,
       feedUrl: "https://blog.example.com/feed",
+      id: 1,
+      lastChecked: new Date(),
+      link: "https://example.com/article",
+      publicationDate: new Date(),
+      title: "Test",
     };
     expect(getArticleSourceLabel(article)).toBe("blog.example.com");
   });
 
   test("falls back to link hostname when no feed name or feed URL", async () => {
     const article = {
-      id: 1,
-      title: "Test",
-      link: "https://news.example.com/article",
       content: "",
-      publicationDate: new Date(),
-      lastChecked: new Date(),
       feedId: 1,
+      id: 1,
+      lastChecked: new Date(),
+      link: "https://news.example.com/article",
+      publicationDate: new Date(),
+      title: "Test",
     };
     expect(getArticleSourceLabel(article)).toBe("news.example.com");
   });
 
   test("strips www prefix", async () => {
     const article = {
-      id: 1,
-      title: "Test",
-      link: "https://www.example.com/article",
       content: "",
-      publicationDate: new Date(),
-      lastChecked: new Date(),
       feedId: 1,
+      id: 1,
+      lastChecked: new Date(),
+      link: "https://www.example.com/article",
+      publicationDate: new Date(),
+      title: "Test",
     };
     expect(getArticleSourceLabel(article)).toBe("example.com");
   });
 
   test("ignores whitespace-only feed name", async () => {
     const article = {
-      id: 1,
-      title: "Test",
-      link: "https://example.com",
       content: "",
-      publicationDate: new Date(),
-      lastChecked: new Date(),
       feedId: 1,
       feedName: "   ",
+      id: 1,
+      lastChecked: new Date(),
+      link: "https://example.com",
+      publicationDate: new Date(),
+      title: "Test",
     };
     expect(getArticleSourceLabel(article)).not.toBe("   ");
   });
@@ -379,28 +634,28 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-type ArticleLike = {
-  id: number;
-  title: string;
-  link: string;
+interface ArticleLike {
   content: string;
-  publicationDate: Date;
-  lastChecked: Date;
   feedId: number;
   feedName?: string;
   feedUrl?: string;
+  id: number;
   isRead?: boolean;
   isStarred?: boolean;
-};
+  lastChecked: Date;
+  link: string;
+  publicationDate: Date;
+  title: string;
+}
 
 const makeArticle = (overrides: Partial<ArticleLike> = {}): ArticleLike => ({
-  id: 1,
-  title: "Title",
-  link: "https://example.com/article",
   content: "body",
-  publicationDate: new Date("2024-01-01T00:00:00.000Z"),
-  lastChecked: new Date("2024-01-01T00:00:00.000Z"),
   feedId: 1,
+  id: 1,
+  lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+  link: "https://example.com/article",
+  publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+  title: "Title",
   ...overrides,
 });
 
@@ -410,15 +665,15 @@ describe("dashboard article helpers comprehensive", () => {
       await import("@/app/dashboard/services/article-collection");
 
     const a1 = makeArticle({
+      content: "short",
       id: 1,
       link: " https://example.com/a ",
-      content: "short",
       publicationDate: new Date("2024-01-01T00:00:00.000Z"),
     });
     const a1Better = makeArticle({
+      content: "this content is definitely longer",
       id: 2,
       link: "https://example.com/a",
-      content: "this content is definitely longer",
       publicationDate: new Date("2024-01-01T00:00:00.000Z"),
     });
     const a2 = makeArticle({
@@ -441,15 +696,15 @@ describe("dashboard article helpers comprehensive", () => {
       await import("@/app/dashboard/services/article-collection");
 
     const older = makeArticle({
+      content: "same-size",
       id: 5,
       link: "https://example.com/c",
-      content: "same-size",
       publicationDate: new Date("2024-01-01T00:00:00.000Z"),
     });
     const newer = makeArticle({
+      content: "same-size",
       id: 6,
       link: "https://example.com/c",
-      content: "same-size",
       publicationDate: new Date("2024-01-05T00:00:00.000Z"),
     });
 
@@ -527,14 +782,14 @@ describe("dashboard article helpers comprehensive", () => {
     const result = mapBatchResultsToArticles(
       [
         {
-          url: "https://feeds.example.com/rss",
-          ok: true,
           articles: [
             makeArticle({
               feedName: "Example Feed",
               feedUrl: "https://feeds.example.com/rss",
             }),
           ],
+          ok: true,
+          url: "https://feeds.example.com/rss",
         },
       ],
       new Map([["https://feeds.example.com/rss", undefined]]),
@@ -553,8 +808,6 @@ describe("dashboard article helpers comprehensive", () => {
     const result = mapBatchResultsToArticles(
       [
         {
-          url: "https://feeds.example.com/rss",
-          ok: true,
           articles: [
             makeArticle({
               feedName: undefined,
@@ -562,6 +815,8 @@ describe("dashboard article helpers comprehensive", () => {
               link: "https://news.example.com/post",
             }),
           ],
+          ok: true,
+          url: "https://feeds.example.com/rss",
         },
       ],
       new Map([["https://feeds.example.com/rss", undefined]]),
@@ -589,21 +844,18 @@ describe("dashboard favicons comprehensive", () => {
     expect(getFaviconCacheKey(undefined, "bad")).toBeNull();
   });
 
-  test("hydrate loads valid persisted entries and drops expired failures", async () => {
-    const v1Key = "librerss:favicon-index-cache:v1";
+  test("hydrate loads valid persisted entries and drops stale failure entries", async () => {
     const v2Key = "librerss:favicon-index-cache:v2";
 
-    window.localStorage.setItem(v1Key, "legacy");
     window.localStorage.setItem(
       v2Key,
       JSON.stringify({
-        "ok.example.com": { index: 4 },
-        "legacy-number.example.com": 2,
         "expired.example.com": {
-          index: -1,
           failedAt: Date.now() - 25 * 60 * 60 * 1000,
+          index: -1,
         },
-        "legacy-failed.example.com": { index: -1 },
+        "missing-timestamp.example.com": { index: -1 },
+        "ok.example.com": { index: 4 },
       }),
     );
 
@@ -611,10 +863,8 @@ describe("dashboard favicons comprehensive", () => {
       await import("@/app/dashboard/services/favicons");
 
     expect(getCachedFaviconIndex("ok.example.com")).toBe(4);
-    expect(getCachedFaviconIndex("legacy-number.example.com")).toBe(2);
     expect(getCachedFaviconIndex("expired.example.com")).toBe(0);
-    expect(getCachedFaviconIndex("legacy-failed.example.com")).toBe(0);
-    expect(window.localStorage.getItem(v1Key)).toBeNull();
+    expect(getCachedFaviconIndex("missing-timestamp.example.com")).toBe(0);
   });
 
   test("cache index set/get works for success and failure entries", async () => {
@@ -656,10 +906,10 @@ describe("dashboard favicons comprehensive", () => {
     window.localStorage.setItem(
       key,
       JSON.stringify({
-        "ok.example.com": { index: 3 },
-        "legacy.example.com": 1,
         "": { index: 2 },
         "bad.example.com": { index: "x" },
+        "legacy.example.com": 1,
+        "ok.example.com": { index: 3 },
       }),
     );
 
@@ -676,7 +926,7 @@ describe("dashboard favicons comprehensive", () => {
   });
 
   test("merged favicon candidates include provider and direct icon URLs", async () => {
-    const { getMergedFaviconCandidates, getFaviconUrl } =
+    const { getFaviconUrl, getMergedFaviconCandidates } =
       await import("@/app/dashboard/services/favicons");
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
@@ -729,12 +979,12 @@ describe("feed-batch pure helpers", () => {
     const { mapBatchResultsToArticles } =
       await import("@/app/dashboard/services/feed-batch");
     const placeholderArticle = makeArticle({
+      feedName: "Placeholder",
       id: 99,
       link: "https://placeholder.example.com/1",
-      feedName: "Placeholder",
     });
     const result = mapBatchResultsToArticles(
-      [{ url: "https://example.com/feed", ok: false, articles: [] }],
+      [{ articles: [], ok: false, url: "https://example.com/feed" }],
       new Map([["https://example.com/feed", "My Feed"]]),
       true,
       () => [placeholderArticle],
@@ -747,7 +997,7 @@ describe("feed-batch pure helpers", () => {
     const { mapBatchResultsToArticles } =
       await import("@/app/dashboard/services/feed-batch");
     const result = mapBatchResultsToArticles(
-      [{ url: "https://example.com/feed", ok: false, articles: [] }],
+      [{ articles: [], ok: false, url: "https://example.com/feed" }],
       new Map([["https://example.com/feed", "My Feed"]]),
       false,
       () => [],
@@ -763,7 +1013,7 @@ describe("feed-batch pure helpers", () => {
       link: "https://placeholder.example/x",
     });
     const result = mapBatchResultsToArticles(
-      [{ url: "https://example.com/feed", ok: true, articles: [] }],
+      [{ articles: [], ok: true, url: "https://example.com/feed" }],
       new Map([["https://example.com/feed", "Feed A"]]),
       true,
       () => [placeholder],
@@ -775,10 +1025,10 @@ describe("feed-batch pure helpers", () => {
     const { normalizeFeedBatchSources } =
       await import("@/app/dashboard/services/feed-batch");
     const sources = [
-      { url: "https://a.com/feed", name: "A" },
-      { url: "https://b.com/feed", name: "B" },
-      { url: "https://a.com/feed", name: "A2" }, // duplicate
-      { url: "", name: "empty" }, // empty url filtered
+      { name: "A", url: "https://a.com/feed" },
+      { name: "B", url: "https://b.com/feed" },
+      { name: "A2", url: "https://a.com/feed" }, // duplicate
+      { name: "empty", url: "" }, // empty url filtered
     ];
     const result = normalizeFeedBatchSources(sources);
     expect(result).toHaveLength(2);
@@ -791,8 +1041,8 @@ describe("feed-batch pure helpers", () => {
     const { normalizeFeedBatchSources } =
       await import("@/app/dashboard/services/feed-batch");
     const result = normalizeFeedBatchSources([
-      { url: "https://x.com/feed", name: "X" },
-      { url: "https://x.com/feed", name: "X" },
+      { name: "X", url: "https://x.com/feed" },
+      { name: "X", url: "https://x.com/feed" },
     ]);
     expect(result).toHaveLength(1);
   });
@@ -801,12 +1051,12 @@ describe("feed-batch pure helpers", () => {
     const { buildBatchRequestSignature } =
       await import("@/app/dashboard/services/feed-batch");
     const a = buildBatchRequestSignature([
-      { url: "https://b.com/feed", name: "B" },
-      { url: "https://a.com/feed", name: "A" },
+      { name: "B", url: "https://b.com/feed" },
+      { name: "A", url: "https://a.com/feed" },
     ]);
     const b = buildBatchRequestSignature([
-      { url: "https://a.com/feed", name: "A" },
-      { url: "https://b.com/feed", name: "B" },
+      { name: "A", url: "https://a.com/feed" },
+      { name: "B", url: "https://b.com/feed" },
     ]);
     expect(a).toBe(b);
     expect(a).toContain("https://a.com/feed");
@@ -823,22 +1073,22 @@ describe("feed-batch pure helpers", () => {
     const { mapFeedNodesToBatchSources } =
       await import("@/app/dashboard/services/feed-batch");
     const nodes = [
-      { label: "Feed A", data: { url: "https://a.com/rss" } },
-      { label: "No URL", data: {} },
-      { label: "Feed B", data: { url: "https://b.com/rss" } },
+      { data: { url: "https://a.com/rss" }, label: "Feed A" },
+      { data: {}, label: "No URL" },
+      { data: { url: "https://b.com/rss" }, label: "Feed B" },
     ] as any[];
     const result = mapFeedNodesToBatchSources(nodes);
     expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({ url: "https://a.com/rss", name: "Feed A" });
-    expect(result[1]).toEqual({ url: "https://b.com/rss", name: "Feed B" });
+    expect(result[0]).toEqual({ name: "Feed A", url: "https://a.com/rss" });
+    expect(result[1]).toEqual({ name: "Feed B", url: "https://b.com/rss" });
   });
 
   test("mapFeedNodesToBatchSources handles null/undefined data", async () => {
     const { mapFeedNodesToBatchSources } =
       await import("@/app/dashboard/services/feed-batch");
     const nodes = [
-      { label: "No data", data: null },
-      { label: "No node", data: undefined },
+      { data: null, label: "No data" },
+      { data: undefined, label: "No node" },
     ] as any[];
     const result = mapFeedNodesToBatchSources(nodes);
     expect(result).toHaveLength(0);

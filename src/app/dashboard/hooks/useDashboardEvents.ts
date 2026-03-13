@@ -6,112 +6,95 @@
  * the main DashboardView render function.
  */
 
-import { ArticleService, type CategoryTreeNode } from "@/lib";
 import { useEffect } from "react";
 import { toast } from "sonner";
+
 import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "../constants";
 
+import { ArticleService, type CategoryTreeNode } from "@/lib";
+import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
+
 interface UseDashboardEventsOptions {
-  selectedCategory: string;
-  selectedFeedUrl: string | undefined;
-  selectedCategoryNode: CategoryTreeNode | undefined;
   fetchAllFeeds: () => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
   fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
-  onOpenSettings: () => void;
-  onOpenFeedsSidebar: () => void;
-  onSearchChange: (term: string) => void;
-  onRefresh: () => void;
-  usePlaceholderData?: boolean;
+  fetchFeed: (url: string) => Promise<void>;
   onMarkAllReadLocally?: () => void;
-}
-
-function collectMarkAllReadStreams(
-  selectedCategory: string,
-  selectedFeedUrl: string | undefined,
-  selectedCategoryNode: CategoryTreeNode | undefined,
-): string[] {
-  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    return ["user/-/state/com.google/reading-list"];
-  }
-
-  if (selectedFeedUrl) {
-    return [`feed/${selectedFeedUrl}`];
-  }
-
-  if (!selectedCategoryNode?.children?.length) {
-    return [];
-  }
-
-  return selectedCategoryNode.children
-    .map((node) => node.data?.url)
-    .filter((url): url is string => Boolean(url))
-    .map((url) => `feed/${url}`);
+  onOpenFeedsSidebar: () => void;
+  onOpenSettings: () => void;
+  onRefresh: () => void;
+  onSearchChange: (term: string) => void;
+  selectedCategory: string;
+  selectedCategoryNode: CategoryTreeNode | undefined;
+  selectedFeedUrl: string | undefined;
+  usePlaceholderData?: boolean;
 }
 
 export function useDashboardEvents({
-  selectedCategory,
-  selectedFeedUrl,
-  selectedCategoryNode,
   fetchAllFeeds,
-  fetchFeed,
   fetchCategoryFeeds,
-  onOpenSettings,
-  onOpenFeedsSidebar,
-  onSearchChange,
-  onRefresh,
-  usePlaceholderData = false,
+  fetchFeed,
   onMarkAllReadLocally,
+  onOpenFeedsSidebar,
+  onOpenSettings,
+  onRefresh,
+  onSearchChange,
+  selectedCategory,
+  selectedCategoryNode,
+  selectedFeedUrl,
+  usePlaceholderData = false,
 }: UseDashboardEventsOptions) {
   useEffect(() => {
-    const handleMarkAllRead = async () => {
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
-      );
-
-      if (usePlaceholderData) {
-        onMarkAllReadLocally?.();
-        toast.success("Marked all as read.");
+    const handleMarkAllRead = () => {
+      void (async () => {
         window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
         );
-        return;
-      }
 
-      const streams = collectMarkAllReadStreams(
-        selectedCategory,
-        selectedFeedUrl,
-        selectedCategoryNode,
-      );
+        if (usePlaceholderData) {
+          onMarkAllReadLocally?.();
+          toast.success("Marked all as read.");
+          window.dispatchEvent(
+            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          );
+          return;
+        }
 
-      if (streams.length === 0) {
-        toast.info("No readable feed selected.");
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        const streams = collectMarkAllReadStreams(
+          selectedCategory,
+          selectedFeedUrl,
+          selectedCategoryNode,
         );
-        return;
-      }
 
-      try {
-        await Promise.all(
-          Array.from(new Set(streams)).map((stream) =>
-            ArticleService.markAllRead(stream),
-          ),
-        );
-        toast.success("Marked all as read.");
-        onRefresh();
-      } catch (error) {
-        console.error("Mark all read error:", error);
-        toast.error("Unable to mark all as read right now.");
-      } finally {
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-        );
-      }
+        if (streams.length === 0) {
+          toast.info("No readable feed selected.");
+          window.dispatchEvent(
+            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          );
+          return;
+        }
+
+        try {
+          await Promise.all(
+            Array.from(new Set(streams)).map((stream) =>
+              ArticleService.markAllRead(stream),
+            ),
+          );
+          toast.success("Marked all as read.");
+          onRefresh();
+        } catch (error) {
+          console.error("Mark all read error:", error);
+          toast.error("Unable to mark all as read right now.");
+        } finally {
+          window.dispatchEvent(
+            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+          );
+        }
+      })();
     };
 
     const handleSearchChange = (event: Event) => {
-      const term = (event as CustomEvent<{ term?: string }>).detail?.term ?? "";
+      const detail = (event as CustomEvent<{ term?: string }>).detail;
+      const term = typeof detail.term === "string" ? detail.term : "";
       onSearchChange(term);
     };
 
@@ -160,4 +143,28 @@ export function useDashboardEvents({
     usePlaceholderData,
     onMarkAllReadLocally,
   ]);
+}
+
+function collectMarkAllReadStreams(
+  selectedCategory: string,
+  selectedFeedUrl: string | undefined,
+  selectedCategoryNode: CategoryTreeNode | undefined,
+): string[] {
+  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+    return [READING_LIST_STREAM];
+  }
+
+  if (selectedFeedUrl) {
+    return [`feed/${selectedFeedUrl}`];
+  }
+
+  const childNodes = selectedCategoryNode?.children;
+  if (childNodes === undefined || childNodes.length === 0) {
+    return [];
+  }
+
+  return childNodes
+    .map((node) => node.data?.url)
+    .filter((url): url is string => Boolean(url))
+    .map((url) => `feed/${url}`);
 }

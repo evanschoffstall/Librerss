@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-export const useDebugState = (initialValue: boolean = false) => {
+export const useDebugState = (initialValue = false) => {
   const [debugState, setDebugState] = useState(initialValue);
   const [isClientState, setIsClientState] = useState(false);
 
-  useEffect(() => setIsClientState(true), []);
+  useEffect(() => {
+    setIsClientState(true);
+  }, []);
 
-  const toggleDebug = () => setDebugState((prev) => !prev);
+  const toggleDebug = () => {
+    setDebugState((prev) => !prev);
+  };
 
-  return { debug: debugState, toggleDebug, isClient: isClientState };
+  return { debug: debugState, isClient: isClientState, toggleDebug };
 };

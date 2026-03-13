@@ -4,6 +4,21 @@
  */
 
 import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
+
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { toast } from "sonner";
+
+import { useAnimatedList } from "@/app/dashboard/hooks/useAnimatedList";
+import {
   toggleReadStatus,
   toggleStarredStatus,
 } from "@/app/dashboard/hooks/useArticleActions";
@@ -16,20 +31,12 @@ import {
   getPreviousArticle,
 } from "@/app/dashboard/hooks/useArticleNavigation";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
+import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
-import { ArticleService, type Article } from "@/lib";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
-import { toast } from "sonner";
+import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
+import { type Article, ArticleService, FeedService } from "@/lib";
+
+const getStringKey = (item: string) => item;
 
 // ─── useArticleNavigation ─────────────────────────────────────────────────────
 
@@ -100,6 +107,209 @@ describe("useFeedRefresh", () => {
   });
 });
 
+describe("useFeedRequestState", () => {
+  test("starts foreground requests and exposes loading state", () => {
+    const setLoading = mock(() => {});
+    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
+
+    let request: ReturnType<typeof result.current.beginRequest> | undefined;
+
+    act(() => {
+      request = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!request) {
+      throw new Error("expected request result");
+    }
+
+    expect(request.skippedDuplicate).toBe(false);
+    expect(result.current.loading).toBe(true);
+    expect(result.current.loadingEpoch).toBe(1);
+    expect(result.current.isCurrentRequest(request.requestId)).toBe(true);
+    expect(setLoading).toHaveBeenCalledWith(true);
+  });
+
+  test("skips duplicate requests without aborting the active request", () => {
+    const setLoading = mock(() => {});
+    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
+
+    let firstRequest:
+      | ReturnType<typeof result.current.beginRequest>
+      | undefined;
+
+    act(() => {
+      firstRequest = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!firstRequest) {
+      throw new Error("expected first request result");
+    }
+
+    if (firstRequest.skippedDuplicate) {
+      throw new Error("expected first request to start");
+    }
+
+    let duplicateRequest:
+      | ReturnType<typeof result.current.beginRequest>
+      | undefined;
+
+    act(() => {
+      duplicateRequest = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!duplicateRequest) {
+      throw new Error("expected duplicate request result");
+    }
+
+    expect(duplicateRequest).toEqual({
+      requestId: firstRequest.requestId,
+      skippedDuplicate: true,
+    });
+    expect(firstRequest.abortController.signal.aborted).toBe(false);
+    expect(result.current.isCurrentRequest(firstRequest.requestId)).toBe(true);
+    expect(result.current.loadingEpoch).toBe(1);
+  });
+
+  test("cancelPendingRequest aborts the active request and clears loading", () => {
+    const setLoading = mock(() => {});
+    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
+
+    let request: ReturnType<typeof result.current.beginRequest> | undefined;
+
+    act(() => {
+      request = result.current.beginRequest({
+        forceRefresh: false,
+        isBackground: false,
+        requestSignature: "feed-a",
+      });
+    });
+
+    if (!request) {
+      throw new Error("expected request result");
+    }
+
+    if (request.skippedDuplicate) {
+      throw new Error("expected request to start");
+    }
+
+    let canceledRequestId: number | undefined;
+
+    act(() => {
+      canceledRequestId = result.current.cancelPendingRequest();
+    });
+
+    if (canceledRequestId === undefined) {
+      throw new Error("expected canceled request id");
+    }
+
+    expect(request.abortController.signal.aborted).toBe(true);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.isCurrentRequest(canceledRequestId)).toBe(true);
+    expect(setLoading).toHaveBeenLastCalledWith(false);
+  });
+});
+
+describe("useAnimatedList", () => {
+  test("keeps small removals mounted long enough to animate out", async () => {
+    const { rerender, result } = renderHook(
+      ({ items }: { items: string[] }) =>
+        useAnimatedList(items, getStringKey, 2),
+      {
+        initialProps: { items: ["a", "b", "c"] },
+      },
+    );
+
+    act(() => {
+      rerender({ items: ["a", "c"] });
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([
+        { exiting: false, item: "a", key: "a" },
+        { exiting: true, item: "b", key: "b" },
+        { exiting: false, item: "c", key: "c" },
+      ]);
+    });
+  });
+
+  test("skips exit animations for bulk removals", async () => {
+    const { rerender, result } = renderHook(
+      ({ items }: { items: string[] }) =>
+        useAnimatedList(items, getStringKey, 2),
+      {
+        initialProps: { items: ["a", "b", "c", "d"] },
+      },
+    );
+
+    act(() => {
+      rerender({ items: ["a"] });
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([{ exiting: false, item: "a", key: "a" }]);
+    });
+  });
+});
+
+describe("useCategoryOrderState", () => {
+  const originalGetCategoryOrder = FeedService.getCategoryOrder;
+  const originalSaveCategoryOrder = FeedService.saveCategoryOrder;
+
+  afterEach(() => {
+    FeedService.getCategoryOrder = originalGetCategoryOrder;
+    FeedService.saveCategoryOrder = originalSaveCategoryOrder;
+  });
+
+  test("skips loading category order in placeholder mode", async () => {
+    FeedService.getCategoryOrder = mock(async () => ["News"]);
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: true }),
+    );
+
+    await runWithAct(async () => {
+      await Promise.resolve();
+    });
+
+    expect(FeedService.getCategoryOrder).not.toHaveBeenCalled();
+    expect(result.current.orderedCategoryLabels).toEqual([]);
+  });
+
+  test("debounces category order persistence", async () => {
+    FeedService.getCategoryOrder = mock(async () => []);
+    FeedService.saveCategoryOrder = mock(async () => {});
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: false }),
+    );
+
+    act(() => {
+      result.current.setOrderedCategoryLabels(["News", "Tech"]);
+    });
+
+    await runWithAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+
+    expect(FeedService.saveCategoryOrder).toHaveBeenCalledWith([
+      "News",
+      "Tech",
+    ]);
+  });
+});
+
 // ─── useArticleActions ────────────────────────────────────────────────────────
 
 describe("useArticleActions", () => {
@@ -164,17 +374,17 @@ afterAll(() => {
 
 describe("useArticleHydration", () => {
   const createMockArticle = (overrides?: Partial<Article>): Article => ({
-    id: 1,
-    title: "Test Article",
-    link: "https://example.com/article",
     content: "Short content",
-    publicationDate: new Date("2024-01-01"),
     feedId: 1,
     feedName: "Test Feed",
     feedUrl: "https://example.com/feed",
+    id: 1,
     isRead: false,
     isStarred: false,
     lastChecked: new Date(),
+    link: "https://example.com/article",
+    publicationDate: new Date("2024-01-01"),
+    title: "Test Article",
     ...overrides,
   });
 
@@ -533,17 +743,17 @@ describe("useArticleHydration", () => {
 
 describe("useArticleReadState", () => {
   const createMockArticle = (overrides?: Partial<Article>): Article => ({
-    id: 1,
-    title: "Test Article",
-    link: "https://example.com/article",
     content: "Content",
-    publicationDate: new Date("2024-01-01"),
     feedId: 1,
     feedName: "Test Feed",
     feedUrl: "https://example.com/feed",
+    id: 1,
     isRead: false,
     isStarred: false,
     lastChecked: new Date(),
+    link: "https://example.com/article",
+    publicationDate: new Date("2024-01-01"),
+    title: "Test Article",
     ...overrides,
   });
 

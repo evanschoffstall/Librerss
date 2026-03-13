@@ -1,5 +1,5 @@
-import { CONFIG } from "@/lib/config";
 import sanitizeHtml from "sanitize-html";
+
 import {
   decodeHtmlEntities,
   normalizeArticleHtmlSpacing,
@@ -11,23 +11,25 @@ import {
 } from "./cleaners";
 import { purifyRawHtml } from "./purify";
 
-function parseDimension(value: string | undefined): number | null {
-  if (!value) return null;
-  const normalized = value.trim();
-  if (!normalized || normalized.includes("%")) return null;
-  const parsed = Number.parseFloat(normalized);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed;
-}
+import { CONFIG } from "@/lib/config";
 
-function maxSrcsetWidth(srcset: string): number {
-  const widths = [...srcset.matchAll(/\b(\d+)w\b/gi)].map((m) =>
-    parseInt(m[1]!, 10),
+function isKnownPlaceholderImage(
+  attribs: Record<string, string | undefined> | undefined,
+): boolean {
+  if (!attribs) return false;
+  const source = (attribs.src ?? "").trim().toLowerCase();
+  if (!source) return false;
+  return (
+    source.includes("grey-placeholder") ||
+    source.includes("gray-placeholder") ||
+    source.includes("/placeholder") ||
+    source.includes("placeholder.")
   );
-  return widths.length > 0 ? Math.max(...widths) : Infinity;
 }
 
-function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
+function isTooSmallImage(
+  attribs: Record<string, string | undefined> | undefined,
+): boolean {
   if (!attribs) return false;
   const width = parseDimension(attribs.width);
   const height = parseDimension(attribs.height);
@@ -46,21 +48,46 @@ function isTooSmallImage(attribs: Record<string, string> | undefined): boolean {
   return false;
 }
 
-function isKnownPlaceholderImage(
-  attribs: Record<string, string> | undefined,
-): boolean {
-  if (!attribs) return false;
-  const source = (attribs.src || "").trim().toLowerCase();
-  if (!source) return false;
-  return (
-    source.includes("grey-placeholder") ||
-    source.includes("gray-placeholder") ||
-    source.includes("/placeholder") ||
-    source.includes("placeholder.")
+function maxSrcsetWidth(srcset: string): number {
+  const widths = [...srcset.matchAll(/\b(\d+)w\b/gi)].map((m) =>
+    parseInt(m[1], 10),
   );
+  return widths.length > 0 ? Math.max(...widths) : Infinity;
+}
+
+function parseDimension(value: string | undefined): null | number {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (!normalized || normalized.includes("%")) return null;
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
 }
 
 const ARTICLE_SANITIZE_OPTIONS = {
+  allowedAttributes: {
+    a: ["href", "name", "target", "rel"],
+    code: ["class"],
+    img: [
+      "src",
+      "srcset",
+      "sizes",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "loading",
+      "decoding",
+      "referrerpolicy",
+      "data-src",
+      "data-original",
+      "data-lazy-src",
+      "data-url",
+    ],
+    pre: ["class"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesByTag: { img: ["http", "https"] },
   allowedTags: [
     "p",
     "br",
@@ -84,6 +111,9 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "img",
     "hr",
   ],
+  exclusiveFilter: (frame: { attribs?: Record<string, string>; tag: string }) =>
+    frame.tag === "img" &&
+    (isTooSmallImage(frame.attribs) || isKnownPlaceholderImage(frame.attribs)),
   nonTextTags: [
     "h1",
     "style",
@@ -112,40 +142,14 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "colgroup",
     "col",
   ],
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: [
-      "src",
-      "srcset",
-      "sizes",
-      "alt",
-      "title",
-      "width",
-      "height",
-      "loading",
-      "decoding",
-      "referrerpolicy",
-      "data-src",
-      "data-original",
-      "data-lazy-src",
-      "data-url",
-    ],
-    code: ["class"],
-    pre: ["class"],
-  },
-  allowedSchemes: ["http", "https", "mailto"],
-  allowedSchemesByTag: { img: ["http", "https"] },
-  exclusiveFilter: (frame: { tag: string; attribs?: Record<string, string> }) =>
-    frame.tag === "img" &&
-    (isTooSmallImage(frame.attribs) || isKnownPlaceholderImage(frame.attribs)),
   transformTags: {
     a: (tagName: string, attribs: Record<string, string>) => ({
-      tagName,
       attribs: {
         ...attribs,
         rel: "noopener noreferrer nofollow",
         target: "_blank",
       },
+      tagName,
     }),
     img: (tagName: string, attribs: Record<string, string>) => {
       const trimmedSource = (
@@ -157,18 +161,41 @@ const ARTICLE_SANITIZE_OPTIONS = {
         ""
       ).trim();
       return {
-        tagName,
         attribs: {
           ...attribs,
           ...(trimmedSource ? { src: trimmedSource } : {}),
-          referrerpolicy: attribs.referrerpolicy || "no-referrer",
-          loading: "eager",
           decoding: attribs.decoding || "async",
+          loading: "eager",
+          referrerpolicy: attribs.referrerpolicy || "no-referrer",
         },
+        tagName,
       };
     },
   },
 };
+
+/**
+ * Sanitizes article HTML and enforces {@link CONFIG.MAX_ARTICLE_CONTENT_LENGTH}.
+ *
+ * Unlike naively calling `sanitizeArticleHtml` + `substring`, this function
+ * re-sanitizes the truncated string so that any HTML tag broken at the hard
+ * length boundary is properly closed before the content is stored.
+ */
+export function sanitizeAndTruncateArticleContent(raw: string): string {
+  const sanitized = sanitizeArticleHtml(raw);
+
+  if (sanitized.length <= CONFIG.MAX_ARTICLE_CONTENT_LENGTH) {
+    return sanitized;
+  }
+
+  // Re-sanitize the truncated portion FIRST so any HTML tag broken at the
+  // hard length boundary is properly closed before appending the sentinel.
+  // Appending after ensures the notice is never inside a broken element.
+  const cut = sanitizeArticleHtml(
+    sanitized.substring(0, CONFIG.MAX_ARTICLE_CONTENT_LENGTH),
+  );
+  return `${cut}<p>\u2026 [content truncated]</p>`;
+}
 
 /**
  * Strips non-allowed HTML tags; forces safe link attributes.
@@ -202,10 +229,10 @@ export function sanitizeArticleHtml(raw: string): string {
  * (e.g. `<b>Breaking</b>` or `<script>…</script>`); all markup must be
  * removed before the value is stored or rendered.
  */
-export function sanitizeArticleTitle(title: string | null | undefined): string {
+export function sanitizeArticleTitle(title: null | string | undefined): string {
   const stripped = sanitizeHtml(title ?? "", {
-    allowedTags: [],
     allowedAttributes: {},
+    allowedTags: [],
   }).trim();
   const cleaned =
     decodeHtmlEntities(stripped)
@@ -216,27 +243,4 @@ export function sanitizeArticleTitle(title: string | null | undefined): string {
   // Slice to MAX-1 to leave room for the ellipsis so the result stays within
   // CONFIG.MAX_ARTICLE_TITLE_LENGTH.
   return `${cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH - 1).trim()}\u2026`;
-}
-
-/**
- * Sanitizes article HTML and enforces {@link CONFIG.MAX_ARTICLE_CONTENT_LENGTH}.
- *
- * Unlike naively calling `sanitizeArticleHtml` + `substring`, this function
- * re-sanitizes the truncated string so that any HTML tag broken at the hard
- * length boundary is properly closed before the content is stored.
- */
-export function sanitizeAndTruncateArticleContent(raw: string): string {
-  const sanitized = sanitizeArticleHtml(raw);
-
-  if (sanitized.length <= CONFIG.MAX_ARTICLE_CONTENT_LENGTH) {
-    return sanitized;
-  }
-
-  // Re-sanitize the truncated portion FIRST so any HTML tag broken at the
-  // hard length boundary is properly closed before appending the sentinel.
-  // Appending after ensures the notice is never inside a broken element.
-  const cut = sanitizeArticleHtml(
-    sanitized.substring(0, CONFIG.MAX_ARTICLE_CONTENT_LENGTH),
-  );
-  return `${cut}<p>\u2026 [content truncated]</p>`;
 }

@@ -3,12 +3,13 @@
  * Tests for src/lib/utils/
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import { Logger, logger } from "@/lib/logger";
 import { formatRelativeDate } from "@/lib/utils/dates";
 import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 import { isSafePositiveItemId } from "@/lib/utils/validation";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => {
   mock.restore();
@@ -190,10 +191,10 @@ describe("logger", () => {
 
     const context = {
       email: "alice@example.com",
-      password: "secret-pass",
-      nested: { token: "abc123", when: new Date("2024-01-01T00:00:00.000Z") },
-      list: [{ apiKey: "xyz" }],
       error: new Error("boom"),
+      list: [{ apiKey: "xyz" }],
+      nested: { token: "abc123", when: new Date("2024-01-01T00:00:00.000Z") },
+      password: "secret-pass",
     };
 
     try {
@@ -324,7 +325,7 @@ describe("categories", () => {
   });
 
   test("normalizeCategory maps empty and uncategorized variants to default", async () => {
-    const { normalizeCategory, DEFAULT_CATEGORY_LABEL } =
+    const { DEFAULT_CATEGORY_LABEL, normalizeCategory } =
       await import("@/lib/utils/categories");
     expect(normalizeCategory(undefined)).toBe(DEFAULT_CATEGORY_LABEL);
     expect(normalizeCategory("   ")).toBe(DEFAULT_CATEGORY_LABEL);
@@ -340,10 +341,10 @@ describe("categories", () => {
 
   test("category array helpers and lookup behave case-insensitively", async () => {
     const {
-      includesCategoryLabel,
-      replaceCategoryLabel,
-      removeCategoryLabel,
       findCategoryByLabel,
+      includesCategoryLabel,
+      removeCategoryLabel,
+      replaceCategoryLabel,
     } = await import("@/lib/utils/categories");
 
     expect(includesCategoryLabel(["Tech", "News"], " tech ")).toBe(true);
@@ -385,8 +386,8 @@ describe("opml", () => {
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]).toMatchObject({
-      url: "https://example.com/feed.xml",
       category: "Tech",
+      url: "https://example.com/feed.xml",
     });
   });
 });
@@ -500,7 +501,7 @@ describe("logger", () => {
 
   test("logger.info with context does not throw", () => {
     expect(() =>
-      logger.info("with context", { userId: 1, email: "user@example.com" }),
+      logger.info("with context", { email: "user@example.com", userId: 1 }),
     ).not.toThrow();
   });
 

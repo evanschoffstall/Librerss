@@ -12,26 +12,26 @@ export const settingsDragHandleCls =
   "shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing";
 
 export const SettingsIconButton = ({
-  tip,
-  onClick,
-  disabled,
   children,
   className,
+  disabled,
+  onClick,
+  tip,
 }: {
-  tip: string;
-  onClick?: () => void;
-  disabled?: boolean;
   children: React.ReactNode;
   className?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  tip: string;
 }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <Button
-        variant="ghost"
-        size="icon"
         className={`size-7 ${className ?? ""}`}
-        onClick={onClick}
         disabled={disabled}
+        onClick={onClick}
+        size="icon"
+        variant="ghost"
       >
         {children}
       </Button>

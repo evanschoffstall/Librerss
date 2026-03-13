@@ -1,14 +1,7 @@
-import {
-  FeedService,
-  isSafePositiveItemId,
-  isSameCategoryLabel,
-  isValidUrl,
-  normalizeCategory,
-  type Article,
-  type CategoryTreeNode,
-} from "@/lib";
 import { toast } from "sonner";
+
 import { ALL_FEEDS_NODE_KEY } from "../constants";
+
 import {
   findFeedNodeByKey,
   findFeedNodeByUrl,
@@ -18,33 +11,30 @@ import {
 } from "./category-tree";
 import type { FeedFetchOptions } from "./selection";
 
-export function selectFeedByKeyFromCategories(
-  categories: CategoryTreeNode[],
-  feedKey: string,
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>,
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>,
-) {
-  const sourceNode = findFeedNodeByKey(categories, feedKey);
-  if (!sourceNode?.data?.url) return;
-
-  setSelectedCategory(sourceNode.key);
-  void fetchFeed(sourceNode.data.url);
-}
+import {
+  type Article,
+  type CategoryTreeNode,
+  FeedService,
+  isSafePositiveItemId,
+  isSameCategoryLabel,
+  isValidUrl,
+  normalizeCategory,
+} from "@/lib";
 
 export async function addFeedSourceAndRefresh({
-  name,
-  url,
   category,
-  loadFeedSources,
-  setSelectedCategory,
   fetchFeed,
+  loadFeedSources,
+  name,
+  setSelectedCategory,
+  url,
 }: {
-  name: string;
-  url: string;
   category: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  name: string;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+  url: string;
 }): Promise<boolean> {
   if (!name.trim() || !url.trim()) {
     toast.error("Feed name and URL are required.");
@@ -58,9 +48,9 @@ export async function addFeedSourceAndRefresh({
 
   try {
     await FeedService.createFeedSource({
+      category: normalizeCategory(category),
       name: name.trim(),
       url: url.trim(),
-      category: normalizeCategory(category),
     });
     const nextCategories = await loadFeedSources();
     const latestNode = findFeedNodeByUrl(nextCategories, url.trim());
@@ -82,24 +72,75 @@ export async function addFeedSourceAndRefresh({
   }
 }
 
-export async function removeFeedSourceAndRefresh({
+export async function moveFeedByDropAndPersist({
   categories,
-  selectedCategory,
+  ensureCategoryLabelExists,
   key,
   loadFeedSources,
-  setSelectedCategory,
-  setFeed,
-  fetchFeed,
-  fetchCategoryFeeds,
+  setCategories,
+  targetCategory,
+  targetIndex,
 }: {
   categories: CategoryTreeNode[];
-  selectedCategory: string;
+  ensureCategoryLabelExists: (label: string) => void;
   key: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  fetchFeed: (url: string) => Promise<void>;
+  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
+  targetCategory: string;
+  targetIndex: number;
+}) {
+  const normalizedTargetCategory = normalizeCategory(targetCategory);
+  if (!normalizedTargetCategory) return;
+
+  const sourceCategoryNode = categories.find((cat) =>
+    (cat.children ?? []).some((node) => node.key === key),
+  );
+  const sourceNode = findFeedNodeByKey(categories, key);
+
+  if (!sourceCategoryNode || !sourceNode) return;
+
+  setCategories((prev) =>
+    relocateFeedInCategories(prev, key, normalizedTargetCategory, targetIndex),
+  );
+
+  if (isSameCategoryLabel(sourceCategoryNode.label, normalizedTargetCategory)) {
+    return;
+  }
+
+  ensureCategoryLabelExists(sourceCategoryNode.label);
+  ensureCategoryLabelExists(normalizedTargetCategory);
+
+  try {
+    await FeedService.createFeedSource({
+      category: normalizedTargetCategory,
+      name: sourceNode.label,
+      url: sourceNode.data?.url ?? "",
+    });
+  } catch (err) {
+    console.error("Drag move feed category error:", err);
+    toast.error("Unable to move feed right now.");
+    await loadFeedSources();
+  }
+}
+
+export async function removeFeedSourceAndRefresh({
+  categories,
+  fetchCategoryFeeds,
+  fetchFeed,
+  key,
+  loadFeedSources,
+  selectedCategory,
+  setFeed,
+  setSelectedCategory,
+}: {
+  categories: CategoryTreeNode[];
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+  fetchFeed: (url: string) => Promise<void>;
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  selectedCategory: string;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }) {
   const selectedNode = findFeedNodeByKey(categories, key);
   const sourceId = selectedNode?.data?.sourceId;
@@ -149,15 +190,15 @@ export async function removeFeedSourceAndRefresh({
 export async function renameFeedSourceAndRefresh({
   categories,
   key,
+  loadFeedSources,
   nextName,
   nextUrl,
-  loadFeedSources,
 }: {
   categories: CategoryTreeNode[];
   key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
   nextName: string;
   nextUrl: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
 }): Promise<boolean> {
   const selectedNode = findFeedNodeByKey(categories, key);
   const sourceId = selectedNode?.data?.sourceId;
@@ -196,78 +237,40 @@ export async function renameFeedSourceAndRefresh({
   }
 }
 
-export async function moveFeedByDropAndPersist({
-  categories,
-  key,
-  targetCategory,
-  targetIndex,
-  setCategories,
-  ensureCategoryLabelExists,
-  loadFeedSources,
-}: {
-  categories: CategoryTreeNode[];
-  key: string;
-  targetCategory: string;
-  targetIndex: number;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  ensureCategoryLabelExists: (label: string) => void;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-}) {
-  const normalizedTargetCategory = normalizeCategory(targetCategory);
-  if (!normalizedTargetCategory) return;
+export function selectFeedByKeyFromCategories(
+  categories: CategoryTreeNode[],
+  feedKey: string,
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>,
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>,
+) {
+  const sourceNode = findFeedNodeByKey(categories, feedKey);
+  if (!sourceNode?.data?.url) return;
 
-  const sourceCategoryNode = categories.find((cat) =>
-    (cat.children ?? []).some((node) => node.key === key),
-  );
-  const sourceNode = findFeedNodeByKey(categories, key);
-
-  if (!sourceCategoryNode || !sourceNode) return;
-
-  setCategories((prev) =>
-    relocateFeedInCategories(prev, key, normalizedTargetCategory, targetIndex),
-  );
-
-  if (isSameCategoryLabel(sourceCategoryNode.label, normalizedTargetCategory)) {
-    return;
-  }
-
-  ensureCategoryLabelExists(sourceCategoryNode.label);
-  ensureCategoryLabelExists(normalizedTargetCategory);
-
-  try {
-    await FeedService.createFeedSource({
-      name: sourceNode.label,
-      url: sourceNode.data?.url ?? "",
-      category: normalizedTargetCategory,
-    });
-  } catch (err) {
-    console.error("Drag move feed category error:", err);
-    toast.error("Unable to move feed right now.");
-    await loadFeedSources();
-  }
+  setSelectedCategory(sourceNode.key);
+  void fetchFeed(sourceNode.data.url);
 }
 
 export async function setFeedSourceEnabledAndRefresh({
   categories,
-  selectedCategory,
-  key,
   enabled,
-  setSelectedCategory,
-  loadFeedSources,
-  fetchFeed,
   fetchAllFeeds,
+  fetchFeed,
+  key,
+  loadFeedSources,
+  selectedCategory,
+  setSelectedCategory,
 }: {
   categories: CategoryTreeNode[];
-  selectedCategory: string;
-  key: string;
   enabled: boolean;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   fetchAllFeeds: (
     categories?: CategoryTreeNode[],
     options?: FeedFetchOptions,
   ) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  selectedCategory: string;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }): Promise<boolean> {
   const sourceNode = findFeedNodeByKey(categories, key);
   const sourceId = sourceNode?.data?.sourceId;
@@ -311,13 +314,13 @@ export async function setFeedSourceEnabledAndRefresh({
 export async function updateFeedSettingsAndRefresh({
   categories,
   key,
-  settings,
   loadFeedSources,
+  settings,
 }: {
   categories: CategoryTreeNode[];
   key: string;
-  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
 }): Promise<boolean> {
   const sourceNode = findFeedNodeByKey(categories, key);
   const sourceId = sourceNode?.data?.sourceId;

@@ -1,5 +1,6 @@
-import { generateOpml, parseOpmlFeedImport } from "@/lib/utils/opml";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { generateOpml, parseOpmlFeedImport } from "@/lib/utils/opml";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -10,26 +11,26 @@ describe("utils/opml – generateOpml", () => {
   test("generates valid OPML XML with multiple categories", () => {
     const categories = [
       {
-        label: "Tech",
         children: [
           {
-            label: "Hacker News",
             data: { url: "https://news.ycombinator.com/rss" },
+            label: "Hacker News",
           },
           {
-            label: "Lobsters",
             data: { url: "https://lobste.rs/rss" },
+            label: "Lobsters",
           },
         ],
+        label: "Tech",
       },
       {
-        label: "Science",
         children: [
           {
-            label: "NASA",
             data: { url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
+            label: "NASA",
           },
         ],
+        label: "Science",
       },
     ];
 
@@ -46,10 +47,10 @@ describe("utils/opml – generateOpml", () => {
 
   test("skips categories with no feeds", () => {
     const categories = [
-      { label: "Empty Category", children: [] },
+      { children: [], label: "Empty Category" },
       {
+        children: [{ data: { url: "https://example.com/rss" }, label: "Feed" }],
         label: "Has Feeds",
-        children: [{ label: "Feed", data: { url: "https://example.com/rss" } }],
       },
     ];
     const opml = generateOpml(categories as any);
@@ -60,13 +61,13 @@ describe("utils/opml – generateOpml", () => {
   test("escapes XML special characters in names/URLs", () => {
     const categories = [
       {
-        label: 'Tech & "Science"',
         children: [
           {
-            label: "<Best> Feed",
             data: { url: "https://example.com/feed?a=1&b=2" },
+            label: "<Best> Feed",
           },
         ],
+        label: 'Tech & "Science"',
       },
     ];
     const opml = generateOpml(categories as any);

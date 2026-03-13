@@ -1,28 +1,30 @@
 "use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
-import { type Article } from "@/lib";
 import { Loader2, SearchX, Sparkles } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
+
 import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 
+import { Skeleton } from "@/components/ui/skeleton";
+import { type Article } from "@/lib";
+
 interface FeedListProps {
-  loading: boolean;
+  expandedArticleKey: null | string;
   filteredFeed: Article[];
-  visibleCount: number;
-  expandedArticleKey: string | null;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
-  updatingArticleState: Record<string, boolean>;
-  showFavicons: boolean;
-  searchTerm: string;
-  sentinelRef: React.RefObject<HTMLDivElement | null>;
+  loading: boolean;
   onExpandedSwipeRead: (article: Article) => void;
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
+  searchTerm: string;
+  sentinelRef: React.RefObject<HTMLDivElement | null>;
+  showFavicons: boolean;
+  updatingArticleState: Record<string, boolean>;
+  visibleCount: number;
 }
 
 const ArticleCardSkeleton = memo(function ArticleCardSkeleton() {
@@ -62,26 +64,26 @@ const ArticleCardSkeleton = memo(function ArticleCardSkeleton() {
 });
 
 export const FeedList = memo(function FeedList({
-  loading,
-  filteredFeed,
-  visibleCount,
   expandedArticleKey,
+  filteredFeed,
   hydratedArticleLinks,
   hydratingArticleLinks,
-  updatingArticleState,
-  showFavicons,
-  searchTerm,
-  sentinelRef,
+  loading,
   onExpandedSwipeRead,
   onToggle,
   onToggleRead,
   onToggleStarred,
+  searchTerm,
+  sentinelRef,
+  showFavicons,
+  updatingArticleState,
+  visibleCount,
 }: FeedListProps) {
   const visibleFeed = useMemo(
     () => filteredFeed.slice(0, visibleCount),
     [filteredFeed, visibleCount],
   );
-  const animatedItems = useAnimatedList(visibleFeed, getArticleKey);
+  const animatedItems = useAnimatedList(visibleFeed, getArticleKey, 12);
   const hasAnyVisible = animatedItems.length > 0;
 
   const exitRef = useCallback((el: HTMLDivElement | null) => {
@@ -145,8 +147,8 @@ export const FeedList = memo(function FeedList({
     <>
       {loading ? (
         <div
+          className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
           key="feed-loading"
-          className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 px-1 py-2 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
         >
           {Array.from({ length: 6 }).map((_, index) => (
             <ArticleCardSkeleton key={index} />
@@ -154,12 +156,12 @@ export const FeedList = memo(function FeedList({
         </div>
       ) : !hasAnyVisible && filteredFeed.length === 0 ? (
         <div
-          key="feed-empty"
           className="mx-auto flex w-full max-w-3xl items-center justify-center px-4 py-20 sm:py-32 lg:max-w-none lg:px-6 lg:py-40 anim-fade-in-load-slow"
+          key="feed-empty"
         >
           <div
-            key={searchTerm ? "empty-search" : "empty-default"}
             className="flex flex-col items-center gap-6 text-center anim-fade-in-load-slow"
+            key={searchTerm ? "empty-search" : "empty-default"}
           >
             {/* Icon with double-ring halo */}
             <div className="relative flex items-center justify-center">
@@ -211,39 +213,39 @@ export const FeedList = memo(function FeedList({
         </div>
       ) : (
         <div
-          key="feed-list"
           className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
+          key="feed-list"
         >
-          {animatedItems.map(({ item: article, key: cardKey, exiting }) => {
-            const articleLink = article.link?.trim() ?? "";
+          {animatedItems.map(({ exiting, item: article, key: cardKey }) => {
+            const articleLink = article.link.trim();
             return (
               <div
-                key={cardKey}
-                ref={exiting ? exitRef : undefined}
                 className={
                   exiting
                     ? "article-exit pointer-events-none overflow-hidden"
                     : undefined
                 }
+                key={cardKey}
+                ref={exiting ? exitRef : undefined}
               >
                 <ArticleCard
-                  articleKey={cardKey}
                   article={article}
+                  articleKey={cardKey}
+                  hasScrapedContent={hydratedArticleLinks[articleLink]}
                   isExpanded={expandedArticleKey === cardKey}
-                  useRichFormatting={Boolean(hydratedArticleLinks[articleLink])}
-                  hasScrapedContent={Boolean(hydratedArticleLinks[articleLink])}
-                  isHydrating={Boolean(hydratingArticleLinks[articleLink])}
-                  isUpdatingState={Boolean(updatingArticleState[cardKey])}
-                  showFavicon={showFavicons}
+                  isHydrating={hydratingArticleLinks[articleLink]}
+                  isUpdatingState={updatingArticleState[cardKey]}
                   onExpandedSwipeRead={onExpandedSwipeRead}
                   onToggle={onToggle}
                   onToggleRead={onToggleRead}
                   onToggleStarred={onToggleStarred}
+                  showFavicon={showFavicons}
+                  useRichFormatting={hydratedArticleLinks[articleLink]}
                 />
               </div>
             );
           })}
-          <div ref={sentinelRef} className="py-1 flex justify-center">
+          <div className="py-1 flex justify-center" ref={sentinelRef}>
             {visibleCount < filteredFeed.length && (
               <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
             )}

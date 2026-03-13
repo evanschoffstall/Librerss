@@ -1,3 +1,7 @@
+import axios from "axios";
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -44,9 +48,6 @@ import {
   redactUrlForLogs,
   tryGetUrlHostname,
 } from "@/lib/utils/url";
-import axios from "axios";
-import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
 // ─── Inlined helpers (from route-helpers.ts) ─────────────────────────────────
 
@@ -61,109 +62,27 @@ function mapUpstreamExtractStatus(upstreamStatus?: number): 422 | 502 {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type ExtractPostDeps = {
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
-  parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
-  fetchHtmlFn?: typeof fetchHtml;
-  extractFromHtmlFn?: typeof distillArticle;
-  sanitizeRawContentFn?: typeof sanitizeRawContent;
+interface ExtractPostDeps {
   cleanSanitizedHtmlFn?: typeof cleanSanitizedHtml;
-  jsonErrorFn?: typeof jsonError;
-  toErrorMessageFn?: typeof toErrorMessage;
-  logAndRespondErrorFn?: typeof logAndRespondError;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
-  infoFn?: typeof logger.info;
-  warnFn?: typeof logger.warn;
   errorFn?: typeof logger.error;
+  extractFromHtmlFn?: typeof distillArticle;
+  fetchHtmlFn?: typeof fetchHtml;
+  infoFn?: typeof logger.info;
+  isAxiosErrorFn?: typeof axios.isAxiosError;
+  jsonErrorFn?: typeof jsonError;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+  parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  sanitizeRawContentFn?: typeof sanitizeRawContent;
   shouldUseExtractCacheFn?: () => boolean;
-};
-
-function sanitizeHeaderValue(value: string | null, maxLen = 64): string | null {
-  if (!value) return null;
-  // Strip non-ASCII and control characters; truncate to prevent log bloat.
-  return value.replace(/[^\x20-\x7E]/g, "").slice(0, maxLen) || null;
+  toErrorMessageFn?: typeof toErrorMessage;
+  warnFn?: typeof logger.warn;
 }
 
-function createExtractRequestContext(
-  request: NextRequest,
-): ExtractRequestContext {
-  const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const requestId = sanitizeHeaderValue(
-    request.headers?.get("x-request-id") ??
-      request.headers?.get("x-correlation-id"),
-  );
-
-  return {
-    extractAttemptId,
-    requestId,
-  };
-}
-
-function buildExtractPayload(
-  content: string,
-  extracted: DistilledArticle | null | undefined,
-): ExtractResponsePayload {
-  return {
-    content,
-    title: extracted?.title ?? null,
-    source: extracted?.source ?? null,
-  };
-}
-
-function getCachedExtractResponse(
-  articleUrl: string,
-  shouldUseCache: () => boolean,
-): ExtractResponsePayload | null {
-  if (!shouldUseCache()) {
-    return null;
-  }
-
-  const cachedPayload = getCachedExtractPayload(articleUrl);
-  if (!cachedPayload) {
-    return null;
-  }
-
-  return cachedPayload;
-}
-
-function resolveExtractedContent(
-  extractableHtml: string,
-  originalHtml: string,
-  articleUrl: string,
-  extracted: DistilledArticle | null | undefined,
-  sanitizeContent: (rawContent: string) => string,
-  cleanContent: (sanitizedContent: string, articleUrl: string) => string,
-): string {
-  // 1. Sanitize the extracted article body container (if found)
-  const rawContent =
-    extracted?.content?.trim() || extracted?.description?.trim() || "";
-
-  const sanitizedContent = sanitizeContent(rawContent);
-
-  let content = cleanContent(sanitizedContent, articleUrl);
-
-  // 2. Fall back to direct sanitize of entire pre-cleaned page
-  if (!content.trim()) {
-    const directlySanitized = sanitizeContent(extractableHtml);
-
-    const directlyCleaned = cleanContent(directlySanitized, articleUrl);
-    const isReadable =
-      directlyCleaned.trim() && hasReadableArticleBody(directlyCleaned);
-    if (isReadable) content = directlyCleaned;
-  }
-
-  // 3. Fall back to og:image + og:description metadata
-  if (!content.trim()) {
-    const metadataFallbackContent =
-      buildMetadataImageFallbackHtml(originalHtml);
-
-    if (metadataFallbackContent) {
-      const fallbackCleaned = cleanContent(metadataFallbackContent, articleUrl);
-      if (fallbackCleaned.trim()) content = fallbackCleaned;
-    }
-  }
-
-  return content;
+interface ExtractRequestBody {
+  distillStrategy?: string;
+  url?: string;
+  useProxy?: boolean;
 }
 
 export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
@@ -190,7 +109,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const verboseLoggingEnabled = isVerboseLoggingEnabled();
   const context = createExtractRequestContext(request);
 
-  let articleUrl: string | null = null;
+  let articleUrl: null | string = null;
   let useProxy = false;
   let resolvedProxyUrl: string | undefined;
 
@@ -198,8 +117,8 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const authResult = await requireAuth(request, {
       rateLimit: {
         key: "article-extract",
-        windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
         maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
+        windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
       },
     });
 
@@ -209,12 +128,11 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     let authUserId: number | undefined;
     if (isAuthFailure) {
       // Peek at the body to check for a placeholder URL before rejecting
-      const peekBody = await request
+      const peekBody: unknown = await request
         .clone()
         .json()
         .catch(() => null);
-      const peekUrl =
-        typeof peekBody?.url === "string" ? peekBody.url.trim() : "";
+      const peekUrl = getRequestUrl(peekBody);
       const isPlaceholderUrl = Boolean(
         peekUrl && getPlaceholderSnapshotPathByArticleUrl(peekUrl),
       );
@@ -224,11 +142,8 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     }
 
     // Parse body once and extract both url and useProxy flag
-    const bodyResult = await parseJsonBodyOrResponse<{
-      url?: string;
-      useProxy?: boolean;
-      distillStrategy?: string;
-    }>(request);
+    const bodyResult =
+      await parseJsonBodyOrResponse<ExtractRequestBody>(request);
     if (bodyResult instanceof Response) return bodyResult;
     useProxy = !isAuthFailure && bodyResult.useProxy === true;
     const distillStrategy: DistillStrategy =
@@ -243,37 +158,43 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     let allowInsecureTls = false;
     if (useProxy && authUserId) {
       const db = getDb();
-      const [row] = await db
+      const rows = await db
         .select({
-          proxyUrl: users.proxyUrl,
           allowInsecureTls: users.allowInsecureTls,
-          proxyUsername: users.proxyUsername,
           proxyPassword: users.proxyPassword,
+          proxyUrl: users.proxyUrl,
+          proxyUsername: users.proxyUsername,
         })
         .from(users)
         .where(eq(users.id, authUserId))
         .limit(1);
-      const rawProxyUrl = row?.proxyUrl?.trim() || undefined;
+      const row = rows.length === 0 ? null : rows[0];
+      const rawProxyUrl = row?.proxyUrl?.trim();
       const baseProxyUrl =
-        rawProxyUrl && rawProxyUrl !== "null" && rawProxyUrl !== "undefined"
+        rawProxyUrl !== undefined &&
+        rawProxyUrl !== "" &&
+        rawProxyUrl !== "null" &&
+        rawProxyUrl !== "undefined"
           ? rawProxyUrl
           : undefined;
       resolvedProxyUrl =
-        baseProxyUrl && row?.proxyUsername && row?.proxyPassword
+        baseProxyUrl !== undefined &&
+        row?.proxyUsername !== null &&
+        row?.proxyPassword !== null
           ? injectProxyCredentials(
               baseProxyUrl,
-              row.proxyUsername,
-              row.proxyPassword,
+              row?.proxyUsername ?? "",
+              row?.proxyPassword ?? "",
             )
           : baseProxyUrl;
-      allowInsecureTls = row?.allowInsecureTls ?? false;
+      allowInsecureTls = row === null ? false : row.allowInsecureTls;
     }
 
     // Build a cloned request with the same body for parseAndValidateArticleUrl
     const clonedRequest = new NextRequest(request.url, {
-      method: request.method,
-      headers: request.headers,
       body: JSON.stringify(bodyResult),
+      headers: request.headers,
+      method: request.method,
     });
 
     const parsedUrl = await parseArticleUrl(clonedRequest);
@@ -295,9 +216,9 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     const html =
       localSnapshot?.html ??
       (await fetchArticleHtml(articleUrl, undefined, {
-        useProxy,
-        proxyUrl: resolvedProxyUrl,
         allowInsecureTls,
+        proxyUrl: resolvedProxyUrl,
+        useProxy,
       }));
     const safeUrl = redactUrlForLogs(articleUrl);
 
@@ -310,10 +231,10 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       { contentLengthThreshold: 120 },
     );
 
-    if (
-      !extracted ||
-      (!extracted.content?.trim() && !extracted.description?.trim())
-    ) {
+    const extractedContent = extracted?.content.trim() ?? "";
+    const extractedDescription = (extracted?.description ?? "").trim();
+
+    if (!extracted || (!extractedContent && !extractedDescription)) {
       warn(`Article extractor returned no content`, { url: safeUrl });
     }
 
@@ -352,16 +273,16 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       errorLog(
         `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
         {
-          url: safeArticleUrl,
-          extractAttemptId: context.extractAttemptId,
-          requestId: context.requestId,
           connectionMode: useProxy ? "proxy" : "direct",
+          extractAttemptId: context.extractAttemptId,
           // SECURITY: redact credentials from proxy URL before logging
           proxyAddress: useProxy
             ? resolvedProxyUrl
               ? redactUrlForLogs(resolvedProxyUrl)
               : null
             : null,
+          requestId: context.requestId,
+          url: safeArticleUrl,
           ...(verboseLoggingEnabled
             ? buildAxiosFailureDiagnostics(error, isAxiosError)
             : {}),
@@ -379,16 +300,16 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     errorLog(
       `Returning 502 Bad Gateway — article extract upstream processing failed${urlSuffix}: ${toMessage(error)}`,
       {
-        url: safeArticleUrl,
-        extractAttemptId: context.extractAttemptId,
-        requestId: context.requestId,
         connectionMode: useProxy ? "proxy" : "direct",
+        extractAttemptId: context.extractAttemptId,
         // SECURITY: redact credentials from proxy URL before logging
         proxyAddress: useProxy
           ? resolvedProxyUrl
             ? redactUrlForLogs(resolvedProxyUrl)
             : null
           : null,
+        requestId: context.requestId,
+        url: safeArticleUrl,
       },
     );
     return jsonErrorWithReason(
@@ -397,4 +318,102 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       toMessage(error),
     );
   }
+}
+
+function buildExtractPayload(
+  content: string,
+  extracted: DistilledArticle | null | undefined,
+): ExtractResponsePayload {
+  return {
+    content,
+    source: extracted?.source ?? null,
+    title: extracted?.title ?? null,
+  };
+}
+
+function createExtractRequestContext(
+  request: NextRequest,
+): ExtractRequestContext {
+  const extractAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const requestId = sanitizeHeaderValue(
+    request.headers.get("x-request-id") ??
+      request.headers.get("x-correlation-id"),
+  );
+
+  return {
+    extractAttemptId,
+    requestId,
+  };
+}
+
+function getCachedExtractResponse(
+  articleUrl: string,
+  shouldUseCache: () => boolean,
+): ExtractResponsePayload | null {
+  if (!shouldUseCache()) {
+    return null;
+  }
+
+  const cachedPayload = getCachedExtractPayload(articleUrl);
+  if (!cachedPayload) {
+    return null;
+  }
+
+  return cachedPayload;
+}
+
+function getRequestUrl(value: unknown): string {
+  if (typeof value !== "object" || value === null) {
+    return "";
+  }
+
+  const url = (value as { url?: unknown }).url;
+  return typeof url === "string" ? url.trim() : "";
+}
+
+function resolveExtractedContent(
+  extractableHtml: string,
+  originalHtml: string,
+  articleUrl: string,
+  extracted: DistilledArticle | null | undefined,
+  sanitizeContent: (rawContent: string) => string,
+  cleanContent: (sanitizedContent: string, articleUrl: string) => string,
+): string {
+  // 1. Sanitize the extracted article body container (if found)
+  const extractedContent = extracted?.content.trim() ?? "";
+  const extractedDescription = (extracted?.description ?? "").trim();
+  const rawContent = extractedContent || extractedDescription;
+
+  const sanitizedContent = sanitizeContent(rawContent);
+
+  let content = cleanContent(sanitizedContent, articleUrl);
+
+  // 2. Fall back to direct sanitize of entire pre-cleaned page
+  if (!content.trim()) {
+    const directlySanitized = sanitizeContent(extractableHtml);
+
+    const directlyCleaned = cleanContent(directlySanitized, articleUrl);
+    const isReadable =
+      directlyCleaned.trim() && hasReadableArticleBody(directlyCleaned);
+    if (isReadable) content = directlyCleaned;
+  }
+
+  // 3. Fall back to og:image + og:description metadata
+  if (!content.trim()) {
+    const metadataFallbackContent =
+      buildMetadataImageFallbackHtml(originalHtml);
+
+    if (metadataFallbackContent) {
+      const fallbackCleaned = cleanContent(metadataFallbackContent, articleUrl);
+      if (fallbackCleaned.trim()) content = fallbackCleaned;
+    }
+  }
+
+  return content;
+}
+
+function sanitizeHeaderValue(value: null | string, maxLen = 64): null | string {
+  if (!value) return null;
+  // Strip non-ASCII and control characters; truncate to prevent log bloat.
+  return value.replace(/[^\x20-\x7E]/g, "").slice(0, maxLen) || null;
 }

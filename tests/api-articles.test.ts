@@ -13,26 +13,32 @@ import {
   mock,
   test,
 } from "bun:test";
+
 import { createMockArticle, createMockRequest } from "./support/test-utils";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
 const mockState = {
-  selectResult: [createMockArticle()],
   insertResult: [createMockArticle()],
+  selectResult: [createMockArticle()],
 };
 
 const createSelectChain = () => ({
   innerJoin: () => createSelectChain(),
-  where: () => createSelectChain(),
-  orderBy: () => createSelectChain(),
   limit: () => Promise.resolve(mockState.selectResult),
+  orderBy: () => createSelectChain(),
+  where: () => createSelectChain(),
 });
 
 function registerModuleMocks() {
   mock.module("@/lib/db/db", () => ({
     getDb: () => ({
+      insert: () => ({
+        values: () => ({
+          returning: () => Promise.resolve(mockState.insertResult),
+        }),
+      }),
       select: () => ({
         from: () => createSelectChain(),
       }),
@@ -41,20 +47,15 @@ function registerModuleMocks() {
           where: () => Promise.resolve([createMockArticle()]),
         }),
       }),
-      insert: () => ({
-        values: () => ({
-          returning: () => Promise.resolve(mockState.insertResult),
-        }),
-      }),
     }),
   }));
 }
 
 const authenticatedUser = {
-  sessionId: 1,
-  userId: 1,
   email: "test@example.com",
   expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+  sessionId: 1,
+  userId: 1,
 };
 
 const articleRouteDeps = {
@@ -163,14 +164,14 @@ describe("Articles API - Create", () => {
   test("POST /api/articles validates title", async () => {
     const { POST } = await import("@/app/api/articles/route");
     const request = createMockRequest("https://example.com/api/articles", {
-      method: "POST",
       body: {
-        title: "",
-        link: "https://example.com/article",
         feed_id: 1,
+        link: "https://example.com/article",
+        title: "",
       },
-      headers: { "sec-fetch-site": "same-origin" },
       cookies: { session: "test-session" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request, articleRouteDeps);
@@ -183,14 +184,14 @@ describe("Articles API - Create", () => {
     const badLinkRequest = createMockRequest(
       "https://example.com/api/articles",
       {
-        method: "POST",
         body: {
-          title: "Title",
-          link: "not-a-url",
           feed_id: 1,
+          link: "not-a-url",
+          title: "Title",
         },
-        headers: { "sec-fetch-site": "same-origin" },
         cookies: { session: "test-session" },
+        headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       },
     );
     const badLinkResponse = await POST(badLinkRequest, articleRouteDeps);
@@ -199,14 +200,14 @@ describe("Articles API - Create", () => {
     const badFeedIdRequest = createMockRequest(
       "https://example.com/api/articles",
       {
-        method: "POST",
         body: {
-          title: "Title",
-          link: "https://example.com/article",
           feed_id: 0,
+          link: "https://example.com/article",
+          title: "Title",
         },
-        headers: { "sec-fetch-site": "same-origin" },
         cookies: { session: "test-session" },
+        headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       },
     );
     const badFeedIdResponse = await POST(badFeedIdRequest, articleRouteDeps);
@@ -216,15 +217,15 @@ describe("Articles API - Create", () => {
   test("POST /api/articles validates date inputs", async () => {
     const { POST } = await import("@/app/api/articles/route");
     const request = createMockRequest("https://example.com/api/articles", {
-      method: "POST",
       body: {
-        title: "Title",
-        link: "https://example.com/article",
         feed_id: 1,
+        link: "https://example.com/article",
         publication_date: "not-a-date",
+        title: "Title",
       },
-      headers: { "sec-fetch-site": "same-origin" },
       cookies: { session: "test-session" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request, articleRouteDeps);
@@ -234,14 +235,14 @@ describe("Articles API - Create", () => {
   test("POST /api/articles rejects non-public article links", async () => {
     const { POST } = await import("@/app/api/articles/route");
     const request = createMockRequest("https://example.com/api/articles", {
-      method: "POST",
       body: {
-        title: "Title",
-        link: "http://localhost/internal",
         feed_id: 1,
+        link: "http://localhost/internal",
+        title: "Title",
       },
-      headers: { "sec-fetch-site": "same-origin" },
       cookies: { session: "test-session" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
     });
 
     const response = await POST(request, articleRouteDeps);
@@ -255,14 +256,14 @@ describe("Articles API - Create", () => {
     try {
       const { POST } = await import("@/app/api/articles/route");
       const request = createMockRequest("https://example.com/api/articles", {
-        method: "POST",
         body: {
-          title: "Title",
-          link: "https://example.com/article",
           feed_id: 999,
+          link: "https://example.com/article",
+          title: "Title",
         },
-        headers: { "sec-fetch-site": "same-origin" },
         cookies: { session: "test-session" },
+        headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       });
 
       const response = await POST(request, articleRouteDeps);
@@ -280,26 +281,26 @@ describe("Articles API - Create", () => {
     mockState.insertResult = [
       {
         ...createMockArticle(),
-        title: "Safe Title",
         content: "<p>safe</p>",
         link: "https://example.com/article",
+        title: "Safe Title",
       },
     ];
 
     try {
       const { POST } = await import("@/app/api/articles/route");
       const request = createMockRequest("https://example.com/api/articles", {
-        method: "POST",
         body: {
-          title: " <b>Safe Title</b> ",
-          link: "https://example.com/article",
           content: "<script>alert(1)</script><p>safe</p>",
           feed_id: 1,
-          publication_date: "2024-01-01T00:00:00.000Z",
           last_checked: "2024-01-01T01:00:00.000Z",
+          link: "https://example.com/article",
+          publication_date: "2024-01-01T00:00:00.000Z",
+          title: " <b>Safe Title</b> ",
         },
-        headers: { "sec-fetch-site": "same-origin" },
         cookies: { session: "test-session" },
+        headers: { "sec-fetch-site": "same-origin" },
+        method: "POST",
       });
 
       const response = await POST(request, articleRouteDeps);

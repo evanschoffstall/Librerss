@@ -1,30 +1,30 @@
 import { SocksProxyAgent } from "socks-proxy-agent";
 
 type ProxyConfig =
+  | { httpAgent: SocksProxyAgent; httpsAgent: SocksProxyAgent; mode: "socks" }
   | {
       mode: "http";
       proxy: {
+        auth?: { password: string; username: string };
         host: string;
         port: number;
         protocol: string;
-        auth?: { username: string; password: string };
       };
-    }
-  | { mode: "socks"; httpAgent: SocksProxyAgent; httpsAgent: SocksProxyAgent };
+    };
 
 export const SOCKS_PROTOCOLS = new Set([
-  "socks:",
   "socks4:",
   "socks4a:",
   "socks5:",
   "socks5h:",
+  "socks:",
 ]);
 
 /** Parse a proxy URL string into axios-compatible config (HTTP or SOCKS). */
 export function buildProxyConfig(
   proxyUrl: string,
   allowInsecureTls = false,
-): ProxyConfig | false {
+): false | ProxyConfig {
   try {
     const parsed = new URL(proxyUrl);
     if (SOCKS_PROTOCOLS.has(parsed.protocol)) {
@@ -41,7 +41,7 @@ export function buildProxyConfig(
             rejectUnauthorized: false,
           } as typeof opts);
       }
-      return { mode: "socks", httpAgent: agent, httpsAgent: agent };
+      return { httpAgent: agent, httpsAgent: agent, mode: "socks" };
     }
     const result: ProxyConfig & { mode: "http" } = {
       mode: "http",
@@ -54,8 +54,8 @@ export function buildProxyConfig(
     };
     if (parsed.username)
       result.proxy.auth = {
-        username: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
+        username: decodeURIComponent(parsed.username),
       };
     return result;
   } catch {

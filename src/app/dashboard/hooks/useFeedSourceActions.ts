@@ -5,8 +5,8 @@
  * Extracted from useCategoryManager so each hook has one responsibility.
  */
 
-import { type OpmlFeedImportEntry } from "@/lib";
 import { useCallback } from "react";
+
 import {
   addFeedSourceAndRefresh,
   moveFeedByDropAndPersist,
@@ -17,7 +17,10 @@ import {
   updateFeedSettingsAndRefresh,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
+
 import type { FeedSourceActionState } from "./types";
+
+import { type OpmlFeedImportEntry } from "@/lib";
 
 interface UseFeedSourceActionsOptions extends FeedSourceActionState {
   ensureCategoryLabelExists: (label: string) => void;
@@ -25,15 +28,15 @@ interface UseFeedSourceActionsOptions extends FeedSourceActionState {
 
 export function useFeedSourceActions({
   categories,
-  selectedCategory,
-  setCategories,
-  setSelectedCategory,
-  setFeed,
-  loadFeedSources,
-  fetchFeed,
+  ensureCategoryLabelExists,
   fetchAllFeeds,
   fetchCategoryFeeds,
-  ensureCategoryLabelExists,
+  fetchFeed,
+  loadFeedSources,
+  selectedCategory,
+  setCategories,
+  setFeed,
+  setSelectedCategory,
 }: UseFeedSourceActionsOptions) {
   const selectFeedByKey = useCallback(
     (key: string) => {
@@ -50,12 +53,12 @@ export function useFeedSourceActions({
   const addFeedSource = useCallback(
     async (name: string, url: string, category: string) => {
       return addFeedSourceAndRefresh({
-        name,
-        url,
         category,
-        loadFeedSources,
-        setSelectedCategory,
         fetchFeed,
+        loadFeedSources,
+        name,
+        setSelectedCategory,
+        url,
       });
     },
     [loadFeedSources, setSelectedCategory, fetchFeed],
@@ -65,13 +68,13 @@ export function useFeedSourceActions({
     async (key: string) => {
       await removeFeedSourceAndRefresh({
         categories,
-        selectedCategory,
+        fetchCategoryFeeds,
+        fetchFeed,
         key,
         loadFeedSources,
-        setSelectedCategory,
+        selectedCategory,
         setFeed,
-        fetchFeed,
-        fetchCategoryFeeds,
+        setSelectedCategory,
       });
     },
     [
@@ -90,9 +93,9 @@ export function useFeedSourceActions({
       return renameFeedSourceAndRefresh({
         categories,
         key,
+        loadFeedSources,
         nextName,
         nextUrl,
-        loadFeedSources,
       });
     },
     [categories, loadFeedSources],
@@ -102,12 +105,12 @@ export function useFeedSourceActions({
     async (key: string, targetCategory: string, targetIndex: number) => {
       await moveFeedByDropAndPersist({
         categories,
+        ensureCategoryLabelExists,
         key,
+        loadFeedSources,
+        setCategories,
         targetCategory,
         targetIndex,
-        setCategories,
-        ensureCategoryLabelExists,
-        loadFeedSources,
       });
     },
     [categories, setCategories, ensureCategoryLabelExists, loadFeedSources],
@@ -117,13 +120,13 @@ export function useFeedSourceActions({
     async (key: string, enabled: boolean) => {
       return setFeedSourceEnabledAndRefresh({
         categories,
-        selectedCategory,
-        key,
         enabled,
-        setSelectedCategory,
-        loadFeedSources,
-        fetchFeed,
         fetchAllFeeds,
+        fetchFeed,
+        key,
+        loadFeedSources,
+        selectedCategory,
+        setSelectedCategory,
       });
     },
     [
@@ -146,13 +149,13 @@ export function useFeedSourceActions({
       },
     ) =>
       importOpmlFeedsAndRefresh({
-        entries,
         categories,
+        entries,
+        fetchFeed,
+        loadFeedSources,
         selectedCategory,
         setCustomCategoryLabels,
         setSelectedCategory,
-        loadFeedSources,
-        fetchFeed,
       }),
     [
       categories,
@@ -171,21 +174,21 @@ export function useFeedSourceActions({
       return updateFeedSettingsAndRefresh({
         categories,
         key,
-        settings,
         loadFeedSources,
+        settings,
       });
     },
     [categories, loadFeedSources],
   );
 
   return {
-    selectFeedByKey,
     addFeedSource,
+    importOpmlFeeds,
+    moveFeedByDrop,
     removeFeedSource,
     renameFeedSource,
+    selectFeedByKey,
     setFeedSourceEnabled,
     updateFeedSettings,
-    moveFeedByDrop,
-    importOpmlFeeds,
   };
 }

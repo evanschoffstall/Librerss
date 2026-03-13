@@ -1,10 +1,11 @@
 import { tryGetUrlHostname } from "@/lib/utils/url";
 
-type FaviconCacheEntry = { index: number; failedAt?: number };
+interface FaviconCacheEntry {
+  failedAt?: number;
+  index: number;
+}
 const faviconIndexCache = new Map<string, FaviconCacheEntry>();
-// v2: changed from bare index to { index, failedAt } to support TTL on failures
 const FAVICON_CACHE_STORAGE_KEY = "librerss:favicon-index-cache:v2";
-const FAVICON_CACHE_V1_KEY = "librerss:favicon-index-cache:v1";
 const MAX_FAVICON_CACHE_ENTRIES = 400;
 /** Retry failed favicon lookups after 24 hours */
 const FAVICON_FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -47,7 +48,7 @@ const persistFaviconIndexCache = () => {
 
 const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
   if (entry.index !== -1) return false;
-  if (!entry.failedAt) return true; // legacy entry without timestamp — retry
+  if (typeof entry.failedAt !== "number") return true;
   return Date.now() - entry.failedAt > FAVICON_FAILURE_TTL_MS;
 };
 
@@ -58,35 +59,24 @@ const hydrateFaviconIndexCache = () => {
 
   hasHydratedFaviconIndexCache = true;
 
-  // Remove v1 cache (bare index format) on first hydration
-  try {
-    window.localStorage.removeItem(FAVICON_CACHE_V1_KEY);
-  } catch {
-    // Ignore.
-  }
-
   try {
     const raw = window.localStorage.getItem(FAVICON_CACHE_STORAGE_KEY);
     if (!raw) {
       return;
     }
 
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") {
       return;
     }
 
     for (const [key, value] of Object.entries(parsed)) {
       const isValidKey = typeof key === "string" && key.length > 0;
-
-      // Support both v2 shape { index, failedAt? } and legacy bare number
       if (!isValidKey) continue;
 
       let entry: FaviconCacheEntry | null = null;
 
-      if (typeof value === "number" && Number.isInteger(value) && value >= -1) {
-        entry = { index: value };
-      } else if (
+      if (
         value &&
         typeof value === "object" &&
         "index" in value &&
@@ -113,7 +103,7 @@ const hydrateFaviconIndexCache = () => {
   }
 };
 
-export const getFaviconCacheKey = (...urls: Array<string | undefined>) => {
+export const getFaviconCacheKey = (...urls: (string | undefined)[]) => {
   for (const url of urls) {
     const hostname = tryGetUrlHostname(url);
     if (hostname) {
@@ -124,7 +114,7 @@ export const getFaviconCacheKey = (...urls: Array<string | undefined>) => {
   return null;
 };
 
-export const getCachedFaviconIndex = (cacheKey: string | null) => {
+export const getCachedFaviconIndex = (cacheKey: null | string) => {
   hydrateFaviconIndexCache();
 
   if (!cacheKey) {
@@ -145,7 +135,7 @@ export const getCachedFaviconIndex = (cacheKey: string | null) => {
 };
 
 export const setCachedFaviconIndex = (
-  cacheKey: string | null,
+  cacheKey: null | string,
   index: number,
 ) => {
   hydrateFaviconIndexCache();
@@ -155,7 +145,7 @@ export const setCachedFaviconIndex = (
   }
 
   const entry: FaviconCacheEntry =
-    index === -1 ? { index: -1, failedAt: Date.now() } : { index };
+    index === -1 ? { failedAt: Date.now(), index: -1 } : { index };
 
   faviconIndexCache.delete(cacheKey);
   faviconIndexCache.set(cacheKey, entry);
@@ -267,9 +257,7 @@ const getFaviconCandidates = (url?: string) => {
   return [...new Set(urls)];
 };
 
-export const getMergedFaviconCandidates = (
-  ...urls: Array<string | undefined>
-) => {
+export const getMergedFaviconCandidates = (...urls: (string | undefined)[]) => {
   const candidates = urls.flatMap((url) => getFaviconCandidates(url));
   return [...new Set(candidates)];
 };
@@ -289,7 +277,7 @@ const hashStringToUint32 = (value: string) => {
   return hash >>> 0;
 };
 
-export const getFaviconTintColors = (...urls: Array<string | undefined>) => {
+export const getFaviconTintColors = (...urls: (string | undefined)[]) => {
   const seedSource =
     urls.find((url) => Boolean(url?.trim())) ??
     urls.map((url) => tryGetUrlHostname(url) ?? "").find(Boolean) ??
@@ -302,8 +290,8 @@ export const getFaviconTintColors = (...urls: Array<string | undefined>) => {
   const backgroundLightness = 88 + ((hash >>> 13) % 6);
 
   return {
-    foreground: `hsl(${hue} ${saturation}% ${foregroundLightness}%)`,
     background: `hsl(${hue} ${Math.max(42, saturation - 18)}% ${backgroundLightness}% / 0.35)`,
+    foreground: `hsl(${hue} ${saturation}% ${foregroundLightness}%)`,
   };
 };
 

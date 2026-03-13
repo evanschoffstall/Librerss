@@ -4,6 +4,57 @@
  */
 
 /**
+ * Human-friendly hostname label with optional `www.` stripping.
+ */
+export function getUrlHostnameDisplayLabel(
+  raw?: string,
+  options?: {
+    fallback?: string;
+    stripWww?: boolean;
+  },
+): string {
+  const label = getUrlHostnameLabel(raw, options?.fallback ?? "No source URL");
+  if (options?.stripWww === false) {
+    return label;
+  }
+
+  return label.replace(/^www\./i, "");
+}
+
+/**
+ * Human-friendly hostname label with fallback for invalid/missing URLs.
+ */
+export function getUrlHostnameLabel(
+  raw?: string,
+  fallback = "No source URL",
+): string {
+  if (!raw) {
+    return fallback;
+  }
+
+  return tryGetUrlHostname(raw) ?? raw;
+}
+
+/**
+ * Injects username/password credentials into a proxy URL.
+ * Returns the original URL if it's unparseable.
+ */
+export function injectProxyCredentials(
+  proxyUrl: string,
+  username: string,
+  password: string,
+): string {
+  try {
+    const parsed = new URL(proxyUrl);
+    parsed.username = encodeURIComponent(username);
+    parsed.password = encodeURIComponent(password);
+    return parsed.toString();
+  } catch {
+    return proxyUrl;
+  }
+}
+
+/**
  * Returns true when the URL is a valid http/https URL.
  * Consolidates the single validation path used across server routes and
  * client modules; replaces the former isValidUrl in lib/core/utils.
@@ -15,55 +66,6 @@ export function isValidUrl(url: string): boolean {
   } catch {
     // Invalid URL - return false
     return false;
-  }
-}
-
-/**
- * Strips the URL fragment (hash) if present.  Returns the original string
- * when it is not a valid URL or has no fragment.
- *
- * URL fragments are client-side navigation hints that must not appear in
- * HTTP request URIs (RFC 3986 §3.5).  Some CDN edge nodes (Cloudflare,
- * Akamai, Fastly) treat a request-URI containing a literal '#' as
- * malformed and return 403/400.
- */
-export function stripUrlFragment(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hash) {
-      parsed.hash = "";
-      return parsed.toString();
-    }
-  } catch {
-    // Unparseable — return as-is
-  }
-  return url;
-}
-
-/**
- * Normalizes a feed URL by stripping hash, credentials, and trailing slashes.
- *
- * @throws {TypeError} if {@link raw} is not a valid URL.
- */
-export function normalizeFeedUrl(raw: string): string {
-  const parsed = new URL(raw.trim());
-  parsed.hash = "";
-  parsed.username = "";
-  parsed.password = "";
-  return parsed.toString().replace(/\/+$/, "");
-}
-
-/**
- * Like {@link normalizeFeedUrl} but returns a best-effort fallback instead of
- * throwing when the URL is unparseable. Use this when the input URL is
- * user-supplied or otherwise untrusted.
- */
-export function tryNormalizeFeedUrl(raw: string): string {
-  try {
-    return normalizeFeedUrl(raw);
-  } catch {
-    // Invalid URL - return trimmed fallback
-    return raw.trim().replace(/\/+$/, "");
   }
 }
 
@@ -87,78 +89,16 @@ export function normalizeDistinctUrlList(urls: unknown): string[] {
 }
 
 /**
- * Best-effort hostname extraction for display/caching.
+ * Normalizes a feed URL by stripping hash, credentials, and trailing slashes.
+ *
+ * @throws {TypeError} if {@link raw} is not a valid URL.
  */
-export function tryGetUrlHostname(raw?: string): string | null {
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const hostname = new URL(raw).hostname
-      .trim()
-      .toLowerCase()
-      .replace(/\.$/, "");
-    return hostname || null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Human-friendly hostname label with fallback for invalid/missing URLs.
- */
-export function getUrlHostnameLabel(
-  raw?: string,
-  fallback = "No source URL",
-): string {
-  if (!raw) {
-    return fallback;
-  }
-
-  return tryGetUrlHostname(raw) ?? raw;
-}
-
-/**
- * Human-friendly hostname label with optional `www.` stripping.
- */
-export function getUrlHostnameDisplayLabel(
-  raw?: string,
-  options?: {
-    fallback?: string;
-    stripWww?: boolean;
-  },
-): string {
-  const label = getUrlHostnameLabel(raw, options?.fallback ?? "No source URL");
-  if (options?.stripWww === false) {
-    return label;
-  }
-
-  return label.replace(/^www\./i, "");
-}
-
-/**
- * Creates a stable lookup key for feed URLs, preserving path and query params.
- * Used for category resolution and feed matching across the GReader API.
- */
-export function toCategoryLookupKey(feedUrl: string): string {
-  const trimmed = feedUrl.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    const host = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
-    const search = parsed.search;
-    return `${host}${pathname}${search}`;
-  } catch {
-    return trimmed
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/\/+$/, "");
-  }
+export function normalizeFeedUrl(raw: string): string {
+  const parsed = new URL(raw.trim());
+  parsed.hash = "";
+  parsed.username = "";
+  parsed.password = "";
+  return parsed.toString().replace(/\/+$/, "");
 }
 
 /**
@@ -189,20 +129,80 @@ export function redactUrlForLogs(raw: string): string {
 }
 
 /**
- * Injects username/password credentials into a proxy URL.
- * Returns the original URL if it's unparseable.
+ * Strips the URL fragment (hash) if present.  Returns the original string
+ * when it is not a valid URL or has no fragment.
+ *
+ * URL fragments are client-side navigation hints that must not appear in
+ * HTTP request URIs (RFC 3986 §3.5).  Some CDN edge nodes (Cloudflare,
+ * Akamai, Fastly) treat a request-URI containing a literal '#' as
+ * malformed and return 403/400.
  */
-export function injectProxyCredentials(
-  proxyUrl: string,
-  username: string,
-  password: string,
-): string {
+export function stripUrlFragment(url: string): string {
   try {
-    const parsed = new URL(proxyUrl);
-    parsed.username = encodeURIComponent(username);
-    parsed.password = encodeURIComponent(password);
-    return parsed.toString();
+    const parsed = new URL(url);
+    if (parsed.hash) {
+      parsed.hash = "";
+      return parsed.toString();
+    }
   } catch {
-    return proxyUrl;
+    // Unparseable — return as-is
+  }
+  return url;
+}
+
+/**
+ * Creates a stable lookup key for feed URLs, preserving path and query params.
+ * Used for category resolution and feed matching across feed-management flows.
+ */
+export function toCategoryLookupKey(feedUrl: string): string {
+  const trimmed = feedUrl.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    const search = parsed.search;
+    return `${host}${pathname}${search}`;
+  } catch {
+    return trimmed
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/+$/, "");
+  }
+}
+
+/**
+ * Best-effort hostname extraction for display/caching.
+ */
+export function tryGetUrlHostname(raw?: string): null | string {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const hostname = new URL(raw).hostname
+      .trim()
+      .toLowerCase()
+      .replace(/\.$/, "");
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Like {@link normalizeFeedUrl} but returns a best-effort fallback instead of
+ * throwing when the URL is unparseable. Use this when the input URL is
+ * user-supplied or otherwise untrusted.
+ */
+export function tryNormalizeFeedUrl(raw: string): string {
+  try {
+    return normalizeFeedUrl(raw);
+  } catch {
+    // Invalid URL - return trimmed fallback
+    return raw.trim().replace(/\/+$/, "");
   }
 }

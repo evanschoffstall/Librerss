@@ -1,22 +1,9 @@
-import { forbiddenResponse } from "@/lib/api/http";
 import type { NextResponse } from "next/server";
+
+import { forbiddenResponse } from "@/lib/api/http";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site"]);
-
-function getExpectedOrigin(request: Request): string | null {
-  const host = request.headers.get("host");
-  if (!host) {
-    return null;
-  }
-
-  const requestUrl = new URL(request.url);
-  return new URL(`${requestUrl.protocol}//${host}`).origin.toLowerCase();
-}
-
-function isSameOrigin(value: string, expectedOrigin: string): boolean {
-  return new URL(value).origin.toLowerCase() === expectedOrigin;
-}
 
 export function requireSameOrigin(request: Request): NextResponse | null {
   const method = request.method.toUpperCase();
@@ -66,4 +53,18 @@ export function requireSameOrigin(request: Request): NextResponse | null {
   } catch {
     return forbiddenResponse();
   }
+}
+
+function getExpectedOrigin(request: Request): null | string {
+  const host = request.headers.get("host");
+  if (!host) {
+    return null;
+  }
+
+  const requestUrl = new URL(request.url);
+  return new URL(`${requestUrl.protocol}//${host}`).origin.toLowerCase();
+}
+
+function isSameOrigin(value: string, expectedOrigin: string): boolean {
+  return new URL(value).origin.toLowerCase() === expectedOrigin;
 }

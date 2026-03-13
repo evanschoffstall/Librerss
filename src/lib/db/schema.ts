@@ -11,180 +11,192 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+type CompositeIndexColumns = Parameters<ReturnType<typeof index>["on"]>;
+type UserScopedIndexSpec = readonly [
+  key: string,
+  name: string,
+  column: CompositeIndexColumns[number],
+  unique?: true,
+];
+
+const defineIndex = (name: string, ...columns: CompositeIndexColumns) =>
+  index(name).on(...columns);
+
+const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
+  uniqueIndex(name).on(...columns);
+
+const defineUserScopedIndexes = (
+  userId: CompositeIndexColumns[number],
+  indexes: readonly UserScopedIndexSpec[],
+) =>
+  indexes.map(([, name, column, unique]) =>
+    unique
+      ? defineUniqueIndex(name, ...([userId, column] as CompositeIndexColumns))
+      : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
+  );
+
+const defineSingleUniqueIndex = (
+  indexConfig: ReturnType<typeof defineUniqueIndex>,
+) => [indexConfig];
+
+const defineUserOwnedAuditColumns = () => ({
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+});
+
 export const users = pgTable("User", {
-  id: serial("id").primaryKey(),
-  email: varchar("email", { length: 320 }).notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
     .notNull()
     .defaultNow(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  id: serial("id").primaryKey(),
   lastForceRefreshedAt: timestamp("last_force_refreshed_at", {
     mode: "date",
     withTimezone: true,
   }),
+  passwordHash: text("password_hash").notNull(),
+  proxyPassword: text("proxy_password"),
   proxyUrl: text("proxy_url"),
   proxyUsername: text("proxy_username"),
-  proxyPassword: text("proxy_password"),
-  allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
 });
 
 export const sessions = pgTable(
   "Session",
   {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id")
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    tokenHash: text("token_hash").notNull(),
+      .defaultNow(),
     expiresAt: timestamp("expires_at", {
       mode: "date",
       withTimezone: true,
     }).notNull(),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    userId: integer("user_id")
       .notNull()
-      .defaultNow(),
+      .references(() => users.id, { onDelete: "cascade" }),
   },
-  (table) => ({
-    tokenHashIdx: uniqueIndex("session_token_hash_idx").on(table.tokenHash),
-    // Speeds up session-limit enforcement: SELECT WHERE userId ORDER BY createdAt
-    userCreatedAtIdx: index("session_user_created_at_idx").on(
-      table.userId,
-      table.createdAt,
-    ),
-  }),
+  (table) => [
+    uniqueIndex("session_token_hash_idx").on(table.tokenHash),
+    defineIndex("session_user_created_at_idx", table.userId, table.createdAt),
+  ],
 );
 
 export const feeds = pgTable("Feed", {
   id: serial("id").primaryKey(),
-  url: text("url").notNull().unique(),
   lastFetched: timestamp("last_fetched", { mode: "date", withTimezone: true })
     .notNull()
     .default(sql`(now() - interval '1 day')`),
   lastFetchError: text("last_fetch_error"),
+  url: text("url").notNull().unique(),
 });
 
 export const articles = pgTable(
   "Article",
   {
+    content: text("content").notNull(),
+    feedId: integer("feed_id")
+      .notNull()
+      .references(() => feeds.id, { onDelete: "cascade" }),
     id: serial("id").primaryKey(),
-    title: text("title").notNull(),
+    lastChecked: timestamp("last_checked", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
     link: text("link").notNull().unique(),
     publicationDate: timestamp("publication_date", {
       mode: "date",
       withTimezone: true,
     }).notNull(),
-    content: text("content").notNull(),
-    feedId: integer("feed_id")
-      .notNull()
-      .references(() => feeds.id, { onDelete: "cascade" }),
-    lastChecked: timestamp("last_checked", { mode: "date", withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    title: text("title").notNull(),
   },
-  (table) => ({
-    // Speeds up per-feed article lookups (WHERE feed_id = ?)
-    feedIdIdx: index("article_feed_id_idx").on(table.feedId),
-    // Speeds up the common query pattern: WHERE feed_id = ? ORDER BY publication_date DESC
-    feedIdPubDateIdx: index("article_feed_id_pub_date_idx").on(
+  (table) => [
+    defineIndex("article_feed_id_idx", table.feedId),
+    defineIndex(
+      "article_feed_id_pub_date_idx",
       table.feedId,
       table.publicationDate,
     ),
-  }),
+  ],
 );
 
 export const feedSources = pgTable(
   "FeedSource",
   {
+    enabled: boolean("enabled").notNull().default(true),
+    extractionDisabled: boolean("extraction_disabled").notNull().default(false),
     id: serial("id").primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    proxyEnabled: boolean("proxy_enabled").notNull().default(false),
+    url: text("url").notNull(),
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    name: varchar("name", { length: 255 }).notNull(),
-    url: text("url").notNull(),
-    enabled: boolean("enabled").notNull().default(true),
-    extractionDisabled: boolean("extraction_disabled").notNull().default(false),
-    proxyEnabled: boolean("proxy_enabled").notNull().default(false),
   },
-  (table) => ({
-    userUrlIdx: uniqueIndex("feed_source_user_url_idx").on(
-      table.userId,
-      table.url,
-    ),
-  }),
+  (table) => [
+    defineUniqueIndex("feed_source_user_url_idx", table.userId, table.url),
+  ],
 );
 
 export const feedCategories = pgTable(
   "FeedCategory",
   {
+    category: varchar("category", { length: 255 }).notNull(),
+    feedId: integer("feed_id")
+      .notNull()
+      .references(() => feeds.id, { onDelete: "cascade" }),
     id: serial("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    feedId: integer("feed_id")
-      .notNull()
-      .references(() => feeds.id, { onDelete: "cascade" }),
-    category: varchar("category", { length: 255 }).notNull(),
   },
-  (table) => ({
-    userFeedIdx: uniqueIndex("feed_category_user_feed_idx").on(
-      table.userId,
-      table.feedId,
-    ),
-    // Speeds up delete/update by label (disable-tag, rename-tag)
-    userCategoryIdx: index("feed_category_user_category_idx").on(
-      table.userId,
-      table.category,
-    ),
-  }),
+  (table) =>
+    defineUserScopedIndexes(table.userId, [
+      // Speeds up delete/update by label (disable-tag, rename-tag)
+      ["userCategoryIdx", "feed_category_user_category_idx", table.category],
+      ["userFeedIdx", "feed_category_user_feed_idx", table.feedId, true],
+    ]),
 );
 
 export const categoryOrders = pgTable(
   "CategoryOrder",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
     orderedLabels: text("ordered_labels").notNull().default("[]"),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...defineUserOwnedAuditColumns(),
   },
-  (table) => ({
-    userIdx: uniqueIndex("category_order_user_idx").on(table.userId),
-  }),
+  (table) =>
+    defineSingleUniqueIndex(
+      defineUniqueIndex("category_order_user_idx", table.userId),
+    ),
 );
 
 export const articleStatuses = pgTable(
   "ArticleStatus",
   {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
     articleId: integer("article_id")
       .notNull()
       .references(() => articles.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
     isRead: boolean("is_read").notNull().default(false),
     isStarred: boolean("is_starred").notNull().default(false),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...defineUserOwnedAuditColumns(),
   },
-  (table) => ({
-    userArticleIdx: uniqueIndex("article_status_user_article_idx").on(
-      table.userId,
-      table.articleId,
-    ),
-    userReadIdx: index("article_status_user_read_idx").on(
-      table.userId,
-      table.isRead,
-    ),
-    userStarredIdx: index("article_status_user_starred_idx").on(
-      table.userId,
-      table.isStarred,
-    ),
-  }),
+  (table) =>
+    defineUserScopedIndexes(table.userId, [
+      [
+        "userArticleIdx",
+        "article_status_user_article_idx",
+        table.articleId,
+        true,
+      ],
+      ["userReadIdx", "article_status_user_read_idx", table.isRead],
+      ["userStarredIdx", "article_status_user_starred_idx", table.isStarred],
+    ]),
 );
 
 export const articleStatus = articleStatuses;

@@ -1,3 +1,12 @@
+import type { NextRequest } from "next/server";
+
+import type {
+  CreateFeedPayload,
+  RenameFeedPayload,
+  ToggleFeedEnabledPayload,
+  UpdateFeedSettingsPayload,
+} from "./types";
+
 import {
   asTrimmedString,
   jsonError,
@@ -13,25 +22,29 @@ import {
   DEFAULT_CATEGORY_LABEL,
   normalizeCategory,
 } from "@/lib/utils/categories";
-import type { NextRequest } from "next/server";
-import type {
-  CreateFeedPayload,
-  RenameFeedPayload,
-  ToggleFeedEnabledPayload,
-  UpdateFeedSettingsPayload,
-} from "./types";
 
 // de-facto safe upper bound for stored URLs (RFC 2616 §3.2.1 guideline)
 const MAX_FEED_URL_LENGTH = 2048;
 
 export async function assertAllowedFeedUrl(
   url: string,
-): Promise<Response | null> {
+): Promise<null | Response> {
   if (await isAllowedFeedUrl(url)) {
     return null;
   }
 
   return jsonError(PUBLIC_FEED_URL_ERROR, 400);
+}
+
+export function getRequestedFeedUrl(request: NextRequest): null | string {
+  const requestUrl = new URL(request.url);
+  const requestedUrl = requestUrl.searchParams.get("url");
+  if (requestedUrl === null) {
+    return null;
+  }
+
+  const trimmedUrl = requestedUrl.trim();
+  return trimmedUrl === "" ? null : trimmedUrl;
 }
 
 export async function parseCreateFeedPayload(
@@ -71,7 +84,18 @@ export async function parseCreateFeedPayload(
     );
   }
 
-  return { name, url, category };
+  return { category, name, url };
+}
+
+export function parseDeleteSourceId(request: NextRequest): number | Response {
+  const requestUrl = new URL(request.url);
+  const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
+
+  if (!sourceId) {
+    return jsonError("A valid id query parameter is required", 400);
+  }
+
+  return sourceId;
 }
 
 export async function parseRenameFeedPayload(
@@ -118,12 +142,12 @@ export function parseRenameFeedPayloadFromBody(
     );
   }
 
-  return { sourceId, name, url };
+  return { name, sourceId, url };
 }
 
 export function parseToggleFeedEnabledPayloadFromBody(
   payload: Record<string, unknown>,
-): ToggleFeedEnabledPayload | Response {
+): Response | ToggleFeedEnabledPayload {
   const sourceId = parsePositiveInt(payload.id);
   if (!sourceId) {
     return jsonError("A valid id is required", 400);
@@ -133,12 +157,12 @@ export function parseToggleFeedEnabledPayloadFromBody(
     return jsonError("enabled must be a boolean", 400);
   }
 
-  return { sourceId, enabled: payload.enabled };
+  return { enabled: payload.enabled, sourceId };
 }
 
 export function parseUpdateFeedSettingsPayloadFromBody(
   payload: Record<string, unknown>,
-): UpdateFeedSettingsPayload | Response {
+): Response | UpdateFeedSettingsPayload {
   const sourceId = parsePositiveInt(payload.id);
   if (!sourceId) return jsonError("A valid id is required", 400);
 
@@ -157,20 +181,4 @@ export function parseUpdateFeedSettingsPayloadFromBody(
     }),
     ...(hasProxy && { proxyEnabled: payload.proxyEnabled as boolean }),
   };
-}
-
-export function parseDeleteSourceId(request: NextRequest): number | Response {
-  const requestUrl = new URL(request.url);
-  const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
-
-  if (!sourceId) {
-    return jsonError("A valid id query parameter is required", 400);
-  }
-
-  return sourceId;
-}
-
-export function getRequestedFeedUrl(request: NextRequest): string | null {
-  const requestUrl = new URL(request.url);
-  return requestUrl.searchParams.get("url")?.trim() || null;
 }

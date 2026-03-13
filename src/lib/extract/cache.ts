@@ -1,4 +1,3 @@
-import { envBooleanOptional, isDevelopment } from "@/lib/config";
 import type {
   CachedExtractResponse,
   ExtractResponsePayload,
@@ -8,14 +7,12 @@ import {
   ARTICLE_EXTRACT_CACHE_TTL_MS,
 } from "./constants";
 
+import { envBooleanOptional, isDevelopment } from "@/lib/config";
+
 const articleExtractCache = new Map<string, CachedExtractResponse>();
 
-export function isExtractCacheEnabled(): boolean {
-  if (!envBooleanOptional("ARTICLE_EXTRACT_CACHE_ENABLED", true)) return false;
-  if (isDevelopment) {
-    return envBooleanOptional("ARTICLE_EXTRACT_CACHE_DEV_ENABLED", true);
-  }
-  return true;
+export function clearArticleExtractCacheForTests(): void {
+  articleExtractCache.clear();
 }
 
 export function getCachedExtractPayload(
@@ -30,6 +27,14 @@ export function getCachedExtractPayload(
   }
 
   return cached.payload;
+}
+
+export function isExtractCacheEnabled(): boolean {
+  if (!envBooleanOptional("ARTICLE_EXTRACT_CACHE_ENABLED", true)) return false;
+  if (isDevelopment) {
+    return envBooleanOptional("ARTICLE_EXTRACT_CACHE_DEV_ENABLED", true);
+  }
+  return true;
 }
 
 export function setCachedExtractPayload(
@@ -58,8 +63,4 @@ export function setCachedExtractPayload(
     expiresAt: Date.now() + ARTICLE_EXTRACT_CACHE_TTL_MS,
     payload,
   });
-}
-
-export function clearArticleExtractCacheForTests(): void {
-  articleExtractCache.clear();
 }

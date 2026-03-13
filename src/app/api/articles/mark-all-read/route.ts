@@ -1,3 +1,5 @@
+import { NextRequest, NextResponse } from "next/server";
+
 import { asTrimmedString, jsonError } from "@/lib/api/http";
 import { invalidateUserCache } from "@/lib/core/feed-cache";
 import { markStreamAsRead } from "@/lib/core/mark-stream-read";
@@ -5,14 +7,12 @@ import {
   logAndRespondError,
   requireMutableUserAndJsonBody,
 } from "@/lib/server";
-import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const parsedRequest =
-      await requireMutableUserAndJsonBody<Record<string, unknown>>(request);
+    const parsedRequest = await requireMutableUserAndJsonBody(request);
     if (parsedRequest instanceof Response) {
       return parsedRequest;
     }

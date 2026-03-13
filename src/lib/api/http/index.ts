@@ -1,9 +1,9 @@
 export {
-  resetApiClientForTesting,
-  setApiClientForTesting,
   BATCH_REQUEST_TIMEOUT_MS,
   createLinkedAbortController,
   getApiClient,
+  resetApiClientForTesting,
+  setApiClientForTesting,
   withRequestDeadline,
 } from "./client";
 export {
@@ -11,8 +11,6 @@ export {
   isVerboseLoggingEnabled,
   toBodySnippet,
 } from "./diagnostics";
-export { parseReaderStreamItems, readerItemToArticle } from "./reader-mappers";
-export type { ReaderApiItem, ReaderApiStreamResponse } from "./reader-mappers";
 export {
   asTrimmedString,
   getSearchParams,
@@ -22,8 +20,8 @@ export {
   parseJsonObjectBodyOrResponse,
   parseNonNegativeInt,
   parsePositiveInt,
-  parseUnixTimestampSeconds,
 } from "./request";
+export type { BatchFeedResponseItem } from "./responses";
 export {
   ensureArrayResponse,
   forbiddenResponse,
@@ -33,4 +31,3 @@ export {
   notFoundResponse,
   textResponse,
 } from "./responses";
-export type { BatchFeedResponseItem } from "./responses";

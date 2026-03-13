@@ -1,87 +1,34 @@
-type EmailPasswordCredentials = {
+interface EmailPasswordCredentials {
   email: string;
   password: string;
-};
+}
 
-type EmailPasswordFieldOptions = {
+interface EmailPasswordFieldOptions {
   emailKeys?: readonly string[];
   passwordKeys?: readonly string[];
-};
+}
 
 const DEFAULT_EMAIL_KEYS = ["email", "Email", "username"] as const;
 const DEFAULT_PASSWORD_KEYS = ["password", "Passwd", "passwd"] as const;
+
+type DataSource =
+  | { data: FormData; type: "form" }
+  | { data: Record<string, unknown>; type: "object" }
+  | { data: URLSearchParams; type: "params" };
 
 export function normalizeEmailInput(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function resolveKeys(options?: EmailPasswordFieldOptions): {
-  emailKeys: readonly string[];
-  passwordKeys: readonly string[];
-} {
-  return {
-    emailKeys: options?.emailKeys ?? DEFAULT_EMAIL_KEYS,
-    passwordKeys: options?.passwordKeys ?? DEFAULT_PASSWORD_KEYS,
-  };
-}
-
-type DataSource =
-  | { type: "object"; data: Record<string, unknown> }
-  | { type: "params"; data: URLSearchParams }
-  | { type: "form"; data: FormData };
-
-function firstValue(source: DataSource, keys: readonly string[]): string {
-  for (const key of keys) {
-    let value: unknown;
-
-    if (source.type === "object") {
-      value = source.data[key];
-    } else {
-      value = source.data.get(key);
-    }
-
-    if (typeof value === "string") {
-      return value;
-    }
-  }
-
-  return "";
-}
-
-function firstValueFromObject(
-  payload: Record<string, unknown>,
-  keys: readonly string[],
-): string {
-  return firstValue({ type: "object", data: payload }, keys);
-}
-
-function firstValueFromSearchParams(
-  searchParams: URLSearchParams,
-  keys: readonly string[],
-): string {
-  return firstValue({ type: "params", data: searchParams }, keys);
-}
-
-function firstValueFromFormData(
+export function parseEmailPasswordFromFormData(
   formData: FormData,
-  keys: readonly string[],
-): string {
-  return firstValue({ type: "form", data: formData }, keys);
-}
-
-function finalizeCredentials(
-  email: string,
-  password: string,
+  options?: EmailPasswordFieldOptions,
 ): EmailPasswordCredentials | null {
-  const normalizedEmail = normalizeEmailInput(email);
-  if (!normalizedEmail || !password) {
-    return null;
-  }
+  const { emailKeys, passwordKeys } = resolveKeys(options);
+  const email = firstValueFromFormData(formData, emailKeys);
+  const password = firstValueFromFormData(formData, passwordKeys);
 
-  return {
-    email: normalizedEmail,
-    password,
-  };
+  return finalizeCredentials(email, password);
 }
 
 export function parseEmailPasswordFromRecord(
@@ -106,13 +53,66 @@ export function parseEmailPasswordFromSearchParams(
   return finalizeCredentials(email, password);
 }
 
-export function parseEmailPasswordFromFormData(
-  formData: FormData,
-  options?: EmailPasswordFieldOptions,
+function finalizeCredentials(
+  email: string,
+  password: string,
 ): EmailPasswordCredentials | null {
-  const { emailKeys, passwordKeys } = resolveKeys(options);
-  const email = firstValueFromFormData(formData, emailKeys);
-  const password = firstValueFromFormData(formData, passwordKeys);
+  const normalizedEmail = normalizeEmailInput(email);
+  if (!normalizedEmail || !password) {
+    return null;
+  }
 
-  return finalizeCredentials(email, password);
+  return {
+    email: normalizedEmail,
+    password,
+  };
+}
+
+function firstValue(source: DataSource, keys: readonly string[]): string {
+  for (const key of keys) {
+    let value: unknown;
+
+    if (source.type === "object") {
+      value = source.data[key];
+    } else {
+      value = source.data.get(key);
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function firstValueFromFormData(
+  formData: FormData,
+  keys: readonly string[],
+): string {
+  return firstValue({ data: formData, type: "form" }, keys);
+}
+
+function firstValueFromObject(
+  payload: Record<string, unknown>,
+  keys: readonly string[],
+): string {
+  return firstValue({ data: payload, type: "object" }, keys);
+}
+
+function firstValueFromSearchParams(
+  searchParams: URLSearchParams,
+  keys: readonly string[],
+): string {
+  return firstValue({ data: searchParams, type: "params" }, keys);
+}
+
+function resolveKeys(options?: EmailPasswordFieldOptions): {
+  emailKeys: readonly string[];
+  passwordKeys: readonly string[];
+} {
+  return {
+    emailKeys: options?.emailKeys ?? DEFAULT_EMAIL_KEYS,
+    passwordKeys: options?.passwordKeys ?? DEFAULT_PASSWORD_KEYS,
+  };
 }

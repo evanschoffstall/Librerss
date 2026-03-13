@@ -1,12 +1,14 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import type { AxiosError, AxiosResponse } from "axios";
+import { CookieJar } from "tough-cookie";
+
 import {
   EXTRACT_403_RETRIES,
   fetchHtml,
   PROXY_FINGERPRINT_POOL,
 } from "@/lib/extract";
 import { GotScrapingError } from "@/lib/fetch";
-import type { AxiosError, AxiosResponse } from "axios";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { CookieJar } from "tough-cookie";
 
 // Type-cast helpers for injectable fetch dependencies
 const asAxiosGet = (
@@ -35,14 +37,14 @@ function createAxiosError(
   ) as AxiosError;
   error.isAxiosError = true;
   error.response = {
-    status,
+    config: {} as any,
     data,
     headers: {
       ...headers,
       ...(setCookie !== undefined ? { "set-cookie": setCookie } : {}),
     },
+    status,
     statusText: status === 403 ? "Forbidden" : "Error",
-    config: {} as any,
   } as AxiosResponse;
   return error;
 }
@@ -92,8 +94,8 @@ describe("fetchHtml", () => {
       }));
 
       await fetchHtml(TEST_URL, {
-        isAllowedFeedUrlFn: mockIsAllowed,
         axiosGetFn: mockAxiosGet as any,
+        isAllowedFeedUrlFn: mockIsAllowed,
       });
 
       expect(mockIsAllowed).toHaveBeenCalledWith(TEST_URL);
@@ -124,8 +126,8 @@ describe("fetchHtml", () => {
 
       await expect(
         fetchHtml(TEST_URL, {
-          isAllowedFeedUrlFn: mockIsAllowed,
           axiosGetFn: mockAxiosGet as any,
+          isAllowedFeedUrlFn: mockIsAllowed,
         }),
       ).rejects.toThrow("Blocked URL");
     });
@@ -439,8 +441,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -466,8 +468,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -486,8 +488,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "socks5://proxy.example.com:1080",
+          useProxy: true,
         },
       );
 
@@ -506,8 +508,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "socks4://proxy.example.com:1080",
+          useProxy: true,
         },
       );
 
@@ -529,9 +531,9 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
-          proxyUrl: "http://proxy.example.com:8080",
           allowInsecureTls: true,
+          proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -551,8 +553,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -572,8 +574,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -606,12 +608,12 @@ describe("fetchHtml", () => {
       const result = await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
           delayFn: async () => {}, // No-op delay for tests
+          fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -645,12 +647,12 @@ describe("fetchHtml", () => {
       const result = await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
           delayFn: async () => {}, // No-op delay for tests
+          fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -682,8 +684,8 @@ describe("fetchHtml", () => {
             fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -715,8 +717,8 @@ describe("fetchHtml", () => {
             fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -748,8 +750,8 @@ describe("fetchHtml", () => {
             fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -782,8 +784,8 @@ describe("fetchHtml", () => {
             fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -818,12 +820,12 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
           delayFn: async () => {}, // No-op delay for tests
+          fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -867,12 +869,12 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
           delayFn: mockDelay,
+          fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -901,12 +903,12 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
             delayFn: async () => {}, // No-op delay for tests
+            fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -939,8 +941,8 @@ describe("fetchHtml", () => {
       }));
 
       await fetchHtml(TEST_URL, {
-        isAllowedFeedUrlFn: mockIsAllowed,
         axiosGetFn: mockAxiosGet as any,
+        isAllowedFeedUrlFn: mockIsAllowed,
       });
 
       expect(mockIsAllowed).toHaveBeenCalled();
@@ -955,8 +957,8 @@ describe("fetchHtml", () => {
 
       await expect(
         fetchHtml("https://blocked.example.com", {
-          isAllowedFeedUrlFn: mockIsAllowed,
           axiosGetFn: mockAxiosGet as any,
+          isAllowedFeedUrlFn: mockIsAllowed,
         }),
       ).rejects.toThrow("Blocked URL");
     });
@@ -980,8 +982,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -1004,8 +1006,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -1027,8 +1029,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -1052,8 +1054,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -1075,8 +1077,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
     });
@@ -1155,12 +1157,12 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
             delayFn: async () => {}, // No-op delay for tests
+            fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -1185,12 +1187,12 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
             delayFn: async () => {}, // No-op delay for tests
+            fingerprintFetchFn: mockFingerprintFetch,
           },
           {
-            useProxy: true,
             proxyUrl: "http://proxy.example.com:8080",
+            useProxy: true,
           },
         ),
       ).rejects.toThrow();
@@ -1203,11 +1205,11 @@ describe("fetchHtml", () => {
         ) as AxiosError;
         error.isAxiosError = true;
         error.response = {
-          status: 403,
+          config: {} as any,
           data: "blocked",
           headers: undefined as any,
+          status: 403,
           statusText: "Forbidden",
-          config: {} as any,
         } as AxiosResponse;
         throw error;
       });
@@ -1340,8 +1342,8 @@ describe("fetchHtml", () => {
       await expect(
         fetchHtml(TEST_URL, {
           axiosGetFn: mockAxiosGet as any,
-          isAxiosErrorFn: isAxiosError,
           fingerprintFetchFn: mockFingerprintFetch,
+          isAxiosErrorFn: isAxiosError,
         }),
       ).rejects.toThrow("DataDome");
 
@@ -1364,8 +1366,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -1386,8 +1388,8 @@ describe("fetchHtml", () => {
           axiosGetFn: mockAxiosGet as any,
         },
         {
-          useProxy: false,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: false,
         },
       );
 
@@ -1460,8 +1462,8 @@ describe("fetchHtml", () => {
           fingerprintFetchFn: mockFingerprintFetch,
         },
         {
-          useProxy: true,
           proxyUrl: "http://proxy.example.com:8080",
+          useProxy: true,
         },
       );
 
@@ -1555,7 +1557,7 @@ describe("lib/extract/upstream – proxy path with fingerprintFetchFn", () => {
     const result = await fetchHtml(
       "https://example.com/proxy-extract",
       { fingerprintFetchFn: mockFingerprintFetch as any },
-      { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+      { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
     );
 
     expect(fingerprintCalled).toBe(true);
@@ -1573,7 +1575,7 @@ describe("lib/extract/upstream – proxy path with fingerprintFetchFn", () => {
       fetchHtml(
         "https://example.com/proxy-extract-fail",
         { fingerprintFetchFn: mockFingerprintFetch as any },
-        { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+        { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
       ),
     ).rejects.toThrow("Fingerprint fetch failed");
   });
@@ -1586,8 +1588,8 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
       fetchHtml(
         "https://blocked.example.com/feed",
         {
-          isAllowedFeedUrlFn: async () => false,
           axiosGetFn: asAxiosGet(async () => ({ data: "<html/>" })),
+          isAllowedFeedUrlFn: async () => false,
         },
         {},
       ),
@@ -1599,11 +1601,11 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
     const html = await fetchHtml(
       "https://example.com/article",
       {
-        isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: asIsAxiosError(() => false),
         axiosGetFn: asAxiosGet(async () => ({
           data: "<html><body>hello</body></html>",
         })),
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: asIsAxiosError(() => false),
       },
       {},
     );
@@ -1615,13 +1617,13 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
     const html = await fetchHtml(
       "https://example.com/proxied",
       {
-        isAllowedFeedUrlFn: async () => true,
         fingerprintFetchFn: async (_url, _isAllowed, _opts) => ({
           html: "<html><body>proxy</body></html>",
           requestHeaders: {},
         }),
+        isAllowedFeedUrlFn: async () => true,
       },
-      { useProxy: true, proxyUrl: "http://myproxy.example.com:8080" },
+      { proxyUrl: "http://myproxy.example.com:8080", useProxy: true },
     );
     expect(html).toBe("<html><body>proxy</body></html>");
   });
@@ -1633,11 +1635,11 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
       fetchHtml(
         "https://example.com/article",
         {
-          isAllowedFeedUrlFn: async () => true,
-          isAxiosErrorFn: asIsAxiosError(() => false),
           axiosGetFn: asAxiosGet(async () => {
             throw err;
           }),
+          isAllowedFeedUrlFn: async () => true,
+          isAxiosErrorFn: asIsAxiosError(() => false),
         },
         {},
       ),
@@ -1653,11 +1655,11 @@ describe("fetchHtml direct path – error branches", () => {
       fetchHtml(
         "https://example.com/article",
         {
-          isAllowedFeedUrlFn: async () => true,
-          isAxiosErrorFn: asIsAxiosError(() => false),
           axiosGetFn: asAxiosGet(async () => {
             throw err;
           }),
+          isAllowedFeedUrlFn: async () => true,
+          isAxiosErrorFn: asIsAxiosError(() => false),
         },
         {},
       ),
@@ -1669,11 +1671,11 @@ describe("fetchHtml direct path – error branches", () => {
     const html = await fetchHtml(
       "https://example.com/article",
       {
-        isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: asIsAxiosError(() => false),
         axiosGetFn: asAxiosGet(async () => ({
           data: "<html><body>content</body></html>",
         })),
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: asIsAxiosError(() => false),
       },
       {},
     );
@@ -1689,14 +1691,14 @@ describe("fetchHtml proxy path – fingerprint fetch", () => {
     const html = await fetchHtml(
       "https://example.com/proxied",
       {
-        isAllowedFeedUrlFn: async () => true,
+        delayFn: async () => {},
         fingerprintFetchFn: async () => ({
           html: "<html><body>proxied</body></html>",
           requestHeaders: { "User-Agent": "test" },
         }),
-        delayFn: async () => {},
+        isAllowedFeedUrlFn: async () => true,
       },
-      { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+      { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
     );
     expect(html).toBe("<html><body>proxied</body></html>");
   });
@@ -1708,7 +1710,7 @@ describe("fetchHtml proxy path – fingerprint fetch", () => {
       fetchHtml(
         "https://example.com/proxied",
         {
-          isAllowedFeedUrlFn: async () => true,
+          delayFn: async () => {},
           fingerprintFetchFn: async () => {
             throw new GotScrapingError(
               403,
@@ -1722,9 +1724,9 @@ describe("fetchHtml proxy path – fingerprint fetch", () => {
               {},
             );
           },
-          delayFn: async () => {},
+          isAllowedFeedUrlFn: async () => true,
         },
-        { useProxy: true, proxyUrl: "http://proxy.example.com:8080" },
+        { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
       ),
     ).rejects.toThrow();
   });
@@ -1736,26 +1738,26 @@ describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
   test("re-throws when fingerprintFetchFn throws on proxy path", async () => {
     const { fetchHtml } = await import("@/lib/extract/upstream");
     const proxyErr = Object.assign(new Error("proxy connection refused"), {
-      statusCode: 500,
       proxyMode: "socks" as const,
+      redirectHop: 0,
+      requestHeaders: {},
       responseBody: "",
       responseHeaders: {},
-      requestHeaders: {},
-      redirectHop: 0,
+      statusCode: 500,
     });
 
     await expect(
       fetchHtml(
         "https://example.com/article",
         {
-          isAllowedFeedUrlFn: async () => true,
           fingerprintFetchFn: async () => {
             throw proxyErr;
           },
+          isAllowedFeedUrlFn: async () => true,
         },
         {
-          useProxy: true,
           proxyUrl: "socks5://proxy.example.com:1080",
+          useProxy: true,
         },
       ),
     ).rejects.toThrow("proxy connection refused");
@@ -1766,14 +1768,14 @@ describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
 
     // Build a minimal AxiosError-like object for DataDome detection
     const axiosLikeErr: any = {
-      response: {
-        status: 403,
-        headers: { "x-datadome": "protected" },
-        data: "",
-        config: {},
-      },
       isAxiosError: true,
       message: "Request failed with status code 403",
+      response: {
+        config: {},
+        data: "",
+        headers: { "x-datadome": "protected" },
+        status: 403,
+      },
     };
     axiosLikeErr.constructor = axiosLikeErr;
 
@@ -1781,11 +1783,11 @@ describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
       fetchHtml(
         "https://example.com/article",
         {
-          isAllowedFeedUrlFn: async () => true,
-          isAxiosErrorFn: ((e: unknown) => e === axiosLikeErr) as any,
           axiosGetFn: async () => {
             throw axiosLikeErr;
           },
+          isAllowedFeedUrlFn: async () => true,
+          isAxiosErrorFn: ((e: unknown) => e === axiosLikeErr) as any,
         },
         {},
       ),

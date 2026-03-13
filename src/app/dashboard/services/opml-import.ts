@@ -1,34 +1,36 @@
-import {
-  FeedService,
-  includesCategoryLabel,
-  normalizeCategory,
-  type CategoryTreeNode,
-  type OpmlFeedImportEntry,
-} from "@/lib";
 import { toast } from "sonner";
+
 import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-tree";
 import type { FeedFetchOptions } from "./selection";
 
+import {
+  type CategoryTreeNode,
+  FeedService,
+  includesCategoryLabel,
+  normalizeCategory,
+  type OpmlFeedImportEntry,
+} from "@/lib";
+
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 
-type ImportOpmlFeedsOptions = {
-  entries: OpmlFeedImportEntry[];
+interface ImportOpmlFeedsOptions {
   categories: CategoryTreeNode[];
+  entries: OpmlFeedImportEntry[];
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setCustomCategoryLabels: CategoryLabelListSetter;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-};
+}
 
 export async function importOpmlFeedsAndRefresh({
-  entries,
   categories,
+  entries,
+  fetchFeed,
+  loadFeedSources,
   selectedCategory,
   setCustomCategoryLabels,
   setSelectedCategory,
-  loadFeedSources,
-  fetchFeed,
 }: ImportOpmlFeedsOptions) {
   if (entries.length === 0) {
     toast.error("No valid feeds found in OPML file.");
@@ -48,12 +50,12 @@ export async function importOpmlFeedsAndRefresh({
   const importResults = await Promise.allSettled(
     entries.map((entry) =>
       FeedService.createFeedSource({
+        category: normalizeCategory(entry.category),
         name: entry.name.trim(),
         url: entry.url.trim(),
-        category: normalizeCategory(entry.category),
       }).then(() => ({
-        url: entry.url.trim(),
         category: normalizeCategory(entry.category),
+        url: entry.url.trim(),
       })),
     ),
   );

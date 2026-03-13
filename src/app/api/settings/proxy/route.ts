@@ -1,94 +1,34 @@
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import { parseJsonBodyOrResponse } from "@/lib/api/http";
 import { resolvesToBlockedAddress } from "@/lib/core/dns-cache";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import {
+  type AuthenticatedUser,
   detectProxyProtocol,
   MAX_PROXY_CREDENTIAL_LENGTH,
   MAX_PROXY_URL_LENGTH,
   normalizeProxyUrl,
   probeProxy,
-  requireMutableAuthenticatedUser,
-  type AuthenticatedUser,
   type ProxyStatus,
+  requireMutableAuthenticatedUser,
 } from "@/lib/server";
 import { injectProxyCredentials, redactUrlForLogs } from "@/lib/utils/url";
-import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
 export { type ProxySettingsResponse, type ProxyStatus } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
-export type ProxyRouteDeps = {
+export interface ProxyRouteDeps {
+  detectFn?: (host: string, port: number) => Promise<"http" | "socks5">;
+  dnsCheckFn?: (host: string) => Promise<boolean>;
+  probeFn?: (proxyUrl: string) => Promise<boolean>;
   requireAuthFn?: (
     request: NextRequest,
   ) => Promise<AuthenticatedUser | Response>;
-  probeFn?: (proxyUrl: string) => Promise<boolean>;
-  detectFn?: (host: string, port: number) => Promise<"socks5" | "http">;
-  dnsCheckFn?: (host: string) => Promise<boolean>;
-};
-
-function unconfiguredResponse(error?: string): Response {
-  return NextResponse.json({
-    proxyUrl: null,
-    configured: false,
-    status: "unreachable" as ProxyStatus,
-    allowInsecureTls: false,
-    proxyUsername: null,
-    hasProxyPassword: false,
-    ...(error && { error }),
-  });
-}
-
-async function probeAndRespond(
-  proxyUrl: string,
-  probe: (url: string) => Promise<boolean>,
-  logLabel: string,
-  allowInsecureTls = false,
-  proxyUsername: string | null = null,
-  proxyPassword: string | null = null,
-): Promise<Response> {
-  // Inject credentials into the probe URL so SOCKS5 auth is actually tested.
-  const probeUrl =
-    proxyUsername && proxyPassword
-      ? injectProxyCredentials(proxyUrl, proxyUsername, proxyPassword)
-      : proxyUrl;
-  const reachable = await probe(probeUrl);
-  if (!reachable)
-    logger.error(logLabel, { proxyUrl: redactUrlForLogs(proxyUrl) });
-  return NextResponse.json({
-    proxyUrl,
-    configured: true,
-    status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
-    allowInsecureTls,
-    proxyUsername,
-    hasProxyPassword: proxyPassword !== null,
-  });
-}
-
-async function resolveAuth(
-  request: NextRequest,
-  deps: ProxyRouteDeps,
-): Promise<
-  | {
-      auth: AuthenticatedUser;
-      probe: (url: string) => Promise<boolean>;
-      detect: (host: string, port: number) => Promise<"socks5" | "http">;
-      dnsCheck: (host: string) => Promise<boolean>;
-    }
-  | Response
-> {
-  const requireAuth = deps.requireAuthFn ?? requireMutableAuthenticatedUser;
-  const auth = await requireAuth(request);
-  if (auth instanceof Response) return auth;
-  return {
-    auth,
-    probe: deps.probeFn ?? probeProxy,
-    detect: deps.detectFn ?? detectProxyProtocol,
-    dnsCheck: deps.dnsCheckFn ?? resolvesToBlockedAddress,
-  };
 }
 
 export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
@@ -96,26 +36,29 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
   if (result instanceof Response) return result;
 
   const db = getDb();
-  const [user] = await db
+  const rows = await db
     .select({
-      proxyUrl: users.proxyUrl,
       allowInsecureTls: users.allowInsecureTls,
-      proxyUsername: users.proxyUsername,
       proxyPassword: users.proxyPassword,
+      proxyUrl: users.proxyUrl,
+      proxyUsername: users.proxyUsername,
     })
     .from(users)
     .where(eq(users.id, result.auth.userId))
     .limit(1);
 
-  const proxyUrl = user?.proxyUrl?.trim() || null;
+  if (rows.length === 0) return unconfiguredResponse();
+  const user = rows[0];
+
+  const proxyUrl = user.proxyUrl?.trim() ?? "";
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
     proxyUrl,
     result.probe,
     "Proxy unreachable on GET",
-    user?.allowInsecureTls ?? false,
-    user?.proxyUsername ?? null,
-    user?.proxyPassword ?? null,
+    user.allowInsecureTls,
+    user.proxyUsername,
+    user.proxyPassword,
   );
 }
 
@@ -124,10 +67,10 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   if (result instanceof Response) return result;
 
   const body = await parseJsonBodyOrResponse<{
-    proxyUrl?: string | null;
     allowInsecureTls?: boolean;
-    proxyUsername?: string | null;
-    proxyPassword?: string | null;
+    proxyPassword?: null | string;
+    proxyUrl?: null | string;
+    proxyUsername?: null | string;
   }>(request);
   if (body instanceof Response) return body;
 
@@ -174,7 +117,7 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     return unconfiguredResponse("Proxy password too long");
   }
 
-  let proxyUrl: string | null = null;
+  let proxyUrl: null | string = null;
   if (raw) {
     const normalized = await normalizeProxyUrl(
       raw,
@@ -193,7 +136,7 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   }
 
   const db = getDb();
-  const [updated] = await db
+  const updatedRows = await db
     .update(users)
     .set({
       proxyUrl,
@@ -204,13 +147,16 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     .where(eq(users.id, result.auth.userId))
     .returning({
       allowInsecureTls: users.allowInsecureTls,
-      proxyUsername: users.proxyUsername,
       proxyPassword: users.proxyPassword,
+      proxyUsername: users.proxyUsername,
     });
 
-  const effectiveTls = updated?.allowInsecureTls ?? false;
-  const effectiveUsername = updated?.proxyUsername ?? null;
-  const effectivePassword = updated?.proxyPassword ?? null;
+  const effectiveTls =
+    updatedRows.length === 0 ? false : updatedRows[0].allowInsecureTls;
+  const effectiveUsername =
+    updatedRows.length === 0 ? null : updatedRows[0].proxyUsername;
+  const effectivePassword =
+    updatedRows.length === 0 ? null : updatedRows[0].proxyPassword;
 
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
@@ -221,4 +167,65 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     effectiveUsername,
     effectivePassword,
   );
+}
+
+async function probeAndRespond(
+  proxyUrl: string,
+  probe: (url: string) => Promise<boolean>,
+  logLabel: string,
+  allowInsecureTls = false,
+  proxyUsername: null | string = null,
+  proxyPassword: null | string = null,
+): Promise<Response> {
+  // Inject credentials into the probe URL so SOCKS5 auth is actually tested.
+  const probeUrl =
+    proxyUsername && proxyPassword
+      ? injectProxyCredentials(proxyUrl, proxyUsername, proxyPassword)
+      : proxyUrl;
+  const reachable = await probe(probeUrl);
+  if (!reachable)
+    logger.error(logLabel, { proxyUrl: redactUrlForLogs(proxyUrl) });
+  return NextResponse.json({
+    allowInsecureTls,
+    configured: true,
+    hasProxyPassword: proxyPassword !== null,
+    proxyUrl,
+    proxyUsername,
+    status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
+  });
+}
+
+async function resolveAuth(
+  request: NextRequest,
+  deps: ProxyRouteDeps,
+): Promise<
+  | Response
+  | {
+      auth: AuthenticatedUser;
+      detect: (host: string, port: number) => Promise<"http" | "socks5">;
+      dnsCheck: (host: string) => Promise<boolean>;
+      probe: (url: string) => Promise<boolean>;
+    }
+> {
+  const requireAuth = deps.requireAuthFn ?? requireMutableAuthenticatedUser;
+  const auth = await requireAuth(request);
+  if (auth instanceof Response) return auth;
+  return {
+    auth,
+    detect: deps.detectFn ?? detectProxyProtocol,
+    dnsCheck: deps.dnsCheckFn ?? resolvesToBlockedAddress,
+    probe: deps.probeFn ?? probeProxy,
+  };
+}
+
+function unconfiguredResponse(error?: string): Response {
+  return NextResponse.json({
+    allowInsecureTls: false,
+    configured: false,
+    hasProxyPassword: false,
+    proxyUrl: null,
+    proxyUsername: null,
+    status: "unreachable" as ProxyStatus,
+    ...(error && { error }),
+  });
 }

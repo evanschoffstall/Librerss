@@ -1,14 +1,16 @@
 "use client";
 
-import {
-  useLocalStorage,
-  useSessionState,
-  type Article,
-  type CategoryTreeNode,
-} from "@/lib";
 import { useRef, useState } from "react";
+
 import { ALL_FEEDS_NODE_KEY, INITIAL_CATEGORIES } from "../constants";
 import { type ArticleFilter } from "../services/article-filters";
+
+import {
+  type Article,
+  type CategoryTreeNode,
+  useLocalStorage,
+  useSessionState,
+} from "@/lib";
 
 export function useDashboardViewState() {
   const [feed, setFeed] = useState<Article[]>([]);
@@ -27,7 +29,7 @@ export function useDashboardViewState() {
     "",
   );
   const [expandedArticleKey, setExpandedArticleKey] = useSessionState<
-    string | null
+    null | string
   >("librerss:expandedArticleKey", null);
   const [showSettingsModal, setShowSettingsModal] = useSessionState<boolean>(
     "librerss:showSettingsModal",
@@ -59,36 +61,36 @@ export function useDashboardViewState() {
   const hasInitializedDashboardRef = useRef(false);
 
   return {
-    feed,
-    setFeed,
-    loading,
-    setLoading,
-    categories,
-    setCategories,
-    categoriesRef,
-    selectedCategory,
-    setSelectedCategory,
-    searchTerm,
-    setSearchTerm,
-    expandedArticleKey,
-    setExpandedArticleKey,
-    showSettingsModal,
-    setShowSettingsModal,
-    isSidebarVisible,
-    setIsSidebarVisible,
-    isMobileSidebarOpen,
-    setIsMobileSidebarOpen,
     articleFilter,
-    setArticleFilter,
-    pageSize,
-    setPageSize,
-    showFavicons,
-    setShowFavicons,
-    visibleCount,
-    setVisibleCount,
-    sentinelRef,
-    isCategoriesLoading,
-    setIsCategoriesLoading,
+    categories,
+    categoriesRef,
+    expandedArticleKey,
+    feed,
     hasInitializedDashboardRef,
+    isCategoriesLoading,
+    isMobileSidebarOpen,
+    isSidebarVisible,
+    loading,
+    pageSize,
+    searchTerm,
+    selectedCategory,
+    sentinelRef,
+    setArticleFilter,
+    setCategories,
+    setExpandedArticleKey,
+    setFeed,
+    setIsCategoriesLoading,
+    setIsMobileSidebarOpen,
+    setIsSidebarVisible,
+    setLoading,
+    setPageSize,
+    setSearchTerm,
+    setSelectedCategory,
+    setShowFavicons,
+    setShowSettingsModal,
+    setVisibleCount,
+    showFavicons,
+    showSettingsModal,
+    visibleCount,
   };
 }

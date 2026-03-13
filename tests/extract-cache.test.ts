@@ -104,9 +104,9 @@ describe("extract/cache – capacity eviction in setCachedExtractPayload", () =>
 
   test("evicts oldest entry when no expired entries exist", async () => {
     const {
+      clearArticleExtractCacheForTests,
       getCachedExtractPayload,
       setCachedExtractPayload,
-      clearArticleExtractCacheForTests,
     } = await import("@/lib/extract/cache");
     const { ARTICLE_EXTRACT_CACHE_MAX_ENTRIES } =
       await import("@/lib/extract/constants");

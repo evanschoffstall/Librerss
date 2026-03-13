@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // collapsed → loading (hydrating) → revealing (one-frame FLIP) → expanded → collapsed
-type ExpansionPhase = "collapsed" | "loading" | "revealing" | "expanded";
+type ExpansionPhase = "collapsed" | "expanded" | "loading" | "revealing";
 
 /**
  * State machine for article card expand/collapse.
@@ -41,8 +41,12 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   // collapsed-height layout before the CSS height transition fires.
   useEffect(() => {
     if (phase !== "revealing") return;
-    const id = requestAnimationFrame(() => setPhase("expanded"));
-    return () => cancelAnimationFrame(id);
+    const id = requestAnimationFrame(() => {
+      setPhase("expanded");
+    });
+    return () => {
+      cancelAnimationFrame(id);
+    };
   }, [phase]);
 
   const onContentTransitionEnd = (e: React.TransitionEvent) => {
@@ -50,7 +54,7 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
     if (phase === "expanded") setExpandTransitionDone(true);
   };
 
-  return { phase, expandTransitionDone, onContentTransitionEnd };
+  return { expandTransitionDone, onContentTransitionEnd, phase };
 }
 
 /**
@@ -81,8 +85,10 @@ export function useArticleHeights(
     const ro = new ResizeObserver(measure);
     ro.observe(previewEl);
     ro.observe(fullEl);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+    };
   }, [content, preview, richContentClassName]);
 
-  return { previewRef, fullContentRef, collapsedHeight, expandedHeight };
+  return { collapsedHeight, expandedHeight, fullContentRef, previewRef };
 }

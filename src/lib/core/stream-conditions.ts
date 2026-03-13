@@ -1,19 +1,20 @@
-import { articleStatuses, articles, feeds } from "@/lib/db/schema";
 import { and, eq, lt, sql } from "drizzle-orm";
 
+import { articles, articleStatuses, feeds } from "@/lib/db/schema";
+
 export function buildStreamConditions({
-  feedUrl,
-  dateFilter,
   continuationId,
-  starredOnly,
+  dateFilter,
   excludeRead,
+  feedUrl,
+  starredOnly,
   useArticleStatuses,
 }: {
-  feedUrl: string | null;
+  continuationId: null | number;
   dateFilter: Date | null;
-  continuationId: number | null;
-  starredOnly: boolean;
   excludeRead?: boolean;
+  feedUrl: null | string;
+  starredOnly: boolean;
   useArticleStatuses: boolean;
 }): Parameters<typeof and> {
   const conditions: Parameters<typeof and> = [];

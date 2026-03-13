@@ -1,21 +1,22 @@
+import { NextRequest } from "next/server";
+
 import { jsonError, parseJsonBodyOrResponse } from "@/lib/api/http";
 import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-url-validator";
 import { stripUrlFragment } from "@/lib/utils/url";
-import { NextRequest } from "next/server";
 
-type ParseArticleUrlDeps = {
-  parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
+interface ParseArticleUrlDeps {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
   jsonErrorFn?: typeof jsonError;
-};
+  parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
+}
 
 export async function parseAndValidateArticleUrl(
   request: NextRequest,
   deps?: ParseArticleUrlDeps,
-): Promise<string | Response> {
+): Promise<Response | string> {
   const parseJson = deps?.parseJsonBodyOrResponseFn ?? parseJsonBodyOrResponse;
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   const toJsonError = deps?.jsonErrorFn ?? jsonError;

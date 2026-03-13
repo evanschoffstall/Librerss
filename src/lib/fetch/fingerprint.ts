@@ -1,9 +1,7 @@
-import { CONFIG } from "@/lib/config";
-import { logger } from "@/lib/logger";
-import { stripUrlFragment } from "@/lib/utils/url";
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 import type { CookieJar } from "tough-cookie";
+
 import { TLS_CLIENT_CHROME_VER } from "./constants";
 import {
   addCookiesToHeaders,
@@ -13,27 +11,31 @@ import {
 import { GotScrapingError, pickDiagnosticHeaders } from "./response";
 import { ensureTlsClient, tlsClientFetch } from "./tls-client";
 
-export const extractionAxios = cookieJarWrapper(axios.create());
+import { CONFIG } from "@/lib/config";
+import { logger } from "@/lib/logger";
+import { stripUrlFragment } from "@/lib/utils/url";
 
-interface FingerprintFetchOptions {
-  proxyUrl?: string;
-  allowInsecureTls?: boolean;
-  browserVersion?: number;
-  secChUa?: string;
-  cookieJar?: CookieJar;
-  accept?: string;
-  referer?: string;
-}
+export const extractionAxios = cookieJarWrapper(axios.create());
 
 interface FingerprintFetchDeps {
   requestFn?: (
     url: URL,
     headers: Record<string, string>,
   ) => Promise<{
-    statusCode: number;
-    headers: Record<string, string | string[] | undefined>;
     body: string;
+    headers: Record<string, string | string[] | undefined>;
+    statusCode: number;
   }>;
+}
+
+interface FingerprintFetchOptions {
+  accept?: string;
+  allowInsecureTls?: boolean;
+  browserVersion?: number;
+  cookieJar?: CookieJar;
+  proxyUrl?: string;
+  referer?: string;
+  secChUa?: string;
 }
 
 export async function fetchHtmlWithFingerprint(
@@ -70,16 +72,16 @@ export async function fetchHtmlWithFingerprint(
     addCookiesToHeaders(headers, options?.cookieJar, currentUrl);
 
     logger.info("Fingerprint fetch attempt (Chrome 131 uTLS)", {
-      url: currentUrl,
       proxyMode,
       proxyUrl: options?.proxyUrl,
       redirectHop: redirects,
+      url: currentUrl,
     });
 
     let response: {
-      statusCode: number;
-      headers: Record<string, string | string[] | undefined>;
       body: string;
+      headers: Record<string, string | string[] | undefined>;
+      statusCode: number;
     };
 
     if (deps?.requestFn) {
@@ -107,11 +109,11 @@ export async function fetchHtmlWithFingerprint(
     }
 
     logger.info("Fingerprint fetch response", {
-      url: currentUrl,
-      statusCode: response.statusCode,
+      diagnosticHeaders: pickDiagnosticHeaders(response.headers),
       proxyMode,
       redirectHop: redirects,
-      diagnosticHeaders: pickDiagnosticHeaders(response.headers),
+      statusCode: response.statusCode,
+      url: currentUrl,
     });
 
     storeCookiesFromResponse(options?.cookieJar, response.headers, currentUrl);

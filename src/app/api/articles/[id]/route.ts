@@ -1,3 +1,5 @@
+import { NextRequest, NextResponse } from "next/server";
+
 import { jsonError, parsePositiveInt } from "@/lib/api/http";
 import {
   getUserOwnedArticleById,
@@ -6,17 +8,18 @@ import {
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
-import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-type RouteContext = { params: Promise<{ id: string }> };
-
-type ArticleByIdRouteDeps = {
-  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+interface ArticleByIdRouteDeps {
   getDbFn?: typeof getDb;
   logAndRespondErrorFn?: typeof logAndRespondError;
-};
+  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+}
+
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
 
 export async function GET(
   request: NextRequest,

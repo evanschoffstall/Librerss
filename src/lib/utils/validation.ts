@@ -15,24 +15,6 @@ export function isSafePositiveItemId(value: unknown): value is number {
 }
 
 /**
- * Validates email addresses using a simplified RFC 5322 regex.
- */
-export function isValidEmail(email: string): boolean {
-  if (!email || typeof email !== "string") {
-    return false;
-  }
-
-  // RFC 5322 simplified regex
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  return (
-    emailRegex.test(email) &&
-    email.length > 0 &&
-    email.length <= CONFIG.MAX_EMAIL_LENGTH
-  );
-}
-
-/**
  * Validates password strength
  * Requires minimum length and complexity (3 of 4 character types)
  * @param password - Password to validate
@@ -65,4 +47,22 @@ export function isStrongPassword(password: string): boolean {
   ].filter(Boolean).length;
 
   return complexityCount >= CONFIG.PASSWORD_COMPLEXITY_REQUIRED_TYPES;
+}
+
+/**
+ * Validates email addresses using a simplified RFC 5322 regex.
+ */
+export function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== "string") {
+    return false;
+  }
+
+  // RFC 5322 simplified regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return (
+    emailRegex.test(email) &&
+    email.length > 0 &&
+    email.length <= CONFIG.MAX_EMAIL_LENGTH
+  );
 }

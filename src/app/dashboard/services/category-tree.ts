@@ -4,20 +4,21 @@
  */
 
 import {
+  ALL_FEEDS_LABEL,
+  ALL_FEEDS_NODE_KEY,
+  INITIAL_CATEGORIES,
+} from "../constants";
+
+import {
+  type CategoryTreeNode,
   includesCategoryLabel,
   normalizeCategory,
   normalizeCategoryLabelKey,
-  type CategoryTreeNode,
 } from "@/lib";
 import {
   PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
 } from "@/lib/core/placeholder";
-import {
-  ALL_FEEDS_LABEL,
-  ALL_FEEDS_NODE_KEY,
-  INITIAL_CATEGORIES,
-} from "../constants";
 
 // ─── Category key generation ──────────────────────────────────────────────────
 
@@ -36,15 +37,15 @@ const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
 // ─── Tree construction ────────────────────────────────────────────────────────
 
 export const buildCategoriesFromSources = (
-  sources: Array<{
-    id: number;
-    name: string;
-    url: string;
-    category?: string | null;
+  sources: {
+    category?: null | string;
     enabled?: boolean;
     extractionDisabled?: boolean;
+    id: number;
+    name: string;
     proxyEnabled?: boolean;
-  }>,
+    url: string;
+  }[],
 ): CategoryTreeNode[] => {
   const grouped = new Map<string, CategoryTreeNode[]>();
 
@@ -53,25 +54,25 @@ export const buildCategoriesFromSources = (
     const current = grouped.get(categoryLabel) ?? [];
 
     current.push({
-      key: `${toCategoryKey(categoryLabel)}-${source.id}`,
-      label: source.name,
       data: {
-        url: source.url,
-        sourceId: source.id,
         category: categoryLabel,
         enabled: source.enabled !== false,
         extractionDisabled: source.extractionDisabled === true,
         proxyEnabled: source.proxyEnabled === true,
+        sourceId: source.id,
+        url: source.url,
       },
+      key: `${toCategoryKey(categoryLabel)}-${source.id}`,
+      label: source.name,
     });
 
     grouped.set(categoryLabel, current);
   }
 
   return [...grouped.entries()].map(([label, children]) => ({
+    children,
     key: toCategoryKey(label),
     label,
-    children,
   }));
 };
 
@@ -84,13 +85,13 @@ export const buildDefaultCategories = (
 
   return [
     {
-      key: toCategoryKey(PLACEHOLDER_CATEGORY),
-      label: PLACEHOLDER_CATEGORY,
       children: PLACEHOLDER_FEED_SOURCES.map((source, index) => ({
+        data: { category: source.category, url: source.url },
         key: `${toCategoryKey(PLACEHOLDER_CATEGORY)}-dev-${index}`,
         label: source.name,
-        data: { url: source.url, category: source.category },
       })),
+      key: toCategoryKey(PLACEHOLDER_CATEGORY),
+      label: PLACEHOLDER_CATEGORY,
     },
   ];
 };
@@ -98,13 +99,67 @@ export const buildDefaultCategories = (
 // ─── All-feeds sentinel ───────────────────────────────────────────────────────
 
 export const SYSTEM_ALL_FEEDS_CATEGORY: CategoryTreeNode = {
+  children: [],
+  data: { url: "" },
   key: ALL_FEEDS_NODE_KEY,
   label: ALL_FEEDS_LABEL,
-  data: { url: "" },
-  children: [],
 };
 
 // ─── Tree mutation (pure) ─────────────────────────────────────────────────────
+
+export function collectKnownCategoryLabels(
+  categories: CategoryTreeNode[],
+  customCategoryLabels: string[],
+): string[] {
+  return [...categories.map((node) => node.label), ...customCategoryLabels];
+}
+
+// ─── Feed-node lookup (merged from category-feeds.ts) ────────────────────────
+
+export function findFeedNodeByKey(
+  categories: CategoryTreeNode[],
+  key: string,
+): CategoryTreeNode | undefined {
+  return getAllFeedNodes(categories).find((node) => node.key === key);
+}
+
+export function findFeedNodeByUrl(
+  categories: CategoryTreeNode[],
+  url: string,
+): CategoryTreeNode | undefined {
+  return getAllFeedNodes(categories).find((node) => node.data?.url === url);
+}
+
+export function getAllFeedNodes(
+  categories: CategoryTreeNode[],
+): CategoryTreeNode[] {
+  return flattenCategoryFeeds(categories);
+}
+
+export function getFeedUrlBySelectedKey(
+  categories: CategoryTreeNode[],
+  selectedKey: string,
+): string | undefined {
+  return findFeedNodeByKey(categories, selectedKey)?.data?.url;
+}
+
+export function getFirstFeedNode(
+  categories: CategoryTreeNode[],
+): CategoryTreeNode | undefined {
+  return getAllFeedNodes(categories)[0];
+}
+
+// ─── Category-label utilities (merged from category-labels.ts) ───────────────
+
+export function hasCategoryLabelInTree(
+  categories: CategoryTreeNode[],
+  label: string,
+): boolean {
+  return includesCategoryLabel(
+    categories.map((category) => category.label),
+    label,
+  );
+}
 
 /**
  * Returns a new category array with a feed node moved between categories.
@@ -140,9 +195,9 @@ export function relocateFeedInCategories(
 
   if (destinationCategoryIndex < 0) {
     nextCategories.push({
+      children: [],
       key: toCategoryKey(targetCategoryLabel),
       label: targetCategoryLabel,
-      children: [],
     });
     destinationCategoryIndex = nextCategories.length - 1;
   }
@@ -177,50 +232,6 @@ export function relocateFeedInCategories(
   return nextCategories;
 }
 
-// ─── Feed-node lookup (merged from category-feeds.ts) ────────────────────────
-
-export function getAllFeedNodes(
-  categories: CategoryTreeNode[],
-): CategoryTreeNode[] {
-  return flattenCategoryFeeds(categories);
-}
-
-export function findFeedNodeByKey(
-  categories: CategoryTreeNode[],
-  key: string,
-): CategoryTreeNode | undefined {
-  return getAllFeedNodes(categories).find((node) => node.key === key);
-}
-
-export function findFeedNodeByUrl(
-  categories: CategoryTreeNode[],
-  url: string,
-): CategoryTreeNode | undefined {
-  return getAllFeedNodes(categories).find((node) => node.data?.url === url);
-}
-
-export function getFeedUrlBySelectedKey(
-  categories: CategoryTreeNode[],
-  selectedKey: string,
-): string | undefined {
-  return findFeedNodeByKey(categories, selectedKey)?.data?.url;
-}
-
-export function getFirstFeedNode(
-  categories: CategoryTreeNode[],
-): CategoryTreeNode | undefined {
-  return getAllFeedNodes(categories)[0];
-}
-
-// ─── Category-label utilities (merged from category-labels.ts) ───────────────
-
-export function collectKnownCategoryLabels(
-  categories: CategoryTreeNode[],
-  customCategoryLabels: string[],
-): string[] {
-  return [...categories.map((node) => node.label), ...customCategoryLabels];
-}
-
 export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
   const seen = new Set<string>();
   const uniqueLabels: string[] = [];
@@ -236,14 +247,4 @@ export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
   }
 
   return uniqueLabels;
-}
-
-export function hasCategoryLabelInTree(
-  categories: CategoryTreeNode[],
-  label: string,
-): boolean {
-  return includesCategoryLabel(
-    categories.map((category) => category.label),
-    label,
-  );
 }

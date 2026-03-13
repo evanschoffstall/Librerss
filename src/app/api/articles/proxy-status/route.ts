@@ -1,13 +1,14 @@
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import {
   probeProxy,
-  requireAuthenticatedUser,
   type ProxyStatus,
+  requireAuthenticatedUser,
 } from "@/lib/server";
-import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +17,20 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof Response) return authResult;
 
   const db = getDb();
-  const [user] = await db
+  const rows = await db
     .select({ proxyUrl: users.proxyUrl })
     .from(users)
     .where(eq(users.id, authResult.userId))
     .limit(1);
 
-  const proxyUrl = user?.proxyUrl?.trim() || null;
+  const proxyUrl = rows.length === 0 ? null : (rows[0].proxyUrl?.trim() ?? "");
   if (!proxyUrl) {
     logger.info("Proxy status check: no proxy configured", {
       userId: authResult.userId,
     });
     return NextResponse.json({
-      proxyUrl: null,
       configured: false,
+      proxyUrl: null,
       status: "unreachable" as ProxyStatus,
     });
   }
@@ -46,8 +47,8 @@ export async function GET(request: NextRequest) {
     logger.info("Proxy status check: reachable", { proxyUrl });
   }
   return NextResponse.json({
-    proxyUrl,
     configured: true,
+    proxyUrl,
     status,
   });
 }

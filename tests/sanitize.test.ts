@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleHtml,
@@ -5,7 +7,6 @@ import {
   stripOrphanedRelatedBlocks,
   toPlainText,
 } from "@/lib/sanitize";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());

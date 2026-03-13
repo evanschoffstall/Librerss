@@ -1,9 +1,10 @@
-import { normalizeCategoryLabelKey, type CategoryTreeNode } from "@/lib";
 import {
   collectKnownCategoryLabels,
   toCategoryKey,
   toDistinctCategoryLabels,
 } from "./category-tree";
+
+import { type CategoryTreeNode, normalizeCategoryLabelKey } from "@/lib";
 
 export function buildDisplayCategories(
   categories: CategoryTreeNode[],
@@ -17,7 +18,7 @@ export function buildDisplayCategories(
   for (const label of customCategoryLabels) {
     const key = normalizeCategoryLabelKey(label);
     if (!categoryMap.has(key)) {
-      categoryMap.set(key, { key: toCategoryKey(label), label, children: [] });
+      categoryMap.set(key, { children: [], key: toCategoryKey(label), label });
     }
   }
 

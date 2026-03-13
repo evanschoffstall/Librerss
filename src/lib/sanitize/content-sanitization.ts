@@ -5,17 +5,6 @@ import {
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
 
-function recoverSanitizedImageHtml(rawHtml: string): string {
-  const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
-  if (imgTags.length === 0) return "";
-
-  const recovered = imgTags
-    .map((tag) => sanitizeArticleHtml(tag).trim())
-    .filter((tag) => /<img\b/i.test(tag));
-
-  return recovered.join("\n");
-}
-
 export function sanitizeRawContent(rawContent: string): string {
   const normalized = rawContent.trim();
   if (!normalized) return "";
@@ -65,4 +54,15 @@ export function sanitizeRawContent(rawContent: string): string {
   }
 
   return fallbackSanitized;
+}
+
+function recoverSanitizedImageHtml(rawHtml: string): string {
+  const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
+  if (imgTags.length === 0) return "";
+
+  const recovered = imgTags
+    .map((tag) => sanitizeArticleHtml(tag).trim())
+    .filter((tag) => /<img\b/i.test(tag));
+
+  return recovered.join("\n");
 }

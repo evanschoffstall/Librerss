@@ -89,6 +89,20 @@ describe("lib/core/feed-url-validator – IP address SSRF protection", () => {
     // Just assert it resolves without throwing
     expect(typeof result).toBe("boolean");
   });
+
+  test("allows public IPv6 literals wrapped in URL brackets", async () => {
+    const { isAllowedFeedUrl } = await import("@/lib/core/feed-url-validator");
+    const result = await isAllowedFeedUrl(
+      "http://[2606:4700:4700::1111]/feed.xml",
+    );
+    expect(result).toBe(true);
+  });
+
+  test("blocks loopback IPv6 literals wrapped in URL brackets", async () => {
+    const { isAllowedFeedUrl } = await import("@/lib/core/feed-url-validator");
+    const result = await isAllowedFeedUrl("http://[::1]/feed.xml");
+    expect(result).toBe(false);
+  });
 });
 
 // ── lib/core/feed-url-validator – blocked IP address path (line 37) ──────────

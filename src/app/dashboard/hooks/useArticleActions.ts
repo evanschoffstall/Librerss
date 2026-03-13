@@ -1,15 +1,18 @@
 "use client";
 
-import { ArticleService, type Article, type CategoryTreeNode } from "@/lib";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { getArticleKey } from "../services/article-collection";
+
 import {
-  useArticleHydration,
   type FeedExtractionSettings,
+  useArticleHydration,
 } from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
-import { useScrollPin } from "./useScrollPin";
+import { useFeedScrollLock } from "./useFeedSurface";
+
+import { type Article, ArticleService, type CategoryTreeNode } from "@/lib";
 
 const ARTICLE_REMOVAL_ANIMATION_MS = 320;
 
@@ -17,40 +20,36 @@ export const toggleReadStatus = (isRead: boolean) => !isRead;
 export const toggleStarredStatus = (isStarred: boolean) => !isStarred;
 
 interface UseArticleActionsOptions {
-  feed: Article[];
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  expandedArticleKey: string | null;
-  setExpandedArticleKey: React.Dispatch<React.SetStateAction<string | null>>;
-  articleFilter: "all" | "unread" | "read" | "starred";
-  usePlaceholderData?: boolean;
+  articleFilter: "all" | "read" | "starred" | "unread";
   categories?: CategoryTreeNode[];
   distillStrategy?: string;
+  expandedArticleKey: null | string;
+  feed: Article[];
   /** Called when any article begins expanding; settles scroll restore. */
   onExpand?: () => void;
-  /**
-   * Scroll-pin coordinate ref shared with usePullDownToRefresh.
-   * See useScrollPin.ts for the full three-mode protocol documentation.
-   */
-  suppressSnapRef?: React.RefObject<number | false>;
+  setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  suppressSnapRef?: React.RefObject<false | number>;
+  usePlaceholderData?: boolean;
 }
 
 export function useArticleActions({
-  feed,
-  setFeed,
-  expandedArticleKey,
-  setExpandedArticleKey,
   articleFilter,
-  usePlaceholderData = false,
   categories,
   distillStrategy,
+  expandedArticleKey,
+  feed,
   onExpand,
+  setExpandedArticleKey,
+  setFeed,
   suppressSnapRef,
+  usePlaceholderData = false,
 }: UseArticleActionsOptions) {
   const {
-    updatingArticleState,
-    setUpdatingArticleState,
-    setArticleReadState,
     handleToggleReadState,
+    setArticleReadState,
+    setUpdatingArticleState,
+    updatingArticleState,
   } = useArticleReadState({ setFeed, usePlaceholderData });
 
   // Build a feedUrl → settings lookup from the category tree
@@ -70,13 +69,14 @@ export function useArticleActions({
   }, [categories]);
 
   const {
+    cancelHydration,
+    hydrateArticleContent,
     hydratedArticleLinks,
     hydratingArticleLinks,
-    hydrateArticleContent,
-    cancelHydration,
-  } = useArticleHydration({ setFeed, getFeedSettings, distillStrategy });
-  const autoHydratedExpandedKeyRef = useRef<string | null>(null);
-  const awaitingExpandedSyncKeyRef = useRef<string | null>(null);
+  } = useArticleHydration({ distillStrategy, getFeedSettings, setFeed });
+  const autoHydratedExpandedKeyRef = useRef<null | string>(null);
+  const awaitingExpandedSyncKeyRef = useRef<null | string>(null);
+  const previousDistillStrategyRef = useRef(distillStrategy);
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
   // is restored from sessionStorage but hydratedArticleLinks is in-memory only.
@@ -100,7 +100,7 @@ export function useArticleActions({
     if (feed.length === 0) return;
 
     const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
-    const link = article?.link?.trim() ?? "";
+    const link = article?.link.trim() ?? "";
     if (
       article &&
       link &&
@@ -121,11 +121,33 @@ export function useArticleActions({
   const feedRef = useRef(feed);
   feedRef.current = feed;
 
-  const scrollPin = useScrollPin(suppressSnapRef);
-  const collapseRemovalTimeoutRef = useRef<number | null>(null);
+  const scrollLock = useFeedScrollLock(suppressSnapRef);
+
+  const collapseRemovalTimeoutRef = useRef<null | number>(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
-    string | null
+    null | string
   >(null);
+
+  useEffect(() => {
+    if (previousDistillStrategyRef.current === distillStrategy) return;
+
+    previousDistillStrategyRef.current = distillStrategy;
+
+    if (!expandedArticleKey || feed.length === 0) return;
+
+    const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
+    const link = article?.link.trim() ?? "";
+    if (!article || !link || hydratingArticleLinks[link]) return;
+
+    autoHydratedExpandedKeyRef.current = expandedArticleKey;
+    void hydrateArticleContent(article, { force: true });
+  }, [
+    distillStrategy,
+    expandedArticleKey,
+    feed,
+    hydratingArticleLinks,
+    hydrateArticleContent,
+  ]);
 
   useEffect(
     () => () => {
@@ -138,6 +160,8 @@ export function useArticleActions({
   const collapseExpandedArticle = useCallback(
     (article: Article, options?: { treatAsRead?: boolean }) => {
       const nextArticleKey = getArticleKey(article);
+      const collapseRestoreTarget =
+        scrollLock.getCollapseRestoreTarget(nextArticleKey);
 
       setExpandedArticleKey((current) =>
         current === nextArticleKey ? null : current,
@@ -145,12 +169,12 @@ export function useArticleActions({
       awaitingExpandedSyncKeyRef.current = null;
       autoHydratedExpandedKeyRef.current = null;
 
-      const link = article.link?.trim();
+      const link = article.link.trim();
       if (link) cancelHydration(link);
 
-      scrollPin.activateCollapsePin(
-        scrollPin.preExpandViewport.current,
-        scrollPin.preExpandScrollTop.current,
+      scrollLock.activateCollapseLock(
+        collapseRestoreTarget.viewport,
+        collapseRestoreTarget.scrollTop,
       );
 
       const shouldAnimateRemoval =
@@ -168,7 +192,7 @@ export function useArticleActions({
         collapseRemovalTimeoutRef.current = null;
       }, ARTICLE_REMOVAL_ANIMATION_MS);
     },
-    [articleFilter, cancelHydration, scrollPin, setExpandedArticleKey],
+    [articleFilter, cancelHydration, scrollLock, setExpandedArticleKey],
   );
 
   const handleArticleToggle = useCallback(
@@ -190,15 +214,11 @@ export function useArticleActions({
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
       }
-      scrollPin.cancelPin();
+      scrollLock.cancelLock();
       setCollapsingArticleKey(null);
 
-      // Settle scroll-restore window before expand layout changes.
       onExpand?.();
-
-      // Suppress ResizeObserver during CSS expand transition.
-      // See useScrollPin.ts for the full expand-suppress protocol.
-      scrollPin.activateExpandSuppress(nextArticleKey);
+      scrollLock.activateExpandLock(nextArticleKey);
 
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
@@ -213,7 +233,7 @@ export function useArticleActions({
       collapseExpandedArticle,
       expandedArticleKey,
       onExpand,
-      scrollPin,
+      scrollLock,
       updatingArticleState,
       setExpandedArticleKey,
       setArticleReadState,
@@ -287,14 +307,14 @@ export function useArticleActions({
   );
 
   return {
-    updatingArticleState,
-    hydratedArticleLinks,
-    hydratingArticleLinks,
     collapsingArticleKey,
     handleArticleToggle,
     handleExpandedSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
+    hydratedArticleLinks,
+    hydratingArticleLinks,
     setArticleReadState,
+    updatingArticleState,
   };
 }

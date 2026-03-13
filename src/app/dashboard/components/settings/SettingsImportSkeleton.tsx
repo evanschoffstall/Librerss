@@ -5,7 +5,7 @@ export function SettingsImportSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-md border px-0">
+        <div className="rounded-md border px-0" key={i}>
           <div className="flex items-center gap-2 px-3 py-2.5">
             <Skeleton className="size-6 rounded" />
             <div className="flex flex-1 items-center gap-2">
@@ -21,8 +21,8 @@ export function SettingsImportSkeleton() {
             <div className="space-y-1.5 px-3 pb-3">
               {Array.from({ length: 2 + (i % 2) }).map((_, j) => (
                 <div
-                  key={j}
                   className="flex items-center gap-2 rounded-md border px-3 py-2"
+                  key={j}
                 >
                   <Skeleton className="size-6 rounded" />
                   <div className="flex-1 space-y-1">

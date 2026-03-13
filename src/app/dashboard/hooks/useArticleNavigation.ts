@@ -1,9 +1,11 @@
-type ArticleLike = { id: number };
+interface ArticleLike {
+  id: number;
+}
 
 export function getNextArticle<T extends ArticleLike>(
   articles: T[],
   currentId: number,
-): T | null {
+): null | T {
   const index = articles.findIndex((article) => article.id === currentId);
   if (index < 0 || index >= articles.length - 1) {
     return null;
@@ -14,7 +16,7 @@ export function getNextArticle<T extends ArticleLike>(
 export function getPreviousArticle<T extends ArticleLike>(
   articles: T[],
   currentId: number,
-): T | null {
+): null | T {
   const index = articles.findIndex((article) => article.id === currentId);
   if (index <= 0) {
     return null;

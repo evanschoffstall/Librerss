@@ -1,3 +1,7 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import * as zlib from "zlib";
+
 import {
   decompressBody,
   extractionAxios,
@@ -7,8 +11,6 @@ import {
   parseSocksProxy,
   pickDiagnosticHeaders,
 } from "@/lib/fetch";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import * as zlib from "zlib";
 
 beforeEach(() => {
   mock.restore();
@@ -168,13 +170,13 @@ describe("parseSocksProxy", () => {
 describe("pickDiagnosticHeaders", () => {
   test("extracts standard diagnostic headers", () => {
     const headers = {
+      "cf-ray": "12345",
+      "content-type": "text/html",
+      "retry-after": "120",
       server: "nginx",
       via: "1.1 proxy",
       "x-cache": "HIT",
-      "content-type": "text/html",
-      "cf-ray": "12345",
       "x-datadome": "token",
-      "retry-after": "120",
     };
     const result = pickDiagnosticHeaders(headers);
     expect(result.server).toBe("nginx");
@@ -188,9 +190,9 @@ describe("pickDiagnosticHeaders", () => {
 
   test("extracts x-px- prefixed headers", () => {
     const headers = {
-      "x-px-uuid": "abc123",
-      "x-px-score": "0",
       other: "value",
+      "x-px-score": "0",
+      "x-px-uuid": "abc123",
     };
     const result = pickDiagnosticHeaders(headers);
     expect(result["x-px-uuid"]).toBe("abc123");
@@ -226,8 +228,8 @@ describe("pickDiagnosticHeaders", () => {
     const headers = {
       authorization: "Bearer token",
       cookie: "session=xyz",
-      "x-api-key": "secret",
       server: "nginx",
+      "x-api-key": "secret",
     };
     const result = pickDiagnosticHeaders(headers);
     expect(result.authorization).toBeUndefined();
@@ -243,9 +245,9 @@ describe("pickDiagnosticHeaders", () => {
 
   test("normalizes header keys to lowercase", () => {
     const headers = {
+      "Content-Type": "text/html",
       Server: "nginx",
       "X-CACHE": "HIT",
-      "Content-Type": "text/html",
     };
     const result = pickDiagnosticHeaders(headers);
     expect(result.server).toBe("nginx");
@@ -255,8 +257,8 @@ describe("pickDiagnosticHeaders", () => {
 
   test("includes all x-px- variants", () => {
     const headers = {
-      "x-px-cookie": "cookie",
       "x-px-captcha": "captcha",
+      "x-px-cookie": "cookie",
       "x-px-token": "token",
     };
     const result = pickDiagnosticHeaders(headers);
@@ -480,15 +482,15 @@ describe("fetchHtmlWithFingerprint", () => {
       if (redirectCount < 3) {
         redirectCount++;
         return {
-          statusCode: 302,
-          headers: { location: `https://example.com/redirect${redirectCount}` },
           body: "",
+          headers: { location: `https://example.com/redirect${redirectCount}` },
+          statusCode: 302,
         };
       }
       return {
-        statusCode: 200,
-        headers: {},
         body: "<html>Final content</html>",
+        headers: {},
+        statusCode: 200,
       };
     };
 
@@ -506,9 +508,9 @@ describe("fetchHtmlWithFingerprint", () => {
   test("throws error when exceeding redirect limit", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async () => ({
-      statusCode: 302,
-      headers: { location: "https://example.com/loop" },
       body: "",
+      headers: { location: "https://example.com/loop" },
+      statusCode: 302,
     });
 
     await expect(
@@ -528,9 +530,9 @@ describe("fetchHtmlWithFingerprint", () => {
       return !url.includes("blocked");
     };
     const requestFn = async () => ({
-      statusCode: 302,
-      headers: { location: "https://blocked.com/page" },
       body: "",
+      headers: { location: "https://blocked.com/page" },
+      statusCode: 302,
     });
 
     await expect(
@@ -548,9 +550,9 @@ describe("fetchHtmlWithFingerprint", () => {
   test("throws error on redirect without location header", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async () => ({
-      statusCode: 302,
-      headers: {},
       body: "",
+      headers: {},
+      statusCode: 302,
     });
 
     await expect(
@@ -566,9 +568,9 @@ describe("fetchHtmlWithFingerprint", () => {
   test("throws error on redirect with empty location header", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async () => ({
-      statusCode: 302,
-      headers: { location: "   " },
       body: "",
+      headers: { location: "   " },
+      statusCode: 302,
     });
 
     await expect(
@@ -584,9 +586,9 @@ describe("fetchHtmlWithFingerprint", () => {
   test("throws GotScrapingError on non-2xx status", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async () => ({
-      statusCode: 403,
-      headers: { server: "nginx" },
       body: "Forbidden",
+      headers: { server: "nginx" },
+      statusCode: 403,
     });
 
     try {
@@ -610,9 +612,9 @@ describe("fetchHtmlWithFingerprint", () => {
     const isAllowedUrl = async () => true;
     const largeBody = "a".repeat(10_000_000);
     const requestFn = async () => ({
-      statusCode: 200,
-      headers: {},
       body: largeBody,
+      headers: {},
+      statusCode: 200,
     });
 
     await expect(
@@ -628,9 +630,9 @@ describe("fetchHtmlWithFingerprint", () => {
   test("returns successful response with request headers", async () => {
     const isAllowedUrl = async () => true;
     const requestFn = async () => ({
-      statusCode: 200,
-      headers: { "content-type": "text/html" },
       body: "<html>Content</html>",
+      headers: { "content-type": "text/html" },
+      statusCode: 200,
     });
 
     const result = await fetchHtmlWithFingerprint(
@@ -650,9 +652,9 @@ describe("fetchHtmlWithFingerprint", () => {
     const requestFn = async (url: URL, headers: Record<string, string>) => {
       expect(headers["User-Agent"]).toContain("Chrome/131");
       return {
-        statusCode: 200,
-        headers: {},
         body: "<html>Content</html>",
+        headers: {},
+        statusCode: 200,
       };
     };
 
@@ -671,16 +673,16 @@ describe("fetchHtmlWithFingerprint", () => {
       if (!redirectHandled) {
         redirectHandled = true;
         return {
-          statusCode: 302,
-          headers: { location: "/redirected" },
           body: "",
+          headers: { location: "/redirected" },
+          statusCode: 302,
         };
       }
       expect(url.pathname).toBe("/redirected");
       return {
-        statusCode: 200,
-        headers: {},
         body: "<html>Redirected</html>",
+        headers: {},
+        statusCode: 200,
       };
     };
 
@@ -701,16 +703,16 @@ describe("fetchHtmlWithFingerprint", () => {
       if (!redirectHandled) {
         redirectHandled = true;
         return {
-          statusCode: 302,
-          headers: { location: "https://example.com/page#section" },
           body: "",
+          headers: { location: "https://example.com/page#section" },
+          statusCode: 302,
         };
       }
       expect(url.hash).toBe("");
       return {
-        statusCode: 200,
-        headers: {},
         body: "<html>Content</html>",
+        headers: {},
+        statusCode: 200,
       };
     };
 
@@ -729,15 +731,15 @@ describe("fetchHtmlWithFingerprint", () => {
       if (!redirectHandled) {
         redirectHandled = true;
         return {
-          statusCode: 302,
-          headers: { location: ["https://example.com/redirected"] },
           body: "",
+          headers: { location: ["https://example.com/redirected"] },
+          statusCode: 302,
         };
       }
       return {
-        statusCode: 200,
-        headers: {},
         body: "<html>Redirected</html>",
+        headers: {},
+        statusCode: 200,
       };
     };
 
@@ -836,8 +838,8 @@ describe("parseSocksProxy edge cases", () => {
 describe("pickDiagnosticHeaders edge cases", () => {
   test("handles nested header values", () => {
     const headers = {
-      "x-cache": ["HIT", "MISS"],
       server: "nginx",
+      "x-cache": ["HIT", "MISS"],
     };
     const result = pickDiagnosticHeaders(headers);
     expect(result["x-cache"]).toEqual(["HIT", "MISS"]);
@@ -876,9 +878,9 @@ describe("fetch/fingerprint – blocked URL throws", () => {
         {},
         {
           requestFn: async () => ({
-            statusCode: 200,
-            headers: {},
             body: "<html/>",
+            headers: {},
+            statusCode: 200,
           }),
         },
       ),
@@ -895,7 +897,7 @@ describe("lib/fetch/bot-detection – detectBotProtection", () => {
     status: number,
     headers: Record<string, unknown> = {},
     data = "",
-  ) => ({ response: { status, headers, data } });
+  ) => ({ response: { data, headers, status } });
 
   test("returns detected:false for non-axios errors", async () => {
     const { detectBotProtection } = await import("@/lib/fetch");
@@ -982,9 +984,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => 
         {},
         {
           requestFn: async () => ({
-            statusCode: 0,
-            headers: {},
             body: "Connection refused",
+            headers: {},
+            statusCode: 0,
           }),
         },
       ),
@@ -1005,9 +1007,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => 
         {},
         {
           requestFn: async () => ({
-            statusCode: 200,
-            headers: {},
             body: oversized,
+            headers: {},
+            statusCode: 200,
           }),
         },
       ),
@@ -1026,9 +1028,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => 
         {},
         {
           requestFn: async () => ({
-            statusCode: 301,
-            headers: { location: `https://example.com/hop${++hop}` },
             body: "",
+            headers: { location: `https://example.com/hop${++hop}` },
+            statusCode: 301,
           }),
         },
       ),
@@ -1049,9 +1051,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => 
         {},
         {
           requestFn: async () => ({
-            statusCode: 301,
-            headers: { location: "https://example.com/blocked-redirect" },
             body: "",
+            headers: { location: "https://example.com/blocked-redirect" },
+            statusCode: 301,
           }),
         },
       ),
@@ -1069,9 +1071,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => 
         {},
         {
           requestFn: async () => ({
-            statusCode: 302,
-            headers: { location: "" }, // empty location
             body: "",
+            headers: { location: "" }, // empty location
+            statusCode: 302,
           }),
         },
       ),
@@ -1089,9 +1091,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint edge cases", () => 
         {},
         {
           requestFn: async () => ({
-            statusCode: 404,
-            headers: {},
             body: "Not Found",
+            headers: {},
+            statusCode: 404,
           }),
         },
       ),
@@ -1115,9 +1117,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
         {},
         {
           requestFn: async () => ({
-            statusCode: 302,
-            headers: { location: "https://blocked.private.example.com/dest" },
             body: "",
+            headers: { location: "https://blocked.private.example.com/dest" },
+            statusCode: 302,
           }),
         },
       ),
@@ -1136,9 +1138,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
         {},
         {
           requestFn: async () => ({
-            statusCode: 0,
-            headers: {},
             body: "Connection refused",
+            headers: {},
+            statusCode: 0,
           }),
         },
       ),
@@ -1158,9 +1160,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
         {},
         {
           requestFn: async () => ({
-            statusCode: 302,
-            headers: { location: `https://example.com/hop-${++hop}` },
             body: "",
+            headers: { location: `https://example.com/hop-${++hop}` },
+            statusCode: 302,
           }),
         },
       ),
@@ -1179,9 +1181,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
         {},
         {
           requestFn: async () => ({
-            statusCode: 503,
-            headers: {},
             body: "Service Unavailable",
+            headers: {},
+            statusCode: 503,
           }),
         },
       ),
@@ -1201,9 +1203,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
         {},
         {
           requestFn: async () => ({
-            statusCode: 200,
-            headers: {},
             body: bigBody,
+            headers: {},
+            statusCode: 200,
           }),
         },
       ),
@@ -1222,9 +1224,9 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
         {},
         {
           requestFn: async () => ({
-            statusCode: 301,
-            headers: {},
             body: "",
+            headers: {},
+            statusCode: 301,
           }),
         },
       ),

@@ -69,8 +69,8 @@ async function testProxyPipeline() {
       targetUrl,
       async () => true, // Allow all URLs for testing
       {
-        proxyUrl,
         allowInsecureTls,
+        proxyUrl,
       },
     );
 
@@ -112,9 +112,9 @@ async function testProxyPipeline() {
     console.log("BOT DETECTION CHECK");
     console.log("=".repeat(70));
     const botIndicators = {
+      cloudflare: /cf-browser-verification|challenge-platform/i.test(html),
       datadome: /datadome/i.test(html),
       perimeterX: /px[-_]captcha|perimeterx|\/_px\//i.test(html),
-      cloudflare: /cf-browser-verification|challenge-platform/i.test(html),
       recaptcha: /recaptcha/i.test(html),
     };
 

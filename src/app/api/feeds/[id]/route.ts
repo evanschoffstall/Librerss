@@ -1,12 +1,15 @@
-import * as feedsRoute from "@/app/api/feeds/route";
 import type { NextRequest } from "next/server";
 
-type RouteContext = { params: Promise<{ id: string }> };
+import * as feedsRoute from "@/app/api/feeds/route";
 
-export async function PATCH(request: NextRequest, _context: RouteContext) {
-  return feedsRoute.PATCH(request);
+interface RouteContext {
+  params: Promise<{ id: string }>;
 }
 
 export async function DELETE(request: NextRequest, _context: RouteContext) {
   return feedsRoute.DELETE(request);
+}
+
+export async function PATCH(request: NextRequest, _context: RouteContext) {
+  return feedsRoute.PATCH(request);
 }

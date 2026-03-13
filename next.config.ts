@@ -1,27 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: [
-    "got-scraping",
-    "header-generator",
-    "generative-bayesian-network",
-    "node-tls-client",
-    "koffi",
-  ],
-  outputFileTracingIncludes: {
-    // header-generator loads its bayesian network definitions from zip files at
-    // runtime via __dirname.  Next.js standalone file tracing does not discover
-    // these data files automatically, so they must be explicitly included so the
-    // module can initialise correctly in production.
-    "/api/**": [
-      "./node_modules/header-generator/data_files/**",
-      "./node_modules/generative-bayesian-network/**",
-    ],
-  },
   async headers() {
     return [
       {
-        source: "/:path*",
         headers: [
           {
             key: "X-Frame-Options",
@@ -77,9 +59,27 @@ const nextConfig: NextConfig = {
             ].join("; "),
           },
         ],
+        source: "/:path*",
       },
     ];
   },
+  outputFileTracingIncludes: {
+    // header-generator loads its bayesian network definitions from zip files at
+    // runtime via __dirname.  Next.js standalone file tracing does not discover
+    // these data files automatically, so they must be explicitly included so the
+    // module can initialise correctly in production.
+    "/api/**": [
+      "./node_modules/header-generator/data_files/**",
+      "./node_modules/generative-bayesian-network/**",
+    ],
+  },
+  serverExternalPackages: [
+    "got-scraping",
+    "header-generator",
+    "generative-bayesian-network",
+    "node-tls-client",
+    "koffi",
+  ],
 };
 
 export default nextConfig;

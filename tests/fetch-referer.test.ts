@@ -1,5 +1,6 @@
-import { buildDdgReferer } from "@/lib/fetch/referer";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { buildDdgReferer } from "@/lib/fetch/referer";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());

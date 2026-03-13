@@ -1,7 +1,8 @@
-import { defineConfig } from "drizzle-kit";
 import { existsSync, readFileSync } from "node:fs";
 
-function readDatabaseUrlFromEnvFile(filePath: string): string | null {
+import { defineConfig } from "drizzle-kit";
+
+function readDatabaseUrlFromEnvFile(filePath: string): null | string {
   if (!existsSync(filePath)) return null;
 
   const content = readFileSync(filePath, "utf8");
@@ -32,10 +33,10 @@ function resolveDatabaseUrl(): string {
 }
 
 export default defineConfig({
-  schema: "./src/lib/db/schema.ts",
-  out: "./drizzle",
-  dialect: "postgresql",
   dbCredentials: {
     url: resolveDatabaseUrl(),
   },
+  dialect: "postgresql",
+  out: "./drizzle",
+  schema: "./src/lib/db/schema.ts",
 });

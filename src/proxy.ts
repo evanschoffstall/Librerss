@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { rateLimiter } from "./lib/server/rate-limit";
 
 /**
@@ -28,8 +29,8 @@ export function proxy(request: NextRequest) {
     );
 
     const rateLimitResponse = rateLimiter.check(request, "proxy-global", {
-      windowMs: rateLimitWindowMs,
       maxAttempts: rateLimitMaxRequests,
+      windowMs: rateLimitWindowMs,
     });
 
     if (rateLimitResponse) {
@@ -65,11 +66,11 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
       missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
+        { key: "next-router-prefetch", type: "header" },
+        { key: "purpose", type: "header", value: "prefetch" },
       ],
+      source: "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
     },
   ],
 };

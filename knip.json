@@ -21,6 +21,7 @@
     "embla-carousel-react",
     "lint-staged",
     "lodash",
+    "purgecss",
     "react-day-picker",
     "react-hook-form",
     "recharts",

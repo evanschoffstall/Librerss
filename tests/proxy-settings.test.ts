@@ -7,6 +7,10 @@
  * DB is mocked via mock.module("@/lib/db/db") which is restored by setup.ts.
  */
 
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+
+import { NextRequest } from "next/server";
+
 import type { ProxyRouteDeps } from "@/app/api/settings/proxy/route";
 import {
   resetApiClientForTesting,
@@ -14,8 +18,6 @@ import {
 } from "@/lib/api/http";
 import { ArticleService } from "@/lib/api/services";
 import { fetchHtml } from "@/lib/extract";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { NextRequest } from "next/server";
 
 afterEach(() => mock.restore());
 
@@ -32,27 +34,27 @@ afterEach(() => {
 
 describe("proxy settings API route", () => {
   const authenticatedUser = {
-    sessionId: 1,
-    userId: 1,
     email: "test@example.com",
     expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+    sessionId: 1,
+    userId: 1,
   };
 
   const routeDeps: ProxyRouteDeps = {
-    requireAuthFn: async () => authenticatedUser,
-    probeFn: async () => true,
     detectFn: async () => "http",
     dnsCheckFn: async () => false,
+    probeFn: async () => true,
+    requireAuthFn: async () => authenticatedUser,
   };
 
   const unreachableDeps: ProxyRouteDeps = {
-    requireAuthFn: async () => authenticatedUser,
-    probeFn: async () => false,
     detectFn: async () => "http",
     dnsCheckFn: async () => false,
+    probeFn: async () => false,
+    requireAuthFn: async () => authenticatedUser,
   };
 
-  function mockDb(proxyUrl: string | null = null) {
+  function mockDb(proxyUrl: null | string = null) {
     let storedProxyUrl = proxyUrl;
     let storedAllowInsecureTls = false;
     mock.module("@/lib/db/db", () => ({
@@ -66,8 +68,8 @@ describe("proxy settings API route", () => {
         }),
         update: () => ({
           set: (values: {
-            proxyUrl?: string | null;
             allowInsecureTls?: boolean;
+            proxyUrl?: null | string;
           }) => {
             if (values.proxyUrl !== undefined) storedProxyUrl = values.proxyUrl;
             if (values.allowInsecureTls !== undefined)
@@ -85,7 +87,7 @@ describe("proxy settings API route", () => {
       }),
     }));
     mock.module("@/lib/logger", () => ({
-      logger: { error: mock(), warn: mock(), info: mock(), debug: mock() },
+      logger: { debug: mock(), error: mock(), info: mock(), warn: mock() },
     }));
   }
 
@@ -129,9 +131,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "http://proxy:8080" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -145,9 +147,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "socks5://proxy:1080" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -161,9 +163,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "ftp://proxy:21" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -177,9 +179,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "not-a-url" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -194,9 +196,9 @@ describe("proxy settings API route", () => {
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const longUrl = `http://proxy:8080/${"x".repeat(2100)}`;
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: longUrl }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -210,9 +212,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "176.105.212.219:8080" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -225,16 +227,16 @@ describe("proxy settings API route", () => {
   test("PUT auto-detects SOCKS proxy and normalizes bare IP:port to socks5://", async () => {
     mockDb(null);
     const socksDeps: ProxyRouteDeps = {
-      requireAuthFn: async () => authenticatedUser,
-      probeFn: async () => true,
       detectFn: async () => "socks5",
       dnsCheckFn: async () => false,
+      probeFn: async () => true,
+      requireAuthFn: async () => authenticatedUser,
     };
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "184.178.172.3:4145" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, socksDeps);
     expect(res.status).toBe(200);
@@ -248,9 +250,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "http://proxy:8080" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, unreachableDeps);
     expect(res.status).toBe(200);
@@ -264,9 +266,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "null" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -280,9 +282,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "undefined" }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -296,9 +298,9 @@ describe("proxy settings API route", () => {
     mockDb("http://proxy:8080");
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: null }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -312,9 +314,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl: "  http://proxy:8080  " }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -335,9 +337,9 @@ describe("proxy settings API route", () => {
     mockDb(null);
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({ proxyUrl }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, routeDeps);
     expect(res.status).toBe(200);
@@ -352,11 +354,11 @@ describe("proxy settings API route", () => {
 
 describe("ArticleService proxy methods", () => {
   const mockAxios: any = {
+    delete: mock(async () => ({ data: {} })),
     get: mock(async () => ({ data: {} })),
+    patch: mock(async () => ({ data: {} })),
     post: mock(async () => ({ data: {} })),
     put: mock(async () => ({ data: {} })),
-    patch: mock(async () => ({ data: {} })),
-    delete: mock(async () => ({ data: {} })),
   };
 
   beforeEach(() => {
@@ -427,18 +429,18 @@ describe("ArticleService proxy methods", () => {
 describe("fetchHtml proxy passthrough", () => {
   test("does not use proxy when useProxy is false", async () => {
     const axiosGetFn = mock(async () => ({
-      status: 200,
-      headers: {},
       data: "<html>ok</html>",
+      headers: {},
+      status: 200,
     }));
 
     const html = await fetchHtml(
       "https://example.com/a",
       {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
       },
-      { useProxy: false, proxyUrl: "http://proxy:8080" },
+      { proxyUrl: "http://proxy:8080", useProxy: false },
     );
 
     expect(html).toBe("<html>ok</html>");
@@ -448,18 +450,18 @@ describe("fetchHtml proxy passthrough", () => {
 
   test("returns HTML normally when useProxy true with injected deps", async () => {
     const axiosGetFn = mock(async () => ({
-      status: 200,
-      headers: {},
       data: "<html>proxied</html>",
+      headers: {},
+      status: 200,
     }));
 
     const html = await fetchHtml(
       "https://example.com/a",
       {
-        isAllowedFeedUrlFn: async () => true,
         axiosGetFn: axiosGetFn as any,
+        isAllowedFeedUrlFn: async () => true,
       },
-      { useProxy: true, proxyUrl: "http://proxy:8080" },
+      { proxyUrl: "http://proxy:8080", useProxy: true },
     );
 
     expect(html).toBe("<html>proxied</html>");
@@ -471,7 +473,7 @@ describe("fetchHtml proxy passthrough", () => {
       fetchHtml(
         "https://blocked.example.com/a",
         { isAllowedFeedUrlFn: async () => false },
-        { useProxy: true, proxyUrl: "http://proxy:8080" },
+        { proxyUrl: "http://proxy:8080", useProxy: true },
       ),
     ).rejects.toThrow("Blocked URL");
   });
@@ -482,7 +484,7 @@ describe("fetchHtml proxy passthrough", () => {
 describe("proxy SSRF guard functions (direct)", () => {
   function mockLogger() {
     mock.module("@/lib/logger", () => ({
-      logger: { error: mock(), warn: mock(), info: mock(), debug: mock() },
+      logger: { debug: mock(), error: mock(), info: mock(), warn: mock() },
     }));
   }
 
@@ -580,22 +582,22 @@ describe("proxy SSRF guard functions (direct)", () => {
     mockLogger();
     const { PUT } = await import("@/app/api/settings/proxy/route");
     const req = new NextRequest("http://localhost/api/settings/proxy", {
-      method: "PUT",
       body: JSON.stringify({
         proxyUrl: "http://external-proxy.example.com:8080",
       }),
       headers: { "content-type": "application/json" },
+      method: "PUT",
     });
     const res = await PUT(req, {
-      requireAuthFn: async () => ({
-        sessionId: 1,
-        userId: 1,
-        email: "test@example.com",
-        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-      }),
-      probeFn: async () => true,
       detectFn: async () => "http",
       dnsCheckFn: async () => true, // simulate DNS → blocked address
+      probeFn: async () => true,
+      requireAuthFn: async () => ({
+        email: "test@example.com",
+        expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+        sessionId: 1,
+        userId: 1,
+      }),
     });
     const body = await res.json();
     expect(body.configured).toBe(false);
@@ -758,6 +760,21 @@ describe("server/proxy – normalizeProxyUrl", () => {
     expect(result).toContain("external.example.com");
   });
 
+  test("SOCKS: accepts public IPv6 literals and passes unbracketed host to DNS checks", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "socks5://[2606:4700:4700::1111]:1080",
+      async () => {
+        throw new Error("explicit SOCKS URLs should skip protocol detection");
+      },
+      async (host) => {
+        expect(host).toBe("2606:4700:4700::1111");
+        return false;
+      },
+    );
+    expect(result).toBe("socks5://[2606:4700:4700::1111]:1080");
+  });
+
   test("HTTP: returns null when hostname is blocked (localhost)", async () => {
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
     expect(
@@ -785,6 +802,23 @@ describe("server/proxy – normalizeProxyUrl", () => {
     );
     expect(result).not.toBeNull();
     expect(result).toContain("external.example.com");
+  });
+
+  test("HTTP: accepts public IPv6 literals and probes with an unbracketed host", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    const result = await normalizeProxyUrl(
+      "http://[2606:4700:4700::1111]:8080",
+      async (host, port) => {
+        expect(host).toBe("2606:4700:4700::1111");
+        expect(port).toBe(8080);
+        return "http";
+      },
+      async (host) => {
+        expect(host).toBe("2606:4700:4700::1111");
+        return false;
+      },
+    );
+    expect(result).toBe("http://[2606:4700:4700::1111]:8080");
   });
 
   test("HTTP: probe says 'socks5' → returns socks5:// URL", async () => {
@@ -929,10 +963,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("returns explicit SOCKS URL when DNS check passes", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -947,10 +981,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("rejects SOCKS URL when DNS check finds blocked address", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -965,10 +999,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("rejects invalid protocol", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -983,10 +1017,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("rejects unparseable URL", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -1001,10 +1035,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("normalizes bare host:port to socks5 when detected", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -1019,10 +1053,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("normalizes bare host:port to http when detected as http", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -1037,10 +1071,10 @@ describe("proxy normalizeProxyUrl – SOCKS URL branches", () => {
   test("rejects http URL when DNS resolves to blocked", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { normalizeProxyUrl } = await import("@/lib/server/proxy");
@@ -1059,10 +1093,10 @@ describe("probeProxy – branch coverage", () => {
   test("returns false for unparseable URL", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { probeProxy } = await import("@/lib/server/proxy");
@@ -1072,10 +1106,10 @@ describe("probeProxy – branch coverage", () => {
   test("returns false for DNS-blocked hostname", async () => {
     mock.module("@/lib/logger", () => ({
       logger: {
-        error: () => {},
-        warn: () => {},
-        info: () => {},
         debug: () => {},
+        error: () => {},
+        info: () => {},
+        warn: () => {},
       },
     }));
     const { probeProxy } = await import("@/lib/server/proxy");

@@ -8,31 +8,31 @@ const HORIZONTAL_LOCK_RATIO = 0.45;
 const VERTICAL_LOCK_RATIO = 1.35;
 
 export interface SwipeState {
+  committed: boolean;
   offsetX: number;
   progress: number;
   swiping: boolean;
-  committed: boolean;
 }
 
 export const SWIPE_IDLE: SwipeState = {
+  committed: false,
   offsetX: 0,
   progress: 0,
   swiping: false,
-  committed: false,
 };
 
 export function useSwipeGesture(
-  direction: "right" | "left",
+  direction: "left" | "right",
   onCommit: () => void,
   disabled = false,
 ) {
   const [state, setState] = useState<SwipeState>(SWIPE_IDLE);
   const containerRef = useRef<HTMLElement>(null);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const startRef = useRef<null | { x: number; y: number }>(null);
   const lockedRef = useRef<"horizontal" | "vertical" | null>(null);
   const containerWidthRef = useRef(0);
   const committedRef = useRef(false);
-  const activePointerIdRef = useRef<number | null>(null);
+  const activePointerIdRef = useRef<null | number>(null);
   const hasCaptureRef = useRef(false);
   const disabledRef = useRef(disabled);
   const onCommitRef = useRef(onCommit);
@@ -107,7 +107,7 @@ export function useSwipeGesture(
       );
       const committed = progress >= SWIPE_THRESHOLD;
       committedRef.current = committed;
-      setState({ offsetX: clampedDx, progress, swiping: true, committed });
+      setState({ committed, offsetX: clampedDx, progress, swiping: true });
     };
 
     const handlePointerEnd = (e: PointerEvent) => {
@@ -129,8 +129,8 @@ export function useSwipeGesture(
 
     el.addEventListener("pointerdown", handlePointerDown, true);
     el.addEventListener("pointermove", handlePointerMove, {
-      passive: false,
       capture: true,
+      passive: false,
     });
     el.addEventListener("pointerup", handlePointerEnd, true);
     el.addEventListener("pointercancel", handlePointerCancel, true);
@@ -146,5 +146,5 @@ export function useSwipeGesture(
     };
   }, [isRight]);
 
-  return { swipeState: state, containerRef };
+  return { containerRef, swipeState: state };
 }
