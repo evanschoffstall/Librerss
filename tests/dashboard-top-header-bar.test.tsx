@@ -13,7 +13,7 @@ describe("DashboardTopHeaderBar", () => {
 
   afterEach(() => {
     mock.restore();
-    process.env.NODE_ENV = originalNodeEnv;
+    setNodeEnv(originalNodeEnv);
     Object.defineProperty(window.location, "reload", {
       configurable: true,
       value: originalLocationReload,
@@ -22,7 +22,7 @@ describe("DashboardTopHeaderBar", () => {
   });
 
   test("shows Reset controls only in development mode", async () => {
-    process.env.NODE_ENV = "development";
+    setNodeEnv("development");
 
     mockHeaderDependencies({
       clearClientOriginState: mock(async () => {}),
@@ -38,7 +38,7 @@ describe("DashboardTopHeaderBar", () => {
   });
 
   test("does not show Reset controls outside development mode", async () => {
-    process.env.NODE_ENV = "test";
+    setNodeEnv("test");
 
     mockHeaderDependencies({
       clearClientOriginState: mock(async () => {}),
@@ -54,7 +54,7 @@ describe("DashboardTopHeaderBar", () => {
   });
 
   test("reset clears client state and reloads without logging out", async () => {
-    process.env.NODE_ENV = "development";
+    setNodeEnv("development");
     const clearClientOriginState = mock(async () => {});
     const logout = mock(async () => {});
     const reload = mock(() => {});
@@ -80,6 +80,7 @@ describe("DashboardTopHeaderBar", () => {
   });
 });
 
+/** Installs module mocks for header-bar dependencies before importing the subject. */
 function mockHeaderDependencies(options: {
   clearClientOriginState: () => Promise<void>;
   logout: () => Promise<void>;
@@ -126,4 +127,13 @@ function mockHeaderDependencies(options: {
     useLocalStorage: <T,>(_key: string, defaultValue: T) =>
       React.useState(defaultValue),
   }));
+}
+
+/** Overrides NODE_ENV in tests without mutating its readonly TypeScript view. */
+function setNodeEnv(value: string | undefined) {
+  Object.defineProperty(process.env, "NODE_ENV", {
+    configurable: true,
+    value,
+    writable: true,
+  });
 }
