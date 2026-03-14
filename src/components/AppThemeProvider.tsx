@@ -21,6 +21,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       enableSystem
     >
       {children}
+      <NextDevToolsThemeBridge />
       <Suspense fallback={null}>
         <ThemeModeToggle />
       </Suspense>
@@ -29,6 +30,48 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       </Suspense>
     </ThemeProvider>
   );
+}
+
+/**
+ * Mirrors the resolved app theme onto the Next.js dev-tools portal host so the
+ * shadow-DOM error overlay follows the active light or dark mode in development.
+ */
+function NextDevToolsThemeBridge() {
+  const { resolvedTheme } = useTheme();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") {
+      return;
+    }
+
+    const activeTheme = resolvedTheme === "light" ? "light" : "dark";
+
+    const syncPortalTheme = () => {
+      for (const portal of document.querySelectorAll<HTMLElement>(
+        "nextjs-portal",
+      )) {
+        portal.classList.remove("dark", "light");
+        portal.classList.add(activeTheme);
+        portal.style.colorScheme = activeTheme;
+      }
+    };
+
+    syncPortalTheme();
+
+    const observer = new MutationObserver(() => {
+      syncPortalTheme();
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [resolvedTheme]);
+
+  return null;
 }
 
 /**
