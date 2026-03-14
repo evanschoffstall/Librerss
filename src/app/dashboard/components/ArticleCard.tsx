@@ -104,6 +104,7 @@ export const ArticleCard = memo(function ArticleCard({
 }: ArticleCardProps) {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
+  const [isGradientTracked, setIsGradientTracked] = useState(isExpanded);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [supportsNativeShare] = useState(
     () =>
@@ -141,7 +142,7 @@ export const ArticleCard = memo(function ArticleCard({
   const showSkeleton = phase === "loading";
   const showFullContent = phase === "revealing" || phase === "expanded";
   const shouldMeasureExpandedHeight =
-    isExpanded || showSkeleton || showFullContent;
+    !expandTransitionDone && (isExpanded || showSkeleton || showFullContent);
   const visuallyExpanded = phase === "expanded";
   const cardT =
     "var(--motion-duration-expand) var(--motion-ease-expand)" as const;
@@ -176,6 +177,15 @@ export const ArticleCard = memo(function ArticleCard({
   const headerZoneRef = useRef<HTMLDivElement | null>(null);
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
+
+  useEffect(() => {
+    if (isExpanded) {
+      setIsGradientTracked(true);
+      return;
+    }
+
+    setIsGradientTracked(false);
+  }, [isExpanded]);
 
   const isExpandedBodyTarget = useCallback(
     (target: EventTarget | null) =>
@@ -398,6 +408,10 @@ export const ArticleCard = memo(function ArticleCard({
   }, []);
 
   useEffect(() => {
+    if (!isGradientTracked) {
+      return;
+    }
+
     const a = articleRef.current;
     const h = headerZoneRef.current;
     const c = contentZoneRef.current;
@@ -413,10 +427,10 @@ export const ArticleCard = memo(function ArticleCard({
     return () => {
       resizeObserver?.disconnect();
     };
-  }, [measureGradient]);
+  }, [isGradientTracked, measureGradient]);
 
   const { ch, cw, cy, hy } = gradientCoords;
-  const gradientReady = cw > 0 && ch > 0;
+  const gradientReady = isGradientTracked && cw > 0 && ch > 0;
 
   const headerGradientStyle: React.CSSProperties = gradientReady
     ? { backgroundPosition: `0px -${hy}px`, backgroundSize: `${cw}px ${ch}px` }
@@ -528,6 +542,14 @@ export const ArticleCard = memo(function ArticleCard({
         data-article-key={articleKey}
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
+        onMouseEnter={() => {
+          setIsGradientTracked(true);
+        }}
+        onMouseLeave={() => {
+          if (!isExpanded) {
+            setIsGradientTracked(false);
+          }
+        }}
         onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
