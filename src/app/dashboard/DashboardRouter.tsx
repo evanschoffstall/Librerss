@@ -28,6 +28,7 @@ export function DashboardRouter({
   hasPreviewQuery,
   initialSession,
 }: DashboardRouterProps) {
+  const [hasHydratedClientState, setHasHydratedClientState] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(
     initialSession === undefined,
   );
@@ -55,6 +56,17 @@ export function DashboardRouter({
   );
 
   const isLightMode = (resolvedTheme ?? "dark") === "light";
+  const resolvedPreviewMode = hasHydratedClientState ? isPreviewMode : false;
+  const resolvedBackgroundMode = hasHydratedClientState
+    ? backgroundMode
+    : "particles";
+  const resolvedDistillStrategy = hasHydratedClientState
+    ? distillStrategy
+    : "custom";
+
+  useEffect(() => {
+    setHasHydratedClientState(true);
+  }, []);
 
   useEffect(() => {
     if (!hasPreviewQuery) {
@@ -114,7 +126,7 @@ export function DashboardRouter({
     return <DashboardShellSkeleton />;
   }
 
-  if (!currentUser && !isPreviewMode) {
+  if (!currentUser && !resolvedPreviewMode) {
     return (
       <main className="h-full overflow-hidden bg-background">
         <LoginView
@@ -129,13 +141,13 @@ export function DashboardRouter({
   return (
     <main className="relative h-full overflow-hidden bg-background">
       <ThemeNoticeDialog />
-      {backgroundMode === "particles" ? (
+      {resolvedBackgroundMode === "particles" ? (
         isLightMode ? (
           <ParticlesBackgroundLight />
         ) : (
           <ParticlesBackground />
         )
-      ) : backgroundMode === "stars" ? (
+      ) : resolvedBackgroundMode === "stars" ? (
         isLightMode ? (
           <StarsBackgroundLight />
         ) : (
@@ -144,11 +156,11 @@ export function DashboardRouter({
       ) : null}
       <div className="relative z-10 h-full">
         <DashboardView
-          backgroundMode={backgroundMode}
-          distillStrategy={distillStrategy}
+          backgroundMode={resolvedBackgroundMode}
+          distillStrategy={resolvedDistillStrategy}
           onBackgroundModeChange={setBackgroundMode}
           onDistillStrategyChange={setDistillStrategy}
-          usePlaceholderData={isPreviewMode || usePlaceholderData}
+          usePlaceholderData={resolvedPreviewMode || usePlaceholderData}
         />
       </div>
     </main>
