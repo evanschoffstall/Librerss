@@ -11,7 +11,18 @@ interface SavedScroll {
   t: number;
 }
 
-export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
+interface UseViewportRestoreResult {
+  capture: () => void;
+  flush: () => void;
+  invalidate: () => void;
+  ref: (rootNode: HTMLElement | null) => void;
+  settle: () => void;
+}
+
+export function useViewportRestore(
+  sessionKey: string,
+  scrollOffset = 0,
+): UseViewportRestoreResult {
   const viewportRef = useRef<HTMLElement | null>(null);
   const saveRafRef = useRef(0);
   const applyRafRef = useRef(0);
@@ -164,11 +175,21 @@ export function useViewportRestore(sessionKey: string, scrollOffset = 0) {
     requestAnimationFrame(restore);
   }, [restore, sessionKey]);
 
+  const flush = useCallback(() => {
+    const saved = pendingRef.current ?? readSavedScroll(sessionKey);
+    if (!saved) return;
+
+    pendingRef.current = saved;
+    restoreUntilRef.current = Date.now() + RESTORE_WINDOW_MS;
+    restore();
+    requestAnimationFrame(restore);
+  }, [restore, sessionKey]);
+
   const settle = useCallback(() => {
     stopRestore();
   }, [stopRestore]);
 
-  return { capture, invalidate, ref: attachRef, settle };
+  return { capture, flush, invalidate, ref: attachRef, settle };
 }
 
 function buildSavedScroll(
