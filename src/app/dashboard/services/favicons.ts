@@ -10,6 +10,7 @@ const MAX_FAVICON_CACHE_ENTRIES = 400;
 /** Retry failed favicon lookups after 24 hours */
 const FAVICON_FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
 let hasHydratedFaviconIndexCache = false;
+let hydratedFaviconIndexCachePayload: null | string = null;
 
 const canUseStorage = () => typeof window !== "undefined";
 
@@ -41,6 +42,8 @@ const persistFaviconIndexCache = () => {
       Object.fromEntries(faviconIndexCache.entries()),
     );
     window.localStorage.setItem(FAVICON_CACHE_STORAGE_KEY, payload);
+    hasHydratedFaviconIndexCache = true;
+    hydratedFaviconIndexCachePayload = payload;
   } catch {
     // Ignore storage write failures (private mode / quota / denied access).
   }
@@ -53,14 +56,23 @@ const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
 };
 
 const hydrateFaviconIndexCache = () => {
-  if (hasHydratedFaviconIndexCache || !canUseStorage()) {
+  if (!canUseStorage()) {
     return;
   }
 
-  hasHydratedFaviconIndexCache = true;
-
   try {
     const raw = window.localStorage.getItem(FAVICON_CACHE_STORAGE_KEY);
+    if (
+      hasHydratedFaviconIndexCache &&
+      raw === hydratedFaviconIndexCachePayload
+    ) {
+      return;
+    }
+
+    hasHydratedFaviconIndexCache = true;
+    hydratedFaviconIndexCachePayload = raw;
+    faviconIndexCache.clear();
+
     if (!raw) {
       return;
     }
@@ -100,6 +112,7 @@ const hydrateFaviconIndexCache = () => {
     trimFaviconIndexCache();
   } catch {
     // Ignore invalid cache payloads and fall back to an empty in-memory cache.
+    faviconIndexCache.clear();
   }
 };
 
