@@ -17,6 +17,10 @@ import {
 } from "../services/refresh-policy";
 
 import {
+  DEFAULT_ARTICLE_PAGE_SIZE,
+  normalizeArticlePageSize,
+} from "@/app/dashboard/services/page-size";
+import {
   type Article,
   type CategoryTreeNode,
   useLocalStorage,
@@ -28,7 +32,7 @@ import { clientFeedCacheTtlMinutes } from "@/lib/config";
  * Owns the dashboard's local and persisted state buckets.
  *
  * This hook is the single source of truth for feed data, selection state,
- * settings modal visibility, sidebar state, and incremental rendering controls.
+ * settings modal visibility, sidebar state, and virtualized feed controls.
  * It deliberately mixes plain React state with local/session-backed state so
  * user preferences persist while volatile UI state resets appropriately.
  *
@@ -83,11 +87,12 @@ export function useDashboardViewState() {
     "librerss:articleFilter",
     "unread",
   );
-  /** Persisted page size controlling incremental feed list growth. */
-  const [pageSize, setPageSize] = useLocalStorage<number>(
+  /** Persisted page size tuning the feed list's initial and preloaded virtual window. */
+  const [storedPageSize, setStoredPageSize] = useLocalStorage<number>(
     "librerss:pageSize",
-    25,
+    DEFAULT_ARTICLE_PAGE_SIZE,
   );
+  const pageSize = normalizeArticlePageSize(storedPageSize);
   /** Persisted preference for rendering feed favicons in the UI. */
   const [showFavicons, setShowFavicons] = useLocalStorage<boolean>(
     "librerss:showFavicons",
@@ -104,6 +109,25 @@ export function useDashboardViewState() {
   const autoRefreshIntervalMinutes = normalizeAutoRefreshIntervalMinutes(
     storedAutoRefreshIntervalMinutes,
     defaultAutoRefreshIntervalMinutes,
+  );
+
+  useEffect(() => {
+    if (storedPageSize !== pageSize) {
+      setStoredPageSize(pageSize);
+    }
+  }, [pageSize, setStoredPageSize, storedPageSize]);
+
+  const setPageSize = useCallback(
+    (value: SetStateAction<number>) => {
+      setStoredPageSize((currentValue) => {
+        const normalizedCurrent = normalizeArticlePageSize(currentValue);
+        const nextValue =
+          typeof value === "function" ? value(normalizedCurrent) : value;
+
+        return normalizeArticlePageSize(nextValue);
+      });
+    },
+    [setStoredPageSize],
   );
 
   useEffect(() => {

@@ -8,6 +8,7 @@ import {
   normalizeAutoRefreshIntervalMinutes,
 } from "../../services/refresh-policy";
 
+import { ARTICLE_PAGE_SIZE_OPTIONS } from "@/app/dashboard/services/page-size";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -86,9 +87,11 @@ export function SettingsDisplaySection({
               <SelectValue placeholder="Select amount" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="10">10 articles</SelectItem>
-              <SelectItem value="25">25 articles</SelectItem>
-              <SelectItem value="50">50 articles</SelectItem>
+              {ARTICLE_PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size} articles
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
