@@ -66,6 +66,7 @@ export function useFeedVisibilityObserver({
       Math.round((viewport?.clientHeight ?? 0) * PRELOAD_VIEWPORT_RATIO),
     );
     let intersectionObserver: IntersectionObserver | null = null;
+    let mutationTarget: Element | null = null;
     let observedSentinel: Element | null = null;
     let scheduledFrame: null | number = null;
 
@@ -129,6 +130,34 @@ export function useFeedVisibilityObserver({
       return true;
     };
 
+    /**
+     * Restricts DOM observation to the feed list container that owns the
+     * sentinel instead of the entire article subtree.
+     *
+     * A subtree-wide observer scales with every article-level DOM mutation and
+     * can starve touch and wheel handling once the list grows large. We only
+     * need to notice structural swaps around the sentinel itself.
+     */
+    const connectMutationObserver = (
+      mutationObserver: MutationObserver | null,
+    ) => {
+      if (!mutationObserver) return;
+
+      const viewportFirstChild = viewport?.firstElementChild;
+      const nextTarget =
+        sentinelRef.current?.parentElement ??
+        (viewportFirstChild instanceof HTMLElement
+          ? viewportFirstChild.firstElementChild
+          : null) ??
+        viewportFirstChild ??
+        scrollRoot;
+      if (mutationTarget === nextTarget) return;
+
+      mutationObserver.disconnect();
+      mutationObserver.observe(nextTarget, { childList: true });
+      mutationTarget = nextTarget;
+    };
+
     // Feed list mutations can replace the sentinel without changing the hook's
     // dependencies. Watching the scroll tree lets the observer reconnect to the
     // new node immediately after React commits the updated list.
@@ -136,14 +165,11 @@ export function useFeedVisibilityObserver({
       typeof MutationObserver === "undefined"
         ? null
         : new MutationObserver(() => {
+            connectMutationObserver(mutationObserver);
             connectObserver();
           });
 
-    mutationObserver?.observe(scrollRoot, {
-      childList: true,
-      subtree: true,
-    });
-
+    connectMutationObserver(mutationObserver);
     connectObserver();
 
     return () => {
