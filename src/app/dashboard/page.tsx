@@ -11,6 +11,7 @@ import {
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import type { AuthSession } from "@/lib/core/types";
 
+/** Resolves the dashboard route shell and authenticated session state. */
 export default async function Dashboard(props: PageProps<"/dashboard">) {
   const [initialSession, resolvedSearchParams] = await Promise.all([
     getInitialSession(),
@@ -32,6 +33,7 @@ export default async function Dashboard(props: PageProps<"/dashboard">) {
   );
 }
 
+/** Builds an anonymous dashboard session snapshot from runtime flags alone. */
 function buildAnonymousSession(): AuthSession {
   return {
     allowSignup: RUNTIME_FLAGS.allowSignup,
@@ -41,6 +43,12 @@ function buildAnonymousSession(): AuthSession {
   };
 }
 
+/**
+ * Resolves the initial dashboard session using the session cookie when present.
+ *
+ * Falling back to an anonymous snapshot keeps the route shell stable for both
+ * unauthenticated users and invalid/expired sessions.
+ */
 async function getInitialSession(): Promise<AuthSession> {
   const sessionToken = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!sessionToken) {
@@ -64,6 +72,7 @@ async function getInitialSession(): Promise<AuthSession> {
   }
 }
 
+/** Normalizes a Next.js search-param value to its first scalar entry. */
 function getSearchParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
