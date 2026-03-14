@@ -192,8 +192,10 @@ export function useDashboardViewController({
 
   const {
     collapsingArticleKey,
+    collapsingArticleMode,
     handleArticleToggle,
     handleExpandedSwipeRead,
+    handleSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
     hydratedArticleLinks,
@@ -236,6 +238,10 @@ export function useDashboardViewController({
     },
     [handleExpandedSwipeRead],
   );
+  const onArticleSwipeRead = useCallback(
+    (article: Article) => void handleSwipeRead(article),
+    [handleSwipeRead],
+  );
   const onArticleToggleStarred = useCallback(
     (article: Article) => void handleToggleStarredState(article),
     [handleToggleStarredState],
@@ -264,6 +270,7 @@ export function useDashboardViewController({
     [
       categories,
       collapsingArticleKey,
+      collapsingArticleMode,
       customCategoryLabels,
       deferredArticleFilter,
       deferredSearchTerm,
@@ -520,6 +527,8 @@ export function useDashboardViewController({
    */
   return {
     feedList: {
+      collapsingArticleKey,
+      collapsingArticleMode,
       expandedArticleKey,
       feedWrapperRef,
       filteredFeed,
@@ -530,6 +539,7 @@ export function useDashboardViewController({
       isRefreshing: isFeedListRefreshing,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
+      onArticleSwipeRead,
       onArticleToggle,
       onArticleToggleRead,
       onArticleToggleStarred,

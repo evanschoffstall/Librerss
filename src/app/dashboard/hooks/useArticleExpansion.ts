@@ -2,8 +2,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-// collapsed → loading (hydrating) → revealing (one-frame FLIP) → expanded → collapsed
-type ExpansionPhase = "collapsed" | "expanded" | "loading" | "revealing";
+// collapsed → loading (hydrating) → revealing (one-frame FLIP) → expanded → collapsing → collapsed
+type ExpansionPhase =
+  | "collapsed"
+  | "collapsing"
+  | "expanded"
+  | "loading"
+  | "revealing";
 
 /**
  * State machine for article card expand/collapse.
@@ -12,7 +17,9 @@ type ExpansionPhase = "collapsed" | "expanded" | "loading" | "revealing";
  *   "revealing" gives the browser one frame to paint full content at
  *   collapsed height before triggering the CSS max-height transition.
  *
- * Collapse: expanded → collapsed (instant, no transition).
+ * Collapse: expanded → collapsing → collapsed
+ *   "collapsing" preserves the expanded-height layout for one frame so the
+ *   compact preview can animate closed instead of snapping away.
  */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
@@ -28,11 +35,17 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
         setPhase("loading");
       } else {
         setPhase((cur) =>
-          cur === "loading" || cur === "collapsed" ? "revealing" : cur,
+          cur === "collapsed" || cur === "collapsing" || cur === "loading"
+            ? "revealing"
+            : cur,
         );
       }
     } else {
-      setPhase("collapsed");
+      setPhase((cur) =>
+        cur === "expanded" || cur === "loading" || cur === "revealing"
+          ? "collapsing"
+          : "collapsed",
+      );
       setExpandTransitionDone(false);
     }
   }, [isExpanded, isHydrating]);
@@ -43,6 +56,16 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
     if (phase !== "revealing") return;
     const id = requestAnimationFrame(() => {
       setPhase("expanded");
+    });
+    return () => {
+      cancelAnimationFrame(id);
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "collapsing") return;
+    const id = requestAnimationFrame(() => {
+      setPhase("collapsed");
     });
     return () => {
       cancelAnimationFrame(id);
