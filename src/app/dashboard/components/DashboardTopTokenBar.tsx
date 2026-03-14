@@ -10,6 +10,7 @@ import {
 
 import { Skeleton } from "@/components/ui/skeleton";
 
+/** Presentation props for the dashboard token bar controls and refresh status. */
 interface DashboardTopTokenBarProps {
   articleFilter: ArticleFilter;
   lastRefreshLabel: string;
@@ -52,7 +53,9 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
                   aria-live="polite"
                   className="ml-auto flex select-none items-center gap-1.5 whitespace-nowrap text-right text-[11px] text-muted-foreground/50"
                 >
-                  <RefreshCw className="size-2.5 shrink-0" />
+                  <RefreshCw
+                    className={`size-2.5 shrink-0 ${loading ? "animate-spin" : ""}`}
+                  />
                   {loading ? (
                     <Skeleton
                       aria-label="Refreshing"

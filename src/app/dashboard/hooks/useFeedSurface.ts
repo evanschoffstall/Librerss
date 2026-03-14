@@ -33,7 +33,6 @@ interface PullState {
   pulling: boolean;
   readyToRefresh: boolean;
 }
-
 type ScrollLockTarget = false | number;
 
 const IDLE: PullState = { pulling: false, readyToRefresh: false };
@@ -70,6 +69,7 @@ export function useFeedPullRefresh(
   const touchPullActiveRef = useRef(false);
   const touchPullEligibleRef = useRef(false);
   const wheelActiveRef = useRef(false);
+  const pendingWheelScrollEndRef = useRef(false);
   const pullingRef = useRef(false);
   const holdingRef = useRef(false);
   const committedRef = useRef(false);
@@ -111,6 +111,7 @@ export function useFeedPullRefresh(
       touchPullActiveRef.current = false;
       touchPullEligibleRef.current = false;
       wheelActiveRef.current = false;
+      pendingWheelScrollEndRef.current = false;
       pullingRef.current = false;
       holdingRef.current = false;
       committedRef.current = false;
@@ -205,7 +206,8 @@ export function useFeedPullRefresh(
         if (hasActiveLock() || touchActiveRef.current || holdingRef.current) {
           return;
         }
-        if (pullingRef.current || committedRef.current) {
+        if (pendingWheelScrollEndRef.current) {
+          pendingWheelScrollEndRef.current = false;
           commitOrReset();
         }
       }, WHEEL_SETTLE_MS);
@@ -272,6 +274,7 @@ export function useFeedPullRefresh(
       touchPullActiveRef.current = false;
       touchPullEligibleRef.current =
         viewport.scrollTop <= FEED_PULL_OFFSET + PULL_BUFFER;
+      pendingWheelScrollEndRef.current = false;
       clearTimeout(holdTimerRef.current);
       clearTimeout(wheelTimerRef.current);
       clearTimeout(releaseTimerRef.current);
@@ -286,6 +289,7 @@ export function useFeedPullRefresh(
     const handleWheel = () => {
       if (hasActiveLock()) return;
       wheelActiveRef.current = true;
+      pendingWheelScrollEndRef.current = false;
       scheduleWheelSettle();
     };
 
@@ -312,7 +316,10 @@ export function useFeedPullRefresh(
 
     const handleScrollEnd = () => {
       if (hasActiveLock()) return;
-      if (wheelActiveRef.current) return;
+      if (wheelActiveRef.current) {
+        pendingWheelScrollEndRef.current = true;
+        return;
+      }
       if (!pullingRef.current && !committedRef.current) return;
       if (!touchActiveRef.current && !holdingRef.current) commitOrReset();
     };
