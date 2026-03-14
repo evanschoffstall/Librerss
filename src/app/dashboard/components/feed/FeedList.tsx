@@ -279,26 +279,44 @@ export const FeedList = memo(function FeedList({
         <DashboardFeedListSkeleton />
       ) : filteredFeed.length === 0 ? (
         <div
-          className="mx-auto flex w-full max-w-3xl items-center justify-center px-4 py-20 sm:py-32 lg:max-w-none lg:px-6 lg:py-40 anim-fade-in-load-slow"
+          className="
+            anim-fade-in-load-slow mx-auto flex w-full max-w-3xl items-center
+            justify-center px-4 py-20
+            sm:py-32
+            lg:max-w-none lg:px-6 lg:py-40
+          "
           key="feed-empty"
         >
           <div
-            className="flex flex-col items-center gap-6 text-center anim-fade-in-load-slow"
+            className="
+              anim-fade-in-load-slow flex flex-col items-center gap-6
+              text-center
+            "
             key={searchTerm ? "empty-search" : "empty-default"}
           >
             {/* Icon with double-ring halo */}
             <div className="relative flex items-center justify-center">
               {/* Outer glow ring */}
               <div
-                className={`absolute size-36 rounded-full blur-2xl opacity-15 ${searchTerm ? "bg-muted-foreground" : "bg-emerald-500"}`}
+                className={`
+                  absolute size-36 rounded-full opacity-15 blur-2xl
+                  ${searchTerm ? `bg-muted-foreground` : `bg-emerald-500`}
+                `}
               />
               {/* Outer decorative ring */}
               <div
-                className={`absolute size-28 rounded-full border ${searchTerm ? "border-border/40" : "border-emerald-500/10"}`}
+                className={`
+                  absolute size-28 rounded-full border
+                  ${searchTerm ? `border-border/40` : `border-emerald-500/10`}
+                `}
               />
               {/* Icon card */}
               <div
-                className={`relative flex size-20 items-center justify-center rounded-2xl border bg-card/70 shadow-md backdrop-blur-sm ${searchTerm ? "border-border" : "border-emerald-500/25"}`}
+                className={`
+                  relative flex size-20 items-center justify-center rounded-2xl
+                  border bg-card/70 shadow-md backdrop-blur-sm
+                  ${searchTerm ? `border-border` : `border-emerald-500/25`}
+                `}
               >
                 {searchTerm ? (
                   <SearchX
@@ -315,19 +333,29 @@ export const FeedList = memo(function FeedList({
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold tracking-tight text-foreground">
+              <h3 className="
+                text-xl font-semibold tracking-tight text-foreground
+              ">
                 {searchTerm ? "No results" : "You\u2019re up to date"}
               </h3>
               {searchTerm ? (
-                <div className="flex flex-col items-center gap-0.5 max-w-[16rem] text-sm leading-relaxed text-muted-foreground">
+                <div className="
+                  flex max-w-[16rem] flex-col items-center gap-0.5
+                  text-sm/relaxed text-muted-foreground
+                ">
                   <span>Nothing matched</span>
-                  <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground/80 max-w-full truncate">
+                  <span className="
+                    max-w-full truncate rounded-sm border border-border bg-muted
+                    px-1.5 py-0.5 font-mono text-xs text-foreground/80
+                  ">
                     {searchTerm}
                   </span>
                   <span>Try a different term.</span>
                 </div>
               ) : (
-                <p className="max-w-[16rem] text-sm leading-relaxed text-muted-foreground">
+                <p className="
+                  max-w-[16rem] text-sm/relaxed text-muted-foreground
+                ">
                   Check back later or pull for fresh articles.
                 </p>
               )}
@@ -350,7 +378,10 @@ export const FeedList = memo(function FeedList({
               itemContent={(_, article) => renderArticleCard(article)}
             />
           ) : (
-            <div className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3">
+            <div className="
+              relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1
+              lg:max-w-none lg:px-3
+            ">
               {visibleFeed.map((article) =>
                 renderArticleCard(article, getArticleKey(article)),
               )}

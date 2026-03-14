@@ -33,20 +33,33 @@ export const FeedCategory = memo(function FeedCategory({
 
   return (
     <button
-      className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border-l-2 px-2 py-2 text-left transition-colors ${
+      className={`
+        flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg
+        border-l-2 p-2 text-left transition-colors
+        ${
         isActive
           ? "border-primary/60 bg-muted/70 text-foreground"
-          : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-      }`}
+          : `
+            border-transparent text-muted-foreground
+            hover:bg-muted/40 hover:text-foreground
+          `
+      }
+      `}
       onClick={() => {
         onClick(category);
       }}
     >
       <div className="min-w-0">
-        <p className="font-sans text-[0.93rem] font-medium leading-[1.35] tracking-[-0.005em]">
+        <p className="
+          font-sans text-[0.93rem] leading-[1.35] font-medium
+          tracking-[-0.005em]
+        ">
           {category.label}
         </p>
-        <p className="truncate font-sans text-xs leading-5 tracking-[-0.004em] text-muted-foreground/65">
+        <p className="
+          truncate font-sans text-xs/5 tracking-[-0.004em]
+          text-muted-foreground/65
+        ">
           {getUrlHostnameLabel(category.data?.url)}
         </p>
       </div>
@@ -72,7 +85,10 @@ export const FeedCategory = memo(function FeedCategory({
       ) : (
         <span
           aria-hidden="true"
-          className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full"
+          className="
+            inline-flex size-3.5 shrink-0 items-center justify-center
+            rounded-full
+          "
           style={{ backgroundColor: faviconTint.background }}
         >
           <Globe

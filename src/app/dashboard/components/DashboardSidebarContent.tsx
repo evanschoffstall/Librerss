@@ -34,8 +34,13 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
       ) : (
         <div className={sidebarPanelCls} key="sidebar-content">
           {sidebarCategories.length === 0 ? (
-            <div className="flex flex-col items-center gap-2.5 px-2 py-10 text-center">
-              <div className="flex size-9 items-center justify-center rounded-lg border border-border/30 bg-card/50">
+            <div className="
+              flex flex-col items-center gap-2.5 px-2 py-10 text-center
+            ">
+              <div className="
+                flex size-9 items-center justify-center rounded-lg border
+                border-border/30 bg-card/50
+              ">
                 <Rss
                   className="size-4 text-muted-foreground/40"
                   strokeWidth={1.5}
@@ -46,9 +51,13 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
           ) : (
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
               <div
-                className={`space-y-0.5 anim-fade-in-load-slow transition-opacity anim-duration-ui anim-ease-ui ${
+                className={`
+                  anim-fade-in-load-slow anim-duration-ui anim-ease-ui
+                  space-y-0.5 transition-opacity
+                  ${
                   isSidebarVisible ? "opacity-100" : "opacity-0"
-                }`}
+                }
+                `}
                 key={categoryNode.key}
                 style={{
                   animationDelay: `${index * 35}ms`,
@@ -57,11 +66,19 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
               >
                 <div className="px-1.5">
                   <button
-                    className={`w-full cursor-pointer rounded px-1.5 py-1 text-left font-sans text-[0.65rem] font-semibold uppercase tracking-[0.07em] transition-colors ${
+                    className={`
+                      w-full cursor-pointer rounded-sm px-1.5 py-1 text-left
+                      font-sans text-[0.65rem] font-semibold tracking-[0.07em]
+                      uppercase transition-colors
+                      ${
                       selectedCategory === categoryNode.key
                         ? "bg-muted/60 text-foreground"
-                        : "text-muted-foreground/65 hover:bg-muted/30 hover:text-foreground"
-                    }`}
+                        : `
+                          text-muted-foreground/65
+                          hover:bg-muted/30 hover:text-foreground
+                        `
+                    }
+                    `}
                     onClick={() => {
                       onCategoryClick(categoryNode);
                     }}

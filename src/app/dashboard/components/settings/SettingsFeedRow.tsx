@@ -126,7 +126,11 @@ export function SettingsFeedRow({
 
   return (
     <div
-      className={`relative flex items-center gap-2 rounded-md border px-3 py-2 ${animTransitionColorsClass}${isDeleting ? " border-destructive/30 opacity-50" : ""}`}
+      className={`
+        relative flex items-center gap-2 rounded-md border px-3 py-2
+        ${animTransitionColorsClass}
+        ${isDeleting ? `border-destructive/30 opacity-50` : ""}
+      `}
       onDragOver={(event) => {
         const targetIndex = resolveTargetIndexFromPointer(event);
         onDragOver(event, categoryLabel, targetIndex);
@@ -142,10 +146,16 @@ export function SettingsFeedRow({
       }}
     >
       {draggingFeedKey && isDropBefore ? (
-        <div className="pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded bg-primary" />
+        <div className="
+          pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded-sm
+          bg-primary
+        " />
       ) : null}
       {draggingFeedKey && isDropAfter ? (
-        <div className="pointer-events-none absolute inset-x-2 bottom-0 h-0.5 rounded bg-primary" />
+        <div className="
+          pointer-events-none absolute inset-x-2 bottom-0 h-0.5 rounded-sm
+          bg-primary
+        " />
       ) : null}
 
       <button
@@ -215,10 +225,18 @@ export function SettingsFeedRow({
         </div>
       ) : (
         <div
-          className={`min-w-0 flex-1 ${movingFeedKey === feedNode.key || !isEnabled ? "opacity-60" : ""}`}
+          className={`
+            min-w-0 flex-1
+            ${movingFeedKey === feedNode.key || !isEnabled ? `opacity-60` : ""}
+          `}
         >
           <p
-            className={`cursor-pointer truncate text-sm ${selectedCategory === feedNode.key ? "font-medium text-foreground" : "text-foreground/80"}`}
+            className={`
+              cursor-pointer truncate text-sm
+              ${selectedCategory === feedNode.key ? `
+                font-medium text-foreground
+              ` : `text-foreground/80`}
+            `}
             onDoubleClick={(event) => {
               event.stopPropagation();
               onStartEditing(
@@ -233,7 +251,10 @@ export function SettingsFeedRow({
           </p>
           {feedNode.data?.url && (
             <p
-              className="cursor-text truncate select-text text-xs text-muted-foreground/70"
+              className="
+                cursor-text truncate text-xs text-muted-foreground/70
+                select-text
+              "
               onDoubleClick={(event) => {
                 event.stopPropagation();
                 onStartEditing(
@@ -306,7 +327,10 @@ export function SettingsFeedRow({
         </SettingsIconButton>
         <div className="mx-0.5 h-4 w-px bg-border/40" />
         <SettingsIconButton
-          className="text-muted-foreground hover:text-destructive"
+          className="
+            text-muted-foreground
+            hover:text-destructive
+          "
           disabled={isDeleting || isDragging || isTogglingEnabled}
           onClick={() => {
             onRemove(feedNode.key);

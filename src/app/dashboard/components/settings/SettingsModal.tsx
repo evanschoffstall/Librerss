@@ -68,8 +68,14 @@ const DEMO_OVERLAY_LABEL = "Not available in demo mode";
 
 function DemoOverlay() {
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[2px]">
-      <span className="rounded-md border bg-card px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm">
+    <div className="
+      pointer-events-none absolute inset-0 z-10 flex items-center justify-center
+      rounded-lg bg-background/60 backdrop-blur-[2px]
+    ">
+      <span className="
+        rounded-md border bg-card px-2.5 py-1 text-[11px] text-muted-foreground
+        shadow-sm
+      ">
         {DEMO_OVERLAY_LABEL}
       </span>
     </div>
@@ -298,8 +304,12 @@ export const SettingsModal = ({
               {TITLE}
             </DrawerTitle>
             <DrawerDescription>{DESCRIPTION}</DrawerDescription>
-            <DrawerClose className="absolute right-4 top-4 cursor-pointer rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
-              <X className="h-4 w-4" />
+            <DrawerClose className="
+              absolute top-4 right-4 cursor-pointer rounded-sm opacity-70
+              ring-offset-background transition-opacity
+              hover:opacity-100
+            ">
+              <X className="size-4" />
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
@@ -313,7 +323,9 @@ export const SettingsModal = ({
 
   return (
     <Dialog onOpenChange={handleModalOpenChange} open>
-      <DialogContent className="h-[90vh] max-h-[90vh] max-w-3xl overflow-hidden flex flex-col">
+      <DialogContent className="
+        flex h-[90vh] max-h-[90vh] max-w-3xl flex-col overflow-hidden
+      ">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="size-4 shrink-0 text-muted-foreground" />

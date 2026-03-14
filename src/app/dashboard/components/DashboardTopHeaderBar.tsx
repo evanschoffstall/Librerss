@@ -179,11 +179,22 @@ export function DashboardTopHeaderBar() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 pointer-events-auto border-b border-border/50 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] md:px-6">
+    <div className="
+      pointer-events-auto fixed inset-x-0 top-0 z-50 border-b border-border/50
+      bg-background/80 backdrop-blur-md
+    ">
+      <div className="
+        mx-auto flex h-14 max-w-6xl items-center gap-4 px-4
+        pr-[max(1rem,env(safe-area-inset-right))]
+        pl-[max(1rem,env(safe-area-inset-left))]
+        md:px-6
+      ">
         <button
           aria-label="Open feeds"
-          className={`${toolbarBtnClass} lg:hidden`}
+          className={`
+            ${toolbarBtnClass}
+            lg:hidden
+          `}
           onClick={() =>
             window.dispatchEvent(
               new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR),
@@ -191,24 +202,37 @@ export function DashboardTopHeaderBar() {
           }
           type="button"
         >
-          <Menu className="h-4 w-4" />
+          <Menu className="size-4" />
         </button>
 
-        <h1 className="flex min-w-0 select-none items-center gap-2 text-lg font-semibold tracking-tight">
-          <img alt="LibreRSS logo" className="h-5 w-5" src="/favicon.svg" />
+        <h1 className="
+          flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight
+          select-none
+        ">
+          <img alt="LibreRSS logo" className="size-5" src="/favicon.svg" />
           <span className="truncate">{title}</span>
         </h1>
 
         <div className="relative min-w-0 flex-1">
           {isSearchPending ? (
-            <Loader2 className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground/60" />
+            <Loader2 className="
+              pointer-events-none absolute top-1/2 left-3 size-3.5
+              -translate-y-1/2 animate-spin text-muted-foreground/60
+            " />
           ) : (
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/40" />
+            <Search className="
+              pointer-events-none absolute top-1/2 left-3 size-3.5
+              -translate-y-1/2 text-muted-foreground/40
+            " />
           )}
           <Input
-            className={`h-9 border-transparent pl-9 text-sm focus-visible:bg-background ${
+            className={`
+              h-9 border-transparent pl-9 text-sm
+              focus-visible:bg-background
+              ${
               isSearchPending ? "bg-muted/45" : "bg-muted/30"
-            }`}
+            }
+            `}
             onChange={(e) => {
               handleSearchChange(e.target.value);
             }}
@@ -221,10 +245,14 @@ export function DashboardTopHeaderBar() {
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Open actions menu"
-              className={`${toolbarBtnClass} shrink-0 md:hidden`}
+              className={`
+                ${toolbarBtnClass}
+                shrink-0
+                md:hidden
+              `}
               type="button"
             >
-              <EllipsisVertical className="h-4 w-4" />
+              <EllipsisVertical className="size-4" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={8}>
@@ -233,7 +261,7 @@ export function DashboardTopHeaderBar() {
                 window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
               }
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="size-4" />
               Refresh selected feed
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -244,7 +272,7 @@ export function DashboardTopHeaderBar() {
                 )
               }
             >
-              <CheckCheck className="h-4 w-4" />
+              <CheckCheck className="size-4" />
               Mark all read
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -254,7 +282,7 @@ export function DashboardTopHeaderBar() {
                 )
               }
             >
-              <Settings2 className="h-4 w-4" />
+              <Settings2 className="size-4" />
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -264,9 +292,9 @@ export function DashboardTopHeaderBar() {
               }}
             >
               {mounted && isDark ? (
-                <Sun className="h-4 w-4" />
+                <Sun className="size-4" />
               ) : (
-                <Moon className="h-4 w-4" />
+                <Moon className="size-4" />
               )}
               {themeToggleLabel}
             </DropdownMenuItem>
@@ -275,7 +303,7 @@ export function DashboardTopHeaderBar() {
                 disabled={isResetting}
                 onSelect={() => void handleReset()}
               >
-                <RotateCcw className="h-4 w-4" />
+                <RotateCcw className="size-4" />
                 Reset
               </DropdownMenuItem>
             )}
@@ -283,13 +311,16 @@ export function DashboardTopHeaderBar() {
               disabled={isResetting || isSigningOut}
               onSelect={() => void handleSignOut()}
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="size-4" />
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="hidden items-center gap-4 md:flex">
+        <div className="
+          hidden items-center gap-4
+          md:flex
+        ">
           <button
             aria-label="Refresh selected feed"
             className={toolbarBtnClass}
@@ -298,12 +329,15 @@ export function DashboardTopHeaderBar() {
             }
             type="button"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="size-4" />
           </button>
 
           <button
             aria-label="Mark all read"
-            className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-70`}
+            className={`
+              ${toolbarBtnClass}
+              disabled:cursor-not-allowed disabled:opacity-70
+            `}
             disabled={isMarkingAllRead}
             onClick={() =>
               window.dispatchEvent(
@@ -313,9 +347,9 @@ export function DashboardTopHeaderBar() {
             type="button"
           >
             {isMarkingAllRead ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <CheckCheck className="h-4 w-4" />
+              <CheckCheck className="size-4" />
             )}
           </button>
 
@@ -329,28 +363,34 @@ export function DashboardTopHeaderBar() {
             }
             type="button"
           >
-            <Settings2 className="h-4 w-4" />
+            <Settings2 className="size-4" />
           </button>
 
           <button
             aria-label="Sign out"
-            className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-60`}
+            className={`
+              ${toolbarBtnClass}
+              disabled:cursor-not-allowed disabled:opacity-60
+            `}
             disabled={isResetting || isSigningOut}
             onClick={() => void handleSignOut()}
             type="button"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="size-4" />
           </button>
 
           {isDevelopmentMode && (
             <button
               aria-label="Reset app state"
-              className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`
+                ${toolbarBtnClass}
+                disabled:cursor-not-allowed disabled:opacity-60
+              `}
               disabled={isResetting}
               onClick={() => void handleReset()}
               type="button"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="size-4" />
             </button>
           )}
 
@@ -365,9 +405,9 @@ export function DashboardTopHeaderBar() {
             type="button"
           >
             {mounted && isDark ? (
-              <Sun className="h-4 w-4" />
+              <Sun className="size-4" />
             ) : (
-              <Moon className="h-4 w-4" />
+              <Moon className="size-4" />
             )}
           </button>
         </div>

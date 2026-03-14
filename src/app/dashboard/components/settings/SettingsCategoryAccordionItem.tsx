@@ -143,7 +143,10 @@ export function SettingsCategoryAccordionItem({
     <div
       className={
         categoryDropIndex === categoryIndex
-          ? `rounded-md border border-primary bg-primary/5 ${animTransitionColorsClass}`
+          ? `
+            rounded-md border border-primary bg-primary/5
+            ${animTransitionColorsClass}
+          `
           : animTransitionColorsClass
       }
       onDragOver={(event) => {
@@ -214,7 +217,11 @@ export function SettingsCategoryAccordionItem({
               </Button>
             </div>
           ) : (
-            <AccordionTrigger className="flex-1 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground/70 hover:no-underline">
+            <AccordionTrigger className="
+              flex-1 py-2.5 text-xs font-medium tracking-wide
+              text-muted-foreground/70 uppercase
+              hover:no-underline
+            ">
               <span
                 className="flex cursor-pointer items-center gap-2"
                 onDoubleClick={(event) => {
@@ -225,7 +232,11 @@ export function SettingsCategoryAccordionItem({
               >
                 {categoryNode.label}
                 {categoryFeeds.length > 0 && (
-                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] leading-none tabular-nums font-normal normal-case tracking-normal text-muted-foreground/60">
+                  <span className="
+                    rounded-full bg-muted px-1.5 py-0.5 text-[10px] leading-none
+                    font-normal tracking-normal text-muted-foreground/60
+                    normal-case tabular-nums
+                  ">
                     {categoryFeeds.length}
                   </span>
                 )}
@@ -247,8 +258,14 @@ export function SettingsCategoryAccordionItem({
               <SettingsIconButton
                 className={
                   isPendingRemoval
-                    ? "bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive"
-                    : "text-muted-foreground hover:text-destructive"
+                    ? `
+                      bg-destructive/10 text-destructive
+                      hover:bg-destructive/20 hover:text-destructive
+                    `
+                    : `
+                      text-muted-foreground
+                      hover:text-destructive
+                    `
                 }
                 onClick={() => {
                   onRemoveCategory(categoryNode.label);
@@ -268,7 +285,10 @@ export function SettingsCategoryAccordionItem({
         <AccordionContent className="px-3 pb-3">
           {isAddingFeed && (
             <div
-              className={`mb-2 space-y-2 rounded-md border border-dashed p-2.5 ${animTransitionColorsClass}`}
+              className={`
+                mb-2 space-y-2 rounded-md border border-dashed p-2.5
+                ${animTransitionColorsClass}
+              `}
             >
               <div className="flex gap-2">
                 <Input
@@ -281,7 +301,7 @@ export function SettingsCategoryAccordionItem({
                   value={newFeedName}
                 />
                 <Input
-                  className="h-8 flex-[2] text-sm"
+                  className="h-8 flex-2 text-sm"
                   onChange={(e) => {
                     onNewFeedUrlChange(e.target.value);
                   }}
@@ -331,12 +351,16 @@ export function SettingsCategoryAccordionItem({
 
           {categoryFeeds.length === 0 && !isAddingFeed ? (
             <div
-              className={`rounded-md border border-dashed px-3 py-4 text-center text-xs transition-colors ${
+              className={`
+                rounded-md border border-dashed px-3 py-4 text-center text-xs
+                transition-colors
+                ${
                 feedDropTarget?.categoryLabel === categoryNode.label &&
                 feedDropTarget.index === 0
                   ? "border-primary bg-primary/5 text-foreground"
                   : "border-border/50 text-muted-foreground/60"
-              }`}
+              }
+              `}
               onDragOver={(event) => {
                 onFeedDragOver(event, categoryNode.label, 0);
               }}

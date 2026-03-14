@@ -114,7 +114,10 @@ export function SettingsCategoryList({
             aria-hidden="true"
             className="absolute size-16 rounded-xl border border-border/15"
           />
-          <div className="relative flex size-10 items-center justify-center rounded-lg border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm">
+          <div className="
+            relative flex size-10 items-center justify-center rounded-lg border
+            border-border/40 bg-card/60 shadow-sm backdrop-blur-sm
+          ">
             <Layers className="size-4 text-muted-foreground" />
           </div>
         </div>
@@ -182,11 +185,14 @@ export function SettingsCategoryList({
 
         {drag.draggingCategoryLabel && (
           <div
-            className={`rounded-md border border-dashed px-3 py-2 text-center text-xs ${
+            className={`
+              rounded-md border border-dashed px-3 py-2 text-center text-xs
+              ${
               drag.categoryDropIndex === categories.length
                 ? "border-primary bg-primary/5 text-foreground"
                 : "text-muted-foreground"
-            }`}
+            }
+            `}
             onDragOver={(event) => {
               drag.onCategoryDragOver(event, categories.length);
             }}

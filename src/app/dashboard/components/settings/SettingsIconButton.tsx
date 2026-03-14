@@ -27,7 +27,10 @@ export const SettingsIconButton = ({
   <Tooltip>
     <TooltipTrigger asChild>
       <Button
-        className={`size-7 ${className ?? ""}`}
+        className={`
+          size-7
+          ${className ?? ""}
+        `}
         disabled={disabled}
         onClick={onClick}
         size="icon"

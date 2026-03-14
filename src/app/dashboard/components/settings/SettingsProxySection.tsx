@@ -282,7 +282,10 @@ export function SettingsProxySection() {
             </Button>
             {hasProxy && (
               <Button
-                className="h-9 px-2 shrink-0 text-muted-foreground hover:text-destructive"
+                className="
+                  h-9 shrink-0 px-2 text-muted-foreground
+                  hover:text-destructive
+                "
                 disabled={saving}
                 onClick={() => {
                   void handleClear();
@@ -296,15 +299,17 @@ export function SettingsProxySection() {
             )}
           </div>
           {error && (
-            <div className="flex min-w-0 items-center gap-1.5 text-xs text-destructive">
+            <div className="
+              flex min-w-0 items-center gap-1.5 text-xs text-destructive
+            ">
               <XCircle className="size-3.5 shrink-0" />
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="max-w-[28rem] min-w-0 truncate">
+                  <span className="max-w-md min-w-0 truncate">
                     {previewText(error)}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[40rem] text-xs" side="top">
+                <TooltipContent className="max-w-160 text-xs" side="top">
                   <p className="break-all">{error}</p>
                 </TooltipContent>
               </Tooltip>
@@ -441,15 +446,17 @@ export function SettingsProxySection() {
           </div>
 
           {botError && (
-            <div className="flex min-w-0 items-center gap-1.5 text-xs text-destructive">
+            <div className="
+              flex min-w-0 items-center gap-1.5 text-xs text-destructive
+            ">
               <XCircle className="size-3.5 shrink-0" />
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="max-w-[28rem] min-w-0 truncate">
+                  <span className="max-w-md min-w-0 truncate">
                     {previewText(botError)}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[40rem] text-xs" side="top">
+                <TooltipContent className="max-w-160 text-xs" side="top">
                   <p className="break-all">{botError}</p>
                 </TooltipContent>
               </Tooltip>
@@ -471,19 +478,25 @@ export function SettingsProxySection() {
                       {r.protection}
                     </span>
                     {!!r.statusCode && r.statusCode > 0 && (
-                      <span className="font-mono text-[10px] text-muted-foreground">
+                      <span className="
+                        font-mono text-[10px] text-muted-foreground
+                      ">
                         {r.statusCode}
                       </span>
                     )}
                     {r.error && (!r.statusCode || r.statusCode === 0) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="max-w-[20rem] min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground md:max-w-[28rem]">
+                          <span className="
+                            max-w-[20rem] min-w-0 flex-1 truncate font-mono
+                            text-[10px] text-muted-foreground
+                            md:max-w-md
+                          ">
                             {previewText(r.error)}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent
-                          className="max-w-[40rem] text-xs"
+                          className="max-w-160 text-xs"
                           side="top"
                         >
                           <p className="break-all">{r.error}</p>
@@ -507,7 +520,11 @@ function BotResultBadge({ result }: { result: BotResult }) {
   if (result.success && !result.blocked) {
     return (
       <Badge
-        className={`${base} border-green-400/40 bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400`}
+        className={`
+          ${base}
+          border-green-400/40 bg-green-50 text-green-600
+          dark:bg-green-950/30 dark:text-green-400
+        `}
         variant="outline"
       >
         Passed
@@ -517,7 +534,11 @@ function BotResultBadge({ result }: { result: BotResult }) {
   if (result.blocked && result.statusCode && result.statusCode > 0) {
     return (
       <Badge
-        className={`${base} border-yellow-400/40 bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30 dark:text-yellow-400`}
+        className={`
+          ${base}
+          border-yellow-400/40 bg-yellow-50 text-yellow-600
+          dark:bg-yellow-950/30 dark:text-yellow-400
+        `}
         variant="outline"
       >
         Blocked
@@ -526,7 +547,10 @@ function BotResultBadge({ result }: { result: BotResult }) {
   }
   return (
     <Badge
-      className={`${base} border-destructive/30 bg-destructive/5 text-destructive`}
+      className={`
+        ${base}
+        border-destructive/30 bg-destructive/5 text-destructive
+      `}
       variant="outline"
     >
       {result.error ? "Connection Error" : "Failed"}
@@ -564,7 +588,7 @@ function ProxySkeleton() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
-            <Skeleton className="size-4 rounded" />
+            <Skeleton className="size-4 rounded-sm" />
             <Skeleton className="h-4 w-32" />
           </div>
           <Skeleton className="h-3 w-72" />
@@ -579,7 +603,7 @@ function ProxySkeleton() {
         <div className="flex items-center gap-2">
           <Skeleton className="h-9 flex-1" />
           <Skeleton className="h-9 w-20" />
-          <Skeleton className="h-9 w-9" />
+          <Skeleton className="size-9" />
         </div>
       </div>
 
@@ -641,7 +665,10 @@ function StatusBadge({
   }[status];
   return (
     <Badge
-      className={`h-5 gap-1 px-1.5 text-[10px] font-medium ${cfg.cls}`}
+      className={`
+        h-5 gap-1 px-1.5 text-[10px] font-medium
+        ${cfg.cls}
+      `}
       variant="outline"
     >
       {status === "checking" && <Loader2 className="size-2.5 animate-spin" />}

@@ -90,21 +90,32 @@ export const LoginView = ({
   };
 
   return (
-    <div className="relative flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4 pt-14">
+    <div className="
+      relative flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-4
+      pt-14
+    ">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 overflow-hidden"
       >
-        <div className="absolute left-1/2 top-1/3 size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl" />
+        <div className="
+          absolute top-1/3 left-1/2 size-128 -translate-1/2 rounded-full
+          bg-primary/5 blur-3xl
+        " />
       </div>
       <Card className="anim-fade-in-load-slow relative w-full max-w-md">
         <CardHeader className="items-center pb-2 text-center">
-          <div className="relative mb-3 flex size-14 items-center justify-center">
+          <div className="
+            relative mb-3 flex size-14 items-center justify-center
+          ">
             <div
               aria-hidden="true"
-              className="absolute size-[4.5rem] rounded-2xl border border-border/20"
+              className="absolute size-18 rounded-2xl border border-border/20"
             />
-            <div className="relative flex size-14 items-center justify-center rounded-2xl border border-border/50 bg-card/70 shadow-md backdrop-blur-sm">
+            <div className="
+              relative flex size-14 items-center justify-center rounded-2xl
+              border border-border/50 bg-card/70 shadow-md backdrop-blur-sm
+            ">
               <img alt="LibreRSS" className="size-6" src="/favicon.svg" />
             </div>
           </div>
