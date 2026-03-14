@@ -299,7 +299,7 @@ describe("useFeedPullRefresh", () => {
     unmount();
   });
 
-  test("wheel or trackpad upward scroll can still trigger refresh", async () => {
+  test("wheel or trackpad upward scroll commits once scrolling ends and input settles", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
 
@@ -310,6 +310,9 @@ describe("useFeedPullRefresh", () => {
       viewport.dispatchEvent(new Event("scrollend"));
     });
 
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(40);
+
     await waitFor(() => {
       expect(onRefresh).toHaveBeenCalledTimes(1);
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
@@ -318,7 +321,7 @@ describe("useFeedPullRefresh", () => {
     unmount();
   });
 
-  test("scrollend does not snap or refresh while wheel input is still settling", async () => {
+  test("wheel-settled pull does not commit until scrolling actually ends", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
     const wheelEvent = new Event("wheel");
@@ -331,11 +334,18 @@ describe("useFeedPullRefresh", () => {
       viewport.dispatchEvent(wheelEvent);
       viewport.scrollTop = 40;
       viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("scrollend"));
     });
 
     expect(onRefresh).not.toHaveBeenCalled();
     expect(viewport.scrollTop).toBe(40);
+
+    await waitForMs(200);
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(40);
+
+    act(() => {
+      viewport.dispatchEvent(new Event("scrollend"));
+    });
 
     await waitFor(() => {
       expect(onRefresh).toHaveBeenCalledTimes(1);
