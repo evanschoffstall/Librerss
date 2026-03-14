@@ -37,6 +37,8 @@ import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
 import { shouldShowNoFeedSourcesToast } from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
 import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
+import { type FeedBatchSource } from "@/app/dashboard/services/feed-batch";
+import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-batch-outcome";
 import { type Article, ArticleService, FeedService } from "@/lib";
 
 const getStringKey = (item: string) => item;
@@ -115,6 +117,55 @@ describe("useFeedLoader", () => {
     expect(shouldShowNoFeedSourcesToast(false, true)).toBe(false);
     expect(shouldShowNoFeedSourcesToast(false, false)).toBe(true);
     expect(shouldShowNoFeedSourcesToast(true, false)).toBe(false);
+  });
+
+  test("builds batch outcomes from the latest feed snapshot without a state-updater side effect", () => {
+    const previousFeed: Article[] = [
+      {
+        content: "hydrated body",
+        feedId: 1,
+        feedName: "Space News",
+        feedUrl: "https://example.com/feed.xml",
+        id: 1,
+        isRead: false,
+        isStarred: false,
+        lastChecked: new Date("2026-03-14T12:04:00.000Z"),
+        link: "https://example.com/articles/1",
+        publicationDate: new Date("2026-03-14T12:00:00.000Z"),
+        title: "Cached article",
+      },
+    ];
+    const normalizedSources: FeedBatchSource[] = [
+      {
+        name: "Space News",
+        url: "https://example.com/feed.xml",
+      },
+    ];
+
+    const outcome = buildFeedBatchOutcome(
+      normalizedSources,
+      [
+        {
+          articles: [],
+          lastFetchedAt: new Date("2026-03-14T12:05:00.000Z"),
+          ok: true,
+          unchanged: true,
+          url: "https://example.com/feed.xml",
+        },
+      ],
+      false,
+      () => [],
+      previousFeed,
+    );
+
+    expect(outcome.articles).toEqual(previousFeed);
+    expect(outcome.failedFeeds).toEqual([]);
+    expect(outcome.newestLastFetchedAt?.toISOString()).toBe(
+      "2026-03-14T12:05:00.000Z",
+    );
+    expect(outcome.sourceNamesByUrl.get("https://example.com/feed.xml")).toBe(
+      "Space News",
+    );
   });
 });
 
