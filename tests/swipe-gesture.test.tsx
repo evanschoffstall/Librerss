@@ -100,6 +100,9 @@ describe("useSwipeGesture", () => {
       pointerId: 2,
       pointerType: "touch",
     });
+
+    expect(setPointerCapture).not.toHaveBeenCalled();
+
     fireEvent.pointerMove(handle, {
       clientX: 140,
       clientY: 12,
