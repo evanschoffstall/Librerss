@@ -188,27 +188,19 @@ export const ArticleCard = memo(function ArticleCard({
   );
 
   const { containerRef: readSwipeRef, swipeState: readSwipeState } =
-    useSwipeToRead(
-      () => {
-        afterSwipeRef.current = Date.now();
-        if (isExpanded) {
-          onExpandedSwipeRead(article);
-          return;
-        }
-        onToggleRead(article);
-      },
-      isUpdatingState,
-      isExpandedBodyTarget,
-    );
+    useSwipeToRead(() => {
+      afterSwipeRef.current = Date.now();
+      if (isExpanded) {
+        onExpandedSwipeRead(article);
+        return;
+      }
+      onToggleRead(article);
+    }, isUpdatingState);
   const { containerRef: starSwipeRef, swipeState: starSwipeState } =
-    useSwipeToStar(
-      () => {
-        afterSwipeRef.current = Date.now();
-        onToggleStarred(article);
-      },
-      isUpdatingState,
-      isExpandedBodyTarget,
-    );
+    useSwipeToStar(() => {
+      afterSwipeRef.current = Date.now();
+      onToggleStarred(article);
+    }, isUpdatingState);
   const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
   const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
   const articleSurfaceRef = useCallback(
@@ -411,12 +403,15 @@ export const ArticleCard = memo(function ArticleCard({
     const c = contentZoneRef.current;
     if (!a || !h || !c) return;
     measureGradient();
-    const ro = new ResizeObserver(measureGradient);
-    ro.observe(a);
-    ro.observe(h);
-    ro.observe(c);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measureGradient);
+    resizeObserver?.observe(a);
+    resizeObserver?.observe(h);
+    resizeObserver?.observe(c);
     return () => {
-      ro.disconnect();
+      resizeObserver?.disconnect();
     };
   }, [measureGradient]);
 
@@ -541,7 +536,7 @@ export const ArticleCard = memo(function ArticleCard({
         role="button"
         style={{
           cursor: visuallyExpanded ? "default" : "pointer",
-          touchAction: visuallyExpanded ? "auto" : "pan-y",
+          touchAction: "pan-y",
           transform: anySwiping ? `translateX(${swipeOffsetX}px)` : undefined,
           transition: anySwiping
             ? "none"
@@ -848,7 +843,7 @@ export const ArticleCard = memo(function ArticleCard({
                   : hasOverflow
                     ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                     : "none",
-                touchAction: visuallyExpanded ? "auto" : "pan-y",
+                touchAction: "pan-y",
                 userSelect: visuallyExpanded ? "text" : "none",
                 WebkitTouchCallout: visuallyExpanded ? "default" : "none",
                 WebkitUserSelect: visuallyExpanded ? "text" : "none",
