@@ -24,7 +24,7 @@
 
 LibreRSS is a **modern, beautiful, open-source, self-hostable RSS reader** built for distraction-free reading. Subscribe to any RSS or Atom feed, organize sources into categories, and follow everything from one calm, fast dashboard you fully control.
 
-It is designed for readers who want a beuatiful, unified, and clean experience to keep up with the web: no algorithmic chaos, no bloated interface, and no surrendering their data to a third-party platform.
+It is designed for readers who want a beautiful, unified, and clean experience to keep up with the web: no algorithmic chaos, no bloated interface, and no surrendering their data to a third-party platform.
 
 ---
 
