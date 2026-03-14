@@ -8,6 +8,10 @@ import { Toaster } from "sonner";
 
 import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
 
+/**
+ * Provides the app-wide theme context along with shared floating UI such as
+ * the theme toggle and the global toast mount.
+ */
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider
@@ -27,13 +31,11 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Mounts the global Sonner toaster with the active light or dark theme.
+ */
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const dashboardView = searchParams.get("view") ?? "dashboard";
-  const shouldOffsetForDashboardBar =
-    pathname === "/dashboard" && dashboardView === "dashboard";
 
   useEffect(() => {
     const handleToastClickToDismiss = (event: MouseEvent) => {
@@ -72,14 +74,15 @@ function ThemedToaster() {
   return (
     <Toaster
       duration={4000}
-      offset={
-        shouldOffsetForDashboardBar
-          ? { right: "1rem", top: "4.25rem" }
-          : { right: "1rem", top: "1rem" }
-      }
-      position="top-right"
+      position="top-center"
       richColors
       theme={resolvedTheme === "dark" ? "dark" : "light"}
+      toastOptions={{
+        style: {
+          justifyContent: "center",
+          textAlign: "center",
+        },
+      }}
     />
   );
 }
