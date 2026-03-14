@@ -1,10 +1,19 @@
 "use client";
 
-import { Loader2, SearchX, Sparkles } from "lucide-react";
+import { SearchX, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useMemo } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Virtuoso } from "react-virtuoso";
 
-import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
@@ -23,12 +32,75 @@ interface FeedListProps {
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
+  pageSize: number;
+  paginationResetKey: string;
   searchTerm: string;
-  sentinelRef: React.RefObject<HTMLDivElement | null>;
   showFavicons: boolean;
   updatingArticleState: Record<string, boolean>;
-  visibleCount: number;
 }
+
+interface FeedLoadMoreState {
+  clientHeight: number;
+  hasUserScrolled: boolean;
+  scrollHeight: number;
+  scrollTop: number;
+  totalArticleCount: number;
+  visibleArticleCount: number;
+}
+
+/** Minimum off-screen preload budget for the virtualized feed list. */
+const VIRTUAL_FEED_MIN_PRELOAD_PX = 720;
+/** Approximate row height used to convert the page-size preference into preload distance. */
+const VIRTUAL_FEED_ROW_ESTIMATE_PX = 168;
+/** Viewport distance from the bottom that should trigger the next page load. */
+const FEED_LOAD_MORE_THRESHOLD_PX = VIRTUAL_FEED_ROW_ESTIMATE_PX * 3;
+
+/**
+ * Returns whether the visible feed window should expand based on the current
+ * viewport position and paging state.
+ */
+export function shouldLoadMoreArticles({
+  clientHeight,
+  hasUserScrolled,
+  scrollHeight,
+  scrollTop,
+  totalArticleCount,
+  visibleArticleCount,
+}: FeedLoadMoreState): boolean {
+  if (!hasUserScrolled || visibleArticleCount >= totalArticleCount) {
+    return false;
+  }
+
+  const remainingDistance = scrollHeight - (scrollTop + clientHeight);
+
+  return (
+    Number.isFinite(remainingDistance) &&
+    remainingDistance <= FEED_LOAD_MORE_THRESHOLD_PX
+  );
+}
+
+/**
+ * Grid wrapper used by the virtualized list so article cards keep the existing layout.
+ */
+const FeedVirtuosoList = forwardRef<
+  HTMLDivElement,
+  ComponentPropsWithoutRef<"div">
+>(function FeedVirtuosoList({ className, ...props }, ref) {
+  return (
+    <div
+      {...props}
+      className={
+        [
+          "relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
+      ref={ref}
+    />
+  );
+});
 
 export const FeedList = memo(function FeedList({
   expandedArticleKey,
@@ -36,89 +108,176 @@ export const FeedList = memo(function FeedList({
   hydratedArticleLinks,
   hydratingArticleLinks,
   isInitialLoading,
-  isRefreshing,
+  isRefreshing: _isRefreshing,
   onExpandedSwipeRead,
   onToggle,
   onToggleRead,
   onToggleStarred,
+  pageSize,
+  paginationResetKey,
   searchTerm,
-  sentinelRef,
   showFavicons,
   updatingArticleState,
-  visibleCount,
 }: FeedListProps) {
   const isMobile = useIsMobile();
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
-  const visibleFeed = useMemo(
-    () => filteredFeed.slice(0, visibleCount),
-    [filteredFeed, visibleCount],
+  const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(
+    null,
   );
-  const animatedItems = useAnimatedList(visibleFeed, getArticleKey, 12);
-  const hasAnyVisible = animatedItems.length > 0;
+  const [visibleArticleCount, setVisibleArticleCount] = useState(pageSize);
+  const hasUserScrolledRef = useRef(false);
+  const visibleFeed = useMemo(
+    () => filteredFeed.slice(0, visibleArticleCount),
+    [filteredFeed, visibleArticleCount],
+  );
+  const virtualFeedPreload = useMemo(
+    () =>
+      Math.max(
+        VIRTUAL_FEED_MIN_PRELOAD_PX,
+        pageSize * VIRTUAL_FEED_ROW_ESTIMATE_PX,
+      ),
+    [pageSize],
+  );
 
-  const exitRef = useCallback((el: HTMLDivElement | null) => {
-    if (!el) return;
-    const parent = el.parentElement;
-    if (!parent) return;
-
-    const rect = el.getBoundingClientRect();
-    const parentRect = parent.getBoundingClientRect();
-    const gap = parseFloat(getComputedStyle(parent).rowGap) || 0;
-    const offset = rect.height + gap;
-
-    // Collect siblings after the exiting element
-    const siblings: HTMLElement[] = [];
-    let found = false;
-    for (const child of parent.children) {
-      if (child === el) {
-        found = true;
-        continue;
+  /**
+   * Grows the rendered article window by exactly one page while retaining the
+   * full selection in memory for later infinite-scroll steps.
+   */
+  const expandVisibleWindow = useCallback(() => {
+    setVisibleArticleCount((currentCount) => {
+      if (currentCount >= filteredFeed.length) {
+        return currentCount;
       }
-      if (found && child instanceof HTMLElement) siblings.push(child);
+
+      return Math.min(currentCount + pageSize, filteredFeed.length);
+    });
+  }, [filteredFeed.length, pageSize]);
+
+  useEffect(() => {
+    hasUserScrolledRef.current = false;
+    setVisibleArticleCount(pageSize);
+  }, [pageSize, paginationResetKey]);
+
+  useEffect(() => {
+    if (!scrollViewport) {
+      return;
     }
 
-    // FLIP: pre-apply inverse translateY so siblings stay visually in place
-    // when the exiting element leaves flow
-    for (const sib of siblings) sib.style.transform = `translateY(${offset}px)`;
-
-    // Take exiting element out of grid flow
-    el.style.position = "absolute";
-    el.style.top = `${rect.top - parentRect.top + parent.scrollTop}px`;
-    el.style.left = "0";
-    el.style.right = "0";
-    el.style.height = `${rect.height}px`;
-    el.style.zIndex = "10";
-
-    // Force layout so positions are applied before animation frame
-    void el.offsetHeight;
-
-    // Animate: only transform + opacity (GPU-composited, no layout reflow)
-    requestAnimationFrame(() => {
-      el.style.transition = "opacity 180ms ease-out, transform 180ms ease-out";
-      el.style.opacity = "0";
-      el.style.transform = "scale(0.97) translateX(16px)";
-
-      for (const sib of siblings) {
-        sib.style.transition = "transform 280ms cubic-bezier(0.25,0.1,0.25,1)";
-        sib.style.transform = "translateY(0)";
+    const maybeLoadNextPage = () => {
+      if (
+        shouldLoadMoreArticles({
+          clientHeight: scrollViewport.clientHeight,
+          hasUserScrolled: hasUserScrolledRef.current,
+          scrollHeight: scrollViewport.scrollHeight,
+          scrollTop: scrollViewport.scrollTop,
+          totalArticleCount: filteredFeed.length,
+          visibleArticleCount,
+        })
+      ) {
+        expandVisibleWindow();
       }
+    };
+
+    const handleScrollIntent = () => {
+      hasUserScrolledRef.current = true;
+      maybeLoadNextPage();
+    };
+    const handleViewportScroll = () => {
+      if (scrollViewport.scrollTop > 0) {
+        hasUserScrolledRef.current = true;
+      }
+
+      maybeLoadNextPage();
+    };
+
+    scrollViewport.addEventListener("scroll", handleViewportScroll, {
+      passive: true,
+    });
+    scrollViewport.addEventListener("touchmove", handleScrollIntent, {
+      passive: true,
+    });
+    scrollViewport.addEventListener("wheel", handleScrollIntent, {
+      passive: true,
     });
 
-    // Clean up inline styles after animation completes
-    setTimeout(() => {
-      for (const sib of siblings) {
-        sib.style.transform = "";
-        sib.style.transition = "";
-      }
-    }, EXIT_CLEANUP_MS);
+    return () => {
+      scrollViewport.removeEventListener("scroll", handleViewportScroll);
+      scrollViewport.removeEventListener("touchmove", handleScrollIntent);
+      scrollViewport.removeEventListener("wheel", handleScrollIntent);
+    };
+  }, [
+    expandVisibleWindow,
+    filteredFeed.length,
+    scrollViewport,
+    visibleArticleCount,
+  ]);
+
+  /**
+   * Locates the Radix viewport so the virtualized list can reuse the existing
+   * dashboard scroller instead of creating a nested scrolling surface.
+   */
+  const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
+    const nextViewport =
+      node?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
+    setScrollViewport((currentViewport) =>
+      currentViewport === nextViewport ? currentViewport : nextViewport,
+    );
   }, []);
+
+  /**
+   * Renders a single virtualized article row while preserving the scroll-restore key.
+   */
+  const renderArticleCard = useCallback(
+    (article: Article, key?: string) => {
+      const articleKey = getArticleKey(article);
+      const articleLink = article.link.trim();
+
+      return (
+        <div
+          data-scroll-restore-key={articleKey}
+          key={key ?? articleKey}
+          style={{ overflowAnchor: "none" }}
+        >
+          <ArticleCard
+            article={article}
+            articleKey={articleKey}
+            hasScrapedContent={hydratedArticleLinks[articleLink]}
+            isDark={isDark}
+            isExpanded={expandedArticleKey === articleKey}
+            isHydrating={hydratingArticleLinks[articleLink]}
+            isMobile={isMobile}
+            isUpdatingState={updatingArticleState[articleKey]}
+            onExpandedSwipeRead={onExpandedSwipeRead}
+            onToggle={onToggle}
+            onToggleRead={onToggleRead}
+            onToggleStarred={onToggleStarred}
+            showFavicon={showFavicons}
+            useRichFormatting={hydratedArticleLinks[articleLink]}
+          />
+        </div>
+      );
+    },
+    [
+      expandedArticleKey,
+      hydratedArticleLinks,
+      hydratingArticleLinks,
+      isDark,
+      isMobile,
+      onExpandedSwipeRead,
+      onToggle,
+      onToggleRead,
+      onToggleStarred,
+      showFavicons,
+      updatingArticleState,
+    ],
+  );
 
   return (
     <>
       {isInitialLoading ? (
         <DashboardFeedListSkeleton />
-      ) : !hasAnyVisible && filteredFeed.length === 0 ? (
+      ) : filteredFeed.length === 0 ? (
         <div
           className="mx-auto flex w-full max-w-3xl items-center justify-center px-4 py-20 sm:py-32 lg:max-w-none lg:px-6 lg:py-40 anim-fade-in-load-slow"
           key="feed-empty"
@@ -176,63 +335,27 @@ export const FeedList = memo(function FeedList({
           </div>
         </div>
       ) : (
-        <div
-          className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
-          key="feed-list"
-        >
-          {isRefreshing ? (
-            <div className="pointer-events-none sticky top-2 z-20 mx-auto mb-1 flex w-fit items-center gap-2 rounded-full border border-sky-500/20 bg-background/92 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-sky-700 shadow-sm backdrop-blur-sm anim-article-enter dark:text-sky-300">
-              <Loader2 className="size-3 animate-spin" />
-              Syncing latest articles
+        <div key="feed-list" ref={handleViewportHostRef}>
+          {scrollViewport ? (
+            <Virtuoso
+              components={{ List: FeedVirtuosoList }}
+              computeItemKey={(_, article) => getArticleKey(article)}
+              customScrollParent={scrollViewport}
+              data={visibleFeed}
+              increaseViewportBy={{
+                bottom: virtualFeedPreload,
+                top: Math.round(virtualFeedPreload / 2),
+              }}
+              initialItemCount={Math.min(pageSize, visibleFeed.length)}
+              itemContent={(_, article) => renderArticleCard(article)}
+            />
+          ) : (
+            <div className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3">
+              {visibleFeed.map((article) =>
+                renderArticleCard(article, getArticleKey(article)),
+              )}
             </div>
-          ) : null}
-          {animatedItems.map(
-            ({ entering, exiting, item: article, key: cardKey }) => {
-              const articleLink = article.link.trim();
-              return (
-                <div
-                  className={
-                    [
-                      entering ? "anim-article-enter" : "",
-                      exiting
-                        ? "article-exit pointer-events-none overflow-hidden"
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ") || undefined
-                  }
-                  key={cardKey}
-                  ref={exiting ? exitRef : undefined}
-                >
-                  <ArticleCard
-                    article={article}
-                    articleKey={cardKey}
-                    hasScrapedContent={hydratedArticleLinks[articleLink]}
-                    isDark={isDark}
-                    isExpanded={expandedArticleKey === cardKey}
-                    isHydrating={hydratingArticleLinks[articleLink]}
-                    isMobile={isMobile}
-                    isUpdatingState={updatingArticleState[cardKey]}
-                    onExpandedSwipeRead={onExpandedSwipeRead}
-                    onToggle={onToggle}
-                    onToggleRead={onToggleRead}
-                    onToggleStarred={onToggleStarred}
-                    showFavicon={showFavicons}
-                    useRichFormatting={hydratedArticleLinks[articleLink]}
-                  />
-                </div>
-              );
-            },
           )}
-          <div
-            className="py-1 flex justify-center"
-            ref={sentinelRef}
-            style={{ overflowAnchor: "none" }}
-          >
-            {visibleCount < filteredFeed.length && (
-              <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
-            )}
-          </div>
         </div>
       )}
     </>

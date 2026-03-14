@@ -131,11 +131,11 @@ export const DashboardView = ({
                 onToggle={feedList.onArticleToggle}
                 onToggleRead={feedList.onArticleToggleRead}
                 onToggleStarred={feedList.onArticleToggleStarred}
+                pageSize={feedList.pageSize}
+                paginationResetKey={feedList.paginationResetKey}
                 searchTerm={feedList.searchTerm}
-                sentinelRef={feedList.sentinelRef}
                 showFavicons={feedList.showFavicons}
                 updatingArticleState={feedList.updatingArticleState}
-                visibleCount={feedList.visibleCount}
               />
             </div>
           </ScrollArea>

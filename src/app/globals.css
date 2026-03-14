@@ -357,11 +357,6 @@
     -webkit-line-clamp: 2;
   }
 
-  .article-exit {
-    pointer-events: none;
-    overflow: hidden;
-  }
-
   .article-swipe-surface {
     touch-action: pan-y;
     -webkit-touch-callout: none;

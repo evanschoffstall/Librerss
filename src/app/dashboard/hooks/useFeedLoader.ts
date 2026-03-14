@@ -34,6 +34,7 @@ import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 
 interface UseFeedLoaderOptions {
   categoriesRef: RefObject<CategoryTreeNode[]>;
+  feedRef: RefObject<Article[]>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
@@ -52,6 +53,7 @@ export function shouldShowNoFeedSourcesToast(
 
 export function useFeedLoader({
   categoriesRef,
+  feedRef,
   onFeedBatchLoaded,
   setCategories,
   setExpandedArticleKey,
@@ -223,21 +225,17 @@ export function useFeedLoader({
           ...summarizeBatchResults(batchResults),
         });
 
-        // Capture outcome synchronously from the setFeed callback; the outer
-        // variables would otherwise be narrowed to their null initializer type
-        // because TypeScript cannot track assignments through setState closures.
-        let capturedOutcome!: ReturnType<typeof buildFeedBatchOutcome>;
+        const capturedOutcome = buildFeedBatchOutcome(
+          normalizedSources,
+          batchResults,
+          usePlaceholderData,
+          getPlaceholderArticlesForSource,
+          keepExistingFeed ? feedRef.current : [],
+        );
 
-        setFeed((currentFeed) => {
-          capturedOutcome = buildFeedBatchOutcome(
-            normalizedSources,
-            batchResults,
-            usePlaceholderData,
-            getPlaceholderArticlesForSource,
-            keepExistingFeed ? currentFeed : [],
-          );
-          return mergeHydratedContent(currentFeed, capturedOutcome.articles);
-        });
+        setFeed((currentFeed) =>
+          mergeHydratedContent(currentFeed, capturedOutcome.articles),
+        );
 
         const {
           articles: resolvedArticles,
@@ -288,6 +286,7 @@ export function useFeedLoader({
     [
       usePlaceholderData,
       setFeed,
+      feedRef,
       setExpandedArticleKey,
       feedRequestState,
       logRefreshDiagnostics,

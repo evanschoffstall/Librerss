@@ -29,7 +29,6 @@ import { useDashboardViewHandlers } from "./useDashboardViewHandlers";
 import { useDashboardViewState } from "./useDashboardViewState";
 import { useFeedLoader } from "./useFeedLoader";
 import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
-import { useFeedVisibilityObserver } from "./useFeedVisibilityObserver";
 
 import { type Article } from "@/lib";
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
@@ -89,16 +88,15 @@ export function useDashboardViewController({
     selectedCategory,
     showFavicons,
     showSettingsModal,
-    visibleCount,
   } = dashboardState;
   const {
     categoriesRef,
+    feedRef,
     hasInitializedDashboardRef,
     isCategoriesLoading,
     isMobileSidebarOpen,
     isSidebarVisible,
     pageSize,
-    sentinelRef,
   } = dashboardState;
   const {
     setArticleFilter,
@@ -115,7 +113,6 @@ export function useDashboardViewController({
     setSelectedCategory,
     setShowFavicons,
     setShowSettingsModal,
-    setVisibleCount,
   } = dashboardState;
 
   /**
@@ -125,6 +122,7 @@ export function useDashboardViewController({
    */
   const feedLoader = useFeedLoader({
     categoriesRef,
+    feedRef,
     onFeedBatchLoaded: setLastRefreshedAt,
     setCategories,
     setExpandedArticleKey,
@@ -303,16 +301,6 @@ export function useDashboardViewController({
   useLockDocumentScroll();
   useRevealSidebarOnMount(setIsSidebarVisible);
 
-  useEffect(() => {
-    setVisibleCount(pageSize);
-  }, [
-    articleFilter,
-    deferredSearchTerm,
-    pageSize,
-    selectedCategory,
-    setVisibleCount,
-  ]);
-
   // Initial dashboard boot chooses the starting category and kicks off the first
   // feed/category load sequence exactly once.
   useDashboardInitialization({
@@ -420,14 +408,6 @@ export function useDashboardViewController({
     },
     [feedScrollRef],
   );
-
-  useFeedVisibilityObserver({
-    pageSize,
-    scrollRootRef: feedScrollRootRef,
-    sentinelRef,
-    setVisibleCount,
-    totalFeedItems: filteredFeed.length,
-  });
 
   const {
     autoRefreshFeedList,
@@ -553,6 +533,8 @@ export function useDashboardViewController({
       onArticleToggle,
       onArticleToggleRead,
       onArticleToggleStarred,
+      pageSize,
+      paginationResetKey: `${selectedCategory}:${articleFilter}:${searchTerm}`,
       pullRefreshHint: readyToRefresh
         ? "Release to refresh"
         : "Pull down to refresh",
@@ -560,10 +542,8 @@ export function useDashboardViewController({
       readyToRefresh,
       searchTerm,
       sentinelHeight,
-      sentinelRef,
       showFavicons,
       updatingArticleState,
-      visibleCount,
     },
     settings: {
       autoRefreshIntervalMinutes,

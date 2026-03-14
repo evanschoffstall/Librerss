@@ -39,6 +39,9 @@ export function useDashboardViewState() {
     resolveDefaultAutoRefreshIntervalMinutes(clientFeedCacheTtlMinutes());
   /** Currently rendered article list for the active selection. */
   const [feed, setFeed] = useState<Article[]>([]);
+  /** Async refresh work reads from this ref so it can merge against the latest feed snapshot safely. */
+  const feedRef = useRef<Article[]>([]);
+  feedRef.current = feed;
   /** Global loading flag for feed/category fetch work. */
   const [loading, setLoading] = useState(true);
   /** Sidebar category/feed tree currently available to the user. */
@@ -132,13 +135,6 @@ export function useDashboardViewState() {
     [defaultAutoRefreshIntervalMinutes, setStoredAutoRefreshIntervalMinutes],
   );
 
-  /** Session-scoped count of currently visible feed items for incremental rendering. */
-  const [visibleCount, setVisibleCount] = useSessionState<number>(
-    "librerss:visibleCount",
-    pageSize,
-  );
-  /** Sentinel element observed to reveal additional feed items as the user scrolls. */
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   /** Loading state for the category/feed source tree specifically. */
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
   /** One-time initialization guard for bootstrapping the dashboard selection flow. */
@@ -158,6 +154,7 @@ export function useDashboardViewState() {
     categoriesRef,
     expandedArticleKey,
     feed,
+    feedRef,
     hasInitializedDashboardRef,
     isCategoriesLoading,
     isMobileSidebarOpen,
@@ -166,7 +163,6 @@ export function useDashboardViewState() {
     pageSize,
     searchTerm,
     selectedCategory,
-    sentinelRef,
     setArticleFilter,
     setAutoRefreshIntervalMinutes,
     setCategories,
@@ -181,9 +177,7 @@ export function useDashboardViewState() {
     setSelectedCategory,
     setShowFavicons,
     setShowSettingsModal,
-    setVisibleCount,
     showFavicons,
     showSettingsModal,
-    visibleCount,
   };
 }
