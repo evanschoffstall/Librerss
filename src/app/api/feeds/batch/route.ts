@@ -9,6 +9,7 @@ import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
+import { parseDateOrNull } from "@/lib/utils/dates";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 
 const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
@@ -22,6 +23,7 @@ export interface BatchRouteDeps {
 
 interface BatchRequestBody {
   forceRefresh?: unknown;
+  knownLastFetchedAtByUrl?: unknown;
   requestSource?: unknown;
   skipRefresh?: unknown;
   urls?: unknown;
@@ -50,7 +52,15 @@ export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
     if (bodyOrResponse instanceof Response) return bodyOrResponse;
 
     const body = bodyOrResponse as BatchRequestBody;
+    const knownLastFetchedAtByUrlOrResponse = parseKnownLastFetchedAtByUrl(
+      body.knownLastFetchedAtByUrl,
+    );
+    if (knownLastFetchedAtByUrlOrResponse instanceof Response) {
+      return knownLastFetchedAtByUrlOrResponse;
+    }
+
     const urls = normalizeDistinctUrlList(body.urls);
+    const knownLastFetchedAtByUrl = knownLastFetchedAtByUrlOrResponse;
     const skipRefresh = body.skipRefresh === true;
     const forceRefresh = body.forceRefresh === true;
     const requestSource =
@@ -123,12 +133,14 @@ export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
       lastFetchedByUrl,
       refreshedCount,
       resolution,
+      unchangedUrls,
     } = await fetchAndCacheFeedArticlesBatchForRoute(
       db,
       user.userId,
       normalizedUrls,
       {
         forceRefresh,
+        knownLastFetchedAtByUrl,
         requestSource,
         skipRefresh,
       },
@@ -150,8 +162,12 @@ export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
         // ok=false only when the URL was not found / not owned by the user;
         // an empty-but-valid feed is still ok=true so clients can distinguish
         // "fetched successfully but has no articles yet" from "auth/not-found".
-        ok: batchMap.has(normalizedUrl),
+        ok:
+          batchMap.has(normalizedUrl) ||
+          lastFetchedByUrl.has(normalizedUrl) ||
+          unchangedUrls.has(normalizedUrl),
         url: normalizedUrl,
+        ...(unchangedUrls.has(normalizedUrl) ? { unchanged: true } : {}),
         ...(lastFetchedByUrl.has(normalizedUrl)
           ? {
               lastFetchedAt: lastFetchedByUrl.get(normalizedUrl)?.toISOString(),
@@ -243,4 +259,44 @@ function normalizeBatchRequestUrls(urls: string[]): BatchUrlDescriptor[] {
   }
 
   return descriptors;
+}
+
+function parseKnownLastFetchedAtByUrl(
+  value: unknown,
+): Map<string, Date> | Response {
+  if (value === undefined) {
+    return new Map();
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return NextResponse.json(
+      {
+        error:
+          "knownLastFetchedAtByUrl must be an object mapping URLs to ISO dates",
+      },
+      { status: 400 },
+    );
+  }
+
+  const parsedEntries = Object.entries(value as Record<string, unknown>).map(
+    ([url, rawDate]) => {
+      const parsedDate = parseDateOrNull(rawDate);
+      return parsedDate ? ([url, parsedDate] as const) : null;
+    },
+  );
+
+  if (parsedEntries.some((entry) => entry === null)) {
+    return NextResponse.json(
+      {
+        error: "knownLastFetchedAtByUrl values must be valid ISO date strings",
+      },
+      { status: 400 },
+    );
+  }
+
+  return new Map(
+    parsedEntries.filter(
+      (entry): entry is readonly [string, Date] => entry !== null,
+    ),
+  );
 }
