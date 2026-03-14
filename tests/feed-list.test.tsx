@@ -130,9 +130,13 @@ describe("FeedList", () => {
       />,
     );
 
+    expect(
+      container.querySelectorAll('[data-dashboard-article-skeleton="true"]'),
+    ).toHaveLength(4);
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
-      0,
+      12,
     );
+    expect(queryByText("No results")).toBeNull();
   });
 
   test("shows the search empty state when no articles match", () => {

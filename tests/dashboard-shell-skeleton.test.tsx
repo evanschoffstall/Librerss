@@ -13,5 +13,13 @@ describe("DashboardShellSkeleton", () => {
     );
     expect(container.querySelector(".max-w-6xl")).toBeTruthy();
     expect(container.querySelectorAll('[class*="bg-card/35"]')).toHaveLength(1);
+    expect(
+      container.querySelectorAll('[data-dashboard-article-skeleton="true"]'),
+    ).toHaveLength(4);
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-sidebar-skeleton-row="true"]',
+      ),
+    ).toHaveLength(6);
   });
 });

@@ -35,7 +35,7 @@ export function DashboardShellSkeleton() {
 
           <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch lg:gap-0">
             <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
-              <div className="h-full rounded-xl bg-card/35">
+              <div className="h-full rounded-xl bg-card/35 px-2 py-2">
                 <DashboardSidebarSkeleton />
               </div>
             </aside>
