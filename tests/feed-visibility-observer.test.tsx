@@ -116,7 +116,7 @@ describe("useFeedVisibilityObserver", () => {
       );
 
       expect(observedRoot).toBe(viewport);
-      expect(observedRootMargin).toBe("0px 0px 450px 0px");
+      expect(observedRootMargin).toBe("0px 0px 1050px 0px");
       expect(observedSentinel).toBe(sentinel ?? undefined);
 
       act(() => {

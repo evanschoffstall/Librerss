@@ -24,9 +24,9 @@ interface UseFeedVisibilityObserverOptions {
 }
 
 /** Minimum preload distance used when the viewport is very short or not yet measurable. */
-const MIN_PRELOAD_PX = 240;
+const MIN_PRELOAD_PX = 480;
 /** Additional preload distance expressed as a fraction of the viewport height. */
-const PRELOAD_VIEWPORT_RATIO = 0.75;
+const PRELOAD_VIEWPORT_RATIO = 1.75;
 
 /**
  * Observes the feed list sentinel and incrementally expands the rendered window.
@@ -156,5 +156,5 @@ export function useFeedVisibilityObserver({
       intersectionObserver?.disconnect();
       mutationObserver?.disconnect();
     };
-  }, [pageSize, scrollRootRef, sentinelRef, setVisibleCount, totalFeedItems]);
+  }, [pageSize, scrollRootRef, sentinelRef, setVisibleCount]);
 }
