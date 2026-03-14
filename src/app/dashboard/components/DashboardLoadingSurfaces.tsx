@@ -120,10 +120,13 @@ export function DashboardFeedListSkeleton() {
  */
 export function DashboardSidebarSkeleton() {
   return (
-    <div className="space-y-2 px-2 anim-fade-in-load-slow">
+    <div className="anim-fade-in-load-slow space-y-2 px-2">
       {SIDEBAR_SKELETON_GROUPS.map((group, groupIndex) => (
         <div
-          className="space-y-0.5 opacity-100 transition-opacity anim-duration-ui anim-ease-ui"
+          className="
+            anim-duration-ui anim-ease-ui space-y-0.5 opacity-100
+            transition-opacity
+          "
           key={groupIndex}
           style={{
             animationDelay: `${groupIndex * 35}ms`,
@@ -131,7 +134,7 @@ export function DashboardSidebarSkeleton() {
           }}
         >
           <div className="px-1.5">
-            <div className="w-full rounded px-1.5 py-1">
+            <div className="w-full rounded-sm px-1.5 py-1">
               <Skeleton className={cn("h-3 rounded-full", group.labelWidth)} />
             </div>
           </div>
@@ -172,12 +175,21 @@ function DashboardArticleCardSkeleton({
     >
       <article
         aria-hidden="true"
-        className="article-swipe-surface group relative overflow-visible rounded-xl border border-border dark:shadow-2xl dark:shadow-zinc-900/50"
+        className="
+          article-swipe-surface group relative overflow-visible rounded-xl
+          border border-border
+          dark:shadow-2xl dark:shadow-zinc-900/50
+        "
       >
         <div className="relative rounded-t-xl bg-card/70 px-3 pt-3">
           <div className="space-y-2">
-            <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
-              <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+            <div className="
+              flex items-center gap-2 text-xs/5 tracking-normal
+              text-muted-foreground/70 select-none
+            ">
+              <div className="
+                flex shrink-0 items-center gap-2 whitespace-nowrap
+              ">
                 <Skeleton className="size-3 rounded-full" />
                 <Skeleton className="h-3 w-16 rounded-full" />
                 <Skeleton className="size-1 shrink-0 rounded-full" />
@@ -189,7 +201,10 @@ function DashboardArticleCardSkeleton({
                 />
               </div>
 
-              <div className="-mr-1 ml-auto flex shrink-0 items-center gap-1 opacity-100 transition-opacity duration-150">
+              <div className="
+                -mr-1 ml-auto flex shrink-0 items-center gap-1 opacity-100
+                transition-opacity duration-150
+              ">
                 <Skeleton className="size-6 rounded-md" />
                 <Skeleton className="size-6 rounded-md" />
                 <Skeleton className="size-6 rounded-md" />
@@ -233,10 +248,16 @@ function DashboardSidebarFeedRowSkeleton({
     <div
       aria-hidden="true"
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-lg border-l-2 px-2 py-2 text-left transition-colors",
+        `
+          flex w-full items-center justify-between gap-2 rounded-lg border-l-2
+          p-2 text-left transition-colors
+        `,
         descriptor.isActive
           ? "border-primary/60 bg-muted/70 text-foreground"
-          : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+          : `
+            border-transparent text-muted-foreground
+            hover:bg-muted/40 hover:text-foreground
+          `,
       )}
       data-dashboard-sidebar-skeleton-row="true"
     >

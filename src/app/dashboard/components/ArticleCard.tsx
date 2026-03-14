@@ -86,6 +86,7 @@ const iconLinkCls =
 const TAP_DRIFT_PX = 4;
 const AFTER_SWIPE_BLOCK_MS = 350;
 
+/** Renders a swipeable article card with header-scoped gestures while expanded. */
 export const ArticleCard = memo(function ArticleCard({
   article,
   articleKey,
@@ -196,26 +197,48 @@ export const ArticleCard = memo(function ArticleCard({
       ),
     [visuallyExpanded],
   );
+  const shouldIgnoreSwipeTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return false;
+
+    const control = target.closest(
+      'button, input, textarea, select, summary, [contenteditable="true"]',
+    );
+    if (control) return true;
+
+    const link = target.closest("a");
+    if (!link) return false;
+
+    return !contentZoneRef.current?.contains(link);
+  }, []);
 
   const { containerRef: readSwipeRef, swipeState: readSwipeState } =
-    useSwipeToRead(() => {
-      afterSwipeRef.current = Date.now();
-      if (isExpanded) {
-        onExpandedSwipeRead(article);
-        return;
-      }
-      onToggleRead(article);
-    }, isUpdatingState);
+    useSwipeToRead(
+      () => {
+        afterSwipeRef.current = Date.now();
+        if (isExpanded) {
+          onExpandedSwipeRead(article);
+          return;
+        }
+        onToggleRead(article);
+      },
+      isUpdatingState,
+      shouldIgnoreSwipeTarget,
+    );
   const { containerRef: starSwipeRef, swipeState: starSwipeState } =
-    useSwipeToStar(() => {
-      afterSwipeRef.current = Date.now();
-      onToggleStarred(article);
-    }, isUpdatingState);
+    useSwipeToStar(
+      () => {
+        afterSwipeRef.current = Date.now();
+        onToggleStarred(article);
+      },
+      isUpdatingState,
+      shouldIgnoreSwipeTarget,
+    );
   const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
   const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
   const articleSurfaceRef = useCallback(
     (el: HTMLElement | null) => {
       articleRef.current = el;
+      if (!el) return;
       readSwipeRef.current = el;
       starSwipeRef.current = el;
     },
@@ -449,7 +472,9 @@ export const ArticleCard = memo(function ArticleCard({
     <div className="rounded-md border bg-muted/30 p-2">
       <Input
         aria-label="Article link"
-        className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+        className="
+          h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none
+        "
         onClick={(event) => {
           event.stopPropagation();
         }}
@@ -478,34 +503,60 @@ export const ArticleCard = memo(function ArticleCard({
 
   return (
     <div
-      className={`relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl`}
+      className={`
+        relative
+        ${visuallyExpanded ? "overflow-visible" : `overflow-hidden`}
+        rounded-xl
+      `}
       style={{ touchAction: "pan-y" }}
     >
       {/* Swipe-to-read / swipe-to-star background indicators */}
       {readSwipeState.swiping && (
         <div
-          className={`absolute inset-0 z-0 flex items-center rounded-xl transition-colors duration-150 ${
-            readSwipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
-          }`}
+          className={`
+            absolute inset-0 z-0 flex items-center rounded-xl transition-colors
+            duration-150
+            ${
+              readSwipeState.committed
+                ? "bg-emerald-500/25"
+                : "bg-emerald-500/10"
+            }
+          `}
         >
-          <div className="flex items-center gap-2 pl-4 text-emerald-600 dark:text-emerald-400">
+          <div
+            className="
+            flex items-center gap-2 pl-4 text-emerald-600
+            dark:text-emerald-400
+          "
+          >
             {article.isRead ? (
               <Circle
-                className={`size-5 transition-transform duration-150 ${
-                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
-                }`}
+                className={`
+                  size-5 transition-transform duration-150
+                  ${
+                    readSwipeState.committed
+                      ? "scale-110"
+                      : "scale-90 opacity-60"
+                  }
+                `}
               />
             ) : (
               <CircleCheck
-                className={`size-5 transition-transform duration-150 ${
-                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
-                }`}
+                className={`
+                  size-5 transition-transform duration-150
+                  ${
+                    readSwipeState.committed
+                      ? "scale-110"
+                      : "scale-90 opacity-60"
+                  }
+                `}
               />
             )}
             <span
-              className={`text-xs font-medium transition-opacity duration-150 ${
-                readSwipeState.committed ? "opacity-100" : "opacity-0"
-              }`}
+              className={`
+                text-xs font-medium transition-opacity duration-150
+                ${readSwipeState.committed ? "opacity-100" : "opacity-0"}
+              `}
             >
               {article.isRead ? "Mark unread" : "Mark read"}
             </span>
@@ -514,31 +565,55 @@ export const ArticleCard = memo(function ArticleCard({
       )}
       {starSwipeState.swiping && (
         <div
-          className={`absolute inset-0 z-0 flex items-center justify-end rounded-xl transition-colors duration-150 ${
-            starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"
-          }`}
+          className={`
+            absolute inset-0 z-0 flex items-center justify-end rounded-xl
+            transition-colors duration-150
+            ${starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"}
+          `}
         >
-          <div className="flex items-center gap-2 pr-4 text-amber-600 dark:text-amber-400">
+          <div
+            className="
+            flex items-center gap-2 pr-4 text-amber-600
+            dark:text-amber-400
+          "
+          >
             <span
-              className={`text-xs font-medium transition-opacity duration-150 ${
-                starSwipeState.committed ? "opacity-100" : "opacity-0"
-              }`}
+              className={`
+                text-xs font-medium transition-opacity duration-150
+                ${starSwipeState.committed ? "opacity-100" : "opacity-0"}
+              `}
             >
               {article.isStarred ? "Unstar" : "Star"}
             </span>
             <Star
-              className={`size-5 transition-transform duration-150 ${
-                starSwipeState.committed
-                  ? "scale-110 fill-current"
-                  : "scale-90 opacity-60"
-              }`}
+              className={`
+                size-5 transition-transform duration-150
+                ${
+                  starSwipeState.committed
+                    ? "scale-110 fill-current"
+                    : "scale-90 opacity-60"
+                }
+              `}
             />
           </div>
         </div>
       )}
       <article
         aria-expanded={isExpanded}
-        className={`article-swipe-surface group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        className={`
+          article-swipe-surface group relative overflow-visible border
+          border-border
+          dark:shadow-2xl dark:shadow-zinc-900/50
+          ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
+          ${
+            article.isRead && !visuallyExpanded
+              ? `
+            *:opacity-55 *:transition-opacity *:duration-200
+            hover:*:opacity-100
+          `
+              : ""
+          }
+        `}
         data-article-key={articleKey}
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
@@ -579,7 +654,16 @@ export const ArticleCard = memo(function ArticleCard({
       >
         {/* Header zone — sticky when expanded */}
         <div
-          className={`relative ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-t-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
+          className={`
+            relative
+            ${
+              visuallyExpanded
+                ? `
+              sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4
+            `
+                : `rounded-t-xl bg-card/70 px-3 pt-3`
+            }
+          `}
           ref={headerZoneRef}
           style={{
             touchAction: "pan-y",
@@ -595,12 +679,25 @@ export const ArticleCard = memo(function ArticleCard({
               : undefined),
           }}
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl">
+          <div
+            className="
+            pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl
+          "
+          >
             <div className={gradientCls} style={headerGradientStyle} />
           </div>
           <div className="relative z-10 space-y-2">
-            <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
-              <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+            <div
+              className="
+              flex items-center gap-2 text-xs/5 tracking-normal
+              text-muted-foreground/70 select-none
+            "
+            >
+              <div
+                className="
+                flex shrink-0 items-center gap-2 whitespace-nowrap
+              "
+              >
                 <CalendarDays className="size-3" />
                 {formatRelativeDate(new Date(article.publicationDate))}
                 <span
@@ -633,7 +730,10 @@ export const ArticleCard = memo(function ArticleCard({
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="inline-flex size-3 shrink-0 items-center justify-center rounded-full"
+                      className="
+                        inline-flex size-3 shrink-0 items-center justify-center
+                        rounded-full
+                      "
                       style={{ backgroundColor: faviconTint.background }}
                     >
                       <Globe
@@ -649,7 +749,18 @@ export const ArticleCard = memo(function ArticleCard({
               </div>
 
               <div
-                className={`-mr-1 ml-auto flex shrink-0 items-center gap-1 transition-opacity duration-150 ${visuallyExpanded || isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                className={`
+                  -mr-1 ml-auto flex shrink-0 items-center gap-1
+                  transition-opacity duration-150
+                  ${
+                    visuallyExpanded || isMobile
+                      ? `opacity-100`
+                      : `
+                    opacity-0
+                    group-hover:opacity-100
+                  `
+                  }
+                `}
               >
                 <button
                   aria-label={
@@ -664,7 +775,12 @@ export const ArticleCard = memo(function ArticleCard({
                   type="button"
                 >
                   {article.isRead ? (
-                    <CircleCheck className="size-3.5 text-emerald-500/70 dark:text-emerald-400/60" />
+                    <CircleCheck
+                      className="
+                      size-3.5 text-emerald-500/70
+                      dark:text-emerald-400/60
+                    "
+                    />
                   ) : (
                     <Circle className="size-3.5" />
                   )}
@@ -683,11 +799,17 @@ export const ArticleCard = memo(function ArticleCard({
                   type="button"
                 >
                   <Star
-                    className={`size-3.5 ${
-                      article.isStarred
-                        ? "fill-current text-amber-400/90 dark:text-amber-300/80"
-                        : ""
-                    }`}
+                    className={`
+                      size-3.5
+                      ${
+                        article.isStarred
+                          ? `
+                          fill-current text-amber-400/90
+                          dark:text-amber-300/80
+                        `
+                          : ""
+                      }
+                    `}
                   />
                 </button>
 
@@ -812,7 +934,17 @@ export const ArticleCard = memo(function ArticleCard({
             </div>
 
             <h3
-              className={`select-none font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
+              className={`
+                font-sans tracking-[-0.015em] text-foreground antialiased
+                select-none
+                ${
+                  visuallyExpanded
+                    ? `text-[1.125rem] leading-[1.35] font-bold`
+                    : `
+                  line-clamp-2 text-[0.96rem]/6 font-semibold
+                `
+                }
+              `}
               style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
             >
               {article.title}
@@ -825,16 +957,32 @@ export const ArticleCard = memo(function ArticleCard({
 
         {/* Content zone */}
         <div
-          className={`relative bg-card/70 ${visuallyExpanded ? "rounded-b-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
+          className={`
+            relative bg-card/70
+            ${
+              visuallyExpanded
+                ? `rounded-b-xl px-4 pt-3 pb-4`
+                : `
+              rounded-b-xl px-3 pt-2 pb-3
+            `
+            }
+          `}
           ref={contentZoneRef}
           style={{ transition: `padding ${cardT}` }}
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl">
+          <div
+            className="
+            pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl
+          "
+          >
             <div className={gradientCls} style={contentGradientStyle} />
           </div>
           <div className="relative z-10">
             <div
-              className={`overflow-hidden article-swipe-body ${visuallyExpanded ? "select-text" : ""}`}
+              className={`
+                article-swipe-body overflow-hidden
+                ${visuallyExpanded ? `select-text` : ""}
+              `}
               onClick={
                 visuallyExpanded
                   ? (e) => {
@@ -886,24 +1034,38 @@ export const ArticleCard = memo(function ArticleCard({
               }}
             >
               {showSkeleton ? (
-                <div className="space-y-2 py-1 animate-pulse">
+                <div className="animate-pulse space-y-2 py-1">
                   <Skeleton className="h-3 w-full" />
                   <Skeleton className="h-3 w-[94%]" />
                   <Skeleton className="h-3 w-[88%]" />
                   <Skeleton className="h-3 w-[76%]" />
                 </div>
               ) : !showFullContent ? (
-                <p className="line-clamp-1 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/85">
+                <p
+                  className="
+                  line-clamp-1 font-sans text-[0.93rem]/6 tracking-[-0.01em]
+                  text-muted-foreground/85 antialiased
+                "
+                >
                   {collapsedPreview}
                 </p>
               ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
-                <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75 anim-article-enter">
+                <p
+                  className="
+                  anim-article-enter font-sans text-[0.93rem]/6
+                  tracking-[-0.01em] text-muted-foreground/75 antialiased
+                "
+                >
                   Full article content unavailable. Open the original article to
                   read more.
                 </p>
               ) : useRichFormatting ? (
                 <div
-                  className={`${visibleRichContentClassName} ${visuallyExpanded ? "cursor-text select-text" : ""} anim-article-enter`}
+                  className={`
+                    ${visibleRichContentClassName}
+                    ${visuallyExpanded ? `cursor-text select-text` : ""}
+                    anim-article-enter
+                  `}
                   dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                   style={{
                     contain: visuallyExpanded ? "none" : "layout style paint",
@@ -912,7 +1074,18 @@ export const ArticleCard = memo(function ArticleCard({
                 />
               ) : (
                 <p
-                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "cursor-text select-text text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
+                  className={`
+                    anim-article-enter font-sans tracking-[-0.01em]
+                    wrap-break-word whitespace-pre-line antialiased
+                    ${
+                      visuallyExpanded
+                        ? `
+                      cursor-text text-[0.97rem]/7 text-foreground/85
+                      select-text
+                    `
+                        : `text-[0.93rem]/6 text-muted-foreground/85`
+                    }
+                  `}
                 >
                   {content}
                 </p>
@@ -922,7 +1095,10 @@ export const ArticleCard = memo(function ArticleCard({
             {/* Hidden measurement targets for height animation */}
             <p
               aria-hidden="true"
-              className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6"
+              className="
+                pointer-events-none h-0 overflow-hidden font-sans
+                text-[0.93rem]/6 tracking-[-0.01em] antialiased opacity-0
+              "
               ref={previewRef}
             >
               {`${preview}…`}
@@ -939,7 +1115,13 @@ export const ArticleCard = memo(function ArticleCard({
                     dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                   />
                 ) : (
-                  <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
+                  <p
+                    className="
+                    font-sans text-[0.97rem]/7 tracking-[-0.01em]
+                    wrap-break-word whitespace-pre-line text-foreground/85
+                    antialiased
+                  "
+                  >
                     {content}
                   </p>
                 )}
@@ -958,7 +1140,11 @@ export const ArticleCard = memo(function ArticleCard({
                 }}
               >
                 <DrawerHeader className="space-y-2 text-left">
-                  <div className="flex w-full items-start justify-between gap-3 text-left">
+                  <div
+                    className="
+                    flex w-full items-start justify-between gap-3 text-left
+                  "
+                  >
                     <div className="min-w-0 flex-1 text-left">
                       <DrawerTitle>Raw Article HTML</DrawerTitle>
                       <DrawerDescription>
@@ -983,7 +1169,11 @@ export const ArticleCard = memo(function ArticleCard({
                   <div className="rounded-md border bg-muted/40 p-3">
                     <textarea
                       aria-label="Raw article HTML"
-                      className="h-[60dvh] min-h-[12rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
+                      className="
+                        h-[60dvh] min-h-48 w-full resize-none border-0
+                        bg-transparent p-0 font-mono text-xs/5
+                        text-foreground/90 shadow-none outline-none
+                      "
                       onClick={(event) => {
                         event.stopPropagation();
                       }}
@@ -1007,7 +1197,11 @@ export const ArticleCard = memo(function ArticleCard({
                 }}
               >
                 <DialogHeader className="space-y-2 text-left">
-                  <div className="flex w-full items-start justify-between gap-3 text-left">
+                  <div
+                    className="
+                    flex w-full items-start justify-between gap-3 text-left
+                  "
+                  >
                     <div className="min-w-0 flex-1 text-left">
                       <DialogTitle>Raw Article HTML</DialogTitle>
                       <DialogDescription>
@@ -1031,7 +1225,11 @@ export const ArticleCard = memo(function ArticleCard({
                 <div className="rounded-md border bg-muted/40 p-3">
                   <textarea
                     aria-label="Raw article HTML"
-                    className="h-[65vh] min-h-[14rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
+                    className="
+                      h-[65vh] min-h-56 w-full resize-none border-0
+                      bg-transparent p-0 font-mono text-xs/5 text-foreground/90
+                      shadow-none outline-none
+                    "
                     onClick={(event) => {
                       event.stopPropagation();
                     }}
