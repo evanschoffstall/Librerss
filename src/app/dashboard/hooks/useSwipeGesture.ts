@@ -25,6 +25,7 @@ export function useSwipeGesture(
   direction: "left" | "right",
   onCommit: () => void,
   disabled = false,
+  shouldIgnoreTarget?: (target: EventTarget | null) => boolean,
 ) {
   const [state, setState] = useState<SwipeState>(SWIPE_IDLE);
   const containerRef = useRef<HTMLElement>(null);
@@ -63,6 +64,7 @@ export function useSwipeGesture(
 
     const handlePointerDown = (e: PointerEvent) => {
       if (disabledRef.current || e.pointerType === "mouse") return;
+      if (shouldIgnoreTarget?.(e.target)) return;
       activePointerIdRef.current = e.pointerId;
       if (!hasCaptureRef.current) {
         el.setPointerCapture(e.pointerId);
@@ -144,7 +146,7 @@ export function useSwipeGesture(
       el.removeEventListener("pointercancel", handlePointerCancel, true);
       el.removeEventListener("lostpointercapture", handleLostPointerCapture);
     };
-  }, [isRight]);
+  }, [isRight, shouldIgnoreTarget]);
 
   return { containerRef, swipeState: state };
 }

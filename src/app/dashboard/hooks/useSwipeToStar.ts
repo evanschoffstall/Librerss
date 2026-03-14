@@ -2,6 +2,10 @@
 
 import { useSwipeGesture } from "./useSwipeGesture";
 
-export function useSwipeToStar(onToggleStar: () => void, disabled = false) {
-  return useSwipeGesture("left", onToggleStar, disabled);
+export function useSwipeToStar(
+  onToggleStar: () => void,
+  disabled = false,
+  shouldIgnoreTarget?: (target: EventTarget | null) => boolean,
+) {
+  return useSwipeGesture("left", onToggleStar, disabled, shouldIgnoreTarget);
 }
