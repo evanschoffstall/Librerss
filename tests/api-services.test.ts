@@ -236,6 +236,38 @@ describe("FeedService", () => {
     expect(callArgs[1].requestSource).toBe("test-source");
   });
 
+  test("getFeedsBatch serializes known last-fetched timestamps for delta refreshes", async () => {
+    mockAxiosInstance.post = mock(async () => ({
+      data: [
+        {
+          articles: [],
+          lastFetchedAt: "2026-03-14T12:00:00.000Z",
+          ok: true,
+          unchanged: true,
+          url: "https://example.com/feed",
+        },
+      ],
+    }));
+
+    const result = await FeedService.getFeedsBatch(
+      ["https://example.com/feed"],
+      {
+        knownLastFetchedAtByUrl: new Map([
+          ["https://example.com/feed", new Date("2026-03-14T12:00:00.000Z")],
+        ]),
+      },
+    );
+
+    const callArgs = mockAxiosInstance.post.mock.calls[0];
+    expect(callArgs[1].knownLastFetchedAtByUrl).toEqual({
+      "https://example.com/feed": "2026-03-14T12:00:00.000Z",
+    });
+    expect(result[0]?.unchanged).toBe(true);
+    expect(result[0]?.lastFetchedAt).toEqual(
+      new Date("2026-03-14T12:00:00.000Z"),
+    );
+  });
+
   test("getFeedsBatch supports abort signal", async () => {
     const controller = new AbortController();
     mockAxiosInstance.post = mock(async () => ({ data: [] }));
