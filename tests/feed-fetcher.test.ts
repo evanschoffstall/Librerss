@@ -306,6 +306,104 @@ describe("Feed Fetcher - Batch Operations", () => {
     expect(result.articles).toBeInstanceOf(Map);
   });
 
+  test("fetchAndCacheFeedArticlesBatch omits unchanged cached feeds from article payloads", async () => {
+    const lastFetchedAt = new Date("2026-03-14T12:00:00.000Z");
+    setFeedFetcherDependenciesForTesting({
+      getCachedBatch: mock(() => ({
+        articles: new Map([
+          [
+            "https://example.com/feed",
+            [
+              {
+                content: "cached article",
+                feedId: 1,
+                id: 10,
+                isRead: false,
+                isStarred: false,
+                lastChecked: lastFetchedAt,
+                link: "https://example.com/article",
+                publicationDate: lastFetchedAt,
+                title: "Cached",
+              },
+            ],
+          ],
+        ]),
+        cachedAt: Date.now(),
+        errors: new Map<string, string>(),
+        lastFetchedByUrl: new Map([
+          ["https://example.com/feed", lastFetchedAt],
+        ]),
+      })),
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed"],
+      {
+        knownLastFetchedAtByUrl: new Map([
+          ["https://example.com/feed", lastFetchedAt],
+        ]),
+      },
+    );
+
+    expect(result.articles.size).toBe(0);
+    expect(result.unchangedUrls).toEqual(new Set(["https://example.com/feed"]));
+  });
+
+  test("fetchAndCacheFeedArticlesBatch queries only feeds whose timestamps changed", async () => {
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map<string, string>(),
+        refreshedCount: 1,
+        refreshedUrls: new Set<string>(["https://example.com/feed-b"]),
+      })),
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed-b", []]]),
+      ),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: [
+          "https://example.com/feed-a",
+          "https://example.com/feed-b",
+        ],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed-a",
+            createFeedRecord({
+              id: 1,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-a",
+            }),
+          ],
+          [
+            "https://example.com/feed-b",
+            createFeedRecord({
+              id: 2,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-b",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a", "https://example.com/feed-b"],
+      {
+        knownLastFetchedAtByUrl: new Map([
+          ["https://example.com/feed-a", new Date("2026-03-14T11:00:00.000Z")],
+        ]),
+      },
+    );
+
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [2]);
+  });
+
   test("fetchAndCacheFeedArticlesBatch handles feeds without records", async () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
