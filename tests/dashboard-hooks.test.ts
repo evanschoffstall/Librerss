@@ -17,6 +17,7 @@ import {
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 
+import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { useAnimatedList } from "@/app/dashboard/hooks/useAnimatedList";
 import {
   toggleReadStatus,
@@ -32,6 +33,7 @@ import {
 } from "@/app/dashboard/hooks/useArticleNavigation";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
+import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
 import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
 import { type Article, ArticleService, FeedService } from "@/lib";
@@ -259,6 +261,105 @@ describe("useAnimatedList", () => {
 
     await waitFor(() => {
       expect(result.current).toEqual([{ exiting: false, item: "a", key: "a" }]);
+    });
+  });
+});
+
+describe("useDashboardEvents", () => {
+  test("coalesces repeated search events to the latest term per frame", async () => {
+    const originalCancelAnimationFrame = global.cancelAnimationFrame;
+    const originalRequestAnimationFrame = global.requestAnimationFrame;
+    let queuedFrame: FrameRequestCallback | undefined;
+    const onSearchChange = mock(() => {});
+
+    global.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      queuedFrame = callback;
+      return 1;
+    }) as typeof requestAnimationFrame;
+    global.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
+
+    try {
+      renderHook(() =>
+        useDashboardEvents({
+          fetchAllFeeds: async () => {},
+          fetchCategoryFeeds: async () => {},
+          fetchFeed: async () => {},
+          onOpenFeedsSidebar: () => {},
+          onOpenSettings: () => {},
+          onRefresh: () => {},
+          onSearchChange,
+          selectedCategory: "system-all-feeds",
+          selectedCategoryNode: undefined,
+          selectedFeedUrl: undefined,
+        }),
+      );
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
+            detail: { term: "a" },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
+            detail: { term: "ab" },
+          }),
+        );
+      });
+
+      expect(onSearchChange).not.toHaveBeenCalled();
+
+      act(() => {
+        queuedFrame?.(0);
+      });
+
+      await waitFor(() => {
+        expect(onSearchChange).toHaveBeenCalledTimes(1);
+        expect(onSearchChange).toHaveBeenCalledWith("ab");
+      });
+    } finally {
+      global.cancelAnimationFrame = originalCancelAnimationFrame;
+      global.requestAnimationFrame = originalRequestAnimationFrame;
+    }
+  });
+
+  test("uses the latest search callback after rerender", async () => {
+    const firstOnSearchChange = mock(() => {});
+    const secondOnSearchChange = mock(() => {});
+
+    const { rerender } = renderHook(
+      ({ onSearchChange }: { onSearchChange: (term: string) => void }) =>
+        useDashboardEvents({
+          fetchAllFeeds: async () => {},
+          fetchCategoryFeeds: async () => {},
+          fetchFeed: async () => {},
+          onOpenFeedsSidebar: () => {},
+          onOpenSettings: () => {},
+          onRefresh: () => {},
+          onSearchChange,
+          selectedCategory: "system-all-feeds",
+          selectedCategoryNode: undefined,
+          selectedFeedUrl: undefined,
+        }),
+      {
+        initialProps: { onSearchChange: firstOnSearchChange },
+      },
+    );
+
+    rerender({ onSearchChange: secondOnSearchChange });
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
+          detail: { term: "latest" },
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(firstOnSearchChange).not.toHaveBeenCalled();
+      expect(secondOnSearchChange).toHaveBeenCalledTimes(1);
+      expect(secondOnSearchChange).toHaveBeenCalledWith("latest");
     });
   });
 });
