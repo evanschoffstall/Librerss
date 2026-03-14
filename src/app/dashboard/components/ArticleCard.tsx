@@ -20,6 +20,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { type ArticleRemovalAnimationMode } from "../hooks/useArticleActions";
 import {
   useArticleExpansion,
   useArticleHeights,
@@ -69,10 +70,13 @@ interface ArticleCardProps {
   isHydrating: boolean;
   isMobile: boolean;
   isUpdatingState: boolean;
+  onCollapseAnimationComplete?: (articleKey: string) => void;
   onExpandedSwipeRead: (article: Article) => void;
+  onSwipeRead?: (article: Article) => void;
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
+  removalAnimationMode?: ArticleRemovalAnimationMode | null;
   showFavicon: boolean;
   useRichFormatting: boolean;
 }
@@ -96,10 +100,13 @@ export const ArticleCard = memo(function ArticleCard({
   isHydrating,
   isMobile,
   isUpdatingState,
+  onCollapseAnimationComplete,
   onExpandedSwipeRead,
+  onSwipeRead,
   onToggle,
   onToggleRead,
   onToggleStarred,
+  removalAnimationMode = null,
   showFavicon,
   useRichFormatting,
 }: ArticleCardProps) {
@@ -140,13 +147,41 @@ export const ArticleCard = memo(function ArticleCard({
   const { expandTransitionDone, onContentTransitionEnd, phase } =
     useArticleExpansion(isExpanded, isHydrating);
 
+  const isDeExpandingRemoval =
+    removalAnimationMode === "de-expanding" && !isExpanded;
   const showSkeleton = phase === "loading";
-  const showFullContent = phase === "revealing" || phase === "expanded";
+  const showFullContent =
+    isDeExpandingRemoval ||
+    phase === "collapsing" ||
+    phase === "revealing" ||
+    phase === "expanded";
   const shouldMeasureExpandedHeight =
     !expandTransitionDone && (isExpanded || showSkeleton || showFullContent);
-  const visuallyExpanded = phase === "expanded";
-  const cardT =
-    "var(--motion-duration-expand) var(--motion-ease-expand)" as const;
+  const visuallyExpanded =
+    isDeExpandingRemoval || phase === "collapsing" || phase === "expanded";
+  const suppressCollapsedReadDimming = removalAnimationMode === "de-expanding";
+  const handleContentTransitionEnd = useCallback(
+    (event: React.TransitionEvent) => {
+      onContentTransitionEnd(event);
+
+      if (
+        removalAnimationMode === "de-expanding" &&
+        !isExpanded &&
+        event.propertyName === "max-height"
+      ) {
+        onCollapseAnimationComplete?.(articleKey);
+      }
+    },
+    [
+      articleKey,
+      isExpanded,
+      onCollapseAnimationComplete,
+      onContentTransitionEnd,
+      removalAnimationMode,
+    ],
+  );
+
+  const cardT = "220ms cubic-bezier(0.2, 0, 0, 1)" as const;
 
   const richContentClassName = getRichContentClass(isExpanded);
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
@@ -217,6 +252,10 @@ export const ArticleCard = memo(function ArticleCard({
         afterSwipeRef.current = Date.now();
         if (isExpanded) {
           onExpandedSwipeRead(article);
+          return;
+        }
+        if (onSwipeRead) {
+          onSwipeRead(article);
           return;
         }
         onToggleRead(article);
@@ -606,11 +645,11 @@ export const ArticleCard = memo(function ArticleCard({
           dark:shadow-2xl dark:shadow-zinc-900/50
           ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
           ${
-            article.isRead && !visuallyExpanded
+            article.isRead && !visuallyExpanded && !suppressCollapsedReadDimming
               ? `
-            *:opacity-55 *:transition-opacity *:duration-200
-            hover:*:opacity-100
-          `
+                *:opacity-55 *:transition-opacity *:duration-200
+                hover:*:opacity-100
+              `
               : ""
           }
         `}
@@ -642,7 +681,6 @@ export const ArticleCard = memo(function ArticleCard({
                   ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
                   : null,
                 `border-radius ${cardT}`,
-                `box-shadow ${cardT}`,
               ]
                 .filter(Boolean)
                 .join(", "),
@@ -658,16 +696,13 @@ export const ArticleCard = memo(function ArticleCard({
             relative
             ${
               visuallyExpanded
-                ? `
-              sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4
-            `
+                ? `sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4`
                 : `rounded-t-xl bg-card/70 px-3 pt-3`
             }
           `}
           ref={headerZoneRef}
           style={{
             touchAction: "pan-y",
-            transition: `padding ${cardT}, background-color ${cardT}`,
             userSelect: "none",
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
@@ -940,12 +975,9 @@ export const ArticleCard = memo(function ArticleCard({
                 ${
                   visuallyExpanded
                     ? `text-[1.125rem] leading-[1.35] font-bold`
-                    : `
-                  line-clamp-2 text-[0.96rem]/6 font-semibold
-                `
+                    : `line-clamp-2 text-[0.96rem]/6 font-semibold`
                 }
               `}
-              style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
             >
               {article.title}
             </h3>
@@ -962,18 +994,15 @@ export const ArticleCard = memo(function ArticleCard({
             ${
               visuallyExpanded
                 ? `rounded-b-xl px-4 pt-3 pb-4`
-                : `
-              rounded-b-xl px-3 pt-2 pb-3
-            `
+                : `rounded-b-xl px-3 pt-2 pb-3`
             }
           `}
           ref={contentZoneRef}
-          style={{ transition: `padding ${cardT}` }}
         >
           <div
             className="
-            pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl
-          "
+              pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl
+            "
           >
             <div className={gradientCls} style={contentGradientStyle} />
           </div>
@@ -1005,14 +1034,16 @@ export const ArticleCard = memo(function ArticleCard({
                     }
                   : undefined
               }
-              onTransitionEnd={onContentTransitionEnd}
+              onTransitionEnd={handleContentTransitionEnd}
               style={{
                 cursor: visuallyExpanded ? "text" : undefined,
-                maxHeight: expandTransitionDone
+                maxHeight: isDeExpandingRemoval
                   ? "none"
-                  : hasOverflow
-                    ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
-                    : "none",
+                  : expandTransitionDone
+                    ? "none"
+                    : hasOverflow
+                      ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
+                      : "none",
                 touchAction: "pan-y",
                 userSelect: visuallyExpanded ? "text" : "none",
                 WebkitTouchCallout: visuallyExpanded ? "default" : "none",
@@ -1030,7 +1061,9 @@ export const ArticleCard = memo(function ArticleCard({
                   expandTransitionDone && !visuallyExpanded
                     ? "auto"
                     : "visible",
-                transition: `max-height ${cardT}`,
+                transition: isDeExpandingRemoval
+                  ? "none"
+                  : `max-height ${cardT}`,
               }}
             >
               {showSkeleton ? (

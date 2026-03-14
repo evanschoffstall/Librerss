@@ -156,6 +156,8 @@ export const DashboardView = ({
                 )}
               </div>
               <FeedList
+                collapsingArticleKey={feedList.collapsingArticleKey}
+                collapsingArticleMode={feedList.collapsingArticleMode}
                 expandedArticleKey={feedList.expandedArticleKey}
                 filteredFeed={feedList.filteredFeed}
                 hydratedArticleLinks={feedList.hydratedArticleLinks}
@@ -163,6 +165,7 @@ export const DashboardView = ({
                 isInitialLoading={feedList.isInitialLoading}
                 isRefreshing={feedList.isRefreshing}
                 onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
+                onSwipeRead={feedList.onArticleSwipeRead}
                 onToggle={feedList.onArticleToggle}
                 onToggleRead={feedList.onArticleToggleRead}
                 onToggleStarred={feedList.onArticleToggleStarred}
