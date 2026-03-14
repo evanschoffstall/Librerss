@@ -10,7 +10,7 @@
 import { randomBytes, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
 
-import { Client } from "pg";
+import { createSqlQueryExecutor } from "../src/lib/db/query-executor";
 
 const scrypt = promisify(scryptCallback);
 
@@ -43,12 +43,10 @@ async function hashPassword(pw: string): Promise<string> {
   return `${salt}:${key.toString("hex")}`;
 }
 
-const client = new Client({ connectionString: DATABASE_URL });
+const db = createSqlQueryExecutor();
 
 try {
-  await client.connect();
-
-  const existing = await client.query(
+  const existing = await db.query<{ id: number }>(
     `SELECT id FROM "User" WHERE email = $1 LIMIT 1`,
     [email.toLowerCase()],
   );
@@ -60,7 +58,7 @@ try {
 
   const passwordHash = await hashPassword(password);
 
-  const result = await client.query(
+  const result = await db.query<{ email: string; id: number }>(
     `INSERT INTO "User" (email, password_hash) VALUES ($1, $2) RETURNING id, email`,
     [email.toLowerCase(), passwordHash],
   );
@@ -72,5 +70,5 @@ try {
   console.error(`ERROR: ${message}`);
   process.exit(1);
 } finally {
-  await client.end();
+  await db.close();
 }

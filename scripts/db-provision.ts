@@ -13,7 +13,7 @@
 
 import { execSync } from "node:child_process";
 
-import { Client } from "pg";
+import { createSqlQueryExecutor } from "../src/lib/db/query-executor";
 
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 
@@ -28,11 +28,10 @@ if (!DATABASE_URL) {
 
 console.log("Connecting to database...");
 
-const client = new Client({ connectionString: DATABASE_URL });
+const db = createSqlQueryExecutor();
 
 try {
-  await client.connect();
-  const result = await client.query("SELECT version()");
+  const result = await db.query<{ version: string }>("SELECT version()");
   const version: string = result.rows[0]?.version ?? "unknown";
   console.log(
     `Connected. PostgreSQL: ${version.split(" ").slice(0, 2).join(" ")}`,
@@ -42,7 +41,7 @@ try {
   console.error(`ERROR: Could not connect to database.\n${message}`);
   process.exit(1);
 } finally {
-  await client.end();
+  await db.close();
 }
 
 console.log("Pushing schema...");

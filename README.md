@@ -59,6 +59,7 @@ This repo ships with a committed `.env` containing sensible defaults. Create `.e
 
 ```env
 DATABASE_URL="postgres://user:password@host:5432/dbname"
+DB_DRIVER="pg" # or stateless "neon"
 ALLOW_SIGNUP="false"
 NODE_ENV="development"
 LOG_LEVEL="warn"
