@@ -1,19 +1,17 @@
 /**
- * In-memory batch article cache.
+ * In-memory feed caches.
  *
- * Eliminates redundant DB queries when feeds haven't changed since the last
- * request.  The cache is per-user, keyed by the sorted set of requested URLs.
- * Entries auto-expire after the configured feed cache TTL.
+ * Two per-user caches live here:
+ * - Batch article results keyed by the requested URL-set
+ * - Feed-source list results keyed only by user ID
  *
- * Invalidation triggers:
- *   - TTL expiry (passive, checked on read)
- *   - Any upstream feed refresh (active, via `invalidateUserCache`)
- *   - Feed add / delete / rename / category change (via `invalidateUserCache`)
- *   - Force-refresh request (caller bypasses cache)
+ * Both caches share the same TTL because they serve the same dashboard boot
+ * path and should age out together under the same freshness budget.
  */
 
 import type { ArticleRow } from "./feed-batch-pipeline";
 
+import type { FeedSourceListRow } from "@/lib/api/feeds/types";
 import { CONFIG } from "@/lib/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,6 +24,12 @@ interface CachedBatchResult {
   lastFetchedByUrl: Map<string, Date>;
 }
 
+interface CachedFeedSourceListResult {
+  /** Epoch-ms when this entry was written. */
+  cachedAt: number;
+  sources: FeedSourceListRow[];
+}
+
 interface CacheEntry {
   result: CachedBatchResult;
   /** Sorted, joined URL key for quick comparison. */
@@ -35,6 +39,7 @@ interface CacheEntry {
 // ─── Cache store ──────────────────────────────────────────────────────────────
 
 const userCaches = new Map<number, Map<string, CacheEntry>>();
+const userFeedSourceListCaches = new Map<number, CachedFeedSourceListResult>();
 const MAX_ENTRIES_PER_USER = 8;
 
 /**
@@ -58,6 +63,25 @@ export function getCachedBatch(
 }
 
 /**
+ * Returns a cached feed-source list for a user when the entry is still fresh.
+ */
+export function getCachedFeedSourceList(
+  userId: number,
+): FeedSourceListRow[] | null {
+  const entry = userFeedSourceListCaches.get(userId);
+  if (!entry) {
+    return null;
+  }
+
+  if (!isTimestampFresh(entry.cachedAt)) {
+    userFeedSourceListCaches.delete(userId);
+    return null;
+  }
+
+  return entry.sources;
+}
+
+/**
  * Drops all cached batches for a user.
  * Call after any mutation that changes a user's feeds or articles:
  * add/delete/rename feed source, category change, article status change
@@ -65,6 +89,11 @@ export function getCachedBatch(
  */
 export function invalidateUserCache(userId: number): void {
   userCaches.delete(userId);
+}
+
+/** Drops the cached feed-source list for a user after feed mutations. */
+export function invalidateUserFeedSourceListCache(userId: number): void {
+  userFeedSourceListCaches.delete(userId);
 }
 
 /** Stores a batch result in the cache. Evicts oldest entries when full. */
@@ -93,6 +122,17 @@ export function setCachedBatch(
   });
 }
 
+/** Stores the current feed-source list for a user in memory. */
+export function setCachedFeedSourceList(
+  userId: number,
+  sources: FeedSourceListRow[],
+): void {
+  userFeedSourceListCaches.set(userId, {
+    cachedAt: Date.now(),
+    sources,
+  });
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 function buildUrlKey(urls: string[]): string {
@@ -100,7 +140,11 @@ function buildUrlKey(urls: string[]): string {
 }
 
 function isFresh(entry: CacheEntry): boolean {
-  return Date.now() - entry.result.cachedAt < ttlMs();
+  return isTimestampFresh(entry.result.cachedAt);
+}
+
+function isTimestampFresh(cachedAt: number): boolean {
+  return Date.now() - cachedAt < ttlMs();
 }
 
 function ttlMs(): number {
