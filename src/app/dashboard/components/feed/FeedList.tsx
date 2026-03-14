@@ -178,37 +178,50 @@ export const FeedList = memo(function FeedList({
           className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3"
           key="feed-list"
         >
-          {animatedItems.map(({ exiting, item: article, key: cardKey }) => {
-            const articleLink = article.link.trim();
-            return (
-              <div
-                className={
-                  exiting
-                    ? "article-exit pointer-events-none overflow-hidden"
-                    : undefined
-                }
-                key={cardKey}
-                ref={exiting ? exitRef : undefined}
-              >
-                <ArticleCard
-                  article={article}
-                  articleKey={cardKey}
-                  hasScrapedContent={hydratedArticleLinks[articleLink]}
-                  isDark={isDark}
-                  isExpanded={expandedArticleKey === cardKey}
-                  isHydrating={hydratingArticleLinks[articleLink]}
-                  isMobile={isMobile}
-                  isUpdatingState={updatingArticleState[cardKey]}
-                  onExpandedSwipeRead={onExpandedSwipeRead}
-                  onToggle={onToggle}
-                  onToggleRead={onToggleRead}
-                  onToggleStarred={onToggleStarred}
-                  showFavicon={showFavicons}
-                  useRichFormatting={hydratedArticleLinks[articleLink]}
-                />
-              </div>
-            );
-          })}
+          {isRefreshing ? (
+            <div className="pointer-events-none sticky top-2 z-20 mx-auto mb-1 flex w-fit items-center gap-2 rounded-full border border-sky-500/20 bg-background/92 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-sky-700 shadow-sm backdrop-blur-sm anim-article-enter dark:text-sky-300">
+              <Loader2 className="size-3 animate-spin" />
+              Syncing latest articles
+            </div>
+          ) : null}
+          {animatedItems.map(
+            ({ entering, exiting, item: article, key: cardKey }) => {
+              const articleLink = article.link.trim();
+              return (
+                <div
+                  className={
+                    [
+                      entering ? "anim-article-enter" : "",
+                      exiting
+                        ? "article-exit pointer-events-none overflow-hidden"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined
+                  }
+                  key={cardKey}
+                  ref={exiting ? exitRef : undefined}
+                >
+                  <ArticleCard
+                    article={article}
+                    articleKey={cardKey}
+                    hasScrapedContent={hydratedArticleLinks[articleLink]}
+                    isDark={isDark}
+                    isExpanded={expandedArticleKey === cardKey}
+                    isHydrating={hydratingArticleLinks[articleLink]}
+                    isMobile={isMobile}
+                    isUpdatingState={updatingArticleState[cardKey]}
+                    onExpandedSwipeRead={onExpandedSwipeRead}
+                    onToggle={onToggle}
+                    onToggleRead={onToggleRead}
+                    onToggleStarred={onToggleStarred}
+                    showFavicon={showFavicons}
+                    useRichFormatting={hydratedArticleLinks[articleLink]}
+                  />
+                </div>
+              );
+            },
+          )}
           <div
             className="py-1 flex justify-center"
             ref={sentinelRef}
