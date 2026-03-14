@@ -127,6 +127,7 @@ describe("ArticleCard", () => {
     const onToggle = mock(() => {});
     const onToggleRead = mock(() => {});
     const onExpandedSwipeRead = mock(() => {});
+    const onSwipeRead = mock(() => {});
 
     const { getByRole } = render(
       <ArticleCard
@@ -139,6 +140,7 @@ describe("ArticleCard", () => {
         isMobile={false}
         isUpdatingState={false}
         onExpandedSwipeRead={onExpandedSwipeRead}
+        onSwipeRead={onSwipeRead}
         onToggle={onToggle}
         onToggleRead={onToggleRead}
         onToggleStarred={() => {}}
@@ -159,7 +161,8 @@ describe("ArticleCard", () => {
     await waitFor(() => {
       expect(setPointerCapture).toHaveBeenCalledWith(11);
       expect(releasePointerCapture).toHaveBeenCalledWith(11);
-      expect(onToggleRead).toHaveBeenCalledTimes(1);
+      expect(onSwipeRead).toHaveBeenCalledTimes(1);
+      expect(onToggleRead).not.toHaveBeenCalled();
       expect(onExpandedSwipeRead).not.toHaveBeenCalled();
       expect(onToggle).not.toHaveBeenCalled();
     });

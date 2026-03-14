@@ -6,6 +6,7 @@ import * as React from "react";
 
 import {
   FeedList,
+  measureFeedListItemSize,
   shouldLoadMoreArticles,
 } from "@/app/dashboard/components/feed/FeedList";
 import { type Article } from "@/lib";
@@ -109,6 +110,27 @@ function setViewportMetrics(
 }
 
 describe("FeedList", () => {
+  test("measureFeedListItemSize clamps zero-height rows to the virtualization floor", () => {
+    const row = document.createElement("div");
+
+    Object.defineProperty(row, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        bottom: 0,
+        height: 0,
+        left: 0,
+        right: 0,
+        top: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    });
+
+    expect(measureFeedListItemSize(row)).toBe(12);
+  });
+
   test("shows a loading surface only during the initial fetch", () => {
     const { container, queryByText } = renderFeedList(
       <FeedList
@@ -189,6 +211,356 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(getByText(article.title)).toBeTruthy();
       expect(container.querySelectorAll(".animate-pulse").length).toBe(0);
+    });
+  });
+
+  test("marks staged unread removals as collapsing rows", async () => {
+    const article = buildArticle();
+    const { container, getByText } = renderFeedList(
+      <FeedList
+        collapsingArticleKey={article.link}
+        collapsingArticleMode="collapse"
+        expandedArticleKey={null}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="collapse"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.style.maxHeight).toBeTruthy();
+    });
+  });
+
+  test("marks swipe-driven removals with the off-screen row animation", async () => {
+    const article = buildArticle({
+      link: "https://example.com/articles/swipe-removal",
+      title: "Swipe removal article",
+    });
+    const { container, getByText } = renderFeedList(
+      <FeedList
+        collapsingArticleKey={article.link}
+        collapsingArticleMode="swipe-read"
+        expandedArticleKey={null}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(
+        container.querySelector(
+          `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="swipe-read"]`,
+        ),
+      ).toBeTruthy();
+    });
+  });
+
+  test("de-expanding rows collapse list space without applying the generic scale exit", async () => {
+    const article = buildArticle({
+      link: "https://example.com/articles/de-expanding-removal",
+      title: "De-expanding removal article",
+    });
+    const { container, getByText } = renderFeedList(
+      <FeedList
+        collapsingArticleKey={article.link}
+        collapsingArticleMode="de-expanding"
+        expandedArticleKey={null}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="de-expanding"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.style.maxHeight).toBeTruthy();
+      expect(row?.style.marginBottom).toBe("6px");
+      expect(row?.style.opacity).toBe("1");
+      expect(row?.style.transform).toBe("");
+      expect(row?.style.transition).toContain("max-height 220ms");
+      expect(row?.style.transition).toContain("margin-bottom 220ms");
+      expect(row?.style.transition).toContain("opacity 220ms");
+    });
+  });
+
+  test("keeps a de-expanding first row inside the virtualized feed", async () => {
+    const article = buildArticle({ title: "De-expanding first row article" });
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          expandedArticleKey={null}
+          filteredFeed={[article]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={1}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(
+        container.querySelector("[data-virtuoso-scroller='true']"),
+      ).toBeTruthy();
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            collapsingArticleKey={article.link}
+            collapsingArticleMode="de-expanding"
+            expandedArticleKey={null}
+            filteredFeed={[]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            pageSize={1}
+            paginationResetKey="all:unread:"
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="de-expanding"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.textContent).toContain(article.title);
+      expect(
+        container.querySelector("[data-virtuoso-scroller='true']"),
+      ).toBeTruthy();
+    });
+  });
+
+  test("does not pin idle rows to a measured max-height", async () => {
+    const article = buildArticle({ title: "Idle row article" });
+    const { container, getByText } = renderFeedList(
+      <FeedList
+        expandedArticleKey={null}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="idle"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.style.maxHeight).toBe("");
+      expect(row?.style.marginBottom).toBe("6px");
+    });
+  });
+
+  test("retains a collapsing row after unread filtering removes it", async () => {
+    const article = buildArticle({ title: "Retained collapse article" });
+    const { container, getByText, rerender } = renderFeedList(
+      <FeedList
+        expandedArticleKey={null}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <FeedList
+          collapsingArticleKey={article.link}
+          collapsingArticleMode="collapse"
+          expandedArticleKey={null}
+          filteredFeed={[]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={25}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="collapse"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.textContent).toContain(article.title);
+    });
+  });
+
+  test("pins a collapsing first row above the virtualized feed", async () => {
+    const article = buildArticle({ title: "Pinned first row article" });
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          expandedArticleKey={null}
+          filteredFeed={[article]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={1}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(
+        container.querySelector("[data-virtuoso-scroller='true']"),
+      ).toBeTruthy();
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            collapsingArticleKey={article.link}
+            collapsingArticleMode="collapse"
+            expandedArticleKey={null}
+            filteredFeed={[]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            pageSize={1}
+            paginationResetKey="all:unread:"
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="collapse"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.textContent).toContain(article.title);
+      expect(
+        container.querySelector("[data-virtuoso-scroller='true']"),
+      ).toBeNull();
     });
   });
 
