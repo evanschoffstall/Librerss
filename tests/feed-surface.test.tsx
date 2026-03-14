@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { useCallback, useRef } from "react";
+import { renderToString } from "react-dom/server";
 
 import {
   FEED_PULL_HEIGHT,
@@ -80,7 +81,41 @@ function renderPullHarness(
         configurable: true,
         get() {
           const pad = parseFloat(node.style.paddingBottom) || 0;
-          return 1200 + FEED_PULL_HEIGHT + pad;
+          const feedWrapper = node.firstElementChild as HTMLElement | null;
+          return (feedWrapper?.scrollHeight ?? 0) + pad;
+        },
+      });
+      Object.defineProperty(node, "scrollHeight", {
+        configurable: true,
+        get() {
+          const pad = parseFloat(node.style.paddingBottom) || 0;
+          const feedWrapper = node.firstElementChild as HTMLElement | null;
+          return (feedWrapper?.scrollHeight ?? 0) + pad;
+        },
+      });
+      node.dataset.ready = "true";
+    }, []);
+
+    const setFeedWrapperRef = useCallback((node: HTMLDivElement | null) => {
+      if (!node || node.dataset.ready === "true") return;
+      Object.defineProperty(node, "offsetHeight", {
+        configurable: true,
+        get() {
+          return Array.from(node.children).reduce(
+            (total, child) =>
+              total + (child instanceof HTMLElement ? child.offsetHeight : 0),
+            0,
+          );
+        },
+      });
+      Object.defineProperty(node, "scrollHeight", {
+        configurable: true,
+        get() {
+          return Array.from(node.children).reduce(
+            (total, child) =>
+              total + (child instanceof HTMLElement ? child.offsetHeight : 0),
+            0,
+          );
         },
       });
       node.dataset.ready = "true";
@@ -103,8 +138,10 @@ function renderPullHarness(
       <div ref={rootRef}>
         <div ref={setViewportRef}>
           <div ref={setWrapperRef}>
-            <div ref={setSentinelRef} />
-            <div>content</div>
+            <div ref={setFeedWrapperRef}>
+              <div ref={setSentinelRef} />
+              <div>content</div>
+            </div>
           </div>
         </div>
       </div>
@@ -126,6 +163,19 @@ function renderPullHarness(
 }
 
 describe("useFeedPullRefresh", () => {
+  test("renders the pull sentinel collapsed during server render", () => {
+    function ServerHarness() {
+      const rootRef = useRef<HTMLDivElement | null>(null);
+      const pull = useFeedPullRefresh(rootRef, () => {});
+
+      return <div data-sentinel-height={String(pull.sentinelHeight)} />;
+    }
+
+    const markup = renderToString(<ServerHarness />);
+
+    expect(markup).toContain('data-sentinel-height="0"');
+  });
+
   test("resets shallow pulls on scrollend", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
@@ -185,6 +235,23 @@ describe("useFeedPullRefresh", () => {
 
     expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
     expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    unmount();
+  });
+
+  test("real Radix nesting keeps the feed wrapper unconstrained", () => {
+    const onRefresh = mock(() => {});
+    const { container, unmount } = renderPullHarness(onRefresh);
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    const contentWrapper = viewport?.firstElementChild as HTMLElement | null;
+    const feedWrapper = contentWrapper?.firstElementChild as HTMLElement | null;
+    const sentinel = feedWrapper?.firstElementChild as HTMLElement | null;
+
+    expect(feedWrapper?.style.height ?? "").toBe("");
+    expect(sentinel?.style.height).toBe(`${FEED_PULL_HEIGHT}px`);
 
     unmount();
   });
