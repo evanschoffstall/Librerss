@@ -5,6 +5,8 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import { Client, Pool } from "pg";
+
 import type {
   resetDbDependenciesForTesting as resetDbDependenciesForTestingType,
   setDbDependenciesForTesting as setDbDependenciesForTestingType,
@@ -179,6 +181,70 @@ describe("db-helpers", () => {
   test("isForeignKeyError handles object without code", async () => {
     const { isForeignKeyError } = await import("@/lib/db/db");
     expect(isForeignKeyError({})).toBe(false);
+  });
+});
+
+describe("db-config", () => {
+  test("parses connection and pool configuration from env", async () => {
+    const previousEnv = {
+      DATABASE_URL: process.env.DATABASE_URL,
+      DB_DRIVER: process.env.DB_DRIVER,
+      DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
+    };
+
+    process.env.DATABASE_URL = "  postgres://example/config  ";
+    process.env.DB_DRIVER = "NeOn";
+    process.env.DB_IDLE_TIMEOUT_MS = "2500";
+    process.env.DB_MAX_CONNECTIONS = "7";
+    process.env.DB_EAGER_CONNECT_CHECK = "true";
+
+    const configModule: typeof import("@/lib/db/config") = await import(
+      `@/lib/db/config?config-valid=${Date.now()}`
+    );
+
+    expect(configModule.getConnectionString()).toBe(
+      "postgres://example/config",
+    );
+    expect(configModule.getDbDriver()).toBe("neon");
+    expect(configModule.getDbIdleTimeoutMs()).toBe(2500);
+    expect(configModule.getDbMaxConnections()).toBe(7);
+    expect(configModule.shouldRunInitialDbConnectivityCheck()).toBe(true);
+
+    restoreDbEnv(previousEnv);
+  });
+
+  test("falls back for invalid config env values and rejects invalid DB_DRIVER", async () => {
+    const previousEnv = {
+      DATABASE_URL: process.env.DATABASE_URL,
+      DB_DRIVER: process.env.DB_DRIVER,
+      DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
+    };
+
+    delete process.env.DATABASE_URL;
+    process.env.DB_DRIVER = "invalid";
+    process.env.DB_IDLE_TIMEOUT_MS = "-10";
+    process.env.DB_MAX_CONNECTIONS = "0";
+    process.env.DB_EAGER_CONNECT_CHECK = "false";
+
+    const configModule: typeof import("@/lib/db/config") = await import(
+      `@/lib/db/config?config-invalid=${Date.now()}`
+    );
+
+    expect(() => configModule.getConnectionString()).toThrow(
+      "Missing required environment variable",
+    );
+    expect(() => configModule.getDbDriver()).toThrow(
+      "Invalid environment variable: DB_DRIVER",
+    );
+    expect(configModule.getDbIdleTimeoutMs()).toBe(1000);
+    expect(configModule.getDbMaxConnections()).toBe(1);
+    expect(configModule.shouldRunInitialDbConnectivityCheck()).toBe(false);
+
+    restoreDbEnv(previousEnv);
   });
 });
 
@@ -468,5 +534,171 @@ describe("db initialization", () => {
     expect(result.rowCount).toBe(1);
     queryExecutorModule.resetSqlQueryExecutorFactoryForTesting();
     restoreDbEnv(previousEnv);
+  });
+});
+
+describe("db providers", () => {
+  test("createNodePostgresDatabase builds a pooled drizzle instance and executor reuses one client", async () => {
+    const originalConnect = Client.prototype.connect;
+    const originalQuery = Client.prototype.query;
+    const originalEnd = Client.prototype.end;
+    const connectMock = mock(async () => undefined);
+    const queryMock = mock(async () => ({
+      rowCount: undefined,
+      rows: [{ id: 1 }, "skip", null],
+    }));
+    const endMock = mock(async () => undefined);
+
+    Client.prototype.connect =
+      connectMock as unknown as typeof Client.prototype.connect;
+    Client.prototype.query =
+      queryMock as unknown as typeof Client.prototype.query;
+    Client.prototype.end = endMock as typeof Client.prototype.end;
+
+    let pool: null | Pool = null;
+    try {
+      const nodeProviderModule: typeof import("@/lib/db/node-postgres-provider") =
+        await import(`@/lib/db/node-postgres-provider?provider=${Date.now()}`);
+      const databaseResult = nodeProviderModule.createNodePostgresDatabase({
+        connectionString: "postgres://example/test",
+        idleTimeoutMillis: 1500,
+        maxConnections: 3,
+      });
+      pool = databaseResult.pool as Pool;
+
+      expect(databaseResult.db).toBeDefined();
+      expect(databaseResult.pool).toBeInstanceOf(Pool);
+
+      const executor = nodeProviderModule.createNodePostgresQueryExecutor(
+        "postgres://example/test",
+      );
+
+      await expect(executor.query("SELECT 1", [1, "two"])).resolves.toEqual({
+        rowCount: null,
+        rows: [{ id: 1 }],
+      });
+      await expect(executor.query("SELECT 2")).resolves.toEqual({
+        rowCount: null,
+        rows: [{ id: 1 }],
+      });
+
+      expect(connectMock).toHaveBeenCalledTimes(1);
+      expect(queryMock).toHaveBeenNthCalledWith(1, "SELECT 1", [1, "two"]);
+      expect(queryMock).toHaveBeenNthCalledWith(2, "SELECT 2", []);
+
+      await executor.close();
+      await executor.close();
+      expect(endMock).toHaveBeenCalledTimes(1);
+    } finally {
+      Client.prototype.connect = originalConnect;
+      Client.prototype.query = originalQuery;
+      Client.prototype.end = originalEnd;
+      await pool?.end();
+    }
+  });
+
+  test("createNeonDatabase and createNeonQueryExecutor configure neon transport and normalize query results", async () => {
+    const createdPools: Record<string, unknown>[] = [];
+    const neonQueryMock = mock(async () => ({
+      rowCount: 2,
+      rows: [{ id: 1 }, { id: 2 }],
+    }));
+    const drizzleMock = mock((pool: unknown) => ({ pool, tag: "neon-db" }));
+
+    mock.module("@neondatabase/serverless", () => {
+      const neonConfig = { poolQueryViaFetch: false };
+
+      return {
+        neon: () => ({ query: neonQueryMock }),
+        neonConfig,
+        Pool: class MockPool {
+          constructor(config: Record<string, unknown>) {
+            createdPools.push(config);
+          }
+        },
+      };
+    });
+    mock.module("drizzle-orm/neon-serverless", () => ({
+      drizzle: drizzleMock,
+    }));
+
+    const neonProviderModule: typeof import("@/lib/db/neon-provider") =
+      await import(`@/lib/db/neon-provider?provider=${Date.now()}`);
+    const serverlessModule = await import("@neondatabase/serverless");
+
+    const databaseResult = neonProviderModule.createNeonDatabase({
+      connectionString: "postgres://example/neon",
+      idleTimeoutMillis: 2200,
+      maxConnections: 5,
+    });
+
+    expect((databaseResult.db as unknown as { tag?: string }).tag).toBe(
+      "neon-db",
+    );
+    expect(createdPools).toEqual([
+      {
+        allowExitOnIdle: true,
+        connectionString: "postgres://example/neon",
+        idleTimeoutMillis: 2200,
+        max: 5,
+      },
+    ]);
+    expect(drizzleMock).toHaveBeenCalledTimes(1);
+    expect(serverlessModule.neonConfig.poolQueryViaFetch).toBe(true);
+
+    const executor = neonProviderModule.createNeonQueryExecutor(
+      "postgres://example/neon",
+    );
+    await expect(executor.query("SELECT 1", ["x"])).resolves.toEqual({
+      rowCount: 2,
+      rows: [{ id: 1 }, { id: 2 }],
+    });
+    await expect(executor.close()).resolves.toBeUndefined();
+    expect(neonQueryMock).toHaveBeenCalledWith("SELECT 1", ["x"]);
+  });
+
+  test("createSqlQueryExecutor default factory selects the configured driver", async () => {
+    const pgExecutor = {
+      close: async () => undefined,
+      query: async () => ({ rowCount: 0, rows: [] }),
+    };
+    const neonExecutor = {
+      close: async () => undefined,
+      query: async () => ({ rowCount: 0, rows: [] }),
+    };
+
+    mock.module("@/lib/db/config", () => ({
+      getConnectionString: () => "postgres://example/factory",
+      getDbDriver: () => "pg",
+    }));
+    mock.module("@/lib/db/node-postgres-provider", () => ({
+      createNodePostgresQueryExecutor: () => pgExecutor,
+    }));
+    mock.module("@/lib/db/neon-provider", () => ({
+      createNeonQueryExecutor: () => neonExecutor,
+    }));
+
+    const pgModule: typeof import("@/lib/db/query-executor") = await import(
+      `@/lib/db/query-executor?factory-pg=${Date.now()}`
+    );
+    expect(pgModule.createSqlQueryExecutor()).toBe(pgExecutor);
+
+    mock.restore();
+
+    mock.module("@/lib/db/config", () => ({
+      getConnectionString: () => "postgres://example/factory",
+      getDbDriver: () => "neon",
+    }));
+    mock.module("@/lib/db/node-postgres-provider", () => ({
+      createNodePostgresQueryExecutor: () => pgExecutor,
+    }));
+    mock.module("@/lib/db/neon-provider", () => ({
+      createNeonQueryExecutor: () => neonExecutor,
+    }));
+
+    const neonModule: typeof import("@/lib/db/query-executor") = await import(
+      `@/lib/db/query-executor?factory-neon=${Date.now()}`
+    );
+    expect(neonModule.createSqlQueryExecutor()).toBe(neonExecutor);
   });
 });
