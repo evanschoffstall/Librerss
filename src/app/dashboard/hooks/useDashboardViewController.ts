@@ -34,14 +34,37 @@ import { useFeedVisibilityObserver } from "./useFeedVisibilityObserver";
 import { type Article } from "@/lib";
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
+/**
+ * External inputs required to assemble the dashboard controller.
+ *
+ * The controller coordinates feed loading, filtering, refresh behavior, article
+ * actions, and settings state. These props provide the persisted preferences and
+ * callbacks owned by the parent view layer.
+ */
 export interface DashboardViewControllerProps {
+  /** Current background refresh policy selected by the user. */
   backgroundMode: BackgroundMode;
+  /** Active article distillation strategy used during on-demand extraction. */
   distillStrategy: string;
+  /** Persists a background mode change initiated from the settings surface. */
   onBackgroundModeChange: (value: BackgroundMode) => void;
+  /** Persists a distillation strategy change initiated from the settings surface. */
   onDistillStrategyChange: (value: string) => void;
+  /** Enables deterministic placeholder data paths when the app is running without a live backend. */
   usePlaceholderData: boolean;
 }
 
+/**
+ * Composes the dashboard's data flow, event wiring, and derived view model.
+ *
+ * This hook is the top-level coordinator for the dashboard screen. It binds the
+ * lower-level hooks that manage feed fetching, category state, article actions,
+ * scroll restoration, pull-to-refresh, keyboard shortcuts, and settings into a
+ * single controller object consumed by the UI components.
+ *
+ * @param props Persisted preferences and mode toggles supplied by the parent view.
+ * @returns Structured controller state grouped by dashboard sub-surface.
+ */
 export function useDashboardViewController({
   backgroundMode,
   distillStrategy,
@@ -49,7 +72,9 @@ export function useDashboardViewController({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardViewControllerProps) {
+  /** Last successful batch refresh time used for the top-bar status label. */
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  /** Forces relative time labels to recompute on an interval without storing duplicate derived strings. */
   const [, setRelativeRefreshTick] = useState(0);
   const dashboardState = useDashboardViewState();
 
@@ -91,6 +116,11 @@ export function useDashboardViewController({
     setVisibleCount,
   } = dashboardState;
 
+  /**
+   * Centralized feed loader that owns network requests, request cancellation,
+   * placeholder-mode fallbacks, and the shared loading epoch used by timeout
+   * protection.
+   */
   const feedLoader = useFeedLoader({
     categoriesRef,
     onFeedBatchLoaded: setLastRefreshedAt,
@@ -111,6 +141,10 @@ export function useDashboardViewController({
     loadingEpoch,
   } = feedLoader;
 
+  /**
+   * Category orchestration layer that keeps sidebar category state, feed-source
+   * loading, and selection-driven fetch behavior aligned.
+   */
   const categoryManager = useCategoryManager({
     categories,
     fetchAllFeeds,
@@ -138,6 +172,10 @@ export function useDashboardViewController({
     "librerss:scroll:sidebar",
   );
 
+  /**
+   * Article interaction coordinator for expand/collapse, hydration, read/starred
+   * state mutations, and optimistic UI updates.
+   */
   const articleActions = useArticleActions({
     articleFilter,
     categories,
@@ -167,6 +205,9 @@ export function useDashboardViewController({
     orderedCategoryLabels,
     setOrderedCategoryLabels,
   } = categoryManager;
+
+  // Deferring the search and filter inputs keeps expensive derived feed-model
+  // work from blocking keystrokes or quick filter toggles.
   const deferredArticleFilter = useDeferredValue(articleFilter);
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const isSearchPending = searchTerm !== deferredSearchTerm;
@@ -194,6 +235,13 @@ export function useDashboardViewController({
     [handleToggleStarredState],
   );
 
+  /**
+   * Full derived dashboard model used by the sidebar, feed list, and settings.
+   *
+   * The model is memoized because it performs category ordering, feed filtering,
+   * selection resolution, and sidebar projection from several independently
+   * changing state sources.
+   */
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
@@ -235,6 +283,8 @@ export function useDashboardViewController({
     [selectedCategory, categories],
   );
 
+  // Enforce a failsafe timeout around feed requests so the surface cannot remain
+  // indefinitely stuck in a loading state if an upstream request wedges.
   useFeedLoadingTimeout({
     loading,
     loadingEpoch,
@@ -268,6 +318,8 @@ export function useDashboardViewController({
     setSelectedCategory,
   });
 
+  // Keep persisted category ordering aligned with the currently available set of
+  // labels without discarding user-defined order for still-present categories.
   useEffect(() => {
     setOrderedCategoryLabels((currentLabels) =>
       computeNextOrderedCategoryLabels(
@@ -378,6 +430,7 @@ export function useDashboardViewController({
     ? "demo"
     : formatLastRefreshLabel(lastRefreshedAt);
 
+  /** Applies an optimistic local read-state update after a successful mark-all-read action. */
   const handleMarkAllReadLocally = useCallback(() => {
     setFeed((currentFeed) =>
       currentFeed.map((article) => ({ ...article, isRead: true })),
@@ -407,6 +460,10 @@ export function useDashboardViewController({
     setShowSettingsModal(false);
   }, [setShowSettingsModal]);
 
+  /**
+   * Stable sidebar props bag so presentational components can avoid rebuilding
+   * event bindings and derived category projections on every render.
+   */
   const sidebarProps = useMemo(
     () => ({
       isCategoriesLoading,
@@ -428,6 +485,12 @@ export function useDashboardViewController({
     ],
   );
 
+  /**
+   * UI-facing controller contract grouped by dashboard surface.
+   *
+   * Keeping the return shape segmented reduces prop-drilling noise in the page
+   * component and makes each surface's dependencies explicit.
+   */
   return {
     feedList: {
       expandedArticleKey,
