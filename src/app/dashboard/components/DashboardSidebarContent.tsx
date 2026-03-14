@@ -1,8 +1,8 @@
 import { Rss } from "lucide-react";
 import { memo } from "react";
 
-import { DashboardSidebarSkeleton } from "./DashboardLoadingSurfaces";
 import { FeedCategory } from "./feed/FeedCategory";
+import { DashboardSidebarSkeleton } from "./DashboardLoadingSurfaces";
 
 import { type CategoryTreeNode } from "@/lib";
 
