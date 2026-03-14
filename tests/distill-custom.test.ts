@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { customDistill } from "@/lib/distill";
+import {
+  customDistill,
+  defuddleDistill,
+  distillArticle,
+  readabilityDistill,
+} from "@/lib/distill";
 
 beforeEach(() => {
   mock.restore();
@@ -704,5 +709,74 @@ describe("lib/distill/custom", () => {
       }
       expect(result === null || typeof result === "object").toBe(true);
     });
+  });
+});
+
+describe("lib/distill/strategy wrappers", () => {
+  const articleHtml = `
+    <html>
+      <head>
+        <title>Strategy Title</title>
+        <meta property="og:description" content="Strategy description" />
+      </head>
+      <body>
+        <article>
+          <p>This article body is intentionally long enough to clear every default threshold used by the distill helpers.</p>
+          <p>Additional content keeps the extractor on the happy path for wrapper coverage.</p>
+        </article>
+      </body>
+    </html>
+  `;
+
+  test("readabilityDistill returns a normalized article and respects high thresholds", () => {
+    const article = readabilityDistill(
+      articleHtml,
+      "https://example.com/readability",
+    );
+
+    expect(article).not.toBeNull();
+    expect(article?.source).toBe("https://example.com/readability");
+    expect(article?.content).toContain("intentionally long enough");
+    expect(
+      readabilityDistill(articleHtml, "https://example.com/readability", {
+        contentLengthThreshold: 5000,
+      }),
+    ).toBeNull();
+  });
+
+  test("defuddleDistill patches missing DOM APIs and returns null below threshold", () => {
+    const article = defuddleDistill(
+      articleHtml,
+      "https://example.com/defuddle",
+    );
+
+    expect(article).not.toBeNull();
+    expect(article?.source).toBe("https://example.com/defuddle");
+    expect(article?.content).toContain("extractor on the happy path");
+    expect(
+      defuddleDistill(
+        "<article><p>tiny</p></article>",
+        "https://example.com/defuddle",
+        {
+          contentLengthThreshold: 500,
+        },
+      ),
+    ).toBeNull();
+  });
+
+  test("distillArticle dispatches to each strategy", async () => {
+    await expect(
+      distillArticle(articleHtml, "https://example.com/custom", "custom"),
+    ).resolves.not.toBeNull();
+    await expect(
+      distillArticle(
+        articleHtml,
+        "https://example.com/readability",
+        "readability",
+      ),
+    ).resolves.not.toBeNull();
+    await expect(
+      distillArticle(articleHtml, "https://example.com/defuddle", "defuddle"),
+    ).resolves.not.toBeNull();
   });
 });
