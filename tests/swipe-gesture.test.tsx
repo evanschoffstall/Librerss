@@ -12,6 +12,16 @@ interface SwipeHarnessProps {
   shouldIgnoreTarget?: (target: EventTarget | null) => boolean;
 }
 
+function createPointerEvent(type: string, pointerId: number) {
+  return new window.PointerEvent(type, {
+    bubbles: true,
+    clientX: 140,
+    clientY: 12,
+    pointerId,
+    pointerType: "touch",
+  });
+}
+
 function installPointerCaptureSpies(surface: HTMLElement) {
   const setPointerCapture = mock(() => {});
   const releasePointerCapture = mock(() => {});
@@ -23,16 +33,6 @@ function installPointerCaptureSpies(surface: HTMLElement) {
   });
 
   return { releasePointerCapture, setPointerCapture };
-}
-
-function createPointerEvent(type: string, pointerId: number) {
-  return new window.PointerEvent(type, {
-    bubbles: true,
-    clientX: 140,
-    clientY: 12,
-    pointerId,
-    pointerType: "touch",
-  });
 }
 
 function SwipeHarness({ onCommit, shouldIgnoreTarget }: SwipeHarnessProps) {
