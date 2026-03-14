@@ -34,6 +34,7 @@ import {
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
+import { shouldShowNoFeedSourcesToast } from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
 import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
 import { type Article, ArticleService, FeedService } from "@/lib";
@@ -106,6 +107,14 @@ describe("useFeedRefresh", () => {
     };
 
     expect(canRefreshFeed(neverFetched, 5 * 60 * 1000)).toBe(true);
+  });
+});
+
+describe("useFeedLoader", () => {
+  test("suppresses the empty-source toast in placeholder mode", () => {
+    expect(shouldShowNoFeedSourcesToast(false, true)).toBe(false);
+    expect(shouldShowNoFeedSourcesToast(false, false)).toBe(true);
+    expect(shouldShowNoFeedSourcesToast(true, false)).toBe(false);
   });
 });
 
@@ -239,9 +248,9 @@ describe("useAnimatedList", () => {
 
     await waitFor(() => {
       expect(result.current).toEqual([
-        { exiting: false, item: "a", key: "a" },
-        { exiting: true, item: "b", key: "b" },
-        { exiting: false, item: "c", key: "c" },
+        { entering: false, exiting: false, item: "a", key: "a" },
+        { entering: false, exiting: true, item: "b", key: "b" },
+        { entering: false, exiting: false, item: "c", key: "c" },
       ]);
     });
   });
@@ -260,7 +269,30 @@ describe("useAnimatedList", () => {
     });
 
     await waitFor(() => {
-      expect(result.current).toEqual([{ exiting: false, item: "a", key: "a" }]);
+      expect(result.current).toEqual([
+        { entering: false, exiting: false, item: "a", key: "a" },
+      ]);
+    });
+  });
+
+  test("flags inserted items as entering during a refresh-style append", async () => {
+    const { rerender, result } = renderHook(
+      ({ items }: { items: string[] }) =>
+        useAnimatedList(items, getStringKey, 2),
+      {
+        initialProps: { items: ["a"] },
+      },
+    );
+
+    act(() => {
+      rerender({ items: ["b", "a"] });
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([
+        { entering: true, exiting: false, item: "b", key: "b" },
+        { entering: false, exiting: false, item: "a", key: "a" },
+      ]);
     });
   });
 });
