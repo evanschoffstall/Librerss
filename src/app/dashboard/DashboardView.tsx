@@ -73,7 +73,10 @@ export const DashboardView = ({
           <div className="h-full rounded-xl bg-card/35 px-2 py-2">
             <ScrollArea
               className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${
-                sidebar.isSidebarVisible ? "opacity-100" : "opacity-0"
+                sidebar.sidebarProps.isCategoriesLoading ||
+                sidebar.isSidebarVisible
+                  ? "opacity-100"
+                  : "opacity-0"
               }`}
               ref={sidebar.sidebarScrollRef}
             >

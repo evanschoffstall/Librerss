@@ -1,9 +1,9 @@
 import { Rss } from "lucide-react";
 import { memo } from "react";
 
+import { DashboardSidebarSkeleton } from "./DashboardLoadingSurfaces";
 import { FeedCategory } from "./feed/FeedCategory";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { type CategoryTreeNode } from "@/lib";
 
 const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
@@ -30,31 +30,7 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
   return (
     <>
       {isCategoriesLoading ? (
-        <div className={sidebarPanelCls} key="sidebar-loading">
-          {[3, 2, 4].map((count, groupIndex) => (
-            <div className="space-y-0.5" key={groupIndex}>
-              <div className="px-1.5">
-                <Skeleton className="h-6 w-20 rounded" />
-              </div>
-              {Array.from({ length: count }).map((_, itemIndex) => (
-                <div
-                  className="mx-1 flex items-center justify-between gap-2 rounded-lg border-l-2 border-transparent px-2 py-2"
-                  key={itemIndex}
-                >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <Skeleton
-                      className={`h-3.5 ${itemIndex % 2 === 0 ? "w-24" : "w-20"}`}
-                    />
-                    <Skeleton
-                      className={`h-2.5 ${itemIndex % 2 === 0 ? "w-16" : "w-20"}`}
-                    />
-                  </div>
-                  <Skeleton className="size-3.5 shrink-0 rounded-full" />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+        <DashboardSidebarSkeleton />
       ) : (
         <div className={sidebarPanelCls} key="sidebar-content">
           {sidebarCategories.length === 0 ? (

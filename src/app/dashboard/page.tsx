@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
+import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   getUserFromSessionToken,
   SESSION_COOKIE_NAME,
@@ -22,18 +22,7 @@ export default async function Dashboard(props: PageProps<"/dashboard">) {
 
   return (
     <div className="h-dvh overflow-hidden overscroll-contain">
-      <Suspense
-        fallback={
-          <div className="flex h-full items-center justify-center overflow-hidden px-4">
-            <div className="w-full max-w-3xl space-y-2">
-              <Skeleton className="h-8 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-            </div>
-          </div>
-        }
-      >
+      <Suspense fallback={<DashboardShellSkeleton />}>
         <DashboardRouter
           hasPreviewQuery={hasPreviewQuery}
           initialSession={initialSession}

@@ -7,8 +7,8 @@ import { memo, useCallback, useMemo } from "react";
 import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
+import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
@@ -28,42 +28,6 @@ interface FeedListProps {
   updatingArticleState: Record<string, boolean>;
   visibleCount: number;
 }
-
-const ArticleCardSkeleton = memo(function ArticleCardSkeleton() {
-  return (
-    <article className="group relative overflow-visible rounded-xl border border-border dark:shadow-2xl dark:shadow-zinc-900/50">
-      <div className="relative rounded-t-xl bg-card/70 px-3 pt-3">
-        <div className="relative z-10 space-y-2">
-          <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
-            <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="size-1 rounded-full" />
-            </div>
-            <div className="flex min-w-0 items-center gap-2">
-              <Skeleton className="size-3 rounded-full" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-            <div className="-mr-1 ml-auto flex shrink-0 items-center gap-1">
-              <Skeleton className="size-6 rounded-md" />
-              <Skeleton className="size-6 rounded-md" />
-              <Skeleton className="size-6 rounded-md" />
-              <Skeleton className="size-6 rounded-md" />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Skeleton className="h-4 w-11/12" />
-            <Skeleton className="h-4 w-3/4" />
-          </div>
-        </div>
-      </div>
-      <div className="relative rounded-b-xl bg-card/70 px-3 pb-3 pt-2">
-        <div className="relative z-10 py-0.5">
-          <Skeleton className="h-4 w-[86%]" />
-        </div>
-      </div>
-    </article>
-  );
-});
 
 export const FeedList = memo(function FeedList({
   expandedArticleKey,
@@ -151,14 +115,7 @@ export const FeedList = memo(function FeedList({
   return (
     <>
       {loading ? (
-        <div
-          className="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3 anim-fade-in-load-slow"
-          key="feed-loading"
-        >
-          {Array.from({ length: 6 }).map((_, index) => (
-            <ArticleCardSkeleton key={index} />
-          ))}
-        </div>
+        <DashboardFeedListSkeleton />
       ) : !hasAnyVisible && filteredFeed.length === 0 ? (
         <div
           className="mx-auto flex w-full max-w-3xl items-center justify-center px-4 py-20 sm:py-32 lg:max-w-none lg:px-6 lg:py-40 anim-fade-in-load-slow"
