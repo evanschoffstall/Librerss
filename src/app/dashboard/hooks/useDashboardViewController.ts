@@ -217,7 +217,12 @@ export function useDashboardViewController({
   const isQuickFilterPending =
     articleFilter !== deferredArticleFilter &&
     searchTerm === deferredSearchTerm;
-  const isFeedListLoading = loading || isQuickFilterPending || isSearchPending;
+  /** Initial feed loads are the only times the article surface should skeleton. */
+  const isFeedListInitialLoading = loading && feed.length === 0;
+  /** Refreshes should preserve visible articles and only signal background work. */
+  const isFeedListRefreshing = loading && feed.length > 0;
+  const isFeedInteractionBlocked =
+    loading || isQuickFilterPending || isSearchPending;
 
   const onArticleToggle = useCallback(
     (article: Article) => void handleArticleToggle(article),
@@ -464,7 +469,7 @@ export function useDashboardViewController({
   } = useFeedPullRefresh(
     feedScrollRootRef,
     refreshFeedList,
-    isFeedListLoading,
+    isFeedInteractionBlocked,
     suppressSnapRef,
   );
 
@@ -540,8 +545,9 @@ export function useDashboardViewController({
       filteredFeed,
       hydratedArticleLinks,
       hydratingArticleLinks,
+      isInitialLoading: isFeedListInitialLoading,
       isPulling,
-      loading: isFeedListLoading,
+      isRefreshing: isFeedListRefreshing,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
       onArticleToggle,
