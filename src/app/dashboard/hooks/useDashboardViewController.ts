@@ -166,6 +166,7 @@ export function useDashboardViewController({
   const suppressSnapRef = useRef<false | number>(false);
   const {
     capture: captureFeedScroll,
+    flush: flushFeedScroll,
     invalidate: invalidateFeedScroll,
     ref: feedScrollRef,
     settle: settleFeedScroll,
@@ -340,6 +341,19 @@ export function useDashboardViewController({
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
+  const previousLoadingRef = useRef(loading);
+  const pendingRefreshRestoreRef = useRef<null | {
+    capturedFeed: Article[];
+    capturedLastRefreshedAt: Date | null;
+  }>(null);
+
+  const handleBeforeRefresh = useCallback(() => {
+    pendingRefreshRestoreRef.current = {
+      capturedFeed: feed,
+      capturedLastRefreshedAt: lastRefreshedAt,
+    };
+    captureFeedScroll();
+  }, [captureFeedScroll, feed, lastRefreshedAt]);
 
   useEffect(() => {
     const categoryChanged =
@@ -359,6 +373,28 @@ export function useDashboardViewController({
     selectedCategory,
     setExpandedArticleKey,
   ]);
+
+  useEffect(() => {
+    const wasLoading = previousLoadingRef.current;
+    previousLoadingRef.current = loading;
+
+    const pendingRestore = pendingRefreshRestoreRef.current;
+    if (!pendingRestore) {
+      return;
+    }
+
+    const feedChanged = pendingRestore.capturedFeed !== feed;
+    const completedBatchRefresh =
+      pendingRestore.capturedLastRefreshedAt !== lastRefreshedAt;
+    const foregroundRefreshFinished = wasLoading && !loading;
+
+    if (!feedChanged && !completedBatchRefresh && !foregroundRefreshFinished) {
+      return;
+    }
+
+    pendingRefreshRestoreRef.current = null;
+    flushFeedScroll();
+  }, [feed, flushFeedScroll, lastRefreshedAt, loading]);
 
   /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
@@ -398,7 +434,7 @@ export function useDashboardViewController({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
-    onBeforeRefresh: captureFeedScroll,
+    onBeforeRefresh: handleBeforeRefresh,
     onFeedSwitch: useCallback(() => {
       invalidateFeedScroll();
       setArticleFilter("unread");

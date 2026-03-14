@@ -17,7 +17,8 @@ interface FeedListProps {
   filteredFeed: Article[];
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
-  loading: boolean;
+  isInitialLoading: boolean;
+  isRefreshing: boolean;
   onExpandedSwipeRead: (article: Article) => void;
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
@@ -34,7 +35,8 @@ export const FeedList = memo(function FeedList({
   filteredFeed,
   hydratedArticleLinks,
   hydratingArticleLinks,
-  loading,
+  isInitialLoading,
+  isRefreshing,
   onExpandedSwipeRead,
   onToggle,
   onToggleRead,
@@ -114,7 +116,7 @@ export const FeedList = memo(function FeedList({
 
   return (
     <>
-      {loading ? (
+      {isInitialLoading ? (
         <DashboardFeedListSkeleton />
       ) : !hasAnyVisible && filteredFeed.length === 0 ? (
         <div
