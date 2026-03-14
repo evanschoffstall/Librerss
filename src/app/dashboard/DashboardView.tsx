@@ -143,6 +143,7 @@ export const DashboardView = ({
 
       {settings.showSettingsModal && (
         <SettingsModal
+          autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}
           categories={settings.categories}
           categoryOptions={settings.categoryOptions}
@@ -150,6 +151,9 @@ export const DashboardView = ({
           isPreviewMode={settings.usePlaceholderData}
           onAddCategory={settings.categoryManager.addCategory}
           onAddFeed={settings.categoryManager.addFeedSource}
+          onAutoRefreshIntervalMinutesChange={
+            settings.setAutoRefreshIntervalMinutes
+          }
           onBackgroundModeChange={settings.onBackgroundModeChange}
           onClose={settings.handleCloseSettings}
           onDistillStrategyChange={settings.onDistillStrategyChange}

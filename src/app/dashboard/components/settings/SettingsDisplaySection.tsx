@@ -1,7 +1,14 @@
 import { Monitor } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import type { BackgroundMode } from "../../constants";
+import {
+  MANUAL_REFRESH_INTERVAL_MINUTES,
+  MIN_AUTO_REFRESH_INTERVAL_MINUTES,
+  normalizeAutoRefreshIntervalMinutes,
+} from "../../services/refresh-policy";
 
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -13,8 +20,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 
 export interface SettingsDisplaySectionProps {
+  autoRefreshIntervalMinutes: number;
   backgroundMode: BackgroundMode;
   distillStrategy: string;
+  onAutoRefreshIntervalMinutesChange: (value: number) => void;
   onBackgroundModeChange: (value: BackgroundMode) => void;
   onDistillStrategyChange: (value: string) => void;
   onPageSizeChange: (size: number) => void;
@@ -24,8 +33,10 @@ export interface SettingsDisplaySectionProps {
 }
 
 export function SettingsDisplaySection({
+  autoRefreshIntervalMinutes,
   backgroundMode,
   distillStrategy,
+  onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
   onPageSizeChange,
@@ -33,6 +44,24 @@ export function SettingsDisplaySection({
   pageSize,
   showFavicons,
 }: SettingsDisplaySectionProps) {
+  const [autoRefreshDraft, setAutoRefreshDraft] = useState(
+    String(autoRefreshIntervalMinutes),
+  );
+
+  useEffect(() => {
+    setAutoRefreshDraft(String(autoRefreshIntervalMinutes));
+  }, [autoRefreshIntervalMinutes]);
+
+  const commitAutoRefreshDraft = () => {
+    const parsedValue = Number.parseInt(autoRefreshDraft, 10);
+    const normalizedValue = normalizeAutoRefreshIntervalMinutes(
+      parsedValue,
+      autoRefreshIntervalMinutes,
+    );
+    onAutoRefreshIntervalMinutesChange(normalizedValue);
+    setAutoRefreshDraft(String(normalizedValue));
+  };
+
   return (
     <section className="settings-card">
       <div>
@@ -62,6 +91,41 @@ export function SettingsDisplaySection({
               <SelectItem value="50">50 articles</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="row-between items-start gap-4">
+          <div>
+            <Label htmlFor="auto-refresh-interval">Auto refresh</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Minimum {MIN_AUTO_REFRESH_INTERVAL_MINUTES} minutes. Manual
+              refresh stays available every {MANUAL_REFRESH_INTERVAL_MINUTES}{" "}
+              minutes.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-24 text-right"
+              id="auto-refresh-interval"
+              inputMode="numeric"
+              min={MIN_AUTO_REFRESH_INTERVAL_MINUTES}
+              onBlur={commitAutoRefreshDraft}
+              onChange={(event) => {
+                setAutoRefreshDraft(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  commitAutoRefreshDraft();
+                }
+
+                if (event.key === "Escape") {
+                  setAutoRefreshDraft(String(autoRefreshIntervalMinutes));
+                }
+              }}
+              step="5"
+              type="number"
+              value={autoRefreshDraft}
+            />
+            <span className="text-xs text-muted-foreground">min</span>
+          </div>
         </div>
         <div className="flex items-center justify-between">
           <Label htmlFor="show-favicons">Show favicons</Label>

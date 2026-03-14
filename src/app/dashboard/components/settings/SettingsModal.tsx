@@ -78,10 +78,12 @@ function DemoOverlay() {
 
 /** Shared body rendered inside both the Dialog and the Drawer. */
 function SettingsBody({
+  autoRefreshIntervalMinutes,
   backgroundMode,
   categories,
   distillStrategy,
   isPreviewMode = false,
+  onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
   onPageSizeChange,
@@ -101,8 +103,10 @@ function SettingsBody({
   return (
     <div className="space-y-4 py-1 pr-3">
       <SettingsDisplaySection
+        autoRefreshIntervalMinutes={autoRefreshIntervalMinutes}
         backgroundMode={backgroundMode}
         distillStrategy={distillStrategy}
+        onAutoRefreshIntervalMinutesChange={onAutoRefreshIntervalMinutesChange}
         onBackgroundModeChange={onBackgroundModeChange}
         onDistillStrategyChange={onDistillStrategyChange}
         onPageSizeChange={onPageSizeChange}
@@ -216,6 +220,7 @@ function SettingsBody({
 }
 
 export const SettingsModal = ({
+  autoRefreshIntervalMinutes,
   backgroundMode,
   categories,
   categoryOptions,
@@ -223,6 +228,7 @@ export const SettingsModal = ({
   isPreviewMode = false,
   onAddCategory,
   onAddFeed,
+  onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onClose,
   onDistillStrategyChange,
@@ -260,10 +266,12 @@ export const SettingsModal = ({
   });
 
   const bodyProps = {
+    autoRefreshIntervalMinutes,
     backgroundMode,
     categories,
     distillStrategy,
     isPreviewMode,
+    onAutoRefreshIntervalMinutesChange,
     onBackgroundModeChange,
     onDistillStrategyChange,
     onPageSizeChange,

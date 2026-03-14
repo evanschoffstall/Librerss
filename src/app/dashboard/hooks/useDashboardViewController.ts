@@ -80,6 +80,7 @@ export function useDashboardViewController({
 
   const {
     articleFilter,
+    autoRefreshIntervalMinutes,
     categories,
     expandedArticleKey,
     feed,
@@ -101,6 +102,7 @@ export function useDashboardViewController({
   } = dashboardState;
   const {
     setArticleFilter,
+    setAutoRefreshIntervalMinutes,
     setCategories,
     setExpandedArticleKey,
     setFeed,
@@ -408,7 +410,11 @@ export function useDashboardViewController({
     setSelectedCategory,
   });
 
-  useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
+  useDashboardIntervals({
+    autoRefreshFeedList,
+    autoRefreshIntervalMinutes,
+    setRelativeRefreshTick,
+  });
 
   /**
    * Pull-to-refresh gesture state for touch and trackpad interactions on the
@@ -518,6 +524,7 @@ export function useDashboardViewController({
       visibleCount,
     },
     settings: {
+      autoRefreshIntervalMinutes,
       backgroundMode,
       categories: displayCategories,
       categoryManager,
@@ -528,6 +535,7 @@ export function useDashboardViewController({
       onDistillStrategyChange,
       pageSize,
       selectedCategory,
+      setAutoRefreshIntervalMinutes,
       setPageSize,
       setShowFavicons,
       showFavicons,
