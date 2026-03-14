@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { escapeArticleKey } from "./useArticleHydration";
 
@@ -35,6 +41,20 @@ export function useFeedPullOffset() {
   return FEED_PULL_OFFSET;
 }
 
+/**
+ * Wires the dashboard scroll viewport to the hidden pull-to-refresh sentinel.
+ *
+ * The sentinel must render at zero height during SSR so the initial skeleton
+ * paint cannot expose the reserved pull region before hydration restores the
+ * hidden scroll offset. A pre-paint layout pass then enables the sentinel and
+ * re-applies the resting offset without a visible flash.
+ *
+ * @param scrollRootRef Scroll root that contains the Radix viewport.
+ * @param onRefresh Callback invoked after a committed pull gesture.
+ * @param disabled Whether refresh commits should be suppressed.
+ * @param lockRef Shared scroll lock used during article expand/collapse flows.
+ * @returns Pull gesture state plus the sentinel ref and active layout height.
+ */
 export function useFeedPullRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   onRefresh: () => void,
@@ -42,6 +62,7 @@ export function useFeedPullRefresh(
   lockRef?: React.RefObject<ScrollLockTarget>,
 ) {
   const [state, setState] = useState(IDLE);
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const touchActiveRef = useRef(false);
   const touchLastScrollTopRef = useRef(FEED_PULL_OFFSET);
@@ -61,17 +82,23 @@ export function useFeedPullRefresh(
   disabledRef.current = disabled;
   onRefreshRef.current = onRefresh;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setIsLayoutReady(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isLayoutReady) return;
     const root = scrollRootRef.current;
     if (!root) return;
     const viewport =
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
     const wrapper = viewport.firstElementChild as HTMLElement | null;
+    const feedWrapper = wrapper?.firstElementChild as HTMLElement | null;
     const sentinel =
-      wrapper?.firstElementChild instanceof HTMLElement &&
-      wrapper.firstElementChild.tagName === "DIV"
-        ? wrapper.firstElementChild
+      feedWrapper?.firstElementChild instanceof HTMLElement &&
+      feedWrapper.firstElementChild.tagName === "DIV"
+        ? feedWrapper.firstElementChild
         : sentinelRef.current;
     if (!sentinel || !wrapper) return;
 
@@ -280,12 +307,12 @@ export function useFeedPullRefresh(
       sentinel.style.height = "";
       wrapper.style.paddingBottom = "";
     };
-  }, [lockRef, scrollRootRef]);
+  }, [isLayoutReady, lockRef, scrollRootRef]);
 
   return {
     pulling: state.pulling,
     readyToRefresh: state.readyToRefresh,
-    sentinelHeight: FEED_PULL_HEIGHT,
+    sentinelHeight: isLayoutReady ? FEED_PULL_HEIGHT : 0,
     sentinelRef,
   };
 }

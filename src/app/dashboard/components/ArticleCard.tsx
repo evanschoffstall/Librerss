@@ -171,20 +171,38 @@ export const ArticleCard = memo(function ArticleCard({
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
 
+  const isExpandedBodyTarget = useCallback(
+    (target: EventTarget | null) =>
+      Boolean(
+        visuallyExpanded &&
+        target instanceof Node &&
+        contentZoneRef.current?.contains(target),
+      ),
+    [visuallyExpanded],
+  );
+
   const { containerRef: readSwipeRef, swipeState: readSwipeState } =
-    useSwipeToRead(() => {
-      afterSwipeRef.current = Date.now();
-      if (isExpanded) {
-        onExpandedSwipeRead(article);
-        return;
-      }
-      onToggleRead(article);
-    }, isUpdatingState);
+    useSwipeToRead(
+      () => {
+        afterSwipeRef.current = Date.now();
+        if (isExpanded) {
+          onExpandedSwipeRead(article);
+          return;
+        }
+        onToggleRead(article);
+      },
+      isUpdatingState,
+      isExpandedBodyTarget,
+    );
   const { containerRef: starSwipeRef, swipeState: starSwipeState } =
-    useSwipeToStar(() => {
-      afterSwipeRef.current = Date.now();
-      onToggleStarred(article);
-    }, isUpdatingState);
+    useSwipeToStar(
+      () => {
+        afterSwipeRef.current = Date.now();
+        onToggleStarred(article);
+      },
+      isUpdatingState,
+      isExpandedBodyTarget,
+    );
   const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
   const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
   const articleSurfaceRef = useCallback(
@@ -213,11 +231,6 @@ export const ArticleCard = memo(function ArticleCard({
   const handleRawHtmlOpenChange = makeOpenChangeHandler(setIsRawHtmlOpen);
   const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
   const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
-
-  const isExpandedBodyTarget = (target: EventTarget | null) =>
-    visuallyExpanded &&
-    target instanceof Node &&
-    contentZoneRef.current?.contains(target);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (isExpandedBodyTarget(e.target)) return;
@@ -522,7 +535,7 @@ export const ArticleCard = memo(function ArticleCard({
         role="button"
         style={{
           cursor: visuallyExpanded ? "default" : "pointer",
-          touchAction: "pan-y",
+          touchAction: visuallyExpanded ? "auto" : "pan-y",
           transform: anySwiping ? `translateX(${swipeOffsetX}px)` : undefined,
           transition: anySwiping
             ? "none"
@@ -798,12 +811,26 @@ export const ArticleCard = memo(function ArticleCard({
           </div>
           <div className="relative z-10">
             <div
-              className="overflow-hidden article-swipe-body"
+              className={`overflow-hidden article-swipe-body ${visuallyExpanded ? "select-text" : ""}`}
               onClick={
                 visuallyExpanded
                   ? (e) => {
                       // Expanded body interactions should never collapse the card.
                       e.stopPropagation();
+                    }
+                  : undefined
+              }
+              onMouseDown={
+                visuallyExpanded
+                  ? (event) => {
+                      event.stopPropagation();
+                    }
+                  : undefined
+              }
+              onPointerDown={
+                visuallyExpanded
+                  ? (event) => {
+                      event.stopPropagation();
                     }
                   : undefined
               }
@@ -815,7 +842,7 @@ export const ArticleCard = memo(function ArticleCard({
                   : hasOverflow
                     ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
                     : "none",
-                touchAction: "pan-y",
+                touchAction: visuallyExpanded ? "auto" : "pan-y",
                 userSelect: visuallyExpanded ? "text" : "none",
                 WebkitTouchCallout: visuallyExpanded ? "default" : "none",
                 WebkitUserSelect: visuallyExpanded ? "text" : "none",
@@ -853,7 +880,7 @@ export const ArticleCard = memo(function ArticleCard({
                 </p>
               ) : useRichFormatting ? (
                 <div
-                  className={`${visibleRichContentClassName} anim-article-enter`}
+                  className={`${visibleRichContentClassName} ${visuallyExpanded ? "cursor-text select-text" : ""} anim-article-enter`}
                   dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                   style={{
                     contain: visuallyExpanded ? "none" : "layout style paint",
@@ -862,7 +889,7 @@ export const ArticleCard = memo(function ArticleCard({
                 />
               ) : (
                 <p
-                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
+                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "cursor-text select-text text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
                 >
                   {content}
                 </p>

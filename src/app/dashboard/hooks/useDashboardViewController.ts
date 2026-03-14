@@ -124,7 +124,9 @@ export function useDashboardViewController({
     usePlaceholderData,
   });
 
+  /** Hidden rest offset used by the pull-to-refresh surface and scroll restore logic. */
   const sentinelScrollOffset = useFeedPullOffset();
+  /** Shared scroll-snap suppression flag used while gesture-driven animations are in flight. */
   const suppressSnapRef = useRef<false | number>(false);
   const {
     capture: captureFeedScroll,
@@ -253,13 +255,8 @@ export function useDashboardViewController({
     setVisibleCount,
   ]);
 
-  useFeedVisibilityObserver({
-    pageSize,
-    sentinelRef,
-    setVisibleCount,
-    totalFeedItems: filteredFeed.length,
-  });
-
+  // Initial dashboard boot chooses the starting category and kicks off the first
+  // feed/category load sequence exactly once.
   useDashboardInitialization({
     fetchAllFeeds,
     fetchCategoryFeeds,
@@ -309,8 +306,18 @@ export function useDashboardViewController({
     setExpandedArticleKey,
   ]);
 
+  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
   const feedWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Merges local feed-scroll bookkeeping with persisted viewport restoration.
+   *
+   * The dashboard needs direct access to the scroll root for observer-based list
+   * growth, while the viewport restore hook needs the same node to capture and
+   * reapply position across feed changes.
+   */
   const mergedFeedScrollRef = useCallback(
     (node: HTMLElement | null) => {
       feedScrollRootRef.current = node;
@@ -318,6 +325,14 @@ export function useDashboardViewController({
     },
     [feedScrollRef],
   );
+
+  useFeedVisibilityObserver({
+    pageSize,
+    scrollRootRef: feedScrollRootRef,
+    sentinelRef,
+    setVisibleCount,
+    totalFeedItems: filteredFeed.length,
+  });
 
   const {
     autoRefreshFeedList,
@@ -343,6 +358,10 @@ export function useDashboardViewController({
 
   useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
 
+  /**
+   * Pull-to-refresh gesture state for touch and trackpad interactions on the
+   * feed surface.
+   */
   const {
     pulling: isPulling,
     readyToRefresh,

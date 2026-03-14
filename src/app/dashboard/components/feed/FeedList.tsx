@@ -245,7 +245,11 @@ export const FeedList = memo(function FeedList({
               </div>
             );
           })}
-          <div className="py-1 flex justify-center" ref={sentinelRef}>
+          <div
+            className="py-1 flex justify-center"
+            ref={sentinelRef}
+            style={{ overflowAnchor: "none" }}
+          >
             {visibleCount < filteredFeed.length && (
               <Loader2 className="size-4 animate-spin text-muted-foreground/50" />
             )}
