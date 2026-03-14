@@ -43,6 +43,7 @@ function renderPullHarness(
   onRefresh: () => void,
   disabled = false,
   lockRef?: React.RefObject<false | number>,
+  allowNegativeScroll = false,
 ) {
   function Harness({ isDisabled }: { isDisabled: boolean }) {
     const rootRef = useRef<HTMLDivElement | null>(null);
@@ -55,7 +56,7 @@ function renderPullHarness(
         configurable: true,
         get: () => top,
         set: (value: number) => {
-          top = Math.max(0, value);
+          top = allowNegativeScroll ? value : Math.max(0, value);
         },
       });
       Object.defineProperty(node, "clientHeight", {
@@ -317,6 +318,33 @@ describe("useFeedPullRefresh", () => {
     unmount();
   });
 
+  test("scrollend does not snap or refresh while wheel input is still settling", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+    const wheelEvent = new Event("wheel");
+    Object.defineProperty(wheelEvent, "deltaY", {
+      configurable: true,
+      value: -120,
+    });
+
+    act(() => {
+      viewport.dispatchEvent(wheelEvent);
+      viewport.scrollTop = 40;
+      viewport.dispatchEvent(new Event("scroll"));
+      viewport.dispatchEvent(new Event("scrollend"));
+    });
+
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(40);
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+      expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
+    });
+
+    unmount();
+  });
+
   test("touch scrolling from below the top does not enter pull refresh or jump back", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
@@ -395,6 +423,28 @@ describe("useFeedPullRefresh", () => {
 
     await waitForMs(250);
     expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 10);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  test("over-pulling past the top does not force the viewport back against the active touch drag", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(
+      onRefresh,
+      false,
+      undefined,
+      true,
+    );
+
+    act(() => {
+      viewport.scrollTop = FEED_PULL_OFFSET;
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = -14;
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(viewport.scrollTop).toBe(-14);
     expect(onRefresh).not.toHaveBeenCalled();
 
     unmount();
