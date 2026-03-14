@@ -464,6 +464,9 @@ interface StreamCollector {
   getOutput: () => string;
 }
 
+const DOM_ASSERTION_RECEIVED_LINE =
+  /^Received:\s+(?:HTML|SVG|Window|Document|Element|Node|NodeList|HTMLCollection|Text)\w*\s*\{/;
+
 function appendTimedOutMessage(
   output: string,
   label: string,
@@ -532,9 +535,54 @@ function buildSummary(step: StepConfig, cmd: Command): string {
   return summary.default;
 }
 
-// ---------------------------------------------------------------------------
-// Output filters
-// ---------------------------------------------------------------------------
+/**
+ * Collapses oversized Happy DOM assertion dumps so test failures stay readable
+ * even when Bun serializes full DOM nodes into the reporter output.
+ */
+function compactDomAssertionNoise(output: string): string {
+  const lines = output.split(/\r?\n/);
+  const compacted: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    const plainLine = stripAnsi(line);
+
+    if (!DOM_ASSERTION_RECEIVED_LINE.test(plainLine)) {
+      compacted.push(line);
+      continue;
+    }
+
+    let skippedLineCount = 0;
+    compacted.push(line.replace(/\{\s*$/, "{ /* DOM tree omitted */ }"));
+
+    for (index += 1; index < lines.length; index += 1) {
+      const nextLine = lines[index] ?? "";
+      const plainNextLine = stripAnsi(nextLine);
+
+      if (
+        plainNextLine.length === 0 ||
+        /^\s*at\s/.test(plainNextLine) ||
+        /^\s*\d+\s+\|/.test(plainNextLine) ||
+        /^error:\s/.test(plainNextLine) ||
+        /^Bun v/.test(plainNextLine) ||
+        /^pass\s/.test(plainNextLine) ||
+        /^fail\s/.test(plainNextLine)
+      ) {
+        index -= 1;
+        break;
+      }
+
+      skippedLineCount += 1;
+    }
+
+    if (skippedLineCount > 0)
+      compacted.push(
+        `  ... omitted ${skippedLineCount} DOM detail line(s) ...`,
+      );
+  }
+
+  return compacted.join("\n");
+}
 
 function createDelay<T>(ms: number, value: T): DelayHandle<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -556,6 +604,10 @@ function createDelay<T>(ms: number, value: T): DelayHandle<T> {
     promise,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Output filters
+// ---------------------------------------------------------------------------
 
 async function estLintFiles(cfg: LintConfig): Promise<number> {
   const glob = new Bun.Glob(`**/*.{${cfg.globExtensions.join(",")}}`);
@@ -583,14 +635,14 @@ function getConcurrency(n: number): number {
       : Math.min(8, Math.max(4, Math.ceil(c / 2)));
 }
 
-// ---------------------------------------------------------------------------
-// Summary builders
-// ---------------------------------------------------------------------------
-
 /** Returns the remaining suite budget in milliseconds without clamping. */
 function getRemainingTimeoutMs(deadlineMs: number): number {
   return deadlineMs - Date.now();
 }
+
+// ---------------------------------------------------------------------------
+// Summary builders
+// ---------------------------------------------------------------------------
 
 function getTestRunnerArtifacts(step: StepConfig): TestRunnerArtifacts {
   if (step.summary?.type !== "test-runner") {
@@ -760,6 +812,13 @@ function resolveSummaryTokens(
     if (/^\d+$/.test(key)) return match?.[Number(key)] ?? "";
     return TOKENS[`{${key}}`] ?? whole;
   });
+}
+
+/** Applies final display-focused sanitization after step-local output filters. */
+function sanitizeStepOutput(step: StepConfig, output: string): string {
+  if (step.summary?.type === "test-runner")
+    return compactDomAssertionNoise(output);
+  return output;
 }
 
 async function withStepTimeout(
@@ -1095,12 +1154,10 @@ export async function runCheckSuite(keyFilter?: null | Set<string>) {
 
   for (const step of allExecutedSteps) {
     if (runs[step.key]?.notFound) continue;
-    printStepOutput(
-      step.label,
-      step.outputFilter
-        ? applyOutputFilter(step.outputFilter, runs[step.key].output)
-        : runs[step.key].output,
-    );
+    const filteredOutput = step.outputFilter
+      ? applyOutputFilter(step.outputFilter, runs[step.key].output)
+      : runs[step.key].output;
+    printStepOutput(step.label, sanitizeStepOutput(step, filteredOutput));
   }
 
   const selectedTestRunnerStep = executedMainSteps.find(
@@ -1303,6 +1360,12 @@ function runStep(
   });
 }
 
-export { applyOutputFilter, buildSummary, parseCoverage, parseTests };
+export {
+  applyOutputFilter,
+  buildSummary,
+  compactDomAssertionNoise,
+  parseCoverage,
+  parseTests,
+};
 
 if (import.meta.main) void main();

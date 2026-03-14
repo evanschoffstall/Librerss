@@ -2,6 +2,7 @@
   "thresholds": {
     "lineCoverageThreshold": 85,
     "typeCoverageThreshold": 98,
+    "checkSuiteTimeout": 120000,
     "checkSuiteTimeoutEnvVar": "CHECK_SUITE_TIMEOUT_MS",
     "testTimeoutMs": 5000,
     "testCommandTimeoutMs": 120000,
