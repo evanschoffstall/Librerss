@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import { useBackgroundCanvasAnimation } from "../hooks/useBackgroundCanvasAnimation";
+import { useBackgroundCanvasWindowEvents } from "../hooks/useBackgroundCanvasWindowEvents";
+
+import { getBackgroundCanvasScale } from "./background-canvas";
+
 interface Circle {
   alphaBase: number;
   alphaPhase: number;
@@ -34,7 +39,6 @@ export default function BackgroundParticles({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const circles = useRef<Circle[]>([]);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const frameRef = useRef<null | number>(null);
   const startedAtRef = useRef<number>(0);
   const canvasSize = useRef<{ height: number; width: number }>({
     height: 0,
@@ -68,7 +72,7 @@ export default function BackgroundParticles({
     const ctx = ctxRef.current;
     if (!canvas || !container || !ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getBackgroundCanvasScale(window.devicePixelRatio);
     const width = container.offsetWidth;
     const height = container.offsetHeight;
     canvasSize.current = { height, width };
@@ -177,11 +181,27 @@ export default function BackgroundParticles({
         ctx.fillStyle = `rgba(${particleRgb}, ${alpha})`;
         ctx.fill();
       }
-
-      frameRef.current = window.requestAnimationFrame(renderFrame);
     },
     [ease, particleRgb, staticity],
   );
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const halfW = canvasSize.current.width / 2;
+    const halfH = canvasSize.current.height / 2;
+    const localX = event.clientX - rect.left - halfW;
+    const localY = event.clientY - rect.top - halfH;
+    const inside =
+      localX < halfW && localX > -halfW && localY < halfH && localY > -halfH;
+    pointerOffsetRef.current = inside
+      ? { x: localX, y: localY }
+      : { x: 0, y: 0 };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -197,35 +217,16 @@ export default function BackgroundParticles({
     ctxRef.current = context;
     startedAtRef.current = performance.now();
     initParticles();
+  }, [initParticles, onResize]);
 
-    frameRef.current = window.requestAnimationFrame(renderFrame);
+  useBackgroundCanvasWindowEvents({ onMouseMove: handleMouseMove, onResize });
 
-    const handleMouseMove = (event: MouseEvent) => {
-      const c = canvasRef.current;
-      if (!c) return;
-      const rect = c.getBoundingClientRect();
-      const halfW = canvasSize.current.width / 2;
-      const halfH = canvasSize.current.height / 2;
-      const localX = event.clientX - rect.left - halfW;
-      const localY = event.clientY - rect.top - halfH;
-      const inside =
-        localX < halfW && localX > -halfW && localY < halfH && localY > -halfH;
-      pointerOffsetRef.current = inside
-        ? { x: localX, y: localY }
-        : { x: 0, y: 0 };
-    };
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current);
-      }
-      frameRef.current = null;
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [renderFrame, initParticles, onResize]);
+  useBackgroundCanvasAnimation({
+    onFrame: renderFrame,
+    onResume: useCallback(() => {
+      startedAtRef.current = performance.now();
+    }, []),
+  });
 
   useEffect(() => {
     if (refresh) {

@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
+import { useBackgroundCanvasAnimation } from "../hooks/useBackgroundCanvasAnimation";
+
+import { getBackgroundCanvasScale } from "./background-canvas";
+
 interface Star {
   alpha: number;
   colorRgb: string;
@@ -191,7 +195,7 @@ export default function BackgroundStars({
       return;
     }
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = getBackgroundCanvasScale(window.devicePixelRatio);
     canvasSize.current.w = canvasContainerRef.current.offsetWidth;
     canvasSize.current.h = canvasContainerRef.current.offsetHeight;
     canvasRef.current.width = canvasSize.current.w * dpr;
@@ -252,34 +256,37 @@ export default function BackgroundStars({
     }
   }, [quantity, resizeCanvas, starInRegion]);
 
-  const animate = useCallback(() => {
-    clearContext();
+  const animate = useCallback(
+    (_now: number) => {
+      clearContext();
 
-    for (const star of stars.current) {
-      if (star.mode !== "steady") {
-        star.alpha += star.speed * star.direction;
+      for (const star of stars.current) {
+        if (star.mode !== "steady") {
+          star.alpha += star.speed * star.direction;
 
-        if (star.alpha >= star.maxAlpha) {
-          star.alpha = star.maxAlpha;
-          star.direction = -1;
+          if (star.alpha >= star.maxAlpha) {
+            star.alpha = star.maxAlpha;
+            star.direction = -1;
+          }
+
+          if (star.alpha <= star.minAlpha) {
+            star.alpha = star.minAlpha;
+            star.direction = 1;
+          }
         }
 
-        if (star.alpha <= star.minAlpha) {
-          star.alpha = star.minAlpha;
-          star.direction = 1;
-        }
+        star.translateX +=
+          (mouse.current.x / (staticity / star.magnetism) - star.translateX) /
+          ease;
+        star.translateY +=
+          (mouse.current.y / (staticity / star.magnetism) - star.translateY) /
+          ease;
+
+        drawStar(star, true);
       }
-
-      star.translateX +=
-        (mouse.current.x / (staticity / star.magnetism) - star.translateX) /
-        ease;
-      star.translateY +=
-        (mouse.current.y / (staticity / star.magnetism) - star.translateY) /
-        ease;
-
-      drawStar(star, true);
-    }
-  }, [clearContext, drawStar, ease, staticity]);
+    },
+    [clearContext, drawStar, ease, staticity],
+  );
 
   useEffect(() => {
     if (!canvasRef.current) {
@@ -288,11 +295,6 @@ export default function BackgroundStars({
 
     context.current = canvasRef.current.getContext("2d");
     initCanvas();
-
-    let animationId = requestAnimationFrame(function animateLoop() {
-      animate();
-      animationId = requestAnimationFrame(animateLoop);
-    });
 
     const handleMouseMove = (event: MouseEvent) => {
       const canvas = canvasRef.current;
@@ -310,11 +312,12 @@ export default function BackgroundStars({
     window.addEventListener("resize", onResize);
 
     return () => {
-      cancelAnimationFrame(animationId);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", onResize);
     };
-  }, [animate, initCanvas, onResize]);
+  }, [initCanvas, onResize]);
+
+  useBackgroundCanvasAnimation({ onFrame: animate });
 
   useEffect(() => {
     initCanvas();
