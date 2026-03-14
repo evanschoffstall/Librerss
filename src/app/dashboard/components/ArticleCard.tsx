@@ -141,6 +141,8 @@ export const ArticleCard = memo(function ArticleCard({
 
   const showSkeleton = phase === "loading";
   const showFullContent = phase === "revealing" || phase === "expanded";
+  const shouldMeasureExpandedHeight =
+    isExpanded || showSkeleton || showFullContent;
   const visuallyExpanded = phase === "expanded";
   const cardT =
     "var(--motion-duration-expand) var(--motion-ease-expand)" as const;
@@ -149,7 +151,12 @@ export const ArticleCard = memo(function ArticleCard({
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
 
   const { collapsedHeight, expandedHeight, fullContentRef, previewRef } =
-    useArticleHeights(content, preview, richContentClassName);
+    useArticleHeights(
+      content,
+      preview,
+      richContentClassName,
+      shouldMeasureExpandedHeight,
+    );
 
   const {
     faviconCacheKey,
@@ -904,22 +911,24 @@ export const ArticleCard = memo(function ArticleCard({
             >
               {`${preview}…`}
             </p>
-            <div
-              aria-hidden="true"
-              className="pointer-events-none h-0 overflow-hidden opacity-0"
-              ref={fullContentRef}
-            >
-              {useRichFormatting ? (
-                <div
-                  className={richContentClassName}
-                  dangerouslySetInnerHTML={{ __html: normalizedHtml }}
-                />
-              ) : (
-                <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
-                  {content}
-                </p>
-              )}
-            </div>
+            {shouldMeasureExpandedHeight ? (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none h-0 overflow-hidden opacity-0"
+                ref={fullContentRef}
+              >
+                {useRichFormatting ? (
+                  <div
+                    className={richContentClassName}
+                    dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+                  />
+                ) : (
+                  <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
+                    {content}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 

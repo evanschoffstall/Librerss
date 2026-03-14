@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 // collapsed → loading (hydrating) → revealing (one-frame FLIP) → expanded → collapsed
 type ExpansionPhase = "collapsed" | "expanded" | "loading" | "revealing";
@@ -65,30 +65,39 @@ export function useArticleHeights(
   content: string,
   preview: string,
   richContentClassName: string,
+  shouldMeasureExpandedHeight: boolean,
 ) {
   const previewRef = useRef<HTMLParagraphElement>(null);
   const fullContentRef = useRef<HTMLDivElement>(null);
   const [collapsedHeight, setCollapsedHeight] = useState(0);
   const [expandedHeight, setExpandedHeight] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previewEl = previewRef.current;
+    if (!previewEl) return;
+
     const fullEl = fullContentRef.current;
-    if (!previewEl || !fullEl) return;
 
     const measure = () => {
       setCollapsedHeight(previewEl.scrollHeight);
-      setExpandedHeight(fullEl.scrollHeight);
+      if (shouldMeasureExpandedHeight && fullEl) {
+        setExpandedHeight(fullEl.scrollHeight);
+      }
     };
     measure();
 
-    const ro = new ResizeObserver(measure);
-    ro.observe(previewEl);
-    ro.observe(fullEl);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    resizeObserver?.observe(previewEl);
+    if (shouldMeasureExpandedHeight && fullEl) {
+      resizeObserver?.observe(fullEl);
+    }
     return () => {
-      ro.disconnect();
+      resizeObserver?.disconnect();
     };
-  }, [content, preview, richContentClassName]);
+  }, [content, preview, richContentClassName, shouldMeasureExpandedHeight]);
 
   return { collapsedHeight, expandedHeight, fullContentRef, previewRef };
 }
