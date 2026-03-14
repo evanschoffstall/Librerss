@@ -44,6 +44,7 @@ function renderPullHarness(
   disabled = false,
   lockRef?: React.RefObject<false | number>,
   allowNegativeScroll = false,
+  contentHeightRef?: { current: number },
 ) {
   function Harness({ isDisabled }: { isDisabled: boolean }) {
     const rootRef = useRef<HTMLDivElement | null>(null);
@@ -122,6 +123,15 @@ function renderPullHarness(
       node.dataset.ready = "true";
     }, []);
 
+    const setContentRef = useCallback((node: HTMLDivElement | null) => {
+      if (!node || node.dataset.ready === "true" || !contentHeightRef) return;
+      Object.defineProperty(node, "offsetHeight", {
+        configurable: true,
+        get: () => contentHeightRef.current,
+      });
+      node.dataset.ready = "true";
+    }, []);
+
     const setSentinelRef = useCallback(
       (node: HTMLDivElement | null) => {
         pull.sentinelRef.current = node;
@@ -139,9 +149,13 @@ function renderPullHarness(
       <div ref={rootRef}>
         <div ref={setViewportRef}>
           <div ref={setWrapperRef}>
-            <div ref={setFeedWrapperRef}>
+            <div
+              data-pulling={String(pull.pulling)}
+              data-ready={String(pull.readyToRefresh)}
+              ref={setFeedWrapperRef}
+            >
               <div ref={setSentinelRef} />
-              <div>content</div>
+              <div ref={setContentRef}>content</div>
             </div>
           </div>
         </div>
@@ -153,9 +167,13 @@ function renderPullHarness(
   const viewport = rendered.container.querySelector<HTMLElement>(
     "[data-radix-scroll-area-viewport]",
   );
+  const feedWrapper =
+    rendered.container.querySelector<HTMLElement>("[data-pulling]");
   if (!viewport) throw new Error("missing viewport");
+  if (!feedWrapper) throw new Error("missing feed wrapper");
   return {
     ...rendered,
+    feedWrapper,
     rerenderHarness(nextDisabled: boolean) {
       rendered.rerender(<Harness isDisabled={nextDisabled} />);
     },
@@ -255,6 +273,24 @@ describe("useFeedPullRefresh", () => {
     expect(sentinel?.style.height).toBe(`${FEED_PULL_HEIGHT}px`);
     expect(viewport?.style.overscrollBehaviorY).toBe("contain");
     expect(viewport?.style.touchAction).toBe("pan-y");
+
+    unmount();
+  });
+
+  test("short content still reserves enough scroll range to hide the idle sentinel", () => {
+    const onRefresh = mock(() => {});
+    const contentHeightRef = { current: 0 };
+    const { unmount, viewport } = renderPullHarness(
+      onRefresh,
+      false,
+      undefined,
+      false,
+      contentHeightRef,
+    );
+
+    expect(viewport.scrollHeight - viewport.clientHeight).toBe(
+      FEED_PULL_OFFSET,
+    );
 
     unmount();
   });
@@ -495,6 +531,60 @@ describe("useFeedPullRefresh", () => {
 
       await waitForMs(250);
       expect(viewport.scrollTop).toBe(100);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
+    } finally {
+      global.ResizeObserver = originalResizeObserver;
+    }
+  });
+
+  test("content-height changes clear stale armed pull state while idle", async () => {
+    const originalResizeObserver = global.ResizeObserver;
+    const contentHeightRef = { current: 320 };
+    let resizeCallback: (() => void) | undefined;
+
+    class ResizeObserverMock {
+      constructor(callback: () => void) {
+        resizeCallback = callback;
+      }
+
+      disconnect() {}
+
+      observe() {}
+    }
+
+    global.ResizeObserver =
+      ResizeObserverMock as unknown as typeof ResizeObserver;
+
+    try {
+      const onRefresh = mock(() => {});
+      const { feedWrapper, unmount, viewport } = renderPullHarness(
+        onRefresh,
+        false,
+        undefined,
+        false,
+        contentHeightRef,
+      );
+
+      act(() => {
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+
+      expect(feedWrapper.dataset.pulling).toBe("true");
+      expect(feedWrapper.dataset.ready).toBe("true");
+
+      act(() => {
+        contentHeightRef.current = 0;
+        resizeCallback?.();
+      });
+
+      await waitFor(() => {
+        expect(feedWrapper.dataset.pulling).toBe("false");
+        expect(feedWrapper.dataset.ready).toBe("false");
+        expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
+      });
       expect(onRefresh).not.toHaveBeenCalled();
 
       unmount();

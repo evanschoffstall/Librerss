@@ -37,6 +37,7 @@ type ScrollLockTarget = false | number;
 
 const IDLE: PullState = { pulling: false, readyToRefresh: false };
 
+/** Returns the hidden resting scroll offset reserved for the pull sentinel. */
 export function useFeedPullOffset() {
   return FEED_PULL_OFFSET;
 }
@@ -124,6 +125,27 @@ export function useFeedPullRefresh(
       setState(IDLE);
     };
 
+    /**
+     * Content shrink/grow can transiently leave the viewport inside the pull
+     * zone without any active gesture. In that case the sentinel should return
+     * to an idle visual state instead of lingering on the armed refresh UI.
+     */
+    const clearIdlePullState = () => {
+      touchPullActiveRef.current = false;
+      touchPullEligibleRef.current = false;
+      pendingWheelScrollEndRef.current = false;
+      pullingRef.current = false;
+      committedRef.current = false;
+      setState((current) => (current.pulling ? IDLE : current));
+    };
+
+    /** Re-hides the sentinel after non-interactive layout changes clamp scrollTop. */
+    const restoreIdleRestOffset = () => {
+      if (viewport.scrollTop < FEED_PULL_OFFSET) {
+        viewport.scrollTop = FEED_PULL_OFFSET;
+      }
+    };
+
     const hasActiveLock = () => typeof lockRef?.current === "number";
 
     const syncLayout = (pinTarget?: number) => {
@@ -136,16 +158,18 @@ export function useFeedPullRefresh(
       const required = Math.max(
         0,
         viewport.clientHeight +
-          Math.max(FEED_PULL_HEIGHT, pinTarget ?? FEED_PULL_HEIGHT) -
+          Math.max(FEED_PULL_OFFSET, pinTarget ?? FEED_PULL_OFFSET) -
           contentHeight,
       );
       wrapper.style.paddingBottom = required > 0 ? `${required}px` : "";
       if (typeof pinTarget === "number") {
         viewport.scrollTop = pinTarget;
       }
+
+      return contentHeight;
     };
 
-    syncLayout();
+    let previousContentHeight = syncLayout();
     if (viewport.scrollTop < FEED_PULL_OFFSET) {
       viewport.scrollTop = FEED_PULL_OFFSET;
     }
@@ -168,10 +192,23 @@ export function useFeedPullRefresh(
             const target = lockRef?.current;
             if (typeof target === "number") {
               if (target < 0) return;
-              syncLayout(target);
+              previousContentHeight = syncLayout(target);
               return;
             }
-            syncLayout();
+            const nextContentHeight = syncLayout();
+            const contentHeightChanged =
+              Math.abs(nextContentHeight - previousContentHeight) > 1;
+            previousContentHeight = nextContentHeight;
+            if (
+              contentHeightChanged &&
+              !touchActiveRef.current &&
+              !wheelActiveRef.current &&
+              !holdingRef.current &&
+              !pendingWheelScrollEndRef.current
+            ) {
+              clearIdlePullState();
+              restoreIdleRestOffset();
+            }
           });
     resizeObserver?.observe(wrapper);
 
