@@ -1,9 +1,10 @@
 /**
- * Minimal IndexedDB extension for browsers that expose database enumeration.
+ * Minimal IndexedDB enumeration contract for browsers that implement
+ * `indexedDB.databases()`.
  */
-interface IndexedDbFactoryWithDatabases extends IDBFactory {
-  databases?: () => Promise<{ name?: string }[]>;
-}
+type IndexedDbFactoryWithDatabases = IDBFactory & {
+  databases?: () => Promise<readonly IDBDatabaseInfo[]>;
+};
 
 /**
  * Clears origin-scoped client persistence after logout.
