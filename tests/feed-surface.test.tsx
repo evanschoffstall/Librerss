@@ -252,6 +252,8 @@ describe("useFeedPullRefresh", () => {
 
     expect(feedWrapper?.style.height ?? "").toBe("");
     expect(sentinel?.style.height).toBe(`${FEED_PULL_HEIGHT}px`);
+    expect(viewport?.style.overscrollBehaviorY).toBe("contain");
+    expect(viewport?.style.touchAction).toBe("pan-y");
 
     unmount();
   });

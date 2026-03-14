@@ -50,6 +50,61 @@ function VisibleCountHarness() {
 }
 
 describe("useFeedVisibilityObserver", () => {
+  test("limits mutation observation to direct list-structure changes", () => {
+    const originalIntersectionObserver = global.IntersectionObserver;
+    const originalMutationObserver = global.MutationObserver;
+    const observedTargets: Element[] = [];
+    const observedOptions: MutationObserverInit[] = [];
+
+    class IntersectionObserverMock {
+      disconnect() {}
+
+      observe() {}
+
+      takeRecords() {
+        return [];
+      }
+
+      unobserve() {}
+    }
+
+    class MutationObserverMock {
+      disconnect() {}
+
+      observe(target: Node, options?: MutationObserverInit) {
+        if (target instanceof Element) {
+          observedTargets.push(target);
+        }
+        observedOptions.push(options ?? {});
+      }
+
+      takeRecords() {
+        return [];
+      }
+    }
+
+    global.IntersectionObserver =
+      IntersectionObserverMock as unknown as typeof IntersectionObserver;
+    global.MutationObserver =
+      MutationObserverMock as unknown as typeof MutationObserver;
+
+    try {
+      const { container } = render(createElement(VisibleCountHarness));
+      const viewport = container.querySelector<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      );
+
+      expect(viewport).not.toBeNull();
+      if (!viewport) throw new Error("Expected feed viewport to exist");
+
+      expect(observedTargets[0]).toBe(viewport);
+      expect(observedOptions[0]).toEqual({ childList: true });
+    } finally {
+      global.IntersectionObserver = originalIntersectionObserver;
+      global.MutationObserver = originalMutationObserver;
+    }
+  });
+
   test("observes the load sentinel against the feed viewport root", () => {
     const originalCancelAnimationFrame = global.cancelAnimationFrame;
     const originalIntersectionObserver = global.IntersectionObserver;
