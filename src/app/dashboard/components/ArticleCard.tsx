@@ -564,9 +564,9 @@ export const ArticleCard = memo(function ArticleCard({
         >
           <div
             className="
-            flex items-center gap-2 pl-4 text-emerald-600
-            dark:text-emerald-400
-          "
+              flex items-center gap-2 pl-4 text-emerald-600
+              dark:text-emerald-400
+            "
           >
             {article.isRead ? (
               <Circle
@@ -612,9 +612,9 @@ export const ArticleCard = memo(function ArticleCard({
         >
           <div
             className="
-            flex items-center gap-2 pr-4 text-amber-600
-            dark:text-amber-400
-          "
+              flex items-center gap-2 pr-4 text-amber-600
+              dark:text-amber-400
+            "
           >
             <span
               className={`
@@ -716,17 +716,17 @@ export const ArticleCard = memo(function ArticleCard({
         >
           <div
             className="
-            pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl
-          "
+              pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl
+            "
           >
             <div className={gradientCls} style={headerGradientStyle} />
           </div>
           <div className="relative z-10 space-y-2">
             <div
               className="
-              flex items-center gap-2 text-xs/5 tracking-normal
-              text-muted-foreground/70 select-none
-            "
+                flex items-center gap-2 text-xs/5 tracking-normal
+                text-muted-foreground/70 select-none
+              "
             >
               <div
                 className="
@@ -791,9 +791,9 @@ export const ArticleCard = memo(function ArticleCard({
                     visuallyExpanded || isMobile
                       ? `opacity-100`
                       : `
-                    opacity-0
-                    group-hover:opacity-100
-                  `
+                        opacity-0
+                        group-hover:opacity-100
+                      `
                   }
                 `}
               >
@@ -812,9 +812,9 @@ export const ArticleCard = memo(function ArticleCard({
                   {article.isRead ? (
                     <CircleCheck
                       className="
-                      size-3.5 text-emerald-500/70
-                      dark:text-emerald-400/60
-                    "
+                        size-3.5 text-emerald-500/70
+                        dark:text-emerald-400/60
+                      "
                     />
                   ) : (
                     <Circle className="size-3.5" />
@@ -839,9 +839,9 @@ export const ArticleCard = memo(function ArticleCard({
                       ${
                         article.isStarred
                           ? `
-                          fill-current text-amber-400/90
-                          dark:text-amber-300/80
-                        `
+                            fill-current text-amber-400/90
+                            dark:text-amber-300/80
+                          `
                           : ""
                       }
                     `}
@@ -1076,18 +1076,18 @@ export const ArticleCard = memo(function ArticleCard({
               ) : !showFullContent ? (
                 <p
                   className="
-                  line-clamp-1 font-sans text-[0.93rem]/6 tracking-[-0.01em]
-                  text-muted-foreground/85 antialiased
-                "
+                    line-clamp-1 font-sans text-[0.93rem]/6 tracking-[-0.01em]
+                    text-muted-foreground/85 antialiased
+                  "
                 >
                   {collapsedPreview}
                 </p>
               ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
                 <p
                   className="
-                  anim-article-enter font-sans text-[0.93rem]/6
-                  tracking-[-0.01em] text-muted-foreground/75 antialiased
-                "
+                    anim-article-enter font-sans text-[0.93rem]/6
+                    tracking-[-0.01em] text-muted-foreground/75 antialiased
+                  "
                 >
                   Full article content unavailable. Open the original article to
                   read more.
@@ -1113,9 +1113,9 @@ export const ArticleCard = memo(function ArticleCard({
                     ${
                       visuallyExpanded
                         ? `
-                      cursor-text text-[0.97rem]/7 text-foreground/85
-                      select-text
-                    `
+                          cursor-text text-[0.97rem]/7 text-foreground/85
+                          select-text
+                        `
                         : `text-[0.93rem]/6 text-muted-foreground/85`
                     }
                   `}
@@ -1150,10 +1150,10 @@ export const ArticleCard = memo(function ArticleCard({
                 ) : (
                   <p
                     className="
-                    font-sans text-[0.97rem]/7 tracking-[-0.01em]
-                    wrap-break-word whitespace-pre-line text-foreground/85
-                    antialiased
-                  "
+                      font-sans text-[0.97rem]/7 tracking-[-0.01em]
+                      wrap-break-word whitespace-pre-line text-foreground/85
+                      antialiased
+                    "
                   >
                     {content}
                   </p>
@@ -1175,8 +1175,8 @@ export const ArticleCard = memo(function ArticleCard({
                 <DrawerHeader className="space-y-2 text-left">
                   <div
                     className="
-                    flex w-full items-start justify-between gap-3 text-left
-                  "
+                      flex w-full items-start justify-between gap-3 text-left
+                    "
                   >
                     <div className="min-w-0 flex-1 text-left">
                       <DrawerTitle>Raw Article HTML</DrawerTitle>
@@ -1232,8 +1232,8 @@ export const ArticleCard = memo(function ArticleCard({
                 <DialogHeader className="space-y-2 text-left">
                   <div
                     className="
-                    flex w-full items-start justify-between gap-3 text-left
-                  "
+                      flex w-full items-start justify-between gap-3 text-left
+                    "
                   >
                     <div className="min-w-0 flex-1 text-left">
                       <DialogTitle>Raw Article HTML</DialogTitle>

@@ -37,12 +37,14 @@ export const DashboardView = ({
   });
 
   return (
-    <div className="
-      mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
-      pt-[calc(env(safe-area-inset-top)+3.8rem)]
-      pb-[env(safe-area-inset-bottom)]
-      md:px-6
-    ">
+    <div
+      className="
+        mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
+        pt-[calc(env(safe-area-inset-top)+3.8rem)]
+        pb-[env(safe-area-inset-bottom)]
+        md:px-6
+      "
+    >
       <Sheet
         onOpenChange={sidebar.setIsMobileSidebarOpen}
         open={sidebar.isMobileSidebarOpen}
@@ -55,9 +57,11 @@ export const DashboardView = ({
           side="left"
         >
           <SheetHeader className="space-y-0 px-4 pt-5 pb-2 text-left">
-            <SheetTitle className="
-              text-sm font-semibold tracking-tight text-foreground/90
-            ">
+            <SheetTitle
+              className="
+                text-sm font-semibold tracking-tight text-foreground/90
+              "
+            >
               Feeds
             </SheetTitle>
           </SheetHeader>
@@ -78,24 +82,28 @@ export const DashboardView = ({
         onArticleFilterChange={topBar.setArticleFilter}
       />
 
-      <div className="
-        flex min-h-0 flex-1 flex-col gap-6 overflow-hidden
-        lg:flex-row lg:items-stretch lg:gap-0
-      ">
-        <aside className="
-          hidden min-h-0 overflow-hidden
-          lg:block lg:w-[220px] lg:shrink-0
-        ">
+      <div
+        className="
+          flex min-h-0 flex-1 flex-col gap-6 overflow-hidden
+          lg:flex-row lg:items-stretch lg:gap-0
+        "
+      >
+        <aside
+          className="
+            hidden min-h-0 overflow-hidden
+            lg:block lg:w-[220px] lg:shrink-0
+          "
+        >
           <div className="h-full rounded-xl bg-card/35 p-2">
             <ScrollArea
               className={`
                 anim-duration-ui anim-ease-ui h-full transition-opacity
                 ${
-                sidebar.sidebarProps.isCategoriesLoading ||
-                sidebar.isSidebarVisible
-                  ? "opacity-100"
-                  : "opacity-0"
-              }
+                  sidebar.sidebarProps.isCategoriesLoading ||
+                  sidebar.isSidebarVisible
+                    ? "opacity-100"
+                    : "opacity-0"
+                }
               `}
               ref={sidebar.sidebarScrollRef}
             >
@@ -104,10 +112,12 @@ export const DashboardView = ({
           </div>
         </aside>
 
-        <section className="
-          min-h-0 flex-1 overflow-hidden
-          lg:min-w-0
-        ">
+        <section
+          className="
+            min-h-0 flex-1 overflow-hidden
+            lg:min-w-0
+          "
+        >
           <ScrollArea className="h-full" ref={feedList.mergedFeedScrollRef}>
             <div className="p-1" ref={feedList.feedWrapperRef}>
               {/* Pull sentinel: fixed-height scroll item, hidden by scrollTop on mount.
@@ -117,37 +127,39 @@ export const DashboardView = ({
                   mb-2 flex items-end justify-center bg-background
                   transition-colors duration-150
                   ${
-                  feedList.isPulling
-                    ? feedList.readyToRefresh
-                      ? "bg-sky-500/25"
-                      : "bg-sky-500/10"
-                    : ""
-                }
+                    feedList.isPulling
+                      ? feedList.readyToRefresh
+                        ? "bg-sky-500/25"
+                        : "bg-sky-500/10"
+                      : ""
+                  }
                 `}
                 ref={feedList.pullSentinelRef}
                 style={{ height: feedList.sentinelHeight }}
               >
                 {feedList.isPulling && (
-                  <div className="
-                    flex items-center gap-1.5 pb-3 text-sky-600
-                    dark:text-sky-400
-                  ">
+                  <div
+                    className="
+                      flex items-center gap-1.5 pb-3 text-sky-600
+                      dark:text-sky-400
+                    "
+                  >
                     <ArrowDown
                       className={`
                         size-4 transition-transform duration-150
                         ${
-                        feedList.readyToRefresh
-                          ? "scale-110 rotate-180"
-                          : "scale-90 opacity-60"
-                      }
+                          feedList.readyToRefresh
+                            ? "scale-110 rotate-180"
+                            : "scale-90 opacity-60"
+                        }
                       `}
                     />
                     <span
                       className={`
                         text-xs font-medium transition-opacity duration-150
                         ${
-                        feedList.readyToRefresh ? "opacity-100" : "opacity-70"
-                      }
+                          feedList.readyToRefresh ? "opacity-100" : "opacity-70"
+                        }
                       `}
                     >
                       {feedList.pullRefreshHint}
