@@ -8,6 +8,7 @@ import {
   Menu,
   Moon,
   RefreshCw,
+  RotateCcw,
   Search,
   Settings2,
   Sun,
@@ -26,17 +27,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { AuthService, useLocalStorage } from "@/lib";
+import { AuthService, clearClientOriginState, useLocalStorage } from "@/lib";
 
 const toolbarBtnClass =
   "cursor-pointer transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
 
+/**
+ * Top dashboard toolbar for search, quick actions, theme controls, and logout.
+ */
 export function DashboardTopHeaderBar() {
   const { resolvedTheme, setTheme } = useTheme();
+  const isDevelopmentMode = process.env.NODE_ENV === "development";
   const [isSearchPending, setIsSearchPending] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("LibreRSS");
   const [search, setSearch] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
     DASHBOARD_PREVIEW_STORAGE_KEY,
@@ -137,10 +143,24 @@ export function DashboardTopHeaderBar() {
     );
   };
 
+  const handleReset = async () => {
+    if (isResetting) return;
+
+    setIsResetting(true);
+    try {
+      await clearClientOriginState();
+      window.location.reload();
+    } catch {
+      toast.error("Unable to reset app state.");
+      setIsResetting(false);
+    }
+  };
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
 
     if (isPreviewMode) {
+      await clearClientOriginState();
       setIsPreviewMode(false);
       window.location.assign("/landing");
       return;
@@ -149,6 +169,7 @@ export function DashboardTopHeaderBar() {
     setIsSigningOut(true);
     try {
       await AuthService.logout();
+      await clearClientOriginState();
       setIsPreviewMode(false);
       window.location.assign("/landing");
     } catch {
@@ -249,8 +270,17 @@ export function DashboardTopHeaderBar() {
               )}
               {themeToggleLabel}
             </DropdownMenuItem>
+            {isDevelopmentMode && (
+              <DropdownMenuItem
+                disabled={isResetting}
+                onSelect={() => void handleReset()}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
-              disabled={isSigningOut}
+              disabled={isResetting || isSigningOut}
               onSelect={() => void handleSignOut()}
             >
               <LogOut className="h-4 w-4" />
@@ -305,12 +335,24 @@ export function DashboardTopHeaderBar() {
           <button
             aria-label="Sign out"
             className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-60`}
-            disabled={isSigningOut}
+            disabled={isResetting || isSigningOut}
             onClick={() => void handleSignOut()}
             type="button"
           >
             <LogOut className="h-4 w-4" />
           </button>
+
+          {isDevelopmentMode && (
+            <button
+              aria-label="Reset app state"
+              className={`${toolbarBtnClass} disabled:cursor-not-allowed disabled:opacity-60`}
+              disabled={isResetting}
+              onClick={() => void handleReset()}
+              type="button"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
 
           <span className="h-3 w-px bg-border" />
 

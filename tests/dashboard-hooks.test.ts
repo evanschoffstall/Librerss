@@ -17,6 +17,7 @@ import {
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
 
+import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { useAnimatedList } from "@/app/dashboard/hooks/useAnimatedList";
 import {
   toggleReadStatus,
@@ -32,8 +33,12 @@ import {
 } from "@/app/dashboard/hooks/useArticleNavigation";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
+import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
+import { shouldShowNoFeedSourcesToast } from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
 import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
+import { type FeedBatchSource } from "@/app/dashboard/services/feed-batch";
+import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-batch-outcome";
 import { type Article, ArticleService, FeedService } from "@/lib";
 
 const getStringKey = (item: string) => item;
@@ -104,6 +109,63 @@ describe("useFeedRefresh", () => {
     };
 
     expect(canRefreshFeed(neverFetched, 5 * 60 * 1000)).toBe(true);
+  });
+});
+
+describe("useFeedLoader", () => {
+  test("suppresses the empty-source toast in placeholder mode", () => {
+    expect(shouldShowNoFeedSourcesToast(false, true)).toBe(false);
+    expect(shouldShowNoFeedSourcesToast(false, false)).toBe(true);
+    expect(shouldShowNoFeedSourcesToast(true, false)).toBe(false);
+  });
+
+  test("builds batch outcomes from the latest feed snapshot without a state-updater side effect", () => {
+    const previousFeed: Article[] = [
+      {
+        content: "hydrated body",
+        feedId: 1,
+        feedName: "Space News",
+        feedUrl: "https://example.com/feed.xml",
+        id: 1,
+        isRead: false,
+        isStarred: false,
+        lastChecked: new Date("2026-03-14T12:04:00.000Z"),
+        link: "https://example.com/articles/1",
+        publicationDate: new Date("2026-03-14T12:00:00.000Z"),
+        title: "Cached article",
+      },
+    ];
+    const normalizedSources: FeedBatchSource[] = [
+      {
+        name: "Space News",
+        url: "https://example.com/feed.xml",
+      },
+    ];
+
+    const outcome = buildFeedBatchOutcome(
+      normalizedSources,
+      [
+        {
+          articles: [],
+          lastFetchedAt: new Date("2026-03-14T12:05:00.000Z"),
+          ok: true,
+          unchanged: true,
+          url: "https://example.com/feed.xml",
+        },
+      ],
+      false,
+      () => [],
+      previousFeed,
+    );
+
+    expect(outcome.articles).toEqual(previousFeed);
+    expect(outcome.failedFeeds).toEqual([]);
+    expect(outcome.newestLastFetchedAt?.toISOString()).toBe(
+      "2026-03-14T12:05:00.000Z",
+    );
+    expect(outcome.sourceNamesByUrl.get("https://example.com/feed.xml")).toBe(
+      "Space News",
+    );
   });
 });
 
@@ -237,9 +299,9 @@ describe("useAnimatedList", () => {
 
     await waitFor(() => {
       expect(result.current).toEqual([
-        { exiting: false, item: "a", key: "a" },
-        { exiting: true, item: "b", key: "b" },
-        { exiting: false, item: "c", key: "c" },
+        { entering: false, exiting: false, item: "a", key: "a" },
+        { entering: false, exiting: true, item: "b", key: "b" },
+        { entering: false, exiting: false, item: "c", key: "c" },
       ]);
     });
   });
@@ -258,7 +320,129 @@ describe("useAnimatedList", () => {
     });
 
     await waitFor(() => {
-      expect(result.current).toEqual([{ exiting: false, item: "a", key: "a" }]);
+      expect(result.current).toEqual([
+        { entering: false, exiting: false, item: "a", key: "a" },
+      ]);
+    });
+  });
+
+  test("flags inserted items as entering during a refresh-style append", async () => {
+    const { rerender, result } = renderHook(
+      ({ items }: { items: string[] }) =>
+        useAnimatedList(items, getStringKey, 2),
+      {
+        initialProps: { items: ["a"] },
+      },
+    );
+
+    act(() => {
+      rerender({ items: ["b", "a"] });
+    });
+
+    await waitFor(() => {
+      expect(result.current).toEqual([
+        { entering: true, exiting: false, item: "b", key: "b" },
+        { entering: false, exiting: false, item: "a", key: "a" },
+      ]);
+    });
+  });
+});
+
+describe("useDashboardEvents", () => {
+  test("coalesces repeated search events to the latest term per frame", async () => {
+    const originalCancelAnimationFrame = global.cancelAnimationFrame;
+    const originalRequestAnimationFrame = global.requestAnimationFrame;
+    let queuedFrame: FrameRequestCallback | undefined;
+    const onSearchChange = mock(() => {});
+
+    global.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      queuedFrame = callback;
+      return 1;
+    }) as typeof requestAnimationFrame;
+    global.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
+
+    try {
+      renderHook(() =>
+        useDashboardEvents({
+          fetchAllFeeds: async () => {},
+          fetchCategoryFeeds: async () => {},
+          fetchFeed: async () => {},
+          onOpenFeedsSidebar: () => {},
+          onOpenSettings: () => {},
+          onRefresh: () => {},
+          onSearchChange,
+          selectedCategory: "system-all-feeds",
+          selectedCategoryNode: undefined,
+          selectedFeedUrl: undefined,
+        }),
+      );
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
+            detail: { term: "a" },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
+            detail: { term: "ab" },
+          }),
+        );
+      });
+
+      expect(onSearchChange).not.toHaveBeenCalled();
+
+      act(() => {
+        queuedFrame?.(0);
+      });
+
+      await waitFor(() => {
+        expect(onSearchChange).toHaveBeenCalledTimes(1);
+        expect(onSearchChange).toHaveBeenCalledWith("ab");
+      });
+    } finally {
+      global.cancelAnimationFrame = originalCancelAnimationFrame;
+      global.requestAnimationFrame = originalRequestAnimationFrame;
+    }
+  });
+
+  test("uses the latest search callback after rerender", async () => {
+    const firstOnSearchChange = mock(() => {});
+    const secondOnSearchChange = mock(() => {});
+
+    const { rerender } = renderHook(
+      ({ onSearchChange }: { onSearchChange: (term: string) => void }) =>
+        useDashboardEvents({
+          fetchAllFeeds: async () => {},
+          fetchCategoryFeeds: async () => {},
+          fetchFeed: async () => {},
+          onOpenFeedsSidebar: () => {},
+          onOpenSettings: () => {},
+          onRefresh: () => {},
+          onSearchChange,
+          selectedCategory: "system-all-feeds",
+          selectedCategoryNode: undefined,
+          selectedFeedUrl: undefined,
+        }),
+      {
+        initialProps: { onSearchChange: firstOnSearchChange },
+      },
+    );
+
+    rerender({ onSearchChange: secondOnSearchChange });
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
+          detail: { term: "latest" },
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(firstOnSearchChange).not.toHaveBeenCalled();
+      expect(secondOnSearchChange).toHaveBeenCalledTimes(1);
+      expect(secondOnSearchChange).toHaveBeenCalledWith("latest");
     });
   });
 });

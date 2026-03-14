@@ -9,7 +9,6 @@ import {
   Share2,
   Star,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import {
   type KeyboardEvent,
   memo,
@@ -59,15 +58,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 
 interface ArticleCardProps {
   article: Article;
   articleKey: string;
   hasScrapedContent: boolean;
+  isDark: boolean;
   isExpanded: boolean;
   isHydrating: boolean;
+  isMobile: boolean;
   isUpdatingState: boolean;
   onExpandedSwipeRead: (article: Article) => void;
   onToggle: (article: Article) => void;
@@ -90,8 +90,10 @@ export const ArticleCard = memo(function ArticleCard({
   article,
   articleKey,
   hasScrapedContent,
+  isDark,
   isExpanded,
   isHydrating,
+  isMobile,
   isUpdatingState,
   onExpandedSwipeRead,
   onToggle,
@@ -102,15 +104,13 @@ export const ArticleCard = memo(function ArticleCard({
 }: ArticleCardProps) {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
+  const [isGradientTracked, setIsGradientTracked] = useState(isExpanded);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [supportsNativeShare] = useState(
     () =>
       typeof navigator !== "undefined" && typeof navigator.share === "function",
   );
   const isDevelopment = process.env.NODE_ENV === "development";
-  const isMobile = useIsMobile();
-  const { resolvedTheme } = useTheme();
-  const isDark = (resolvedTheme ?? "dark") === "dark";
 
   const rawHtml = article.content || "";
   const {
@@ -141,6 +141,8 @@ export const ArticleCard = memo(function ArticleCard({
 
   const showSkeleton = phase === "loading";
   const showFullContent = phase === "revealing" || phase === "expanded";
+  const shouldMeasureExpandedHeight =
+    !expandTransitionDone && (isExpanded || showSkeleton || showFullContent);
   const visuallyExpanded = phase === "expanded";
   const cardT =
     "var(--motion-duration-expand) var(--motion-ease-expand)" as const;
@@ -149,7 +151,12 @@ export const ArticleCard = memo(function ArticleCard({
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
 
   const { collapsedHeight, expandedHeight, fullContentRef, previewRef } =
-    useArticleHeights(content, preview, richContentClassName);
+    useArticleHeights(
+      content,
+      preview,
+      richContentClassName,
+      shouldMeasureExpandedHeight,
+    );
 
   const {
     faviconCacheKey,
@@ -170,6 +177,25 @@ export const ArticleCard = memo(function ArticleCard({
   const headerZoneRef = useRef<HTMLDivElement | null>(null);
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
+
+  useEffect(() => {
+    if (isExpanded) {
+      setIsGradientTracked(true);
+      return;
+    }
+
+    setIsGradientTracked(false);
+  }, [isExpanded]);
+
+  const isExpandedBodyTarget = useCallback(
+    (target: EventTarget | null) =>
+      Boolean(
+        visuallyExpanded &&
+        target instanceof Node &&
+        contentZoneRef.current?.contains(target),
+      ),
+    [visuallyExpanded],
+  );
 
   const { containerRef: readSwipeRef, swipeState: readSwipeState } =
     useSwipeToRead(() => {
@@ -213,11 +239,6 @@ export const ArticleCard = memo(function ArticleCard({
   const handleRawHtmlOpenChange = makeOpenChangeHandler(setIsRawHtmlOpen);
   const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
   const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
-
-  const isExpandedBodyTarget = (target: EventTarget | null) =>
-    visuallyExpanded &&
-    target instanceof Node &&
-    contentZoneRef.current?.contains(target);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (isExpandedBodyTarget(e.target)) return;
@@ -387,22 +408,29 @@ export const ArticleCard = memo(function ArticleCard({
   }, []);
 
   useEffect(() => {
+    if (!isGradientTracked) {
+      return;
+    }
+
     const a = articleRef.current;
     const h = headerZoneRef.current;
     const c = contentZoneRef.current;
     if (!a || !h || !c) return;
     measureGradient();
-    const ro = new ResizeObserver(measureGradient);
-    ro.observe(a);
-    ro.observe(h);
-    ro.observe(c);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measureGradient);
+    resizeObserver?.observe(a);
+    resizeObserver?.observe(h);
+    resizeObserver?.observe(c);
     return () => {
-      ro.disconnect();
+      resizeObserver?.disconnect();
     };
-  }, [measureGradient]);
+  }, [isGradientTracked, measureGradient]);
 
   const { ch, cw, cy, hy } = gradientCoords;
-  const gradientReady = cw > 0 && ch > 0;
+  const gradientReady = isGradientTracked && cw > 0 && ch > 0;
 
   const headerGradientStyle: React.CSSProperties = gradientReady
     ? { backgroundPosition: `0px -${hy}px`, backgroundSize: `${cw}px ${ch}px` }
@@ -514,6 +542,14 @@ export const ArticleCard = memo(function ArticleCard({
         data-article-key={articleKey}
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
+        onMouseEnter={() => {
+          setIsGradientTracked(true);
+        }}
+        onMouseLeave={() => {
+          if (!isExpanded) {
+            setIsGradientTracked(false);
+          }
+        }}
         onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -798,12 +834,26 @@ export const ArticleCard = memo(function ArticleCard({
           </div>
           <div className="relative z-10">
             <div
-              className="overflow-hidden article-swipe-body"
+              className={`overflow-hidden article-swipe-body ${visuallyExpanded ? "select-text" : ""}`}
               onClick={
                 visuallyExpanded
                   ? (e) => {
                       // Expanded body interactions should never collapse the card.
                       e.stopPropagation();
+                    }
+                  : undefined
+              }
+              onMouseDown={
+                visuallyExpanded
+                  ? (event) => {
+                      event.stopPropagation();
+                    }
+                  : undefined
+              }
+              onPointerDown={
+                visuallyExpanded
+                  ? (event) => {
+                      event.stopPropagation();
                     }
                   : undefined
               }
@@ -853,7 +903,7 @@ export const ArticleCard = memo(function ArticleCard({
                 </p>
               ) : useRichFormatting ? (
                 <div
-                  className={`${visibleRichContentClassName} anim-article-enter`}
+                  className={`${visibleRichContentClassName} ${visuallyExpanded ? "cursor-text select-text" : ""} anim-article-enter`}
                   dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                   style={{
                     contain: visuallyExpanded ? "none" : "layout style paint",
@@ -862,7 +912,7 @@ export const ArticleCard = memo(function ArticleCard({
                 />
               ) : (
                 <p
-                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
+                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "cursor-text select-text text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
                 >
                   {content}
                 </p>
@@ -877,22 +927,24 @@ export const ArticleCard = memo(function ArticleCard({
             >
               {`${preview}…`}
             </p>
-            <div
-              aria-hidden="true"
-              className="pointer-events-none h-0 overflow-hidden opacity-0"
-              ref={fullContentRef}
-            >
-              {useRichFormatting ? (
-                <div
-                  className={richContentClassName}
-                  dangerouslySetInnerHTML={{ __html: normalizedHtml }}
-                />
-              ) : (
-                <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
-                  {content}
-                </p>
-              )}
-            </div>
+            {shouldMeasureExpandedHeight ? (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none h-0 overflow-hidden opacity-0"
+                ref={fullContentRef}
+              >
+                {useRichFormatting ? (
+                  <div
+                    className={richContentClassName}
+                    dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+                  />
+                ) : (
+                  <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
+                    {content}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 

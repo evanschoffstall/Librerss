@@ -847,6 +847,8 @@ describe("dashboard favicons comprehensive", () => {
   test("hydrate loads valid persisted entries and drops stale failure entries", async () => {
     const v2Key = "librerss:favicon-index-cache:v2";
 
+    await import("@/app/dashboard/services/favicons");
+
     window.localStorage.setItem(
       v2Key,
       JSON.stringify({
@@ -1019,6 +1021,36 @@ describe("feed-batch pure helpers", () => {
       () => [placeholder],
     );
     expect(result).toHaveLength(1);
+  });
+
+  test("mapBatchResultsToArticles reuses previous feed articles for unchanged batch items", async () => {
+    const { mapBatchResultsToArticles } =
+      await import("@/app/dashboard/services/feed-batch");
+    const previousArticle = makeArticle({
+      feedName: "Feed A",
+      feedUrl: "https://example.com/feed",
+      id: 77,
+      link: "https://example.com/article-77",
+      title: "Still current",
+    });
+
+    const result = mapBatchResultsToArticles(
+      [
+        {
+          articles: [],
+          lastFetchedAt: new Date("2026-03-14T12:00:00.000Z"),
+          ok: true,
+          unchanged: true,
+          url: "https://example.com/feed",
+        },
+      ],
+      new Map([["https://example.com/feed", "Feed A"]]),
+      false,
+      () => [],
+      [previousArticle],
+    );
+
+    expect(result).toEqual([previousArticle]);
   });
 
   test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {

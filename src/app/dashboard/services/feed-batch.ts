@@ -23,9 +23,33 @@ export function mapBatchResultsToArticles(
   sourceNameByUrl: Map<string, string | undefined>,
   usePlaceholderData: boolean,
   getPlaceholderArticles: (url: string) => Article[],
+  previousFeed: Article[] = [],
 ): Article[] {
+  const previousArticlesByFeedUrl = new Map<string, Article[]>();
+  for (const article of previousFeed) {
+    if (!article.feedUrl) {
+      continue;
+    }
+
+    const currentArticles = previousArticlesByFeedUrl.get(article.feedUrl);
+    if (currentArticles) {
+      currentArticles.push(article);
+      continue;
+    }
+
+    previousArticlesByFeedUrl.set(article.feedUrl, [article]);
+  }
+
   const perFeedArticles = batchResults.map((result): Article[] | null => {
     const feedName = sourceNameByUrl.get(result.url);
+
+    if (result.unchanged) {
+      return enrichFeedArticles(
+        previousArticlesByFeedUrl.get(result.url) ?? [],
+        result.url,
+        feedName,
+      );
+    }
 
     if (result.ok && result.articles.length > 0) {
       return enrichFeedArticles(result.articles, result.url, feedName);

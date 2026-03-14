@@ -8,7 +8,10 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import axios from "axios";
+
 import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch";
+import { extractionAxios } from "@/lib/fetch/fingerprint";
 
 beforeEach(() => {
   mock.restore();
@@ -639,6 +642,98 @@ describe("buildAxiosGet – proxy mode branches", () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
     const fn = buildAxiosGet(undefined, undefined, true, undefined);
     expect(typeof fn).toBe("function");
+  });
+
+  test("socks wrapper forwards through axios.get with proxy disabled and both agents", async () => {
+    const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
+    const originalAxiosGet = axios.get;
+    const axiosGetMock = mock(
+      async (_url: string, _config?: Record<string, unknown>) => ({
+        data: "ok",
+      }),
+    );
+    axios.get = axiosGetMock as unknown as typeof axios.get;
+
+    try {
+      const proxyConfig = {
+        httpAgent: { name: "http-agent" },
+        httpsAgent: { name: "https-agent" },
+        mode: "socks" as const,
+      };
+      const fn = buildAxiosGet(
+        undefined,
+        proxyConfig as never,
+        false,
+        undefined,
+      );
+
+      await fn("https://example.com", { headers: { accept: "text/html" } });
+
+      expect(axiosGetMock).toHaveBeenCalledWith("https://example.com", {
+        headers: { accept: "text/html" },
+        httpAgent: proxyConfig.httpAgent,
+        httpsAgent: proxyConfig.httpsAgent,
+        proxy: false,
+      });
+    } finally {
+      axios.get = originalAxiosGet;
+    }
+  });
+
+  test("http wrapper forwards through extractionAxios with proxy, jar, and insecure TLS agent", async () => {
+    const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
+    const originalExtractionGet = extractionAxios.get;
+    const extractionGetMock = mock(
+      async (_url: string, _config?: Record<string, unknown>) => ({
+        data: "ok",
+      }),
+    );
+    extractionAxios.get =
+      extractionGetMock as unknown as typeof extractionAxios.get;
+
+    try {
+      const jar = { tag: "jar" };
+      const proxyConfig = {
+        mode: "http" as const,
+        proxy: { host: "proxy.example.com", port: 8080, protocol: "http" },
+      };
+      const fn = buildAxiosGet(undefined, proxyConfig, true, jar as never);
+
+      await fn("https://example.com", { timeout: 1000 });
+
+      expect(extractionGetMock).toHaveBeenCalledTimes(1);
+      const [firstCall] = extractionGetMock.mock.calls;
+      expect(firstCall).toBeDefined();
+      const call = firstCall?.[1];
+      expect(call?.timeout).toBe(1000);
+      expect(call?.jar).toBe(jar);
+      expect(call?.proxy).toEqual(proxyConfig.proxy);
+      expect(call?.httpsAgent).toBeDefined();
+    } finally {
+      extractionAxios.get = originalExtractionGet;
+    }
+  });
+
+  test("default wrapper forwards through extractionAxios without proxy configuration", async () => {
+    const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
+    const originalExtractionGet = extractionAxios.get;
+    const extractionGetMock = mock(async () => ({ data: "ok" }));
+    extractionAxios.get =
+      extractionGetMock as unknown as typeof extractionAxios.get;
+
+    try {
+      const jar = { tag: "jar" };
+      const fn = buildAxiosGet(undefined, undefined, false, jar as never);
+
+      await fn("https://example.com", { timeout: 500 });
+
+      expect(extractionGetMock).toHaveBeenCalledWith("https://example.com", {
+        jar,
+        timeout: 500,
+      });
+    } finally {
+      extractionAxios.get = originalExtractionGet;
+    }
   });
 });
 

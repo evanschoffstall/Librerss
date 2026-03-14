@@ -1,42 +1,55 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-
-import * as schema from "./schema";
+import {
+  getConnectionString,
+  getDbDriver,
+  getDbIdleTimeoutMs,
+  getDbMaxConnections,
+  shouldRunInitialDbConnectivityCheck,
+} from "./config";
+import { createNeonDatabase } from "./neon-provider";
+import { createNodePostgresDatabase } from "./node-postgres-provider";
+import type { Database, DatabasePool, DatabaseProviderResult } from "./types";
 
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
 
 const globalForDb = globalThis as unknown as {
-  db?: ReturnType<typeof drizzle<typeof schema>>;
+  db?: Database;
   hasLoggedInitialDbConnectionWarning?: boolean;
   hasRunInitialDbConnectivityCheck?: boolean;
-  pool?: Pool;
+  pool?: DatabasePool;
 };
 
-const DEFAULT_DB_MAX_CONNECTIONS = 1;
-const DEFAULT_DB_IDLE_TIMEOUT_MS = 1_000;
+interface ConnectivityCheckPool {
+  query(queryText: string): Promise<unknown>;
+}
 
+interface DbDependencies {
+  createDatabaseProvider: () => DatabaseProviderResult;
+  warn: DbWarnFn;
+}
+
+type DbWarnFn = (message: string, context?: Record<string, unknown>) => void;
+
+const defaultDbDependencies: DbDependencies = {
+  createDatabaseProvider: createRuntimeDatabaseProvider,
+  warn: (message, context) => {
+    logger.warn(message, context);
+  },
+};
+
+let dbDependencies: DbDependencies = defaultDbDependencies;
+
+/** Returns the singleton Drizzle instance for the active database driver. */
 export function getDb() {
   if (globalForDb.db) {
     return globalForDb.db;
   }
 
-  const pool =
-    globalForDb.pool ??
-    new Pool({
-      allowExitOnIdle: true,
-      connectionString: getConnectionString(),
-      idleTimeoutMillis: getDbIdleTimeoutMs(),
-      // Keep the pool minimal so endpoints can suspend when idle.
-      // max defaults to 1 and idleTimeoutMillis defaults to 1000ms,
-      // which allows pg to close idle clients quickly.
-      max: getDbMaxConnections(),
-    });
+  const { db, pool } = dbDependencies.createDatabaseProvider();
 
   if (shouldRunInitialDbConnectivityCheck()) {
-    runInitialDbConnectivityCheck(pool);
+    runInitialDbConnectivityCheck(toConnectivityCheckPool(pool));
   }
-  const db = drizzle(pool, { schema });
 
   globalForDb.pool = pool;
   globalForDb.db = db;
@@ -52,47 +65,42 @@ export function isUniqueConstraintError(error: unknown): boolean {
   return hasDbErrorCode(error, "23505");
 }
 
-function getConnectionString(): string {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error(
-      "Missing required environment variable: DATABASE_URL. " +
-        "Add it to your .env.local file.",
-    );
-  }
-
-  return connectionString;
+/** Restores the default DB seams and clears cached singleton state. */
+export function resetDbDependenciesForTesting(): void {
+  dbDependencies = defaultDbDependencies;
+  clearDbSingletonState();
 }
 
-function getDbIdleTimeoutMs(): number {
-  const rawValue = process.env.DB_IDLE_TIMEOUT_MS;
-  if (!rawValue) {
-    return DEFAULT_DB_IDLE_TIMEOUT_MS;
-  }
-
-  const parsedValue = Number.parseInt(rawValue, 10);
-  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-    return DEFAULT_DB_IDLE_TIMEOUT_MS;
-  }
-
-  return parsedValue;
-}
-
-function getDbMaxConnections(): number {
-  const rawValue = process.env.DB_MAX_CONNECTIONS;
-  if (!rawValue) {
-    return DEFAULT_DB_MAX_CONNECTIONS;
-  }
-
-  const parsedValue = Number.parseInt(rawValue, 10);
-  if (!Number.isFinite(parsedValue) || parsedValue < 1) {
-    return DEFAULT_DB_MAX_CONNECTIONS;
-  }
-
-  return parsedValue;
+/** Overrides DB seams for an isolated test module instance. */
+export function setDbDependenciesForTesting(
+  dependencies: Partial<DbDependencies>,
+): void {
+  dbDependencies = {
+    ...dbDependencies,
+    ...dependencies,
+  };
 }
 
 // ─── DB error utilities ─────────────────────────────────────────────────────
+
+function clearDbSingletonState(): void {
+  delete globalForDb.pool;
+  delete globalForDb.db;
+  delete globalForDb.hasLoggedInitialDbConnectionWarning;
+  delete globalForDb.hasRunInitialDbConnectivityCheck;
+}
+
+function createRuntimeDatabaseProvider(): DatabaseProviderResult {
+  const options = {
+    connectionString: getConnectionString(),
+    idleTimeoutMillis: getDbIdleTimeoutMs(),
+    maxConnections: getDbMaxConnections(),
+  };
+
+  return getDbDriver() === "neon"
+    ? createNeonDatabase(options)
+    : createNodePostgresDatabase(options);
+}
 
 function hasDbErrorCode(error: unknown, code: string): boolean {
   if (!error || typeof error !== "object") {
@@ -102,7 +110,7 @@ function hasDbErrorCode(error: unknown, code: string): boolean {
   return (error as { code?: unknown }).code === code;
 }
 
-function runInitialDbConnectivityCheck(pool: Pool) {
+function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
   if (globalForDb.hasRunInitialDbConnectivityCheck) {
     return;
   }
@@ -117,13 +125,13 @@ function runInitialDbConnectivityCheck(pool: Pool) {
     globalForDb.hasLoggedInitialDbConnectionWarning = true;
 
     const message = toErrorMessage(error);
-    logger.warn("[db] Initial database connectivity check failed", {
+    dbDependencies.warn("[db] Initial database connectivity check failed", {
       error: message,
       note: "The app will continue running, but database-backed features may fail until the connection is restored.",
     });
   });
 }
 
-function shouldRunInitialDbConnectivityCheck(): boolean {
-  return process.env.DB_EAGER_CONNECT_CHECK === "true";
+function toConnectivityCheckPool(pool: DatabasePool): ConnectivityCheckPool {
+  return pool as unknown as ConnectivityCheckPool;
 }

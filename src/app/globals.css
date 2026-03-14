@@ -357,11 +357,6 @@
     -webkit-line-clamp: 2;
   }
 
-  .article-exit {
-    pointer-events: none;
-    overflow: hidden;
-  }
-
   .article-swipe-surface {
     touch-action: pan-y;
     -webkit-touch-callout: none;
@@ -374,13 +369,8 @@
     user-select: none;
   }
 
-  /* Every element inside an expanded article body gets touch-action: pan-y so
-   * the browser hands horizontal swipe gestures to JS (swipe-to-read/star).
-   * Without this, overflow:hidden creates a scroll-container cut-point and the
-   * browser claims all gestures before our touchmove listener can preventDefault.
-   * Mobile browsers also steal drags that begin on selectable text, so we
-   * disable user-select and native drag/callout in the reading surface.
-   * pre blocks keep pan-x so horizontal code-scroll still works. */
+  /* Collapsed cards keep swipe ownership. Expanded bodies opt back into native
+   * text selection/callout and the swipe hook ignores gesture starts there. */
   .article-swipe-body {
     touch-action: pan-y;
     -webkit-touch-callout: none;
@@ -393,6 +383,16 @@
     user-select: none;
   }
   .article-swipe-body pre {
+    touch-action: pan-x pan-y;
+  }
+  .article-swipe-body.select-text,
+  .article-swipe-body.select-text * {
+    touch-action: pan-y;
+    -webkit-touch-callout: default;
+    -webkit-user-drag: auto;
+    user-select: text;
+  }
+  .article-swipe-body.select-text pre {
     touch-action: pan-x pan-y;
   }
 

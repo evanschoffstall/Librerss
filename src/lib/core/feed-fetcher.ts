@@ -89,6 +89,7 @@ interface BatchFeedResult {
   refreshedCount: number;
   /** How the system resolved the request: memory cache, DB cache, or upstream fetch. */
   resolution: "cache" | "memory" | "upstream";
+  unchangedUrls: Set<string>;
 }
 
 /** Returned when the authenticated user doesn't own the requested feed source. */
@@ -182,10 +183,12 @@ export async function fetchAndCacheFeedArticlesBatch(
   feedUrls: string[],
   {
     forceRefresh = false,
+    knownLastFetchedAtByUrl,
     requestSource = "unspecified",
     skipRefresh = false,
   }: {
     forceRefresh?: boolean;
+    knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
     requestSource?: string;
     skipRefresh?: boolean;
   } = {},
@@ -238,6 +241,15 @@ export async function fetchAndCacheFeedArticlesBatch(
 
     if (!forceRefresh || allWithinCooldown) {
       const cachedCount = feedUrls.length;
+      const unchangedUrls = collectUnchangedUrls(
+        feedUrls,
+        cached.lastFetchedByUrl,
+        knownLastFetchedAtByUrl,
+      );
+      const articles = sliceArticleMapByUrls(
+        cached.articles,
+        feedUrls.filter((url) => !unchangedUrls.has(url)),
+      );
       feedFetcherDependencies.diagInfo(
         "Batch feed fetch served from memory cache",
         {
@@ -248,13 +260,14 @@ export async function fetchAndCacheFeedArticlesBatch(
         },
       );
       return {
-        articles: cached.articles,
+        articles,
         cachedCount,
         cooldownLimitedCount: allWithinCooldown ? cachedCount : 0,
         errors: cached.errors,
         lastFetchedByUrl: cached.lastFetchedByUrl,
         refreshedCount: 0,
         resolution: "memory" as const,
+        unchangedUrls,
       };
     }
   }
@@ -336,6 +349,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       refreshedCount,
       resolution:
         refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
+      unchangedUrls: new Set(),
     };
   }
 
@@ -353,15 +367,40 @@ export async function fetchAndCacheFeedArticlesBatch(
       .filter((e): e is [string, Date] => e !== null),
   );
 
+  const unchangedUrls = collectUnchangedUrls(
+    allowedUrls,
+    lastFetchedByUrl,
+    knownLastFetchedAtByUrl,
+  );
+  const changedUrls = allowedUrls.filter((url) => !unchangedUrls.has(url));
+
+  if (changedUrls.length === 0) {
+    return {
+      articles: new Map(),
+      cachedCount: allowedUrls.length - refreshedCount,
+      cooldownLimitedCount,
+      errors: upstreamErrors,
+      lastFetchedByUrl,
+      refreshedCount,
+      resolution:
+        refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
+      unchangedUrls,
+    };
+  }
+
+  const changedFeedIds = changedUrls
+    .map((url) => feedByUrl.get(url)?.id)
+    .filter((id): id is number => id !== undefined);
+
   const rows = await feedFetcherDependencies.queryTopArticlesPerFeed(
     db,
     userId,
-    feedIds,
+    changedFeedIds,
   );
   const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
     rows,
     feedByUrl,
-    allowedUrls,
+    changedUrls,
   );
 
   feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
@@ -384,11 +423,19 @@ export async function fetchAndCacheFeedArticlesBatch(
   // user may contain stale article data. Invalidate everything first, then
   // store the fresh result so subsequent requests hit the cache.
   if (refreshedCount > 0) feedFetcherDependencies.invalidateUserCache(userId);
-  feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
-    articles: articleMap,
-    errors: upstreamErrors,
-    lastFetchedByUrl,
-  });
+  const cacheArticleMap = buildCachedArticleMap(
+    articleMap,
+    cached?.articles,
+    unchangedUrls,
+    allowedUrls,
+  );
+  if (cacheArticleMap.size === allowedUrls.length) {
+    feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
+      articles: cacheArticleMap,
+      errors: upstreamErrors,
+      lastFetchedByUrl,
+    });
+  }
 
   return {
     articles: articleMap,
@@ -398,6 +445,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     lastFetchedByUrl,
     refreshedCount,
     resolution: refreshedCount > 0 ? ("upstream" as const) : ("cache" as const),
+    unchangedUrls,
   };
 }
 
@@ -434,6 +482,27 @@ export function setFeedFetcherDependenciesForTesting(
   };
 }
 
+/** Builds a cache-safe full article map by reusing unchanged feed payloads from memory when available. */
+function buildCachedArticleMap(
+  changedArticlesByUrl: Map<string, ArticleRow[]>,
+  cachedArticlesByUrl: Map<string, ArticleRow[]> | undefined,
+  unchangedUrls: ReadonlySet<string>,
+  allowedUrls: string[],
+): Map<string, ArticleRow[]> {
+  const result = new Map(changedArticlesByUrl);
+
+  for (const url of unchangedUrls) {
+    const cachedArticles = cachedArticlesByUrl?.get(url);
+    if (!cachedArticles) {
+      continue;
+    }
+
+    result.set(url, cachedArticles);
+  }
+
+  return new Map(allowedUrls.map((url) => [url, result.get(url) ?? []]));
+}
+
 function buildEmptyBatchResult(): BatchFeedResult {
   return {
     articles: new Map(),
@@ -443,5 +512,37 @@ function buildEmptyBatchResult(): BatchFeedResult {
     lastFetchedByUrl: new Map(),
     refreshedCount: 0,
     resolution: "cache",
+    unchangedUrls: new Set(),
   };
+}
+
+/** Returns feed URLs whose last-fetch timestamp already matches the client's copy. */
+function collectUnchangedUrls(
+  urls: string[],
+  lastFetchedByUrl: ReadonlyMap<string, Date>,
+  knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined,
+): Set<string> {
+  if (!knownLastFetchedAtByUrl || knownLastFetchedAtByUrl.size === 0) {
+    return new Set();
+  }
+
+  return new Set(
+    urls.filter((url) => {
+      const knownLastFetchedAt = knownLastFetchedAtByUrl.get(url);
+      const currentLastFetchedAt = lastFetchedByUrl.get(url);
+      return (
+        knownLastFetchedAt instanceof Date &&
+        currentLastFetchedAt instanceof Date &&
+        knownLastFetchedAt.getTime() === currentLastFetchedAt.getTime()
+      );
+    }),
+  );
+}
+
+/** Returns only the requested URLs from a cached article map. */
+function sliceArticleMapByUrls(
+  articlesByUrl: ReadonlyMap<string, ArticleRow[]>,
+  urls: string[],
+): Map<string, ArticleRow[]> {
+  return new Map(urls.map((url) => [url, articlesByUrl.get(url) ?? []]));
 }

@@ -41,6 +41,7 @@ describe("api/feeds/batch route", () => {
       lastFetchedByUrl: new Map(),
       refreshedCount: 0,
       resolution: "upstream",
+      unchangedUrls: new Set(),
     };
     const fetchAndCacheFeedArticlesBatch = mock(
       async (
@@ -106,6 +107,7 @@ describe("api/feeds/batch route", () => {
         lastFetchedByUrl: new Map(),
         refreshedCount: 0,
         resolution: "memory",
+        unchangedUrls: new Set(),
       },
     });
     const { POST } = await import("@/app/api/feeds/batch/route");
@@ -135,6 +137,49 @@ describe("api/feeds/batch route", () => {
       {
         articles: [],
         ok: true,
+        url: normalizedUrl,
+      },
+    ]);
+  });
+
+  test("returns unchanged markers when the client already has the current feed payload", async () => {
+    const normalizedUrl = "https://example.com/feed";
+    const timestamp = new Date("2026-03-14T12:00:00.000Z");
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps } = createRouteDeps({
+      batchResult: {
+        articles: new Map(),
+        cachedCount: 1,
+        cooldownLimitedCount: 0,
+        errors: new Map(),
+        lastFetchedByUrl: new Map([[normalizedUrl, timestamp]]),
+        refreshedCount: 0,
+        resolution: "memory",
+        unchangedUrls: new Set([normalizedUrl]),
+      },
+    });
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        knownLastFetchedAtByUrl: {
+          [normalizedUrl]: timestamp.toISOString(),
+        },
+        urls: [normalizedUrl],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data).toEqual([
+      {
+        articles: [],
+        lastFetchedAt: timestamp.toISOString(),
+        ok: true,
+        unchanged: true,
         url: normalizedUrl,
       },
     ]);

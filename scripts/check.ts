@@ -587,8 +587,9 @@ function getConcurrency(n: number): number {
 // Summary builders
 // ---------------------------------------------------------------------------
 
+/** Returns the remaining suite budget in milliseconds without clamping. */
 function getRemainingTimeoutMs(deadlineMs: number): number {
-  return Math.max(1, deadlineMs - Date.now());
+  return deadlineMs - Date.now();
 }
 
 function getTestRunnerArtifacts(step: StepConfig): TestRunnerArtifacts {
@@ -605,6 +606,11 @@ function getTestRunnerArtifacts(step: StepConfig): TestRunnerArtifacts {
     coverageReportPath: resolvePathToken(step.summary.coveragePathToken),
     testReportPath: resolvePathToken(step.summary.reportPathToken),
   };
+}
+
+/** Reports whether the overall suite deadline has already been exhausted. */
+function hasDeadlineExpired(deadlineMs: number): boolean {
+  return getRemainingTimeoutMs(deadlineMs) <= 0;
 }
 
 function makeTimedOutCommand(label: string, timeoutMs: number): Command {
@@ -1069,13 +1075,19 @@ export async function runCheckSuite(keyFilter?: null | Set<string>) {
   const preRunTimedOut = Object.values(preRunResults).some(
     (run) => run.timedOut,
   );
-  const executedMainSteps = preRunTimedOut ? [] : mainSteps;
-  const mainResults = preRunTimedOut
-    ? {}
-    : await runStepBatch(mainSteps, deadlineMs);
+  const suiteExpiredBeforeMain =
+    !preRunTimedOut && hasDeadlineExpired(deadlineMs);
+  const executedMainSteps =
+    preRunTimedOut || suiteExpiredBeforeMain ? [] : mainSteps;
+  const mainResults =
+    preRunTimedOut || suiteExpiredBeforeMain
+      ? {}
+      : await runStepBatch(mainSteps, deadlineMs);
   const runs = { ...preRunResults, ...mainResults };
 
-  const timedOut = Object.values(runs).some((result) => result.timedOut);
+  const timedOut =
+    suiteExpiredBeforeMain ||
+    Object.values(runs).some((result) => result.timedOut);
   const allExecutedSteps = [...preRunSteps, ...executedMainSteps];
   const missingSteps = allExecutedSteps
     .filter((step) => runs[step.key]?.notFound)
@@ -1190,8 +1202,46 @@ export async function runCheckSuite(keyFilter?: null | Set<string>) {
   if (!allOk) process.exit(1);
 }
 
+/** Runs a parallel batch while refusing to start steps after the deadline. */
+export async function runStepBatch(
+  steps: StepConfig[],
+  deadlineMs: number,
+): Promise<Record<string, Command>> {
+  return Object.fromEntries(
+    await Promise.all(
+      steps.map(
+        async (step) =>
+          [step.key, await runStepWithinDeadline(step, deadlineMs)] as const,
+      ),
+    ),
+  ) as Record<string, Command>;
+}
+
+/**
+ * Runs a step only when the suite still has time budget remaining.
+ *
+ * This prevents late steps from spawning child processes or inline handlers
+ * after a long pre-run phase has already consumed the suite timeout.
+ */
+export function runStepWithinDeadline(
+  step: StepConfig,
+  deadlineMs: number,
+  extraArgs: string[] = [],
+): Promise<Command> {
+  const timeoutMs = getStepTimeoutMs(step, deadlineMs);
+  if (timeoutMs <= 0) {
+    return Promise.resolve(makeTimedOutCommand(step.label, 0));
+  }
+
+  return runStep(step, timeoutMs, extraArgs);
+}
+
 function getStepTimeoutMs(step: StepConfig, deadlineMs: number): number {
   const remainingTimeoutMs = getRemainingTimeoutMs(deadlineMs);
+  if (remainingTimeoutMs <= 0) {
+    return 0;
+  }
+
   const configuredTimeoutMs = resolveStepTimeoutMsValue(step);
   if (configuredTimeoutMs !== null) {
     return Math.min(configuredTimeoutMs, remainingTimeoutMs);
@@ -1212,9 +1262,9 @@ async function main() {
       ? CFG.steps.find((step) => step.key === command && step.enabled !== false)
       : undefined;
   if (directStep) {
-    const result = await runStep(
+    const result = await runStepWithinDeadline(
       directStep,
-      getStepTimeoutMs(directStep, Date.now() + SUITE_TIMEOUT_MS),
+      Date.now() + SUITE_TIMEOUT_MS,
       args,
     );
     writeOut(result.output);
@@ -1251,23 +1301,6 @@ function runStep(
     label: step.label,
     timeoutMs,
   });
-}
-
-async function runStepBatch(
-  steps: StepConfig[],
-  deadlineMs: number,
-): Promise<Record<string, Command>> {
-  return Object.fromEntries(
-    await Promise.all(
-      steps.map(
-        async (step) =>
-          [
-            step.key,
-            await runStep(step, getStepTimeoutMs(step, deadlineMs)),
-          ] as const,
-      ),
-    ),
-  ) as Record<string, Command>;
 }
 
 export { applyOutputFilter, buildSummary, parseCoverage, parseTests };

@@ -6,7 +6,7 @@
 
 <h1>LibreRSS</h1>
 
-<p><em>Your feeds. Your rules. Zero noise.</em></p>
+<p><em>A modern, gorgeous RSS reader for people who want precious signal, not sludge.</em></p>
 
 <p>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 16" /></a>
@@ -16,8 +16,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT License" /></a>
 </p>
 
-<p>A self-hosted, open-source RSS feed platform built for calm, focused reading.<br/>Fast feeds. Clean layouts. No clutter.</p>
-
 <br/>
 
 </div>
@@ -26,22 +24,24 @@
 
 ## What is LibreRSS?
 
-LibreRSS is a **self-hosted RSS feed platform** you run on your own server. Subscribe to any RSS or Atom feed, organize sources into categories, and read distraction-free articles from a single dashboard you fully control.
+LibreRSS is a **modern, beautiful, open-source, self-hostable RSS reader** built for distraction-free reading. Subscribe to any RSS or Atom feed, organize sources into categories, and follow everything from one calm, fast dashboard you fully control.
+
+It is designed for readers who want a beuatiful, unified, and clean experience to keep up with the web: no algorithmic chaos, no bloated interface, and no surrendering their data to a third-party platform.
 
 ---
 
 ## Features
 
-|     | Feature                      | Description                                       |
-| --- | ---------------------------- | ------------------------------------------------- |
-| 📡  | **Universal feed support**   | Subscribe to any RSS, Atom, or JSON feed          |
-| 🗂️  | **Category organization**    | Group feeds into custom categories                |
-| 🧘  | **Distraction-free reading** | Clean article view, no clutter                    |
-| 🧩  | **Flexible feed management** | Organize, refresh, and manage sources from one UI |
-| 🌙  | **Dark & light mode**        | Dark by default with manual override              |
-| 🔒  | **Self-hosted**              | Your data stays on your server, always            |
-| 🚪  | **Invite-only mode**         | Restrict registration via `ALLOW_SIGNUP` env flag |
-| ⚡  | **Streaming refresh**        | Feeds update in real time via server-sent events  |
+|     | Feature                      | Description                                                            |
+| --- | ---------------------------- | ---------------------------------------------------------------------- |
+| 📡  | **Universal feed support**   | Pull in RSS, Atom, and JSON feeds from across the open web             |
+| 🗂️  | **Category organization**    | Turn a noisy reading list into a clean, browsable system               |
+| 🧘  | **Distraction-free reading** | Focus on the article, not the chrome, clutter, or engagement traps     |
+| 🧩  | **Flexible feed management** | Add, sort, refresh, and manage sources from one fast dashboard         |
+| 🌙  | **Dark & light mode**        | Choose the look that fits your workflow, day or night                  |
+| 🔒  | **Self-hosted**              | Keep your feeds, reading history, and access on infrastructure you own |
+| 🚪  | **Invite-only mode**         | Run it privately or gate access with a simple environment flag         |
+| ⚡  | **Streaming refresh**        | See feed updates arrive in real time with a responsive reading flow    |
 
 ---
 
@@ -55,10 +55,11 @@ bun install
 
 ### 2 · Configure your environment
 
-This repo ships with a committed `.env` containing sensible defaults. Create `.env.local` at the project root for machine-specific overrides:
+This repo ships with a committed `.env` containing sensible defaults. Create `.env.local` at the project root to point LibreRSS at your own database and local runtime settings:
 
 ```env
 DATABASE_URL="postgres://user:password@host:5432/dbname"
+DB_DRIVER="pg" # or stateless "neon"
 ALLOW_SIGNUP="false"
 NODE_ENV="development"
 LOG_LEVEL="warn"
@@ -70,7 +71,7 @@ LOG_LEVEL="warn"
 bun run db:provision
 ```
 
-Verifies the database connection and applies the full schema.
+Verifies the database connection and applies the full schema so you can start with a ready-to-use instance.
 
 ### 4 · Start the dev server
 
@@ -78,7 +79,7 @@ Verifies the database connection and applies the full schema.
 bun dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)** and you're up.
+Open **[http://localhost:3000](http://localhost:3000)** to start reading in a clean, self-hosted dashboard.
 
 ---
 
@@ -106,7 +107,7 @@ Open **[http://localhost:3000](http://localhost:3000)** and you're up.
 
 ## User Management
 
-When public signup is disabled, create accounts directly from the CLI:
+When public signup is disabled, create accounts directly from the CLI for a private or invite-only deployment:
 
 ```bash
 bun run db:create-user <email> <password>
@@ -147,6 +148,6 @@ librerss/
 
 Made with ❤️ by [Evan Schoffstall](https://github.com/evanschoffstall)
 
-MIT License · Free forever · Self-host it
+MIT License · Open source · Self-host it your way
 
 </div>

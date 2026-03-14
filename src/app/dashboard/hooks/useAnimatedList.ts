@@ -3,35 +3,44 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export const EXIT_CLEANUP_MS = 340;
+export const ENTER_CLEANUP_MS = 280;
 const EXIT_DURATION_MS = EXIT_CLEANUP_MS;
+const ENTER_DURATION_MS = ENTER_CLEANUP_MS;
 const DEFAULT_MAX_ANIMATED_EXITS = 12;
 
 interface AnimatedItem<T> {
+  entering: boolean;
   exiting: boolean;
   item: T;
   key: string;
 }
 
 /**
- * Tracks items leaving a list and keeps them rendered with `exiting: true`
- * for EXIT_DURATION_MS so an exit animation can play before removal.
- * Exiting items are inserted at their last-known position in the list.
+ * Tracks list deltas so items can animate in and out without breaking layout.
+ *
+ * Removed items stay rendered with `exiting: true` for EXIT_DURATION_MS so an
+ * exit animation can complete before removal. Newly inserted items are tagged
+ * with `entering: true` for ENTER_DURATION_MS so callers can reveal them
+ * without replacing the surrounding list.
  */
 export function useAnimatedList<T>(
   items: T[],
   getKey: (item: T) => string,
   maxAnimatedExits = DEFAULT_MAX_ANIMATED_EXITS,
 ): AnimatedItem<T>[] {
+  const [enteringKeys, setEnteringKeys] = useState<Set<string>>(new Set());
   const [exitingMap, setExitingMap] = useState<
     Map<string, { index: number; item: T }>
   >(new Map());
   const prevOrderRef = useRef<{ item: T; key: string }[]>([]);
+  const enterTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
 
-  // Detect newly removed items by diffing against previous order
-  // Using items as the dep so this only runs when the list reference changes
+  // Detect list insertions and removals by diffing against previous order.
   useEffect(() => {
     const clearExitTimers = () => {
       for (const timer of timersRef.current.values()) {
@@ -40,19 +49,78 @@ export function useAnimatedList<T>(
       timersRef.current.clear();
     };
 
+    const clearEnterTimers = () => {
+      for (const timer of enterTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      enterTimersRef.current.clear();
+    };
+
     const prev = prevOrderRef.current;
-    const cKeys = new Set(items.map(getKey));
+    const nextOrder = items.map((item) => ({ item, key: getKey(item) }));
+    const currentKeys = new Set(nextOrder.map(({ key }) => key));
+    const previousKeys = new Set(prev.map(({ key }) => key));
     const newExiting = new Map<string, { index: number; item: T }>();
+    const newEntering: string[] = [];
+
+    for (const { key } of nextOrder) {
+      if (!previousKeys.has(key)) {
+        newEntering.push(key);
+      }
+    }
 
     for (let i = 0; i < prev.length; i++) {
       const { item, key } = prev[i];
-      if (!cKeys.has(key)) {
+      if (!currentKeys.has(key)) {
         newExiting.set(key, { index: i, item });
       }
     }
 
-    // Store current order for next diff
-    prevOrderRef.current = items.map((item) => ({ item, key: getKey(item) }));
+    prevOrderRef.current = nextOrder;
+
+    if (prev.length === 0) {
+      return;
+    }
+
+    if (newEntering.length > 0) {
+      if (newEntering.length > maxAnimatedExits) {
+        clearEnterTimers();
+        setEnteringKeys((currentKeys) =>
+          currentKeys.size === 0 ? currentKeys : new Set(),
+        );
+      } else {
+        setEnteringKeys((currentKeys) => {
+          const nextKeys = new Set(currentKeys);
+          let changed = false;
+          for (const key of newEntering) {
+            if (!nextKeys.has(key)) {
+              nextKeys.add(key);
+              changed = true;
+            }
+          }
+          return changed ? nextKeys : currentKeys;
+        });
+
+        for (const key of newEntering) {
+          if (enterTimersRef.current.has(key)) continue;
+          enterTimersRef.current.set(
+            key,
+            setTimeout(() => {
+              enterTimersRef.current.delete(key);
+              setEnteringKeys((currentKeys) => {
+                if (!currentKeys.has(key)) {
+                  return currentKeys;
+                }
+
+                const nextKeys = new Set(currentKeys);
+                nextKeys.delete(key);
+                return nextKeys;
+              });
+            }, ENTER_DURATION_MS),
+          );
+        }
+      }
+    }
 
     if (newExiting.size === 0) return;
 
@@ -95,6 +163,7 @@ export function useAnimatedList<T>(
   useEffect(
     () => () => {
       for (const t of timersRef.current.values()) clearTimeout(t);
+      for (const t of enterTimersRef.current.values()) clearTimeout(t);
     },
     [],
   );
@@ -103,6 +172,7 @@ export function useAnimatedList<T>(
   return useMemo(() => {
     const currentKeys = new Set(items.map(getKey));
     const result: AnimatedItem<T>[] = items.map((item) => ({
+      entering: enteringKeys.has(getKey(item)),
       exiting: false,
       item,
       key: getKey(item),
@@ -112,8 +182,8 @@ export function useAnimatedList<T>(
       .sort((a, b) => a[1].index - b[1].index);
     for (const [key, { index, item }] of toInsert) {
       const pos = Math.min(index, result.length);
-      result.splice(pos, 0, { exiting: true, item, key });
+      result.splice(pos, 0, { entering: false, exiting: true, item, key });
     }
     return result;
-  }, [items, exitingMap, getKey]);
+  }, [items, enteringKeys, exitingMap, getKey]);
 }

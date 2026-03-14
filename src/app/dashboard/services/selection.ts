@@ -7,10 +7,12 @@ import type { CategoryTreeNode } from "@/lib";
 export interface FeedFetchOptions {
   forceRefresh?: boolean;
   keepExistingFeed?: boolean;
+  knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource?: string;
   skipRefresh?: boolean;
 }
 
+/** Feed fetch callbacks used when resolving a selected dashboard surface. */
 export interface FeedSelectionFetchers {
   fetchAllFeeds: (
     categories?: CategoryTreeNode[],
@@ -41,6 +43,15 @@ type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   skipRefresh?: boolean;
 };
 
+/**
+ * Boots the dashboard's initial selection and keeps sidebar/feed loading in sync.
+ *
+ * The sidebar should not reveal before the initial feed selection has resolved,
+ * otherwise the dashboard appears to load in two separate phases. The loading
+ * flag is therefore released only after the initial fetch path settles.
+ *
+ * @param options Selection fetchers and state setters required during boot.
+ */
 export async function initializeDashboardSelection(
   options: InitializeDashboardSelectionOptions,
 ): Promise<void> {
@@ -54,39 +65,46 @@ export async function initializeDashboardSelection(
     setSelectedCategory,
   } = options;
 
-  const loadedCategories = await loadFeedSources();
-  setIsCategoriesLoading(false);
-  const initialFetchOptions: FeedFetchOptions = {
-    requestSource: "dashboard-initial-cache",
-    skipRefresh: true,
-  };
+  try {
+    const loadedCategories = await loadFeedSources();
+    const initialFetchOptions: FeedFetchOptions = {
+      requestSource: "dashboard-initial-cache",
+      skipRefresh: true,
+    };
 
-  if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+    if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+      await fetchAllFeeds(loadedCategories, initialFetchOptions);
+      return;
+    }
+
+    const selectedFeedNode = findFeedNodeByKey(
+      loadedCategories,
+      selectedCategory,
+    );
+    if (
+      selectedFeedNode?.data?.url &&
+      selectedFeedNode.data.enabled !== false
+    ) {
+      await fetchFeed(selectedFeedNode.data.url, initialFetchOptions);
+      return;
+    }
+
+    const selectedCategoryNode = loadedCategories.find(
+      (node) => node.key === selectedCategory,
+    );
+    if (selectedCategoryNode) {
+      await fetchCategoryFeeds(selectedCategoryNode, initialFetchOptions);
+      return;
+    }
+
+    setSelectedCategory(ALL_FEEDS_NODE_KEY);
     await fetchAllFeeds(loadedCategories, initialFetchOptions);
-    return;
+  } finally {
+    setIsCategoriesLoading(false);
   }
-
-  const selectedFeedNode = findFeedNodeByKey(
-    loadedCategories,
-    selectedCategory,
-  );
-  if (selectedFeedNode?.data?.url && selectedFeedNode.data.enabled !== false) {
-    await fetchFeed(selectedFeedNode.data.url, initialFetchOptions);
-    return;
-  }
-
-  const selectedCategoryNode = loadedCategories.find(
-    (node) => node.key === selectedCategory,
-  );
-  if (selectedCategoryNode) {
-    await fetchCategoryFeeds(selectedCategoryNode, initialFetchOptions);
-    return;
-  }
-
-  setSelectedCategory(ALL_FEEDS_NODE_KEY);
-  await fetchAllFeeds(loadedCategories, initialFetchOptions);
 }
 
+/** Refreshes whatever feed or category surface is currently selected. */
 export function refreshCurrentSelection(
   options: RefreshCurrentSelectionOptions,
 ): void {

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { escapeArticleKey } from "./useArticleHydration";
 
@@ -13,6 +19,7 @@ const TOUCH_PULL_ACTIVATION_DISTANCE = 16;
 const HOLD_OFFSET = 44;
 const HOLD_MS = 650;
 const RELEASE_MS = 200;
+const WHEEL_SETTLE_MS = 140;
 const LOCK_RELEASE_BUFFER_MS = 80;
 const LOCK_RELEASE_FALLBACK_MS = 320;
 const PRE_EXPAND_SCROLL_SESSION_KEY = "librerss:article-pre-expand-scroll";
@@ -26,7 +33,6 @@ interface PullState {
   pulling: boolean;
   readyToRefresh: boolean;
 }
-
 type ScrollLockTarget = false | number;
 
 const IDLE: PullState = { pulling: false, readyToRefresh: false };
@@ -35,6 +41,20 @@ export function useFeedPullOffset() {
   return FEED_PULL_OFFSET;
 }
 
+/**
+ * Wires the dashboard scroll viewport to the hidden pull-to-refresh sentinel.
+ *
+ * The sentinel must render at zero height during SSR so the initial skeleton
+ * paint cannot expose the reserved pull region before hydration restores the
+ * hidden scroll offset. A pre-paint layout pass then enables the sentinel and
+ * re-applies the resting offset without a visible flash.
+ *
+ * @param scrollRootRef Scroll root that contains the Radix viewport.
+ * @param onRefresh Callback invoked after a committed pull gesture.
+ * @param disabled Whether refresh commits should be suppressed.
+ * @param lockRef Shared scroll lock used during article expand/collapse flows.
+ * @returns Pull gesture state plus the sentinel ref and active layout height.
+ */
 export function useFeedPullRefresh(
   scrollRootRef: React.RefObject<HTMLElement | null>,
   onRefresh: () => void,
@@ -42,15 +62,21 @@ export function useFeedPullRefresh(
   lockRef?: React.RefObject<ScrollLockTarget>,
 ) {
   const [state, setState] = useState(IDLE);
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const touchActiveRef = useRef(false);
   const touchLastScrollTopRef = useRef(FEED_PULL_OFFSET);
   const touchPullActiveRef = useRef(false);
   const touchPullEligibleRef = useRef(false);
+  const wheelActiveRef = useRef(false);
+  const pendingWheelScrollEndRef = useRef(false);
   const pullingRef = useRef(false);
   const holdingRef = useRef(false);
   const committedRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
   const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -61,29 +87,39 @@ export function useFeedPullRefresh(
   disabledRef.current = disabled;
   onRefreshRef.current = onRefresh;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setIsLayoutReady(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isLayoutReady) return;
     const root = scrollRootRef.current;
     if (!root) return;
     const viewport =
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") ??
       root;
     const wrapper = viewport.firstElementChild as HTMLElement | null;
+    const feedWrapper = wrapper?.firstElementChild as HTMLElement | null;
     const sentinel =
-      wrapper?.firstElementChild instanceof HTMLElement &&
-      wrapper.firstElementChild.tagName === "DIV"
-        ? wrapper.firstElementChild
+      feedWrapper?.firstElementChild instanceof HTMLElement &&
+      feedWrapper.firstElementChild.tagName === "DIV"
+        ? feedWrapper.firstElementChild
         : sentinelRef.current;
     if (!sentinel || !wrapper) return;
 
     const reset = () => {
       touchPullActiveRef.current = false;
       touchPullEligibleRef.current = false;
+      wheelActiveRef.current = false;
+      pendingWheelScrollEndRef.current = false;
       pullingRef.current = false;
       holdingRef.current = false;
       committedRef.current = false;
       clearTimeout(holdTimerRef.current);
+      clearTimeout(wheelTimerRef.current);
       clearTimeout(releaseTimerRef.current);
       holdTimerRef.current = undefined;
+      wheelTimerRef.current = undefined;
       releaseTimerRef.current = undefined;
       setState(IDLE);
     };
@@ -91,8 +127,9 @@ export function useFeedPullRefresh(
     const hasActiveLock = () => typeof lockRef?.current === "number";
 
     const syncLayout = (pinTarget?: number) => {
-      viewport.style.overscrollBehaviorY = "none";
+      viewport.style.overscrollBehaviorY = "contain";
       viewport.style.overflowY = "scroll";
+      viewport.style.touchAction = "pan-y";
       sentinel.style.height = `${FEED_PULL_HEIGHT}px`;
       const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
       const contentHeight = wrapper.offsetHeight - currentPad;
@@ -140,6 +177,9 @@ export function useFeedPullRefresh(
 
     const commitOrReset = () => {
       if (hasActiveLock()) return;
+      wheelActiveRef.current = false;
+      clearTimeout(wheelTimerRef.current);
+      wheelTimerRef.current = undefined;
       if (viewport.scrollTop >= FEED_PULL_OFFSET) return;
       if (committedRef.current && !disabledRef.current) {
         holdingRef.current = true;
@@ -158,6 +198,21 @@ export function useFeedPullRefresh(
       viewport.scrollTop = FEED_PULL_OFFSET;
     };
 
+    const scheduleWheelSettle = () => {
+      clearTimeout(wheelTimerRef.current);
+      wheelTimerRef.current = setTimeout(() => {
+        wheelTimerRef.current = undefined;
+        wheelActiveRef.current = false;
+        if (hasActiveLock() || touchActiveRef.current || holdingRef.current) {
+          return;
+        }
+        if (pendingWheelScrollEndRef.current) {
+          pendingWheelScrollEndRef.current = false;
+          commitOrReset();
+        }
+      }, WHEEL_SETTLE_MS);
+    };
+
     const scheduleRelease = () => {
       clearTimeout(releaseTimerRef.current);
       releaseTimerRef.current = setTimeout(() => {
@@ -174,13 +229,10 @@ export function useFeedPullRefresh(
 
     const handleScroll = () => {
       if (hasActiveLock()) return;
-      if (viewport.scrollTop < 0) {
-        viewport.scrollTop = 0;
-        return;
-      }
+      const currentScrollTop = viewport.scrollTop;
       if (holdingRef.current) return;
       if (touchActiveRef.current && !touchPullEligibleRef.current) {
-        touchLastScrollTopRef.current = viewport.scrollTop;
+        touchLastScrollTopRef.current = currentScrollTop;
         if (pullingRef.current) reset();
         return;
       }
@@ -189,24 +241,24 @@ export function useFeedPullRefresh(
         touchPullEligibleRef.current &&
         !touchPullActiveRef.current
       ) {
-        const pullDistance = FEED_PULL_OFFSET - viewport.scrollTop;
+        const pullDistance = FEED_PULL_OFFSET - currentScrollTop;
         const isPullingTowardRefresh =
-          viewport.scrollTop < touchLastScrollTopRef.current &&
+          currentScrollTop < touchLastScrollTopRef.current &&
           pullDistance >= TOUCH_PULL_ACTIVATION_DISTANCE;
-        touchLastScrollTopRef.current = viewport.scrollTop;
+        touchLastScrollTopRef.current = currentScrollTop;
         if (!isPullingTowardRefresh) {
           if (pullingRef.current) reset();
           return;
         }
         touchPullActiveRef.current = true;
       }
-      if (viewport.scrollTop >= FEED_PULL_OFFSET - PULL_BUFFER) {
+      if (currentScrollTop >= FEED_PULL_OFFSET - PULL_BUFFER) {
         if (pullingRef.current) reset();
         return;
       }
 
       const readyToRefresh =
-        sentinel.offsetHeight - viewport.scrollTop >= PULL_THRESHOLD;
+        sentinel.offsetHeight - currentScrollTop >= PULL_THRESHOLD;
       pullingRef.current = true;
       committedRef.current = readyToRefresh;
       setState((current) =>
@@ -222,12 +274,23 @@ export function useFeedPullRefresh(
       touchPullActiveRef.current = false;
       touchPullEligibleRef.current =
         viewport.scrollTop <= FEED_PULL_OFFSET + PULL_BUFFER;
+      pendingWheelScrollEndRef.current = false;
       clearTimeout(holdTimerRef.current);
+      clearTimeout(wheelTimerRef.current);
       clearTimeout(releaseTimerRef.current);
+      wheelTimerRef.current = undefined;
+      wheelActiveRef.current = false;
       if (holdingRef.current) {
         reset();
         viewport.scrollTo({ behavior: "smooth", top: FEED_PULL_OFFSET });
       }
+    };
+
+    const handleWheel = () => {
+      if (hasActiveLock()) return;
+      wheelActiveRef.current = true;
+      pendingWheelScrollEndRef.current = false;
+      scheduleWheelSettle();
     };
 
     const handleTouchEnd = () => {
@@ -253,10 +316,15 @@ export function useFeedPullRefresh(
 
     const handleScrollEnd = () => {
       if (hasActiveLock()) return;
+      if (wheelActiveRef.current) {
+        pendingWheelScrollEndRef.current = true;
+        return;
+      }
       if (!pullingRef.current && !committedRef.current) return;
       if (!touchActiveRef.current && !holdingRef.current) commitOrReset();
     };
 
+    viewport.addEventListener("wheel", handleWheel, { passive: true });
     viewport.addEventListener("scroll", handleScroll, { passive: true });
     viewport.addEventListener("touchstart", handleTouchStart, {
       passive: true,
@@ -266,6 +334,7 @@ export function useFeedPullRefresh(
     viewport.addEventListener("scrollend", handleScrollEnd);
 
     return () => {
+      viewport.removeEventListener("wheel", handleWheel);
       viewport.removeEventListener("scroll", handleScroll);
       viewport.removeEventListener("touchstart", handleTouchStart);
       viewport.removeEventListener("touchend", handleTouchEnd);
@@ -274,18 +343,20 @@ export function useFeedPullRefresh(
       resizeObserver?.disconnect();
       overflowObserver?.disconnect();
       clearTimeout(holdTimerRef.current);
+      clearTimeout(wheelTimerRef.current);
       clearTimeout(releaseTimerRef.current);
       viewport.style.overscrollBehaviorY = "";
       viewport.style.overflowY = "";
+      viewport.style.touchAction = "";
       sentinel.style.height = "";
       wrapper.style.paddingBottom = "";
     };
-  }, [lockRef, scrollRootRef]);
+  }, [isLayoutReady, lockRef, scrollRootRef]);
 
   return {
     pulling: state.pulling,
     readyToRefresh: state.readyToRefresh,
-    sentinelHeight: FEED_PULL_HEIGHT,
+    sentinelHeight: isLayoutReady ? FEED_PULL_HEIGHT : 0,
     sentinelRef,
   };
 }

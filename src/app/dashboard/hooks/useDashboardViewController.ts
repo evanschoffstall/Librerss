@@ -29,19 +29,41 @@ import { useDashboardViewHandlers } from "./useDashboardViewHandlers";
 import { useDashboardViewState } from "./useDashboardViewState";
 import { useFeedLoader } from "./useFeedLoader";
 import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
-import { useFeedVisibilityObserver } from "./useFeedVisibilityObserver";
 
 import { type Article } from "@/lib";
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
+/**
+ * External inputs required to assemble the dashboard controller.
+ *
+ * The controller coordinates feed loading, filtering, refresh behavior, article
+ * actions, and settings state. These props provide the persisted preferences and
+ * callbacks owned by the parent view layer.
+ */
 export interface DashboardViewControllerProps {
+  /** Current background refresh policy selected by the user. */
   backgroundMode: BackgroundMode;
+  /** Active article distillation strategy used during on-demand extraction. */
   distillStrategy: string;
+  /** Persists a background mode change initiated from the settings surface. */
   onBackgroundModeChange: (value: BackgroundMode) => void;
+  /** Persists a distillation strategy change initiated from the settings surface. */
   onDistillStrategyChange: (value: string) => void;
+  /** Enables deterministic placeholder data paths when the app is running without a live backend. */
   usePlaceholderData: boolean;
 }
 
+/**
+ * Composes the dashboard's data flow, event wiring, and derived view model.
+ *
+ * This hook is the top-level coordinator for the dashboard screen. It binds the
+ * lower-level hooks that manage feed fetching, category state, article actions,
+ * scroll restoration, pull-to-refresh, keyboard shortcuts, and settings into a
+ * single controller object consumed by the UI components.
+ *
+ * @param props Persisted preferences and mode toggles supplied by the parent view.
+ * @returns Structured controller state grouped by dashboard sub-surface.
+ */
 export function useDashboardViewController({
   backgroundMode,
   distillStrategy,
@@ -49,12 +71,15 @@ export function useDashboardViewController({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardViewControllerProps) {
+  /** Last successful batch refresh time used for the top-bar status label. */
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  /** Forces relative time labels to recompute on an interval without storing duplicate derived strings. */
   const [, setRelativeRefreshTick] = useState(0);
   const dashboardState = useDashboardViewState();
 
   const {
     articleFilter,
+    autoRefreshIntervalMinutes,
     categories,
     expandedArticleKey,
     feed,
@@ -63,19 +88,19 @@ export function useDashboardViewController({
     selectedCategory,
     showFavicons,
     showSettingsModal,
-    visibleCount,
   } = dashboardState;
   const {
     categoriesRef,
+    feedRef,
     hasInitializedDashboardRef,
     isCategoriesLoading,
     isMobileSidebarOpen,
     isSidebarVisible,
     pageSize,
-    sentinelRef,
   } = dashboardState;
   const {
     setArticleFilter,
+    setAutoRefreshIntervalMinutes,
     setCategories,
     setExpandedArticleKey,
     setFeed,
@@ -88,11 +113,16 @@ export function useDashboardViewController({
     setSelectedCategory,
     setShowFavicons,
     setShowSettingsModal,
-    setVisibleCount,
   } = dashboardState;
 
+  /**
+   * Centralized feed loader that owns network requests, request cancellation,
+   * placeholder-mode fallbacks, and the shared loading epoch used by timeout
+   * protection.
+   */
   const feedLoader = useFeedLoader({
     categoriesRef,
+    feedRef,
     onFeedBatchLoaded: setLastRefreshedAt,
     setCategories,
     setExpandedArticleKey,
@@ -111,6 +141,10 @@ export function useDashboardViewController({
     loadingEpoch,
   } = feedLoader;
 
+  /**
+   * Category orchestration layer that keeps sidebar category state, feed-source
+   * loading, and selection-driven fetch behavior aligned.
+   */
   const categoryManager = useCategoryManager({
     categories,
     fetchAllFeeds,
@@ -124,10 +158,13 @@ export function useDashboardViewController({
     usePlaceholderData,
   });
 
+  /** Hidden rest offset used by the pull-to-refresh surface and scroll restore logic. */
   const sentinelScrollOffset = useFeedPullOffset();
+  /** Shared scroll-snap suppression flag used while gesture-driven animations are in flight. */
   const suppressSnapRef = useRef<false | number>(false);
   const {
     capture: captureFeedScroll,
+    flush: flushFeedScroll,
     invalidate: invalidateFeedScroll,
     ref: feedScrollRef,
     settle: settleFeedScroll,
@@ -136,6 +173,10 @@ export function useDashboardViewController({
     "librerss:scroll:sidebar",
   );
 
+  /**
+   * Article interaction coordinator for expand/collapse, hydration, read/starred
+   * state mutations, and optimistic UI updates.
+   */
   const articleActions = useArticleActions({
     articleFilter,
     categories,
@@ -165,13 +206,21 @@ export function useDashboardViewController({
     orderedCategoryLabels,
     setOrderedCategoryLabels,
   } = categoryManager;
+
+  // Deferring the search and filter inputs keeps expensive derived feed-model
+  // work from blocking keystrokes or quick filter toggles.
   const deferredArticleFilter = useDeferredValue(articleFilter);
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const isSearchPending = searchTerm !== deferredSearchTerm;
   const isQuickFilterPending =
     articleFilter !== deferredArticleFilter &&
     searchTerm === deferredSearchTerm;
-  const isFeedListLoading = loading || isQuickFilterPending || isSearchPending;
+  /** Initial feed loads are the only times the article surface should skeleton. */
+  const isFeedListInitialLoading = loading && feed.length === 0;
+  /** Refreshes should preserve visible articles and only signal background work. */
+  const isFeedListRefreshing = loading && feed.length > 0;
+  const isFeedInteractionBlocked =
+    loading || isQuickFilterPending || isSearchPending;
 
   const onArticleToggle = useCallback(
     (article: Article) => void handleArticleToggle(article),
@@ -192,6 +241,13 @@ export function useDashboardViewController({
     [handleToggleStarredState],
   );
 
+  /**
+   * Full derived dashboard model used by the sidebar, feed list, and settings.
+   *
+   * The model is memoized because it performs category ordering, feed filtering,
+   * selection resolution, and sidebar projection from several independently
+   * changing state sources.
+   */
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
@@ -233,6 +289,8 @@ export function useDashboardViewController({
     [selectedCategory, categories],
   );
 
+  // Enforce a failsafe timeout around feed requests so the surface cannot remain
+  // indefinitely stuck in a loading state if an upstream request wedges.
   useFeedLoadingTimeout({
     loading,
     loadingEpoch,
@@ -243,23 +301,8 @@ export function useDashboardViewController({
   useLockDocumentScroll();
   useRevealSidebarOnMount(setIsSidebarVisible);
 
-  useEffect(() => {
-    setVisibleCount(pageSize);
-  }, [
-    articleFilter,
-    deferredSearchTerm,
-    pageSize,
-    selectedCategory,
-    setVisibleCount,
-  ]);
-
-  useFeedVisibilityObserver({
-    pageSize,
-    sentinelRef,
-    setVisibleCount,
-    totalFeedItems: filteredFeed.length,
-  });
-
+  // Initial dashboard boot chooses the starting category and kicks off the first
+  // feed/category load sequence exactly once.
   useDashboardInitialization({
     fetchAllFeeds,
     fetchCategoryFeeds,
@@ -271,6 +314,8 @@ export function useDashboardViewController({
     setSelectedCategory,
   });
 
+  // Keep persisted category ordering aligned with the currently available set of
+  // labels without discarding user-defined order for still-present categories.
   useEffect(() => {
     setOrderedCategoryLabels((currentLabels) =>
       computeNextOrderedCategoryLabels(
@@ -289,6 +334,19 @@ export function useDashboardViewController({
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
+  const previousLoadingRef = useRef(loading);
+  const pendingRefreshRestoreRef = useRef<null | {
+    capturedFeed: Article[];
+    capturedLastRefreshedAt: Date | null;
+  }>(null);
+
+  const handleBeforeRefresh = useCallback(() => {
+    pendingRefreshRestoreRef.current = {
+      capturedFeed: feed,
+      capturedLastRefreshedAt: lastRefreshedAt,
+    };
+    captureFeedScroll();
+  }, [captureFeedScroll, feed, lastRefreshedAt]);
 
   useEffect(() => {
     const categoryChanged =
@@ -309,8 +367,40 @@ export function useDashboardViewController({
     setExpandedArticleKey,
   ]);
 
+  useEffect(() => {
+    const wasLoading = previousLoadingRef.current;
+    previousLoadingRef.current = loading;
+
+    const pendingRestore = pendingRefreshRestoreRef.current;
+    if (!pendingRestore) {
+      return;
+    }
+
+    const feedChanged = pendingRestore.capturedFeed !== feed;
+    const completedBatchRefresh =
+      pendingRestore.capturedLastRefreshedAt !== lastRefreshedAt;
+    const foregroundRefreshFinished = wasLoading && !loading;
+
+    if (!feedChanged && !completedBatchRefresh && !foregroundRefreshFinished) {
+      return;
+    }
+
+    pendingRefreshRestoreRef.current = null;
+    flushFeedScroll();
+  }, [feed, flushFeedScroll, lastRefreshedAt, loading]);
+
+  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
   const feedWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Merges local feed-scroll bookkeeping with persisted viewport restoration.
+   *
+   * The dashboard needs direct access to the scroll root for observer-based list
+   * growth, while the viewport restore hook needs the same node to capture and
+   * reapply position across feed changes.
+   */
   const mergedFeedScrollRef = useCallback(
     (node: HTMLElement | null) => {
       feedScrollRootRef.current = node;
@@ -329,7 +419,7 @@ export function useDashboardViewController({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
-    onBeforeRefresh: captureFeedScroll,
+    onBeforeRefresh: handleBeforeRefresh,
     onFeedSwitch: useCallback(() => {
       invalidateFeedScroll();
       setArticleFilter("unread");
@@ -341,8 +431,16 @@ export function useDashboardViewController({
     setSelectedCategory,
   });
 
-  useDashboardIntervals({ autoRefreshFeedList, setRelativeRefreshTick });
+  useDashboardIntervals({
+    autoRefreshFeedList,
+    autoRefreshIntervalMinutes,
+    setRelativeRefreshTick,
+  });
 
+  /**
+   * Pull-to-refresh gesture state for touch and trackpad interactions on the
+   * feed surface.
+   */
   const {
     pulling: isPulling,
     readyToRefresh,
@@ -351,7 +449,7 @@ export function useDashboardViewController({
   } = useFeedPullRefresh(
     feedScrollRootRef,
     refreshFeedList,
-    isFeedListLoading,
+    isFeedInteractionBlocked,
     suppressSnapRef,
   );
 
@@ -359,6 +457,7 @@ export function useDashboardViewController({
     ? "demo"
     : formatLastRefreshLabel(lastRefreshedAt);
 
+  /** Applies an optimistic local read-state update after a successful mark-all-read action. */
   const handleMarkAllReadLocally = useCallback(() => {
     setFeed((currentFeed) =>
       currentFeed.map((article) => ({ ...article, isRead: true })),
@@ -388,6 +487,10 @@ export function useDashboardViewController({
     setShowSettingsModal(false);
   }, [setShowSettingsModal]);
 
+  /**
+   * Stable sidebar props bag so presentational components can avoid rebuilding
+   * event bindings and derived category projections on every render.
+   */
   const sidebarProps = useMemo(
     () => ({
       isCategoriesLoading,
@@ -409,6 +512,12 @@ export function useDashboardViewController({
     ],
   );
 
+  /**
+   * UI-facing controller contract grouped by dashboard surface.
+   *
+   * Keeping the return shape segmented reduces prop-drilling noise in the page
+   * component and makes each surface's dependencies explicit.
+   */
   return {
     feedList: {
       expandedArticleKey,
@@ -416,13 +525,16 @@ export function useDashboardViewController({
       filteredFeed,
       hydratedArticleLinks,
       hydratingArticleLinks,
+      isInitialLoading: isFeedListInitialLoading,
       isPulling,
-      loading: isFeedListLoading,
+      isRefreshing: isFeedListRefreshing,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
       onArticleToggle,
       onArticleToggleRead,
       onArticleToggleStarred,
+      pageSize,
+      paginationResetKey: `${selectedCategory}:${articleFilter}:${searchTerm}`,
       pullRefreshHint: readyToRefresh
         ? "Release to refresh"
         : "Pull down to refresh",
@@ -430,12 +542,11 @@ export function useDashboardViewController({
       readyToRefresh,
       searchTerm,
       sentinelHeight,
-      sentinelRef,
       showFavicons,
       updatingArticleState,
-      visibleCount,
     },
     settings: {
+      autoRefreshIntervalMinutes,
       backgroundMode,
       categories: displayCategories,
       categoryManager,
@@ -446,6 +557,7 @@ export function useDashboardViewController({
       onDistillStrategyChange,
       pageSize,
       selectedCategory,
+      setAutoRefreshIntervalMinutes,
       setPageSize,
       setShowFavicons,
       showFavicons,

@@ -15,6 +15,26 @@ interface CategoryOrderResponse {
   orderedLabels?: unknown;
 }
 
+function serializeKnownLastFetchedAtByUrl(
+  knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined,
+): Record<string, string> | undefined {
+  if (!knownLastFetchedAtByUrl || knownLastFetchedAtByUrl.size === 0) {
+    return undefined;
+  }
+
+  const entries = [...knownLastFetchedAtByUrl.entries()]
+    .filter(
+      (entry): entry is [string, Date] =>
+        typeof entry[0] === "string" &&
+        entry[0] !== "" &&
+        entry[1] instanceof Date &&
+        Number.isFinite(entry[1].getTime()),
+    )
+    .map(([url, lastFetchedAt]) => [url, lastFetchedAt.toISOString()] as const);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 const feedServiceBaseUrl = "/api";
 
 export const FeedService = {
@@ -60,11 +80,13 @@ export const FeedService = {
     urls: string[],
     {
       forceRefresh = false,
+      knownLastFetchedAtByUrl,
       requestSource,
       signal,
       skipRefresh = false,
     }: {
       forceRefresh?: boolean;
+      knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: string;
       signal?: AbortSignal;
       skipRefresh?: boolean;
@@ -74,12 +96,23 @@ export const FeedService = {
     if (normalizedUrls.length === 0) return [];
 
     const { controller, dispose } = createLinkedAbortController(signal);
+    const serializedKnownLastFetchedAtByUrl = serializeKnownLastFetchedAtByUrl(
+      knownLastFetchedAtByUrl,
+    );
 
     try {
       const response = await withRequestDeadline(
         getApiClient().post(
           `${feedServiceBaseUrl}/feeds/batch`,
-          { forceRefresh, requestSource, skipRefresh, urls: normalizedUrls },
+          {
+            forceRefresh,
+            ...(serializedKnownLastFetchedAtByUrl
+              ? { knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl }
+              : {}),
+            requestSource,
+            skipRefresh,
+            urls: normalizedUrls,
+          },
           { signal: controller.signal },
         ),
         BATCH_REQUEST_TIMEOUT_MS,

@@ -3,15 +3,17 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 
-import { clientFeedCacheTtlMinutes } from "@/lib/config";
+import { toAutoRefreshIntervalMs } from "../services/refresh-policy";
 
 interface UseDashboardIntervalsOptions {
   autoRefreshFeedList: () => void;
+  autoRefreshIntervalMinutes: number;
   setRelativeRefreshTick: Dispatch<SetStateAction<number>>;
 }
 
 export function useDashboardIntervals({
   autoRefreshFeedList,
+  autoRefreshIntervalMinutes,
   setRelativeRefreshTick,
 }: UseDashboardIntervalsOptions) {
   useEffect(() => {
@@ -32,8 +34,9 @@ export function useDashboardIntervals({
   }, [autoRefreshFeedList]);
 
   useEffect(() => {
-    const autoRefreshIntervalMs =
-      Math.max(clientFeedCacheTtlMinutes(), 1) * 60_000;
+    const autoRefreshIntervalMs = toAutoRefreshIntervalMs(
+      autoRefreshIntervalMinutes,
+    );
 
     // Tracks when the refresh was last actually performed (not skipped).
     // Initialized to now so the first interval fires at the correct offset.
@@ -64,5 +67,5 @@ export function useDashboardIntervals({
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []); // stable — must not depend on autoRefreshFeedList
+  }, [autoRefreshIntervalMinutes]);
 }

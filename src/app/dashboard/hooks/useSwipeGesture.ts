@@ -25,6 +25,7 @@ export function useSwipeGesture(
   direction: "left" | "right",
   onCommit: () => void,
   disabled = false,
+  shouldIgnoreTarget?: (target: EventTarget | null) => boolean,
 ) {
   const [state, setState] = useState<SwipeState>(SWIPE_IDLE);
   const containerRef = useRef<HTMLElement>(null);
@@ -63,11 +64,8 @@ export function useSwipeGesture(
 
     const handlePointerDown = (e: PointerEvent) => {
       if (disabledRef.current || e.pointerType === "mouse") return;
+      if (shouldIgnoreTarget?.(e.target)) return;
       activePointerIdRef.current = e.pointerId;
-      if (!hasCaptureRef.current) {
-        el.setPointerCapture(e.pointerId);
-        hasCaptureRef.current = true;
-      }
       startRef.current = { x: e.clientX, y: e.clientY };
       lockedRef.current = null;
       committedRef.current = false;
@@ -90,8 +88,13 @@ export function useSwipeGesture(
           (isRight ? dx > 0 : dx < 0) &&
           absDx >= MIN_SWIPE_PX &&
           absDx >= absDy * HORIZONTAL_LOCK_RATIO;
-        if (hasHorizontalIntent) lockedRef.current = "horizontal";
-        else if (absDy >= MIN_SWIPE_PX && absDy > absDx * VERTICAL_LOCK_RATIO)
+        if (hasHorizontalIntent) {
+          lockedRef.current = "horizontal";
+          if (!hasCaptureRef.current) {
+            el.setPointerCapture(e.pointerId);
+            hasCaptureRef.current = true;
+          }
+        } else if (absDy >= MIN_SWIPE_PX && absDy > absDx * VERTICAL_LOCK_RATIO)
           lockedRef.current = "vertical";
         else return;
       }
@@ -144,7 +147,7 @@ export function useSwipeGesture(
       el.removeEventListener("pointercancel", handlePointerCancel, true);
       el.removeEventListener("lostpointercapture", handleLostPointerCapture);
     };
-  }, [isRight]);
+  }, [isRight, shouldIgnoreTarget]);
 
   return { containerRef, swipeState: state };
 }

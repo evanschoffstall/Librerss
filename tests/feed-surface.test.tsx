@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { useCallback, useRef } from "react";
+import { renderToString } from "react-dom/server";
 
 import {
   FEED_PULL_HEIGHT,
@@ -42,6 +43,7 @@ function renderPullHarness(
   onRefresh: () => void,
   disabled = false,
   lockRef?: React.RefObject<false | number>,
+  allowNegativeScroll = false,
 ) {
   function Harness({ isDisabled }: { isDisabled: boolean }) {
     const rootRef = useRef<HTMLDivElement | null>(null);
@@ -54,7 +56,7 @@ function renderPullHarness(
         configurable: true,
         get: () => top,
         set: (value: number) => {
-          top = Math.max(0, value);
+          top = allowNegativeScroll ? value : Math.max(0, value);
         },
       });
       Object.defineProperty(node, "clientHeight", {
@@ -80,7 +82,41 @@ function renderPullHarness(
         configurable: true,
         get() {
           const pad = parseFloat(node.style.paddingBottom) || 0;
-          return 1200 + FEED_PULL_HEIGHT + pad;
+          const feedWrapper = node.firstElementChild as HTMLElement | null;
+          return (feedWrapper?.scrollHeight ?? 0) + pad;
+        },
+      });
+      Object.defineProperty(node, "scrollHeight", {
+        configurable: true,
+        get() {
+          const pad = parseFloat(node.style.paddingBottom) || 0;
+          const feedWrapper = node.firstElementChild as HTMLElement | null;
+          return (feedWrapper?.scrollHeight ?? 0) + pad;
+        },
+      });
+      node.dataset.ready = "true";
+    }, []);
+
+    const setFeedWrapperRef = useCallback((node: HTMLDivElement | null) => {
+      if (!node || node.dataset.ready === "true") return;
+      Object.defineProperty(node, "offsetHeight", {
+        configurable: true,
+        get() {
+          return Array.from(node.children).reduce(
+            (total, child) =>
+              total + (child instanceof HTMLElement ? child.offsetHeight : 0),
+            0,
+          );
+        },
+      });
+      Object.defineProperty(node, "scrollHeight", {
+        configurable: true,
+        get() {
+          return Array.from(node.children).reduce(
+            (total, child) =>
+              total + (child instanceof HTMLElement ? child.offsetHeight : 0),
+            0,
+          );
         },
       });
       node.dataset.ready = "true";
@@ -103,8 +139,10 @@ function renderPullHarness(
       <div ref={rootRef}>
         <div ref={setViewportRef}>
           <div ref={setWrapperRef}>
-            <div ref={setSentinelRef} />
-            <div>content</div>
+            <div ref={setFeedWrapperRef}>
+              <div ref={setSentinelRef} />
+              <div>content</div>
+            </div>
           </div>
         </div>
       </div>
@@ -126,6 +164,19 @@ function renderPullHarness(
 }
 
 describe("useFeedPullRefresh", () => {
+  test("renders the pull sentinel collapsed during server render", () => {
+    function ServerHarness() {
+      const rootRef = useRef<HTMLDivElement | null>(null);
+      const pull = useFeedPullRefresh(rootRef, () => {});
+
+      return <div data-sentinel-height={String(pull.sentinelHeight)} />;
+    }
+
+    const markup = renderToString(<ServerHarness />);
+
+    expect(markup).toContain('data-sentinel-height="0"');
+  });
+
   test("resets shallow pulls on scrollend", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
@@ -189,6 +240,25 @@ describe("useFeedPullRefresh", () => {
     unmount();
   });
 
+  test("real Radix nesting keeps the feed wrapper unconstrained", () => {
+    const onRefresh = mock(() => {});
+    const { container, unmount } = renderPullHarness(onRefresh);
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    const contentWrapper = viewport?.firstElementChild as HTMLElement | null;
+    const feedWrapper = contentWrapper?.firstElementChild as HTMLElement | null;
+    const sentinel = feedWrapper?.firstElementChild as HTMLElement | null;
+
+    expect(feedWrapper?.style.height ?? "").toBe("");
+    expect(sentinel?.style.height).toBe(`${FEED_PULL_HEIGHT}px`);
+    expect(viewport?.style.overscrollBehaviorY).toBe("contain");
+    expect(viewport?.style.touchAction).toBe("pan-y");
+
+    unmount();
+  });
+
   test("touch cancel releases back to the hidden rest offset", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
@@ -229,7 +299,7 @@ describe("useFeedPullRefresh", () => {
     unmount();
   });
 
-  test("wheel or trackpad upward scroll can still trigger refresh", async () => {
+  test("wheel or trackpad upward scroll commits once scrolling ends and input settles", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(onRefresh);
 
@@ -237,6 +307,43 @@ describe("useFeedPullRefresh", () => {
       viewport.dispatchEvent(new Event("wheel"));
       viewport.scrollTop = 40;
       viewport.dispatchEvent(new Event("scroll"));
+      viewport.dispatchEvent(new Event("scrollend"));
+    });
+
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(40);
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+      expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
+    });
+
+    unmount();
+  });
+
+  test("wheel-settled pull does not commit until scrolling actually ends", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(onRefresh);
+    const wheelEvent = new Event("wheel");
+    Object.defineProperty(wheelEvent, "deltaY", {
+      configurable: true,
+      value: -120,
+    });
+
+    act(() => {
+      viewport.dispatchEvent(wheelEvent);
+      viewport.scrollTop = 40;
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(40);
+
+    await waitForMs(200);
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(40);
+
+    act(() => {
       viewport.dispatchEvent(new Event("scrollend"));
     });
 
@@ -326,6 +433,28 @@ describe("useFeedPullRefresh", () => {
 
     await waitForMs(250);
     expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 10);
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  test("over-pulling past the top does not force the viewport back against the active touch drag", async () => {
+    const onRefresh = mock(() => {});
+    const { unmount, viewport } = renderPullHarness(
+      onRefresh,
+      false,
+      undefined,
+      true,
+    );
+
+    act(() => {
+      viewport.scrollTop = FEED_PULL_OFFSET;
+      viewport.dispatchEvent(new Event("touchstart"));
+      viewport.scrollTop = -14;
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(viewport.scrollTop).toBe(-14);
     expect(onRefresh).not.toHaveBeenCalled();
 
     unmount();

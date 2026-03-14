@@ -26,7 +26,10 @@ import {
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
-import { invalidateUserCache } from "@/lib/core/feed-cache";
+import {
+  invalidateUserCache,
+  invalidateUserFeedSourceListCache,
+} from "@/lib/core/feed-cache";
 import {
   isFeedSourceNotFoundError,
   isUpstreamFeedError,
@@ -98,6 +101,7 @@ export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
     }
 
     invalidateUserCache(user.userId);
+    invalidateUserFeedSourceListCache(user.userId);
     return NextResponse.json(deletedSource);
   } catch (error) {
     return respondError("Error deleting feed source", error);
@@ -191,6 +195,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       if (!updatedSource) return toJsonError("Feed source not found", 404);
 
       invalidateUserCache(user.userId);
+      invalidateUserFeedSourceListCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -211,6 +216,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       if (!updatedSource) return toJsonError("Feed source not found", 404);
 
       invalidateUserCache(user.userId);
+      invalidateUserFeedSourceListCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -232,6 +238,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       if (!updatedSource) return toJsonError("Feed source not found", 404);
 
       invalidateUserCache(user.userId);
+      invalidateUserFeedSourceListCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -247,6 +254,7 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
     if (!updatedSource) return toJsonError("Feed source not found", 404);
 
     invalidateUserCache(user.userId);
+    invalidateUserFeedSourceListCache(user.userId);
     return NextResponse.json(updatedSource);
   } catch (error) {
     return respondError("Error renaming feed source", error);
@@ -286,6 +294,7 @@ export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
     );
 
     invalidateUserCache(user.userId);
+    invalidateUserFeedSourceListCache(user.userId);
 
     return NextResponse.json(
       { ...sourceRecord, category: parsedPayload.category },

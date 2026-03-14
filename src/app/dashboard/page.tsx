@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
+import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
 
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   getUserFromSessionToken,
   SESSION_COOKIE_NAME,
@@ -11,6 +11,7 @@ import {
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import type { AuthSession } from "@/lib/core/types";
 
+/** Resolves the dashboard route shell and authenticated session state. */
 export default async function Dashboard(props: PageProps<"/dashboard">) {
   const [initialSession, resolvedSearchParams] = await Promise.all([
     getInitialSession(),
@@ -22,18 +23,7 @@ export default async function Dashboard(props: PageProps<"/dashboard">) {
 
   return (
     <div className="h-dvh overflow-hidden overscroll-contain">
-      <Suspense
-        fallback={
-          <div className="flex h-full items-center justify-center overflow-hidden px-4">
-            <div className="w-full max-w-3xl space-y-2">
-              <Skeleton className="h-8 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-            </div>
-          </div>
-        }
-      >
+      <Suspense fallback={<DashboardShellSkeleton />}>
         <DashboardRouter
           hasPreviewQuery={hasPreviewQuery}
           initialSession={initialSession}
@@ -43,6 +33,7 @@ export default async function Dashboard(props: PageProps<"/dashboard">) {
   );
 }
 
+/** Builds an anonymous dashboard session snapshot from runtime flags alone. */
 function buildAnonymousSession(): AuthSession {
   return {
     allowSignup: RUNTIME_FLAGS.allowSignup,
@@ -52,6 +43,12 @@ function buildAnonymousSession(): AuthSession {
   };
 }
 
+/**
+ * Resolves the initial dashboard session using the session cookie when present.
+ *
+ * Falling back to an anonymous snapshot keeps the route shell stable for both
+ * unauthenticated users and invalid/expired sessions.
+ */
 async function getInitialSession(): Promise<AuthSession> {
   const sessionToken = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!sessionToken) {
@@ -75,6 +72,7 @@ async function getInitialSession(): Promise<AuthSession> {
   }
 }
 
+/** Normalizes a Next.js search-param value to its first scalar entry. */
 function getSearchParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }

@@ -174,6 +174,88 @@ describe("useViewportRestore", () => {
     expect(window.sessionStorage.getItem("restore:persist")).toBeNull();
   });
 
+  test("flush reapplies the captured scroll position after the anchor shifts", async () => {
+    let capture = () => {};
+    let flush = () => {};
+    const documentOffsets = [160, 220];
+
+    function Harness() {
+      const restore = useViewportRestore("restore:flush", 110);
+      capture = restore.capture;
+      flush = restore.flush;
+
+      const rootRef: RefCallback<HTMLDivElement> = (root) => {
+        restore.ref(root);
+        const viewport = root?.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
+        const items = root?.querySelectorAll<HTMLElement>("[data-item]") ?? [];
+        if (!viewport || items.length < 2) return;
+
+        let top = 180;
+        Object.defineProperty(viewport, "scrollTop", {
+          configurable: true,
+          get: () => top,
+          set: (value: number) => {
+            top = value;
+          },
+        });
+        Object.defineProperty(viewport, "scrollHeight", {
+          configurable: true,
+          get: () => 2000,
+        });
+        Object.defineProperty(viewport, "clientHeight", {
+          configurable: true,
+          get: () => 500,
+        });
+        viewport.getBoundingClientRect = (() =>
+          createRect(100, 500)) as typeof viewport.getBoundingClientRect;
+
+        items.forEach((item, index) => {
+          item.getBoundingClientRect = (() =>
+            createRect(
+              100 + documentOffsets[index] - top,
+              40,
+            )) as typeof item.getBoundingClientRect;
+        });
+      };
+
+      return createElement(
+        "div",
+        { ref: rootRef },
+        createElement(
+          "div",
+          { "data-radix-scroll-area-viewport": "" },
+          createElement(
+            "div",
+            null,
+            createElement("div", { "data-item": "0" }),
+            createElement("div", { "data-item": "1" }),
+          ),
+        ),
+      );
+    }
+
+    const { container } = render(createElement(Harness));
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    if (!viewport) {
+      throw new Error("missing viewport");
+    }
+
+    act(() => {
+      capture();
+      documentOffsets[1] = 320;
+      viewport.scrollTop = 110;
+      flush();
+    });
+
+    await waitForRaf();
+    expect(viewport.scrollTop).toBe(280);
+  });
+
   test("restores against a stable article key when the feed order changes", async () => {
     let capture = () => {};
 
