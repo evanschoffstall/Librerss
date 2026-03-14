@@ -16,8 +16,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT License" /></a>
 </p>
 
-<br/>
-
 </div>
 
 ---
