@@ -1,3 +1,3 @@
 # Exclude HTML test fixtures and placeholder articles from GitHub language stats
 public/placeholder-articles/**/*.html linguist-vendored
-src/__tests__/templates/**/*.html linguist-vendored
+tests/templates/**/*.html linguist-vendored
