@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject, useCallback } from "react";
+import { type RefObject, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
 import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-tree";
@@ -42,6 +42,14 @@ interface UseFeedLoaderOptions {
   usePlaceholderData: boolean;
 }
 
+/** Returns whether the real empty-feed-source onboarding toast should be shown. */
+export function shouldShowNoFeedSourcesToast(
+  hasConfiguredFeeds: boolean,
+  usePlaceholderData: boolean,
+): boolean {
+  return !hasConfiguredFeeds && !usePlaceholderData;
+}
+
 export function useFeedLoader({
   categoriesRef,
   onFeedBatchLoaded,
@@ -53,6 +61,7 @@ export function useFeedLoader({
 }: UseFeedLoaderOptions) {
   const feedRequestState = useFeedRequestState({ setLoading });
   const { loading, loadingEpoch } = feedRequestState;
+  const lastFetchedAtByUrlRef = useRef(new Map<string, Date>());
 
   const logRefreshDiagnostics = useCallback(
     (event: string, details: Record<string, unknown>) => {
@@ -102,7 +111,7 @@ export function useFeedLoader({
   const handleEmptyBatchResult = useCallback(() => {
     const hasConfiguredFeeds =
       getAllFeedNodes(categoriesRef.current).length > 0;
-    if (!hasConfiguredFeeds) {
+    if (shouldShowNoFeedSourcesToast(hasConfiguredFeeds, usePlaceholderData)) {
       toast.info("No feed sources yet.", {
         description: "Add your feeds in Settings to start reading.",
       });
@@ -127,6 +136,23 @@ export function useFeedLoader({
 
       const normalizedSources = normalizeFeedBatchSources(sources);
       const requestSignature = buildBatchRequestSignature(normalizedSources);
+      const knownLastFetchedAtByUrl =
+        options?.keepExistingFeed === true
+          ? new Map(
+              normalizedSources
+                .map((source) => {
+                  const lastFetchedAt = lastFetchedAtByUrlRef.current.get(
+                    source.url,
+                  );
+                  return lastFetchedAt
+                    ? ([source.url, lastFetchedAt] as const)
+                    : null;
+                })
+                .filter(
+                  (entry): entry is readonly [string, Date] => entry !== null,
+                ),
+            )
+          : undefined;
 
       const requestState = feedRequestState.beginRequest({
         forceRefresh,
@@ -167,7 +193,10 @@ export function useFeedLoader({
 
         const batchResults = await loadBatchResults(
           normalizedSources,
-          options,
+          {
+            ...options,
+            knownLastFetchedAtByUrl,
+          },
           abortController.signal,
         );
         if (batchResults === null) {
@@ -194,27 +223,47 @@ export function useFeedLoader({
           ...summarizeBatchResults(batchResults),
         });
 
-        const { articles, failedFeeds, newestLastFetchedAt, sourceNamesByUrl } =
-          buildFeedBatchOutcome(
+        // Capture outcome synchronously from the setFeed callback; the outer
+        // variables would otherwise be narrowed to their null initializer type
+        // because TypeScript cannot track assignments through setState closures.
+        let capturedOutcome!: ReturnType<typeof buildFeedBatchOutcome>;
+
+        setFeed((currentFeed) => {
+          capturedOutcome = buildFeedBatchOutcome(
             normalizedSources,
             batchResults,
             usePlaceholderData,
             getPlaceholderArticlesForSource,
+            keepExistingFeed ? currentFeed : [],
           );
+          return mergeHydratedContent(currentFeed, capturedOutcome.articles);
+        });
+
+        const {
+          articles: resolvedArticles,
+          failedFeeds,
+          newestLastFetchedAt,
+          sourceNamesByUrl,
+        } = capturedOutcome;
 
         if (newestLastFetchedAt) {
           onFeedBatchLoaded?.(newestLastFetchedAt);
         }
 
+        for (const result of batchResults) {
+          if (result.lastFetchedAt) {
+            lastFetchedAtByUrlRef.current.set(result.url, result.lastFetchedAt);
+          }
+        }
+
         notifyFeedFailures(failedFeeds, batchResults.length, sourceNamesByUrl);
 
-        if (articles.length > 0) {
-          setFeed((currentFeed) => mergeHydratedContent(currentFeed, articles));
+        if (resolvedArticles.length > 0) {
           setExpandedArticleKey((currentKey) =>
-            resolveExpandedArticleKey(currentKey, articles),
+            resolveExpandedArticleKey(currentKey, resolvedArticles),
           );
           logRefreshDiagnostics("refresh:applied", {
-            articleCount: articles.length,
+            articleCount: resolvedArticles.length,
             requestId,
           });
         } else {

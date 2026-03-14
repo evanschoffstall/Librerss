@@ -19,6 +19,7 @@ export function buildFeedBatchOutcome(
   batchResults: FeedBatchResult[],
   usePlaceholderData: boolean,
   getPlaceholderArticles: (url: string) => Article[],
+  previousFeed: Article[] = [],
 ): FeedBatchOutcome {
   const sourceNamesByUrl = getSourceNamesByUrl(normalizedSources);
 
@@ -28,6 +29,7 @@ export function buildFeedBatchOutcome(
       sourceNamesByUrl,
       usePlaceholderData,
       getPlaceholderArticles,
+      previousFeed,
     ),
     failedFeeds: batchResults.filter((item) => item.error),
     newestLastFetchedAt: getNewestLastFetchedAt(batchResults),

@@ -10,6 +10,7 @@ export interface BatchFeedResponseItem {
   error?: string;
   lastFetchedAt?: Date;
   ok: boolean;
+  unchanged?: boolean;
   url: string;
 }
 
@@ -49,6 +50,7 @@ export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
       ? (candidate.articles as Article[])
       : [],
     ok: Boolean(candidate.ok),
+    ...(candidate.unchanged === true ? { unchanged: true } : {}),
     url: typeof candidate.url === "string" ? candidate.url : "",
     ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),
     ...(parsedLastFetchedAt ? { lastFetchedAt: parsedLastFetchedAt } : {}),

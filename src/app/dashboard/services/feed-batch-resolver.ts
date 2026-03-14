@@ -11,6 +11,7 @@ interface FeedBatchResolverDependencies {
     urls: string[],
     options?: {
       forceRefresh?: boolean;
+      knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: string;
       signal?: AbortSignal;
       skipRefresh?: boolean;
@@ -41,6 +42,7 @@ export async function resolveFeedBatchResults(
     normalizedSources.map((source) => source.url),
     {
       forceRefresh: options?.forceRefresh === true,
+      knownLastFetchedAtByUrl: options?.knownLastFetchedAtByUrl,
       requestSource: options?.requestSource,
       signal,
       skipRefresh: options?.skipRefresh ?? false,

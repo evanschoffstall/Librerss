@@ -7,6 +7,7 @@ import type { CategoryTreeNode } from "@/lib";
 export interface FeedFetchOptions {
   forceRefresh?: boolean;
   keepExistingFeed?: boolean;
+  knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource?: string;
   skipRefresh?: boolean;
 }
