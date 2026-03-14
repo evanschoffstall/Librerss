@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, SearchX, Sparkles } from "lucide-react";
+import { useTheme } from "next-themes";
 import { memo, useCallback, useMemo } from "react";
 
 import { EXIT_CLEANUP_MS, useAnimatedList } from "../../hooks/useAnimatedList";
@@ -9,6 +10,7 @@ import { ArticleCard } from "../ArticleCard";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article } from "@/lib";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 interface FeedListProps {
   expandedArticleKey: null | string;
@@ -79,6 +81,9 @@ export const FeedList = memo(function FeedList({
   updatingArticleState,
   visibleCount,
 }: FeedListProps) {
+  const isMobile = useIsMobile();
+  const { resolvedTheme } = useTheme();
+  const isDark = (resolvedTheme ?? "dark") === "dark";
   const visibleFeed = useMemo(
     () => filteredFeed.slice(0, visibleCount),
     [filteredFeed, visibleCount],
@@ -232,8 +237,10 @@ export const FeedList = memo(function FeedList({
                   article={article}
                   articleKey={cardKey}
                   hasScrapedContent={hydratedArticleLinks[articleLink]}
+                  isDark={isDark}
                   isExpanded={expandedArticleKey === cardKey}
                   isHydrating={hydratingArticleLinks[articleLink]}
+                  isMobile={isMobile}
                   isUpdatingState={updatingArticleState[cardKey]}
                   onExpandedSwipeRead={onExpandedSwipeRead}
                   onToggle={onToggle}

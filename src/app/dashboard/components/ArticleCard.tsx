@@ -9,7 +9,6 @@ import {
   Share2,
   Star,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import {
   type KeyboardEvent,
   memo,
@@ -59,15 +58,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 
 interface ArticleCardProps {
   article: Article;
   articleKey: string;
   hasScrapedContent: boolean;
+  isDark: boolean;
   isExpanded: boolean;
   isHydrating: boolean;
+  isMobile: boolean;
   isUpdatingState: boolean;
   onExpandedSwipeRead: (article: Article) => void;
   onToggle: (article: Article) => void;
@@ -90,8 +90,10 @@ export const ArticleCard = memo(function ArticleCard({
   article,
   articleKey,
   hasScrapedContent,
+  isDark,
   isExpanded,
   isHydrating,
+  isMobile,
   isUpdatingState,
   onExpandedSwipeRead,
   onToggle,
@@ -108,9 +110,6 @@ export const ArticleCard = memo(function ArticleCard({
       typeof navigator !== "undefined" && typeof navigator.share === "function",
   );
   const isDevelopment = process.env.NODE_ENV === "development";
-  const isMobile = useIsMobile();
-  const { resolvedTheme } = useTheme();
-  const isDark = (resolvedTheme ?? "dark") === "dark";
 
   const rawHtml = article.content || "";
   const {
