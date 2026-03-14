@@ -25,6 +25,16 @@ function installPointerCaptureSpies(surface: HTMLElement) {
   return { releasePointerCapture, setPointerCapture };
 }
 
+function createPointerEvent(type: string, pointerId: number) {
+  return new window.PointerEvent(type, {
+    bubbles: true,
+    clientX: 140,
+    clientY: 12,
+    pointerId,
+    pointerType: "touch",
+  });
+}
+
 function SwipeHarness({ onCommit, shouldIgnoreTarget }: SwipeHarnessProps) {
   const { containerRef } = useSwipeGesture(
     "right",
@@ -119,6 +129,83 @@ describe("useSwipeGesture", () => {
     await waitFor(() => {
       expect(setPointerCapture).toHaveBeenCalledWith(2);
       expect(releasePointerCapture).toHaveBeenCalledWith(2);
+      expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("commits the swipe when pointer capture is unavailable", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    const setPointerCapture = mock(() => {
+      throw new DOMException("No active pointer", "NotFoundError");
+    });
+
+    Object.assign(surface, {
+      hasPointerCapture: () => false,
+      releasePointerCapture: mock(() => {}),
+      setPointerCapture,
+    });
+
+    fireEvent.pointerDown(handle, {
+      clientX: 20,
+      clientY: 10,
+      pointerId: 3,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: 140,
+      clientY: 12,
+      pointerId: 3,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(handle, {
+      clientX: 140,
+      clientY: 12,
+      pointerId: 3,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(setPointerCapture).toHaveBeenCalledWith(3);
+      expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("commits when lostpointercapture fires before pointerup", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    const { releasePointerCapture, setPointerCapture } =
+      installPointerCaptureSpies(surface);
+
+    fireEvent.pointerDown(handle, {
+      clientX: 20,
+      clientY: 10,
+      pointerId: 4,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: 140,
+      clientY: 12,
+      pointerId: 4,
+      pointerType: "touch",
+    });
+    fireEvent(surface, createPointerEvent("lostpointercapture", 4));
+    fireEvent.pointerUp(handle, {
+      clientX: 140,
+      clientY: 12,
+      pointerId: 4,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(setPointerCapture).toHaveBeenCalledWith(4);
+      expect(releasePointerCapture).not.toHaveBeenCalled();
       expect(onCommit).toHaveBeenCalledTimes(1);
     });
   });

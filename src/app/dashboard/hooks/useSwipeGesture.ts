@@ -7,6 +7,7 @@ const MIN_SWIPE_PX = 6;
 const HORIZONTAL_LOCK_RATIO = 0.45;
 const VERTICAL_LOCK_RATIO = 1.35;
 
+/** Visual state for an in-progress swipe gesture. */
 export interface SwipeState {
   committed: boolean;
   offsetX: number;
@@ -14,6 +15,7 @@ export interface SwipeState {
   swiping: boolean;
 }
 
+/** Neutral gesture state used after cancellation, completion, or detach. */
 export const SWIPE_IDLE: SwipeState = {
   committed: false,
   offsetX: 0,
@@ -21,11 +23,18 @@ export const SWIPE_IDLE: SwipeState = {
   swiping: false,
 };
 
+/**
+ * Attaches a touch-only horizontal swipe gesture to the current container ref.
+ *
+ * `reattachKey` lets callers force the hook to detach and rebind when the
+ * target surface changes without recreating the hook instance.
+ */
 export function useSwipeGesture(
   direction: "left" | "right",
   onCommit: () => void,
   disabled = false,
   shouldIgnoreTarget?: (target: EventTarget | null) => boolean,
+  reattachKey?: boolean | number | string,
 ) {
   const [state, setState] = useState<SwipeState>(SWIPE_IDLE);
   const containerRef = useRef<HTMLElement>(null);
@@ -46,6 +55,16 @@ export function useSwipeGesture(
     const el = containerRef.current;
     if (!el) return;
 
+    /** Attempts pointer capture without letting platform quirks abort the swipe. */
+    const trySetPointerCapture = (pointerId: number) => {
+      try {
+        el.setPointerCapture(pointerId);
+        hasCaptureRef.current = true;
+      } catch {
+        hasCaptureRef.current = false;
+      }
+    };
+
     const resetGesture = () => {
       startRef.current = null;
       lockedRef.current = null;
@@ -58,7 +77,12 @@ export function useSwipeGesture(
     const releaseCapture = () => {
       const pointerId = activePointerIdRef.current;
       if (pointerId === null || !hasCaptureRef.current) return;
-      if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
+      try {
+        if (el.hasPointerCapture(pointerId))
+          el.releasePointerCapture(pointerId);
+      } catch {
+        // Ignore platform-specific capture failures; gesture state reset is enough.
+      }
       hasCaptureRef.current = false;
     };
 
@@ -90,10 +114,7 @@ export function useSwipeGesture(
           absDx >= absDy * HORIZONTAL_LOCK_RATIO;
         if (hasHorizontalIntent) {
           lockedRef.current = "horizontal";
-          if (!hasCaptureRef.current) {
-            el.setPointerCapture(e.pointerId);
-            hasCaptureRef.current = true;
-          }
+          if (!hasCaptureRef.current) trySetPointerCapture(e.pointerId);
         } else if (absDy >= MIN_SWIPE_PX && absDy > absDx * VERTICAL_LOCK_RATIO)
           lockedRef.current = "vertical";
         else return;
@@ -126,7 +147,12 @@ export function useSwipeGesture(
       resetGesture();
     };
 
-    const handleLostPointerCapture = () => {
+    const handleLostPointerCapture = (e: PointerEvent) => {
+      if (activePointerIdRef.current === e.pointerId) {
+        hasCaptureRef.current = false;
+        return;
+      }
+
       resetGesture();
     };
 
@@ -147,7 +173,7 @@ export function useSwipeGesture(
       el.removeEventListener("pointercancel", handlePointerCancel, true);
       el.removeEventListener("lostpointercapture", handleLostPointerCapture);
     };
-  }, [isRight, shouldIgnoreTarget]);
+  }, [isRight, reattachKey, shouldIgnoreTarget]);
 
   return { containerRef, swipeState: state };
 }
