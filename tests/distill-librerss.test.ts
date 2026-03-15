@@ -393,7 +393,10 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/complete");
+      const result = await librerssDistill(
+        html,
+        "https://example.com/complete",
+      );
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Complete article body");
@@ -419,7 +422,10 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/priority");
+      const result = await librerssDistill(
+        html,
+        "https://example.com/priority",
+      );
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("semantic articleBody marker");
@@ -459,7 +465,10 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/wordpress");
+      const result = await librerssDistill(
+        html,
+        "https://example.com/wordpress",
+      );
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("WordPress-style content");
@@ -542,9 +551,13 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article", {
-        contentLengthThreshold: 0,
-      });
+      const result = await librerssDistill(
+        html,
+        "https://example.com/article",
+        {
+          contentLengthThreshold: 0,
+        },
+      );
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("X");
@@ -562,9 +575,13 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article", {
-        contentLengthThreshold: 1000000,
-      });
+      const result = await librerssDistill(
+        html,
+        "https://example.com/article",
+        {
+          contentLengthThreshold: 1000000,
+        },
+      );
 
       expect(result).toBeNull();
     });
@@ -674,7 +691,10 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/validate");
+      const result = await librerssDistill(
+        html,
+        "https://example.com/validate",
+      );
 
       expect(result).not.toBeNull();
       expect(result).toHaveProperty("content");

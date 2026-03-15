@@ -649,7 +649,7 @@ describe("fetchHtmlWithFingerprint", () => {
 
   test("handles browser version option", async () => {
     const isAllowedUrl = async () => true;
-    const requestFn = async (url: URL, headers: Record<string, string>) => {
+    const requestFn = async (_url: URL, headers: Record<string, string>) => {
       expect(headers["User-Agent"]).toContain("Chrome/131");
       return {
         body: "<html>Content</html>",

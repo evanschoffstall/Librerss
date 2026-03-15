@@ -1484,7 +1484,7 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
     invalidateUserCache(userId);
 
     const MAX_ENTRIES = 8; // MAX_ENTRIES_PER_USER constant
-    const makeResult = (i: number) => ({
+    const makeResult = (_i: number) => ({
       articles: new Map(),
       errors: new Map(),
       lastFetchedByUrl: new Map(),
@@ -1608,8 +1608,7 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
     await canUseArticleStatusesTable({ db: fakeDb as any });
 
     // Reset state to "unknown" but leave warnedMissingArticleStatusesTable = true
-    const { resetArticleStatusTableStateForTests: reset2 } =
-      await import("@/lib/core/article-status");
+    await import("@/lib/core/article-status");
     // Re-trigger by manually calling multiple times; state must be reset first
     resetArticleStatusTableStateForTests();
 

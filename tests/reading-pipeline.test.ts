@@ -2,8 +2,6 @@
  * Covers the reading pipeline from captured article HTML through sanitize output.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { NextRequest } from "next/server";
 
@@ -39,11 +37,6 @@ const mockReq = () =>
     method: "POST",
   });
 
-const READING_PIPELINE_FIXTURE_DIR = join(
-  process.cwd(),
-  "tests/templates/reading-pipeline",
-);
-
 const SPECIAL_CASE_BRAND = String.fromCharCode(
   68,
   97,
@@ -55,36 +48,6 @@ const SPECIAL_CASE_BRAND = String.fromCharCode(
   111,
   115,
 );
-
-/**
- * Derives a stable article URL from captured fixture HTML for extractor parity.
- */
-function extractCanonicalUrlFromHtml(
-  html: string,
-  fixtureName: string,
-): string {
-  const canonicalMatch = html.match(
-    /<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i,
-  );
-  if (canonicalMatch?.[1]) return canonicalMatch[1];
-
-  const ogUrlMatch = html.match(
-    /<meta[^>]*property=["']og:url["'][^>]*content=["']([^"']+)["']/i,
-  );
-  if (ogUrlMatch?.[1]) return ogUrlMatch[1];
-
-  return `https://example.invalid/${fixtureName}`;
-}
-
-/**
- * Loads one captured article fixture from the reading-pipeline fixture set.
- */
-function readExtractionFixture(articleName: string): string {
-  return readFileSync(
-    join(READING_PIPELINE_FIXTURE_DIR, `${articleName}.html`),
-    "utf8",
-  );
-}
 
 const SPECIAL_CASE_STORY_URL =
   "https://www.dailykos.com/stories/2026/2/25/2370437/example-story";
@@ -1364,7 +1327,6 @@ describe("article extract cleanup", () => {
       cleanSanitizedHtmlFn: (c) => c,
       extractFromHtmlFn: async () => null,
       fetchHtmlFn: async () => "<html />",
-      infoFn: mock(() => {}),
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       sanitizeRawContentFn: (c) => c,
@@ -1384,7 +1346,6 @@ describe("article extract cleanup", () => {
       cleanSanitizedHtmlFn: () => "",
       extractFromHtmlFn: async () => ({ content: "<p>stuff</p>", title: "T" }),
       fetchHtmlFn: async () => "<html />",
-      infoFn: mock(() => {}),
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       sanitizeRawContentFn: () => "",
@@ -1484,7 +1445,6 @@ describe("article extract cleanup", () => {
           </head>
         </html>
       `,
-      infoFn: mock(() => {}) as any,
       parseAndValidateArticleUrlFn: async () =>
         "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
@@ -1508,7 +1468,6 @@ describe("article extract cleanup", () => {
       source: "Source",
       title: "Title",
     }));
-    const infoFn = mock(() => {});
     const warnFn = mock(() => {});
 
     const deps = {
@@ -1516,7 +1475,6 @@ describe("article extract cleanup", () => {
       extractFromHtmlFn: extractFromHtmlFn as any,
       fetchHtmlFn: fetchHtmlFn as any,
       getHostnameFn: () => "example.com",
-      infoFn: infoFn as any,
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       sanitizeRawContentFn: (content: string) => content,
@@ -1545,7 +1503,6 @@ describe("article extract cleanup", () => {
       source: "Source",
       title: "Title",
     }));
-    const infoFn = mock(() => {});
     const warnFn = mock(() => {});
 
     const deps = {
@@ -1553,7 +1510,6 @@ describe("article extract cleanup", () => {
       extractFromHtmlFn: extractFromHtmlFn as any,
       fetchHtmlFn: fetchHtmlFn as any,
       getHostnameFn: () => "example.com",
-      infoFn: infoFn as any,
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       sanitizeRawContentFn: (content: string) => content,

@@ -152,13 +152,12 @@ describe("fetchHtml", () => {
         const error = createAxiosError(404);
         throw error;
       });
-      const mockIsAxiosError = // Use the isAxiosError type predicate defined at the top;
-        await expect(
-          fetchHtml(TEST_URL, {
-            axiosGetFn: mockAxiosGet as any,
-            isAxiosErrorFn: isAxiosError,
-          }),
-        ).rejects.toThrow();
+      await expect(
+        fetchHtml(TEST_URL, {
+          axiosGetFn: mockAxiosGet as any,
+          isAxiosErrorFn: isAxiosError,
+        }),
+      ).rejects.toThrow();
 
       expect(mockAxiosGet).toHaveBeenCalledTimes(1);
     });
