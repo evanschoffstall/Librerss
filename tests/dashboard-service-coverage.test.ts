@@ -486,14 +486,14 @@ describe("dashboard selection services", () => {
       fetchFeed,
       forceRefresh: true,
       keepExistingFeed: true,
-      requestSource: "manual",
+      requestSource: "manual-refresh",
       selectedCategory: ALL_FEEDS_NODE_KEY,
       skipRefresh: false,
     });
     expect(fetchAllFeeds).toHaveBeenCalledWith(undefined, {
       forceRefresh: true,
       keepExistingFeed: true,
-      requestSource: "manual",
+      requestSource: "manual-refresh",
       skipRefresh: false,
     });
 
