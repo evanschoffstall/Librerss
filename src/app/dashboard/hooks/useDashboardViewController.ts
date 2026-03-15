@@ -139,6 +139,9 @@ export function useDashboardViewController({
     fetchFeed,
     loadFeedSources,
     loadingEpoch,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    prefetchFeed,
   } = feedLoader;
 
   /**
@@ -419,7 +422,9 @@ export function useDashboardViewController({
   const {
     autoRefreshFeedList,
     handleCategoryClick,
+    handleCategoryIntent,
     handleFeedClick,
+    handleFeedIntent,
     handleRefreshSelection,
     refreshFeedList,
   } = useDashboardViewHandlers({
@@ -431,6 +436,9 @@ export function useDashboardViewController({
       invalidateFeedScroll();
       setArticleFilter("unread");
     }, [invalidateFeedScroll, setArticleFilter]),
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    prefetchFeed,
     selectedCategory,
     selectedCategoryNode,
     selectedFeedUrl,
@@ -500,14 +508,18 @@ export function useDashboardViewController({
       isCategoriesLoading,
       isSidebarVisible,
       onCategoryClick: handleCategoryClick,
+      onCategoryIntent: handleCategoryIntent,
       onFeedClick: handleFeedClick,
+      onFeedIntent: handleFeedIntent,
       selectedCategory,
       showFavicons,
       sidebarCategories,
     }),
     [
       handleCategoryClick,
+      handleCategoryIntent,
       handleFeedClick,
+      handleFeedIntent,
       isCategoriesLoading,
       isSidebarVisible,
       selectedCategory,

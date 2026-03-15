@@ -21,6 +21,12 @@ type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
   onBeforeRefresh?: () => void;
   /** Shared callback fired whenever the user changes the active feed/category selection. */
   onFeedSwitch: () => void;
+  /** Silently warms the synthetic all-feeds selection. */
+  prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
+  /** Silently warms a category selection before the user commits it. */
+  prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
+  /** Silently warms an individual feed selection before the user commits it. */
+  prefetchFeed: FeedSelectionFetchers["fetchFeed"];
   /** Currently selected category or feed node key. */
   selectedCategory: string;
   /** Resolved category tree node for the current selection when available. */
@@ -49,6 +55,9 @@ export function useDashboardViewHandlers({
   fetchFeed,
   onBeforeRefresh,
   onFeedSwitch,
+  prefetchAllFeeds,
+  prefetchCategoryFeeds,
+  prefetchFeed,
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
@@ -115,10 +124,30 @@ export function useDashboardViewHandlers({
       setSelectedCategory(feedNode.key);
       setIsMobileSidebarOpen(false);
       if (feedNode.data?.url && feedNode.data.enabled !== false) {
-        void fetchFeed(feedNode.data.url);
+        void fetchFeed(feedNode.data.url, {
+          requestSource: "sidebar-feed-select",
+        });
       }
     },
     [onFeedSwitch, setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
+  );
+
+  /** Prefetches a feed on hover/focus so selection can reuse a warm query. */
+  const handleFeedIntent = useCallback(
+    (feedNode: CategoryTreeNode) => {
+      if (
+        selectedCategory === feedNode.key ||
+        !feedNode.data?.url ||
+        feedNode.data.enabled === false
+      ) {
+        return;
+      }
+
+      void prefetchFeed(feedNode.data.url, {
+        requestSource: "sidebar-feed-prefetch",
+      });
+    },
+    [prefetchFeed, selectedCategory],
   );
 
   /**
@@ -134,11 +163,15 @@ export function useDashboardViewHandlers({
       setIsMobileSidebarOpen(false);
 
       if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
-        void fetchAllFeeds();
+        void fetchAllFeeds(undefined, {
+          requestSource: "sidebar-category-select",
+        });
         return;
       }
 
-      void fetchCategoryFeeds(categoryNode);
+      void fetchCategoryFeeds(categoryNode, {
+        requestSource: "sidebar-category-select",
+      });
     },
     [
       onFeedSwitch,
@@ -147,6 +180,27 @@ export function useDashboardViewHandlers({
       fetchAllFeeds,
       fetchCategoryFeeds,
     ],
+  );
+
+  /** Prefetches a category on hover/focus so bulk selections land immediately. */
+  const handleCategoryIntent = useCallback(
+    (categoryNode: CategoryTreeNode) => {
+      if (selectedCategory === categoryNode.key) {
+        return;
+      }
+
+      if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
+        void prefetchAllFeeds(undefined, {
+          requestSource: "sidebar-category-prefetch",
+        });
+        return;
+      }
+
+      void prefetchCategoryFeeds(categoryNode, {
+        requestSource: "sidebar-category-prefetch",
+      });
+    },
+    [prefetchAllFeeds, prefetchCategoryFeeds, selectedCategory],
   );
 
   /**
@@ -158,7 +212,9 @@ export function useDashboardViewHandlers({
   return {
     autoRefreshFeedList: handleAutoRefreshSelection,
     handleCategoryClick,
+    handleCategoryIntent,
     handleFeedClick,
+    handleFeedIntent,
     handleRefreshSelection,
     refreshFeedList: handleRefreshSelection,
   };
