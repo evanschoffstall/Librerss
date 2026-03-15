@@ -6,7 +6,7 @@
  * the main DashboardView render function.
  */
 
-import { startTransition, useEffect, useRef } from "react";
+import { startTransition, useEffect, useEffectEvent, useRef } from "react";
 import { toast } from "sonner";
 
 import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "../constants";
@@ -15,9 +15,6 @@ import { ArticleService, type CategoryTreeNode } from "@/lib";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 
 interface UseDashboardEventsOptions {
-  fetchAllFeeds: () => Promise<void>;
-  fetchCategoryFeeds: (category: CategoryTreeNode) => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
   onMarkAllReadLocally?: () => void;
   onOpenFeedsSidebar: () => void;
   onOpenSettings: () => void;
@@ -29,10 +26,13 @@ interface UseDashboardEventsOptions {
   usePlaceholderData?: boolean;
 }
 
+/**
+ * Wires the dashboard's window-level command bus to the latest UI callbacks.
+ *
+ * React 19 effect events keep the listeners stable while still seeing the
+ * newest selected feed context, search callback, and placeholder-mode state.
+ */
 export function useDashboardEvents({
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
   onMarkAllReadLocally,
   onOpenFeedsSidebar,
   onOpenSettings,
@@ -43,114 +43,97 @@ export function useDashboardEvents({
   selectedFeedUrl,
   usePlaceholderData = false,
 }: UseDashboardEventsOptions) {
-  const onMarkAllReadLocallyRef = useRef(onMarkAllReadLocally);
-  const onOpenFeedsSidebarRef = useRef(onOpenFeedsSidebar);
-  const onOpenSettingsRef = useRef(onOpenSettings);
-  const onRefreshRef = useRef(onRefresh);
-  const onSearchChangeRef = useRef(onSearchChange);
   const pendingSearchTermRef = useRef("");
-  const selectedCategoryNodeRef = useRef(selectedCategoryNode);
-  const selectedCategoryRef = useRef(selectedCategory);
-  const selectedFeedUrlRef = useRef(selectedFeedUrl);
   const searchFrameRef = useRef<null | number>(null);
-  const usePlaceholderDataRef = useRef(usePlaceholderData);
 
-  onMarkAllReadLocallyRef.current = onMarkAllReadLocally;
-  onOpenFeedsSidebarRef.current = onOpenFeedsSidebar;
-  onOpenSettingsRef.current = onOpenSettings;
-  onRefreshRef.current = onRefresh;
-  onSearchChangeRef.current = onSearchChange;
-  selectedCategoryNodeRef.current = selectedCategoryNode;
-  selectedCategoryRef.current = selectedCategory;
-  selectedFeedUrlRef.current = selectedFeedUrl;
-  usePlaceholderDataRef.current = usePlaceholderData;
+  const flushSearchChange = useEffectEvent(() => {
+    searchFrameRef.current = null;
+    const nextTerm = pendingSearchTermRef.current;
+    startTransition(() => {
+      onSearchChange(nextTerm);
+    });
+  });
+
+  const handleMarkAllRead = useEffectEvent(() => {
+    void (async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
+      );
+
+      if (usePlaceholderData) {
+        onMarkAllReadLocally?.();
+        toast.success("Marked all as read.");
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        );
+        return;
+      }
+
+      const streams = collectMarkAllReadStreams(
+        selectedCategory,
+        selectedFeedUrl,
+        selectedCategoryNode,
+      );
+
+      if (streams.length === 0) {
+        toast.info("No readable feed selected.");
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        );
+        return;
+      }
+
+      try {
+        await Promise.all(
+          Array.from(new Set(streams)).map((stream) =>
+            ArticleService.markAllRead(stream),
+          ),
+        );
+        toast.success("Marked all as read.");
+        onRefresh();
+      } catch (error) {
+        console.error("Mark all read error:", error);
+        toast.error("Unable to mark all as read right now.");
+      } finally {
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
+        );
+      }
+    })();
+  });
+
+  const handleSearchChange = useEffectEvent((event: Event) => {
+    const detail = (event as CustomEvent<{ term?: string }>).detail;
+    const term = typeof detail.term === "string" ? detail.term : "";
+    pendingSearchTermRef.current = term;
+
+    if (typeof requestAnimationFrame !== "function") {
+      flushSearchChange();
+      return;
+    }
+
+    if (searchFrameRef.current !== null) {
+      return;
+    }
+
+    searchFrameRef.current = requestAnimationFrame(() => {
+      flushSearchChange();
+    });
+  });
+
+  const handleRefresh = useEffectEvent(() => {
+    onRefresh();
+  });
+
+  const handleOpenSettings = useEffectEvent(() => {
+    onOpenSettings();
+  });
+
+  const handleOpenFeedsSidebar = useEffectEvent(() => {
+    onOpenFeedsSidebar();
+  });
 
   useEffect(() => {
-    const handleMarkAllRead = () => {
-      void (async () => {
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
-        );
-
-        if (usePlaceholderDataRef.current) {
-          onMarkAllReadLocallyRef.current?.();
-          toast.success("Marked all as read.");
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-          );
-          return;
-        }
-
-        const streams = collectMarkAllReadStreams(
-          selectedCategoryRef.current,
-          selectedFeedUrlRef.current,
-          selectedCategoryNodeRef.current,
-        );
-
-        if (streams.length === 0) {
-          toast.info("No readable feed selected.");
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-          );
-          return;
-        }
-
-        try {
-          await Promise.all(
-            Array.from(new Set(streams)).map((stream) =>
-              ArticleService.markAllRead(stream),
-            ),
-          );
-          toast.success("Marked all as read.");
-          onRefreshRef.current();
-        } catch (error) {
-          console.error("Mark all read error:", error);
-          toast.error("Unable to mark all as read right now.");
-        } finally {
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-          );
-        }
-      })();
-    };
-
-    const flushSearchChange = () => {
-      searchFrameRef.current = null;
-      const nextTerm = pendingSearchTermRef.current;
-      startTransition(() => {
-        onSearchChangeRef.current(nextTerm);
-      });
-    };
-
-    const handleSearchChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ term?: string }>).detail;
-      const term = typeof detail.term === "string" ? detail.term : "";
-      pendingSearchTermRef.current = term;
-
-      if (typeof requestAnimationFrame !== "function") {
-        flushSearchChange();
-        return;
-      }
-
-      if (searchFrameRef.current !== null) {
-        return;
-      }
-
-      searchFrameRef.current = requestAnimationFrame(() => {
-        flushSearchChange();
-      });
-    };
-
-    const handleRefresh = () => {
-      onRefreshRef.current();
-    };
-    const handleOpenSettings = () => {
-      onOpenSettingsRef.current();
-    };
-    const handleOpenFeedsSidebar = () => {
-      onOpenFeedsSidebarRef.current();
-    };
-
     window.addEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);
     window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
     window.addEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, handleOpenSettings);
@@ -188,9 +171,10 @@ export function useDashboardEvents({
         handleSearchChange as EventListener,
       );
     };
-  }, [fetchAllFeeds, fetchCategoryFeeds, fetchFeed]);
+  }, []);
 }
 
+/** Resolves the feed stream ids affected by a mark-all-read action. */
 function collectMarkAllReadStreams(
   selectedCategory: string,
   selectedFeedUrl: string | undefined,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 import { toAutoRefreshIntervalMs } from "../services/refresh-policy";
 
@@ -11,6 +11,12 @@ interface UseDashboardIntervalsOptions {
   setRelativeRefreshTick: Dispatch<SetStateAction<number>>;
 }
 
+/**
+ * Owns the dashboard's periodic relative-time updates and background refresh cadence.
+ *
+ * React 19 effect events let the intervals read the latest refresh callback
+ * without rebuilding timers whenever the selected feed context changes.
+ */
 export function useDashboardIntervals({
   autoRefreshFeedList,
   autoRefreshIntervalMinutes,
@@ -26,26 +32,18 @@ export function useDashboardIntervals({
     };
   }, [setRelativeRefreshTick]);
 
-  // Keep a ref to the latest callback so the interval never resets when
-  // selectedCategory / selectedFeed / etc. change identity.
-  const autoRefreshRef = useRef(autoRefreshFeedList);
-  useEffect(() => {
-    autoRefreshRef.current = autoRefreshFeedList;
-  }, [autoRefreshFeedList]);
+  const lastFiredAtRef = useRef(Date.now());
+  const runRefresh = useEffectEvent(() => {
+    lastFiredAtRef.current = Date.now();
+    autoRefreshFeedList();
+  });
 
   useEffect(() => {
     const autoRefreshIntervalMs = toAutoRefreshIntervalMs(
       autoRefreshIntervalMinutes,
     );
 
-    // Tracks when the refresh was last actually performed (not skipped).
-    // Initialized to now so the first interval fires at the correct offset.
-    const lastFiredAtRef = { current: Date.now() };
-
-    const runRefresh = () => {
-      lastFiredAtRef.current = Date.now();
-      autoRefreshRef.current();
-    };
+    lastFiredAtRef.current = Date.now();
 
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;

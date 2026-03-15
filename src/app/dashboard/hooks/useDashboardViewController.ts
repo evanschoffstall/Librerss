@@ -472,9 +472,6 @@ export function useDashboardViewController({
   }, [setFeed]);
 
   useDashboardEvents({
-    fetchAllFeeds,
-    fetchCategoryFeeds,
-    fetchFeed,
     onMarkAllReadLocally: handleMarkAllReadLocally,
     onOpenFeedsSidebar: useCallback(() => {
       setIsMobileSidebarOpen(true);
