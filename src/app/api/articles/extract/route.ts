@@ -110,42 +110,37 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const context = createExtractRequestContext(request);
 
   let articleUrl: null | string = null;
+  let isLocalPlaceholderRequest = false;
   let useProxy = false;
   let resolvedProxyUrl: string | undefined;
 
   try {
-    const authResult = await requireAuth(request, {
-      rateLimit: {
-        key: "article-extract",
-        maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
-        windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
-      },
-    });
-
-    // If auth fails, allow through only for placeholder snapshot URLs
-    // (local files only — no outbound HTTP fetch, SSRF-safe).
-    const isAuthFailure = authResult instanceof Response;
-    let authUserId: number | undefined;
-    if (isAuthFailure) {
-      // Peek at the body to check for a placeholder URL before rejecting
-      const peekBody: unknown = await request
-        .clone()
-        .json()
-        .catch(() => null);
-      const peekUrl = getRequestUrl(peekBody);
-      const isPlaceholderUrl = Boolean(
-        peekUrl && getPlaceholderSnapshotPathByArticleUrl(peekUrl),
-      );
-      if (!isPlaceholderUrl) return authResult;
-    } else {
-      authUserId = authResult.userId;
-    }
-
-    // Parse body once and extract both url and useProxy flag
     const bodyResult =
       await parseJsonBodyOrResponse<ExtractRequestBody>(request);
     if (bodyResult instanceof Response) return bodyResult;
-    useProxy = !isAuthFailure && bodyResult.useProxy === true;
+
+    const requestedUrl = getRequestUrl(bodyResult);
+    isLocalPlaceholderRequest = Boolean(
+      requestedUrl && getPlaceholderSnapshotPathByArticleUrl(requestedUrl),
+    );
+
+    let authUserId: number | undefined;
+    if (!isLocalPlaceholderRequest) {
+      const authResult = await requireAuth(request, {
+        rateLimit: {
+          key: "article-extract",
+          maxAttempts: CONFIG.RATE_LIMIT_EXTRACT_MAX_REQUESTS,
+          windowMs: CONFIG.RATE_LIMIT_EXTRACT_WINDOW_MS,
+        },
+      });
+      if (authResult instanceof Response) {
+        return authResult;
+      }
+
+      authUserId = authResult.userId;
+    }
+
+    useProxy = !isLocalPlaceholderRequest && bodyResult.useProxy === true;
     const distillStrategy: DistillStrategy =
       typeof bodyResult.distillStrategy === "string" &&
       (DISTILL_STRATEGIES as readonly string[]).includes(
@@ -190,14 +185,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       allowInsecureTls = row === null ? false : row.allowInsecureTls;
     }
 
-    // Build a cloned request with the same body for parseAndValidateArticleUrl
-    const clonedRequest = new NextRequest(request.url, {
-      body: JSON.stringify(bodyResult),
-      headers: request.headers,
-      method: request.method,
-    });
-
-    const parsedUrl = await parseArticleUrl(clonedRequest);
+    const parsedUrl = await parseArticleUrl(requestedUrl);
     if (parsedUrl instanceof Response) return parsedUrl;
     articleUrl = parsedUrl;
 
@@ -208,11 +196,14 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
 
     const localSnapshot = await readPlaceholderSnapshotHtml(articleUrl);
 
-    // SECURITY: If unauthenticated (placeholder bypass path), only local
-    // snapshots are permitted — never allow outbound fetches without auth.
-    if (isAuthFailure && !localSnapshot) {
-      return jsonError("Unauthorized", 401);
+    if (isLocalPlaceholderRequest && !localSnapshot) {
+      return jsonErrorWithReason(
+        "Placeholder article snapshot is unavailable",
+        404,
+        "missing-placeholder-snapshot",
+      );
     }
+
     const html =
       localSnapshot?.html ??
       (await fetchArticleHtml(articleUrl, undefined, {
