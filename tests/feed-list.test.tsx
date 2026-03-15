@@ -120,11 +120,11 @@ describe("FeedList", () => {
         height: 0,
         left: 0,
         right: 0,
+        toJSON: () => ({}),
         top: 0,
         width: 0,
         x: 0,
         y: 0,
-        toJSON: () => ({}),
       }),
     });
 
@@ -245,7 +245,9 @@ describe("FeedList", () => {
       );
 
       expect(row).toBeTruthy();
-      expect(row?.style.maxHeight).toBeTruthy();
+      expect(row?.dataset.feedRowState).toBe("collapsing");
+      expect(row?.style.height).toBeTruthy();
+      expect(row?.style.minHeight).toBe("12px");
     });
   });
 
@@ -320,13 +322,13 @@ describe("FeedList", () => {
       );
 
       expect(row).toBeTruthy();
-      expect(row?.style.maxHeight).toBeTruthy();
-      expect(row?.style.marginBottom).toBe("6px");
-      expect(row?.style.opacity).toBe("1");
+      expect(row?.dataset.feedRowState).toBe("collapsing");
+      expect(row?.style.height).toBeTruthy();
+      expect(row?.style.minHeight).toBe("12px");
+      expect(row?.style.marginBottom).toBeTruthy();
       expect(row?.style.transform).toBe("");
-      expect(row?.style.transition).toContain("max-height 220ms");
-      expect(row?.style.transition).toContain("margin-bottom 220ms");
-      expect(row?.style.transition).toContain("opacity 220ms");
+      expect(row?.style.willChange).toContain("height");
+      expect(row?.style.willChange).toContain("opacity");
     });
   });
 
@@ -357,7 +359,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(getByText(article.title)).toBeTruthy();
       expect(
-        container.querySelector("[data-virtuoso-scroller='true']"),
+        container.querySelector("[data-feed-virtualizer='true']"),
       ).toBeTruthy();
     });
 
@@ -395,7 +397,7 @@ describe("FeedList", () => {
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain(article.title);
       expect(
-        container.querySelector("[data-virtuoso-scroller='true']"),
+        container.querySelector("[data-feed-virtualizer='true']"),
       ).toBeTruthy();
     });
   });
@@ -429,8 +431,76 @@ describe("FeedList", () => {
       );
 
       expect(row).toBeTruthy();
+      expect(row?.dataset.feedRowLayout).toBe("none");
       expect(row?.style.maxHeight).toBe("");
       expect(row?.style.marginBottom).toBe("6px");
+    });
+  });
+
+  test("limits row position layout animation to removal states", async () => {
+    const article = buildArticle({ title: "Layout guard article" });
+    const { container, getByText, rerender } = renderFeedList(
+      <FeedList
+        expandedArticleKey={article.link}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.dataset.feedRowLayout).toBe("none");
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <FeedList
+          collapsingArticleKey={article.link}
+          collapsingArticleMode="collapse"
+          expandedArticleKey={null}
+          filteredFeed={[article]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={25}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.dataset.feedRowLayout).toBe("position");
+      expect(row?.dataset.feedRowState).toBe("collapsing");
     });
   });
 
@@ -494,7 +564,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("pins a collapsing first row above the virtualized feed", async () => {
+  test("keeps a collapsing first row rendered in the virtualized feed", async () => {
     const article = buildArticle({ title: "Pinned first row article" });
     const { container, getByText, rerender } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
@@ -521,7 +591,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(getByText(article.title)).toBeTruthy();
       expect(
-        container.querySelector("[data-virtuoso-scroller='true']"),
+        container.querySelector("[data-feed-virtualizer='true']"),
       ).toBeTruthy();
     });
 
@@ -559,8 +629,8 @@ describe("FeedList", () => {
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain(article.title);
       expect(
-        container.querySelector("[data-virtuoso-scroller='true']"),
-      ).toBeNull();
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
     });
   });
 
@@ -629,7 +699,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(getByText(firstArticle.title)).toBeTruthy();
       expect(
-        container.querySelector("[data-virtuoso-scroller='true']"),
+        container.querySelector("[data-feed-virtualizer='true']"),
       ).toBeTruthy();
       expect(queryByText(secondArticle.title)).toBeNull();
     });
