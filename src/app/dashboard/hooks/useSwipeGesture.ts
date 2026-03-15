@@ -8,7 +8,7 @@ const HORIZONTAL_LOCK_RATIO = 0.45;
 const VERTICAL_LOCK_RATIO = 1.35;
 
 /** Visual state for an in-progress swipe gesture. */
-export interface SwipeState {
+interface SwipeState {
   committed: boolean;
   offsetX: number;
   progress: number;
@@ -16,7 +16,7 @@ export interface SwipeState {
 }
 
 /** Neutral gesture state used after cancellation, completion, or detach. */
-export const SWIPE_IDLE: SwipeState = {
+const SWIPE_IDLE: SwipeState = {
   committed: false,
   offsetX: 0,
   progress: 0,
