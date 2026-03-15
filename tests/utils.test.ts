@@ -155,20 +155,6 @@ describe("url utils", () => {
     expect(getUrlHostnameLabel(undefined, "fallback")).toBe("fallback");
     expect(getUrlHostnameLabel("not-a-url")).toBe("not-a-url");
   });
-
-  test("toCategoryLookupKey normalizes valid feed URLs", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey(" https://Example.com/path///?a=1#hash ")).toBe(
-      "example.com/path?a=1",
-    );
-    expect(toCategoryLookupKey("HTTP://Example.com///")).toBe("example.com/");
-  });
-
-  test("toCategoryLookupKey handles empty and non-URL inputs", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("Example.com///")).toBe("example.com");
-    expect(toCategoryLookupKey("   ")).toBe("");
-  });
 });
 
 // ─── Logger ───────────────────────────────────────────────────────────────────

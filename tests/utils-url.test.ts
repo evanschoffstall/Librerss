@@ -17,7 +17,6 @@ import {
   normalizeDistinctUrlList,
   normalizeFeedUrl,
   redactUrlForLogs,
-  toCategoryLookupKey,
   tryGetUrlHostname,
   tryNormalizeFeedUrl,
 } from "@/lib/utils/url";
@@ -175,46 +174,6 @@ describe("url – getUrlHostnameLabel", () => {
   });
 });
 
-describe("url – toCategoryLookupKey", () => {
-  test("returns host + path for valid URL", () => {
-    expect(toCategoryLookupKey("https://example.com/feed")).toBe(
-      "example.com/feed",
-    );
-  });
-
-  test("strips trailing slashes from path", () => {
-    expect(toCategoryLookupKey("https://example.com/feed/")).toBe(
-      "example.com/feed",
-    );
-  });
-
-  test("lowercases hostname", () => {
-    expect(toCategoryLookupKey("https://EXAMPLE.COM/Feed")).toBe(
-      "example.com/Feed",
-    );
-  });
-
-  test("preserves query params", () => {
-    expect(toCategoryLookupKey("https://example.com/feed?type=rss")).toBe(
-      "example.com/feed?type=rss",
-    );
-  });
-
-  test("returns empty for empty/whitespace input", () => {
-    expect(toCategoryLookupKey("")).toBe("");
-    expect(toCategoryLookupKey("   ")).toBe("");
-  });
-
-  test("falls back for invalid URL", () => {
-    const result = toCategoryLookupKey("not-a-url");
-    expect(result).toBe("not-a-url");
-  });
-
-  test("uses / for root path", () => {
-    expect(toCategoryLookupKey("https://example.com")).toBe("example.com/");
-  });
-});
-
 describe("url – redactUrlForLogs", () => {
   test("removes credentials, query, and hash", () => {
     expect(
@@ -337,45 +296,6 @@ describe("categories – array helpers", () => {
   test("findCategoryByLabel returns undefined if not found", () => {
     const nodes = [{ key: "1", label: "Tech" }];
     expect(findCategoryByLabel(nodes, "Sports")).toBeUndefined();
-  });
-});
-
-// ─── stream-ids.ts ────────────────────────────────────────────────────────────
-
-// ── utils/url – toCategoryLookupKey ─────────────────────────────────────────
-
-describe("utils/url – toCategoryLookupKey", () => {
-  test("extracts host+path for valid URL", () => {
-    expect(toCategoryLookupKey("https://example.com/feed/tech")).toBe(
-      "example.com/feed/tech",
-    );
-  });
-
-  test("strips trailing slashes from path", () => {
-    expect(toCategoryLookupKey("https://example.com/feed/")).toBe(
-      "example.com/feed",
-    );
-  });
-
-  test("preserves query params", () => {
-    expect(toCategoryLookupKey("https://example.com/rss?format=atom")).toBe(
-      "example.com/rss?format=atom",
-    );
-  });
-
-  test("falls back gracefully for non-parseable input", () => {
-    const result = toCategoryLookupKey("not a url");
-    expect(result).toBe("not a url");
-  });
-
-  test("returns empty string for blank input", () => {
-    expect(toCategoryLookupKey("")).toBe("");
-  });
-
-  test("lowercases the domain", () => {
-    expect(toCategoryLookupKey("https://EXAMPLE.COM/feed")).toBe(
-      "example.com/feed",
-    );
   });
 });
 
@@ -597,43 +517,6 @@ describe("lib/utils/url", () => {
   test("getUrlHostnameLabel returns raw URL when hostname extraction fails", async () => {
     const { getUrlHostnameLabel } = await import("@/lib/utils/url");
     expect(getUrlHostnameLabel("invalid URL")).toBe("invalid URL");
-  });
-
-  test("toCategoryLookupKey creates stable key with path and query", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("https://example.com/feed?format=xml")).toBe(
-      "example.com/feed?format=xml",
-    );
-  });
-
-  test("toCategoryLookupKey lowercases hostname", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("https://EXAMPLE.COM/Feed")).toBe(
-      "example.com/Feed",
-    );
-  });
-
-  test("toCategoryLookupKey strips trailing slashes from path", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("https://example.com/feed///")).toBe(
-      "example.com/feed",
-    );
-  });
-
-  test("toCategoryLookupKey handles root path", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("https://example.com")).toBe("example.com/");
-  });
-
-  test("toCategoryLookupKey has fallback for invalid URLs", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("not a url")).toBe("not a url");
-  });
-
-  test("toCategoryLookupKey returns empty for empty input", async () => {
-    const { toCategoryLookupKey } = await import("@/lib/utils/url");
-    expect(toCategoryLookupKey("")).toBe("");
-    expect(toCategoryLookupKey("   ")).toBe("");
   });
 });
 
