@@ -70,6 +70,36 @@ function swipeOnTouch(
 }
 
 describe("ArticleCard", () => {
+  test("renders skeleton placeholders while expanded content is being fetched", () => {
+    const article = buildArticle({ content: "" });
+
+    const { container, getByText } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={true}
+        isHydrating={true}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const hydrationEl = container.querySelector(
+      '[data-article-hydration-state="loading"]',
+    );
+    expect(hydrationEl).toBeTruthy();
+    expect(hydrationEl?.querySelectorAll("div").length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
+  });
+
   test("does not mount the full article body while collapsed", async () => {
     const longContent = Array.from({ length: 80 }, () => "expanded-body").join(
       " ",
@@ -120,6 +150,142 @@ describe("ArticleCard", () => {
     await waitFor(() => {
       expect(container.textContent?.includes(longContent)).toBe(true);
     });
+  });
+
+  test("keeps collapsed preview single-line and title clamped to two lines", () => {
+    const article = buildArticle({
+      content: "First line\n\n\nSecond line\t\tThird line after spacing.",
+      title:
+        "A very long article title that should remain clamped to exactly two lines in collapsed mode",
+    });
+
+    const { container, getByRole } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const heading = getByRole("heading", { name: article.title });
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const measurePreview = container.querySelector(
+      '[data-article-preview-measure="true"]',
+    );
+
+    expect(heading.className).toContain("line-clamp-2");
+    expect(heading.className).toContain("max-h-12");
+    expect(collapsedPreview?.textContent).toBe(
+      "First line Second line Third line after spacing.",
+    );
+    expect(measurePreview?.textContent).toBe(
+      "First line Second line Third line after spacing.…",
+    );
+  });
+
+  test("primes the pre-expand snapshot on pointer down before toggling", () => {
+    const article = buildArticle();
+    const onPrepareExpand = mock(() => {});
+    const onToggle = mock(() => {});
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onPrepareExpand={onPrepareExpand}
+        onToggle={onToggle}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector(
+      'article[data-article-key="article-1"][role="button"]',
+    );
+
+    expect(articleSurface).not.toBeNull();
+
+    fireEvent.pointerDown(articleSurface as HTMLElement, {
+      clientX: 24,
+      clientY: 20,
+      pointerId: 21,
+      pointerType: "mouse",
+    });
+    fireEvent.click(articleSurface as HTMLElement, {
+      clientX: 24,
+      clientY: 20,
+    });
+
+    expect(onPrepareExpand).toHaveBeenCalledTimes(1);
+    expect(onPrepareExpand.mock.invocationCallOrder[0]).toBeLessThan(
+      onToggle.mock.invocationCallOrder[0],
+    );
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  test("primes the pre-expand snapshot for click fallback without pointer down", () => {
+    const article = buildArticle();
+    const onPrepareExpand = mock(() => {});
+    const onToggle = mock(() => {});
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onPrepareExpand={onPrepareExpand}
+        onToggle={onToggle}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector(
+      'article[data-article-key="article-1"][role="button"]',
+    );
+
+    expect(articleSurface).not.toBeNull();
+
+    fireEvent.click(articleSurface as HTMLElement, {
+      clientX: 24,
+      clientY: 20,
+    });
+
+    expect(onPrepareExpand).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onPrepareExpand.mock.invocationCallOrder[0]).toBeLessThan(
+      onToggle.mock.invocationCallOrder[0],
+    );
   });
 
   test("commits swipe-to-read from the collapsed header", async () => {

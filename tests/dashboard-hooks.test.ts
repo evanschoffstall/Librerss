@@ -583,6 +583,9 @@ describe("useArticleHydration", () => {
     ArticleService.extractArticleContent = mock(
       async () => "<p>Extracted content</p>",
     ) as unknown as typeof ArticleService.extractArticleContent;
+    ArticleService.getStoredArticleContent = mock(
+      async () => "<p>Stored article content</p>",
+    ) as unknown as typeof ArticleService.getStoredArticleContent;
     ArticleService.updateArticleStatus = mock(
       async () => {},
     ) as unknown as typeof ArticleService.updateArticleStatus;
@@ -922,6 +925,52 @@ describe("useArticleHydration", () => {
     await waitFor(() => {
       expect(result.current.hydratedArticleLinks[article.link]).toBeUndefined();
     });
+  });
+
+  test("hydrateArticleContent loads stored article content when extraction is disabled", async () => {
+    const article = createMockArticle();
+    let feedState = [article];
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleHydration({
+        getFeedSettings: () => ({ extractionDisabled: true }),
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    await waitFor(() => {
+      expect(ArticleService.getStoredArticleContent).toHaveBeenCalledWith(1);
+      expect(ArticleService.extractArticleContent).not.toHaveBeenCalled();
+      expect(feedState[0]?.content).toBe("<p>Stored article content</p>");
+      expect(feedState[0]?.hasFullContent).toBe(true);
+      expect(result.current.hydratedArticleLinks[article.link]).toBeUndefined();
+    });
+  });
+
+  test("hydrateArticleContent skips reloading when full stored content is already present", async () => {
+    const article = createMockArticle({ hasFullContent: true });
+    const setFeed = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleHydration({
+        getFeedSettings: () => ({ extractionDisabled: true }),
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    expect(ArticleService.getStoredArticleContent).not.toHaveBeenCalled();
+    expect(ArticleService.extractArticleContent).not.toHaveBeenCalled();
   });
 });
 
