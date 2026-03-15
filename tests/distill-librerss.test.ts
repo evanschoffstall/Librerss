@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import {
-  defuddleDistill,
-  distillArticle,
-  librerssDistill,
-  readabilityDistill,
-} from "@/lib/distill";
+import { distillArticle } from "@/lib/distill";
+import { defuddleDistill } from "@/lib/distill/defuddle";
+import { librerssDistill } from "@/lib/distill/librerss";
+import { readabilityDistill } from "@/lib/distill/readability";
 
 beforeEach(() => {
   mock.restore();
