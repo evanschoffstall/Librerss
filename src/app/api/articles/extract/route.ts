@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
-  jsonError,
   jsonErrorWithReason,
   parseJsonBodyOrResponse,
 } from "@/lib/api/http";
@@ -38,10 +37,7 @@ import {
   preCleanHtml,
   sanitizeRawContent,
 } from "@/lib/sanitize";
-import {
-  logAndRespondError,
-  requireMutableAuthenticatedUser,
-} from "@/lib/server";
+import { requireMutableAuthenticatedUser } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import {
   injectProxyCredentials,
@@ -67,10 +63,7 @@ interface ExtractPostDeps {
   errorFn?: typeof logger.error;
   extractFromHtmlFn?: typeof distillArticle;
   fetchHtmlFn?: typeof fetchHtml;
-  infoFn?: typeof logger.info;
   isAxiosErrorFn?: typeof axios.isAxiosError;
-  jsonErrorFn?: typeof jsonError;
-  logAndRespondErrorFn?: typeof logAndRespondError;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
   sanitizeRawContentFn?: typeof sanitizeRawContent;
@@ -98,10 +91,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const extractArticle = deps?.extractFromHtmlFn ?? distillArticle;
   const sanitizeContent = deps?.sanitizeRawContentFn ?? sanitizeRawContent;
   const cleanContent = deps?.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
-  const _info = deps?.infoFn ?? logger.info.bind(logger);
-  const _toJsonError = deps?.jsonErrorFn ?? jsonError;
   const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
-  const _respondError = deps?.logAndRespondErrorFn ?? logAndRespondError;
   const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
   const warn = deps?.warnFn ?? logger.warn.bind(logger);
   const errorLog = deps?.errorFn ?? logger.error.bind(logger);

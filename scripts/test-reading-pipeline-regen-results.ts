@@ -55,7 +55,6 @@ async function extractViaApiRoute(
   const response = await POST(request, {
     errorFn: () => {},
     fetchHtmlFn: async () => downloadedHtml,
-    infoFn: () => {},
     parseAndValidateArticleUrlFn: async (rawUrl) => rawUrl.trim(),
     requireMutableAuthenticatedUserFn: async () => ANONYMOUS_USER,
     shouldUseExtractCacheFn: () => false,
