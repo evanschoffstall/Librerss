@@ -2,7 +2,7 @@
 
 /**
  * Feed-source CRUD: add, remove, rename, import OPML, select, drag-move.
- * Extracted from useCategoryManager so each hook has one responsibility.
+ * Extracted from useDashboardCategoryTree so each hook has one responsibility.
  */
 
 import { useCallback } from "react";
