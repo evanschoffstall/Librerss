@@ -67,6 +67,7 @@ const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
 const FEED_ROW_GAP_PX = 6;
 const FEED_ROW_COLLAPSE_OFFSET_PX =
   FEED_ROW_COLLAPSE_FLOOR_PX + FEED_ROW_GAP_PX;
+const FEED_ROW_REFLOW_ANIMATION_MS = 220;
 const FEED_ROW_SWIPE_EXIT_DISTANCE = "calc(100% + 4rem)";
 const FEED_ROW_VIRTUAL_OVERSCAN = 6;
 const FEED_ROW_EXIT_EASING = [0.22, 1, 0.36, 1] as const;
@@ -81,6 +82,7 @@ interface FeedListRowProps {
   onMeasuredHeightChange?: (height: number) => void;
   onMeasureElement?: (element: HTMLDivElement | null) => void;
   removalAnimationMode: ArticleRemovalAnimationMode | null;
+  shouldAnimateReflow: boolean;
 }
 
 interface RetainedCollapsingArticle {
@@ -113,6 +115,7 @@ const FeedListRow = memo(function FeedListRow({
   onMeasuredHeightChange,
   onMeasureElement,
   removalAnimationMode,
+  shouldAnimateReflow,
 }: FeedListRowProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const removalActivationTimeoutRef = useRef<null | number>(null);
@@ -226,45 +229,64 @@ const FeedListRow = memo(function FeedListRow({
         : "translate3d(0px, 0px, 0px) scale(1)"
       : undefined;
   const rowMotionTransition = useMemo(() => {
-    if (!isRemoving) return undefined;
+    if (isRemoving) {
+      if (isDeExpandingHold) {
+        const durationSeconds = ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS / 1000;
+        return {
+          height: { duration: durationSeconds, ease: FEED_ROW_EXIT_EASING },
+          marginBottom: {
+            duration: durationSeconds,
+            ease: FEED_ROW_EXIT_EASING,
+          },
+          opacity: {
+            duration: durationSeconds,
+            ease: FEED_ROW_OPACITY_EASING,
+          },
+        };
+      }
 
-    if (isDeExpandingHold) {
-      const durationSeconds = ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS / 1000;
+      const collapseDurationSeconds =
+        (ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS) /
+        1000;
+      const collapseDelaySeconds = FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS / 1000;
+      const swipeHeightDelaySeconds =
+        Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
+      const opacityDurationSeconds =
+        Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
+
       return {
-        height: { duration: durationSeconds, ease: FEED_ROW_EXIT_EASING },
-        marginBottom: {
-          duration: durationSeconds,
+        height: {
+          delay: isSwipeReadExit
+            ? swipeHeightDelaySeconds
+            : collapseDelaySeconds,
+          duration: collapseDurationSeconds,
           ease: FEED_ROW_EXIT_EASING,
         },
-        opacity: { duration: durationSeconds, ease: FEED_ROW_OPACITY_EASING },
+        marginBottom: {
+          delay: isSwipeReadExit
+            ? swipeHeightDelaySeconds
+            : collapseDelaySeconds,
+          duration: collapseDurationSeconds,
+          ease: FEED_ROW_EXIT_EASING,
+        },
+        opacity: {
+          duration: opacityDurationSeconds,
+          ease: FEED_ROW_OPACITY_EASING,
+        },
       };
     }
 
-    const collapseDurationSeconds =
-      (ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS) / 1000;
-    const collapseDelaySeconds = FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS / 1000;
-    const swipeHeightDelaySeconds =
-      Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
-    const opacityDurationSeconds =
-      Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
+    if (!shouldAnimateReflow) {
+      return undefined;
+    }
 
     return {
-      height: {
-        delay: isSwipeReadExit ? swipeHeightDelaySeconds : collapseDelaySeconds,
-        duration: collapseDurationSeconds,
+      layout: {
+        duration: FEED_ROW_REFLOW_ANIMATION_MS / 1000,
         ease: FEED_ROW_EXIT_EASING,
-      },
-      marginBottom: {
-        delay: isSwipeReadExit ? swipeHeightDelaySeconds : collapseDelaySeconds,
-        duration: collapseDurationSeconds,
-        ease: FEED_ROW_EXIT_EASING,
-      },
-      opacity: {
-        duration: opacityDurationSeconds,
-        ease: FEED_ROW_OPACITY_EASING,
       },
     };
-  }, [isDeExpandingHold, isRemoving, isSwipeReadExit]);
+  }, [isDeExpandingHold, isRemoving, isSwipeReadExit, shouldAnimateReflow]);
 
   return (
     <motion.div
@@ -279,12 +301,12 @@ const FeedListRow = memo(function FeedListRow({
       }
       className="overflow-visible"
       data-feed-row-animation={removalAnimationMode ?? "idle"}
-      data-feed-row-layout={isRemoving ? "position" : "none"}
+      data-feed-row-layout={shouldAnimateReflow ? "position" : "none"}
       data-feed-row-state={isRemoving ? "collapsing" : "idle"}
       data-index={dataIndex}
       data-scroll-restore-key={articleKey}
       initial={false}
-      layout={isRemoving ? "position" : false}
+      layout={shouldAnimateReflow ? "position" : false}
       ref={setRowElement}
       style={{
         height: shouldAnimateRemoval ? resolvedRemovalHeight : undefined,
@@ -316,6 +338,10 @@ const FeedListRow = memo(function FeedListRow({
   );
 });
 
+interface FeedRowReflowAnimationOptions {
+  activeCollapsingArticleKey: null | string;
+}
+
 /**
  * Returns whether the visible feed window should expand based on the current
  * viewport position and paging state.
@@ -338,6 +364,26 @@ export function shouldLoadMoreArticles({
     Number.isFinite(remainingDistance) &&
     remainingDistance <= FEED_LOAD_MORE_THRESHOLD_PX
   );
+}
+
+/**
+ * Limits Motion position reflow to sibling rows that need to settle around an
+ * active staged removal, preventing ordinary expand/collapse from animating the
+ * rest of the feed.
+ */
+function shouldAnimateFeedRowReflow({
+  activeCollapsingArticleKey,
+}: FeedRowReflowAnimationOptions) {
+  return ({
+    articleKey,
+    removalAnimationMode,
+  }: {
+    articleKey: string;
+    removalAnimationMode: ArticleRemovalAnimationMode | null;
+  }) =>
+    activeCollapsingArticleKey !== null &&
+    articleKey !== activeCollapsingArticleKey &&
+    removalAnimationMode === null;
 }
 
 export const FeedList = memo(function FeedList({
@@ -477,6 +523,9 @@ export const FeedList = memo(function FeedList({
     nextRenderedFeed.splice(insertIndex, 0, collapsingArticleSnapshot.article);
     return nextRenderedFeed;
   }, [collapsingArticleSnapshot, visibleFeed]);
+  const shouldAnimateRowReflow = shouldAnimateFeedRowReflow({
+    activeCollapsingArticleKey,
+  });
   /**
    * Grows the rendered article window by exactly one page while retaining the
    * full selection in memory for later infinite-scroll steps.
@@ -636,6 +685,10 @@ export const FeedList = memo(function FeedList({
     ) => {
       const articleKey = getArticleKey(article);
       const articleLink = article.link.trim();
+      const removalAnimationMode =
+        activeCollapsingArticleKey === articleKey
+          ? activeCollapsingArticleMode
+          : null;
 
       return (
         <FeedListRow
@@ -647,11 +700,11 @@ export const FeedList = memo(function FeedList({
             retainedVisibleArticleHeightsRef.current.set(articleKey, height);
           }}
           onMeasureElement={options?.onMeasureElement}
-          removalAnimationMode={
-            activeCollapsingArticleKey === articleKey
-              ? activeCollapsingArticleMode
-              : null
-          }
+          removalAnimationMode={removalAnimationMode}
+          shouldAnimateReflow={shouldAnimateRowReflow({
+            articleKey,
+            removalAnimationMode,
+          })}
         >
           <ArticleCard
             article={article}
@@ -668,11 +721,7 @@ export const FeedList = memo(function FeedList({
             onToggle={onToggle}
             onToggleRead={onToggleRead}
             onToggleStarred={onToggleStarred}
-            removalAnimationMode={
-              activeCollapsingArticleKey === articleKey
-                ? activeCollapsingArticleMode
-                : null
-            }
+            removalAnimationMode={removalAnimationMode}
             showFavicon={showFavicons}
             useRichFormatting={hydratedArticleLinks[articleLink]}
           />
@@ -694,6 +743,7 @@ export const FeedList = memo(function FeedList({
       onToggleRead,
       onToggleStarred,
       showFavicons,
+      shouldAnimateRowReflow,
       updatingArticleState,
     ],
   );

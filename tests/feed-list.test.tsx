@@ -326,6 +326,7 @@ describe("FeedList", () => {
       expect(row?.style.height).toBeTruthy();
       expect(row?.style.minHeight).toBe("12px");
       expect(row?.style.marginBottom).toBeTruthy();
+      expect(row?.dataset.feedRowLayout).toBe("none");
       expect(row?.style.transform).toBe("");
       expect(row?.style.willChange).toContain("height");
       expect(row?.style.willChange).toContain("opacity");
@@ -439,10 +440,15 @@ describe("FeedList", () => {
 
   test("limits row position layout animation to removal states", async () => {
     const article = buildArticle({ title: "Layout guard article" });
+    const sibling = buildArticle({
+      id: 2,
+      link: "https://example.com/articles/layout-guard-sibling",
+      title: "Layout guard sibling article",
+    });
     const { container, getByText, rerender } = renderFeedList(
       <FeedList
         expandedArticleKey={article.link}
-        filteredFeed={[article]}
+        filteredFeed={[article, sibling]}
         hydratedArticleLinks={{}}
         hydratingArticleLinks={{}}
         isInitialLoading={false}
@@ -461,12 +467,18 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText(article.title)).toBeTruthy();
+      expect(getByText(sibling.title)).toBeTruthy();
       const row = container.querySelector<HTMLElement>(
         `[data-scroll-restore-key="${article.link}"]`,
+      );
+      const siblingRow = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${sibling.link}"]`,
       );
 
       expect(row).toBeTruthy();
       expect(row?.dataset.feedRowLayout).toBe("none");
+      expect(siblingRow).toBeTruthy();
+      expect(siblingRow?.dataset.feedRowLayout).toBe("none");
     });
 
     rerender(
@@ -475,7 +487,7 @@ describe("FeedList", () => {
           collapsingArticleKey={article.link}
           collapsingArticleMode="collapse"
           expandedArticleKey={null}
-          filteredFeed={[article]}
+          filteredFeed={[article, sibling]}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
           isInitialLoading={false}
@@ -497,10 +509,15 @@ describe("FeedList", () => {
       const row = container.querySelector<HTMLElement>(
         `[data-scroll-restore-key="${article.link}"]`,
       );
+      const siblingRow = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${sibling.link}"]`,
+      );
 
       expect(row).toBeTruthy();
-      expect(row?.dataset.feedRowLayout).toBe("position");
+      expect(row?.dataset.feedRowLayout).toBe("none");
       expect(row?.dataset.feedRowState).toBe("collapsing");
+      expect(siblingRow).toBeTruthy();
+      expect(siblingRow?.dataset.feedRowLayout).toBe("position");
     });
   });
 
