@@ -12,13 +12,13 @@ const SIDEBAR_SECTION_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
-interface DashboardSidebarContentProps {
+export interface DashboardSidebarContentProps {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
   onCategoryClick: (categoryNode: CategoryTreeNode) => void;
-  onCategoryIntent: (categoryNode: CategoryTreeNode) => void;
+  onCategoryPrefetch: (categoryNode: CategoryTreeNode) => void;
   onFeedClick: (feedNode: CategoryTreeNode) => void;
-  onFeedIntent: (feedNode: CategoryTreeNode) => void;
+  onFeedPrefetch: (feedNode: CategoryTreeNode) => void;
   selectedCategory: string;
   showFavicons: boolean;
   sidebarCategories: CategoryTreeNode[];
@@ -28,9 +28,9 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
   isCategoriesLoading,
   isSidebarVisible,
   onCategoryClick,
-  onCategoryIntent,
+  onCategoryPrefetch,
   onFeedClick,
-  onFeedIntent,
+  onFeedPrefetch,
   selectedCategory,
   showFavicons,
   sidebarCategories,
@@ -100,10 +100,10 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                       onCategoryClick(categoryNode);
                     }}
                     onFocus={() => {
-                      onCategoryIntent(categoryNode);
+                      onCategoryPrefetch(categoryNode);
                     }}
                     onMouseEnter={() => {
-                      onCategoryIntent(categoryNode);
+                      onCategoryPrefetch(categoryNode);
                     }}
                     type="button"
                   >
@@ -117,7 +117,7 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                       isActive={selectedCategory === feedNode.key}
                       key={feedNode.key}
                       onClick={onFeedClick}
-                      onIntent={onFeedIntent}
+                      onPrefetch={onFeedPrefetch}
                       showFavicon={showFavicons}
                     />
                   ),
