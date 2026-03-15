@@ -15,12 +15,12 @@ import { PLACEHOLDER_ADMIN_USER } from "@/lib/core/runtime";
 import { logger } from "@/lib/logger";
 import {
   logAndRespondError,
-  rateLimiter,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
   requireMutableRequest,
   requireMutableUserAndJsonBody,
 } from "@/lib/server";
+import { rateLimiter } from "@/lib/server/rate-limit";
 
 /** Build a POST NextRequest that passes CSRF same-origin validation. */
 const buildMutableRequest = () =>

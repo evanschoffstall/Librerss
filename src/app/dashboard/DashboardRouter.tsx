@@ -57,7 +57,7 @@ export function DashboardRouter({
   );
   const [distillStrategy, setDistillStrategy] = useLocalStorage<string>(
     "librerss:distillStrategy",
-    "custom",
+    "librerss",
   );
 
   const isLightMode = (resolvedTheme ?? "dark") === "light";
@@ -69,7 +69,7 @@ export function DashboardRouter({
     : "particles";
   const resolvedDistillStrategy = hasHydratedClientState
     ? distillStrategy
-    : "custom";
+    : "librerss";
 
   useEffect(() => {
     setHasHydratedClientState(true);

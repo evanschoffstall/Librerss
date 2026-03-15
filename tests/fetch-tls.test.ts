@@ -79,10 +79,6 @@ mock.module("tlsclientwrapper", () => ({
     }
   },
   SessionClient: class {
-    constructor(
-      private _mc: unknown,
-      private _opts: Record<string, unknown>,
-    ) {}
     destroySession() {
       return Promise.resolve();
     }

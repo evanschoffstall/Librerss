@@ -27,6 +27,13 @@ interface UseDashboardBroadcastsOptions {
   selectedFeed?: string;
 }
 
+type UseDashboardEffectsOptions = UseDashboardBroadcastsOptions &
+  UseDashboardInitializationOptions &
+  UseFeedLoadingTimeoutOptions & {
+    /** Reveals the sidebar once the dashboard has mounted on the client. */
+    setIsSidebarVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  };
+
 /**
  * Options for bootstrapping the dashboard's initial category/feed selection.
  *
@@ -102,6 +109,60 @@ export function useDashboardBroadcasts({
       }),
     );
   }, [isSearchPending]);
+}
+
+/**
+ * Runs the dashboard's shared effects from one canonical entry point.
+ *
+ * Grouping these related effects behind a single exported hook keeps the
+ * controller focused on state composition while this module owns the mount,
+ * timeout, initialization, and broadcast side effects.
+ *
+ * @param options Dashboard effect inputs sourced from controller state.
+ */
+export function useDashboardEffects({
+  fetchAllFeeds,
+  fetchCategoryFeeds,
+  fetchFeed,
+  hasInitializedDashboardRef,
+  isSearchPending,
+  loadFeedSources,
+  loading,
+  loadingEpoch,
+  onTimeout,
+  searchTerm,
+  selectedCategory,
+  selectedFeed,
+  setIsCategoriesLoading,
+  setIsSidebarVisible,
+  setLoading,
+  setSelectedCategory,
+  timeoutMs,
+}: UseDashboardEffectsOptions) {
+  useFeedLoadingTimeout({
+    loading,
+    loadingEpoch,
+    onTimeout,
+    setLoading,
+    timeoutMs,
+  });
+  useLockDocumentScroll();
+  useRevealSidebarOnMount(setIsSidebarVisible);
+  useDashboardInitialization({
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    loadFeedSources,
+    selectedCategory,
+    setIsCategoriesLoading,
+    setSelectedCategory,
+  });
+  useDashboardBroadcasts({
+    isSearchPending,
+    searchTerm,
+    selectedFeed,
+  });
 }
 
 /**

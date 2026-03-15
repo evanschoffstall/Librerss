@@ -8,9 +8,28 @@ export interface FeedFetchOptions {
   forceRefresh?: boolean;
   keepExistingFeed?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
-  requestSource?: string;
+  requestSource?: FeedRequestSource;
   skipRefresh?: boolean;
 }
+
+/**
+ * Canonical request-source labels for dashboard-triggered feed fetches.
+ *
+ * Keeping these labels explicit prevents silent naming drift across the dashboard
+ * fetch layer while preserving the existing analytics and diagnostics semantics.
+ */
+export type FeedRequestSource =
+  | "auto-refresh"
+  | "dashboard-initial-cache"
+  | "feed-added"
+  | "feed-hidden-selection-fallback"
+  | "feed-reenabled"
+  | "manual-refresh"
+  | "opml-imported"
+  | "sidebar-category-prefetch"
+  | "sidebar-category-select"
+  | "sidebar-feed-prefetch"
+  | "sidebar-feed-select";
 
 /** Feed fetch callbacks used when resolving a selected dashboard surface. */
 export interface FeedSelectionFetchers {
@@ -36,7 +55,7 @@ type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   fallbackFeedUrl?: string;
   forceRefresh?: boolean;
   keepExistingFeed?: boolean;
-  requestSource?: string;
+  requestSource?: FeedRequestSource;
   selectedCategory: string;
   selectedCategoryNode?: CategoryTreeNode;
   selectedFeedUrl?: string;

@@ -12,7 +12,7 @@ interface FeedBatchResolverDependencies {
     options?: {
       forceRefresh?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
-      requestSource?: string;
+      requestSource?: FeedFetchOptions["requestSource"];
       signal?: AbortSignal;
       skipRefresh?: boolean;
     },

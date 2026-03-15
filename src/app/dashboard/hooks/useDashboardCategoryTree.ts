@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Category state composition: order persistence, category CRUD, feed-source CRUD.
+ * Category-tree composition: order persistence, category CRUD, and feed-source CRUD.
  */
 
 import { useCallback } from "react";
@@ -11,11 +11,20 @@ import { useCategoryCrudActions } from "./useCategoryCrudActions";
 import { useCategoryOrderState } from "./useCategoryOrderState";
 import { useFeedSourceActions } from "./useFeedSourceActions";
 
-interface UseCategoryManagerOptions extends FeedSourceActionState {
+interface UseDashboardCategoryTreeOptions extends FeedSourceActionState {
   usePlaceholderData?: boolean;
 }
 
-export function useCategoryManager({
+/**
+ * Composes the dashboard's category tree state and mutations.
+ *
+ * This hook owns the ordered category labels, custom-category state, and all
+ * feed-source/category mutations that reshape the sidebar tree.
+ *
+ * @param options Category tree state, fetchers, and persistence setters.
+ * @returns Category tree state and mutations consumed by dashboard settings and sidebar flows.
+ */
+export function useDashboardCategoryTree({
   categories,
   fetchAllFeeds,
   fetchCategoryFeeds,
@@ -26,7 +35,7 @@ export function useCategoryManager({
   setFeed,
   setSelectedCategory,
   usePlaceholderData = false,
-}: UseCategoryManagerOptions) {
+}: UseDashboardCategoryTreeOptions) {
   const { orderedCategoryLabels, setOrderedCategoryLabels } =
     useCategoryOrderState({ usePlaceholderData });
   const categoryCrudActions = useCategoryCrudActions({
@@ -61,11 +70,8 @@ export function useCategoryManager({
 
   return {
     addCategory: categoryCrudActions.addCategory,
-    // Feed source actions (delegated)
     addFeedSource: feedSourceActions.addFeedSource,
-    // State
     customCategoryLabels: categoryCrudActions.customCategoryLabels,
-    // Category actions
     ensureCategoryLabelExists: categoryCrudActions.ensureCategoryLabelExists,
     importOpmlFeeds,
     moveCategoryByDrop: categoryCrudActions.moveCategoryByDrop,

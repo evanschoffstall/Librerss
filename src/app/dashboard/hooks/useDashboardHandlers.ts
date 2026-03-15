@@ -16,7 +16,7 @@ import { type CategoryTreeNode } from "@/lib";
  * These handlers sit between presentational components and the shared selection
  * services, binding the current selection context with sidebar UI state changes.
  */
-type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
+type UseDashboardHandlersOptions = FeedSelectionFetchers & {
   /** Optional hook invoked immediately before a refresh starts, typically to capture scroll state. */
   onBeforeRefresh?: () => void;
   /** Shared callback fired whenever the user changes the active feed/category selection. */
@@ -49,7 +49,7 @@ type UseDashboardViewHandlersOptions = FeedSelectionFetchers & {
  * @param options Current selection context, fetchers, and local UI setters.
  * @returns Stable callbacks for feed/category clicks and refresh actions.
  */
-export function useDashboardViewHandlers({
+export function useDashboardHandlers({
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
@@ -63,7 +63,7 @@ export function useDashboardViewHandlers({
   selectedFeedUrl,
   setIsMobileSidebarOpen,
   setSelectedCategory,
-}: UseDashboardViewHandlersOptions) {
+}: UseDashboardHandlersOptions) {
   /** Performs a user-initiated refresh of the current selection. */
   const handleRefreshSelection = useCallback(() => {
     onBeforeRefresh?.();
@@ -133,7 +133,7 @@ export function useDashboardViewHandlers({
   );
 
   /** Prefetches a feed on hover/focus so selection can reuse a warm query. */
-  const handleFeedIntent = useCallback(
+  const handleFeedPrefetch = useCallback(
     (feedNode: CategoryTreeNode) => {
       if (
         selectedCategory === feedNode.key ||
@@ -183,7 +183,7 @@ export function useDashboardViewHandlers({
   );
 
   /** Prefetches a category on hover/focus so bulk selections land immediately. */
-  const handleCategoryIntent = useCallback(
+  const handleCategoryPrefetch = useCallback(
     (categoryNode: CategoryTreeNode) => {
       if (selectedCategory === categoryNode.key) {
         return;
@@ -212,9 +212,9 @@ export function useDashboardViewHandlers({
   return {
     autoRefreshFeedList: handleAutoRefreshSelection,
     handleCategoryClick,
-    handleCategoryIntent,
+    handleCategoryPrefetch,
     handleFeedClick,
-    handleFeedIntent,
+    handleFeedPrefetch,
     handleRefreshSelection,
     refreshFeedList: handleRefreshSelection,
   };

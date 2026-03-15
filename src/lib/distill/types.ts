@@ -1,7 +1,7 @@
-export type DistillStrategy = "custom" | "defuddle" | "readability";
+export type DistillStrategy = "defuddle" | "librerss" | "readability";
 
 export const DISTILL_STRATEGIES: readonly DistillStrategy[] = [
-  "custom",
+  "librerss",
   "readability",
   "defuddle",
 ] as const;

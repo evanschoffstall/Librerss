@@ -10,6 +10,14 @@ import {
 
 import { DASHBOARD_EVENTS } from "../constants";
 
+import {
+  clearPersistedPreExpandScroll,
+  findArticleViewport,
+  getScrollLockReleaseMs,
+  readPersistedPreExpandScroll,
+  scrollExpandedArticleIntoView,
+  writePersistedPreExpandScroll,
+} from "./feed-surface-scroll-lock";
 import { escapeArticleKey } from "./useArticleHydration";
 
 export const FEED_PULL_HEIGHT = 104;
@@ -22,14 +30,6 @@ const HOLD_OFFSET = 44;
 const HOLD_MS = 650;
 const RELEASE_MS = 200;
 const WHEEL_SETTLE_MS = 280;
-const LOCK_RELEASE_BUFFER_MS = 80;
-const LOCK_RELEASE_FALLBACK_MS = 320;
-const PRE_EXPAND_SCROLL_SESSION_KEY = "librerss:article-pre-expand-scroll";
-
-interface PersistedPreExpandScroll {
-  articleKey: string;
-  scrollTop: number;
-}
 
 interface PullState {
   pulling: boolean;
@@ -656,7 +656,7 @@ export function useFeedScrollLock(
       } else {
         preExpandViewport.current = viewport;
       }
-      scrollExpandedArticleIntoView(article, viewport);
+      scrollExpandedArticleIntoView(article, viewport, FEED_PULL_OFFSET);
       if (lockRef) lockRef.current = -1;
 
       const release = () => {
@@ -703,139 +703,4 @@ export function useFeedScrollLock(
     preExpandScrollTop,
     preExpandViewport,
   };
-}
-
-function clampViewportScrollTop(viewport: HTMLElement, target: number) {
-  const maxScrollTop = Math.max(
-    FEED_PULL_OFFSET,
-    viewport.scrollHeight - viewport.clientHeight,
-  );
-  return Math.min(maxScrollTop, Math.max(FEED_PULL_OFFSET, target));
-}
-
-function clearPersistedPreExpandScroll() {
-  const storage = getSessionStorage();
-  if (!storage) return;
-  try {
-    storage.removeItem(PRE_EXPAND_SCROLL_SESSION_KEY);
-  } catch {
-    return undefined;
-  }
-}
-
-function findArticleViewport(articleKey: string) {
-  try {
-    const article = document.querySelector<HTMLElement>(
-      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
-    );
-
-    return (
-      article?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null
-    );
-  } catch {
-    return null;
-  }
-}
-
-function getScrollLockReleaseMs() {
-  if (typeof window === "undefined" || typeof getComputedStyle !== "function") {
-    return LOCK_RELEASE_FALLBACK_MS;
-  }
-
-  const duration =
-    parseCssDurationMs(
-      document.body.style.getPropertyValue("--motion-duration-expand"),
-    ) ??
-    parseCssDurationMs(
-      getComputedStyle(document.body).getPropertyValue(
-        "--motion-duration-expand",
-      ),
-    ) ??
-    parseCssDurationMs(
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--motion-duration-expand",
-      ),
-    );
-  return duration === null
-    ? LOCK_RELEASE_FALLBACK_MS
-    : duration + LOCK_RELEASE_BUFFER_MS;
-}
-
-function getSessionStorage() {
-  try {
-    return typeof window === "undefined" ? null : window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
-function isPersistedPreExpandScroll(
-  value: unknown,
-): value is PersistedPreExpandScroll {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<PersistedPreExpandScroll>;
-  return (
-    typeof candidate.articleKey === "string" &&
-    Number.isFinite(candidate.scrollTop)
-  );
-}
-
-function parseCssDurationMs(value: string) {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-
-  if (trimmed.endsWith("ms")) {
-    const parsed = Number.parseFloat(trimmed.slice(0, -2));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  if (trimmed.endsWith("s")) {
-    const parsed = Number.parseFloat(trimmed.slice(0, -1));
-    return Number.isFinite(parsed) ? parsed * 1000 : null;
-  }
-
-  const parsed = Number.parseFloat(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function readPersistedPreExpandScroll(
-  articleKey: string,
-): null | PersistedPreExpandScroll {
-  const storage = getSessionStorage();
-  if (!storage) return null;
-  try {
-    const raw = storage.getItem(PRE_EXPAND_SCROLL_SESSION_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isPersistedPreExpandScroll(parsed)) return null;
-    return parsed.articleKey === articleKey ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function scrollExpandedArticleIntoView(
-  article: HTMLElement,
-  viewport: HTMLElement,
-) {
-  const articleTop = article.getBoundingClientRect().top;
-  const viewportRect = viewport.getBoundingClientRect();
-  if (articleTop >= viewportRect.top && articleTop <= viewportRect.bottom) {
-    return;
-  }
-
-  viewport.scrollTop = clampViewportScrollTop(
-    viewport,
-    viewport.scrollTop + articleTop - viewportRect.top,
-  );
-}
-
-function writePersistedPreExpandScroll(saved: PersistedPreExpandScroll) {
-  const storage = getSessionStorage();
-  if (!storage) return;
-  try {
-    storage.setItem(PRE_EXPAND_SCROLL_SESSION_KEY, JSON.stringify(saved));
-  } catch {
-    return undefined;
-  }
 }

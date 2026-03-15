@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { Suspense } from "react";
 
 import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
+import { LoginViewSkeleton } from "./components/login/LoginViewSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
 import {
   DASHBOARD_PREVIEW_COOKIE_NAME,
@@ -32,9 +33,16 @@ export default async function Dashboard(props: PageProps<"/dashboard">) {
     ? buildAnonymousSession()
     : await getInitialSession(cookieStore);
 
+  const showLoginSkeleton =
+    !initialPreviewMode && !initialSession.authenticated;
+
   return (
     <div className="h-dvh overflow-hidden overscroll-contain">
-      <Suspense fallback={<DashboardShellSkeleton />}>
+      <Suspense
+        fallback={
+          showLoginSkeleton ? <LoginViewSkeleton /> : <DashboardShellSkeleton />
+        }
+      >
         <DashboardRouter
           hasPreviewQuery={hasPreviewQuery}
           initialPreviewMode={initialPreviewMode}

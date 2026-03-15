@@ -21,8 +21,8 @@ import { createMockArticle } from "./support/test-utils";
 import {
   toggleReadStatus,
   toggleStarredStatus,
-  useArticleActions,
-} from "@/app/dashboard/hooks/useArticleActions";
+} from "@/app/dashboard/hooks/article-toggle-state";
+import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
 import type { Article } from "@/lib";
 import { ArticleService } from "@/lib";
 
@@ -953,7 +953,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
       {
         initialProps: {
           expandedKey: expandedArticleKey,
-          strategy: "custom",
+          strategy: "librerss",
         },
       },
     );
@@ -961,7 +961,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
     await runWithAct(async () => {
       await result.current.handleArticleToggle(article);
     });
-    rerender({ expandedKey: expandedArticleKey, strategy: "custom" });
+    rerender({ expandedKey: expandedArticleKey, strategy: "librerss" });
 
     await waitFor(() => {
       expect(
@@ -975,7 +975,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
     expect(ArticleService.extractArticleContent).toHaveBeenLastCalledWith(
       article.link,
       expect.objectContaining({
-        distillStrategy: "custom",
+        distillStrategy: "librerss",
         useProxy: undefined,
       }),
     );

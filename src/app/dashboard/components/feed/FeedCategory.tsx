@@ -12,7 +12,7 @@ interface FeedCategoryProps {
   category: CategoryTreeNode;
   isActive: boolean;
   onClick: (node: CategoryTreeNode) => void;
-  onIntent: (node: CategoryTreeNode) => void;
+  onPrefetch: (node: CategoryTreeNode) => void;
   showFavicon: boolean;
 }
 
@@ -25,7 +25,7 @@ export const FeedCategory = memo(function FeedCategory({
   category,
   isActive,
   onClick,
-  onIntent,
+  onPrefetch,
   showFavicon,
 }: FeedCategoryProps) {
   const shouldReduceMotion = useReducedMotion();
@@ -59,10 +59,10 @@ export const FeedCategory = memo(function FeedCategory({
         onClick(category);
       }}
       onFocus={() => {
-        onIntent(category);
+        onPrefetch(category);
       }}
       onMouseEnter={() => {
-        onIntent(category);
+        onPrefetch(category);
       }}
       transition={FEED_CATEGORY_HOVER_TRANSITION}
       whileHover={

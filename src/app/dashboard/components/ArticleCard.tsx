@@ -23,10 +23,8 @@ import { toast } from "sonner";
 
 import { DASHBOARD_EVENTS } from "../constants";
 import { type ArticleRemovalAnimationMode } from "../hooks/useArticleActions";
-import {
-  useArticleExpansion,
-  useArticleHeights,
-} from "../hooks/useArticleExpansion";
+import { useArticleExpansion } from "../hooks/useArticleExpansion";
+import { useArticleHeights } from "../hooks/useArticleHeights";
 import { useFavicon } from "../hooks/useFavicon";
 import { useSwipeToRead } from "../hooks/useSwipeToRead";
 import { useSwipeToStar } from "../hooks/useSwipeToStar";
@@ -792,9 +790,9 @@ export const ArticleCard = memo(function ArticleCard({
                 text-muted-foreground/70 select-none
               "
             >
-              <div
-                className="flex shrink-0 items-center gap-2 whitespace-nowrap"
-              >
+              <div className="
+                flex shrink-0 items-center gap-2 whitespace-nowrap
+              ">
                 <CalendarDays className="size-3" />
                 {formatRelativeDate(new Date(article.publicationDate))}
                 <span

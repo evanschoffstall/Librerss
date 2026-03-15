@@ -73,7 +73,7 @@ describe("ArticleCard", () => {
   test("renders skeleton placeholders while expanded content is being fetched", () => {
     const article = buildArticle({ content: "" });
 
-    const { container, getByText } = render(
+    const { container } = render(
       <ArticleCard
         article={article}
         articleKey="article-1"

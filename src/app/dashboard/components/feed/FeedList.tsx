@@ -24,10 +24,26 @@ import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
 
+import {
+  FEED_LOAD_MORE_THRESHOLD_PX,
+  FEED_ROW_COLLAPSE_FLOOR_PX,
+  FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS,
+  FEED_ROW_COLLAPSE_OFFSET_PX,
+  FEED_ROW_EXIT_EASING,
+  FEED_ROW_GAP_PX,
+  FEED_ROW_OPACITY_EASING,
+  FEED_ROW_REFLOW_ANIMATION_MS,
+  FEED_ROW_SWIPE_EXIT_DISTANCE,
+  FEED_ROW_SWIPE_EXIT_EASING,
+  FEED_ROW_VIRTUAL_OVERSCAN,
+  VIRTUAL_FEED_ROW_ESTIMATE_PX,
+} from "./constants";
+
 import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 interface FeedListProps {
+  collapseSettlingArticleKey?: null | string;
   collapsingArticleKey?: null | string;
   collapsingArticleMode?: ArticleRemovalAnimationMode | null;
   expandedArticleKey: null | string;
@@ -49,30 +65,6 @@ interface FeedListProps {
   updatingArticleState: Record<string, boolean>;
 }
 
-interface FeedLoadMoreState {
-  clientHeight: number;
-  hasUserScrolled: boolean;
-  scrollHeight: number;
-  scrollTop: number;
-  totalArticleCount: number;
-  visibleArticleCount: number;
-}
-
-/** Approximate row height used to convert the page-size preference into preload distance. */
-const VIRTUAL_FEED_ROW_ESTIMATE_PX = 168;
-/** Viewport distance from the bottom that should trigger the next page load. */
-const FEED_LOAD_MORE_THRESHOLD_PX = VIRTUAL_FEED_ROW_ESTIMATE_PX * 3;
-const FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS = 90;
-const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
-const FEED_ROW_GAP_PX = 6;
-const FEED_ROW_COLLAPSE_OFFSET_PX =
-  FEED_ROW_COLLAPSE_FLOOR_PX + FEED_ROW_GAP_PX;
-const FEED_ROW_SWIPE_EXIT_DISTANCE = "calc(100% + 4rem)";
-const FEED_ROW_VIRTUAL_OVERSCAN = 6;
-const FEED_ROW_EXIT_EASING = [0.22, 1, 0.36, 1] as const;
-const FEED_ROW_OPACITY_EASING = [0.16, 1, 0.3, 1] as const;
-const FEED_ROW_SWIPE_EXIT_EASING = [0.2, 0, 0, 1] as const;
-
 interface FeedListRowProps {
   articleKey: string;
   children: React.ReactNode;
@@ -81,6 +73,16 @@ interface FeedListRowProps {
   onMeasuredHeightChange?: (height: number) => void;
   onMeasureElement?: (element: HTMLDivElement | null) => void;
   removalAnimationMode: ArticleRemovalAnimationMode | null;
+  shouldAnimateReflow: boolean;
+}
+
+interface FeedLoadMoreState {
+  clientHeight: number;
+  hasUserScrolled: boolean;
+  scrollHeight: number;
+  scrollTop: number;
+  totalArticleCount: number;
+  visibleArticleCount: number;
 }
 
 interface RetainedCollapsingArticle {
@@ -113,6 +115,7 @@ const FeedListRow = memo(function FeedListRow({
   onMeasuredHeightChange,
   onMeasureElement,
   removalAnimationMode,
+  shouldAnimateReflow,
 }: FeedListRowProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const removalActivationTimeoutRef = useRef<null | number>(null);
@@ -226,45 +229,64 @@ const FeedListRow = memo(function FeedListRow({
         : "translate3d(0px, 0px, 0px) scale(1)"
       : undefined;
   const rowMotionTransition = useMemo(() => {
-    if (!isRemoving) return undefined;
+    if (isRemoving) {
+      if (isDeExpandingHold) {
+        const durationSeconds = ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS / 1000;
+        return {
+          height: { duration: durationSeconds, ease: FEED_ROW_EXIT_EASING },
+          marginBottom: {
+            duration: durationSeconds,
+            ease: FEED_ROW_EXIT_EASING,
+          },
+          opacity: {
+            duration: durationSeconds,
+            ease: FEED_ROW_OPACITY_EASING,
+          },
+        };
+      }
 
-    if (isDeExpandingHold) {
-      const durationSeconds = ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS / 1000;
+      const collapseDurationSeconds =
+        (ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS) /
+        1000;
+      const collapseDelaySeconds = FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS / 1000;
+      const swipeHeightDelaySeconds =
+        Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
+      const opacityDurationSeconds =
+        Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
+
       return {
-        height: { duration: durationSeconds, ease: FEED_ROW_EXIT_EASING },
-        marginBottom: {
-          duration: durationSeconds,
+        height: {
+          delay: isSwipeReadExit
+            ? swipeHeightDelaySeconds
+            : collapseDelaySeconds,
+          duration: collapseDurationSeconds,
           ease: FEED_ROW_EXIT_EASING,
         },
-        opacity: { duration: durationSeconds, ease: FEED_ROW_OPACITY_EASING },
+        marginBottom: {
+          delay: isSwipeReadExit
+            ? swipeHeightDelaySeconds
+            : collapseDelaySeconds,
+          duration: collapseDurationSeconds,
+          ease: FEED_ROW_EXIT_EASING,
+        },
+        opacity: {
+          duration: opacityDurationSeconds,
+          ease: FEED_ROW_OPACITY_EASING,
+        },
       };
     }
 
-    const collapseDurationSeconds =
-      (ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS) / 1000;
-    const collapseDelaySeconds = FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS / 1000;
-    const swipeHeightDelaySeconds =
-      Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
-    const opacityDurationSeconds =
-      Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
+    if (!shouldAnimateReflow) {
+      return undefined;
+    }
 
     return {
-      height: {
-        delay: isSwipeReadExit ? swipeHeightDelaySeconds : collapseDelaySeconds,
-        duration: collapseDurationSeconds,
+      layout: {
+        duration: FEED_ROW_REFLOW_ANIMATION_MS / 1000,
         ease: FEED_ROW_EXIT_EASING,
-      },
-      marginBottom: {
-        delay: isSwipeReadExit ? swipeHeightDelaySeconds : collapseDelaySeconds,
-        duration: collapseDurationSeconds,
-        ease: FEED_ROW_EXIT_EASING,
-      },
-      opacity: {
-        duration: opacityDurationSeconds,
-        ease: FEED_ROW_OPACITY_EASING,
       },
     };
-  }, [isDeExpandingHold, isRemoving, isSwipeReadExit]);
+  }, [isDeExpandingHold, isRemoving, isSwipeReadExit, shouldAnimateReflow]);
 
   return (
     <motion.div
@@ -279,12 +301,12 @@ const FeedListRow = memo(function FeedListRow({
       }
       className="overflow-visible"
       data-feed-row-animation={removalAnimationMode ?? "idle"}
-      data-feed-row-layout={isRemoving ? "position" : "none"}
+      data-feed-row-layout={shouldAnimateReflow ? "position" : "none"}
       data-feed-row-state={isRemoving ? "collapsing" : "idle"}
       data-index={dataIndex}
       data-scroll-restore-key={articleKey}
       initial={false}
-      layout={isRemoving ? "position" : false}
+      layout={shouldAnimateReflow ? "position" : false}
       ref={setRowElement}
       style={{
         height: shouldAnimateRemoval ? resolvedRemovalHeight : undefined,
@@ -316,6 +338,10 @@ const FeedListRow = memo(function FeedListRow({
   );
 });
 
+interface FeedRowReflowAnimationOptions {
+  activeCollapsingArticleKey: null | string;
+}
+
 /**
  * Returns whether the visible feed window should expand based on the current
  * viewport position and paging state.
@@ -340,7 +366,28 @@ export function shouldLoadMoreArticles({
   );
 }
 
+/**
+ * Limits Motion position reflow to sibling rows that need to settle around an
+ * active staged removal, preventing ordinary expand/collapse from animating the
+ * rest of the feed.
+ */
+function shouldAnimateFeedRowReflow({
+  activeCollapsingArticleKey,
+}: FeedRowReflowAnimationOptions) {
+  return ({
+    articleKey,
+    removalAnimationMode,
+  }: {
+    articleKey: string;
+    removalAnimationMode: ArticleRemovalAnimationMode | null;
+  }) =>
+    activeCollapsingArticleKey !== null &&
+    articleKey !== activeCollapsingArticleKey &&
+    removalAnimationMode === null;
+}
+
 export const FeedList = memo(function FeedList({
+  collapseSettlingArticleKey = null,
   collapsingArticleKey = null,
   collapsingArticleMode = null,
   expandedArticleKey,
@@ -368,8 +415,15 @@ export const FeedList = memo(function FeedList({
     null,
   );
   const [visibleArticleCount, setVisibleArticleCount] = useState(pageSize);
+  const collapseSettleTimeoutRef = useRef<null | number>(null);
   const collapseDisplayTimeoutRef = useRef<null | number>(null);
   const hasUserScrolledRef = useRef(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const previousExpandedArticleKeyRef = useRef<null | string>(
+    expandedArticleKey,
+  );
+  const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
+    useState(false);
   const [displayedCollapsingArticleKey, setDisplayedCollapsingArticleKey] =
     useState<null | string>(collapsingArticleKey);
   const [displayedCollapsingArticleMode, setDisplayedCollapsingArticleMode] =
@@ -380,12 +434,35 @@ export const FeedList = memo(function FeedList({
 
   useEffect(
     () => () => {
+      if (collapseSettleTimeoutRef.current !== null) {
+        window.clearTimeout(collapseSettleTimeoutRef.current);
+      }
       if (collapseDisplayTimeoutRef.current !== null) {
         window.clearTimeout(collapseDisplayTimeoutRef.current);
       }
     },
     [],
   );
+
+  useLayoutEffect(() => {
+    const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
+    previousExpandedArticleKeyRef.current = expandedArticleKey;
+
+    if (expandedArticleKey !== null) {
+      if (collapseSettleTimeoutRef.current !== null) {
+        window.clearTimeout(collapseSettleTimeoutRef.current);
+        collapseSettleTimeoutRef.current = null;
+      }
+      setIsVirtualizationResumeDeferred(false);
+      return;
+    }
+
+    if (previousExpandedArticleKey === null) {
+      return;
+    }
+
+    setIsVirtualizationResumeDeferred(true);
+  }, [expandedArticleKey]);
 
   useEffect(() => {
     if (!collapsingArticleKey) {
@@ -477,6 +554,9 @@ export const FeedList = memo(function FeedList({
     nextRenderedFeed.splice(insertIndex, 0, collapsingArticleSnapshot.article);
     return nextRenderedFeed;
   }, [collapsingArticleSnapshot, visibleFeed]);
+  const shouldAnimateRowReflow = shouldAnimateFeedRowReflow({
+    activeCollapsingArticleKey,
+  });
   /**
    * Grows the rendered article window by exactly one page while retaining the
    * full selection in memory for later infinite-scroll steps.
@@ -490,6 +570,30 @@ export const FeedList = memo(function FeedList({
       return Math.min(currentCount + pageSize, filteredFeed.length);
     });
   }, [filteredFeed.length, pageSize]);
+
+  const maybeLoadNextPage = useCallback(() => {
+    if (!scrollViewport) {
+      return;
+    }
+
+    if (
+      shouldLoadMoreArticles({
+        clientHeight: scrollViewport.clientHeight,
+        hasUserScrolled: hasUserScrolledRef.current,
+        scrollHeight: scrollViewport.scrollHeight,
+        scrollTop: scrollViewport.scrollTop,
+        totalArticleCount: filteredFeed.length,
+        visibleArticleCount,
+      })
+    ) {
+      expandVisibleWindow();
+    }
+  }, [
+    expandVisibleWindow,
+    filteredFeed.length,
+    scrollViewport,
+    visibleArticleCount,
+  ]);
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
@@ -525,23 +629,9 @@ export const FeedList = memo(function FeedList({
       return;
     }
 
-    const maybeLoadNextPage = () => {
-      if (
-        shouldLoadMoreArticles({
-          clientHeight: scrollViewport.clientHeight,
-          hasUserScrolled: hasUserScrolledRef.current,
-          scrollHeight: scrollViewport.scrollHeight,
-          scrollTop: scrollViewport.scrollTop,
-          totalArticleCount: filteredFeed.length,
-          visibleArticleCount,
-        })
-      ) {
-        expandVisibleWindow();
-      }
-    };
-
     const handleScrollIntent = () => {
       hasUserScrolledRef.current = true;
+      setIsVirtualizationResumeDeferred(false);
       maybeLoadNextPage();
     };
     const handleViewportScroll = () => {
@@ -567,9 +657,49 @@ export const FeedList = memo(function FeedList({
       scrollViewport.removeEventListener("touchmove", handleScrollIntent);
       scrollViewport.removeEventListener("wheel", handleScrollIntent);
     };
+  }, [maybeLoadNextPage, scrollViewport]);
+
+  useEffect(() => {
+    if (
+      !scrollViewport ||
+      typeof IntersectionObserver !== "function" ||
+      visibleArticleCount >= filteredFeed.length
+    ) {
+      return;
+    }
+
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry.isIntersecting) {
+          return;
+        }
+
+        if (scrollViewport.scrollTop > 0) {
+          hasUserScrolledRef.current = true;
+        }
+
+        maybeLoadNextPage();
+      },
+      {
+        root: scrollViewport,
+        rootMargin: `0px 0px ${FEED_LOAD_MORE_THRESHOLD_PX}px 0px`,
+        threshold: 0,
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
   }, [
-    expandVisibleWindow,
     filteredFeed.length,
+    maybeLoadNextPage,
     scrollViewport,
     visibleArticleCount,
   ]);
@@ -590,18 +720,33 @@ export const FeedList = memo(function FeedList({
     );
   }, []);
 
+  /**
+   * Expanded cards keep dynamic measured height, sticky chrome, and hydrated
+   * content mounted. Suspending virtualization during that interaction, and
+   * during staged collapse exits, avoids remount and re-measure churn while
+   * the feed is still animating and restoring scroll position.
+   */
+  const shouldVirtualizeFeed =
+    scrollViewport !== null &&
+    expandedArticleKey === null &&
+    activeCollapsingArticleKey === null &&
+    collapseSettlingArticleKey === null &&
+    !isVirtualizationResumeDeferred;
+
   const feedVirtualizer = useVirtualizer({
-    count: scrollViewport ? renderedFeed.length : 0,
+    count: shouldVirtualizeFeed ? renderedFeed.length : 0,
     estimateSize: () => VIRTUAL_FEED_ROW_ESTIMATE_PX,
     getItemKey: (index) =>
       renderedFeed[index]
         ? getArticleKey(renderedFeed[index])
         : `feed-missing-row-${index}`,
-    getScrollElement: () => scrollViewport,
+    getScrollElement: () => (shouldVirtualizeFeed ? scrollViewport : null),
     measureElement: (element) => measureFeedListItemSize(element),
     overscan: FEED_ROW_VIRTUAL_OVERSCAN,
   });
-  const virtualFeedItems = feedVirtualizer.getVirtualItems();
+  const virtualFeedItems = shouldVirtualizeFeed
+    ? feedVirtualizer.getVirtualItems()
+    : [];
   const fallbackVirtualFeedItems = useMemo(
     () => renderedFeed.slice(0, Math.min(pageSize, renderedFeed.length)),
     [pageSize, renderedFeed],
@@ -615,10 +760,10 @@ export const FeedList = memo(function FeedList({
   );
 
   useEffect(() => {
-    if (scrollViewport) {
+    if (shouldVirtualizeFeed) {
       feedVirtualizer.measure();
     }
-  }, [feedVirtualizer, renderedFeed, scrollViewport]);
+  }, [feedVirtualizer, renderedFeed, shouldVirtualizeFeed]);
 
   /**
    * Renders a single article row while preserving the scroll-restore key and
@@ -636,6 +781,10 @@ export const FeedList = memo(function FeedList({
     ) => {
       const articleKey = getArticleKey(article);
       const articleLink = article.link.trim();
+      const removalAnimationMode =
+        activeCollapsingArticleKey === articleKey
+          ? activeCollapsingArticleMode
+          : null;
 
       return (
         <FeedListRow
@@ -647,11 +796,11 @@ export const FeedList = memo(function FeedList({
             retainedVisibleArticleHeightsRef.current.set(articleKey, height);
           }}
           onMeasureElement={options?.onMeasureElement}
-          removalAnimationMode={
-            activeCollapsingArticleKey === articleKey
-              ? activeCollapsingArticleMode
-              : null
-          }
+          removalAnimationMode={removalAnimationMode}
+          shouldAnimateReflow={shouldAnimateRowReflow({
+            articleKey,
+            removalAnimationMode,
+          })}
         >
           <ArticleCard
             article={article}
@@ -668,11 +817,7 @@ export const FeedList = memo(function FeedList({
             onToggle={onToggle}
             onToggleRead={onToggleRead}
             onToggleStarred={onToggleStarred}
-            removalAnimationMode={
-              activeCollapsingArticleKey === articleKey
-                ? activeCollapsingArticleMode
-                : null
-            }
+            removalAnimationMode={removalAnimationMode}
             showFavicon={showFavicons}
             useRichFormatting={hydratedArticleLinks[articleLink]}
           />
@@ -694,9 +839,20 @@ export const FeedList = memo(function FeedList({
       onToggleRead,
       onToggleStarred,
       showFavicons,
+      shouldAnimateRowReflow,
       updatingArticleState,
     ],
   );
+
+  const loadMoreSentinel =
+    renderedFeed.length > 0 && visibleArticleCount < filteredFeed.length ? (
+      <div
+        aria-hidden="true"
+        data-feed-load-more-sentinel="true"
+        ref={loadMoreSentinelRef}
+        style={{ height: `${FEED_LOAD_MORE_THRESHOLD_PX}px` }}
+      />
+    ) : null;
 
   return (
     <>
@@ -756,9 +912,11 @@ export const FeedList = memo(function FeedList({
             </div>
 
             <div className="space-y-2">
-              <h3 className="
+              <h3
+                className="
                 text-xl font-semibold tracking-tight text-foreground
-              ">
+              "
+              >
                 {searchTerm ? "No results" : "You're up to date"}
               </h3>
               {searchTerm ? (
@@ -798,7 +956,7 @@ export const FeedList = memo(function FeedList({
           key="feed-list"
           ref={handleViewportHostRef}
         >
-          {scrollViewport ? (
+          {shouldVirtualizeFeed ? (
             <motion.div
               className="
                 relative mx-auto w-full max-w-3xl px-1
@@ -849,6 +1007,7 @@ export const FeedList = memo(function FeedList({
                   style={{ height: `${virtualFeedBottomPadding}px` }}
                 />
               ) : null}
+              {loadMoreSentinel}
             </motion.div>
           ) : (
             <div
@@ -866,6 +1025,7 @@ export const FeedList = memo(function FeedList({
                   key: getArticleKey(article),
                 }),
               )}
+              {loadMoreSentinel}
             </div>
           )}
         </div>

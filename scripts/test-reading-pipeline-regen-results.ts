@@ -1,3 +1,6 @@
+/**
+ * Regenerates expected HTML outputs for the reading-pipeline fixtures.
+ */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -13,6 +16,9 @@ const ANONYMOUS_USER: AuthenticatedUser = {
   userId: -1,
 };
 
+/**
+ * Derives a stable article URL from captured fixture HTML for extractor parity.
+ */
 function extractCanonicalUrlFromHtml(
   html: string,
   fixtureName: string,
@@ -30,6 +36,9 @@ function extractCanonicalUrlFromHtml(
   return `https://example.invalid/${fixtureName}`;
 }
 
+/**
+ * Runs the extract route against captured HTML without performing a live fetch.
+ */
 async function extractViaApiRoute(
   articleUrl: string,
   downloadedHtml: string,
@@ -46,7 +55,6 @@ async function extractViaApiRoute(
   const response = await POST(request, {
     errorFn: () => {},
     fetchHtmlFn: async () => downloadedHtml,
-    infoFn: () => {},
     parseAndValidateArticleUrlFn: async (rawUrl) => rawUrl.trim(),
     requireMutableAuthenticatedUserFn: async () => ANONYMOUS_USER,
     shouldUseExtractCacheFn: () => false,
@@ -66,28 +74,34 @@ async function extractViaApiRoute(
   return payload.content?.trim() ?? "";
 }
 
+/**
+ * Regenerates every stored output fixture in the reading pipeline set.
+ */
 async function main() {
-  const dir = join(
-    process.cwd(),
-    "tests/templates/extract-sanitize-hydrate-pipeline",
-  );
+  const fixtureDir = join(process.cwd(), "tests/templates/reading-pipeline");
 
-  const articleFiles = readdirSync(dir)
+  const articleFiles = readdirSync(fixtureDir)
     .filter((name) => /^article-\d+\.html$/.test(name))
     .map((name) => name.replace(/\.html$/, ""))
     .sort((a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]));
 
   for (const articleName of articleFiles) {
-    const result = await regenerateExpectation(dir, articleName);
+    const result = await regenerateReadingExpectation(fixtureDir, articleName);
     console.log(
       `regenerated ${result.articleName} -> ${result.outputPath} (${result.size} chars)`,
     );
   }
 }
 
-async function regenerateExpectation(dir: string, articleName: string) {
-  const inputPath = join(dir, `${articleName}.html`);
-  const outputPath = resolveExpectedPath(dir, articleName);
+/**
+ * Rebuilds one expected output fixture from its captured article HTML.
+ */
+async function regenerateReadingExpectation(
+  fixtureDir: string,
+  articleName: string,
+) {
+  const inputPath = join(fixtureDir, `${articleName}.html`);
+  const outputPath = resolveExpectedPath(fixtureDir, articleName);
 
   const downloadedHtml = readFileSync(inputPath, "utf8");
   const url = extractCanonicalUrlFromHtml(downloadedHtml, articleName);
@@ -101,9 +115,12 @@ async function regenerateExpectation(dir: string, articleName: string) {
   return { articleName, outputPath, size: cleaned.length };
 }
 
-function resolveExpectedPath(dir: string, articleName: string): string {
+/**
+ * Maps an input article fixture name to its paired expected output path.
+ */
+function resolveExpectedPath(fixtureDir: string, articleName: string): string {
   const articleNumber = articleName.split("-")[1];
-  return join(dir, `article-results-${articleNumber}.html`);
+  return join(fixtureDir, `article-results-${articleNumber}.html`);
 }
 
 void main();

@@ -87,7 +87,7 @@ describe("core/runtime and utils/rate-limit", () => {
   });
 
   test("rate limiter enforces limits and supports trusted proxy extraction", async () => {
-    const { RateLimiter } = await import("@/lib/server");
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
     const limiter = new RateLimiter();
 
     try {

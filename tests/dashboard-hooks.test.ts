@@ -23,7 +23,7 @@ import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import {
   toggleReadStatus,
   toggleStarredStatus,
-} from "@/app/dashboard/hooks/useArticleActions";
+} from "@/app/dashboard/hooks/article-toggle-state";
 import {
   escapeArticleKey,
   useArticleHydration,

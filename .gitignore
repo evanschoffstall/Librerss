@@ -1,73 +1,64 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+# package managers and dependencies
+/.pnp/
 /.yarn/*
 !/.yarn/patches
 !/.yarn/plugins
 !/.yarn/releases
 !/.yarn/sdks
 !/.yarn/versions
-
-# package manager lock files
+/node_modules/
+.pnp.js
 bun.lock
 bun.lockb
-package-lock.json
 npm-shrinkwrap.json
-pnpm-lock.yaml
+package-lock.json
 pnpm-lock.json
+pnpm-lock.yaml
 yarn.lock
 
-# testing & coverage
-/coverage
-/.nyc_output
-
-# next.js
-/.next/
-/out/
-
-# build artifacts
-/build
-/dist
-
-# vercel
-.vercel
-
-# local env files
-.env.local
+# local environment
 .env.development.local
-.env.test.local
+.env.local
 .env.production.local
+.env.test.local
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# framework, build, and coverage outputs
+/.next/
+/.nyc_output/
+/build/
+/coverage/
+/dist/
+/out/
+/tests/templates/
+/.cache/
+/.tsc-out/
+/report/
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-bun-debug.log*
-
-# database / orm artifacts
+# database and local data artifacts
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
 
-# IDE
-.vscode/
-.lh/
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
-# misc
+# logs
+bun-debug.log*
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editor and deployment tooling
+/.lh/
+/.vscode/
+/.vercel/
+
+# OS and miscellaneous
 .DS_Store
-Thumbs.db
-*.pem
-.tsc-out/
-.cache/
-report
-
-# Affinity
 *.ignored
+*.pem
+Thumbs.db

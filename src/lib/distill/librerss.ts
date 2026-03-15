@@ -1,5 +1,5 @@
 /**
- * Custom distillation strategy — built-in heuristic body selection.
+ * Librerss distillation strategy — built-in heuristic body selection.
  *
  * Finds the article body container via semantic selectors and common CMS
  * class patterns, then extracts title and description from meta tags.
@@ -12,7 +12,7 @@ import { parsePageTitle, readMetaTagContent } from "@/lib/sanitize";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
 
-export function customDistill(
+export function librerssDistill(
   html: string,
   url: string,
   options?: DistillOptions,

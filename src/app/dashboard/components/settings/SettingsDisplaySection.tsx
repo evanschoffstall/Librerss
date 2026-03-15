@@ -166,7 +166,7 @@ export function SettingsDisplaySection({
               <SelectValue placeholder="Select strategy" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="custom">Custom (built-in)</SelectItem>
+              <SelectItem value="librerss">Librerss</SelectItem>
               <SelectItem value="readability">Readability</SelectItem>
               <SelectItem value="defuddle">Defuddle</SelectItem>
             </SelectContent>

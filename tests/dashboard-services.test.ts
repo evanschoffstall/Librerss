@@ -155,7 +155,7 @@ describe("feed-batch-resolver", () => {
       false,
       {
         forceRefresh: true,
-        requestSource: "dashboard-refresh",
+        requestSource: "manual-refresh",
         skipRefresh: true,
       },
       signal,
@@ -169,7 +169,7 @@ describe("feed-batch-resolver", () => {
       ["https://example.com/feed.xml"],
       {
         forceRefresh: true,
-        requestSource: "dashboard-refresh",
+        requestSource: "manual-refresh",
         signal,
         skipRefresh: true,
       },

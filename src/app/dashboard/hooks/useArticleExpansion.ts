@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type ExpansionPhase =
   | "collapsed"
@@ -68,49 +62,4 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   }, [isExpanded, isHydrating]);
 
   return { expandTransitionDone, onBodyAnimationComplete, phase };
-}
-
-/**
- * Tracks collapsed / expanded container heights for max-height animation.
- * Uses ResizeObserver instead of window.resize to avoid N global listeners.
- */
-export function useArticleHeights(
-  content: string,
-  preview: string,
-  richContentClassName: string,
-  shouldMeasureExpandedHeight: boolean,
-) {
-  const previewRef = useRef<HTMLParagraphElement>(null);
-  const fullContentRef = useRef<HTMLDivElement>(null);
-  const [collapsedHeight, setCollapsedHeight] = useState(0);
-  const [expandedHeight, setExpandedHeight] = useState(0);
-
-  useLayoutEffect(() => {
-    const previewEl = previewRef.current;
-    if (!previewEl) return;
-
-    const fullEl = fullContentRef.current;
-
-    const measure = () => {
-      setCollapsedHeight(previewEl.scrollHeight);
-      if (shouldMeasureExpandedHeight && fullEl) {
-        setExpandedHeight(fullEl.scrollHeight);
-      }
-    };
-    measure();
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(measure);
-    resizeObserver?.observe(previewEl);
-    if (shouldMeasureExpandedHeight && fullEl) {
-      resizeObserver?.observe(fullEl);
-    }
-    return () => {
-      resizeObserver?.disconnect();
-    };
-  }, [content, preview, richContentClassName, shouldMeasureExpandedHeight]);
-
-  return { collapsedHeight, expandedHeight, fullContentRef, previewRef };
 }
