@@ -912,9 +912,11 @@ export const FeedList = memo(function FeedList({
             </div>
 
             <div className="space-y-2">
-              <h3 className="
+              <h3
+                className="
                 text-xl font-semibold tracking-tight text-foreground
-              ">
+              "
+              >
                 {searchTerm ? "No results" : "You're up to date"}
               </h3>
               {searchTerm ? (
