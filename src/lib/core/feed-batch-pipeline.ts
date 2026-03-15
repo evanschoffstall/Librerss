@@ -14,17 +14,19 @@ import {
 } from "./feed-refresh";
 
 import { CONFIG } from "@/lib/config";
+import { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } from "@/lib/core/article-preview";
 import type { getDb } from "@/lib/db/db";
 import { feedRecordFields } from "@/lib/db/feed-records";
 import { feeds, feedSources } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { normalizeArticleHtmlSpacing } from "@/lib/sanitize";
+import { toPlainText } from "@/lib/sanitize";
 
 // ─── Concurrency helper ──────────────────────────────────────────────────────
 
 export interface ArticleRow {
   content: string;
   feedId: number;
+  hasFullContent?: boolean;
   id: number;
   isRead: boolean;
   isStarred: boolean;
@@ -229,11 +231,12 @@ export function mapRowsToArticleMap(
     const articlesForUrl = result.get(url);
     if (!articlesForUrl) continue;
 
+    const previewSource = typeof row.content === "string" ? row.content : "";
+
     articlesForUrl.push({
-      content: normalizeArticleHtmlSpacing(
-        typeof row.content === "string" ? row.content : "",
-      ),
+      content: toPlainText(stripPreviewSpanWrappers(previewSource)),
       feedId,
+      hasFullContent: false,
       id,
       isRead: Boolean(row.isRead),
       isStarred: Boolean(row.isStarred),
@@ -257,6 +260,12 @@ export async function queryTopArticlesPerFeed(
   // LATERAL JOIN lets PostgreSQL use the (feed_id, publication_date) composite
   // index to grab only the top-N rows per feed via an index scan, instead of
   // the ROW_NUMBER() window function which scans ALL rows before filtering.
+  // The outer LIMIT caps total rows across the entire batch so an all-feeds
+  // dashboard load cannot pull feedCount * MAX_ARTICLES_PER_FEED full article
+  // bodies from Neon in one query. The inner projection trims raw article HTML
+  // to a bounded snippet; plain-text preview shaping happens in application
+  // code so inline-heavy markup does not produce phantom spaces between words
+  // or characters.
   const queryResult = await db.execute<RankedRow>(sql`
     SELECT a.id, a.title, a.link, a.content,
            a.publication_date AS "publicationDate",
@@ -269,7 +278,10 @@ export async function queryTopArticlesPerFeed(
       sql`, `,
     )}]::int[]) AS fid(id)
     CROSS JOIN LATERAL (
-      SELECT sub.id, sub.title, sub.link, sub.content,
+      SELECT sub.id,
+             sub.title,
+             sub.link,
+             LEFT(sub.content, ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}) AS content,
              sub.publication_date, sub.feed_id, sub.last_checked
       FROM "Article" sub
       WHERE sub.feed_id = fid.id
@@ -279,6 +291,7 @@ export async function queryTopArticlesPerFeed(
     LEFT JOIN "ArticleStatus" s
       ON s.article_id = a.id AND s.user_id = ${userId}
     ORDER BY a.publication_date DESC
+    LIMIT ${CONFIG.MAX_ALL_ARTICLES_LIMIT}
   `);
 
   return Array.isArray(queryResult)
@@ -410,4 +423,8 @@ async function settledWithConcurrency<T>(
     Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()),
   );
   return results;
+}
+
+function stripPreviewSpanWrappers(value: string): string {
+  return value.replace(/<\/?span\b[^>]*>/gi, "");
 }

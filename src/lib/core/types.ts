@@ -5,6 +5,7 @@ export interface Article {
   feedId: number;
   feedName?: string;
   feedUrl?: string;
+  hasFullContent?: boolean;
   id: number;
   isRead?: boolean;
   isStarred?: boolean;
