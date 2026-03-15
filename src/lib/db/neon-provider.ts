@@ -40,18 +40,22 @@ export function createNeonDatabase(
   };
 }
 
-/** Creates a stateless HTTP query executor for Bun scripts. */
+/**
+ * Creates a stateless HTTP query executor for Bun scripts.
+ *
+ * The Neon client is created inside `query()` so an unused executor does not
+ * initialize any transport state and every call stays one-shot over HTTP.
+ */
 export function createNeonQueryExecutor(
   connectionString: string,
 ): SqlQueryExecutor {
-  const sql = neon(connectionString, { fullResults: true });
-
   return {
     async close() {},
     async query<TRow extends QueryResultRow = QueryResultRow>(
       queryText: string,
       params: readonly unknown[] = [],
     ): Promise<SqlQueryResult<TRow>> {
+      const sql = neon(connectionString, { fullResults: true });
       const result = await sql.query(queryText, [...params]);
 
       return toSqlQueryResult<TRow>(result);
@@ -60,8 +64,11 @@ export function createNeonQueryExecutor(
 }
 
 /**
- * Enables Neon fetch-backed one-shot queries while preserving interactive
- * transactions through Pool.connect() when Drizzle explicitly opens one.
+ * Enables fetch-backed one-shot queries for normal Drizzle calls.
+ *
+ * Drizzle's Neon adapter still requires a `Pool` client object; with this flag
+ * enabled, ordinary `pool.query()` calls stay HTTP-based and only explicit
+ * transaction flows fall back to connection-oriented behavior.
  */
 function configureNeonQueryTransport(): void {
   neonConfig.poolQueryViaFetch = true;

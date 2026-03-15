@@ -250,8 +250,6 @@ export function mapRowsToArticleMap(
   return result;
 }
 
-// ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
-
 export async function queryTopArticlesPerFeed(
   db: ReturnType<typeof getDb>,
   userId: number,
@@ -299,7 +297,7 @@ export async function queryTopArticlesPerFeed(
     : (queryResult as { rows: RankedRow[] }).rows;
 }
 
-// ─── Step 5: Query articles ───────────────────────────────────────────────────
+// ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
 
 /**
  * Verifies ownership of the requested URLs, loads (or creates) their Feed
@@ -379,7 +377,7 @@ export async function resolveAuthorizedFeedRecords(
   return { allowedUrls, feedByUrl };
 }
 
-// ─── Step 5b: Result assembly ─────────────────────────────────────────────────
+// ─── Step 5: Query articles ───────────────────────────────────────────────────
 
 function isValidRankedRow(row: RankedRow): boolean {
   return (
@@ -399,6 +397,8 @@ function isValidRankedRow(row: RankedRow): boolean {
       typeof row.isStarred === "number")
   );
 }
+
+// ─── Step 5b: Result assembly ─────────────────────────────────────────────────
 
 async function settledWithConcurrency<T>(
   tasks: (() => Promise<T>)[],
