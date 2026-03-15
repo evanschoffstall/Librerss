@@ -269,17 +269,17 @@ describe("article extract cleanup", () => {
         "<div>shell</div>" +
         "<noscript>" +
         "<div class='story__text'>" +
-        "<p>Survey Says is a weekly series on political trends and culture.</p>" +
-        "<p>President Donald Trump\u2019s second term has fulfilled many of the darkest fears people had about his first, with sweeping executive actions and escalating federal overreach.</p>" +
-        "<p>These are the abuses of a would-be dictator who learned from his first occupation of the White House and now goes bigger and faster.</p>" +
+        "<p>Field Notes is a weekly series on design trends and everyday culture.</p>" +
+        "<p>The museum's spring renovation has shown how small material choices can reshape a public space, from brighter galleries to quieter reading corners.</p>" +
+        "<p>Visitors now move through the building more slowly, noticing details that once disappeared behind dark walls and crowded displays.</p>" +
         "</div>" +
         "</noscript>" +
         "<noscript><a href='/privacy'>Privacy</a></noscript>";
 
       const result = preCleanHtml(html);
 
-      expect(result).toContain("President Donald Trump");
-      expect(result).toContain("would-be dictator");
+      expect(result).toContain("spring renovation");
+      expect(result).toContain("crowded displays");
       expect(result).not.toContain("/privacy");
     });
   });
