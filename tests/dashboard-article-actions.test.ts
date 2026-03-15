@@ -21,8 +21,8 @@ import { createMockArticle } from "./support/test-utils";
 import {
   toggleReadStatus,
   toggleStarredStatus,
-  useArticleActions,
-} from "@/app/dashboard/hooks/useArticleActions";
+} from "@/app/dashboard/hooks/article-toggle-state";
+import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
 import type { Article } from "@/lib";
 import { ArticleService } from "@/lib";
 

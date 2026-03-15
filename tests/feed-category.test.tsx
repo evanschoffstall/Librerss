@@ -32,7 +32,7 @@ describe("FeedCategory", () => {
         category={category}
         isActive={false}
         onClick={onClick}
-        onIntent={onIntent}
+        onPrefetch={onIntent}
         showFavicon={false}
       />,
     );

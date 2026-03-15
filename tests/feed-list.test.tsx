@@ -397,9 +397,9 @@ describe("FeedList", () => {
 
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain(article.title);
-      expect(
-        container.querySelector("[data-feed-virtualizer='true']"),
-      ).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
     });
   });
 
@@ -645,9 +645,9 @@ describe("FeedList", () => {
 
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain(article.title);
-      expect(
-        container.querySelector("[data-feed-virtualizer='true']"),
-      ).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
     });
   });
 
@@ -719,6 +719,219 @@ describe("FeedList", () => {
         container.querySelector("[data-feed-virtualizer='true']"),
       ).toBeTruthy();
       expect(queryByText(secondArticle.title)).toBeNull();
+      expect(
+        container.querySelector("[data-feed-load-more-sentinel='true']"),
+      ).toBeTruthy();
+    });
+  });
+
+  test("renders the mounted feed without virtualization while an article is expanded", async () => {
+    const firstArticle = buildArticle();
+    const secondArticle = buildArticle({
+      id: 2,
+      link: "https://example.com/articles/expanded-mounted-second",
+      title: "Expanded mounted second article",
+    });
+    const { container, getByText } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          expandedArticleKey={firstArticle.link}
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={1}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
+    });
+  });
+
+  test("renders the mounted feed without virtualization while collapse settling is active", async () => {
+    const article = buildArticle({
+      title: "Mounted collapse settling article",
+    });
+    const sibling = buildArticle({
+      id: 2,
+      link: "https://example.com/articles/mounted-collapse-settling-sibling",
+      title: "Mounted collapse settling sibling",
+    });
+
+    const { container, getByText } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          collapseSettlingArticleKey={article.link}
+          expandedArticleKey={null}
+          filteredFeed={[article, sibling]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={1}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
+    });
+  });
+
+  test("keeps the mounted feed non-virtualized right after an expanded article collapses", async () => {
+    const article = buildArticle({ title: "Just collapsed article" });
+    const sibling = buildArticle({
+      id: 2,
+      link: "https://example.com/articles/just-collapsed-sibling",
+      title: "Just collapsed sibling",
+    });
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          expandedArticleKey={article.link}
+          filteredFeed={[article, sibling]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={1}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            expandedArticleKey={null}
+            filteredFeed={[article, sibling]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            pageSize={1}
+            paginationResetKey="all:unread:"
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
+    });
+
+    const viewport = document.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("missing viewport");
+    }
+
+    act(() => {
+      viewport.dispatchEvent(new Event("wheel"));
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
+    });
+  });
+
+  test("renders the mounted feed without virtualization while a staged collapse is active", async () => {
+    const article = buildArticle({
+      title: "Mounted staged collapse article",
+    });
+    const sibling = buildArticle({
+      id: 2,
+      link: "https://example.com/articles/mounted-staged-collapse-sibling",
+      title: "Mounted staged collapse sibling",
+    });
+
+    const { container, getByText } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          collapsingArticleKey={article.link}
+          collapsingArticleMode="de-expanding"
+          expandedArticleKey={null}
+          filteredFeed={[article, sibling]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={1}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
+        null,
+      );
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="de-expanding"]`,
+      );
+      expect(row).toBeTruthy();
     });
   });
 

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { renderHook, waitFor } from "@testing-library/react";
 
-import { useDashboardViewState } from "@/app/dashboard/hooks/useDashboardViewState";
+import { useDashboardState } from "@/app/dashboard/hooks/useDashboardState";
 import {
   ARTICLE_PAGE_SIZE_OPTIONS,
   DEFAULT_ARTICLE_PAGE_SIZE,
@@ -86,7 +86,7 @@ describe("dashboard page size", () => {
   test("migrates legacy persisted page sizes back to the default", async () => {
     localStorage.setItem("librerss:pageSize", JSON.stringify(25));
 
-    const { result } = renderHook(() => useDashboardViewState());
+    const { result } = renderHook(() => useDashboardState());
 
     expect(result.current.pageSize).toBe(DEFAULT_ARTICLE_PAGE_SIZE);
 
