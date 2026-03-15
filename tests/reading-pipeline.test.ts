@@ -1,6 +1,9 @@
+/**
+ * Covers the reading pipeline from captured article HTML through sanitize output.
+ */
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { NextRequest } from "next/server";
 
@@ -36,9 +39,9 @@ const mockReq = () =>
     method: "POST",
   });
 
-const FIXTURE_DIR = join(
+const READING_PIPELINE_FIXTURE_DIR = join(
   process.cwd(),
-  "tests/templates/extract-sanitize-hydrate-pipeline",
+  "tests/templates/reading-pipeline",
 );
 
 const SPECIAL_CASE_BRAND = String.fromCharCode(
@@ -53,6 +56,9 @@ const SPECIAL_CASE_BRAND = String.fromCharCode(
   115,
 );
 
+/**
+ * Derives a stable article URL from captured fixture HTML for extractor parity.
+ */
 function extractCanonicalUrlFromHtml(
   html: string,
   fixtureName: string,
@@ -70,8 +76,14 @@ function extractCanonicalUrlFromHtml(
   return `https://example.invalid/${fixtureName}`;
 }
 
+/**
+ * Loads one captured article fixture from the reading-pipeline fixture set.
+ */
 function readExtractionFixture(articleName: string): string {
-  return readFileSync(join(FIXTURE_DIR, `${articleName}.html`), "utf8");
+  return readFileSync(
+    join(READING_PIPELINE_FIXTURE_DIR, `${articleName}.html`),
+    "utf8",
+  );
 }
 
 const SPECIAL_CASE_STORY_URL =
