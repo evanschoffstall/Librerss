@@ -18,8 +18,6 @@ import {
 } from "@/lib/server";
 import { injectProxyCredentials, redactUrlForLogs } from "@/lib/utils/url";
 
-export { type ProxySettingsResponse, type ProxyStatus } from "@/lib/server";
-
 export const dynamic = "force-dynamic";
 
 export interface ProxyRouteDeps {
