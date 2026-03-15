@@ -251,16 +251,20 @@ export default function Landing() {
     <main className="min-h-dvh overflow-hidden">
       <ScrollArea className="h-dvh">
         <div className="flex min-h-dvh flex-col">
-          <header className="
-            relative z-10 mx-auto w-full max-w-5xl px-4 pt-4 pb-6
-            sm:px-6 sm:pt-6 sm:pb-8
-          ">
+          <header
+            className="
+              relative z-10 mx-auto w-full max-w-5xl px-4 pt-4 pb-6
+              sm:px-6 sm:pt-6 sm:pb-8
+            "
+          >
             <div className="flex items-start justify-center">
-              <div className="
-                inline-flex max-w-full items-center gap-2 rounded-full border
-                border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium
-                text-muted-foreground backdrop-blur-sm
-              ">
+              <div
+                className="
+                  inline-flex max-w-full items-center gap-2 rounded-full border
+                  border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium
+                  text-muted-foreground backdrop-blur-sm
+                "
+              >
                 <Rss className="size-3 shrink-0" />
                 <span className="truncate">
                   Open-source · Self-hostable · Feed-first
@@ -271,11 +275,13 @@ export default function Landing() {
 
           <LandingView />
 
-          <footer className="
-            relative z-10 mx-auto mt-8 w-full max-w-5xl px-4 pt-4 pb-6
-            text-center text-xs text-muted-foreground/50
-            sm:mt-10 sm:px-6 sm:pt-6 sm:pb-8
-          ">
+          <footer
+            className="
+              relative z-10 mx-auto mt-8 w-full max-w-5xl px-4 pt-4 pb-6
+              text-center text-xs text-muted-foreground/50
+              sm:mt-10 sm:px-6 sm:pt-6 sm:pb-8
+            "
+          >
             <p>
               Made with ❤️ by{" "}
               <a

@@ -62,10 +62,12 @@ export function ThemeNoticeDialog() {
                   absolute size-18 rounded-full border border-border/15
                 "
               />
-              <div className="
-                relative flex size-12 items-center justify-center rounded-full
-                border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm
-              ">
+              <div
+                className="
+                  relative flex size-12 items-center justify-center rounded-full
+                  border border-border/40 bg-card/60 shadow-sm backdrop-blur-sm
+                "
+              >
                 <Palette className="size-5 text-primary" />
               </div>
             </div>
@@ -79,10 +81,13 @@ export function ThemeNoticeDialog() {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-center">
-          <Button className="
-            w-full
-            sm:w-auto
-          " onClick={handleDismiss}>
+          <Button
+            className="
+              w-full
+              sm:w-auto
+            "
+            onClick={handleDismiss}
+          >
             Got it
           </Button>
         </DialogFooter>
