@@ -21,6 +21,7 @@ yarn.lock
 # testing & coverage
 /coverage
 /.nyc_output
+/tests/templates/
 
 # next.js
 /.next/
