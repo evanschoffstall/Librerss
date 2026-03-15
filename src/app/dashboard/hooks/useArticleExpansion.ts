@@ -1,83 +1,73 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
-// collapsed → loading (hydrating) → revealing (one-frame FLIP) → expanded → collapsing → collapsed
 type ExpansionPhase =
   | "collapsed"
   | "collapsing"
   | "expanded"
-  | "loading"
-  | "revealing";
+  | "expanding"
+  | "loading";
 
 /**
- * State machine for article card expand/collapse.
+ * Coordinates the article body's Motion-driven expand and collapse states.
  *
- * Expand: collapsed → loading → revealing → expanded
- *   "revealing" gives the browser one frame to paint full content at
- *   collapsed height before triggering the CSS max-height transition.
- *
- * Collapse: expanded → collapsing → collapsed
- *   "collapsing" preserves the expanded-height layout for one frame so the
- *   compact preview can animate closed instead of snapping away.
+ * Full content stays mounted during collapse so the body can animate down to
+ * the compact preview. Once the body animation settles, the hook marks the
+ * card as fully expanded or fully collapsed for the cheaper resting state.
  */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
-    isExpanded ? "expanded" : "collapsed",
+    isExpanded ? (isHydrating ? "loading" : "expanded") : "collapsed",
   );
-  // Once the expand transition finishes we swap max-height to "none" so
-  // content (images, etc.) can resize freely without re-triggering a transition.
-  const [expandTransitionDone, setExpandTransitionDone] = useState(isExpanded);
+  const [expandTransitionDone, setExpandTransitionDone] = useState(
+    isExpanded && !isHydrating,
+  );
 
   useEffect(() => {
     if (isExpanded) {
       if (isHydrating) {
         setPhase("loading");
+        setExpandTransitionDone(false);
       } else {
-        setPhase((cur) =>
-          cur === "collapsed" || cur === "collapsing" || cur === "loading"
-            ? "revealing"
-            : cur,
+        setPhase((current) => (current === "expanded" ? current : "expanding"));
+        setExpandTransitionDone((current) =>
+          phase === "expanded" ? current : false,
         );
       }
     } else {
       setPhase((cur) =>
-        cur === "expanded" || cur === "loading" || cur === "revealing"
+        cur === "expanded" || cur === "expanding" || cur === "loading"
           ? "collapsing"
           : "collapsed",
       );
       setExpandTransitionDone(false);
     }
+  }, [isExpanded, isHydrating, phase]);
+
+  const onBodyAnimationComplete = useCallback(() => {
+    if (!isExpanded) {
+      setPhase((current) => (current === "collapsing" ? "collapsed" : current));
+      return;
+    }
+
+    if (isHydrating) {
+      return;
+    }
+
+    setPhase((current) =>
+      current === "expanding" || current === "loading" ? "expanded" : current,
+    );
+    setExpandTransitionDone(true);
   }, [isExpanded, isHydrating]);
 
-  // revealing → expanded: single rAF gives the browser one frame to paint the
-  // collapsed-height layout before the CSS height transition fires.
-  useEffect(() => {
-    if (phase !== "revealing") return;
-    const id = requestAnimationFrame(() => {
-      setPhase("expanded");
-    });
-    return () => {
-      cancelAnimationFrame(id);
-    };
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase !== "collapsing") return;
-    const id = requestAnimationFrame(() => {
-      setPhase("collapsed");
-    });
-    return () => {
-      cancelAnimationFrame(id);
-    };
-  }, [phase]);
-
-  const onContentTransitionEnd = (e: React.TransitionEvent) => {
-    if (e.propertyName !== "max-height") return;
-    if (phase === "expanded") setExpandTransitionDone(true);
-  };
-
-  return { expandTransitionDone, onContentTransitionEnd, phase };
+  return { expandTransitionDone, onBodyAnimationComplete, phase };
 }
 
 /**

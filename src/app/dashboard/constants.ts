@@ -1,11 +1,14 @@
 import { type CategoryTreeNode, DEFAULT_CATEGORY_LABEL } from "@/lib";
 
+export { DASHBOARD_PREVIEW_STORAGE_KEY } from "./preview-mode";
+
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 export const ALL_FEEDS_LABEL = "All Feeds";
 export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
 
 /** Canonical event names for the dashboard window event bus. */
 export const DASHBOARD_EVENTS = {
+  ARTICLE_EXPAND_SETTLED: "dashboard:article-expand-settled",
   ENTER_PREVIEW: "dashboard:enter-preview",
   MARK_ALL_READ: "dashboard:mark-all-read",
   MARK_ALL_READ_END: "dashboard:mark-all-read-end",
@@ -18,8 +21,6 @@ export const DASHBOARD_EVENTS = {
   SEARCH_SYNC: "dashboard:search-sync",
   TITLE_CHANGE: "dashboard:title-change",
 } as const;
-
-export const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
 export const FEED_SCROLL_SESSION_KEY = "librerss:scroll:feed";
 
 export const INITIAL_CATEGORIES: CategoryTreeNode[] = [

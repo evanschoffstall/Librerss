@@ -119,6 +119,7 @@ export function useArticleActions({
     if (
       article &&
       link &&
+      !article.hasFullContent &&
       !hydratedArticleLinks[link] &&
       !hydratingArticleLinks[link]
     ) {
@@ -154,6 +155,8 @@ export function useArticleActions({
 
     const article = feed.find((a) => getArticleKey(a) === expandedArticleKey);
     const link = article?.link.trim() ?? "";
+    const feedUrl = article?.feedUrl?.trim() ?? "";
+    if (feedUrl && getFeedSettings(feedUrl)?.extractionDisabled) return;
     if (!article || !link || hydratingArticleLinks[link]) return;
 
     autoHydratedExpandedKeyRef.current = expandedArticleKey;
@@ -162,6 +165,7 @@ export function useArticleActions({
     distillStrategy,
     expandedArticleKey,
     feed,
+    getFeedSettings,
     hydratingArticleLinks,
     hydrateArticleContent,
   ]);
@@ -308,6 +312,16 @@ export function useArticleActions({
     [collapseExpandedArticle, setArticleReadState, updatingArticleState],
   );
 
+  /** Captures the pre-expand scroll position before pointer focus can move it. */
+  const prepareArticleExpand = useCallback(
+    (article: Article) => {
+      const articleKey = getArticleKey(article);
+      if (expandedArticleKey === articleKey) return;
+      scrollLock.capturePreExpandSnapshot(articleKey);
+    },
+    [expandedArticleKey, scrollLock],
+  );
+
   /** Applies swipe-driven read toggles while using the off-screen exit animation. */
   const handleSwipeRead = useCallback(
     async (article: Article) => {
@@ -396,6 +410,7 @@ export function useArticleActions({
     handleToggleStarredState,
     hydratedArticleLinks,
     hydratingArticleLinks,
+    prepareArticleExpand,
     setArticleReadState,
     updatingArticleState,
   };
