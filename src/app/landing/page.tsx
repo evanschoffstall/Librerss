@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Cloud, Rss, Zap } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
@@ -25,32 +26,69 @@ const features = [
   },
 ] as const;
 
+const LANDING_REVEAL_TRANSITION = {
+  duration: 0.42,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
+
+const LANDING_GLOW_TRANSITION = {
+  duration: 8,
+  ease: "easeInOut" as const,
+  repeat: Number.POSITIVE_INFINITY,
+  repeatType: "mirror" as const,
+};
+
+function getLandingRevealTransition(delay: number) {
+  return {
+    ...LANDING_REVEAL_TRANSITION,
+    delay,
+  };
+}
+
 const LandingView = () => {
   return (
-    <div className="
-      relative box-border flex flex-1 flex-col items-center justify-center
-      overflow-hidden
-    ">
+    <div
+      className="
+        relative box-border flex flex-1 flex-col items-center justify-center
+        overflow-hidden
+      "
+    >
       <ThemeNoticeDialog />
 
       {/* Ambient background glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/2 left-1/2 -translate-1/2">
-          <div className="
-            landing-glow-main bg-gradient-radial size-[800px] rounded-full
-            from-primary/3 to-transparent
-          " />
+          <motion.div
+            animate={{ opacity: [0.42, 0.6, 0.42], scale: [0.96, 1, 0.96] }}
+            className="
+              bg-gradient-radial size-[800px] rounded-full from-primary/3
+              to-transparent
+            "
+            transition={LANDING_GLOW_TRANSITION}
+          />
         </div>
         <div className="absolute top-1/3 left-1/4 -translate-1/2">
-          <div className="
-            landing-glow-left bg-gradient-radial size-[400px] rounded-full
-            from-primary/2 to-transparent blur-3xl
-          " />
+          <motion.div
+            animate={{
+              opacity: [0.24, 0.42, 0.24],
+              x: [0, 14, 0],
+              y: [0, -10, 0],
+            }}
+            className="
+              bg-gradient-radial size-[400px] rounded-full from-primary/2
+              to-transparent blur-3xl
+            "
+            transition={{ ...LANDING_GLOW_TRANSITION, duration: 10 }}
+          />
         </div>
-        <div className="
-          landing-glow-right bg-gradient-radial absolute right-1/4 bottom-1/3
-          size-[300px] rounded-full from-primary/2 to-transparent blur-3xl
-        " />
+        <motion.div
+          animate={{ opacity: [0.2, 0.36, 0.2], x: [0, -10, 0], y: [0, 12, 0] }}
+          className="
+            bg-gradient-radial absolute right-1/4 bottom-1/3 size-[300px]
+            rounded-full from-primary/2 to-transparent blur-3xl
+          "
+          transition={{ ...LANDING_GLOW_TRANSITION, duration: 9 }}
+        />
       </div>
 
       {/* Subtle grid pattern */}
@@ -64,115 +102,143 @@ const LandingView = () => {
       />
 
       {/* Content */}
-      <div className="
-        relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4
-        text-center
-        sm:px-6
-      ">
+      <div
+        className="
+          relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4
+          text-center
+          sm:px-6
+        "
+      >
         {/* Headline */}
-        <h1
+        <motion.h1
+          animate={{ opacity: 1, y: 0 }}
           className="
-            landing-reveal mb-5 text-[2.5rem] leading-[1.1] font-bold
-            tracking-tight
+            mb-5 text-[2.5rem] leading-[1.1] font-bold tracking-tight
             sm:mb-7 sm:text-6xl
             lg:text-8xl
           "
-          style={{ animationDelay: "var(--motion-delay-1)" }}
+          initial={{ opacity: 0, y: 24 }}
+          transition={getLandingRevealTransition(0.08)}
         >
           <span className="block">Your reading,</span>
-          <span className="
-            block bg-linear-to-br from-foreground/60 via-muted-foreground/60
-            to-muted-foreground/40 bg-clip-text text-transparent
-          ">
+          <span
+            className="
+              block bg-linear-to-br from-foreground/60 via-muted-foreground/60
+              to-muted-foreground/40 bg-clip-text text-transparent
+            "
+          >
             without the noise.
           </span>
-        </h1>
+        </motion.h1>
 
         {/* Subtitle */}
-        <p
+        <motion.p
+          animate={{ opacity: 1, y: 0 }}
           className="
-            landing-reveal mx-auto mb-9 max-w-lg text-base text-muted-foreground
+            mx-auto mb-9 max-w-lg text-base text-muted-foreground
             sm:mb-12 sm:text-xl
           "
-          style={{ animationDelay: "var(--motion-delay-2)" }}
+          initial={{ opacity: 0, y: 24 }}
+          transition={getLandingRevealTransition(0.16)}
         >
           A free, open-source feed hub for RSS. All your sources in one calm,
           focused inbox.
-        </p>
+        </motion.p>
 
         {/* Single CTA */}
-        <div
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
           className="
-            landing-reveal mb-12
+            mb-12
             sm:mb-16
           "
-          style={{ animationDelay: "var(--motion-delay-3)" }}
+          initial={{ opacity: 0, y: 24 }}
+          transition={getLandingRevealTransition(0.24)}
         >
-          <div className="
-            anim-duration-ui anim-ease-ui transition-transform
-            hover:-translate-y-0.5
-          ">
+          <motion.div whileHover={{ y: -2 }}>
             <Button asChild className="h-12 px-8 text-base shadow-sm" size="lg">
               <Link
                 className="group inline-flex items-center"
                 href="/dashboard"
               >
                 Open Dashboard
-                <span className="
-                  landing-arrow-bob anim-duration-ui anim-ease-ui ml-2
-                  inline-flex transition-transform
-                  group-hover:translate-x-1
-                ">
+                <motion.span
+                  animate={{ x: [0, 4, 0] }}
+                  className="ml-2 inline-flex"
+                  transition={{
+                    duration: 1.4,
+                    ease: "easeInOut",
+                    repeat: Number.POSITIVE_INFINITY,
+                  }}
+                  whileHover={{ x: 6 }}
+                >
                   <ArrowRight className="size-4" />
-                </span>
+                </motion.span>
               </Link>
             </Button>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Feature pillars */}
-        <div className="
-          mx-auto grid max-w-3xl gap-3
-          sm:grid-cols-3 sm:gap-4
-        ">
+        <div
+          className="
+            mx-auto grid max-w-3xl gap-3
+            sm:grid-cols-3 sm:gap-4
+          "
+        >
           {features.map(({ desc, icon: Icon, label }, index) => (
-            <div
+            <motion.div
+              animate="visible"
               className="
-                landing-reveal landing-feature group anim-duration-ui
-                anim-ease-ui flex items-center gap-4 rounded-xl border
-                border-border/20 p-4
-                transition-[transform,border-color,background-color]
+                flex items-center gap-4 rounded-xl border border-border/20 p-4
                 hover:-translate-y-1 hover:border-border/50 hover:bg-card/50
                 sm:flex-col sm:items-center sm:gap-3 sm:p-5
               "
+              initial="hidden"
               key={label}
-              style={{
-                animationDelay: `calc(var(--motion-delay-3) + (${index + 1} * var(--motion-delay-step)))`,
+              transition={getLandingRevealTransition(0.24 + (index + 1) * 0.06)}
+              variants={{
+                hidden: { opacity: 0, y: 24 },
+                hover: { y: -4 },
+                visible: { opacity: 1, y: 0 },
               }}
+              whileHover="hover"
             >
               <div className="
                 relative flex shrink-0 items-center justify-center
               ">
-                <div className="
-                  absolute size-14 rounded-full border border-border/20
-                  max-sm:hidden
-                " />
-                <div className="
-                  landing-feature-icon relative flex size-10 items-center
-                  justify-center rounded-lg border border-border/40 bg-card/70
-                  shadow-sm backdrop-blur-sm
-                ">
+                <div
+                  className="
+                    absolute size-14 rounded-full border border-border/20
+                    max-sm:hidden
+                  "
+                />
+                <motion.div
+                  className="
+                    relative flex size-10 items-center justify-center rounded-lg
+                    border border-border/40 bg-card/70 shadow-sm
+                    backdrop-blur-sm
+                  "
+                  transition={{ duration: 0.42, ease: "easeInOut" }}
+                  variants={{
+                    hidden: { opacity: 0, scale: 0.94 },
+                    hover: { rotate: [0, -8, 8, 0], scale: [1, 1.04, 1.04, 1] },
+                    visible: { opacity: 1, scale: 1 },
+                  }}
+                >
                   <Icon className="size-5 text-muted-foreground" />
-                </div>
+                </motion.div>
               </div>
-              <div className="
-                flex flex-col items-start gap-0.5
-                sm:items-center
-              ">
+              <div
+                className="
+                  flex flex-col items-start gap-0.5
+                  sm:items-center
+                "
+              >
                 <span className="text-sm font-medium">{label}</span>
                 <span className="text-xs text-muted-foreground">{desc}</span>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
