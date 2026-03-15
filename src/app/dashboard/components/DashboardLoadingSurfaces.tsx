@@ -1,5 +1,16 @@
+"use client";
+
+import { motion } from "motion/react";
+
+import { FEED_PULL_HEIGHT } from "../hooks/useFeedSurface";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+
+const SKELETON_REVEAL_TRANSITION = {
+  duration: 0.26,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
 
 interface DashboardArticleSkeletonDescriptor {
   bodyWidths: [string, string];
@@ -18,11 +29,7 @@ interface DashboardSidebarSkeletonRowDescriptor {
   labelWidth: string;
 }
 
-interface DashboardSurfaceSkeletonProps {
-  children: React.ReactNode;
-  containerClassName: string;
-  surfaceClassName?: string;
-}
+const TOP_BAR_FILTER_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
 
 const ARTICLE_SKELETON_CARDS: DashboardArticleSkeletonDescriptor[] = [
   {
@@ -104,11 +111,40 @@ const SIDEBAR_SKELETON_GROUPS: DashboardSidebarSkeletonGroupDescriptor[] = [
  */
 export function DashboardFeedListSkeleton() {
   return (
-    <DashboardSurfaceSkeleton containerClassName="relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1 lg:max-w-none lg:px-3">
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="
+        relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1
+        lg:max-w-none lg:px-3
+      "
+      initial={{ opacity: 0, y: 10 }}
+      transition={SKELETON_REVEAL_TRANSITION}
+    >
       {ARTICLE_SKELETON_CARDS.map((descriptor, index) => (
-        <DashboardArticleCardSkeleton descriptor={descriptor} key={index} />
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 8 }}
+          key={index}
+          transition={{
+            ...SKELETON_REVEAL_TRANSITION,
+            delay: index * 0.035,
+          }}
+        >
+          <DashboardArticleCardSkeleton descriptor={descriptor} />
+        </motion.div>
       ))}
-    </DashboardSurfaceSkeleton>
+    </motion.div>
+  );
+}
+
+/** Shared inert pull-sentinel spacer so the shell matches the live feed viewport. */
+export function DashboardPullSentinelSkeleton() {
+  return (
+    <div
+      className="mb-2 flex items-end justify-center bg-background"
+      data-dashboard-pull-sentinel-skeleton="true"
+      style={{ height: FEED_PULL_HEIGHT }}
+    />
   );
 }
 
@@ -120,17 +156,21 @@ export function DashboardFeedListSkeleton() {
  */
 export function DashboardSidebarSkeleton() {
   return (
-    <div className="anim-fade-in-load-slow space-y-2 px-2">
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-2 px-2"
+      initial={{ opacity: 0, y: 8 }}
+      transition={SKELETON_REVEAL_TRANSITION}
+    >
       {SIDEBAR_SKELETON_GROUPS.map((group, groupIndex) => (
-        <div
-          className="
-            anim-duration-ui anim-ease-ui space-y-0.5 opacity-100
-            transition-opacity
-          "
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-0.5"
+          initial={{ opacity: 0, y: 6 }}
           key={groupIndex}
-          style={{
-            animationDelay: `${groupIndex * 35}ms`,
-            transitionDelay: `${groupIndex * 35}ms`,
+          transition={{
+            ...SKELETON_REVEAL_TRANSITION,
+            delay: groupIndex * 0.035,
           }}
         >
           <div className="px-1.5">
@@ -144,21 +184,77 @@ export function DashboardSidebarSkeleton() {
               key={`${groupIndex}-${feedRowIndex}`}
             />
           ))}
-        </div>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 }
 
 /** Shared top-bar loading skeleton aligned with the dashboard filter strip. */
 export function DashboardTopBarSkeleton() {
   return (
-    <DashboardSurfaceSkeleton
-      containerClassName="w-full px-2 lg:px-4"
-      surfaceClassName="rounded-xl"
+    <div
+      className="sticky top-0 z-40 shrink-0 py-1"
+      data-dashboard-top-bar-skeleton="true"
     >
-      <Skeleton className="h-10 rounded-xl" />
-    </DashboardSurfaceSkeleton>
+      <div className="flex items-center gap-0">
+        <div
+          className="
+            hidden
+            lg:block lg:w-[220px] lg:shrink-0
+          "
+        />
+        <div
+          className="
+            flex-1
+            lg:min-w-0
+          "
+        >
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="
+              mx-auto w-full max-w-3xl px-2
+              lg:max-w-none lg:px-4
+            "
+            initial={{ opacity: 0, y: 8 }}
+            transition={SKELETON_REVEAL_TRANSITION}
+          >
+            <div
+              className="
+                rounded-xl border border-border/60 bg-card/75 px-2
+                backdrop-blur-sm
+              "
+            >
+              <div className="flex min-h-8 items-center gap-2">
+                {TOP_BAR_FILTER_SKELETON_WIDTHS.map((widthClassName) => (
+                  <Skeleton
+                    className={cn("h-5 rounded-full", widthClassName)}
+                    data-dashboard-top-bar-filter-skeleton="true"
+                    key={widthClassName}
+                  />
+                ))}
+
+                <span
+                  aria-live="polite"
+                  className="
+                    ml-auto flex items-center gap-1.5 text-right text-[11px]
+                    whitespace-nowrap text-muted-foreground/50 select-none
+                  "
+                >
+                  <Skeleton className="size-2.5 rounded-full" />
+                  <Skeleton
+                    aria-label="Refreshing"
+                    className="
+                      inline-block h-[11px] w-12 rounded-sm align-middle
+                    "
+                  />
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -268,23 +364,6 @@ function DashboardSidebarFeedRowSkeleton({
         />
       </div>
       <Skeleton className="size-3.5 shrink-0 rounded-sm" />
-    </div>
-  );
-}
-
-/** Renders a single shared skeleton block within a dashboard surface wrapper. */
-function DashboardSurfaceSkeleton({
-  children,
-  containerClassName,
-  surfaceClassName,
-}: DashboardSurfaceSkeletonProps) {
-  return (
-    <div className={containerClassName}>
-      {surfaceClassName ? (
-        <div className={cn("w-full", surfaceClassName)}>{children}</div>
-      ) : (
-        children
-      )}
     </div>
   );
 }
