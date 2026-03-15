@@ -34,7 +34,7 @@ export function toCategoryLabelOrDefault(label?: null | string): string {
 /**
  * Trims category labels and returns null when empty/missing.
  */
-export function toOptionalCategoryLabel(label?: null | string): null | string {
+function toOptionalCategoryLabel(label?: null | string): null | string {
   const trimmed = label?.trim();
   if (trimmed === undefined || trimmed === "") {
     return null;

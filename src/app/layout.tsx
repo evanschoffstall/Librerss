@@ -3,10 +3,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import React from "react";
 
-import { ENV } from "../lib";
-
 import "./globals.css";
 import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
+import { ENV } from "@/lib/config";
 
 const geist = Geist({
   subsets: ["latin"],

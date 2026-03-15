@@ -1,11 +1,7 @@
 export { buildAxiosGet } from "./axios-client";
 export type { BotDetection } from "./bot-detection";
 export { detectBotProtection } from "./bot-detection";
-export {
-  CHROME,
-  CHROME_HEADERS_BASE,
-  TLS_CLIENT_CHROME_VER,
-} from "./constants";
+export { CHROME } from "./constants";
 export {
   addCookiesToHeaders,
   generateBrowserHeaders,
@@ -20,4 +16,3 @@ export {
   pickDiagnosticHeaders,
 } from "./response";
 export { parseSocksProxy } from "./socks";
-export { ensureTlsClient, tlsClientFetch } from "./tls-client";

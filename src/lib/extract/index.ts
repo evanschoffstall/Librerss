@@ -5,15 +5,12 @@ export {
   setCachedExtractPayload,
 } from "./cache";
 export type {
-  CachedExtractResponse,
   ExtractRequestContext,
   ExtractResponsePayload,
-  PlaceholderSnapshotHit,
 } from "./constants";
 export {
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,
   ARTICLE_EXTRACT_CACHE_TTL_MS,
-  ARTICLE_EXTRACT_SEC_CH_UA,
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
