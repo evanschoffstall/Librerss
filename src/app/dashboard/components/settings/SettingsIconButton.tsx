@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/tooltip";
 
 export const animTransitionColorsClass =
-  "transition-colors anim-duration-ui anim-ease-ui";
+  "transition-colors duration-200 ease-out";
 
 export const settingsDragHandleCls =
   "shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing";

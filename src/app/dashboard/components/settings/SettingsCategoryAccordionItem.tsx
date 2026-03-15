@@ -1,4 +1,6 @@
-import { GripVertical, Loader2, Plus, Trash2 } from "lucide-react";
+import { GripVertical, Plus, Trash2 } from "lucide-react";
+
+import { MotionSpinner } from "../MotionSpinner";
 
 import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
 import {
@@ -203,7 +205,7 @@ export function SettingsCategoryAccordionItem({
                 size="sm"
               >
                 {savingCategoryLabel === categoryNode.label && (
-                  <Loader2 className="mr-1 size-3 animate-spin" />
+                  <MotionSpinner className="mr-1" iconClassName="size-3" />
                 )}
                 Save
               </Button>
@@ -339,7 +341,7 @@ export function SettingsCategoryAccordionItem({
                   size="sm"
                 >
                   {isSavingFeed ? (
-                    <Loader2 className="mr-1 size-3 animate-spin" />
+                    <MotionSpinner className="mr-1" iconClassName="size-3" />
                   ) : (
                     <Plus className="mr-1 size-3" />
                   )}

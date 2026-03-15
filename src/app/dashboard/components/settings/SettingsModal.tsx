@@ -1,6 +1,7 @@
-import { Download, Loader2, Plus, Rss, Settings2, X } from "lucide-react";
+import { Download, Plus, Rss, Settings2, X } from "lucide-react";
 
 import { useSettingsModalState } from "../../hooks/useSettingsModalState";
+import { MotionSpinner } from "../MotionSpinner";
 
 import { SettingsCategoryList } from "./SettingsCategoryList";
 import {
@@ -171,7 +172,7 @@ function SettingsBody({
                 variant="outline"
               >
                 {state.isImportingOpml ? (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  <MotionSpinner className="mr-1.5" iconClassName="size-3.5" />
                 ) : (
                   <Plus className="mr-1.5 size-3.5" />
                 )}

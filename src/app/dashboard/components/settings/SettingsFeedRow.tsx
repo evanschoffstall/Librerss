@@ -4,12 +4,13 @@ import {
   FileSearch,
   FileX,
   GripVertical,
-  Loader2,
   Shield,
   ShieldOff,
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import { MotionSpinner } from "../MotionSpinner";
 
 import {
   animTransitionColorsClass,
@@ -210,7 +211,7 @@ export function SettingsFeedRow({
             size="sm"
           >
             {savingFeedKey === feedNode.key ? (
-              <Loader2 className="mr-1 size-3 animate-spin" />
+              <MotionSpinner className="mr-1" iconClassName="size-3" />
             ) : null}
             Save
           </Button>
@@ -284,7 +285,7 @@ export function SettingsFeedRow({
           }
         >
           {isUpdatingSettings && pendingSetting === "extraction" ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <MotionSpinner iconClassName="size-3.5" />
           ) : isExtractionDisabled ? (
             <FileX className="size-3.5" />
           ) : (
@@ -303,7 +304,7 @@ export function SettingsFeedRow({
           tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
         >
           {isUpdatingSettings && pendingSetting === "proxy" ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <MotionSpinner iconClassName="size-3.5" />
           ) : isProxyEnabled ? (
             <Shield className="size-3.5" />
           ) : (
@@ -318,7 +319,7 @@ export function SettingsFeedRow({
           tip={isEnabled ? "Disable feed" : "Enable feed"}
         >
           {isTogglingEnabled ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <MotionSpinner iconClassName="size-3.5" />
           ) : isEnabled ? (
             <Eye className="size-3.5" />
           ) : (
@@ -338,7 +339,7 @@ export function SettingsFeedRow({
           tip="Remove feed"
         >
           {isDeleting ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <MotionSpinner iconClassName="size-3.5" />
           ) : (
             <Trash2 className="size-3.5" />
           )}

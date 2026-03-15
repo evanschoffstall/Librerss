@@ -5,12 +5,13 @@ import {
   CheckCircle2,
   Globe,
   Info,
-  Loader2,
   Save,
   Trash2,
   XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+import { MotionSpinner } from "../MotionSpinner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -274,7 +275,7 @@ export function SettingsProxySection() {
               variant="outline"
             >
               {saving ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <MotionSpinner iconClassName="size-3.5" />
               ) : (
                 <Save className="size-3.5" />
               )}
@@ -437,7 +438,7 @@ export function SettingsProxySection() {
               variant="outline"
             >
               {testingBot ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <MotionSpinner iconClassName="size-3.5" />
               ) : (
                 <Bug className="size-3.5" />
               )}
@@ -671,7 +672,7 @@ function StatusBadge({
       `}
       variant="outline"
     >
-      {status === "checking" && <Loader2 className="size-2.5 animate-spin" />}
+      {status === "checking" && <MotionSpinner iconClassName="size-2.5" />}
       {status === "reachable" && <CheckCircle2 className="size-2.5" />}
       {status === "unreachable" && <XCircle className="size-2.5" />}
       {cfg.label}
