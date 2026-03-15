@@ -3,16 +3,29 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import * as React from "react";
 
+import { AuthService } from "@/lib/api/auth-service";
+
+function MockThemeProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
 describe("DashboardTopHeaderBar", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalLocationReload = window.location.reload;
+  const originalLogout = AuthService.logout;
 
   beforeEach(() => {
     mock.restore();
+    AuthService.logout = originalLogout;
+    window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
     mock.restore();
+    AuthService.logout = originalLogout;
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     setNodeEnv(originalNodeEnv);
     Object.defineProperty(window.location, "reload", {
       configurable: true,
@@ -24,10 +37,8 @@ describe("DashboardTopHeaderBar", () => {
   test("shows Reset controls only in development mode", async () => {
     setNodeEnv("development");
 
-    mockHeaderDependencies({
-      clearClientOriginState: mock(async () => {}),
-      logout: mock(async () => {}),
-    });
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
 
     const { DashboardTopHeaderBar } =
       await import("@/app/dashboard/components/DashboardTopHeaderBar");
@@ -40,10 +51,8 @@ describe("DashboardTopHeaderBar", () => {
   test("does not show Reset controls outside development mode", async () => {
     setNodeEnv("test");
 
-    mockHeaderDependencies({
-      clearClientOriginState: mock(async () => {}),
-      logout: mock(async () => {}),
-    });
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
 
     const { DashboardTopHeaderBar } =
       await import("@/app/dashboard/components/DashboardTopHeaderBar");
@@ -55,11 +64,13 @@ describe("DashboardTopHeaderBar", () => {
 
   test("reset clears client state and reloads without logging out", async () => {
     setNodeEnv("development");
-    const clearClientOriginState = mock(async () => {});
     const logout = mock(async () => {});
     const reload = mock(() => {});
 
-    mockHeaderDependencies({ clearClientOriginState, logout });
+    AuthService.logout = logout;
+    window.localStorage.setItem("librerss:test", "value");
+    window.sessionStorage.setItem("librerss:test", "value");
+    mockHeaderDependencies();
     Object.defineProperty(window.location, "reload", {
       configurable: true,
       value: reload,
@@ -73,19 +84,18 @@ describe("DashboardTopHeaderBar", () => {
     fireEvent.click(getByLabelText("Reset app state"));
 
     await waitFor(() => {
-      expect(clearClientOriginState).toHaveBeenCalledTimes(1);
       expect(logout).not.toHaveBeenCalled();
       expect(reload).toHaveBeenCalledTimes(1);
+      expect(window.localStorage.getItem("librerss:test")).toBeNull();
+      expect(window.sessionStorage.getItem("librerss:test")).toBeNull();
     });
   });
 });
 
 /** Installs module mocks for header-bar dependencies before importing the subject. */
-function mockHeaderDependencies(options: {
-  clearClientOriginState: () => Promise<void>;
-  logout: () => Promise<void>;
-}) {
+function mockHeaderDependencies() {
   mock.module("next-themes", () => ({
+    ThemeProvider: MockThemeProvider,
     useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
   }));
   mock.module("sonner", () => ({
@@ -120,12 +130,6 @@ function mockHeaderDependencies(options: {
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
       <input {...props} />
     ),
-  }));
-  mock.module("@/lib", () => ({
-    AuthService: { logout: options.logout },
-    clearClientOriginState: options.clearClientOriginState,
-    useLocalStorage: <T,>(_key: string, defaultValue: T) =>
-      React.useState(defaultValue),
   }));
 }
 
