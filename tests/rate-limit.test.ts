@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { RateLimiter } from "@/lib/server";
+import { RateLimiter } from "@/lib/server/rate-limit";
 
 describe("RateLimiter", () => {
   test("allows requests under limit", () => {
@@ -268,7 +268,7 @@ describe("server/rate-limit – RateLimiter.destroy", () => {
 
 describe("lib/server/rate-limit – edge cases", () => {
   test("rateLimiter.check returns null when limit not exceeded", async () => {
-    const { rateLimiter } = await import("@/lib/server");
+    const { rateLimiter } = await import("@/lib/server/rate-limit");
     const { createMockRequest } = await import("./support/test-utils");
 
     const req = createMockRequest("https://example.com/api/test", {

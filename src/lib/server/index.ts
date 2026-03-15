@@ -1,4 +1,10 @@
-export { buildCspHeader } from "./csp";
+/**
+ * Canonical server barrel.
+ *
+ * Keep this surface centered on runtime-facing guards and proxy helpers used
+ * by route handlers. Test-only utilities should be imported from their direct
+ * modules to avoid inflating the public server API.
+ */
 export {
   type AuthenticatedUser,
   logAndRespondError,
@@ -15,4 +21,3 @@ export {
   probeProxy,
   type ProxyStatus,
 } from "./proxy";
-export { RateLimiter, rateLimiter } from "./rate-limit";

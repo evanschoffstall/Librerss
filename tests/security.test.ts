@@ -457,7 +457,7 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
 
 describe("buildCspHeader from lib/server/csp", () => {
   test("CSP includes form-action 'self'", async () => {
-    const { buildCspHeader } = await import("@/lib/server");
+    const { buildCspHeader } = await import("@/lib/server/csp");
     const scriptNonce = "test-script-nonce";
     const styleNonce = "test-style-nonce";
     const cspValue = buildCspHeader(scriptNonce, styleNonce);
@@ -466,7 +466,7 @@ describe("buildCspHeader from lib/server/csp", () => {
   });
 
   test("CSP includes worker-src 'self'", async () => {
-    const { buildCspHeader } = await import("@/lib/server");
+    const { buildCspHeader } = await import("@/lib/server/csp");
     const scriptNonce = "test-script-nonce";
     const styleNonce = "test-style-nonce";
     const cspValue = buildCspHeader(scriptNonce, styleNonce);
@@ -475,7 +475,7 @@ describe("buildCspHeader from lib/server/csp", () => {
   });
 
   test("CSP uses nonces for script-src and style-src", async () => {
-    const { buildCspHeader } = await import("@/lib/server");
+    const { buildCspHeader } = await import("@/lib/server/csp");
     const scriptNonce = "test-script-nonce-123";
     const styleNonce = "test-style-nonce-456";
     const cspValue = buildCspHeader(scriptNonce, styleNonce);
@@ -487,7 +487,7 @@ describe("buildCspHeader from lib/server/csp", () => {
   });
 
   test("CSP includes strict-dynamic for script-src", async () => {
-    const { buildCspHeader } = await import("@/lib/server");
+    const { buildCspHeader } = await import("@/lib/server/csp");
     const scriptNonce = "test-script-nonce";
     const styleNonce = "test-style-nonce";
     const cspValue = buildCspHeader(scriptNonce, styleNonce);
@@ -720,7 +720,7 @@ describe("RateLimiter trusted proxy extraction", () => {
     const previous = process.env.TRUSTED_PROXY_COUNT;
     process.env.TRUSTED_PROXY_COUNT = "1";
 
-    const { RateLimiter } = await import("@/lib/server");
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
     const limiter = new RateLimiter();
 
     try {

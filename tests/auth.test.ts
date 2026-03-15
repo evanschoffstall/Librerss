@@ -220,7 +220,7 @@ describe("csrf", () => {
 
 describe("rate-limit", () => {
   test("RateLimiter allows requests under limit", async () => {
-    const { RateLimiter } = await import("@/lib/server");
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
     const limiter = new RateLimiter();
 
     try {
@@ -237,7 +237,7 @@ describe("rate-limit", () => {
   });
 
   test("RateLimiter blocks requests over limit", async () => {
-    const { RateLimiter } = await import("@/lib/server");
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
     const limiter = new RateLimiter();
 
     try {
@@ -256,7 +256,7 @@ describe("rate-limit", () => {
   });
 
   test("RateLimiter uses client IP", async () => {
-    const { RateLimiter } = await import("@/lib/server");
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
     const limiter = new RateLimiter();
 
     try {
@@ -278,7 +278,7 @@ describe("rate-limit", () => {
   });
 
   test("RateLimiter resets after window", async () => {
-    const { RateLimiter } = await import("@/lib/server");
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
     const limiter = new RateLimiter();
 
     try {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { NextRequest } from "next/server";
 
-import { RateLimiter } from "@/lib/server";
+import { RateLimiter } from "@/lib/server/rate-limit";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
