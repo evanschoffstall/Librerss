@@ -6,29 +6,22 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 
 import { type BackgroundMode, FEED_SCROLL_SESSION_KEY } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
-import { formatLastRefreshLabel } from "../services/feed-loader-helpers";
 
 import { useArticleActions } from "./useArticleActions";
-import { useCategoryManager } from "./useCategoryManager";
+import { useDashboardCategoryTree } from "./useDashboardCategoryTree";
+import { useDashboardEffects } from "./useDashboardEffects";
 import { useDashboardEvents } from "./useDashboardEvents";
+import { useDashboardHandlers } from "./useDashboardHandlers";
 import { useDashboardIntervals } from "./useDashboardIntervals";
-import {
-  useDashboardBroadcasts,
-  useDashboardInitialization,
-  useFeedLoadingTimeout,
-  useLockDocumentScroll,
-  useRevealSidebarOnMount,
-} from "./useDashboardViewEffects";
-import { useDashboardViewHandlers } from "./useDashboardViewHandlers";
-import { useDashboardViewState } from "./useDashboardViewState";
+import { useDashboardState } from "./useDashboardState";
 import { useFeedLoader } from "./useFeedLoader";
 import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
+import { useRefreshStatus } from "./useRefreshStatus";
 
 import { type Article } from "@/lib";
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
@@ -40,7 +33,7 @@ import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
  * actions, and settings state. These props provide the persisted preferences and
  * callbacks owned by the parent view layer.
  */
-export interface DashboardViewControllerProps {
+export interface DashboardControllerProps {
   /** Current background refresh policy selected by the user. */
   backgroundMode: BackgroundMode;
   /** Active article distillation strategy used during on-demand extraction. */
@@ -64,18 +57,21 @@ export interface DashboardViewControllerProps {
  * @param props Persisted preferences and mode toggles supplied by the parent view.
  * @returns Structured controller state grouped by dashboard sub-surface.
  */
-export function useDashboardViewController({
+export function useDashboardController({
   backgroundMode,
   distillStrategy,
   onBackgroundModeChange,
   onDistillStrategyChange,
   usePlaceholderData,
-}: DashboardViewControllerProps) {
-  /** Last successful batch refresh time used for the top-bar status label. */
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-  /** Forces relative time labels to recompute on an interval without storing duplicate derived strings. */
-  const [, setRelativeRefreshTick] = useState(0);
-  const dashboardState = useDashboardViewState();
+}: DashboardControllerProps) {
+  const refreshStatus = useRefreshStatus(usePlaceholderData);
+  const {
+    lastRefreshedAt,
+    lastRefreshLabel,
+    setLastRefreshedAt,
+    setRelativeRefreshTick,
+  } = refreshStatus;
+  const dashboardState = useDashboardState();
 
   const {
     articleFilter,
@@ -148,7 +144,7 @@ export function useDashboardViewController({
    * Category orchestration layer that keeps sidebar category state, feed-source
    * loading, and selection-driven fetch behavior aligned.
    */
-  const categoryManager = useCategoryManager({
+  const categoryTree = useDashboardCategoryTree({
     categories,
     fetchAllFeeds,
     fetchCategoryFeeds,
@@ -194,6 +190,7 @@ export function useDashboardViewController({
   });
 
   const {
+    collapseSettlingArticleKey,
     collapsingArticleKey,
     collapsingArticleMode,
     handleArticleToggle,
@@ -211,7 +208,7 @@ export function useDashboardViewController({
     customCategoryLabels,
     orderedCategoryLabels,
     setOrderedCategoryLabels,
-  } = categoryManager;
+  } = categoryTree;
 
   // Deferring the search and filter inputs keeps expensive derived feed-model
   // work from blocking keystrokes or quick filter toggles.
@@ -307,27 +304,26 @@ export function useDashboardViewController({
 
   // Enforce a failsafe timeout around feed requests so the surface cannot remain
   // indefinitely stuck in a loading state if an upstream request wedges.
-  useFeedLoadingTimeout({
-    loading,
-    loadingEpoch,
-    onTimeout: cancelPendingRequest,
-    setLoading,
-    timeoutMs: FEED_LOADING_FAILSAFE_MS,
-  });
-  useLockDocumentScroll();
-  useRevealSidebarOnMount(setIsSidebarVisible);
-
-  // Initial dashboard boot chooses the starting category and kicks off the first
-  // feed/category load sequence exactly once.
-  useDashboardInitialization({
+  // Group dashboard side effects behind a single hook so the controller stays
+  // focused on state composition and event wiring.
+  useDashboardEffects({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
     hasInitializedDashboardRef,
+    isSearchPending,
     loadFeedSources,
+    loading,
+    loadingEpoch,
+    onTimeout: cancelPendingRequest,
+    searchTerm,
     selectedCategory,
+    selectedFeed,
     setIsCategoriesLoading,
+    setIsSidebarVisible,
+    setLoading,
     setSelectedCategory,
+    timeoutMs: FEED_LOADING_FAILSAFE_MS,
   });
 
   // Keep persisted category ordering aligned with the currently available set of
@@ -341,12 +337,6 @@ export function useDashboardViewController({
       ),
     );
   }, [categories, customCategoryLabels, setOrderedCategoryLabels]);
-
-  useDashboardBroadcasts({
-    isSearchPending,
-    searchTerm,
-    selectedFeed,
-  });
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
@@ -428,12 +418,12 @@ export function useDashboardViewController({
   const {
     autoRefreshFeedList,
     handleCategoryClick,
-    handleCategoryIntent,
+    handleCategoryPrefetch,
     handleFeedClick,
-    handleFeedIntent,
+    handleFeedPrefetch,
     handleRefreshSelection,
     refreshFeedList,
-  } = useDashboardViewHandlers({
+  } = useDashboardHandlers({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -474,10 +464,6 @@ export function useDashboardViewController({
     suppressSnapRef,
   );
 
-  const lastRefreshLabel = usePlaceholderData
-    ? "demo"
-    : formatLastRefreshLabel(lastRefreshedAt);
-
   /** Applies an optimistic local read-state update after a successful mark-all-read action. */
   const handleMarkAllReadLocally = useCallback(() => {
     setFeed((currentFeed) =>
@@ -509,23 +495,23 @@ export function useDashboardViewController({
    * Stable sidebar props bag so presentational components can avoid rebuilding
    * event bindings and derived category projections on every render.
    */
-  const sidebarProps = useMemo(
+  const sidebarContentProps = useMemo(
     () => ({
       isCategoriesLoading,
       isSidebarVisible,
       onCategoryClick: handleCategoryClick,
-      onCategoryIntent: handleCategoryIntent,
+      onCategoryPrefetch: handleCategoryPrefetch,
       onFeedClick: handleFeedClick,
-      onFeedIntent: handleFeedIntent,
+      onFeedPrefetch: handleFeedPrefetch,
       selectedCategory,
       showFavicons,
       sidebarCategories,
     }),
     [
       handleCategoryClick,
-      handleCategoryIntent,
+      handleCategoryPrefetch,
       handleFeedClick,
-      handleFeedIntent,
+      handleFeedPrefetch,
       isCategoriesLoading,
       isSidebarVisible,
       selectedCategory,
@@ -542,6 +528,7 @@ export function useDashboardViewController({
    */
   return {
     feedList: {
+      collapseSettlingArticleKey,
       collapsingArticleKey,
       collapsingArticleMode,
       expandedArticleKey,
@@ -575,8 +562,8 @@ export function useDashboardViewController({
       autoRefreshIntervalMinutes,
       backgroundMode,
       categories: displayCategories,
-      categoryManager,
       categoryOptions,
+      categoryTree,
       distillStrategy,
       handleCloseSettings,
       onBackgroundModeChange,
@@ -594,7 +581,7 @@ export function useDashboardViewController({
       isMobileSidebarOpen,
       isSidebarVisible,
       setIsMobileSidebarOpen,
-      sidebarProps,
+      sidebarContentProps,
       sidebarScrollRef,
     },
     topBar: {

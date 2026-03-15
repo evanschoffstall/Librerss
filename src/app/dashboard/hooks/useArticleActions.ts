@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { getArticleKey } from "../services/article-collection";
 
+import { toggleReadStatus } from "./article-toggle-state";
+import { getScrollLockReleaseMs } from "./feed-surface-scroll-lock";
 import {
   type FeedExtractionSettings,
   useArticleHydration,
@@ -22,18 +24,6 @@ export type ArticleRemovalAnimationMode =
   | "de-expanding"
   | "swipe-read";
 
-/** Returns the mounted lifetime for a staged unread-removal mode. */
-export function getArticleRemovalAnimationDuration(
-  mode: ArticleRemovalAnimationMode,
-) {
-  return mode === "de-expanding"
-    ? ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS
-    : ARTICLE_REMOVAL_ANIMATION_MS;
-}
-
-export const toggleReadStatus = (isRead: boolean) => !isRead;
-export const toggleStarredStatus = (isStarred: boolean) => !isStarred;
-
 interface UseArticleActionsOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   categories?: CategoryTreeNode[];
@@ -46,6 +36,15 @@ interface UseArticleActionsOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   suppressSnapRef?: React.RefObject<false | number>;
   usePlaceholderData?: boolean;
+}
+
+/** Returns the mounted lifetime for a staged unread-removal mode. */
+export function getArticleRemovalAnimationDuration(
+  mode: ArticleRemovalAnimationMode,
+) {
+  return mode === "de-expanding"
+    ? ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS
+    : ARTICLE_REMOVAL_ANIMATION_MS;
 }
 
 export function useArticleActions({
@@ -139,7 +138,11 @@ export function useArticleActions({
 
   const scrollLock = useFeedScrollLock(suppressSnapRef);
 
+  const collapseSettleTimeoutRef = useRef<null | number>(null);
   const collapseRemovalTimeoutRef = useRef<null | number>(null);
+  const [collapseSettlingArticleKey, setCollapseSettlingArticleKey] = useState<
+    null | string
+  >(null);
   const [collapsingArticleKey, setCollapsingArticleKey] = useState<
     null | string
   >(null);
@@ -172,11 +175,37 @@ export function useArticleActions({
 
   useEffect(
     () => () => {
+      if (collapseSettleTimeoutRef.current !== null) {
+        window.clearTimeout(collapseSettleTimeoutRef.current);
+      }
       if (collapseRemovalTimeoutRef.current !== null)
         window.clearTimeout(collapseRemovalTimeoutRef.current);
     },
     [],
   );
+
+  /** Keeps the feed surface stable while collapse scroll restoration settles. */
+  const stageCollapseSettling = useCallback((articleKey: string) => {
+    if (collapseSettleTimeoutRef.current !== null) {
+      window.clearTimeout(collapseSettleTimeoutRef.current);
+    }
+
+    setCollapseSettlingArticleKey(articleKey);
+    collapseSettleTimeoutRef.current = window.setTimeout(() => {
+      setCollapseSettlingArticleKey((current) =>
+        current === articleKey ? null : current,
+      );
+      collapseSettleTimeoutRef.current = null;
+    }, getScrollLockReleaseMs());
+  }, []);
+
+  const clearCollapseSettling = useCallback(() => {
+    if (collapseSettleTimeoutRef.current !== null) {
+      window.clearTimeout(collapseSettleTimeoutRef.current);
+      collapseSettleTimeoutRef.current = null;
+    }
+    setCollapseSettlingArticleKey(null);
+  }, []);
 
   /** Keeps a soon-to-be-removed unread article mounted long enough to animate out. */
   const startRemovalAnimation = useCallback(
@@ -226,6 +255,7 @@ export function useArticleActions({
         collapseRestoreTarget.viewport,
         collapseRestoreTarget.scrollTop,
       );
+      stageCollapseSettling(nextArticleKey);
 
       const shouldAnimateRemoval =
         options?.animateRemoval !== false &&
@@ -243,6 +273,7 @@ export function useArticleActions({
       cancelHydration,
       scrollLock,
       setExpandedArticleKey,
+      stageCollapseSettling,
       startRemovalAnimation,
     ],
   );
@@ -268,6 +299,7 @@ export function useArticleActions({
         window.clearTimeout(collapseRemovalTimeoutRef.current);
         collapseRemovalTimeoutRef.current = null;
       }
+      clearCollapseSettling();
       scrollLock.cancelLock();
       setCollapsingArticleKey(null);
       setCollapsingArticleMode(null);
@@ -286,6 +318,7 @@ export function useArticleActions({
     },
     [
       articleFilter,
+      clearCollapseSettling,
       collapseExpandedArticle,
       expandedArticleKey,
       onExpand,
@@ -401,6 +434,7 @@ export function useArticleActions({
   );
 
   return {
+    collapseSettlingArticleKey,
     collapsingArticleKey,
     collapsingArticleMode,
     handleArticleToggle,
