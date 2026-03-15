@@ -203,6 +203,7 @@ export function useDashboardViewController({
     handleToggleStarredState,
     hydratedArticleLinks,
     hydratingArticleLinks,
+    prepareArticleExpand,
     updatingArticleState,
   } = articleActions;
 
@@ -230,6 +231,12 @@ export function useDashboardViewController({
   const onArticleToggle = useCallback(
     (article: Article) => void handleArticleToggle(article),
     [handleArticleToggle],
+  );
+  const onArticlePrepareExpand = useCallback(
+    (article: Article) => {
+      prepareArticleExpand(article);
+    },
+    [prepareArticleExpand],
   );
   const onArticleToggleRead = useCallback(
     (article: Article) => void handleToggleReadState(article),
@@ -273,7 +280,6 @@ export function useDashboardViewController({
     [
       categories,
       collapsingArticleKey,
-      collapsingArticleMode,
       customCategoryLabels,
       deferredArticleFilter,
       deferredSearchTerm,
@@ -548,6 +554,7 @@ export function useDashboardViewController({
       isRefreshing: isFeedListRefreshing,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
+      onArticlePrepareExpand,
       onArticleSwipeRead,
       onArticleToggle,
       onArticleToggleRead,
