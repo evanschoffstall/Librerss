@@ -68,10 +68,13 @@ export function useArticleHydration({
       const feedUrl =
         typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
       const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
-      if (settings?.extractionDisabled) return;
+      const shouldLoadStoredContent = settings?.extractionDisabled === true;
 
       const inFlightCount = articleHydrationInFlightRef.current.get(link) ?? 0;
 
+      if (!forceHydration && article.hasFullContent) {
+        return;
+      }
       if (!forceHydration && hydratedArticleLinks[link]) {
         console.info("[dashboard] Article hydration cache hit", { link });
         return;
@@ -85,40 +88,45 @@ export function useArticleHydration({
       hydrationAbortRef.current.set(link, abortController);
 
       try {
-        const extractedContent = await ArticleService.extractArticleContent(
-          link,
-          {
-            distillStrategy,
-            signal: abortController.signal,
-            useProxy: settings?.proxyEnabled,
-          },
-        );
+        const nextContent = shouldLoadStoredContent
+          ? await ArticleService.getStoredArticleContent(article.id)
+          : await ArticleService.extractArticleContent(link, {
+              distillStrategy,
+              signal: abortController.signal,
+              useProxy: settings?.proxyEnabled,
+            });
 
-        if (!extractedContent) {
-          setHydratedArticleLinks((current) => {
-            if (!current[link]) return current;
-            const { [link]: _, ...rest } = current;
-            return rest;
-          });
+        if (!nextContent) {
+          if (!shouldLoadStoredContent) {
+            setHydratedArticleLinks((current) => {
+              if (!current[link]) return current;
+              const { [link]: _, ...rest } = current;
+              return rest;
+            });
+          }
           return;
         }
 
         setFeed((currentFeed) =>
           currentFeed.map((a) => {
             if (a.link.trim() !== link) return a;
-            return { ...a, content: extractedContent };
+            return { ...a, content: nextContent, hasFullContent: true };
           }),
         );
 
-        setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
+        if (!shouldLoadStoredContent) {
+          setHydratedArticleLinks((current) => ({ ...current, [link]: true }));
+        }
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error("Article hydration error:", error);
-        setHydratedArticleLinks((current) => {
-          if (!current[link]) return current;
-          const { [link]: _, ...rest } = current;
-          return rest;
-        });
+        if (!shouldLoadStoredContent) {
+          setHydratedArticleLinks((current) => {
+            if (!current[link]) return current;
+            const { [link]: _, ...rest } = current;
+            return rest;
+          });
+        }
         const serverReason = (() => {
           if (!axios.isAxiosError<Record<string, unknown>>(error))
             return undefined;
@@ -133,8 +141,10 @@ export function useArticleHydration({
         })();
         toast.error(
           serverReason
-            ? `Unable to extract article: ${serverReason}`
-            : "Unable to extract article content right now.",
+            ? `${shouldLoadStoredContent ? "Unable to load article" : "Unable to extract article"}: ${serverReason}`
+            : shouldLoadStoredContent
+              ? "Unable to load article content right now."
+              : "Unable to extract article content right now.",
         );
       } finally {
         hydrationAbortRef.current.delete(link);
