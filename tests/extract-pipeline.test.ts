@@ -484,52 +484,44 @@ describe("article extract cleanup", () => {
     expect(hasReadableArticleBody(fullArticle)).toBe(true);
   });
 
-  test("parseAndValidateArticleUrl handles parser response, missing URL, blocked URL, and valid URL", async () => {
-    const parserResponse = new Response("bad request", { status: 400 });
-    const fromParser = await parseAndValidateArticleUrl({} as any, {
-      parseJsonBodyOrResponseFn: async () => parserResponse,
-    });
-    expect(fromParser).toBe(parserResponse);
-
-    const missingUrl = await parseAndValidateArticleUrl({} as any, {
-      parseJsonBodyOrResponseFn: (async () => ({ url: "  " })) as any,
-    });
+  test("parseAndValidateArticleUrl handles missing URL, blocked URL, and valid URL", async () => {
+    const missingUrl = await parseAndValidateArticleUrl("  ");
     expect(missingUrl).toBeInstanceOf(Response);
     expect((missingUrl as Response).status).toBe(400);
 
-    const blocked = await parseAndValidateArticleUrl({} as any, {
-      isAllowedFeedUrlFn: async () => false,
-      parseJsonBodyOrResponseFn: (async () => ({
-        url: "https://blocked.example",
-      })) as any,
-    });
+    const blocked = await parseAndValidateArticleUrl(
+      "https://blocked.example",
+      {
+        isAllowedFeedUrlFn: async () => false,
+      },
+    );
     expect(blocked).toBeInstanceOf(Response);
     expect((blocked as Response).status).toBe(400);
 
-    const allowed = await parseAndValidateArticleUrl({} as any, {
-      isAllowedFeedUrlFn: async () => true,
-      parseJsonBodyOrResponseFn: (async () => ({
-        url: "  https://example.com/article  ",
-      })) as any,
-    });
+    const allowed = await parseAndValidateArticleUrl(
+      "  https://example.com/article  ",
+      {
+        isAllowedFeedUrlFn: async () => true,
+      },
+    );
     expect(allowed).toBe("https://example.com/article");
 
     // Fragment must be stripped: HTTP requests must not carry URL fragments
     // (RFC 3986 §3.5). CDNs can return 403/400 for requests with raw fragments.
-    const withFragment = await parseAndValidateArticleUrl({} as any, {
-      isAllowedFeedUrlFn: async () => true,
-      parseJsonBodyOrResponseFn: (async () => ({
-        url: "https://example.com/article#comments",
-      })) as any,
-    });
+    const withFragment = await parseAndValidateArticleUrl(
+      "https://example.com/article#comments",
+      {
+        isAllowedFeedUrlFn: async () => true,
+      },
+    );
     expect(withFragment).toBe("https://example.com/article");
 
-    const withQueryAndFragment = await parseAndValidateArticleUrl({} as any, {
-      isAllowedFeedUrlFn: async () => true,
-      parseJsonBodyOrResponseFn: (async () => ({
-        url: "https://example.com/article?ref=rss#section-2",
-      })) as any,
-    });
+    const withQueryAndFragment = await parseAndValidateArticleUrl(
+      "https://example.com/article?ref=rss#section-2",
+      {
+        isAllowedFeedUrlFn: async () => true,
+      },
+    );
     expect(withQueryAndFragment).toBe("https://example.com/article?ref=rss");
   });
 
@@ -616,6 +608,31 @@ describe("article extract cleanup", () => {
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
     });
     expect(fromParse).toBe(parseResponse);
+  });
+
+  test("POST bypasses auth entirely for local placeholder snapshot requests", async () => {
+    const authFn = mock(async () => {
+      throw new Error("placeholder snapshot request should not authenticate");
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/articles/extract", {
+        body: JSON.stringify({
+          url: "https://science.nasa.gov/photojournal/jpl-3d-printed-part-springs-forward/",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      {
+        requireMutableAuthenticatedUserFn: authFn,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(authFn).not.toHaveBeenCalled();
+    const body = await response.json();
+    expect(typeof body.content).toBe("string");
+    expect(body.content.length).toBeGreaterThan(0);
   });
 
   test("POST maps axios and generic failures to expected error handlers", async () => {
