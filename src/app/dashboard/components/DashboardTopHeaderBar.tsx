@@ -29,10 +29,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { AuthService, clearClientOriginState, useLocalStorage } from "@/lib";
+import { AuthService } from "@/lib/api/auth-service";
+import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
 const toolbarBtnClass =
-  "cursor-pointer transition-colors anim-duration-ui anim-ease-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
+  "cursor-pointer transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
 
 /**
  * Top dashboard toolbar for search, quick actions, theme controls, and logout.
@@ -164,6 +166,7 @@ export function DashboardTopHeaderBar() {
     if (isPreviewMode) {
       await clearClientOriginState();
       setIsPreviewMode(false);
+      setDashboardPreviewPersistence(false);
       window.location.assign("/landing");
       return;
     }
@@ -173,6 +176,7 @@ export function DashboardTopHeaderBar() {
       await AuthService.logout();
       await clearClientOriginState();
       setIsPreviewMode(false);
+      setDashboardPreviewPersistence(false);
       window.location.assign("/landing");
     } catch {
       toast.error("Unable to sign out.");
@@ -181,16 +185,20 @@ export function DashboardTopHeaderBar() {
   };
 
   return (
-    <div className="
-      pointer-events-auto fixed inset-x-0 top-0 z-50 border-b border-border/50
-      bg-background/80 backdrop-blur-md
-    ">
-      <div className="
-        mx-auto flex h-14 max-w-6xl items-center gap-4 px-4
-        pr-[max(1rem,env(safe-area-inset-right))]
-        pl-[max(1rem,env(safe-area-inset-left))]
-        md:px-6
-      ">
+    <div
+      className="
+        pointer-events-auto fixed inset-x-0 top-0 z-50 border-b border-border/50
+        bg-background/80 backdrop-blur-md
+      "
+    >
+      <div
+        className="
+          mx-auto flex h-14 max-w-6xl items-center gap-4 px-4
+          pr-[max(1rem,env(safe-area-inset-right))]
+          pl-[max(1rem,env(safe-area-inset-left))]
+          md:px-6
+        "
+      >
         <button
           aria-label="Open feeds"
           className={`
@@ -323,10 +331,12 @@ export function DashboardTopHeaderBar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="
-          hidden items-center gap-4
-          md:flex
-        ">
+        <div
+          className="
+            hidden items-center gap-4
+            md:flex
+          "
+        >
           <button
             aria-label="Refresh selected feed"
             className={toolbarBtnClass}
