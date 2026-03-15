@@ -11,11 +11,11 @@ import {
 } from "./components/Background";
 import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
 import { LoginView } from "./components/login/LoginView";
-import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
 import type { BackgroundMode } from "./constants";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
+import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { AuthService } from "@/lib/api/auth-service";
@@ -57,7 +57,7 @@ export function DashboardRouter({
   );
   const [distillStrategy, setDistillStrategy] = useLocalStorage<string>(
     "librerss:distillStrategy",
-    "custom",
+    "librerss",
   );
 
   const isLightMode = (resolvedTheme ?? "dark") === "light";
@@ -69,7 +69,7 @@ export function DashboardRouter({
     : "particles";
   const resolvedDistillStrategy = hasHydratedClientState
     ? distillStrategy
-    : "custom";
+    : "librerss";
 
   useEffect(() => {
     setHasHydratedClientState(true);

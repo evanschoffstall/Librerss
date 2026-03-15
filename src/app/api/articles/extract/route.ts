@@ -147,7 +147,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         bodyResult.distillStrategy,
       )
         ? (bodyResult.distillStrategy as DistillStrategy)
-        : "custom";
+        : "librerss";
 
     // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
     let allowInsecureTls = false;
