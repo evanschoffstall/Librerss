@@ -24,10 +24,26 @@ import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
 
+import {
+  FEED_LOAD_MORE_THRESHOLD_PX,
+  FEED_ROW_COLLAPSE_FLOOR_PX,
+  FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS,
+  FEED_ROW_COLLAPSE_OFFSET_PX,
+  FEED_ROW_EXIT_EASING,
+  FEED_ROW_GAP_PX,
+  FEED_ROW_OPACITY_EASING,
+  FEED_ROW_REFLOW_ANIMATION_MS,
+  FEED_ROW_SWIPE_EXIT_DISTANCE,
+  FEED_ROW_SWIPE_EXIT_EASING,
+  FEED_ROW_VIRTUAL_OVERSCAN,
+  VIRTUAL_FEED_ROW_ESTIMATE_PX,
+} from "./constants";
+
 import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 interface FeedListProps {
+  collapseSettlingArticleKey?: null | string;
   collapsingArticleKey?: null | string;
   collapsingArticleMode?: ArticleRemovalAnimationMode | null;
   expandedArticleKey: null | string;
@@ -49,31 +65,6 @@ interface FeedListProps {
   updatingArticleState: Record<string, boolean>;
 }
 
-interface FeedLoadMoreState {
-  clientHeight: number;
-  hasUserScrolled: boolean;
-  scrollHeight: number;
-  scrollTop: number;
-  totalArticleCount: number;
-  visibleArticleCount: number;
-}
-
-/** Approximate row height used to convert the page-size preference into preload distance. */
-const VIRTUAL_FEED_ROW_ESTIMATE_PX = 168;
-/** Viewport distance from the bottom that should trigger the next page load. */
-const FEED_LOAD_MORE_THRESHOLD_PX = VIRTUAL_FEED_ROW_ESTIMATE_PX * 3;
-const FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS = 90;
-const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
-const FEED_ROW_GAP_PX = 6;
-const FEED_ROW_COLLAPSE_OFFSET_PX =
-  FEED_ROW_COLLAPSE_FLOOR_PX + FEED_ROW_GAP_PX;
-const FEED_ROW_REFLOW_ANIMATION_MS = 220;
-const FEED_ROW_SWIPE_EXIT_DISTANCE = "calc(100% + 4rem)";
-const FEED_ROW_VIRTUAL_OVERSCAN = 6;
-const FEED_ROW_EXIT_EASING = [0.22, 1, 0.36, 1] as const;
-const FEED_ROW_OPACITY_EASING = [0.16, 1, 0.3, 1] as const;
-const FEED_ROW_SWIPE_EXIT_EASING = [0.2, 0, 0, 1] as const;
-
 interface FeedListRowProps {
   articleKey: string;
   children: React.ReactNode;
@@ -83,6 +74,15 @@ interface FeedListRowProps {
   onMeasureElement?: (element: HTMLDivElement | null) => void;
   removalAnimationMode: ArticleRemovalAnimationMode | null;
   shouldAnimateReflow: boolean;
+}
+
+interface FeedLoadMoreState {
+  clientHeight: number;
+  hasUserScrolled: boolean;
+  scrollHeight: number;
+  scrollTop: number;
+  totalArticleCount: number;
+  visibleArticleCount: number;
 }
 
 interface RetainedCollapsingArticle {
