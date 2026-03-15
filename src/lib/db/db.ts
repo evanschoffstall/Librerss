@@ -1,4 +1,5 @@
 import {
+  assertDatabaseConfigured,
   getConnectionString,
   getDbDriver,
   getDbIdleTimeoutMs,
@@ -90,16 +91,21 @@ function clearDbSingletonState(): void {
   delete globalForDb.hasRunInitialDbConnectivityCheck;
 }
 
+/** Loads only the provider module needed for the active runtime driver. */
 function createRuntimeDatabaseProvider(): DatabaseProviderResult {
+  assertDatabaseConfigured();
+
   const options = {
     connectionString: getConnectionString(),
     idleTimeoutMillis: getDbIdleTimeoutMs(),
     maxConnections: getDbMaxConnections(),
   };
 
-  return getDbDriver() === "neon"
-    ? createNeonDatabase(options)
-    : createNodePostgresDatabase(options);
+  if (getDbDriver() === "neon") {
+    return createNeonDatabase(options);
+  }
+
+  return createNodePostgresDatabase(options);
 }
 
 function hasDbErrorCode(error: unknown, code: string): boolean {
