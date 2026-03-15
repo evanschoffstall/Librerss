@@ -279,13 +279,15 @@ function DashboardArticleCardSkeleton({
       >
         <div className="relative rounded-t-xl bg-card/70 px-3 pt-3">
           <div className="space-y-2">
-            <div className="
-              flex items-center gap-2 text-xs/5 tracking-normal
-              text-muted-foreground/70 select-none
-            ">
-              <div className="
-                flex shrink-0 items-center gap-2 whitespace-nowrap
-              ">
+            <div
+              className="
+                flex items-center gap-2 text-xs/5 tracking-normal
+                text-muted-foreground/70 select-none
+              "
+            >
+              <div
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap"
+              >
                 <Skeleton className="size-3 rounded-full" />
                 <Skeleton className="h-3 w-16 rounded-full" />
                 <Skeleton className="size-1 shrink-0 rounded-full" />
@@ -297,10 +299,12 @@ function DashboardArticleCardSkeleton({
                 />
               </div>
 
-              <div className="
-                -mr-1 ml-auto flex shrink-0 items-center gap-1 opacity-100
-                transition-opacity duration-150
-              ">
+              <div
+                className="
+                  -mr-1 ml-auto flex shrink-0 items-center gap-1 opacity-100
+                  transition-opacity duration-150
+                "
+              >
                 <Skeleton className="size-6 rounded-md" />
                 <Skeleton className="size-6 rounded-md" />
                 <Skeleton className="size-6 rounded-md" />
