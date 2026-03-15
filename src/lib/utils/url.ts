@@ -39,6 +39,12 @@ export function getUrlHostnameLabel(
  * Injects username/password credentials into a proxy URL.
  * Returns the original URL if it's unparseable.
  */
+/**
+ * Injects username/password credentials into a proxy URL.
+ * The URL API's `.username` / `.password` setters apply the correct userinfo
+ * percent-encoding (RFC 3986 §3.2.1), so plain strings are assigned directly.
+ * Returns the original URL string if it is unparseable.
+ */
 export function injectProxyCredentials(
   proxyUrl: string,
   username: string,
@@ -46,8 +52,8 @@ export function injectProxyCredentials(
 ): string {
   try {
     const parsed = new URL(proxyUrl);
-    parsed.username = encodeURIComponent(username);
-    parsed.password = encodeURIComponent(password);
+    parsed.username = username;
+    parsed.password = password;
     return parsed.toString();
   } catch {
     return proxyUrl;
