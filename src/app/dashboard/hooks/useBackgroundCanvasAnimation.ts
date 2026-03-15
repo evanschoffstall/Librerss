@@ -1,5 +1,6 @@
 "use client";
 
+import { useAnimationFrame, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 
 import {
@@ -28,64 +29,54 @@ export function useBackgroundCanvasAnimation({
   onFrame,
   onResume,
 }: UseBackgroundCanvasAnimationOptions) {
-  const frameRef = useRef<null | number>(null);
   const lastFrameAtRef = useRef(0);
   const motionEnabledRef = useRef(true);
+  const onFrameRef = useRef(onFrame);
+  const onResumeRef = useRef(onResume);
+  const prefersReducedMotion = useReducedMotion();
+
+  onFrameRef.current = onFrame;
+  onResumeRef.current = onResume;
 
   useEffect(() => {
-    const stopAnimation = () => {
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
-      }
-      frameRef.current = null;
-      lastFrameAtRef.current = 0;
-    };
-
-    const animate = (now: number) => {
-      frameRef.current = null;
-      if (!motionEnabledRef.current) {
-        return;
-      }
-      if (!shouldRenderBackgroundCanvasFrame(lastFrameAtRef.current, now)) {
-        frameRef.current = requestAnimationFrame(animate);
-        return;
-      }
-
-      lastFrameAtRef.current = now;
-      onFrame(now);
-      frameRef.current = requestAnimationFrame(animate);
-    };
-
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const syncAnimationState = () => {
       const nextEnabled = shouldRunBackgroundAnimation(
         document.visibilityState,
-        mediaQuery.matches,
+        prefersReducedMotion === true,
       );
       const wasEnabled = motionEnabledRef.current;
       motionEnabledRef.current = nextEnabled;
 
       if (!nextEnabled) {
-        stopAnimation();
+        lastFrameAtRef.current = 0;
         return;
       }
 
       if (!wasEnabled) {
         lastFrameAtRef.current = 0;
-        onResume?.();
+        onResumeRef.current?.();
       }
-
-      frameRef.current ??= requestAnimationFrame(animate);
     };
 
     syncAnimationState();
     document.addEventListener("visibilitychange", syncAnimationState);
-    mediaQuery.addEventListener("change", syncAnimationState);
 
     return () => {
-      stopAnimation();
+      lastFrameAtRef.current = 0;
       document.removeEventListener("visibilitychange", syncAnimationState);
-      mediaQuery.removeEventListener("change", syncAnimationState);
     };
-  }, [onFrame, onResume]);
+  }, [prefersReducedMotion]);
+
+  useAnimationFrame((now) => {
+    if (!motionEnabledRef.current) {
+      return;
+    }
+
+    if (!shouldRenderBackgroundCanvasFrame(lastFrameAtRef.current, now)) {
+      return;
+    }
+
+    lastFrameAtRef.current = now;
+    onFrameRef.current(now);
+  });
 }
