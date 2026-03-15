@@ -1,12 +1,15 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
+import { motion } from "motion/react";
 import { memo } from "react";
 
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
 } from "../services/article-filters";
+
+import { MotionSpinner } from "./MotionSpinner";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -78,12 +81,18 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
                     whitespace-nowrap text-muted-foreground/50 select-none
                   "
                 >
-                  <RefreshCw
-                    className={`
-                      size-2.5 shrink-0
-                      ${loading ? "animate-spin" : ""}
-                    `}
-                  />
+                  {loading ? (
+                    <MotionSpinner iconClassName="size-2.5" />
+                  ) : (
+                    <motion.span
+                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                      className="inline-flex shrink-0"
+                      initial={{ opacity: 0, rotate: -20, scale: 0.9 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <RefreshCw className="size-2.5 shrink-0" />
+                    </motion.span>
+                  )}
                   {loading ? (
                     <Skeleton
                       aria-label="Refreshing"

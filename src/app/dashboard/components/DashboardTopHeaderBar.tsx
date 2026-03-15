@@ -3,7 +3,6 @@
 import {
   CheckCheck,
   EllipsisVertical,
-  Loader2,
   LogOut,
   Menu,
   Moon,
@@ -18,6 +17,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
+import { setDashboardPreviewPersistence } from "../preview-mode";
+
+import { MotionSpinner } from "./MotionSpinner";
 
 import {
   DropdownMenu,
@@ -205,33 +207,37 @@ export function DashboardTopHeaderBar() {
           <Menu className="size-4" />
         </button>
 
-        <h1 className="
-          flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight
-          select-none
-        ">
+        <h1
+          className="
+            flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight
+            select-none
+          "
+        >
           <img alt="LibreRSS logo" className="size-5" src="/favicon.svg" />
           <span className="truncate">{title}</span>
         </h1>
 
         <div className="relative min-w-0 flex-1">
           {isSearchPending ? (
-            <Loader2 className="
-              pointer-events-none absolute top-1/2 left-3 size-3.5
-              -translate-y-1/2 animate-spin text-muted-foreground/60
-            " />
+            <MotionSpinner
+              className="
+                pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
+              "
+              iconClassName="size-3.5 text-muted-foreground/60"
+            />
           ) : (
-            <Search className="
-              pointer-events-none absolute top-1/2 left-3 size-3.5
-              -translate-y-1/2 text-muted-foreground/40
-            " />
+            <Search
+              className="
+                pointer-events-none absolute top-1/2 left-3 size-3.5
+                -translate-y-1/2 text-muted-foreground/40
+              "
+            />
           )}
           <Input
             className={`
               h-9 border-transparent pl-9 text-sm
               focus-visible:bg-background
-              ${
-              isSearchPending ? "bg-muted/45" : "bg-muted/30"
-            }
+              ${isSearchPending ? "bg-muted/45" : "bg-muted/30"}
             `}
             onChange={(e) => {
               handleSearchChange(e.target.value);
@@ -347,7 +353,7 @@ export function DashboardTopHeaderBar() {
             type="button"
           >
             {isMarkingAllRead ? (
-              <Loader2 className="size-4 animate-spin" />
+              <MotionSpinner iconClassName="size-4" />
             ) : (
               <CheckCheck className="size-4" />
             )}
