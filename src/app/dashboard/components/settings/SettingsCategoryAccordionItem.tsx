@@ -219,11 +219,13 @@ export function SettingsCategoryAccordionItem({
               </Button>
             </div>
           ) : (
-            <AccordionTrigger className="
-              flex-1 py-2.5 text-xs font-medium tracking-wide
-              text-muted-foreground/70 uppercase
-              hover:no-underline
-            ">
+            <AccordionTrigger
+              className="
+                flex-1 py-2.5 text-xs font-medium tracking-wide
+                text-muted-foreground/70 uppercase
+                hover:no-underline
+              "
+            >
               <span
                 className="flex cursor-pointer items-center gap-2"
                 onDoubleClick={(event) => {
@@ -234,11 +236,13 @@ export function SettingsCategoryAccordionItem({
               >
                 {categoryNode.label}
                 {categoryFeeds.length > 0 && (
-                  <span className="
-                    rounded-full bg-muted px-1.5 py-0.5 text-[10px] leading-none
-                    font-normal tracking-normal text-muted-foreground/60
-                    normal-case tabular-nums
-                  ">
+                  <span
+                    className="
+                      rounded-full bg-muted px-1.5 py-0.5 text-[10px]
+                      leading-none font-normal tracking-normal
+                      text-muted-foreground/60 normal-case tabular-nums
+                    "
+                  >
                     {categoryFeeds.length}
                   </span>
                 )}
@@ -357,11 +361,11 @@ export function SettingsCategoryAccordionItem({
                 rounded-md border border-dashed px-3 py-4 text-center text-xs
                 transition-colors
                 ${
-                feedDropTarget?.categoryLabel === categoryNode.label &&
-                feedDropTarget.index === 0
-                  ? "border-primary bg-primary/5 text-foreground"
-                  : "border-border/50 text-muted-foreground/60"
-              }
+                  feedDropTarget?.categoryLabel === categoryNode.label &&
+                  feedDropTarget.index === 0
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border/50 text-muted-foreground/60"
+                }
               `}
               onDragOver={(event) => {
                 onFeedDragOver(event, categoryNode.label, 0);

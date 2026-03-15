@@ -300,9 +300,11 @@ export function SettingsProxySection() {
             )}
           </div>
           {error && (
-            <div className="
-              flex min-w-0 items-center gap-1.5 text-xs text-destructive
-            ">
+            <div
+              className="
+                flex min-w-0 items-center gap-1.5 text-xs text-destructive
+              "
+            >
               <XCircle className="size-3.5 shrink-0" />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -447,9 +449,11 @@ export function SettingsProxySection() {
           </div>
 
           {botError && (
-            <div className="
-              flex min-w-0 items-center gap-1.5 text-xs text-destructive
-            ">
+            <div
+              className="
+                flex min-w-0 items-center gap-1.5 text-xs text-destructive
+              "
+            >
               <XCircle className="size-3.5 shrink-0" />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -488,11 +492,13 @@ export function SettingsProxySection() {
                     {r.error && (!r.statusCode || r.statusCode === 0) && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="
-                            max-w-[20rem] min-w-0 flex-1 truncate font-mono
-                            text-[10px] text-muted-foreground
-                            md:max-w-md
-                          ">
+                          <span
+                            className="
+                              max-w-[20rem] min-w-0 flex-1 truncate font-mono
+                              text-[10px] text-muted-foreground
+                              md:max-w-md
+                            "
+                          >
                             {previewText(r.error)}
                           </span>
                         </TooltipTrigger>

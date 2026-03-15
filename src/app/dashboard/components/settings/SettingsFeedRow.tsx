@@ -147,16 +147,20 @@ export function SettingsFeedRow({
       }}
     >
       {draggingFeedKey && isDropBefore ? (
-        <div className="
-          pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded-sm
-          bg-primary
-        " />
+        <div
+          className="
+            pointer-events-none absolute inset-x-2 top-0 h-0.5 rounded-sm
+            bg-primary
+          "
+        />
       ) : null}
       {draggingFeedKey && isDropAfter ? (
-        <div className="
-          pointer-events-none absolute inset-x-2 bottom-0 h-0.5 rounded-sm
-          bg-primary
-        " />
+        <div
+          className="
+            pointer-events-none absolute inset-x-2 bottom-0 h-0.5 rounded-sm
+            bg-primary
+          "
+        />
       ) : null}
 
       <button
@@ -234,9 +238,11 @@ export function SettingsFeedRow({
           <p
             className={`
               cursor-pointer truncate text-sm
-              ${selectedCategory === feedNode.key ? `
-                font-medium text-foreground
-              ` : `text-foreground/80`}
+              ${
+                selectedCategory === feedNode.key
+                  ? `font-medium text-foreground`
+                  : `text-foreground/80`
+              }
             `}
             onDoubleClick={(event) => {
               event.stopPropagation();
