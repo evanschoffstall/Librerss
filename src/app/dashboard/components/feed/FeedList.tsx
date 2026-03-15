@@ -1,20 +1,18 @@
 "use client";
 
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { SearchX, Sparkles } from "lucide-react";
+import { motion } from "motion/react";
 import { useTheme } from "next-themes";
 import {
-  type ComponentPropsWithoutRef,
-  forwardRef,
   memo,
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { Virtuoso } from "react-virtuoso";
 
 import {
   ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS,
@@ -39,6 +37,7 @@ interface FeedListProps {
   isInitialLoading: boolean;
   isRefreshing: boolean;
   onExpandedSwipeRead: (article: Article) => void;
+  onPrepareExpand?: (article: Article) => void;
   onSwipeRead?: (article: Article) => void;
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
@@ -59,31 +58,28 @@ interface FeedLoadMoreState {
   visibleArticleCount: number;
 }
 
-/** Minimum off-screen preload budget for the virtualized feed list. */
-const VIRTUAL_FEED_MIN_PRELOAD_PX = 720;
 /** Approximate row height used to convert the page-size preference into preload distance. */
 const VIRTUAL_FEED_ROW_ESTIMATE_PX = 168;
 /** Viewport distance from the bottom that should trigger the next page load. */
 const FEED_LOAD_MORE_THRESHOLD_PX = VIRTUAL_FEED_ROW_ESTIMATE_PX * 3;
-const FEED_ROW_EXIT_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS = 90;
 const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
 const FEED_ROW_GAP_PX = 6;
 const FEED_ROW_COLLAPSE_OFFSET_PX =
   FEED_ROW_COLLAPSE_FLOOR_PX + FEED_ROW_GAP_PX;
 const FEED_ROW_SWIPE_EXIT_DISTANCE = "calc(100% + 4rem)";
-const FEED_ROW_SWIPE_EXIT_EASING = "cubic-bezier(0.2, 0, 0, 1)";
-const FEED_VIRTUALIZED_FALLBACK_ROW_PX = Math.max(
-  FEED_ROW_COLLAPSE_FLOOR_PX,
-  VIRTUAL_FEED_ROW_ESTIMATE_PX,
-);
+const FEED_ROW_VIRTUAL_OVERSCAN = 6;
+const FEED_ROW_EXIT_EASING = [0.22, 1, 0.36, 1] as const;
+const FEED_ROW_OPACITY_EASING = [0.16, 1, 0.3, 1] as const;
+const FEED_ROW_SWIPE_EXIT_EASING = [0.2, 0, 0, 1] as const;
 
 interface FeedListRowProps {
   articleKey: string;
   children: React.ReactNode;
+  dataIndex?: number;
   initialMeasuredHeight?: number;
   onMeasuredHeightChange?: (height: number) => void;
-  onRemovalTransitionComplete?: (articleKey: string) => void;
+  onMeasureElement?: (element: HTMLDivElement | null) => void;
   removalAnimationMode: ArticleRemovalAnimationMode | null;
 }
 
@@ -95,8 +91,8 @@ interface RetainedCollapsingArticle {
 }
 
 /**
- * Keeps react-virtuoso from recording impossible zero-height rows during list
- * churn, which otherwise triggers console errors and extra measurement passes.
+ * Keeps the virtualizer from recording impossible zero-height rows during list
+ * churn, which otherwise causes poor scroll anchoring and console errors.
  */
 export function measureFeedListItemSize(element: Element): number {
   return Math.max(
@@ -106,25 +102,26 @@ export function measureFeedListItemSize(element: Element): number {
 }
 
 /**
- * Preserves the row long enough for unread removals to collapse out of the feed
- * instead of disappearing on the next virtual-list diff.
+ * Preserves a row long enough for unread removals to animate out without
+ * tearing the virtualization state or skipping the exit.
  */
 const FeedListRow = memo(function FeedListRow({
   articleKey,
   children,
+  dataIndex,
   initialMeasuredHeight,
   onMeasuredHeightChange,
-  onRemovalTransitionComplete,
+  onMeasureElement,
   removalAnimationMode,
 }: FeedListRowProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const removalActivationTimeoutRef = useRef<null | number>(null);
-  const hasCompletedRemovalRef = useRef(false);
   const isRemoving = removalAnimationMode !== null;
   const isDeExpandingHold = removalAnimationMode === "de-expanding";
   const isSwipeReadExit = removalAnimationMode === "swipe-read";
-  const contentId = useId();
-  const stableHeightRef = useRef(initialMeasuredHeight ?? 0);
+  const stableHeightRef = useRef(
+    Math.max(initialMeasuredHeight ?? 0, FEED_ROW_COLLAPSE_FLOOR_PX),
+  );
   const [measuredHeight, setMeasuredHeight] = useState<null | number>(
     initialMeasuredHeight ?? null,
   );
@@ -134,12 +131,22 @@ const FeedListRow = memo(function FeedListRow({
   const [isRemovalTransitionActive, setIsRemovalTransitionActive] =
     useState(false);
 
+  const setRowElement = useCallback(
+    (node: HTMLDivElement | null) => {
+      onMeasureElement?.(node);
+    },
+    [onMeasureElement],
+  );
+
   useLayoutEffect(() => {
     const node = contentRef.current;
     if (!node) return;
 
     const updateMeasuredHeight = () => {
-      const nextHeight = node.offsetHeight;
+      const nextHeight = Math.max(
+        node.offsetHeight,
+        FEED_ROW_COLLAPSE_FLOOR_PX,
+      );
       stableHeightRef.current = nextHeight;
       setMeasuredHeight(nextHeight);
       onMeasuredHeightChange?.(nextHeight);
@@ -147,7 +154,9 @@ const FeedListRow = memo(function FeedListRow({
 
     updateMeasuredHeight();
 
-    if (typeof ResizeObserver !== "function") return;
+    if (typeof ResizeObserver !== "function") {
+      return;
+    }
 
     const observer = new ResizeObserver(() => {
       updateMeasuredHeight();
@@ -157,10 +166,6 @@ const FeedListRow = memo(function FeedListRow({
       observer.disconnect();
     };
   }, [children, onMeasuredHeightChange]);
-
-  useEffect(() => {
-    hasCompletedRemovalRef.current = false;
-  }, [articleKey, removalAnimationMode]);
 
   useEffect(() => {
     if (!isRemoving) {
@@ -178,9 +183,7 @@ const FeedListRow = memo(function FeedListRow({
       measuredHeight ??
       stableHeightRef.current;
 
-    setRemovalHeight(
-      nextRemovalHeight > 0 ? nextRemovalHeight : FEED_ROW_COLLAPSE_FLOOR_PX,
-    );
+    setRemovalHeight(Math.max(nextRemovalHeight, FEED_ROW_COLLAPSE_FLOOR_PX));
     setIsRemovalTransitionActive(false);
     removalActivationTimeoutRef.current = window.setTimeout(() => {
       setIsRemovalTransitionActive(true);
@@ -193,113 +196,123 @@ const FeedListRow = memo(function FeedListRow({
         removalActivationTimeoutRef.current = null;
       }
     };
-  }, [isDeExpandingHold, isRemoving]);
+  }, [isRemoving, measuredHeight]);
 
-  const resolvedRemovalHeight =
-    removalHeight ?? measuredHeight ?? stableHeightRef.current;
-  const currentMaxHeight = isRemoving
-    ? `${
-        isRemovalTransitionActive
-          ? FEED_ROW_COLLAPSE_FLOOR_PX
-          : Math.max(resolvedRemovalHeight, FEED_ROW_COLLAPSE_FLOOR_PX)
-      }px`
+  const resolvedRemovalHeight = Math.max(
+    removalHeight ?? measuredHeight ?? stableHeightRef.current,
+    FEED_ROW_COLLAPSE_FLOOR_PX,
+  );
+  const hasResolvedRemovalHeight =
+    removalHeight !== null || measuredHeight !== null;
+  const shouldAnimateRemoval = isRemoving && hasResolvedRemovalHeight;
+  const resolvedHeight = isRemoving
+    ? isRemovalTransitionActive
+      ? FEED_ROW_COLLAPSE_FLOOR_PX
+      : resolvedRemovalHeight
     : undefined;
-  const currentMarginBottom = isRemoving
-    ? `${
-        isRemovalTransitionActive
-          ? -FEED_ROW_COLLAPSE_OFFSET_PX
-          : FEED_ROW_GAP_PX
-      }px`
-    : `${FEED_ROW_GAP_PX}px`;
-  const currentOpacity = isRemoving && isRemovalTransitionActive ? 0 : 1;
-  const currentTransform = isDeExpandingHold
+  const resolvedMarginBottom = isRemoving
+    ? isRemovalTransitionActive
+      ? -FEED_ROW_COLLAPSE_OFFSET_PX
+      : FEED_ROW_GAP_PX
+    : FEED_ROW_GAP_PX;
+  const resolvedOpacity = isRemoving && isRemovalTransitionActive ? 0 : 1;
+  const resolvedTransform = isDeExpandingHold
     ? undefined
     : isRemoving
       ? isRemovalTransitionActive
         ? isSwipeReadExit
           ? `translate3d(${FEED_ROW_SWIPE_EXIT_DISTANCE}, 0, 0)`
           : "scale(0.985)"
-        : "translateY(0) scale(1)"
+        : "translate3d(0px, 0px, 0px) scale(1)"
       : undefined;
+  const rowMotionTransition = useMemo(() => {
+    if (!isRemoving) return undefined;
+
+    if (isDeExpandingHold) {
+      const durationSeconds = ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS / 1000;
+      return {
+        height: { duration: durationSeconds, ease: FEED_ROW_EXIT_EASING },
+        marginBottom: {
+          duration: durationSeconds,
+          ease: FEED_ROW_EXIT_EASING,
+        },
+        opacity: { duration: durationSeconds, ease: FEED_ROW_OPACITY_EASING },
+      };
+    }
+
+    const collapseDurationSeconds =
+      (ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS) / 1000;
+    const collapseDelaySeconds = FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS / 1000;
+    const swipeHeightDelaySeconds =
+      Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
+    const opacityDurationSeconds =
+      Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
+
+    return {
+      height: {
+        delay: isSwipeReadExit ? swipeHeightDelaySeconds : collapseDelaySeconds,
+        duration: collapseDurationSeconds,
+        ease: FEED_ROW_EXIT_EASING,
+      },
+      marginBottom: {
+        delay: isSwipeReadExit ? swipeHeightDelaySeconds : collapseDelaySeconds,
+        duration: collapseDurationSeconds,
+        ease: FEED_ROW_EXIT_EASING,
+      },
+      opacity: {
+        duration: opacityDurationSeconds,
+        ease: FEED_ROW_OPACITY_EASING,
+      },
+    };
+  }, [isDeExpandingHold, isRemoving, isSwipeReadExit]);
 
   return (
-    <div
+    <motion.div
+      animate={
+        shouldAnimateRemoval
+          ? {
+              height: resolvedHeight,
+              marginBottom: resolvedMarginBottom,
+              opacity: resolvedOpacity,
+            }
+          : undefined
+      }
+      className="overflow-visible"
       data-feed-row-animation={removalAnimationMode ?? "idle"}
+      data-feed-row-layout={isRemoving ? "position" : "none"}
       data-feed-row-state={isRemoving ? "collapsing" : "idle"}
+      data-index={dataIndex}
       data-scroll-restore-key={articleKey}
-      onTransitionEnd={(event) => {
-        if (
-          !isRemoving ||
-          !isRemovalTransitionActive ||
-          hasCompletedRemovalRef.current
-        ) {
-          return;
-        }
-
-        const settledProperty = isSwipeReadExit ? "transform" : "max-height";
-        if (event.propertyName !== settledProperty) {
-          return;
-        }
-
-        hasCompletedRemovalRef.current = true;
-        onRemovalTransitionComplete?.(articleKey);
-      }}
+      initial={false}
+      layout={isRemoving ? "position" : false}
+      ref={setRowElement}
       style={{
-        marginBottom: isDeExpandingHold
-          ? `${
-              isRemovalTransitionActive
-                ? -FEED_ROW_COLLAPSE_OFFSET_PX
-                : FEED_ROW_GAP_PX
-            }px`
-          : currentMarginBottom,
-        maxHeight: isDeExpandingHold
-          ? `${
-              isRemovalTransitionActive
-                ? FEED_ROW_COLLAPSE_FLOOR_PX
-                : Math.max(resolvedRemovalHeight, FEED_ROW_COLLAPSE_FLOOR_PX)
-            }px`
-          : currentMaxHeight,
+        height: shouldAnimateRemoval ? resolvedRemovalHeight : undefined,
+        marginBottom: FEED_ROW_GAP_PX,
         minHeight:
           isRemoving && isRemovalTransitionActive
-            ? `${FEED_ROW_COLLAPSE_FLOOR_PX}px`
+            ? FEED_ROW_COLLAPSE_FLOOR_PX
             : undefined,
-        opacity: currentOpacity,
         overflow: isRemoving ? "hidden" : "visible",
         pointerEvents: isRemoving ? "none" : undefined,
-        transform: isDeExpandingHold ? undefined : currentTransform,
+        transform: resolvedTransform,
         transformOrigin: isSwipeReadExit ? "center left" : "top center",
-        transition: isRemoving
-          ? isDeExpandingHold
-            ? [
-                `max-height ${ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS}ms ${FEED_ROW_EXIT_EASING}`,
-                `margin-bottom ${ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS}ms ${FEED_ROW_EXIT_EASING}`,
-                `opacity ${ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS}ms ease-out`,
-              ].join(", ")
-            : isSwipeReadExit
-              ? [
-                  `max-height ${Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.56)}ms ${FEED_ROW_EXIT_EASING} ${Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44)}ms`,
-                  `margin-bottom ${Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.56)}ms ${FEED_ROW_EXIT_EASING} ${Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44)}ms`,
-                  `opacity ${Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72)}ms ease-out`,
-                  `transform ${ARTICLE_REMOVAL_ANIMATION_MS}ms ${FEED_ROW_SWIPE_EXIT_EASING}`,
-                ].join(", ")
-              : [
-                  `max-height ${ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS}ms ${FEED_ROW_EXIT_EASING} ${FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS}ms`,
-                  `margin-bottom ${ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS}ms ${FEED_ROW_EXIT_EASING} ${FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS}ms`,
-                  `opacity ${Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72)}ms ease-out`,
-                  `transform ${ARTICLE_REMOVAL_ANIMATION_MS}ms ${FEED_ROW_EXIT_EASING}`,
-                ].join(", ")
-          : undefined,
+        transition:
+          isRemoving && !isDeExpandingHold
+            ? isSwipeReadExit
+              ? `transform ${ARTICLE_REMOVAL_ANIMATION_MS}ms cubic-bezier(${FEED_ROW_SWIPE_EXIT_EASING.join(", ")})`
+              : `transform ${ARTICLE_REMOVAL_ANIMATION_MS}ms cubic-bezier(${FEED_ROW_EXIT_EASING.join(", ")})`
+            : undefined,
         willChange: isRemoving
           ? isDeExpandingHold
-            ? "max-height, margin-bottom, opacity"
-            : "max-height, opacity, transform, margin-bottom"
+            ? "height, margin-bottom, opacity"
+            : "height, margin-bottom, opacity, transform"
           : undefined,
       }}
+      transition={rowMotionTransition}
     >
-      <div id={contentId} ref={contentRef}>
-        {children}
-      </div>
-    </div>
+      <div ref={contentRef}>{children}</div>
+    </motion.div>
   );
 });
 
@@ -327,29 +340,6 @@ export function shouldLoadMoreArticles({
   );
 }
 
-/**
- * Grid wrapper used by the virtualized list so article cards keep the existing layout.
- */
-const FeedVirtuosoList = forwardRef<
-  HTMLDivElement,
-  ComponentPropsWithoutRef<"div">
->(function FeedVirtuosoList({ className, ...props }, ref) {
-  return (
-    <div
-      {...props}
-      className={
-        [
-          "relative mx-auto grid w-full max-w-3xl grid-cols-1 px-1 lg:max-w-none lg:px-3",
-          className,
-        ]
-          .filter(Boolean)
-          .join(" ") || undefined
-      }
-      ref={ref}
-    />
-  );
-});
-
 export const FeedList = memo(function FeedList({
   collapsingArticleKey = null,
   collapsingArticleMode = null,
@@ -360,6 +350,7 @@ export const FeedList = memo(function FeedList({
   isInitialLoading,
   isRefreshing: _isRefreshing,
   onExpandedSwipeRead,
+  onPrepareExpand,
   onSwipeRead,
   onToggle,
   onToggleRead,
@@ -379,18 +370,14 @@ export const FeedList = memo(function FeedList({
   const [visibleArticleCount, setVisibleArticleCount] = useState(pageSize);
   const collapseDisplayTimeoutRef = useRef<null | number>(null);
   const hasUserScrolledRef = useRef(false);
-  const [completedRemovalArticleKey, setCompletedRemovalArticleKey] = useState<
-    null | string
-  >(null);
   const [displayedCollapsingArticleKey, setDisplayedCollapsingArticleKey] =
     useState<null | string>(collapsingArticleKey);
   const [displayedCollapsingArticleMode, setDisplayedCollapsingArticleMode] =
     useState<ArticleRemovalAnimationMode | null>(collapsingArticleMode);
-  const [pinnedTopCollapsingArticle, setPinnedTopCollapsingArticle] =
-    useState<null | RetainedCollapsingArticle>(null);
   const retainedVisibleArticleHeightsRef = useRef(new Map<string, number>());
   const retainedVisibleArticlesRef = useRef(new Map<string, Article>());
   const retainedVisibleArticleIndicesRef = useRef(new Map<string, number>());
+
   useEffect(
     () => () => {
       if (collapseDisplayTimeoutRef.current !== null) {
@@ -399,17 +386,6 @@ export const FeedList = memo(function FeedList({
     },
     [],
   );
-
-  useEffect(() => {
-    if (!collapsingArticleKey) {
-      setCompletedRemovalArticleKey(null);
-      return;
-    }
-
-    setCompletedRemovalArticleKey((currentKey) =>
-      currentKey === collapsingArticleKey ? currentKey : null,
-    );
-  }, [collapsingArticleKey]);
 
   useEffect(() => {
     if (!collapsingArticleKey) {
@@ -432,19 +408,14 @@ export const FeedList = memo(function FeedList({
       collapseDisplayTimeoutRef.current = null;
     }, collapseDisplayDuration);
   }, [collapsingArticleKey, collapsingArticleMode]);
+
   const pendingCollapsingArticleKey =
     collapsingArticleKey ?? displayedCollapsingArticleKey;
   const pendingCollapsingArticleMode =
     collapsingArticleMode ?? displayedCollapsingArticleMode;
-  const activeCollapsingArticleKey =
-    completedRemovalArticleKey === pendingCollapsingArticleKey
-      ? null
-      : pendingCollapsingArticleKey;
+  const activeCollapsingArticleKey = pendingCollapsingArticleKey;
   const activeCollapsingArticleMode =
     activeCollapsingArticleKey === null ? null : pendingCollapsingArticleMode;
-  const shouldPinTopCollapsingArticle =
-    activeCollapsingArticleMode !== "de-expanding";
-
   const visibleFeed = useMemo(
     () => filteredFeed.slice(0, visibleArticleCount),
     [filteredFeed, visibleArticleCount],
@@ -490,71 +461,22 @@ export const FeedList = memo(function FeedList({
         source: "retained",
       };
     }, [activeCollapsingArticleKey, visibleFeed]);
-  useEffect(() => {
-    if (
-      !scrollViewport ||
-      !activeCollapsingArticleKey ||
-      !shouldPinTopCollapsingArticle
-    ) {
-      setPinnedTopCollapsingArticle(null);
-      return;
-    }
-
-    if (collapsingArticleSnapshot?.index === 0) {
-      setPinnedTopCollapsingArticle(collapsingArticleSnapshot);
-      return;
-    }
-
-    setPinnedTopCollapsingArticle((currentPinnedArticle) => {
-      if (
-        currentPinnedArticle &&
-        getArticleKey(currentPinnedArticle.article) ===
-          activeCollapsingArticleKey
-      ) {
-        return currentPinnedArticle;
-      }
-
-      return null;
-    });
-  }, [
-    activeCollapsingArticleKey,
-    collapsingArticleSnapshot,
-    scrollViewport,
-    shouldPinTopCollapsingArticle,
-  ]);
   const renderedFeed = useMemo(() => {
-    if (!collapsingArticleSnapshot || pinnedTopCollapsingArticle) {
+    if (!collapsingArticleSnapshot) {
       return visibleFeed;
     }
     if (collapsingArticleSnapshot.source === "visible") {
       return visibleFeed;
     }
-    const insertIndex =
-      collapsingArticleSnapshot.index === undefined
-        ? visibleFeed.length
-        : Math.min(collapsingArticleSnapshot.index, visibleFeed.length);
+
+    const insertIndex = Math.min(
+      collapsingArticleSnapshot.index,
+      visibleFeed.length,
+    );
     const nextRenderedFeed = [...visibleFeed];
     nextRenderedFeed.splice(insertIndex, 0, collapsingArticleSnapshot.article);
     return nextRenderedFeed;
-  }, [collapsingArticleSnapshot, pinnedTopCollapsingArticle, visibleFeed]);
-  const virtualizedFeed = useMemo(() => {
-    if (!pinnedTopCollapsingArticle || !activeCollapsingArticleKey) {
-      return renderedFeed;
-    }
-
-    return renderedFeed.filter(
-      (article) => getArticleKey(article) !== activeCollapsingArticleKey,
-    );
-  }, [activeCollapsingArticleKey, pinnedTopCollapsingArticle, renderedFeed]);
-  const virtualFeedPreload = useMemo(
-    () =>
-      Math.max(
-        VIRTUAL_FEED_MIN_PRELOAD_PX,
-        pageSize * VIRTUAL_FEED_ROW_ESTIMATE_PX,
-      ),
-    [pageSize],
-  );
-
+  }, [collapsingArticleSnapshot, visibleFeed]);
   /**
    * Grows the rendered article window by exactly one page while retaining the
    * full selection in memory for later infinite-scroll steps.
@@ -662,37 +584,69 @@ export const FeedList = memo(function FeedList({
     }
 
     const nextViewport =
-      node?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
+      node.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
     setScrollViewport((currentViewport) =>
       currentViewport === nextViewport ? currentViewport : nextViewport,
     );
   }, []);
 
+  const feedVirtualizer = useVirtualizer({
+    count: scrollViewport ? renderedFeed.length : 0,
+    estimateSize: () => VIRTUAL_FEED_ROW_ESTIMATE_PX,
+    getItemKey: (index) =>
+      renderedFeed[index]
+        ? getArticleKey(renderedFeed[index])
+        : `feed-missing-row-${index}`,
+    getScrollElement: () => scrollViewport,
+    measureElement: (element) => measureFeedListItemSize(element),
+    overscan: FEED_ROW_VIRTUAL_OVERSCAN,
+  });
+  const virtualFeedItems = feedVirtualizer.getVirtualItems();
+  const fallbackVirtualFeedItems = useMemo(
+    () => renderedFeed.slice(0, Math.min(pageSize, renderedFeed.length)),
+    [pageSize, renderedFeed],
+  );
+  const hasMeasuredVirtualViewport = virtualFeedItems.length > 0;
+  const virtualFeedTopPadding = virtualFeedItems[0]?.start ?? 0;
+  const virtualFeedBottomPadding = Math.max(
+    feedVirtualizer.getTotalSize() -
+      (virtualFeedItems[virtualFeedItems.length - 1]?.end ?? 0),
+    0,
+  );
+
+  useEffect(() => {
+    if (scrollViewport) {
+      feedVirtualizer.measure();
+    }
+  }, [feedVirtualizer, renderedFeed, scrollViewport]);
+
   /**
-   * Renders a single virtualized article row while preserving the scroll-restore key.
+   * Renders a single article row while preserving the scroll-restore key and
+   * removal-mode animation contract.
    */
   const renderArticleCard = useCallback(
-    (article: Article, key?: string, initialMeasuredHeight?: number) => {
+    (
+      article: Article,
+      options?: {
+        dataIndex?: number;
+        initialMeasuredHeight?: number;
+        key?: string;
+        onMeasureElement?: (element: HTMLDivElement | null) => void;
+      },
+    ) => {
       const articleKey = getArticleKey(article);
       const articleLink = article.link.trim();
 
       return (
         <FeedListRow
           articleKey={articleKey}
-          initialMeasuredHeight={initialMeasuredHeight}
-          key={key ?? articleKey}
+          dataIndex={options?.dataIndex}
+          initialMeasuredHeight={options?.initialMeasuredHeight}
+          key={options?.key ?? articleKey}
           onMeasuredHeightChange={(height) => {
             retainedVisibleArticleHeightsRef.current.set(articleKey, height);
           }}
-          onRemovalTransitionComplete={(completedArticleKey) => {
-            setCompletedRemovalArticleKey(completedArticleKey);
-            setDisplayedCollapsingArticleKey((currentKey) =>
-              currentKey === completedArticleKey ? null : currentKey,
-            );
-            setDisplayedCollapsingArticleMode((currentMode) =>
-              articleKey === completedArticleKey ? null : currentMode,
-            );
-          }}
+          onMeasureElement={options?.onMeasureElement}
           removalAnimationMode={
             activeCollapsingArticleKey === articleKey
               ? activeCollapsingArticleMode
@@ -709,6 +663,7 @@ export const FeedList = memo(function FeedList({
             isMobile={isMobile}
             isUpdatingState={updatingArticleState[articleKey]}
             onExpandedSwipeRead={onExpandedSwipeRead}
+            onPrepareExpand={onPrepareExpand}
             onSwipeRead={onSwipeRead}
             onToggle={onToggle}
             onToggleRead={onToggleRead}
@@ -725,13 +680,14 @@ export const FeedList = memo(function FeedList({
       );
     },
     [
-      collapsingArticleKey,
-      collapsingArticleMode,
+      activeCollapsingArticleKey,
+      activeCollapsingArticleMode,
       expandedArticleKey,
       hydratedArticleLinks,
       hydratingArticleLinks,
       isDark,
       isMobile,
+      onPrepareExpand,
       onExpandedSwipeRead,
       onSwipeRead,
       onToggle,
@@ -741,63 +697,43 @@ export const FeedList = memo(function FeedList({
       updatingArticleState,
     ],
   );
-  const getVirtualizedArticleKey = useCallback(
-    (index: number, article?: Article) =>
-      article ? getArticleKey(article) : `feed-missing-row-${index}`,
-    [],
-  );
-  const renderVirtualizedArticleCard = useCallback(
-    (index: number, article?: Article) =>
-      article ? (
-        renderArticleCard(article)
-      ) : (
-        <div
-          aria-hidden="true"
-          data-feed-missing-row={index}
-          style={{ minHeight: `${FEED_VIRTUALIZED_FALLBACK_ROW_PX}px` }}
-        />
-      ),
-    [renderArticleCard],
-  );
 
   return (
     <>
       {isInitialLoading ? (
         <DashboardFeedListSkeleton />
-      ) : renderedFeed.length === 0 && !pinnedTopCollapsingArticle ? (
-        <div
+      ) : renderedFeed.length === 0 ? (
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
           className="
-            anim-fade-in-load-slow mx-auto flex w-full max-w-3xl items-center
-            justify-center px-4 py-20
+            mx-auto flex w-full max-w-3xl items-center justify-center px-4 py-20
             sm:py-32
             lg:max-w-none lg:px-6 lg:py-40
           "
+          initial={{ opacity: 0, y: 10 }}
           key="feed-empty"
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div
-            className="
-              anim-fade-in-load-slow flex flex-col items-center gap-6
-              text-center
-            "
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center gap-6 text-center"
+            initial={{ opacity: 0, y: 8 }}
             key={searchTerm ? "empty-search" : "empty-default"}
+            transition={{ delay: 0.04, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Icon with double-ring halo */}
             <div className="relative flex items-center justify-center">
-              {/* Outer glow ring */}
               <div
                 className={`
                   absolute size-36 rounded-full opacity-15 blur-2xl
                   ${searchTerm ? `bg-muted-foreground` : `bg-emerald-500`}
                 `}
               />
-              {/* Outer decorative ring */}
               <div
                 className={`
                   absolute size-28 rounded-full border
                   ${searchTerm ? `border-border/40` : `border-emerald-500/10`}
                 `}
               />
-              {/* Icon card */}
               <div
                 className={`
                   relative flex size-20 items-center justify-center rounded-2xl
@@ -820,12 +756,10 @@ export const FeedList = memo(function FeedList({
             </div>
 
             <div className="space-y-2">
-              <h3
-                className="
+              <h3 className="
                 text-xl font-semibold tracking-tight text-foreground
-              "
-              >
-                {searchTerm ? "No results" : "You\u2019re up to date"}
+              ">
+                {searchTerm ? "No results" : "You're up to date"}
               </h3>
               {searchTerm ? (
                 <div
@@ -856,44 +790,66 @@ export const FeedList = memo(function FeedList({
                 </p>
               )}
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       ) : (
-        <div key="feed-list" ref={handleViewportHostRef}>
+        <div
+          className="w-full min-w-0"
+          key="feed-list"
+          ref={handleViewportHostRef}
+        >
           {scrollViewport ? (
-            <>
-              {pinnedTopCollapsingArticle ? (
+            <motion.div
+              className="
+                relative mx-auto w-full max-w-3xl px-1
+                lg:max-w-none lg:px-3
+              "
+              data-feed-virtualizer="true"
+              layoutScroll
+            >
+              {hasMeasuredVirtualViewport && virtualFeedTopPadding > 0 ? (
                 <div
-                  className="
-                  relative mx-auto w-full max-w-3xl px-1
-                  lg:max-w-none lg:px-3
-                "
-                >
-                  {renderArticleCard(
-                    pinnedTopCollapsingArticle.article,
-                    `${getArticleKey(pinnedTopCollapsingArticle.article)}::pinned-collapse`,
-                    pinnedTopCollapsingArticle.height ?? undefined,
-                  )}
-                </div>
-              ) : null}
-              {virtualizedFeed.length > 0 ? (
-                <Virtuoso
-                  components={{ List: FeedVirtuosoList }}
-                  computeItemKey={getVirtualizedArticleKey}
-                  customScrollParent={scrollViewport}
-                  data={virtualizedFeed}
-                  defaultItemHeight={VIRTUAL_FEED_ROW_ESTIMATE_PX}
-                  increaseViewportBy={{
-                    bottom: virtualFeedPreload,
-                    top: Math.round(virtualFeedPreload / 2),
-                  }}
-                  initialItemCount={Math.min(pageSize, virtualizedFeed.length)}
-                  itemSize={measureFeedListItemSize}
-                  itemContent={renderVirtualizedArticleCard}
-                  minOverscanItemCount={{ bottom: 4, top: 2 }}
+                  aria-hidden="true"
+                  style={{ height: `${virtualFeedTopPadding}px` }}
                 />
               ) : null}
-            </>
+              {hasMeasuredVirtualViewport
+                ? virtualFeedItems.map((virtualFeedItem) => {
+                    const article = renderedFeed.at(virtualFeedItem.index);
+                    if (article === undefined) {
+                      return null;
+                    }
+
+                    return renderArticleCard(article, {
+                      dataIndex: virtualFeedItem.index,
+                      initialMeasuredHeight:
+                        retainedVisibleArticleHeightsRef.current.get(
+                          getArticleKey(article),
+                        ) ?? undefined,
+                      key: String(virtualFeedItem.key),
+                      onMeasureElement: (element) => {
+                        if (element) {
+                          feedVirtualizer.measureElement(element);
+                        }
+                      },
+                    });
+                  })
+                : fallbackVirtualFeedItems.map((article) =>
+                    renderArticleCard(article, {
+                      initialMeasuredHeight:
+                        retainedVisibleArticleHeightsRef.current.get(
+                          getArticleKey(article),
+                        ) ?? undefined,
+                      key: getArticleKey(article),
+                    }),
+                  )}
+              {hasMeasuredVirtualViewport && virtualFeedBottomPadding > 0 ? (
+                <div
+                  aria-hidden="true"
+                  style={{ height: `${virtualFeedBottomPadding}px` }}
+                />
+              ) : null}
+            </motion.div>
           ) : (
             <div
               className="
@@ -902,7 +858,13 @@ export const FeedList = memo(function FeedList({
               "
             >
               {renderedFeed.map((article) =>
-                renderArticleCard(article, getArticleKey(article)),
+                renderArticleCard(article, {
+                  initialMeasuredHeight:
+                    retainedVisibleArticleHeightsRef.current.get(
+                      getArticleKey(article),
+                    ) ?? undefined,
+                  key: getArticleKey(article),
+                }),
               )}
             </div>
           )}
