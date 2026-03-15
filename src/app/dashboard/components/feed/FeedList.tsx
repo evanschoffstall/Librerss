@@ -387,6 +387,7 @@ function shouldAnimateFeedRowReflow({
 }
 
 export const FeedList = memo(function FeedList({
+  collapseSettlingArticleKey = null,
   collapsingArticleKey = null,
   collapsingArticleMode = null,
   expandedArticleKey,
@@ -414,8 +415,15 @@ export const FeedList = memo(function FeedList({
     null,
   );
   const [visibleArticleCount, setVisibleArticleCount] = useState(pageSize);
+  const collapseSettleTimeoutRef = useRef<null | number>(null);
   const collapseDisplayTimeoutRef = useRef<null | number>(null);
   const hasUserScrolledRef = useRef(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const previousExpandedArticleKeyRef = useRef<null | string>(
+    expandedArticleKey,
+  );
+  const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
+    useState(false);
   const [displayedCollapsingArticleKey, setDisplayedCollapsingArticleKey] =
     useState<null | string>(collapsingArticleKey);
   const [displayedCollapsingArticleMode, setDisplayedCollapsingArticleMode] =
@@ -426,12 +434,35 @@ export const FeedList = memo(function FeedList({
 
   useEffect(
     () => () => {
+      if (collapseSettleTimeoutRef.current !== null) {
+        window.clearTimeout(collapseSettleTimeoutRef.current);
+      }
       if (collapseDisplayTimeoutRef.current !== null) {
         window.clearTimeout(collapseDisplayTimeoutRef.current);
       }
     },
     [],
   );
+
+  useLayoutEffect(() => {
+    const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
+    previousExpandedArticleKeyRef.current = expandedArticleKey;
+
+    if (expandedArticleKey !== null) {
+      if (collapseSettleTimeoutRef.current !== null) {
+        window.clearTimeout(collapseSettleTimeoutRef.current);
+        collapseSettleTimeoutRef.current = null;
+      }
+      setIsVirtualizationResumeDeferred(false);
+      return;
+    }
+
+    if (previousExpandedArticleKey === null) {
+      return;
+    }
+
+    setIsVirtualizationResumeDeferred(true);
+  }, [expandedArticleKey]);
 
   useEffect(() => {
     if (!collapsingArticleKey) {
@@ -540,6 +571,30 @@ export const FeedList = memo(function FeedList({
     });
   }, [filteredFeed.length, pageSize]);
 
+  const maybeLoadNextPage = useCallback(() => {
+    if (!scrollViewport) {
+      return;
+    }
+
+    if (
+      shouldLoadMoreArticles({
+        clientHeight: scrollViewport.clientHeight,
+        hasUserScrolled: hasUserScrolledRef.current,
+        scrollHeight: scrollViewport.scrollHeight,
+        scrollTop: scrollViewport.scrollTop,
+        totalArticleCount: filteredFeed.length,
+        visibleArticleCount,
+      })
+    ) {
+      expandVisibleWindow();
+    }
+  }, [
+    expandVisibleWindow,
+    filteredFeed.length,
+    scrollViewport,
+    visibleArticleCount,
+  ]);
+
   useEffect(() => {
     hasUserScrolledRef.current = false;
     setVisibleArticleCount(pageSize);
@@ -574,23 +629,9 @@ export const FeedList = memo(function FeedList({
       return;
     }
 
-    const maybeLoadNextPage = () => {
-      if (
-        shouldLoadMoreArticles({
-          clientHeight: scrollViewport.clientHeight,
-          hasUserScrolled: hasUserScrolledRef.current,
-          scrollHeight: scrollViewport.scrollHeight,
-          scrollTop: scrollViewport.scrollTop,
-          totalArticleCount: filteredFeed.length,
-          visibleArticleCount,
-        })
-      ) {
-        expandVisibleWindow();
-      }
-    };
-
     const handleScrollIntent = () => {
       hasUserScrolledRef.current = true;
+      setIsVirtualizationResumeDeferred(false);
       maybeLoadNextPage();
     };
     const handleViewportScroll = () => {
@@ -616,9 +657,49 @@ export const FeedList = memo(function FeedList({
       scrollViewport.removeEventListener("touchmove", handleScrollIntent);
       scrollViewport.removeEventListener("wheel", handleScrollIntent);
     };
+  }, [maybeLoadNextPage, scrollViewport]);
+
+  useEffect(() => {
+    if (
+      !scrollViewport ||
+      typeof IntersectionObserver !== "function" ||
+      visibleArticleCount >= filteredFeed.length
+    ) {
+      return;
+    }
+
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry.isIntersecting) {
+          return;
+        }
+
+        if (scrollViewport.scrollTop > 0) {
+          hasUserScrolledRef.current = true;
+        }
+
+        maybeLoadNextPage();
+      },
+      {
+        root: scrollViewport,
+        rootMargin: `0px 0px ${FEED_LOAD_MORE_THRESHOLD_PX}px 0px`,
+        threshold: 0,
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
   }, [
-    expandVisibleWindow,
     filteredFeed.length,
+    maybeLoadNextPage,
     scrollViewport,
     visibleArticleCount,
   ]);
@@ -639,18 +720,33 @@ export const FeedList = memo(function FeedList({
     );
   }, []);
 
+  /**
+   * Expanded cards keep dynamic measured height, sticky chrome, and hydrated
+   * content mounted. Suspending virtualization during that interaction, and
+   * during staged collapse exits, avoids remount and re-measure churn while
+   * the feed is still animating and restoring scroll position.
+   */
+  const shouldVirtualizeFeed =
+    scrollViewport !== null &&
+    expandedArticleKey === null &&
+    activeCollapsingArticleKey === null &&
+    collapseSettlingArticleKey === null &&
+    !isVirtualizationResumeDeferred;
+
   const feedVirtualizer = useVirtualizer({
-    count: scrollViewport ? renderedFeed.length : 0,
+    count: shouldVirtualizeFeed ? renderedFeed.length : 0,
     estimateSize: () => VIRTUAL_FEED_ROW_ESTIMATE_PX,
     getItemKey: (index) =>
       renderedFeed[index]
         ? getArticleKey(renderedFeed[index])
         : `feed-missing-row-${index}`,
-    getScrollElement: () => scrollViewport,
+    getScrollElement: () => (shouldVirtualizeFeed ? scrollViewport : null),
     measureElement: (element) => measureFeedListItemSize(element),
     overscan: FEED_ROW_VIRTUAL_OVERSCAN,
   });
-  const virtualFeedItems = feedVirtualizer.getVirtualItems();
+  const virtualFeedItems = shouldVirtualizeFeed
+    ? feedVirtualizer.getVirtualItems()
+    : [];
   const fallbackVirtualFeedItems = useMemo(
     () => renderedFeed.slice(0, Math.min(pageSize, renderedFeed.length)),
     [pageSize, renderedFeed],
@@ -664,10 +760,10 @@ export const FeedList = memo(function FeedList({
   );
 
   useEffect(() => {
-    if (scrollViewport) {
+    if (shouldVirtualizeFeed) {
       feedVirtualizer.measure();
     }
-  }, [feedVirtualizer, renderedFeed, scrollViewport]);
+  }, [feedVirtualizer, renderedFeed, shouldVirtualizeFeed]);
 
   /**
    * Renders a single article row while preserving the scroll-restore key and
@@ -747,6 +843,16 @@ export const FeedList = memo(function FeedList({
       updatingArticleState,
     ],
   );
+
+  const loadMoreSentinel =
+    renderedFeed.length > 0 && visibleArticleCount < filteredFeed.length ? (
+      <div
+        aria-hidden="true"
+        data-feed-load-more-sentinel="true"
+        ref={loadMoreSentinelRef}
+        style={{ height: `${FEED_LOAD_MORE_THRESHOLD_PX}px` }}
+      />
+    ) : null;
 
   return (
     <>
@@ -848,7 +954,7 @@ export const FeedList = memo(function FeedList({
           key="feed-list"
           ref={handleViewportHostRef}
         >
-          {scrollViewport ? (
+          {shouldVirtualizeFeed ? (
             <motion.div
               className="
                 relative mx-auto w-full max-w-3xl px-1
@@ -899,6 +1005,7 @@ export const FeedList = memo(function FeedList({
                   style={{ height: `${virtualFeedBottomPadding}px` }}
                 />
               ) : null}
+              {loadMoreSentinel}
             </motion.div>
           ) : (
             <div
@@ -916,6 +1023,7 @@ export const FeedList = memo(function FeedList({
                   key: getArticleKey(article),
                 }),
               )}
+              {loadMoreSentinel}
             </div>
           )}
         </div>

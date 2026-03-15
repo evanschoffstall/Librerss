@@ -105,8 +105,8 @@ export const DashboardView = ({
           categoryOptions={settings.categoryOptions}
           distillStrategy={settings.distillStrategy}
           isPreviewMode={settings.usePlaceholderData}
-          onAddCategory={settings.categoryManager.addCategory}
-          onAddFeed={settings.categoryManager.addFeedSource}
+          onAddCategory={settings.categoryTree.addCategory}
+          onAddFeed={settings.categoryTree.addFeedSource}
           onAutoRefreshIntervalMinutesChange={
             settings.setAutoRefreshIntervalMinutes
           }
@@ -114,22 +114,22 @@ export const DashboardView = ({
           onClose={settings.handleCloseSettings}
           onDistillStrategyChange={settings.onDistillStrategyChange}
           onDropCategory={(label, targetIndex) => {
-            settings.categoryManager.moveCategoryByDrop(label, targetIndex);
+            settings.categoryTree.moveCategoryByDrop(label, targetIndex);
             return Promise.resolve();
           }}
-          onDropFeed={settings.categoryManager.moveFeedByDrop}
-          onImportOpml={settings.categoryManager.importOpmlFeeds}
+          onDropFeed={settings.categoryTree.moveFeedByDrop}
+          onImportOpml={settings.categoryTree.importOpmlFeeds}
           onPageSizeChange={settings.setPageSize}
-          onRemoveCategory={settings.categoryManager.removeCategory}
-          onRemoveFeed={settings.categoryManager.removeFeedSource}
-          onRenameCategory={settings.categoryManager.renameCategory}
-          onRenameFeed={settings.categoryManager.renameFeedSource}
-          onSetFeedEnabled={settings.categoryManager.setFeedSourceEnabled}
+          onRemoveCategory={settings.categoryTree.removeCategory}
+          onRemoveFeed={settings.categoryTree.removeFeedSource}
+          onRenameCategory={settings.categoryTree.renameCategory}
+          onRenameFeed={settings.categoryTree.renameFeedSource}
+          onSetFeedEnabled={settings.categoryTree.setFeedSourceEnabled}
           onShowFaviconsChange={settings.setShowFavicons}
-          onUpdateFeedSettings={settings.categoryManager.updateFeedSettings}
+          onUpdateFeedSettings={settings.categoryTree.updateFeedSettings}
           pageSize={settings.pageSize}
           pendingCategoryRemovalLabel={
-            settings.categoryManager.pendingCategoryRemovalLabel
+            settings.categoryTree.pendingCategoryRemovalLabel
           }
           selectedCategory={settings.selectedCategory}
           showFavicons={settings.showFavicons}
