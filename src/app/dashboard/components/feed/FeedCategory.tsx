@@ -1,4 +1,5 @@
 import { Globe } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { memo } from "react";
 
 import { useFavicon } from "../../hooks/useFavicon";
@@ -11,15 +12,23 @@ interface FeedCategoryProps {
   category: CategoryTreeNode;
   isActive: boolean;
   onClick: (node: CategoryTreeNode) => void;
+  onIntent: (node: CategoryTreeNode) => void;
   showFavicon: boolean;
 }
+
+const FEED_CATEGORY_HOVER_TRANSITION = {
+  duration: 0.18,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
 
 export const FeedCategory = memo(function FeedCategory({
   category,
   isActive,
   onClick,
+  onIntent,
   showFavicon,
 }: FeedCategoryProps) {
+  const shouldReduceMotion = useReducedMotion();
   const {
     faviconCacheKey,
     faviconCandidates,
@@ -32,34 +41,50 @@ export const FeedCategory = memo(function FeedCategory({
   const shouldShowFavicon = showFavicon && Boolean(faviconUrl);
 
   return (
-    <button
+    <motion.button
+      animate={{ scale: 1, x: 0 }}
       className={`
         flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg
         border-l-2 p-2 text-left transition-colors
         ${
-        isActive
-          ? "border-primary/60 bg-muted/70 text-foreground"
-          : `
-            border-transparent text-muted-foreground
-            hover:bg-muted/40 hover:text-foreground
-          `
-      }
+          isActive
+            ? "border-primary/60 bg-muted/70 text-foreground"
+            : `
+              border-transparent text-muted-foreground
+              hover:bg-muted/40 hover:text-foreground
+            `
+        }
       `}
       onClick={() => {
         onClick(category);
       }}
+      onFocus={() => {
+        onIntent(category);
+      }}
+      onMouseEnter={() => {
+        onIntent(category);
+      }}
+      transition={FEED_CATEGORY_HOVER_TRANSITION}
+      whileHover={
+        shouldReduceMotion || isActive ? undefined : { scale: 1.01, x: 2 }
+      }
+      whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
     >
       <div className="min-w-0">
-        <p className="
-          font-sans text-[0.93rem] leading-[1.35] font-medium
-          tracking-[-0.005em]
-        ">
+        <p
+          className="
+            font-sans text-[0.93rem] leading-[1.35] font-medium
+            tracking-[-0.005em]
+          "
+        >
           {category.label}
         </p>
-        <p className="
-          truncate font-sans text-xs/5 tracking-[-0.004em]
-          text-muted-foreground/65
-        ">
+        <p
+          className="
+            truncate font-sans text-xs/5 tracking-[-0.004em]
+            text-muted-foreground/65
+          "
+        >
           {getUrlHostnameLabel(category.data?.url)}
         </p>
       </div>
@@ -97,6 +122,6 @@ export const FeedCategory = memo(function FeedCategory({
           />
         </span>
       )}
-    </button>
+    </motion.button>
   );
 });

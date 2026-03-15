@@ -1,4 +1,5 @@
 import { Rss } from "lucide-react";
+import { motion } from "motion/react";
 import { memo } from "react";
 
 import { FeedCategory } from "./feed/FeedCategory";
@@ -6,13 +7,18 @@ import { DashboardSidebarSkeleton } from "./DashboardLoadingSurfaces";
 
 import { type CategoryTreeNode } from "@/lib";
 
-const sidebarPanelCls = "space-y-2 px-2 anim-fade-in-load-slow";
+const SIDEBAR_SECTION_TRANSITION = {
+  duration: 0.24,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
 
 interface DashboardSidebarContentProps {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
   onCategoryClick: (categoryNode: CategoryTreeNode) => void;
+  onCategoryIntent: (categoryNode: CategoryTreeNode) => void;
   onFeedClick: (feedNode: CategoryTreeNode) => void;
+  onFeedIntent: (feedNode: CategoryTreeNode) => void;
   selectedCategory: string;
   showFavicons: boolean;
   sidebarCategories: CategoryTreeNode[];
@@ -22,7 +28,9 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
   isCategoriesLoading,
   isSidebarVisible,
   onCategoryClick,
+  onCategoryIntent,
   onFeedClick,
+  onFeedIntent,
   selectedCategory,
   showFavicons,
   sidebarCategories,
@@ -32,15 +40,25 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
       {isCategoriesLoading ? (
         <DashboardSidebarSkeleton />
       ) : (
-        <div className={sidebarPanelCls} key="sidebar-content">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-2 px-2"
+          initial={{ opacity: 0, y: 8 }}
+          key="sidebar-content"
+          transition={SIDEBAR_SECTION_TRANSITION}
+        >
           {sidebarCategories.length === 0 ? (
-            <div className="
-              flex flex-col items-center gap-2.5 px-2 py-10 text-center
-            ">
-              <div className="
-                flex size-9 items-center justify-center rounded-lg border
-                border-border/30 bg-card/50
-              ">
+            <div
+              className="
+                flex flex-col items-center gap-2.5 px-2 py-10 text-center
+              "
+            >
+              <div
+                className="
+                  flex size-9 items-center justify-center rounded-lg border
+                  border-border/30 bg-card/50
+                "
+              >
                 <Rss
                   className="size-4 text-muted-foreground/40"
                   strokeWidth={1.5}
@@ -50,18 +68,17 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
             </div>
           ) : (
             sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
-              <div
-                className={`
-                  anim-fade-in-load-slow anim-duration-ui anim-ease-ui
-                  space-y-0.5 transition-opacity
-                  ${
-                  isSidebarVisible ? "opacity-100" : "opacity-0"
-                }
-                `}
+              <motion.div
+                animate={{
+                  opacity: isSidebarVisible ? 1 : 0,
+                  y: isSidebarVisible ? 0 : 8,
+                }}
+                className="space-y-0.5"
+                initial={false}
                 key={categoryNode.key}
-                style={{
-                  animationDelay: `${index * 35}ms`,
-                  transitionDelay: `${index * 35}ms`,
+                transition={{
+                  ...SIDEBAR_SECTION_TRANSITION,
+                  delay: index * 0.035,
                 }}
               >
                 <div className="px-1.5">
@@ -71,16 +88,22 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                       font-sans text-[0.65rem] font-semibold tracking-[0.07em]
                       uppercase transition-colors
                       ${
-                      selectedCategory === categoryNode.key
-                        ? "bg-muted/60 text-foreground"
-                        : `
-                          text-muted-foreground/65
-                          hover:bg-muted/30 hover:text-foreground
-                        `
-                    }
+                        selectedCategory === categoryNode.key
+                          ? "bg-muted/60 text-foreground"
+                          : `
+                            text-muted-foreground/65
+                            hover:bg-muted/30 hover:text-foreground
+                          `
+                      }
                     `}
                     onClick={() => {
                       onCategoryClick(categoryNode);
+                    }}
+                    onFocus={() => {
+                      onCategoryIntent(categoryNode);
+                    }}
+                    onMouseEnter={() => {
+                      onCategoryIntent(categoryNode);
                     }}
                     type="button"
                   >
@@ -94,14 +117,15 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                       isActive={selectedCategory === feedNode.key}
                       key={feedNode.key}
                       onClick={onFeedClick}
+                      onIntent={onFeedIntent}
                       showFavicon={showFavicons}
                     />
                   ),
                 )}
-              </div>
+              </motion.div>
             ))
           )}
-        </div>
+        </motion.div>
       )}
     </>
   );
