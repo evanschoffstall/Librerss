@@ -38,7 +38,7 @@ import { clientFeedCacheTtlMinutes } from "@/lib/config";
  *
  * @returns Mutable state, refs, and setters consumed by the dashboard controller.
  */
-export function useDashboardViewState() {
+export function useDashboardState() {
   const defaultAutoRefreshIntervalMinutes =
     resolveDefaultAutoRefreshIntervalMinutes(clientFeedCacheTtlMinutes());
   /** Currently rendered article list for the active selection. */
