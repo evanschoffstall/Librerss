@@ -1,7 +1,12 @@
 "use client";
 
 import { ArrowDown } from "lucide-react";
+import { motion } from "motion/react";
 
+import {
+  DashboardFeedViewport,
+  DashboardScaffold,
+} from "./components/DashboardScaffold";
 import { DashboardSidebarContent } from "./components/DashboardSidebarContent";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
@@ -21,6 +26,17 @@ import {
 
 type DashboardViewProps = DashboardViewControllerProps;
 
+const DASHBOARD_SIDEBAR_TRANSITION = {
+  duration: 0.28,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
+
+const DASHBOARD_PULL_HINT_TRANSITION = {
+  duration: 0.18,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
+
+/** Hydrated dashboard view with shared shell chrome and interactive feed surfaces. */
 export const DashboardView = ({
   backgroundMode,
   distillStrategy,
@@ -37,22 +53,29 @@ export const DashboardView = ({
   });
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(env(safe-area-inset-top)+3.8rem)] md:px-6">
+    <>
       <Sheet
         onOpenChange={sidebar.setIsMobileSidebarOpen}
         open={sidebar.isMobileSidebarOpen}
       >
         <SheetContent
-          className="w-[min(22rem,88vw)] gap-0 p-0 lg:hidden"
+          className="
+            w-[min(22rem,88vw)] gap-0 p-0
+            lg:hidden
+          "
           side="left"
         >
-          <SheetHeader className="space-y-0 px-4 pb-2 pt-5 text-left">
-            <SheetTitle className="text-sm font-semibold tracking-tight text-foreground/90">
+          <SheetHeader className="space-y-0 px-4 pt-5 pb-2 text-left">
+            <SheetTitle
+              className="
+                text-sm font-semibold tracking-tight text-foreground/90
+              "
+            >
               Feeds
             </SheetTitle>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4">
-            <div className="h-full rounded-xl bg-card/35 px-2 py-2">
+            <div className="h-full rounded-xl bg-card/35 p-2">
               <ScrollArea className="h-full">
                 <DashboardSidebarContent {...sidebar.sidebarProps} />
               </ScrollArea>
@@ -61,86 +84,115 @@ export const DashboardView = ({
         </SheetContent>
       </Sheet>
 
-      <DashboardTopTokenBar
-        articleFilter={topBar.articleFilter}
-        lastRefreshLabel={topBar.lastRefreshLabel}
-        loading={topBar.loading}
-        onArticleFilterChange={topBar.setArticleFilter}
-      />
-
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row lg:items-stretch lg:gap-0">
-        <aside className="hidden min-h-0 overflow-hidden lg:block lg:w-[220px] lg:shrink-0">
-          <div className="h-full rounded-xl bg-card/35 px-2 py-2">
-            <ScrollArea
-              className={`h-full transition-opacity anim-duration-ui anim-ease-ui ${
-                sidebar.sidebarProps.isCategoriesLoading ||
-                sidebar.isSidebarVisible
-                  ? "opacity-100"
-                  : "opacity-0"
-              }`}
-              ref={sidebar.sidebarScrollRef}
-            >
-              <DashboardSidebarContent {...sidebar.sidebarProps} />
-            </ScrollArea>
-          </div>
-        </aside>
-
-        <section className="min-h-0 flex-1 overflow-hidden lg:min-w-0">
-          <ScrollArea className="h-full" ref={feedList.mergedFeedScrollRef}>
-            <div className="p-1" ref={feedList.feedWrapperRef}>
-              {/* Pull sentinel: fixed-height scroll item, hidden by scrollTop on mount.
-                  Scrolling into it = native pull gesture. */}
-              <div
-                className={`mb-2 flex items-end justify-center bg-background transition-colors duration-150 ${
-                  feedList.isPulling
+      <DashboardScaffold
+        feed={
+          <DashboardFeedViewport
+            feedWrapperRef={feedList.feedWrapperRef}
+            pullSentinel={
+              <motion.div
+                animate={{
+                  backgroundColor: feedList.isPulling
                     ? feedList.readyToRefresh
-                      ? "bg-sky-500/25"
-                      : "bg-sky-500/10"
-                    : ""
-                }`}
+                      ? "rgb(14 165 233 / 0.25)"
+                      : "rgb(14 165 233 / 0.10)"
+                    : "rgb(0 0 0 / 0)",
+                }}
+                className="mb-2 flex items-end justify-center bg-background"
+                initial={false}
                 ref={feedList.pullSentinelRef}
                 style={{ height: feedList.sentinelHeight }}
+                transition={DASHBOARD_PULL_HINT_TRANSITION}
               >
                 {feedList.isPulling && (
-                  <div className="flex items-center gap-1.5 pb-3 text-sky-600 dark:text-sky-400">
-                    <ArrowDown
-                      className={`size-4 transition-transform duration-150 ${
-                        feedList.readyToRefresh
-                          ? "scale-110 rotate-180"
-                          : "scale-90 opacity-60"
-                      }`}
-                    />
-                    <span
-                      className={`text-xs font-medium transition-opacity duration-150 ${
-                        feedList.readyToRefresh ? "opacity-100" : "opacity-70"
-                      }`}
+                  <motion.div
+                    animate={{ opacity: 1, y: 0 }}
+                    className="
+                      flex items-center gap-1.5 pb-3 text-sky-600
+                      dark:text-sky-400
+                    "
+                    initial={{ opacity: 0, y: 6 }}
+                    transition={DASHBOARD_PULL_HINT_TRANSITION}
+                  >
+                    <motion.div
+                      animate={{
+                        opacity: feedList.readyToRefresh ? 1 : 0.6,
+                        rotate: feedList.readyToRefresh ? 180 : 0,
+                        scale: feedList.readyToRefresh ? 1.1 : 0.9,
+                      }}
+                      initial={false}
+                      transition={DASHBOARD_PULL_HINT_TRANSITION}
+                    >
+                      <ArrowDown className="size-4" />
+                    </motion.div>
+                    <motion.span
+                      animate={{ opacity: feedList.readyToRefresh ? 1 : 0.7 }}
+                      className="text-xs font-medium"
+                      initial={false}
+                      transition={DASHBOARD_PULL_HINT_TRANSITION}
                     >
                       {feedList.pullRefreshHint}
-                    </span>
-                  </div>
+                    </motion.span>
+                  </motion.div>
                 )}
-              </div>
-              <FeedList
-                expandedArticleKey={feedList.expandedArticleKey}
-                filteredFeed={feedList.filteredFeed}
-                hydratedArticleLinks={feedList.hydratedArticleLinks}
-                hydratingArticleLinks={feedList.hydratingArticleLinks}
-                isInitialLoading={feedList.isInitialLoading}
-                isRefreshing={feedList.isRefreshing}
-                onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
-                onToggle={feedList.onArticleToggle}
-                onToggleRead={feedList.onArticleToggleRead}
-                onToggleStarred={feedList.onArticleToggleStarred}
-                pageSize={feedList.pageSize}
-                paginationResetKey={feedList.paginationResetKey}
-                searchTerm={feedList.searchTerm}
-                showFavicons={feedList.showFavicons}
-                updatingArticleState={feedList.updatingArticleState}
-              />
-            </div>
-          </ScrollArea>
-        </section>
-      </div>
+              </motion.div>
+            }
+            scrollAreaRef={feedList.mergedFeedScrollRef}
+          >
+            <FeedList
+              collapsingArticleKey={feedList.collapsingArticleKey}
+              collapsingArticleMode={feedList.collapsingArticleMode}
+              expandedArticleKey={feedList.expandedArticleKey}
+              filteredFeed={feedList.filteredFeed}
+              hydratedArticleLinks={feedList.hydratedArticleLinks}
+              hydratingArticleLinks={feedList.hydratingArticleLinks}
+              isInitialLoading={feedList.isInitialLoading}
+              isRefreshing={feedList.isRefreshing}
+              onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
+              onPrepareExpand={feedList.onArticlePrepareExpand}
+              onSwipeRead={feedList.onArticleSwipeRead}
+              onToggle={feedList.onArticleToggle}
+              onToggleRead={feedList.onArticleToggleRead}
+              onToggleStarred={feedList.onArticleToggleStarred}
+              pageSize={feedList.pageSize}
+              paginationResetKey={feedList.paginationResetKey}
+              searchTerm={feedList.searchTerm}
+              showFavicons={feedList.showFavicons}
+              updatingArticleState={feedList.updatingArticleState}
+            />
+          </DashboardFeedViewport>
+        }
+        sidebar={
+          <motion.div
+            animate={{
+              opacity:
+                sidebar.sidebarProps.isCategoriesLoading ||
+                sidebar.isSidebarVisible
+                  ? 1
+                  : 0,
+              y:
+                sidebar.sidebarProps.isCategoriesLoading ||
+                sidebar.isSidebarVisible
+                  ? 0
+                  : 8,
+            }}
+            className="h-full"
+            initial={false}
+            transition={DASHBOARD_SIDEBAR_TRANSITION}
+          >
+            <ScrollArea className="h-full" ref={sidebar.sidebarScrollRef}>
+              <DashboardSidebarContent {...sidebar.sidebarProps} />
+            </ScrollArea>
+          </motion.div>
+        }
+        topBar={
+          <DashboardTopTokenBar
+            articleFilter={topBar.articleFilter}
+            lastRefreshLabel={topBar.lastRefreshLabel}
+            loading={topBar.loading}
+            onArticleFilterChange={topBar.setArticleFilter}
+          />
+        }
+      />
 
       {settings.showSettingsModal && (
         <SettingsModal
@@ -180,6 +232,6 @@ export const DashboardView = ({
           showFavicons={settings.showFavicons}
         />
       )}
-    </div>
+    </>
   );
 };

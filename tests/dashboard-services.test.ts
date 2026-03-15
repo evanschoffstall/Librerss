@@ -508,6 +508,12 @@ describe("article-content – buildPreview", () => {
     expect(result.hasOverflow).toBe(true);
     expect(result.preview.length).toBeLessThanOrEqual(170);
   });
+
+  test("collapses repeated whitespace and blank lines before truncation", async () => {
+    const result = buildPreview("Alpha\n\n\nBeta\t\tGamma    Delta");
+    expect(result.hasOverflow).toBe(false);
+    expect(result.preview).toBe("Alpha Beta Gamma Delta");
+  });
 });
 
 describe("article-content – getArticleSourceLabel", () => {
@@ -731,6 +737,9 @@ describe("dashboard article helpers comprehensive", () => {
     const hardCut = buildPreview(longWithoutSpaces);
     expect(hardCut.hasOverflow).toBe(true);
     expect(hardCut.preview.length).toBe(170);
+
+    const normalizedWhitespace = buildPreview("one\n\n two\t\tthree");
+    expect(normalizedWhitespace.preview).toBe("one two three");
   });
 
   test("getArticleSourceLabel prioritizes feedName then hostname fallback", async () => {

@@ -1,10 +1,20 @@
 import { envBooleanOptional } from "@/lib/config";
 
 /** Supported runtime database drivers for the application. */
-export type DbDriver = "neon" | "pg";
+type DbDriver = "neon" | "pg";
 
-export const DEFAULT_DB_MAX_CONNECTIONS = 1;
-export const DEFAULT_DB_IDLE_TIMEOUT_MS = 1_000;
+const DEFAULT_DB_MAX_CONNECTIONS = 1;
+const DEFAULT_DB_IDLE_TIMEOUT_MS = 1_000;
+
+const DATABASE_UNAVAILABLE_MESSAGE =
+  "Database access is unavailable while placeholder mode is active. Configure DATABASE_URL to enable database-backed features.";
+
+/** Fails fast before any driver module is loaded in placeholder-mode runtimes. */
+export function assertDatabaseConfigured(): void {
+  if (!hasDatabaseConnectionString()) {
+    throw new Error(DATABASE_UNAVAILABLE_MESSAGE);
+  }
+}
 
 /** Reads and validates DATABASE_URL for all database entrypoints. */
 export function getConnectionString(): string {
@@ -68,4 +78,9 @@ export function getDbMaxConnections(): number {
 /** Controls the non-fatal startup connectivity probe. */
 export function shouldRunInitialDbConnectivityCheck(): boolean {
   return envBooleanOptional("DB_EAGER_CONNECT_CHECK", false);
+}
+
+/** Returns whether the current runtime has a usable database connection string. */
+function hasDatabaseConnectionString(): boolean {
+  return Boolean(process.env.DATABASE_URL?.trim());
 }

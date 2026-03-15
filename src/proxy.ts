@@ -3,18 +3,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimiter } from "./lib/server/rate-limit";
 
 /**
- * Next.js proxy for request interception, rate limiting, and security hardening.
+ * Next.js proxy for request interception, rate limiting, and security
+ * hardening.
+ *
+ * Next.js 16 renamed the file convention from `middleware.ts` to `proxy.ts`.
+ * This file must stay at `src/proxy.ts` and export `proxy` so the framework
+ * discovers it automatically.
  *
  * Applies universal protections to all matched routes:
  * 1. Rate limiting (per-client IP)
  * 2. Security headers (X-Frame-Options, X-Content-Type-Options, etc.)
  *
- * Note: CSP is handled in next.config.ts to avoid conflicts with Next.js rendering.
+ * Note: CSP is handled in next.config.ts to avoid conflicts with Next.js
+ * style injection. The headers below intentionally mirror the existing app
+ * policy for dynamic routes handled by the proxy runtime.
  */
 export function proxy(request: NextRequest) {
-  // ── Universal rate limiting ──────────────────────────────────────────────
-  // Enforce a global per-client limit to mitigate DoS, credential stuffing,
-  // and enumeration attacks before any route-specific logic runs.
   const isDevelopment = process.env.NODE_ENV === "development";
   const rateLimitDisabledInDev =
     process.env.RATE_LIMIT_DISABLED_IN_DEV === "true";
@@ -34,14 +38,10 @@ export function proxy(request: NextRequest) {
     });
 
     if (rateLimitResponse) {
-      // Rate limit exceeded — return 429 immediately without further processing
       return rateLimitResponse;
     }
   }
 
-  // ── Security headers ─────────────────────────────────────────────────────
-  // Note: CSP is set in next.config.ts, not here, to ensure compatibility
-  // with Next.js's dynamic style injection
   const response = NextResponse.next();
 
   response.headers.set("X-Frame-Options", "DENY");
@@ -60,8 +60,8 @@ export function proxy(request: NextRequest) {
 }
 
 /**
- * Matcher configuration for proxy.
- * Apply CSP to all routes except static assets and internal Next.js routes.
+ * Apply to all dynamic routes except static assets and internal Next.js
+ * infrastructure paths.
  */
 export const config = {
   matcher: [

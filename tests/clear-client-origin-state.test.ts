@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { clearClientOriginState } from "@/lib";
+import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 
 describe("clearClientOriginState", () => {
   const originalCaches = globalThis.caches;

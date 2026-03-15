@@ -6,16 +6,6 @@ import { logger } from "@/lib/logger";
 import { isBlockedHost, normalizeHostname } from "@/lib/utils/ssrf";
 import { redactUrlForLogs } from "@/lib/utils/url";
 
-export interface ProxySettingsResponse {
-  allowInsecureTls: boolean;
-  configured: boolean;
-  error?: string;
-  hasProxyPassword: boolean;
-  proxyUrl: null | string;
-  proxyUsername: null | string;
-  status: ProxyStatus;
-}
-
 export type ProxyStatus = "checking" | "reachable" | "unreachable";
 
 export const MAX_PROXY_URL_LENGTH = 2048;
@@ -24,6 +14,7 @@ export const MAX_PROXY_URL_LENGTH = 2048;
 export const MAX_PROXY_CREDENTIAL_LENGTH = 255;
 
 const VALID_PROTOCOLS = new Set(["http:", "https:", ...SOCKS_PROTOCOLS]);
+/** Matches bare `host:port` strings (without scheme) that need `http://` prepended. */
 const BARE_HOST_PORT_RE = /^[\w.-]+:\d{1,5}$/;
 const PROBE_TIMEOUT_MS = 4000;
 
@@ -114,6 +105,19 @@ export async function normalizeProxyUrl(
   dnsCheckFn?: (host: string) => Promise<boolean>,
 ): Promise<null | string> {
   const needsScheme = BARE_HOST_PORT_RE.test(raw);
+  if (needsScheme) {
+    // Reject ports outside the valid TCP range even though `\d{1,5}` also
+    // matches 65536–99999. The URL constructor would throw for those anyway,
+    // but an explicit check gives a clearer error log.
+    const port = Number(raw.split(":").at(-1));
+    if (port < 1 || port > 65535) {
+      logger.error("Proxy URL normalization failed: port out of valid range", {
+        port,
+        raw: redactUrlForLogs(raw),
+      });
+      return null;
+    }
+  }
   const input = needsScheme ? `http://${raw}` : raw;
   logger.info("Proxy URL normalization started", {
     input: redactUrlForLogs(input),

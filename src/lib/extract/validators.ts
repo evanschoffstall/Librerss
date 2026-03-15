@@ -1,30 +1,33 @@
-import { NextRequest } from "next/server";
-
-import { jsonError, parseJsonBodyOrResponse } from "@/lib/api/http";
+import { jsonError } from "@/lib/api/http";
 import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-url-validator";
 import { stripUrlFragment } from "@/lib/utils/url";
 
+/** Dep-injection seam — allows tests to swap SSRF validator and error factory. */
 interface ParseArticleUrlDeps {
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
   jsonErrorFn?: typeof jsonError;
-  parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
 }
 
+/**
+ * Validates a raw article URL string for the extract pipeline:
+ *  1. Blank → 400
+ *  2. SSRF-blocked or non-public host → 400
+ *  3. Strips fragment (RFC 3986 §3.5) before any outbound request
+ *
+ * Takes the URL string directly so callers avoid re-serialising and
+ * re-parsing an already-parsed request body.
+ */
 export async function parseAndValidateArticleUrl(
-  request: NextRequest,
+  rawUrl: string,
   deps?: ParseArticleUrlDeps,
 ): Promise<Response | string> {
-  const parseJson = deps?.parseJsonBodyOrResponseFn ?? parseJsonBodyOrResponse;
   const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   const toJsonError = deps?.jsonErrorFn ?? jsonError;
 
-  const payloadOrResponse = await parseJson<{ url?: string }>(request);
-  if (payloadOrResponse instanceof Response) return payloadOrResponse;
-
-  const articleUrl = payloadOrResponse.url?.trim() ?? "";
+  const articleUrl = rawUrl.trim();
   if (!articleUrl) return toJsonError("Article URL is required", 400);
   if (!(await isAllowedUrl(articleUrl)))
     return toJsonError(PUBLIC_FEED_URL_ERROR, 400);

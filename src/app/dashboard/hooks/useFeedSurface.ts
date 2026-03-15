@@ -8,6 +8,8 @@ import {
   useState,
 } from "react";
 
+import { DASHBOARD_EVENTS } from "../constants";
+
 import { escapeArticleKey } from "./useArticleHydration";
 
 export const FEED_PULL_HEIGHT = 104;
@@ -19,7 +21,7 @@ const TOUCH_PULL_ACTIVATION_DISTANCE = 16;
 const HOLD_OFFSET = 44;
 const HOLD_MS = 650;
 const RELEASE_MS = 200;
-const WHEEL_SETTLE_MS = 140;
+const WHEEL_SETTLE_MS = 280;
 const LOCK_RELEASE_BUFFER_MS = 80;
 const LOCK_RELEASE_FALLBACK_MS = 320;
 const PRE_EXPAND_SCROLL_SESSION_KEY = "librerss:article-pre-expand-scroll";
@@ -37,6 +39,7 @@ type ScrollLockTarget = false | number;
 
 const IDLE: PullState = { pulling: false, readyToRefresh: false };
 
+/** Returns the hidden resting scroll offset reserved for the pull sentinel. */
 export function useFeedPullOffset() {
   return FEED_PULL_OFFSET;
 }
@@ -69,7 +72,8 @@ export function useFeedPullRefresh(
   const touchPullActiveRef = useRef(false);
   const touchPullEligibleRef = useRef(false);
   const wheelActiveRef = useRef(false);
-  const pendingWheelScrollEndRef = useRef(false);
+  const wheelProxyPullRef = useRef(false);
+  const lastWheelActivityAtRef = useRef(0);
   const pullingRef = useRef(false);
   const holdingRef = useRef(false);
   const committedRef = useRef(false);
@@ -107,21 +111,102 @@ export function useFeedPullRefresh(
         : sentinelRef.current;
     if (!sentinel || !wrapper) return;
 
-    const reset = () => {
-      touchPullActiveRef.current = false;
-      touchPullEligibleRef.current = false;
-      wheelActiveRef.current = false;
-      pendingWheelScrollEndRef.current = false;
-      pullingRef.current = false;
-      holdingRef.current = false;
-      committedRef.current = false;
+    let lockMonitorFrame = 0;
+
+    const stopLockMonitor = () => {
+      if (lockMonitorFrame === 0) return;
+      cancelAnimationFrame(lockMonitorFrame);
+      lockMonitorFrame = 0;
+    };
+
+    const clearGestureTimers = () => {
       clearTimeout(holdTimerRef.current);
       clearTimeout(wheelTimerRef.current);
       clearTimeout(releaseTimerRef.current);
       holdTimerRef.current = undefined;
       wheelTimerRef.current = undefined;
       releaseTimerRef.current = undefined;
+    };
+
+    const clearGestureActivity = () => {
+      stopLockMonitor();
+      touchPullActiveRef.current = false;
+      touchPullEligibleRef.current = false;
+      wheelActiveRef.current = false;
+      wheelProxyPullRef.current = false;
+      lastWheelActivityAtRef.current = 0;
+      pullingRef.current = false;
+      holdingRef.current = false;
+      committedRef.current = false;
+      clearGestureTimers();
+    };
+
+    /**
+     * Article expand/collapse locks take ownership of the viewport and must
+     * immediately cancel any in-flight pull gesture so stale timers cannot
+     * resurrect the sentinel once the lock releases.
+     */
+    const cancelPullForLock = () => {
+      touchActiveRef.current = false;
+      clearGestureActivity();
+      setState((current) =>
+        current.pulling || current.readyToRefresh ? IDLE : current,
+      );
+    };
+
+    const shouldMonitorLock = () =>
+      touchActiveRef.current ||
+      wheelActiveRef.current ||
+      pullingRef.current ||
+      holdingRef.current ||
+      committedRef.current ||
+      holdTimerRef.current !== undefined ||
+      wheelTimerRef.current !== undefined ||
+      releaseTimerRef.current !== undefined;
+
+    const startLockMonitor = () => {
+      if (lockMonitorFrame !== 0 || !shouldMonitorLock()) return;
+      const tick = () => {
+        if (hasActiveLock()) {
+          lockMonitorFrame = 0;
+          cancelPullForLock();
+          return;
+        }
+        if (!shouldMonitorLock()) {
+          lockMonitorFrame = 0;
+          return;
+        }
+        lockMonitorFrame = requestAnimationFrame(tick);
+      };
+      lockMonitorFrame = requestAnimationFrame(tick);
+    };
+
+    const reset = () => {
+      clearGestureActivity();
       setState(IDLE);
+    };
+
+    /**
+     * Content shrink/grow can transiently leave the viewport inside the pull
+     * zone without any active gesture. In that case the sentinel should return
+     * to an idle visual state instead of lingering on the armed refresh UI.
+     */
+    const clearIdlePullState = () => {
+      stopLockMonitor();
+      touchPullActiveRef.current = false;
+      touchPullEligibleRef.current = false;
+      wheelProxyPullRef.current = false;
+      lastWheelActivityAtRef.current = 0;
+      pullingRef.current = false;
+      committedRef.current = false;
+      setState((current) => (current.pulling ? IDLE : current));
+    };
+
+    /** Re-hides the sentinel after non-interactive layout changes clamp scrollTop. */
+    const restoreIdleRestOffset = () => {
+      if (viewport.scrollTop < FEED_PULL_OFFSET) {
+        viewport.scrollTop = FEED_PULL_OFFSET;
+      }
     };
 
     const hasActiveLock = () => typeof lockRef?.current === "number";
@@ -136,16 +221,18 @@ export function useFeedPullRefresh(
       const required = Math.max(
         0,
         viewport.clientHeight +
-          Math.max(FEED_PULL_HEIGHT, pinTarget ?? FEED_PULL_HEIGHT) -
+          Math.max(FEED_PULL_OFFSET, pinTarget ?? FEED_PULL_OFFSET) -
           contentHeight,
       );
       wrapper.style.paddingBottom = required > 0 ? `${required}px` : "";
       if (typeof pinTarget === "number") {
         viewport.scrollTop = pinTarget;
       }
+
+      return contentHeight;
     };
 
-    syncLayout();
+    let previousContentHeight = syncLayout();
     if (viewport.scrollTop < FEED_PULL_OFFSET) {
       viewport.scrollTop = FEED_PULL_OFFSET;
     }
@@ -168,15 +255,30 @@ export function useFeedPullRefresh(
             const target = lockRef?.current;
             if (typeof target === "number") {
               if (target < 0) return;
-              syncLayout(target);
+              previousContentHeight = syncLayout(target);
               return;
             }
-            syncLayout();
+            const nextContentHeight = syncLayout();
+            const contentHeightChanged =
+              Math.abs(nextContentHeight - previousContentHeight) > 1;
+            previousContentHeight = nextContentHeight;
+            if (
+              contentHeightChanged &&
+              !touchActiveRef.current &&
+              !wheelActiveRef.current &&
+              !holdingRef.current
+            ) {
+              clearIdlePullState();
+              restoreIdleRestOffset();
+            }
           });
     resizeObserver?.observe(wrapper);
 
     const commitOrReset = () => {
-      if (hasActiveLock()) return;
+      if (hasActiveLock()) {
+        cancelPullForLock();
+        return;
+      }
       wheelActiveRef.current = false;
       clearTimeout(wheelTimerRef.current);
       wheelTimerRef.current = undefined;
@@ -199,21 +301,28 @@ export function useFeedPullRefresh(
     };
 
     const scheduleWheelSettle = () => {
+      startLockMonitor();
       clearTimeout(wheelTimerRef.current);
       wheelTimerRef.current = setTimeout(() => {
+        const elapsed = Date.now() - lastWheelActivityAtRef.current;
+        if (elapsed < WHEEL_SETTLE_MS) {
+          scheduleWheelSettle();
+          return;
+        }
         wheelTimerRef.current = undefined;
         wheelActiveRef.current = false;
+        wheelProxyPullRef.current = false;
         if (hasActiveLock() || touchActiveRef.current || holdingRef.current) {
           return;
         }
-        if (pendingWheelScrollEndRef.current) {
-          pendingWheelScrollEndRef.current = false;
-          commitOrReset();
+        if (viewport.scrollTop < FEED_PULL_OFFSET) {
+          scheduleRelease();
         }
       }, WHEEL_SETTLE_MS);
     };
 
     const scheduleRelease = () => {
+      startLockMonitor();
       clearTimeout(releaseTimerRef.current);
       releaseTimerRef.current = setTimeout(() => {
         releaseTimerRef.current = undefined;
@@ -223,14 +332,36 @@ export function useFeedPullRefresh(
           !holdingRef.current
         ) {
           commitOrReset();
+          return;
         }
+        if (hasActiveLock()) cancelPullForLock();
       }, RELEASE_MS);
     };
 
     const handleScroll = () => {
-      if (hasActiveLock()) return;
+      if (wheelActiveRef.current) {
+        lastWheelActivityAtRef.current = Date.now();
+      }
+      if (hasActiveLock()) {
+        cancelPullForLock();
+        return;
+      }
       const currentScrollTop = viewport.scrollTop;
       if (holdingRef.current) return;
+      const hasInteractivePullSession =
+        touchActiveRef.current ||
+        wheelActiveRef.current ||
+        releaseTimerRef.current !== undefined;
+      if (
+        !hasInteractivePullSession &&
+        !pullingRef.current &&
+        !committedRef.current &&
+        currentScrollTop <= 1
+      ) {
+        clearIdlePullState();
+        restoreIdleRestOffset();
+        return;
+      }
       if (touchActiveRef.current && !touchPullEligibleRef.current) {
         touchLastScrollTopRef.current = currentScrollTop;
         if (pullingRef.current) reset();
@@ -253,7 +384,15 @@ export function useFeedPullRefresh(
         touchPullActiveRef.current = true;
       }
       if (currentScrollTop >= FEED_PULL_OFFSET - PULL_BUFFER) {
-        if (pullingRef.current) reset();
+        if (pullingRef.current) {
+          if (wheelActiveRef.current) {
+            pullingRef.current = false;
+            committedRef.current = false;
+            setState((current) => (current.pulling ? IDLE : current));
+          } else {
+            reset();
+          }
+        }
         return;
       }
 
@@ -261,6 +400,7 @@ export function useFeedPullRefresh(
         sentinel.offsetHeight - currentScrollTop >= PULL_THRESHOLD;
       pullingRef.current = true;
       committedRef.current = readyToRefresh;
+      startLockMonitor();
       setState((current) =>
         current.pulling && current.readyToRefresh === readyToRefresh
           ? current
@@ -269,12 +409,14 @@ export function useFeedPullRefresh(
     };
 
     const handleTouchStart = () => {
+      startLockMonitor();
       touchActiveRef.current = true;
       touchLastScrollTopRef.current = viewport.scrollTop;
       touchPullActiveRef.current = false;
       touchPullEligibleRef.current =
         viewport.scrollTop <= FEED_PULL_OFFSET + PULL_BUFFER;
-      pendingWheelScrollEndRef.current = false;
+      wheelProxyPullRef.current = false;
+      lastWheelActivityAtRef.current = 0;
       clearTimeout(holdTimerRef.current);
       clearTimeout(wheelTimerRef.current);
       clearTimeout(releaseTimerRef.current);
@@ -286,22 +428,56 @@ export function useFeedPullRefresh(
       }
     };
 
-    const handleWheel = () => {
-      if (hasActiveLock()) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (hasActiveLock()) {
+        cancelPullForLock();
+        return;
+      }
+      const isNewWheelGesture = !wheelActiveRef.current;
       wheelActiveRef.current = true;
-      pendingWheelScrollEndRef.current = false;
+      startLockMonitor();
+      clearTimeout(releaseTimerRef.current);
+      releaseTimerRef.current = undefined;
+      if (isNewWheelGesture) {
+        wheelProxyPullRef.current = false;
+      }
+      lastWheelActivityAtRef.current = Date.now();
+
+      // Desktop wheel input does not reliably move the Radix viewport into the
+      // hidden pull zone even when the gesture starts from the rest offset.
+      // Proxy the top-edge movement so mouse wheel and trackpad release can arm
+      // the same sentinel-based refresh path as touch.
+      const canProxyPull =
+        event.deltaY < 0 &&
+        viewport.scrollTop <= FEED_PULL_OFFSET + PULL_BUFFER;
+      const canProxyRelease =
+        event.deltaY > 0 &&
+        wheelProxyPullRef.current &&
+        viewport.scrollTop < FEED_PULL_OFFSET;
+      if (canProxyPull || canProxyRelease) {
+        const nextScrollTop = Math.min(
+          FEED_PULL_OFFSET,
+          Math.max(0, viewport.scrollTop + event.deltaY),
+        );
+        if (nextScrollTop !== viewport.scrollTop) {
+          wheelProxyPullRef.current = true;
+          viewport.scrollTop = nextScrollTop;
+          viewport.dispatchEvent(new Event("scroll"));
+        }
+      }
       scheduleWheelSettle();
     };
 
     const handleTouchEnd = () => {
+      const hadActiveTouchPull = touchPullActiveRef.current;
+      const hadPendingPull = pullingRef.current || committedRef.current;
       touchActiveRef.current = false;
-      if (hasActiveLock()) return;
-      if (!touchPullActiveRef.current) {
-        touchPullEligibleRef.current = false;
+      if (hasActiveLock()) {
+        cancelPullForLock();
         return;
       }
-      if (committedRef.current && !disabledRef.current) {
-        commitOrReset();
+      if (!hadActiveTouchPull && !hadPendingPull) {
+        touchPullEligibleRef.current = false;
         return;
       }
       scheduleRelease();
@@ -309,17 +485,20 @@ export function useFeedPullRefresh(
 
     const handleTouchCancel = () => {
       touchActiveRef.current = false;
-      if (hasActiveLock()) return;
+      if (hasActiveLock()) {
+        cancelPullForLock();
+        return;
+      }
       reset();
       scheduleRelease();
     };
 
     const handleScrollEnd = () => {
-      if (hasActiveLock()) return;
-      if (wheelActiveRef.current) {
-        pendingWheelScrollEndRef.current = true;
+      if (hasActiveLock()) {
+        cancelPullForLock();
         return;
       }
+      if (wheelActiveRef.current || releaseTimerRef.current) return;
       if (!pullingRef.current && !committedRef.current) return;
       if (!touchActiveRef.current && !holdingRef.current) commitOrReset();
     };
@@ -342,9 +521,8 @@ export function useFeedPullRefresh(
       viewport.removeEventListener("scrollend", handleScrollEnd);
       resizeObserver?.disconnect();
       overflowObserver?.disconnect();
-      clearTimeout(holdTimerRef.current);
-      clearTimeout(wheelTimerRef.current);
-      clearTimeout(releaseTimerRef.current);
+      stopLockMonitor();
+      clearGestureTimers();
       viewport.style.overscrollBehaviorY = "";
       viewport.style.overflowY = "";
       viewport.style.touchAction = "";
@@ -365,6 +543,7 @@ export function useFeedScrollLock(
   lockRef: React.RefObject<ScrollLockTarget> | undefined,
 ) {
   const cleanupRef = useRef<(() => void) | null>(null);
+  const preExpandArticleKeyRef = useRef<null | string>(null);
   const preExpandViewport = useRef<HTMLElement | null>(null);
   const preExpandScrollTop = useRef<null | number>(null);
 
@@ -374,9 +553,32 @@ export function useFeedScrollLock(
   }, []);
 
   const clearPreExpandState = useCallback((clearPersisted: boolean) => {
+    preExpandArticleKeyRef.current = null;
     preExpandViewport.current = null;
     preExpandScrollTop.current = null;
     if (clearPersisted) clearPersistedPreExpandScroll();
+  }, []);
+
+  /**
+   * Stores the pre-expand viewport position before focus management or browser
+   * auto-scrolling can shift the clicked card.
+   */
+  const capturePreExpandSnapshot = useCallback((articleKey: string) => {
+    const article = document.querySelector<HTMLElement>(
+      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+    );
+    const viewport =
+      article?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+      null;
+    if (!article || !viewport) return;
+
+    preExpandArticleKeyRef.current = articleKey;
+    preExpandViewport.current = viewport;
+    preExpandScrollTop.current = viewport.scrollTop;
+    writePersistedPreExpandScroll({
+      articleKey,
+      scrollTop: viewport.scrollTop,
+    });
   }, []);
 
   const getCollapseRestoreTarget = useCallback((articleKey: string) => {
@@ -395,13 +597,36 @@ export function useFeedScrollLock(
       cancelLock();
       const target = savedScrollTop ?? FEED_PULL_OFFSET;
       const releaseDelay = getScrollLockReleaseMs();
+      let syncFrame = 0;
       clearPreExpandState(true);
       if (lockRef) lockRef.current = target;
-      if (savedViewport) savedViewport.scrollTop = target;
+      const syncTargetScrollTop = () => {
+        if (!savedViewport) return;
+        if (savedViewport.scrollTop !== target) {
+          savedViewport.scrollTop = target;
+        }
+      };
+      const scheduleTargetSync = () => {
+        if (!savedViewport) return;
+        syncTargetScrollTop();
+        syncFrame = window.requestAnimationFrame(scheduleTargetSync);
+      };
+      syncTargetScrollTop();
+      if (savedViewport) {
+        syncFrame = window.requestAnimationFrame(scheduleTargetSync);
+      }
       const timerId = window.setTimeout(() => {
+        if (syncFrame !== 0) {
+          window.cancelAnimationFrame(syncFrame);
+          syncFrame = 0;
+        }
         if (lockRef) lockRef.current = false;
       }, releaseDelay);
       cleanupRef.current = () => {
+        if (syncFrame !== 0) {
+          window.cancelAnimationFrame(syncFrame);
+          syncFrame = 0;
+        }
         window.clearTimeout(timerId);
         if (lockRef) lockRef.current = false;
       };
@@ -412,7 +637,11 @@ export function useFeedScrollLock(
   const activateExpandLock = useCallback(
     (articleKey: string) => {
       cancelLock();
-      clearPreExpandState(false);
+      const hasPrimedSnapshot =
+        preExpandArticleKeyRef.current === articleKey &&
+        preExpandViewport.current !== null &&
+        preExpandScrollTop.current !== null;
+      if (!hasPrimedSnapshot) clearPreExpandState(false);
 
       const article = document.querySelector<HTMLElement>(
         `[data-article-key="${escapeArticleKey(articleKey)}"]`,
@@ -422,43 +651,54 @@ export function useFeedScrollLock(
         null;
       if (!article || !viewport) return;
 
-      preExpandViewport.current = viewport;
-      preExpandScrollTop.current = viewport.scrollTop;
-      writePersistedPreExpandScroll({
-        articleKey,
-        scrollTop: viewport.scrollTop,
-      });
+      if (!hasPrimedSnapshot) {
+        capturePreExpandSnapshot(articleKey);
+      } else {
+        preExpandViewport.current = viewport;
+      }
       scrollExpandedArticleIntoView(article, viewport);
       if (lockRef) lockRef.current = -1;
 
       const release = () => {
         if (lockRef) lockRef.current = false;
       };
-      const handleTransitionEnd = (event: TransitionEvent) => {
-        if (event.propertyName !== "max-height") return;
-        article.removeEventListener("transitionend", handleTransitionEnd);
+      const handleExpandSettled = () => {
+        article.removeEventListener(
+          DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED,
+          handleExpandSettled,
+        );
         window.clearTimeout(fallbackId);
         window.setTimeout(release, 80);
       };
       const fallbackId = window.setTimeout(() => {
-        article.removeEventListener("transitionend", handleTransitionEnd);
+        article.removeEventListener(
+          DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED,
+          handleExpandSettled,
+        );
         release();
-      }, 3000);
+      }, getScrollLockReleaseMs());
 
-      article.addEventListener("transitionend", handleTransitionEnd);
+      article.addEventListener(
+        DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED,
+        handleExpandSettled,
+      );
       cleanupRef.current = () => {
-        article.removeEventListener("transitionend", handleTransitionEnd);
+        article.removeEventListener(
+          DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED,
+          handleExpandSettled,
+        );
         window.clearTimeout(fallbackId);
         release();
       };
     },
-    [cancelLock, clearPreExpandState, lockRef],
+    [cancelLock, capturePreExpandSnapshot, clearPreExpandState, lockRef],
   );
 
   return {
     activateCollapseLock,
     activateExpandLock,
     cancelLock,
+    capturePreExpandSnapshot,
     getCollapseRestoreTarget,
     preExpandScrollTop,
     preExpandViewport,

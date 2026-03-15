@@ -13,7 +13,6 @@ export {
   MAX_PROXY_URL_LENGTH,
   normalizeProxyUrl,
   probeProxy,
-  type ProxySettingsResponse,
   type ProxyStatus,
 } from "./proxy";
 export { RateLimiter, rateLimiter } from "./rate-limit";

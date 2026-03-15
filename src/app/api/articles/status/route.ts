@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/http";
+import { getUserOwnedArticleById } from "@/lib/core/article-records";
 import { upsertArticleStatuses } from "@/lib/core/article-status";
 import { invalidateUserCache } from "@/lib/core/feed-cache";
+import { getDb } from "@/lib/db/db";
 import {
+  type AuthenticatedUser,
   logAndRespondError,
   requireMutableUserAndJsonBody,
 } from "@/lib/server";
@@ -17,9 +20,27 @@ interface StatusPayload {
   isStarred?: boolean;
 }
 
-export async function POST(request: NextRequest) {
+/** Dep-injection seam for unit tests. */
+interface StatusPostDeps {
+  getUserOwnedArticleByIdFn?: typeof getUserOwnedArticleById;
+  /** Concrete (non-generic) overload used by tests to stub auth + body parsing. */
+  requireMutableUserAndJsonBodyFn?: (
+    request: NextRequest,
+  ) => Promise<
+    Response | { body: Record<string, unknown>; user: AuthenticatedUser }
+  >;
+  upsertArticleStatusesFn?: typeof upsertArticleStatuses;
+}
+
+export async function POST(request: NextRequest, deps?: StatusPostDeps) {
+  const requireAuth =
+    deps?.requireMutableUserAndJsonBodyFn ?? requireMutableUserAndJsonBody;
+  const getOwnedArticle =
+    deps?.getUserOwnedArticleByIdFn ?? getUserOwnedArticleById;
+  const upsertStatuses = deps?.upsertArticleStatusesFn ?? upsertArticleStatuses;
+
   try {
-    const authAndBody = await requireMutableUserAndJsonBody(request);
+    const authAndBody = await requireAuth(request);
     if (authAndBody instanceof Response) return authAndBody;
 
     const { body, user } = authAndBody;
@@ -27,7 +48,14 @@ export async function POST(request: NextRequest) {
     const payload = parseStatusPayload(body);
     if (payload instanceof Response) return payload;
 
-    await upsertArticleStatuses(user.userId, [payload.articleId], {
+    // Verify the article exists in a feed the user subscribes to. This
+    // prevents both FK-violation 500s on invalid IDs and silent cross-user
+    // status insertion on IDs from unsubscribed feeds.
+    const db = getDb();
+    const article = await getOwnedArticle(db, user.userId, payload.articleId);
+    if (!article) return jsonError("Article not found", 404);
+
+    await upsertStatuses(user.userId, [payload.articleId], {
       isRead: payload.isRead,
       isStarred: payload.isStarred,
     });

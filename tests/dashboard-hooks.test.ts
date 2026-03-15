@@ -14,11 +14,12 @@ import {
   test,
 } from "bun:test";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { toast } from "sonner";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
-import { useAnimatedList } from "@/app/dashboard/hooks/useAnimatedList";
 import {
   toggleReadStatus,
   toggleStarredStatus,
@@ -34,14 +35,19 @@ import {
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
-import { shouldShowNoFeedSourcesToast } from "@/app/dashboard/hooks/useFeedLoader";
+import {
+  shouldShowNoFeedSourcesToast,
+  useFeedLoader,
+} from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
-import { useFeedRequestState } from "@/app/dashboard/hooks/useFeedRequestState";
 import { type FeedBatchSource } from "@/app/dashboard/services/feed-batch";
 import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-batch-outcome";
-import { type Article, ArticleService, FeedService } from "@/lib";
-
-const getStringKey = (item: string) => item;
+import {
+  type Article,
+  ArticleService,
+  type CategoryTreeNode,
+  FeedService,
+} from "@/lib";
 
 // ─── useArticleNavigation ─────────────────────────────────────────────────────
 
@@ -119,6 +125,115 @@ describe("useFeedLoader", () => {
     expect(shouldShowNoFeedSourcesToast(true, false)).toBe(false);
   });
 
+  test("reuses a prefetched batch query without clearing the feed", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    const prefetchedFeedUrl = "https://example.com/prefetched.xml";
+    let feedState: Article[] = [
+      {
+        content: "Existing article body",
+        feedId: 2,
+        feedName: "Existing Feed",
+        feedUrl: "https://example.com/existing.xml",
+        id: 91,
+        isRead: false,
+        isStarred: false,
+        lastChecked: new Date("2026-03-14T12:00:00.000Z"),
+        link: "https://example.com/articles/existing",
+        publicationDate: new Date("2026-03-14T11:59:00.000Z"),
+        title: "Existing article",
+      },
+    ];
+    const feedRef = { current: feedState };
+    let clearedFeed = false;
+    const prefetchedArticle: Article = {
+      content: "Prefetched article body",
+      feedId: 3,
+      feedName: "Prefetched Feed",
+      feedUrl: prefetchedFeedUrl,
+      id: 92,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T12:01:00.000Z"),
+      link: "https://example.com/articles/prefetched",
+      publicationDate: new Date("2026-03-14T12:00:30.000Z"),
+      title: "Prefetched article",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      if (Array.isArray(updater) && updater.length === 0) {
+        clearedFeed = true;
+      }
+
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async (urls: string[]) => [
+      {
+        articles: [
+          {
+            ...prefetchedArticle,
+            feedName: prefetchedArticle.feedName,
+            feedUrl: urls[0] ?? prefetchedArticle.feedUrl,
+          },
+        ],
+        lastFetchedAt: new Date("2026-03-14T12:02:00.000Z"),
+        ok: true,
+        url: urls[0] ?? prefetchedArticle.feedUrl,
+      },
+    ]) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.prefetchFeed(prefetchedFeedUrl);
+      });
+
+      await waitFor(() => {
+        expect(FeedService.getFeedsBatch).toHaveBeenCalledTimes(1);
+      });
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(prefetchedFeedUrl);
+      });
+
+      await waitFor(() => {
+        expect(feedState[0]?.title).toBe(prefetchedArticle.title);
+      });
+
+      expect(FeedService.getFeedsBatch).toHaveBeenCalledTimes(1);
+      expect(clearedFeed).toBe(false);
+    } finally {
+      queryClient.clear();
+    }
+  });
+
   test("builds batch outcomes from the latest feed snapshot without a state-updater side effect", () => {
     const previousFeed: Article[] = [
       {
@@ -169,185 +284,6 @@ describe("useFeedLoader", () => {
   });
 });
 
-describe("useFeedRequestState", () => {
-  test("starts foreground requests and exposes loading state", () => {
-    const setLoading = mock(() => {});
-    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
-
-    let request: ReturnType<typeof result.current.beginRequest> | undefined;
-
-    act(() => {
-      request = result.current.beginRequest({
-        forceRefresh: false,
-        isBackground: false,
-        requestSignature: "feed-a",
-      });
-    });
-
-    if (!request) {
-      throw new Error("expected request result");
-    }
-
-    expect(request.skippedDuplicate).toBe(false);
-    expect(result.current.loading).toBe(true);
-    expect(result.current.loadingEpoch).toBe(1);
-    expect(result.current.isCurrentRequest(request.requestId)).toBe(true);
-    expect(setLoading).toHaveBeenCalledWith(true);
-  });
-
-  test("skips duplicate requests without aborting the active request", () => {
-    const setLoading = mock(() => {});
-    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
-
-    let firstRequest:
-      | ReturnType<typeof result.current.beginRequest>
-      | undefined;
-
-    act(() => {
-      firstRequest = result.current.beginRequest({
-        forceRefresh: false,
-        isBackground: false,
-        requestSignature: "feed-a",
-      });
-    });
-
-    if (!firstRequest) {
-      throw new Error("expected first request result");
-    }
-
-    if (firstRequest.skippedDuplicate) {
-      throw new Error("expected first request to start");
-    }
-
-    let duplicateRequest:
-      | ReturnType<typeof result.current.beginRequest>
-      | undefined;
-
-    act(() => {
-      duplicateRequest = result.current.beginRequest({
-        forceRefresh: false,
-        isBackground: false,
-        requestSignature: "feed-a",
-      });
-    });
-
-    if (!duplicateRequest) {
-      throw new Error("expected duplicate request result");
-    }
-
-    expect(duplicateRequest).toEqual({
-      requestId: firstRequest.requestId,
-      skippedDuplicate: true,
-    });
-    expect(firstRequest.abortController.signal.aborted).toBe(false);
-    expect(result.current.isCurrentRequest(firstRequest.requestId)).toBe(true);
-    expect(result.current.loadingEpoch).toBe(1);
-  });
-
-  test("cancelPendingRequest aborts the active request and clears loading", () => {
-    const setLoading = mock(() => {});
-    const { result } = renderHook(() => useFeedRequestState({ setLoading }));
-
-    let request: ReturnType<typeof result.current.beginRequest> | undefined;
-
-    act(() => {
-      request = result.current.beginRequest({
-        forceRefresh: false,
-        isBackground: false,
-        requestSignature: "feed-a",
-      });
-    });
-
-    if (!request) {
-      throw new Error("expected request result");
-    }
-
-    if (request.skippedDuplicate) {
-      throw new Error("expected request to start");
-    }
-
-    let canceledRequestId: number | undefined;
-
-    act(() => {
-      canceledRequestId = result.current.cancelPendingRequest();
-    });
-
-    if (canceledRequestId === undefined) {
-      throw new Error("expected canceled request id");
-    }
-
-    expect(request.abortController.signal.aborted).toBe(true);
-    expect(result.current.loading).toBe(false);
-    expect(result.current.isCurrentRequest(canceledRequestId)).toBe(true);
-    expect(setLoading).toHaveBeenLastCalledWith(false);
-  });
-});
-
-describe("useAnimatedList", () => {
-  test("keeps small removals mounted long enough to animate out", async () => {
-    const { rerender, result } = renderHook(
-      ({ items }: { items: string[] }) =>
-        useAnimatedList(items, getStringKey, 2),
-      {
-        initialProps: { items: ["a", "b", "c"] },
-      },
-    );
-
-    act(() => {
-      rerender({ items: ["a", "c"] });
-    });
-
-    await waitFor(() => {
-      expect(result.current).toEqual([
-        { entering: false, exiting: false, item: "a", key: "a" },
-        { entering: false, exiting: true, item: "b", key: "b" },
-        { entering: false, exiting: false, item: "c", key: "c" },
-      ]);
-    });
-  });
-
-  test("skips exit animations for bulk removals", async () => {
-    const { rerender, result } = renderHook(
-      ({ items }: { items: string[] }) =>
-        useAnimatedList(items, getStringKey, 2),
-      {
-        initialProps: { items: ["a", "b", "c", "d"] },
-      },
-    );
-
-    act(() => {
-      rerender({ items: ["a"] });
-    });
-
-    await waitFor(() => {
-      expect(result.current).toEqual([
-        { entering: false, exiting: false, item: "a", key: "a" },
-      ]);
-    });
-  });
-
-  test("flags inserted items as entering during a refresh-style append", async () => {
-    const { rerender, result } = renderHook(
-      ({ items }: { items: string[] }) =>
-        useAnimatedList(items, getStringKey, 2),
-      {
-        initialProps: { items: ["a"] },
-      },
-    );
-
-    act(() => {
-      rerender({ items: ["b", "a"] });
-    });
-
-    await waitFor(() => {
-      expect(result.current).toEqual([
-        { entering: true, exiting: false, item: "b", key: "b" },
-        { entering: false, exiting: false, item: "a", key: "a" },
-      ]);
-    });
-  });
-});
-
 describe("useDashboardEvents", () => {
   test("coalesces repeated search events to the latest term per frame", async () => {
     const originalCancelAnimationFrame = global.cancelAnimationFrame;
@@ -364,9 +300,6 @@ describe("useDashboardEvents", () => {
     try {
       renderHook(() =>
         useDashboardEvents({
-          fetchAllFeeds: async () => {},
-          fetchCategoryFeeds: async () => {},
-          fetchFeed: async () => {},
           onOpenFeedsSidebar: () => {},
           onOpenSettings: () => {},
           onRefresh: () => {},
@@ -413,9 +346,6 @@ describe("useDashboardEvents", () => {
     const { rerender } = renderHook(
       ({ onSearchChange }: { onSearchChange: (term: string) => void }) =>
         useDashboardEvents({
-          fetchAllFeeds: async () => {},
-          fetchCategoryFeeds: async () => {},
-          fetchFeed: async () => {},
           onOpenFeedsSidebar: () => {},
           onOpenSettings: () => {},
           onRefresh: () => {},
@@ -537,19 +467,34 @@ afterEach(() => {
 });
 
 const originalExtractArticleContent = ArticleService.extractArticleContent;
+const originalGetFeedsBatch = FeedService.getFeedsBatch;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
 const originalConsoleError = console.error;
 const originalConsoleInfo = console.info;
+const originalClientFeedRefreshDiagnosticsEnabled =
+  process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED;
 const muteConsoleError = (() => {}) as typeof console.error;
 const muteConsoleInfo = (() => {}) as typeof console.info;
+
+beforeEach(() => {
+  process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED = "false";
+});
 
 afterEach(() => {
   ArticleService.extractArticleContent =
     originalExtractArticleContent as typeof ArticleService.extractArticleContent;
+  FeedService.getFeedsBatch =
+    originalGetFeedsBatch as typeof FeedService.getFeedsBatch;
   ArticleService.updateArticleStatus =
     originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
   console.error = originalConsoleError;
   console.info = originalConsoleInfo;
+  if (originalClientFeedRefreshDiagnosticsEnabled === undefined) {
+    delete process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED;
+  } else {
+    process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED =
+      originalClientFeedRefreshDiagnosticsEnabled;
+  }
 });
 
 afterAll(() => {
@@ -583,6 +528,9 @@ describe("useArticleHydration", () => {
     ArticleService.extractArticleContent = mock(
       async () => "<p>Extracted content</p>",
     ) as unknown as typeof ArticleService.extractArticleContent;
+    ArticleService.getStoredArticleContent = mock(
+      async () => "<p>Stored article content</p>",
+    ) as unknown as typeof ArticleService.getStoredArticleContent;
     ArticleService.updateArticleStatus = mock(
       async () => {},
     ) as unknown as typeof ArticleService.updateArticleStatus;
@@ -922,6 +870,52 @@ describe("useArticleHydration", () => {
     await waitFor(() => {
       expect(result.current.hydratedArticleLinks[article.link]).toBeUndefined();
     });
+  });
+
+  test("hydrateArticleContent loads stored article content when extraction is disabled", async () => {
+    const article = createMockArticle();
+    let feedState = [article];
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleHydration({
+        getFeedSettings: () => ({ extractionDisabled: true }),
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    await waitFor(() => {
+      expect(ArticleService.getStoredArticleContent).toHaveBeenCalledWith(1);
+      expect(ArticleService.extractArticleContent).not.toHaveBeenCalled();
+      expect(feedState[0]?.content).toBe("<p>Stored article content</p>");
+      expect(feedState[0]?.hasFullContent).toBe(true);
+      expect(result.current.hydratedArticleLinks[article.link]).toBeUndefined();
+    });
+  });
+
+  test("hydrateArticleContent skips reloading when full stored content is already present", async () => {
+    const article = createMockArticle({ hasFullContent: true });
+    const setFeed = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleHydration({
+        getFeedSettings: () => ({ extractionDisabled: true }),
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    expect(ArticleService.getStoredArticleContent).not.toHaveBeenCalled();
+    expect(ArticleService.extractArticleContent).not.toHaveBeenCalled();
   });
 });
 

@@ -15,8 +15,46 @@ import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import * as realUrlModule from "@/lib/utils/url";
 
+const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
 const window = new Window();
 const document = window.document;
+
+interface InspectableElement {
+  className?: string;
+  id?: string;
+  tagName: string;
+  textContent?: null | string;
+}
+
+/** Installs a compact DOM inspector for Bun/Node output without altering runtime behavior. */
+function defineCompactInspector(
+  target: object,
+  inspect: (this: object) => string,
+): void {
+  if (Object.prototype.hasOwnProperty.call(target, NODE_INSPECT_CUSTOM)) return;
+  Object.defineProperty(target, NODE_INSPECT_CUSTOM, {
+    configurable: true,
+    value: inspect,
+  });
+}
+
+/** Returns a concise inspection label for DOM elements in failed assertions. */
+function summarizeElement(element: InspectableElement): string {
+  const className =
+    typeof element.className === "string" && element.className.trim().length > 0
+      ? `.${element.className.trim().replaceAll(/\s+/g, ".")}`
+      : "";
+  const id = element.id ? `#${element.id}` : "";
+  const text = summarizeTextContent(element.textContent ?? "");
+  const textSuffix = text.length > 0 ? ` "${text}"` : "";
+  return `<${element.tagName.toLowerCase()}${id}${className}>${textSuffix}`;
+}
+
+/** Returns a stable one-line summary for DOM text content. */
+function summarizeTextContent(value: string): string {
+  const compact = value.replaceAll(/\s+/g, " ").trim();
+  return compact.length <= 48 ? compact : `${compact.slice(0, 45)}...`;
+}
 
 // Polyfill global DOM APIs for tests
 global.DOMParser = window.DOMParser as any;
@@ -24,9 +62,33 @@ global.document = document as any;
 global.window = window as any;
 global.Window = Window as any;
 global.Element = window.Element as any;
+global.Event = window.Event as any;
+global.CustomEvent = window.CustomEvent as any;
+global.EventTarget = window.EventTarget as any;
 global.HTMLElement = window.HTMLElement as any;
 global.Node = window.Node as any;
 global.window.SyntaxError = global.window.SyntaxError ?? SyntaxError;
+
+defineCompactInspector(window.Window.prototype, function summarizeWindow() {
+  return "[Window]";
+});
+defineCompactInspector(
+  document.constructor.prototype,
+  function summarizeDocument() {
+    return "[Document]";
+  },
+);
+defineCompactInspector(window.Node.prototype, function summarizeDomNode() {
+  if (this instanceof window.Element) return summarizeElement(this);
+  const constructorName = this.constructor?.name ?? "Node";
+  const textContent =
+    "textContent" in this && typeof this.textContent === "string"
+      ? summarizeTextContent(this.textContent)
+      : "";
+  return textContent.length > 0
+    ? `[${constructorName} "${textContent}"]`
+    : `[${constructorName}]`;
+});
 
 if (typeof global.TransitionEvent !== "function") {
   class TransitionEventPolyfill extends window.Event {

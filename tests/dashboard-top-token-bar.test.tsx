@@ -5,7 +5,7 @@ import { render } from "@testing-library/react";
 import { DashboardTopTokenBar } from "@/app/dashboard/components/DashboardTopTokenBar";
 
 describe("DashboardTopTokenBar", () => {
-  test("spins the refresh glyph while the refresh label is skeletoning", () => {
+  test("shows the Motion spinner while the refresh label is skeletoning", () => {
     const { container, getByLabelText, queryByText, rerender } = render(
       <DashboardTopTokenBar
         articleFilter="unread"
@@ -17,7 +17,9 @@ describe("DashboardTopTokenBar", () => {
 
     const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
     expect(loadingIcon).toBeTruthy();
-    expect(loadingIcon?.getAttribute("class")).toContain("animate-spin");
+    expect(loadingIcon?.getAttribute("class")).toContain(
+      "lucide-loader-circle",
+    );
     expect(getByLabelText("Refreshing")).toBeTruthy();
     expect(queryByText("just now")).toBeNull();
 
@@ -32,6 +34,6 @@ describe("DashboardTopTokenBar", () => {
 
     const idleIcon = container.querySelector("span[aria-live='polite'] svg");
     expect(idleIcon).toBeTruthy();
-    expect(idleIcon?.getAttribute("class")).not.toContain("animate-spin");
+    expect(idleIcon?.getAttribute("class")).toContain("lucide-refresh-cw");
   });
 });

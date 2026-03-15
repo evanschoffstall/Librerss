@@ -4,33 +4,20 @@
  */
 
 import { type Article } from "@/lib";
+import { truncateArticlePreviewText } from "@/lib/core/article-preview";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 
 // ── Preview truncation ────────────────────────────────────────────────────────
 
-const PREVIEW_LIMIT = 170;
+const PREVIEW_WHITESPACE = /\s+/g;
 
 export function buildPreview(content: string): {
   hasOverflow: boolean;
   preview: string;
 } {
-  const hasOverflow = content.length > PREVIEW_LIMIT;
-
-  if (!hasOverflow) {
-    return { hasOverflow, preview: content };
-  }
-
-  const candidate = content.slice(0, PREVIEW_LIMIT + 1);
-  const lastSpace = candidate.lastIndexOf(" ");
-  const safeCut =
-    lastSpace > 0
-      ? candidate.slice(0, lastSpace)
-      : content.slice(0, PREVIEW_LIMIT);
-
-  return { hasOverflow, preview: safeCut.trimEnd() };
+  const normalizedContent = normalizePreviewContent(content);
+  return truncateArticlePreviewText(normalizedContent);
 }
-
-// ── Source label ──────────────────────────────────────────────────────────────
 
 export function getArticleSourceLabel(article: Article): string {
   if (article.feedName?.trim()) {
@@ -38,6 +25,16 @@ export function getArticleSourceLabel(article: Article): string {
   }
   const raw = article.feedUrl ?? article.link;
   return getUrlHostnameDisplayLabel(raw, { fallback: raw });
+}
+
+// ── Source label ──────────────────────────────────────────────────────────────
+
+/**
+ * Collapses preview whitespace so collapsed cards stay single-rhythm even when
+ * upstream content contains blank paragraphs or repeated line breaks.
+ */
+function normalizePreviewContent(content: string) {
+  return content.replaceAll(PREVIEW_WHITESPACE, " ").trim();
 }
 
 // ── Rich-text CSS classes ─────────────────────────────────────────────────────

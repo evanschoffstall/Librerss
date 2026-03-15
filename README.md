@@ -6,7 +6,7 @@
 
 <h1>LibreRSS</h1>
 
-<p><em>A modern, gorgeous RSS reader for people who want precious signal, not sludge.</em></p>
+<p><em>A modern RSS reader for people who want precious signal, not sludge.</em></p>
 
 <p>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js 16" /></a>
@@ -22,7 +22,7 @@
 
 ## What is LibreRSS?
 
-LibreRSS is a **modern, beautiful, open-source, self-hostable RSS reader** built for distraction-free reading. Subscribe to any RSS or Atom feed, organize sources into categories, and follow everything from one calm, fast dashboard you fully control.
+LibreRSS is a **modern, beautiful, open-source, self-hostable RSS reader** built for end-to-end distraction-free reading. Subscribe to any RSS or Atom feed, organize sources into categories, and follow everything from one calm, fast dashboard you fully control.
 
 It is designed for readers who want a beautiful, unified, and clean experience to keep up with the web: no algorithmic chaos, no bloated interface, and no surrendering their data to a third-party platform.
 
@@ -71,6 +71,14 @@ bun run db:provision
 
 Verifies the database connection and applies the full schema so you can start with a ready-to-use instance.
 
+### 4 · Add a user
+
+When public signup is disabled, create accounts directly from the CLI for a private or invite-only deployment:
+
+```bash
+bun run db:create-user <email> <password> # Password must be at least 8 characters.
+```
+
 ### 4 · Start the dev server
 
 ```bash
@@ -100,18 +108,6 @@ Open **[http://localhost:3000](http://localhost:3000)** to start reading in a cl
 | `bun run db:push`      | Push schema changes directly (no migration files) |
 | `bun run db:generate`  | Generate SQL migration files via Drizzle Kit      |
 | `bun run db:studio`    | Open Drizzle Studio in the browser                |
-
----
-
-## User Management
-
-When public signup is disabled, create accounts directly from the CLI for a private or invite-only deployment:
-
-```bash
-bun run db:create-user <email> <password>
-```
-
-Inserts a user into the database. Password must be at least 8 characters.
 
 ---
 

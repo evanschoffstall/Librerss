@@ -3,6 +3,10 @@ import { Suspense } from "react";
 
 import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
+import {
+  DASHBOARD_PREVIEW_COOKIE_NAME,
+  resolveDashboardPreviewMode,
+} from "./preview-mode";
 
 import {
   getUserFromSessionToken,
@@ -13,19 +17,27 @@ import type { AuthSession } from "@/lib/core/types";
 
 /** Resolves the dashboard route shell and authenticated session state. */
 export default async function Dashboard(props: PageProps<"/dashboard">) {
-  const [initialSession, resolvedSearchParams] = await Promise.all([
-    getInitialSession(),
+  const [cookieStore, resolvedSearchParams] = await Promise.all([
+    cookies(),
     props.searchParams,
   ]);
   const hasPreviewQuery =
     getSearchParamValue(resolvedSearchParams.preview) === "1" ||
     getSearchParamValue(resolvedSearchParams.explore) === "1";
+  const initialPreviewMode = resolveDashboardPreviewMode({
+    cookieValue: cookieStore.get(DASHBOARD_PREVIEW_COOKIE_NAME)?.value,
+    hasPreviewQuery,
+  });
+  const initialSession = initialPreviewMode
+    ? buildAnonymousSession()
+    : await getInitialSession(cookieStore);
 
   return (
     <div className="h-dvh overflow-hidden overscroll-contain">
       <Suspense fallback={<DashboardShellSkeleton />}>
         <DashboardRouter
           hasPreviewQuery={hasPreviewQuery}
+          initialPreviewMode={initialPreviewMode}
           initialSession={initialSession}
         />
       </Suspense>
@@ -49,8 +61,10 @@ function buildAnonymousSession(): AuthSession {
  * Falling back to an anonymous snapshot keeps the route shell stable for both
  * unauthenticated users and invalid/expired sessions.
  */
-async function getInitialSession(): Promise<AuthSession> {
-  const sessionToken = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+async function getInitialSession(
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+): Promise<AuthSession> {
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!sessionToken) {
     return buildAnonymousSession();
   }

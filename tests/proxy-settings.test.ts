@@ -840,6 +840,17 @@ describe("server/proxy – normalizeProxyUrl", () => {
     );
     expect(result).toContain("external.example.com");
   });
+
+  test("bare host:port with out-of-range port returns null", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    // Port 65536 is above the valid TCP max; normalizeProxyUrl should reject it.
+    const result = await normalizeProxyUrl(
+      "external.example.com:65536",
+      probeHttp,
+      dnsAllow,
+    );
+    expect(result).toBeNull();
+  });
 });
 
 // ── server/proxy – probeProxy SSRF early exits ────────────────────────────────

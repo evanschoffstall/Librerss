@@ -1,10 +1,7 @@
 // Main library exports - organized by domain
 
 // Core: types, constants, utilities, hooks
-export { clearClientOriginState } from "./auth/clear-client-origin-state";
-export { ENV } from "./config";
 export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
-export { useDebugState } from "./hooks/useDebugState";
 export { useLocalStorage } from "./hooks/useLocalStorage";
 export { useSessionState } from "./hooks/useSessionState";
 

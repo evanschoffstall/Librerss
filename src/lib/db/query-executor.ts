@@ -1,4 +1,8 @@
-import { getConnectionString, getDbDriver } from "./config";
+import {
+  assertDatabaseConfigured,
+  getConnectionString,
+  getDbDriver,
+} from "./config";
 import { createNeonQueryExecutor } from "./neon-provider";
 import { createNodePostgresQueryExecutor } from "./node-postgres-provider";
 import type { SqlQueryExecutor } from "./types";
@@ -6,11 +10,15 @@ import type { SqlQueryExecutor } from "./types";
 type QueryExecutorFactory = () => SqlQueryExecutor;
 
 const defaultQueryExecutorFactory: QueryExecutorFactory = () => {
+  assertDatabaseConfigured();
+
   const connectionString = getConnectionString();
 
-  return getDbDriver() === "neon"
-    ? createNeonQueryExecutor(connectionString)
-    : createNodePostgresQueryExecutor(connectionString);
+  if (getDbDriver() === "neon") {
+    return createNeonQueryExecutor(connectionString);
+  }
+
+  return createNodePostgresQueryExecutor(connectionString);
 };
 
 let queryExecutorFactory: QueryExecutorFactory = defaultQueryExecutorFactory;

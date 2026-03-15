@@ -201,13 +201,14 @@ export function sanitizeAndTruncateArticleContent(raw: string): string {
  * Strips non-allowed HTML tags; forces safe link attributes.
  *
  * CRITICAL: This function may receive raw HTML from RSS feeds or other
- * external sources. DOMPurify is applied FIRST as mandatory XSS protection
- * before any downstream sanitization or transformation.
+ * external sources. `sanitize-html` (via `purifyRawHtml`) is applied FIRST
+ * as mandatory XSS protection before any downstream transformation.
  */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
 
-  // MANDATORY: DOMPurify as first line of defense against XSS
+  // MANDATORY: sanitize-html first pass — strips scripts, event handlers, and
+  // dangerous protocols before further transformations.
   const purified = purifyRawHtml(raw);
 
   const sanitized = sanitizeHtml(

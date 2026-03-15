@@ -139,6 +139,9 @@ export function useDashboardViewController({
     fetchFeed,
     loadFeedSources,
     loadingEpoch,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    prefetchFeed,
   } = feedLoader;
 
   /**
@@ -192,12 +195,15 @@ export function useDashboardViewController({
 
   const {
     collapsingArticleKey,
+    collapsingArticleMode,
     handleArticleToggle,
     handleExpandedSwipeRead,
+    handleSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
     hydratedArticleLinks,
     hydratingArticleLinks,
+    prepareArticleExpand,
     updatingArticleState,
   } = articleActions;
 
@@ -226,6 +232,12 @@ export function useDashboardViewController({
     (article: Article) => void handleArticleToggle(article),
     [handleArticleToggle],
   );
+  const onArticlePrepareExpand = useCallback(
+    (article: Article) => {
+      prepareArticleExpand(article);
+    },
+    [prepareArticleExpand],
+  );
   const onArticleToggleRead = useCallback(
     (article: Article) => void handleToggleReadState(article),
     [handleToggleReadState],
@@ -235,6 +247,10 @@ export function useDashboardViewController({
       handleExpandedSwipeRead(article);
     },
     [handleExpandedSwipeRead],
+  );
+  const onArticleSwipeRead = useCallback(
+    (article: Article) => void handleSwipeRead(article),
+    [handleSwipeRead],
   );
   const onArticleToggleStarred = useCallback(
     (article: Article) => void handleToggleStarredState(article),
@@ -412,7 +428,9 @@ export function useDashboardViewController({
   const {
     autoRefreshFeedList,
     handleCategoryClick,
+    handleCategoryIntent,
     handleFeedClick,
+    handleFeedIntent,
     handleRefreshSelection,
     refreshFeedList,
   } = useDashboardViewHandlers({
@@ -424,6 +442,9 @@ export function useDashboardViewController({
       invalidateFeedScroll();
       setArticleFilter("unread");
     }, [invalidateFeedScroll, setArticleFilter]),
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    prefetchFeed,
     selectedCategory,
     selectedCategoryNode,
     selectedFeedUrl,
@@ -465,9 +486,6 @@ export function useDashboardViewController({
   }, [setFeed]);
 
   useDashboardEvents({
-    fetchAllFeeds,
-    fetchCategoryFeeds,
-    fetchFeed,
     onMarkAllReadLocally: handleMarkAllReadLocally,
     onOpenFeedsSidebar: useCallback(() => {
       setIsMobileSidebarOpen(true);
@@ -496,14 +514,18 @@ export function useDashboardViewController({
       isCategoriesLoading,
       isSidebarVisible,
       onCategoryClick: handleCategoryClick,
+      onCategoryIntent: handleCategoryIntent,
       onFeedClick: handleFeedClick,
+      onFeedIntent: handleFeedIntent,
       selectedCategory,
       showFavicons,
       sidebarCategories,
     }),
     [
       handleCategoryClick,
+      handleCategoryIntent,
       handleFeedClick,
+      handleFeedIntent,
       isCategoriesLoading,
       isSidebarVisible,
       selectedCategory,
@@ -520,6 +542,8 @@ export function useDashboardViewController({
    */
   return {
     feedList: {
+      collapsingArticleKey,
+      collapsingArticleMode,
       expandedArticleKey,
       feedWrapperRef,
       filteredFeed,
@@ -530,6 +554,8 @@ export function useDashboardViewController({
       isRefreshing: isFeedListRefreshing,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
+      onArticlePrepareExpand,
+      onArticleSwipeRead,
       onArticleToggle,
       onArticleToggleRead,
       onArticleToggleStarred,

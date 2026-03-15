@@ -1,6 +1,7 @@
 import pluginJs from "@eslint/js";
 import pluginTypeScriptEslint from "@typescript-eslint/eslint-plugin";
 import pluginTypeScriptEslintRaw from "@typescript-eslint/eslint-plugin/use-at-your-own-risk/raw-plugin";
+import pluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
 import pluginBoundaries from "eslint-plugin-boundaries";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginImport from "eslint-plugin-import";
@@ -12,6 +13,7 @@ import pluginRegexp from "eslint-plugin-regexp";
 import pluginSecurity from "eslint-plugin-security";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import pluginSonarjs from "eslint-plugin-sonarjs";
+import pluginTailwindcss from "eslint-plugin-tailwindcss";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import globals from "globals";
@@ -24,6 +26,9 @@ const sourceTypeScriptFiles = [
   "src/**/*.cts",
 ];
 
+/**
+ * Scope flat ESLint config entries to a file set and optional language options.
+ */
 function scopeConfigs(configs, files, languageOptions = undefined) {
   return configs.map((config) => ({
     ...config,
@@ -103,6 +108,7 @@ export default [
   {
     plugins: {
       "@typescript-eslint": pluginTypeScriptEslint,
+      "better-tailwindcss": pluginBetterTailwindcss,
       boundaries: pluginBoundaries,
       "eslint-comments": pluginEslintComments,
       import: pluginImport,
@@ -114,6 +120,7 @@ export default [
       security: pluginSecurity,
       "simple-import-sort": simpleImportSort,
       sonarjs: pluginSonarjs,
+      tailwindcss: pluginTailwindcss,
       unicorn: pluginUnicorn,
       "unused-imports": pluginUnusedImports,
     },
@@ -147,6 +154,35 @@ export default [
       "no-throw-literal": "error",
       "no-useless-return": "error",
       "unused-imports/no-unused-imports": "error",
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx,js,jsx}"],
+    settings: {
+      "better-tailwindcss": {
+        entryPoint: `${import.meta.dirname}/src/app/globals.css`,
+        tsconfig: `${import.meta.dirname}/tsconfig.json`,
+      },
+      tailwindcss: {
+        config: `${import.meta.dirname}/src/app/globals.css`,
+        cssFiles: [`${import.meta.dirname}/src/**/*.css`],
+        removeDuplicates: true,
+      },
+    },
+    rules: {
+      "better-tailwindcss/enforce-canonical-classes": "error",
+      "better-tailwindcss/enforce-consistent-class-order": "error",
+      "better-tailwindcss/enforce-consistent-important-position": "error",
+      "better-tailwindcss/enforce-consistent-line-wrapping": "error",
+      "better-tailwindcss/enforce-consistent-variable-syntax": "error",
+      "better-tailwindcss/enforce-shorthand-classes": "error",
+      "better-tailwindcss/no-conflicting-classes": "error",
+      "better-tailwindcss/no-deprecated-classes": "error",
+      "better-tailwindcss/no-duplicate-classes": "error",
+      "better-tailwindcss/no-restricted-classes": "error",
+      "better-tailwindcss/no-unnecessary-whitespace": "error",
+      "tailwindcss/enforces-negative-arbitrary-values": "error",
+      "tailwindcss/no-unnecessary-arbitrary-value": "error",
     },
   },
   {

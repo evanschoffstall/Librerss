@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseJsonBodyOrResponse } from "@/lib/api/http";
+import { CONFIG } from "@/lib/config";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import {
@@ -10,7 +11,7 @@ import {
   pickDiagnosticHeaders,
 } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
-import { requireAuthenticatedUser } from "@/lib/server";
+import { requireMutableAuthenticatedUser } from "@/lib/server";
 import { injectProxyCredentials } from "@/lib/utils/url";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,18 @@ interface SiteTestResult {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuthenticatedUser(request);
+  // SECURITY: requireMutableAuthenticatedUser enforces same-origin CSRF check +
+  // session validation + rate limiting.  A (potentially CSRF-triggered) POST
+  // to this endpoint triggers outbound HTTP fetches; requiring same-origin
+  // prevents an attacker from using the server as an out-of-band HTTP relay.
+  const authResult = await requireMutableAuthenticatedUser(request, {
+    rateLimit: {
+      key: "bot-detection-test",
+      maxAttempts: CONFIG.RATE_LIMIT_BOT_DETECTION_MAX_ATTEMPTS,
+      scope: "user",
+      windowMs: CONFIG.RATE_LIMIT_BOT_DETECTION_WINDOW_MS,
+    },
+  });
   if (authResult instanceof Response) return authResult;
 
   const body = await parseJsonBodyOrResponse<BotResultsRequest>(request);

@@ -39,6 +39,12 @@ export function getUrlHostnameLabel(
  * Injects username/password credentials into a proxy URL.
  * Returns the original URL if it's unparseable.
  */
+/**
+ * Injects username/password credentials into a proxy URL.
+ * The URL API's `.username` / `.password` setters apply the correct userinfo
+ * percent-encoding (RFC 3986 §3.2.1), so plain strings are assigned directly.
+ * Returns the original URL string if it is unparseable.
+ */
 export function injectProxyCredentials(
   proxyUrl: string,
   username: string,
@@ -46,8 +52,8 @@ export function injectProxyCredentials(
 ): string {
   try {
     const parsed = new URL(proxyUrl);
-    parsed.username = encodeURIComponent(username);
-    parsed.password = encodeURIComponent(password);
+    parsed.username = username;
+    parsed.password = password;
     return parsed.toString();
   } catch {
     return proxyUrl;
@@ -148,30 +154,6 @@ export function stripUrlFragment(url: string): string {
     // Unparseable — return as-is
   }
   return url;
-}
-
-/**
- * Creates a stable lookup key for feed URLs, preserving path and query params.
- * Used for category resolution and feed matching across feed-management flows.
- */
-export function toCategoryLookupKey(feedUrl: string): string {
-  const trimmed = feedUrl.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(trimmed);
-    const host = parsed.hostname.toLowerCase();
-    const pathname = parsed.pathname.replace(/\/+$/, "") || "/";
-    const search = parsed.search;
-    return `${host}${pathname}${search}`;
-  } catch {
-    return trimmed
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/\/+$/, "");
-  }
 }
 
 /**

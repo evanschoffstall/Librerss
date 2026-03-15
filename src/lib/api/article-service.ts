@@ -2,6 +2,10 @@ import { getApiClient } from "./http";
 
 import type { Article } from "@/lib/core/types";
 
+interface ArticleByIdResponse {
+  content?: unknown;
+}
+
 interface ArticleExtractResponse {
   content?: unknown;
 }
@@ -86,6 +90,15 @@ export const ArticleService = {
       `${articleServiceBaseUrl}/articles/proxy-status`,
     );
     return response.data;
+  },
+
+  async getStoredArticleContent(articleId: number): Promise<string> {
+    const response = await getApiClient().get<ArticleByIdResponse>(
+      `${articleServiceBaseUrl}/articles/${articleId}`,
+    );
+    return typeof response.data.content === "string"
+      ? response.data.content
+      : "";
   },
 
   async markAllRead(streamId: string): Promise<void> {

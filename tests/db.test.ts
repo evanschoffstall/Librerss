@@ -262,7 +262,9 @@ describe("db initialization", () => {
 
     const { getDb } = await import(`@/lib/db/db?missing-url=${Date.now()}`);
 
-    expect(() => getDb()).toThrow("Missing required environment variable");
+    expect(() => getDb()).toThrow(
+      "Database access is unavailable while placeholder mode is active",
+    );
     restoreDbEnv(previousEnv);
   });
 
@@ -657,48 +659,23 @@ describe("db providers", () => {
     expect(neonQueryMock).toHaveBeenCalledWith("SELECT 1", ["x"]);
   });
 
-  test("createSqlQueryExecutor default factory selects the configured driver", async () => {
-    const pgExecutor = {
-      close: async () => undefined,
-      query: async () => ({ rowCount: 0, rows: [] }),
+  test("createSqlQueryExecutor throws before loading any driver in placeholder mode", async () => {
+    const previousEnv = {
+      DATABASE_URL: process.env.DATABASE_URL,
+      DB_DRIVER: process.env.DB_DRIVER,
+      DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
     };
-    const neonExecutor = {
-      close: async () => undefined,
-      query: async () => ({ rowCount: 0, rows: [] }),
-    };
+    delete process.env.DATABASE_URL;
 
-    mock.module("@/lib/db/config", () => ({
-      getConnectionString: () => "postgres://example/factory",
-      getDbDriver: () => "pg",
-    }));
-    mock.module("@/lib/db/node-postgres-provider", () => ({
-      createNodePostgresQueryExecutor: () => pgExecutor,
-    }));
-    mock.module("@/lib/db/neon-provider", () => ({
-      createNeonQueryExecutor: () => neonExecutor,
-    }));
+    const queryExecutorModule: typeof import("@/lib/db/query-executor") =
+      await import(`@/lib/db/query-executor?missing-url=${Date.now()}`);
 
-    const pgModule: typeof import("@/lib/db/query-executor") = await import(
-      `@/lib/db/query-executor?factory-pg=${Date.now()}`
+    expect(() => queryExecutorModule.createSqlQueryExecutor()).toThrow(
+      "Database access is unavailable while placeholder mode is active",
     );
-    expect(pgModule.createSqlQueryExecutor()).toBe(pgExecutor);
 
-    mock.restore();
-
-    mock.module("@/lib/db/config", () => ({
-      getConnectionString: () => "postgres://example/factory",
-      getDbDriver: () => "neon",
-    }));
-    mock.module("@/lib/db/node-postgres-provider", () => ({
-      createNodePostgresQueryExecutor: () => pgExecutor,
-    }));
-    mock.module("@/lib/db/neon-provider", () => ({
-      createNeonQueryExecutor: () => neonExecutor,
-    }));
-
-    const neonModule: typeof import("@/lib/db/query-executor") = await import(
-      `@/lib/db/query-executor?factory-neon=${Date.now()}`
-    );
-    expect(neonModule.createSqlQueryExecutor()).toBe(neonExecutor);
+    restoreDbEnv(previousEnv);
   });
 });

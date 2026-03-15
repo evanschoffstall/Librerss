@@ -9,6 +9,7 @@ import {
   Share2,
   Star,
 } from "lucide-react";
+import { motion } from "motion/react";
 import {
   type KeyboardEvent,
   memo,
@@ -20,6 +21,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { DASHBOARD_EVENTS } from "../constants";
+import { type ArticleRemovalAnimationMode } from "../hooks/useArticleActions";
 import {
   useArticleExpansion,
   useArticleHeights,
@@ -70,22 +73,50 @@ interface ArticleCardProps {
   isMobile: boolean;
   isUpdatingState: boolean;
   onExpandedSwipeRead: (article: Article) => void;
+  onPrepareExpand?: (article: Article) => void;
+  onSwipeRead?: (article: Article) => void;
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
+  removalAnimationMode?: ArticleRemovalAnimationMode | null;
   showFavicon: boolean;
   useRichFormatting: boolean;
 }
 
 const iconBtnCls =
-  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/50 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/50 transition-colors duration-200 ease-out hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 
 const iconLinkCls =
-  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/40 transition-colors anim-duration-ui anim-ease-ui hover:text-foreground";
+  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/40 transition-colors duration-200 ease-out hover:text-foreground";
 
+const ARTICLE_BODY_COLLAPSE_TRANSITION = {
+  duration: 0.16,
+  ease: [0.4, 0, 0.6, 1] as const,
+};
+const ARTICLE_BODY_EXPAND_TRANSITION = {
+  duration: 0.24,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
+const ARTICLE_SWIPE_TRANSITION = {
+  damping: 34,
+  mass: 0.7,
+  stiffness: 420,
+  type: "spring" as const,
+};
+const ARTICLE_CONTENT_TRANSITION = {
+  duration: 0.2,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
 const TAP_DRIFT_PX = 4;
 const AFTER_SWIPE_BLOCK_MS = 350;
+const COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME =
+  "line-clamp-1 font-sans text-[0.93rem]/6 tracking-[-0.01em] text-muted-foreground/85 antialiased";
+const COLLAPSED_ARTICLE_PREVIEW_MEASURE_CLASS_NAME =
+  "overflow-hidden whitespace-nowrap font-sans text-[0.93rem]/6 tracking-[-0.01em] text-muted-foreground/85 antialiased";
+const COLLAPSED_ARTICLE_TITLE_CLASS_NAME =
+  "line-clamp-2 max-h-12 overflow-hidden text-[0.96rem]/6 font-semibold";
 
+/** Renders a swipeable article card with header-scoped gestures while expanded. */
 export const ArticleCard = memo(function ArticleCard({
   article,
   articleKey,
@@ -96,9 +127,12 @@ export const ArticleCard = memo(function ArticleCard({
   isMobile,
   isUpdatingState,
   onExpandedSwipeRead,
+  onPrepareExpand,
+  onSwipeRead,
   onToggle,
   onToggleRead,
   onToggleStarred,
+  removalAnimationMode = null,
   showFavicon,
   useRichFormatting,
 }: ArticleCardProps) {
@@ -136,16 +170,27 @@ export const ArticleCard = memo(function ArticleCard({
   }, [rawHtml]);
   const hasReadableContent = plainContent.length > 0;
 
-  const { expandTransitionDone, onContentTransitionEnd, phase } =
+  const { expandTransitionDone, onBodyAnimationComplete, phase } =
     useArticleExpansion(isExpanded, isHydrating);
 
+  const isDeExpandingRemoval =
+    removalAnimationMode === "de-expanding" && !isExpanded;
   const showSkeleton = phase === "loading";
-  const showFullContent = phase === "revealing" || phase === "expanded";
+  const showFullContent =
+    isDeExpandingRemoval ||
+    phase === "collapsing" ||
+    phase === "expanding" ||
+    phase === "expanded";
   const shouldMeasureExpandedHeight =
     !expandTransitionDone && (isExpanded || showSkeleton || showFullContent);
-  const visuallyExpanded = phase === "expanded";
-  const cardT =
-    "var(--motion-duration-expand) var(--motion-ease-expand)" as const;
+  const visuallyExpanded =
+    isDeExpandingRemoval ||
+    phase === "collapsing" ||
+    phase === "expanding" ||
+    phase === "expanded";
+  const suppressCollapsedReadDimming = removalAnimationMode === "de-expanding";
+
+  const cardT = "220ms cubic-bezier(0.2, 0, 0, 1)" as const;
 
   const richContentClassName = getRichContentClass(isExpanded);
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
@@ -157,6 +202,23 @@ export const ArticleCard = memo(function ArticleCard({
       richContentClassName,
       shouldMeasureExpandedHeight,
     );
+  const expandedContentHeight = Math.max(expandedHeight, collapsedHeight);
+  const shouldAnimateBodyHeight =
+    !isDeExpandingRemoval &&
+    hasOverflow &&
+    collapsedHeight > 0 &&
+    expandedContentHeight > 0;
+  const resolvedBodyHeight = isDeExpandingRemoval
+    ? "auto"
+    : expandTransitionDone && visuallyExpanded
+      ? "auto"
+      : phase === "collapsed" || phase === "collapsing"
+        ? collapsedHeight
+        : expandedContentHeight;
+  const bodyMotionTransition =
+    phase === "collapsing"
+      ? ARTICLE_BODY_COLLAPSE_TRANSITION
+      : ARTICLE_BODY_EXPAND_TRANSITION;
 
   const {
     faviconCacheKey,
@@ -177,6 +239,30 @@ export const ArticleCard = memo(function ArticleCard({
   const headerZoneRef = useRef<HTMLDivElement | null>(null);
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
+  const previousPhaseRef = useRef(phase);
+
+  useEffect(() => {
+    if (
+      !shouldAnimateBodyHeight &&
+      (phase === "collapsing" || phase === "expanding")
+    ) {
+      onBodyAnimationComplete();
+    }
+  }, [onBodyAnimationComplete, phase, shouldAnimateBodyHeight]);
+
+  useEffect(() => {
+    if (
+      phase === "expanded" &&
+      previousPhaseRef.current !== "expanded" &&
+      articleRef.current
+    ) {
+      articleRef.current.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
+      );
+    }
+
+    previousPhaseRef.current = phase;
+  }, [phase]);
 
   useEffect(() => {
     if (isExpanded) {
@@ -196,26 +282,52 @@ export const ArticleCard = memo(function ArticleCard({
       ),
     [visuallyExpanded],
   );
+  const shouldIgnoreSwipeTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Element)) return false;
+
+    const control = target.closest(
+      'button, input, textarea, select, summary, [contenteditable="true"]',
+    );
+    if (control) return true;
+
+    const link = target.closest("a");
+    if (!link) return false;
+
+    return !contentZoneRef.current?.contains(link);
+  }, []);
 
   const { containerRef: readSwipeRef, swipeState: readSwipeState } =
-    useSwipeToRead(() => {
-      afterSwipeRef.current = Date.now();
-      if (isExpanded) {
-        onExpandedSwipeRead(article);
-        return;
-      }
-      onToggleRead(article);
-    }, isUpdatingState);
+    useSwipeToRead(
+      () => {
+        afterSwipeRef.current = Date.now();
+        if (isExpanded) {
+          onExpandedSwipeRead(article);
+          return;
+        }
+        if (onSwipeRead) {
+          onSwipeRead(article);
+          return;
+        }
+        onToggleRead(article);
+      },
+      isUpdatingState,
+      shouldIgnoreSwipeTarget,
+    );
   const { containerRef: starSwipeRef, swipeState: starSwipeState } =
-    useSwipeToStar(() => {
-      afterSwipeRef.current = Date.now();
-      onToggleStarred(article);
-    }, isUpdatingState);
+    useSwipeToStar(
+      () => {
+        afterSwipeRef.current = Date.now();
+        onToggleStarred(article);
+      },
+      isUpdatingState,
+      shouldIgnoreSwipeTarget,
+    );
   const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
   const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
   const articleSurfaceRef = useCallback(
     (el: HTMLElement | null) => {
       articleRef.current = el;
+      if (!el) return;
       readSwipeRef.current = el;
       starSwipeRef.current = el;
     },
@@ -245,6 +357,9 @@ export const ArticleCard = memo(function ArticleCard({
     if (shouldBlockArticleInteraction()) {
       e.stopPropagation();
       return;
+    }
+    if (!isExpanded) {
+      onPrepareExpand?.(article);
     }
     pressPointerIdRef.current = e.pointerId;
     pressMovedRef.current = false;
@@ -296,6 +411,12 @@ export const ArticleCard = memo(function ArticleCard({
     pressMovedRef.current = false;
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
+    // Pointer interactions already prime scroll restoration on pointerdown.
+    // Re-capturing here can overwrite the original viewport position after the
+    // browser auto-scrolls a partially visible card into focus.
+    if (!isExpanded && down === null) {
+      onPrepareExpand?.(article);
+    }
     onToggle(article);
   };
 
@@ -306,6 +427,9 @@ export const ArticleCard = memo(function ArticleCard({
     }
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
+    if (!isExpanded) {
+      onPrepareExpand?.(article);
+    }
     onToggle(article);
   };
 
@@ -449,7 +573,9 @@ export const ArticleCard = memo(function ArticleCard({
     <div className="rounded-md border bg-muted/30 p-2">
       <Input
         aria-label="Article link"
-        className="h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none"
+        className="
+          h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none
+        "
         onClick={(event) => {
           event.stopPropagation();
         }}
@@ -478,67 +604,126 @@ export const ArticleCard = memo(function ArticleCard({
 
   return (
     <div
-      className={`relative ${visuallyExpanded ? "overflow-visible" : "overflow-hidden"} rounded-xl`}
+      className={`
+        relative
+        ${visuallyExpanded ? "overflow-visible" : `overflow-hidden`}
+        rounded-xl
+      `}
       style={{ touchAction: "pan-y" }}
     >
       {/* Swipe-to-read / swipe-to-star background indicators */}
-      {readSwipeState.swiping && (
-        <div
-          className={`absolute inset-0 z-0 flex items-center rounded-xl transition-colors duration-150 ${
+      <motion.div
+        animate={{
+          opacity: readSwipeState.swiping ? 1 : 0,
+          scale: readSwipeState.committed ? 1 : 0.985,
+        }}
+        className={`
+          pointer-events-none absolute inset-0 z-0 flex items-center rounded-xl
+          transition-colors duration-150
+          ${
             readSwipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"
-          }`}
-        >
-          <div className="flex items-center gap-2 pl-4 text-emerald-600 dark:text-emerald-400">
-            {article.isRead ? (
-              <Circle
-                className={`size-5 transition-transform duration-150 ${
-                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
-                }`}
-              />
-            ) : (
-              <CircleCheck
-                className={`size-5 transition-transform duration-150 ${
-                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
-                }`}
-              />
-            )}
-            <span
-              className={`text-xs font-medium transition-opacity duration-150 ${
-                readSwipeState.committed ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              {article.isRead ? "Mark unread" : "Mark read"}
-            </span>
-          </div>
-        </div>
-      )}
-      {starSwipeState.swiping && (
+          }
+        `}
+        initial={false}
+        transition={ARTICLE_SWIPE_TRANSITION}
+      >
         <div
-          className={`absolute inset-0 z-0 flex items-center justify-end rounded-xl transition-colors duration-150 ${
-            starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"
-          }`}
+          className="
+            flex items-center gap-2 pl-4 text-emerald-600
+            dark:text-emerald-400
+          "
         >
-          <div className="flex items-center gap-2 pr-4 text-amber-600 dark:text-amber-400">
-            <span
-              className={`text-xs font-medium transition-opacity duration-150 ${
-                starSwipeState.committed ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              {article.isStarred ? "Unstar" : "Star"}
-            </span>
-            <Star
-              className={`size-5 transition-transform duration-150 ${
+          {article.isRead ? (
+            <Circle
+              className={`
+                size-5 transition-transform duration-150
+                ${
+                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
+                }
+              `}
+            />
+          ) : (
+            <CircleCheck
+              className={`
+                size-5 transition-transform duration-150
+                ${
+                  readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"
+                }
+              `}
+            />
+          )}
+          <motion.span
+            animate={{
+              opacity: readSwipeState.committed ? 1 : 0,
+              x: readSwipeState.committed ? 0 : -4,
+            }}
+            className="text-xs font-medium"
+            initial={false}
+            transition={ARTICLE_SWIPE_TRANSITION}
+          >
+            {article.isRead ? "Mark unread" : "Mark read"}
+          </motion.span>
+        </div>
+      </motion.div>
+      <motion.div
+        animate={{
+          opacity: starSwipeState.swiping ? 1 : 0,
+          scale: starSwipeState.committed ? 1 : 0.985,
+        }}
+        className={`
+          pointer-events-none absolute inset-0 z-0 flex items-center justify-end
+          rounded-xl transition-colors duration-150
+          ${starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"}
+        `}
+        initial={false}
+        transition={ARTICLE_SWIPE_TRANSITION}
+      >
+        <div
+          className="
+            flex items-center gap-2 pr-4 text-amber-600
+            dark:text-amber-400
+          "
+        >
+          <motion.span
+            animate={{
+              opacity: starSwipeState.committed ? 1 : 0,
+              x: starSwipeState.committed ? 0 : 4,
+            }}
+            className="text-xs font-medium"
+            initial={false}
+            transition={ARTICLE_SWIPE_TRANSITION}
+          >
+            {article.isStarred ? "Unstar" : "Star"}
+          </motion.span>
+          <Star
+            className={`
+              size-5 transition-transform duration-150
+              ${
                 starSwipeState.committed
                   ? "scale-110 fill-current"
                   : "scale-90 opacity-60"
-              }`}
-            />
-          </div>
+              }
+            `}
+          />
         </div>
-      )}
-      <article
+      </motion.div>
+      <motion.article
+        animate={{ x: swipeOffsetX }}
         aria-expanded={isExpanded}
-        className={`article-swipe-surface group relative overflow-visible border border-border dark:shadow-2xl dark:shadow-zinc-900/50 ${visuallyExpanded ? "rounded-b-xl rounded-t-[0.5rem]" : "rounded-xl"} ${article.isRead && !visuallyExpanded ? "[&>*]:opacity-55 hover:[&>*]:opacity-100 [&>*]:transition-opacity [&>*]:duration-200" : ""}`}
+        className={`
+          article-swipe-surface group relative overflow-visible border
+          border-border
+          dark:shadow-2xl dark:shadow-zinc-900/50
+          ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
+          ${
+            article.isRead && !visuallyExpanded && !suppressCollapsedReadDimming
+              ? `
+                *:opacity-55 *:transition-opacity *:duration-200
+                hover:*:opacity-100
+              `
+              : ""
+          }
+        `}
         data-article-key={articleKey}
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
@@ -559,31 +744,29 @@ export const ArticleCard = memo(function ArticleCard({
         style={{
           cursor: visuallyExpanded ? "default" : "pointer",
           touchAction: "pan-y",
-          transform: anySwiping ? `translateX(${swipeOffsetX}px)` : undefined,
           transition: anySwiping
             ? "none"
-            : [
-                swipeOffsetX !== 0
-                  ? "transform 0.25s cubic-bezier(0.2,0,0,1)"
-                  : null,
-                `border-radius ${cardT}`,
-                `box-shadow ${cardT}`,
-              ]
-                .filter(Boolean)
-                .join(", "),
+            : [`border-radius ${cardT}`].filter(Boolean).join(", "),
           userSelect: visuallyExpanded ? "text" : "none",
           WebkitTouchCallout: visuallyExpanded ? "default" : "none",
           WebkitUserSelect: visuallyExpanded ? "text" : "none",
         }}
         tabIndex={0}
+        transition={anySwiping ? { duration: 0 } : ARTICLE_SWIPE_TRANSITION}
       >
         {/* Header zone — sticky when expanded */}
         <div
-          className={`relative ${visuallyExpanded ? "sticky top-0 z-50 bg-card/85 rounded-t-xl px-4 pt-4" : "bg-card/70 rounded-t-xl px-3 pt-3"}`}
+          className={`
+            relative
+            ${
+              visuallyExpanded
+                ? `sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4`
+                : `rounded-t-xl bg-card/70 px-3 pt-3`
+            }
+          `}
           ref={headerZoneRef}
           style={{
             touchAction: "pan-y",
-            transition: `padding ${cardT}, background-color ${cardT}`,
             userSelect: "none",
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
@@ -595,12 +778,23 @@ export const ArticleCard = memo(function ArticleCard({
               : undefined),
           }}
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl">
+          <div
+            className="
+              pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl
+            "
+          >
             <div className={gradientCls} style={headerGradientStyle} />
           </div>
           <div className="relative z-10 space-y-2">
-            <div className="flex select-none items-center gap-2 text-xs leading-5 tracking-normal text-muted-foreground/70">
-              <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+            <div
+              className="
+                flex items-center gap-2 text-xs/5 tracking-normal
+                text-muted-foreground/70 select-none
+              "
+            >
+              <div
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap"
+              >
                 <CalendarDays className="size-3" />
                 {formatRelativeDate(new Date(article.publicationDate))}
                 <span
@@ -633,7 +827,10 @@ export const ArticleCard = memo(function ArticleCard({
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="inline-flex size-3 shrink-0 items-center justify-center rounded-full"
+                      className="
+                        inline-flex size-3 shrink-0 items-center justify-center
+                        rounded-full
+                      "
                       style={{ backgroundColor: faviconTint.background }}
                     >
                       <Globe
@@ -649,7 +846,18 @@ export const ArticleCard = memo(function ArticleCard({
               </div>
 
               <div
-                className={`-mr-1 ml-auto flex shrink-0 items-center gap-1 transition-opacity duration-150 ${visuallyExpanded || isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                className={`
+                  -mr-1 ml-auto flex shrink-0 items-center gap-1
+                  transition-opacity duration-150
+                  ${
+                    visuallyExpanded || isMobile
+                      ? `opacity-100`
+                      : `
+                        opacity-0
+                        group-hover:opacity-100
+                      `
+                  }
+                `}
               >
                 <button
                   aria-label={
@@ -664,7 +872,12 @@ export const ArticleCard = memo(function ArticleCard({
                   type="button"
                 >
                   {article.isRead ? (
-                    <CircleCheck className="size-3.5 text-emerald-500/70 dark:text-emerald-400/60" />
+                    <CircleCheck
+                      className="
+                        size-3.5 text-emerald-500/70
+                        dark:text-emerald-400/60
+                      "
+                    />
                   ) : (
                     <Circle className="size-3.5" />
                   )}
@@ -683,11 +896,17 @@ export const ArticleCard = memo(function ArticleCard({
                   type="button"
                 >
                   <Star
-                    className={`size-3.5 ${
-                      article.isStarred
-                        ? "fill-current text-amber-400/90 dark:text-amber-300/80"
-                        : ""
-                    }`}
+                    className={`
+                      size-3.5
+                      ${
+                        article.isStarred
+                          ? `
+                            fill-current text-amber-400/90
+                            dark:text-amber-300/80
+                          `
+                          : ""
+                      }
+                    `}
                   />
                 </button>
 
@@ -812,8 +1031,15 @@ export const ArticleCard = memo(function ArticleCard({
             </div>
 
             <h3
-              className={`select-none font-sans antialiased tracking-[-0.015em] text-foreground ${visuallyExpanded ? "text-[1.125rem] leading-[1.35] font-bold" : "text-[0.96rem] leading-6 font-semibold line-clamp-2"}`}
-              style={{ transition: `font-size ${cardT}, line-height ${cardT}` }}
+              className={`
+                font-sans tracking-[-0.015em] text-foreground antialiased
+                select-none
+                ${
+                  visuallyExpanded
+                    ? `text-[1.125rem] leading-[1.35] font-bold`
+                    : COLLAPSED_ARTICLE_TITLE_CLASS_NAME
+                }
+              `}
             >
               {article.title}
             </h3>
@@ -825,16 +1051,36 @@ export const ArticleCard = memo(function ArticleCard({
 
         {/* Content zone */}
         <div
-          className={`relative bg-card/70 ${visuallyExpanded ? "rounded-b-xl px-4 pt-3 pb-4" : "rounded-b-xl px-3 pt-2 pb-3"}`}
+          className={`
+            relative bg-card/70
+            ${
+              visuallyExpanded
+                ? `rounded-b-xl px-4 pt-3 pb-4`
+                : `rounded-b-xl px-3 pt-2 pb-3`
+            }
+          `}
           ref={contentZoneRef}
-          style={{ transition: `padding ${cardT}` }}
         >
-          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl">
+          <div
+            className="
+              pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl
+            "
+          >
             <div className={gradientCls} style={contentGradientStyle} />
           </div>
           <div className="relative z-10">
-            <div
-              className={`overflow-hidden article-swipe-body ${visuallyExpanded ? "select-text" : ""}`}
+            <motion.div
+              animate={
+                shouldAnimateBodyHeight
+                  ? { height: resolvedBodyHeight }
+                  : undefined
+              }
+              className={`
+                article-swipe-body overflow-hidden
+                ${visuallyExpanded ? `select-text` : ""}
+              `}
+              initial={false}
+              onAnimationComplete={onBodyAnimationComplete}
               onClick={
                 visuallyExpanded
                   ? (e) => {
@@ -857,23 +1103,7 @@ export const ArticleCard = memo(function ArticleCard({
                     }
                   : undefined
               }
-              onTransitionEnd={onContentTransitionEnd}
               style={{
-                cursor: visuallyExpanded ? "text" : undefined,
-                maxHeight: expandTransitionDone
-                  ? "none"
-                  : hasOverflow
-                    ? `${visuallyExpanded ? expandedHeight : collapsedHeight}px`
-                    : "none",
-                touchAction: "pan-y",
-                userSelect: visuallyExpanded ? "text" : "none",
-                WebkitTouchCallout: visuallyExpanded ? "default" : "none",
-                WebkitUserSelect: visuallyExpanded ? "text" : "none",
-                ...(hasOverflow &&
-                collapsedHeight === expandedHeight &&
-                !visuallyExpanded
-                  ? { maxHeight: `${collapsedHeight}px` }
-                  : {}),
                 // content-visibility: auto helps with off-screen collapsed cards
                 // but must NOT be active while expanded — it creates a containment
                 // boundary the compositor uses as a touch-action walk stop-point,
@@ -882,51 +1112,99 @@ export const ArticleCard = memo(function ArticleCard({
                   expandTransitionDone && !visuallyExpanded
                     ? "auto"
                     : "visible",
-                transition: `max-height ${cardT}`,
+                cursor: visuallyExpanded ? "text" : undefined,
+                height: shouldAnimateBodyHeight ? collapsedHeight : undefined,
+                touchAction: "pan-y",
+                userSelect: visuallyExpanded ? "text" : "none",
+                WebkitTouchCallout: visuallyExpanded ? "default" : "none",
+                WebkitUserSelect: visuallyExpanded ? "text" : "none",
               }}
+              transition={bodyMotionTransition}
             >
               {showSkeleton ? (
-                <div className="space-y-2 py-1 animate-pulse">
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-2 py-1"
+                  data-article-hydration-state="loading"
+                  initial={{ opacity: 0, y: 6 }}
+                  transition={ARTICLE_CONTENT_TRANSITION}
+                >
                   <Skeleton className="h-3 w-full" />
                   <Skeleton className="h-3 w-[94%]" />
                   <Skeleton className="h-3 w-[88%]" />
                   <Skeleton className="h-3 w-[76%]" />
-                </div>
+                </motion.div>
               ) : !showFullContent ? (
-                <p className="line-clamp-1 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/85">
+                <p
+                  className={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
+                  data-article-preview="true"
+                >
                   {collapsedPreview}
                 </p>
               ) : isExpanded && !hasScrapedContent && !hasReadableContent ? (
-                <p className="font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6 text-muted-foreground/75 anim-article-enter">
+                <motion.p
+                  animate={{ opacity: 1, y: 0 }}
+                  className="
+                    font-sans text-[0.93rem]/6 tracking-[-0.01em]
+                    text-muted-foreground/75 antialiased
+                  "
+                  initial={{ opacity: 0, y: 8 }}
+                  transition={ARTICLE_CONTENT_TRANSITION}
+                >
                   Full article content unavailable. Open the original article to
                   read more.
-                </p>
+                </motion.p>
               ) : useRichFormatting ? (
-                <div
-                  className={`${visibleRichContentClassName} ${visuallyExpanded ? "cursor-text select-text" : ""} anim-article-enter`}
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`
+                    ${visibleRichContentClassName}
+                    ${visuallyExpanded ? `cursor-text select-text` : ""}
+                  `}
                   dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+                  initial={{ opacity: 0, y: 8 }}
                   style={{
                     contain: visuallyExpanded ? "none" : "layout style paint",
                     willChange: visuallyExpanded ? "auto" : "contents",
                   }}
+                  transition={ARTICLE_CONTENT_TRANSITION}
                 />
               ) : (
-                <p
-                  className={`whitespace-pre-line break-words font-sans antialiased tracking-[-0.01em] anim-article-enter ${visuallyExpanded ? "cursor-text select-text text-[0.97rem] leading-7 text-foreground/85" : "text-[0.93rem] leading-6 text-muted-foreground/85"}`}
+                <motion.p
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`
+                    font-sans tracking-[-0.01em] wrap-break-word
+                    whitespace-pre-line antialiased
+                    ${
+                      visuallyExpanded
+                        ? `
+                          cursor-text text-[0.97rem]/7 text-foreground/85
+                          select-text
+                        `
+                        : `text-[0.93rem]/6 text-muted-foreground/85`
+                    }
+                  `}
+                  initial={{ opacity: 0, y: 8 }}
+                  transition={ARTICLE_CONTENT_TRANSITION}
                 >
                   {content}
-                </p>
+                </motion.p>
               )}
-            </div>
+            </motion.div>
 
             {/* Hidden measurement targets for height animation */}
-            <p
+            <div
               aria-hidden="true"
-              className="pointer-events-none h-0 overflow-hidden opacity-0 font-sans antialiased tracking-[-0.01em] text-[0.93rem] leading-6"
-              ref={previewRef}
+              className="pointer-events-none h-0 overflow-hidden opacity-0"
             >
-              {`${preview}…`}
-            </p>
+              <p
+                className={COLLAPSED_ARTICLE_PREVIEW_MEASURE_CLASS_NAME}
+                data-article-preview-measure="true"
+                ref={previewRef}
+              >
+                {`${preview}…`}
+              </p>
+            </div>
             {shouldMeasureExpandedHeight ? (
               <div
                 aria-hidden="true"
@@ -939,7 +1217,13 @@ export const ArticleCard = memo(function ArticleCard({
                     dangerouslySetInnerHTML={{ __html: normalizedHtml }}
                   />
                 ) : (
-                  <p className="font-sans antialiased tracking-[-0.01em] text-[0.97rem] leading-7 whitespace-pre-line break-words text-foreground/85">
+                  <p
+                    className="
+                      font-sans text-[0.97rem]/7 tracking-[-0.01em]
+                      wrap-break-word whitespace-pre-line text-foreground/85
+                      antialiased
+                    "
+                  >
                     {content}
                   </p>
                 )}
@@ -958,7 +1242,11 @@ export const ArticleCard = memo(function ArticleCard({
                 }}
               >
                 <DrawerHeader className="space-y-2 text-left">
-                  <div className="flex w-full items-start justify-between gap-3 text-left">
+                  <div
+                    className="
+                      flex w-full items-start justify-between gap-3 text-left
+                    "
+                  >
                     <div className="min-w-0 flex-1 text-left">
                       <DrawerTitle>Raw Article HTML</DrawerTitle>
                       <DrawerDescription>
@@ -983,7 +1271,11 @@ export const ArticleCard = memo(function ArticleCard({
                   <div className="rounded-md border bg-muted/40 p-3">
                     <textarea
                       aria-label="Raw article HTML"
-                      className="h-[60dvh] min-h-[12rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
+                      className="
+                        h-[60dvh] min-h-48 w-full resize-none border-0
+                        bg-transparent p-0 font-mono text-xs/5
+                        text-foreground/90 shadow-none outline-none
+                      "
                       onClick={(event) => {
                         event.stopPropagation();
                       }}
@@ -1007,7 +1299,11 @@ export const ArticleCard = memo(function ArticleCard({
                 }}
               >
                 <DialogHeader className="space-y-2 text-left">
-                  <div className="flex w-full items-start justify-between gap-3 text-left">
+                  <div
+                    className="
+                      flex w-full items-start justify-between gap-3 text-left
+                    "
+                  >
                     <div className="min-w-0 flex-1 text-left">
                       <DialogTitle>Raw Article HTML</DialogTitle>
                       <DialogDescription>
@@ -1031,7 +1327,11 @@ export const ArticleCard = memo(function ArticleCard({
                 <div className="rounded-md border bg-muted/40 p-3">
                   <textarea
                     aria-label="Raw article HTML"
-                    className="h-[65vh] min-h-[14rem] w-full resize-none border-0 bg-transparent p-0 font-mono text-xs leading-5 text-foreground/90 shadow-none outline-none"
+                    className="
+                      h-[65vh] min-h-56 w-full resize-none border-0
+                      bg-transparent p-0 font-mono text-xs/5 text-foreground/90
+                      shadow-none outline-none
+                    "
                     onClick={(event) => {
                       event.stopPropagation();
                     }}
@@ -1089,7 +1389,7 @@ export const ArticleCard = memo(function ArticleCard({
             </DialogContent>
           </Dialog>
         )}
-      </article>
+      </motion.article>
     </div>
   );
 });

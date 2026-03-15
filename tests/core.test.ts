@@ -985,6 +985,43 @@ describe("feed-batch-pipeline", () => {
     expect(missingRowsResult).toBeUndefined();
   });
 
+  test("queryTopArticlesPerFeed applies a global batch article limit", async () => {
+    const { ARTICLE_CONTENT_PREVIEW_LENGTH } =
+      await import("@/lib/core/article-preview");
+    const { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } =
+      await import("@/lib/core/article-preview");
+    const { CONFIG } = await import("@/lib/config");
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const execute = mock(async (_query: unknown) => []);
+    const db = { execute };
+
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11]);
+
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const firstExecuteCall = execute.mock.calls.at(0);
+    const sqlQuery = firstExecuteCall?.[0] as
+      | undefined
+      | {
+          queryChunks?: unknown[];
+        };
+    const serializedQuery = JSON.stringify(sqlQuery?.queryChunks ?? []);
+
+    expect(serializedQuery).toContain("publication_date DESC");
+    expect(serializedQuery).toContain("LEFT(");
+    expect(serializedQuery).not.toContain("regexp_replace");
+    expect(serializedQuery).toContain("LIMIT ");
+    expect(serializedQuery).not.toContain(
+      String(ARTICLE_CONTENT_PREVIEW_LENGTH),
+    );
+    expect(serializedQuery).toContain(
+      String(ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH),
+    );
+    expect(serializedQuery).toContain(String(CONFIG.MAX_ARTICLES_PER_FEED));
+    expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
+  });
+
   test("executeParallelRefreshes surfaces persisted errors when refresh is skipped", async () => {
     const { executeParallelRefreshes } = await importFeedBatchHelpers();
 
@@ -1107,6 +1144,42 @@ describe("feed-batch-pipeline", () => {
         title: "Title",
       });
     }
+  });
+
+  test("mapRowsToArticleMap preserves inline text without injecting random spacing", async () => {
+    const { mapRowsToArticleMap } = await importFeedBatchHelpers();
+
+    const feedByUrl = new Map([
+      [
+        "https://a.com/feed",
+        {
+          id: 10,
+          lastFetched: new Date(),
+          lastFetchError: null,
+          url: "https://a.com/feed",
+        },
+      ],
+    ]);
+
+    const rows = [
+      {
+        content:
+          "<p><span>N</span><span>e</span><span>a</span><span>t</span> <span>w</span><span>o</span><span>r</span><span>d</span><span>s</span></p>",
+        feedId: 10,
+        id: "7",
+        isRead: 0,
+        isStarred: 0,
+        lastChecked: "2024-01-01T01:00:00.000Z",
+        link: "https://a.com/article-inline",
+        publicationDate: "2024-01-01T00:00:00.000Z",
+        title: "Inline",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(rows, feedByUrl, ["https://a.com/feed"]);
+    const mapped = result.get("https://a.com/feed") ?? [];
+
+    expect(mapped[0]?.content).toBe("Neat words");
   });
 
   test("buildRefreshPlan: forceRefresh=true with canForceRefresh=true returns refresh-force", async () => {

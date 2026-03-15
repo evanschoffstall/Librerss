@@ -47,10 +47,7 @@ async function extractViaApiRoute(
     errorFn: () => {},
     fetchHtmlFn: async () => downloadedHtml,
     infoFn: () => {},
-    parseAndValidateArticleUrlFn: async (incomingRequest) => {
-      const payload = (await incomingRequest.json()) as { url?: string };
-      return payload.url?.trim() ?? "";
-    },
+    parseAndValidateArticleUrlFn: async (rawUrl) => rawUrl.trim(),
     requireMutableAuthenticatedUserFn: async () => ANONYMOUS_USER,
     shouldUseExtractCacheFn: () => false,
     warnFn: () => {},

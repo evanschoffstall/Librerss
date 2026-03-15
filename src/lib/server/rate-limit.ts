@@ -1,5 +1,3 @@
-import { isIP } from "node:net";
-
 import { NextResponse } from "next/server";
 
 import { logger } from "@/lib/logger";
@@ -16,6 +14,9 @@ interface RateLimitEntry {
 
 // SECURITY: Prevent memory exhaustion during sustained attacks
 const MAX_RATE_LIMIT_ENTRIES = 100000;
+const IPV4_SEGMENT_RE = /^\d{1,3}$/;
+const IPV6_SEGMENT_RE = /^[\da-f]{1,4}$/i;
+const IP_TOKEN_RE = /^[\da-f:.]{1,64}$/i;
 
 /**
  * In-memory rate limiter with bounded size.
@@ -40,7 +41,12 @@ export class RateLimiter {
     // In Node.js, unref() prevents the interval from keeping the process alive
     // when it is the only remaining handle — important during tests and
     // hot-module reload where the module may be discarded before the timer fires.
-    this.cleanupTimer.unref();
+    const cleanupTimer = this.cleanupTimer as unknown as {
+      unref?: (() => void) | undefined;
+    };
+    if (typeof cleanupTimer.unref === "function") {
+      cleanupTimer.unref();
+    }
   }
 
   check(
@@ -197,7 +203,7 @@ export class RateLimiter {
         const clientIndex = ips.length - trustedProxies - 1;
         if (clientIndex >= 0) {
           const clientIp = ips[clientIndex];
-          if (clientIp && isIP(clientIp)) {
+          if (clientIp && isLikelyIpAddress(clientIp)) {
             return clientIp;
           }
         }
@@ -211,6 +217,74 @@ export class RateLimiter {
     // users funnels them into one bucket; a bot that picks a unique UA escapes.
     return "unknown";
   }
+}
+
+/**
+ * Edge-safe, conservative IP token validation.
+ *
+ * The rate limiter only needs a stable bucket key, not full RFC-perfect IP
+ * parsing. False negatives degrade to the shared "unknown" bucket; false
+ * positives would let attackers manufacture buckets, so this validator stays
+ * intentionally strict.
+ */
+function isLikelyIpAddress(value: string): boolean {
+  const candidate = value.trim();
+  if (!candidate || !IP_TOKEN_RE.test(candidate)) {
+    return false;
+  }
+
+  if (candidate.includes(".")) {
+    return isValidIpv4Address(candidate);
+  }
+
+  if (candidate.includes(":")) {
+    return isValidIpv6Address(candidate);
+  }
+
+  return false;
+}
+
+function isValidIpv4Address(value: string): boolean {
+  const segments = value.split(".");
+  if (segments.length !== 4) {
+    return false;
+  }
+
+  return segments.every((segment) => {
+    if (!IPV4_SEGMENT_RE.test(segment)) {
+      return false;
+    }
+
+    const numeric = Number(segment);
+    return numeric >= 0 && numeric <= 255;
+  });
+}
+
+function isValidIpv6Address(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized.includes(":")) {
+    return false;
+  }
+
+  if (normalized.indexOf("::") !== normalized.lastIndexOf("::")) {
+    return false;
+  }
+
+  const segments = normalized.split(":");
+  if (segments.length < 3 || segments.length > 8) {
+    return false;
+  }
+
+  if (
+    !normalized.includes("::") &&
+    segments.some((segment) => segment === "")
+  ) {
+    return false;
+  }
+
+  return segments.every(
+    (segment) => segment === "" || IPV6_SEGMENT_RE.test(segment),
+  );
 }
 
 // Export singleton instance
