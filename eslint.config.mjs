@@ -105,9 +105,6 @@ export default [
       },
     },
   ),
-  ...scopeConfigs(pluginTailwindcss.configs["flat/recommended"], [
-    "src/**/*.{ts,tsx,js,jsx}",
-  ]),
   {
     plugins: {
       "@typescript-eslint": pluginTypeScriptEslint,
@@ -123,6 +120,7 @@ export default [
       security: pluginSecurity,
       "simple-import-sort": simpleImportSort,
       sonarjs: pluginSonarjs,
+      tailwindcss: pluginTailwindcss,
       unicorn: pluginUnicorn,
       "unused-imports": pluginUnusedImports,
     },
@@ -183,10 +181,7 @@ export default [
       "better-tailwindcss/no-duplicate-classes": "error",
       "better-tailwindcss/no-restricted-classes": "error",
       "better-tailwindcss/no-unnecessary-whitespace": "error",
-      "tailwindcss/classnames-order": "off",
-      "tailwindcss/enforces-shorthand": "off",
       "tailwindcss/enforces-negative-arbitrary-values": "error",
-      "tailwindcss/no-custom-classname": "off",
       "tailwindcss/no-unnecessary-arbitrary-value": "error",
     },
   },

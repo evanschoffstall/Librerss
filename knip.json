@@ -1,7 +1,17 @@
 {
+  "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.ts"],
-  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "tests/**/*.ts"],
-  "ignore": ["src/components/ui/**"],
+  "project": [
+    "next-env.test-d.ts",
+    "src/**/*.{js,jsx,ts,tsx}",
+    "scripts/**/*.{js,ts}",
+    "tests/**/*.{ts,tsx}"
+  ],
+  "ignoreIssues": {
+    "next-env.test-d.ts": ["files"],
+    "src/components/ui/**": ["classMembers", "exports", "files", "types"]
+  },
+  "includeEntryExports": true,
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
     "@0xts/gitleaks-cli",
@@ -32,5 +42,6 @@
     "ts-prune",
     "tsd",
     "type-coverage"
-  ]
+  ],
+  "treatConfigHintsAsErrors": true
 }

@@ -20,10 +20,10 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs,ts,tsx,jsx,json,md,yml,yaml}": [
+    "*.{json,md,yml,yaml}": [
       "prettier --write"
     ],
-    "*.{js,mjs,cjs,ts,tsx,jsx}": [
+    "*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}": [
       "bun scripts/check.ts lint --fix"
     ],
     "*.{css,scss}": [
