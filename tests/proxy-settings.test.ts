@@ -33,6 +33,8 @@ afterEach(() => {
 // ── Proxy Settings API Route ────────────────────────────────────────────────
 
 describe("proxy settings API route", () => {
+  const originalProxyEncryptionKey =
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY;
   const authenticatedUser = {
     email: "test@example.com",
     expiresAt: new Date("2099-01-01T00:00:00.000Z"),
@@ -54,31 +56,78 @@ describe("proxy settings API route", () => {
     requireAuthFn: async () => authenticatedUser,
   };
 
-  function mockDb(proxyUrl: null | string = null) {
-    let storedProxyUrl = proxyUrl;
+  beforeEach(() => {
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY =
+      "proxy-settings-test-encryption-key-0123456789abcdef";
+  });
+
+  afterEach(() => {
+    if (originalProxyEncryptionKey === undefined) {
+      delete process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY;
+      return;
+    }
+
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = originalProxyEncryptionKey;
+  });
+
+  function mockDb(
+    proxyUrlOrOptions:
+      | null
+      | string
+      | {
+          proxyPassword?: null | string;
+          proxyUrl?: null | string;
+          proxyUsername?: null | string;
+        } = null,
+  ) {
+    const options =
+      typeof proxyUrlOrOptions === "object" && proxyUrlOrOptions !== null
+        ? proxyUrlOrOptions
+        : { proxyUrl: proxyUrlOrOptions };
+    let storedProxyPassword = options.proxyPassword ?? null;
+    let storedProxyUrl = options.proxyUrl ?? null;
     let storedAllowInsecureTls = false;
+    let storedProxyUsername = options.proxyUsername ?? null;
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
         select: () => ({
           from: () => ({
             where: () => ({
-              limit: () => Promise.resolve([{ proxyUrl: storedProxyUrl }]),
+              limit: () =>
+                Promise.resolve([
+                  {
+                    allowInsecureTls: storedAllowInsecureTls,
+                    proxyPassword: storedProxyPassword,
+                    proxyUrl: storedProxyUrl,
+                    proxyUsername: storedProxyUsername,
+                  },
+                ]),
             }),
           }),
         }),
         update: () => ({
           set: (values: {
             allowInsecureTls?: boolean;
+            proxyPassword?: null | string;
             proxyUrl?: null | string;
+            proxyUsername?: null | string;
           }) => {
             if (values.proxyUrl !== undefined) storedProxyUrl = values.proxyUrl;
             if (values.allowInsecureTls !== undefined)
               storedAllowInsecureTls = values.allowInsecureTls;
+            if (values.proxyPassword !== undefined)
+              storedProxyPassword = values.proxyPassword;
+            if (values.proxyUsername !== undefined)
+              storedProxyUsername = values.proxyUsername;
             return {
               where: () => ({
                 returning: () =>
                   Promise.resolve([
-                    { allowInsecureTls: storedAllowInsecureTls },
+                    {
+                      allowInsecureTls: storedAllowInsecureTls,
+                      proxyPassword: storedProxyPassword,
+                      proxyUsername: storedProxyUsername,
+                    },
                   ]),
               }),
             };
@@ -113,6 +162,25 @@ describe("proxy settings API route", () => {
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
     expect(body.status).toBe("reachable");
+  });
+
+  test("GET strips embedded proxy credentials from the returned URL", async () => {
+    const legacyEmbeddedProxyUrl = `http://${"legacy-user"}:${"legacy-pass"}@proxy:8080`;
+
+    mockDb({
+      proxyPassword: null,
+      proxyUrl: legacyEmbeddedProxyUrl,
+      proxyUsername: null,
+    });
+    const { GET } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy");
+    const res = await GET(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(true);
+    expect(body.hasProxyPassword).toBe(true);
+    expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.proxyUsername).toBe("legacy-user");
   });
 
   test("GET returns configured=false when proxy unreachable", async () => {
@@ -157,6 +225,36 @@ describe("proxy settings API route", () => {
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("socks5://proxy:1080");
     expect(body.status).toBe("reachable");
+  });
+
+  test("PUT migrates embedded proxy credentials into dedicated fields", async () => {
+    const legacyEmbeddedProxyUrl = `http://${"legacy-user"}:${"legacy-pass"}@proxy:8080`;
+
+    mockDb(null);
+    const { GET, PUT } = await import("@/app/api/settings/proxy/route");
+    const putRequest = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyUrl: legacyEmbeddedProxyUrl,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const putResponse = await PUT(putRequest, routeDeps);
+    const putBody = await putResponse.json();
+    expect(putBody.configured).toBe(true);
+    expect(putBody.hasProxyPassword).toBe(true);
+    expect(putBody.proxyUrl).toBe("http://proxy:8080");
+    expect(putBody.proxyUsername).toBe("legacy-user");
+
+    const getResponse = await GET(
+      new NextRequest("http://localhost/api/settings/proxy"),
+      routeDeps,
+    );
+    const getBody = await getResponse.json();
+    expect(getBody.proxyUrl).toBe("http://proxy:8080");
+    expect(getBody.proxyUsername).toBe("legacy-user");
+    expect(getBody.hasProxyPassword).toBe(true);
   });
 
   test("PUT returns 200 with error for invalid protocol", async () => {
@@ -347,6 +445,103 @@ describe("proxy settings API route", () => {
     expect(body.configured).toBe(false);
     expect(body.proxyUrl).toBeNull();
     expect(body.error).toBeDefined();
+  });
+
+  test("PUT encrypts proxy passwords before storage", async () => {
+    let storedProxyPassword: null | string = null;
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ proxyUrl: null }]),
+            }),
+          }),
+        }),
+        update: () => ({
+          set: (values: { proxyPassword?: null | string }) => {
+            storedProxyPassword = values.proxyPassword ?? null;
+            return {
+              where: () => ({
+                returning: () =>
+                  Promise.resolve([
+                    {
+                      allowInsecureTls: false,
+                      proxyPassword: storedProxyPassword,
+                      proxyUsername: null,
+                    },
+                  ]),
+              }),
+            };
+          },
+        }),
+      }),
+    }));
+    mock.module("@/lib/logger", () => ({
+      logger: { debug: mock(), error: mock(), info: mock(), warn: mock() },
+    }));
+
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyPassword: "super-secret-pass",
+        proxyUrl: "http://proxy:8080",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+    const res = await PUT(req, routeDeps);
+
+    expect(res.status).toBe(200);
+    expect(storedProxyPassword).not.toBeNull();
+    expect(storedProxyPassword).not.toBe("super-secret-pass");
+    const persistedProxyPassword = String(storedProxyPassword);
+    expect(persistedProxyPassword.startsWith("enc-v1:")).toBe(true);
+  });
+
+  test("GET upgrades a plaintext saved proxy password after reading it", async () => {
+    let storedProxyPassword: null | string = "legacy-plaintext-pass";
+
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () =>
+                Promise.resolve([
+                  {
+                    allowInsecureTls: false,
+                    proxyPassword: storedProxyPassword,
+                    proxyUrl: "http://proxy:8080",
+                    proxyUsername: "alice",
+                  },
+                ]),
+            }),
+          }),
+        }),
+        update: () => ({
+          set: (values: { proxyPassword?: null | string }) => {
+            storedProxyPassword = values.proxyPassword ?? null;
+            return {
+              where: () => ({ returning: () => Promise.resolve([]) }),
+            };
+          },
+        }),
+      }),
+    }));
+    mock.module("@/lib/logger", () => ({
+      logger: { debug: mock(), error: mock(), info: mock(), warn: mock() },
+    }));
+
+    const { GET } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy");
+    const res = await GET(req, routeDeps);
+
+    expect(res.status).toBe(200);
+    expect(storedProxyPassword).not.toBe("legacy-plaintext-pass");
+    const rewrittenProxyPassword = String(storedProxyPassword);
+    expect(rewrittenProxyPassword.startsWith("enc-v1:")).toBe(true);
   });
 });
 
@@ -647,6 +842,18 @@ describe("proxy SSRF guard functions (direct)", () => {
       async () => false, // not blocked
     );
     expect(result).toBe("socks4://socks-proxy.example.com:1080");
+  });
+
+  test("normalizeProxyUrl strips embedded credentials from explicit URLs", async () => {
+    mockLogger();
+    const { normalizeProxyUrl } = await import("@/lib/server");
+    const embeddedProxyUrl = `http://${"alice"}:${"secret"}@proxy.example.com:8080`;
+    const result = await normalizeProxyUrl(
+      embeddedProxyUrl,
+      async () => "http",
+      async () => false,
+    );
+    expect(result).toBe("http://proxy.example.com:8080");
   });
 
   test("normalizeProxyUrl returns null for unparseable URL", async () => {
@@ -954,7 +1161,7 @@ describe("lib/server/proxy – normalizeProxyUrl additional branches", () => {
       async () => "http",
       async () => false,
     );
-    expect(result).toBe("https://proxy.example.com:443");
+    expect(result).toBe("https://proxy.example.com");
   });
 
   test("returns null for socks5:// with DNS-blocked host (injected dnsCheck)", async () => {

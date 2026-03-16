@@ -2,6 +2,12 @@ import axios from "axios";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
+import type { DistilledArticle, DistillStrategy } from "@/lib/distill";
+import type {
+  ExtractRequestContext,
+  ExtractResponsePayload,
+} from "@/lib/extract";
+
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -12,12 +18,7 @@ import { CONFIG } from "@/lib/config";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
-import type { DistilledArticle, DistillStrategy } from "@/lib/distill";
 import { DISTILL_STRATEGIES, distillArticle } from "@/lib/distill";
-import type {
-  ExtractRequestContext,
-  ExtractResponsePayload,
-} from "@/lib/extract";
 import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
@@ -37,9 +38,13 @@ import {
   preCleanHtml,
   sanitizeRawContent,
 } from "@/lib/sanitize";
-import { requireMutableAuthenticatedUser } from "@/lib/server";
+import {
+  materializeStoredProxyPassword,
+  requireMutableAuthenticatedUser,
+} from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import {
+  getUrlCredentials,
   injectProxyCredentials,
   redactUrlForLogs,
   tryGetUrlHostname,
@@ -100,7 +105,6 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
   const context = createExtractRequestContext(request);
 
   let articleUrl: null | string = null;
-  let isLocalPlaceholderRequest = false;
   let useProxy = false;
   let resolvedProxyUrl: string | undefined;
 
@@ -110,7 +114,7 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     if (bodyResult instanceof Response) return bodyResult;
 
     const requestedUrl = getRequestUrl(bodyResult);
-    isLocalPlaceholderRequest = Boolean(
+    const isLocalPlaceholderRequest = Boolean(
       requestedUrl && getPlaceholderSnapshotPathByArticleUrl(requestedUrl),
     );
 
@@ -155,21 +159,50 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
         .limit(1);
       const row = rows.length === 0 ? null : rows[0];
       const rawProxyUrl = row?.proxyUrl?.trim();
+      const embeddedCredentials = rawProxyUrl
+        ? getUrlCredentials(rawProxyUrl)
+        : null;
       const baseProxyUrl =
         rawProxyUrl !== undefined &&
         rawProxyUrl !== "" &&
         rawProxyUrl !== "null" &&
         rawProxyUrl !== "undefined"
-          ? rawProxyUrl
+          ? embeddedCredentials?.sanitizedUrl ?? rawProxyUrl
           : undefined;
+      let decryptedProxyPassword: null | string = null;
+
+      if (row !== null) {
+        try {
+          decryptedProxyPassword = await materializeStoredProxyPassword(
+            row.proxyPassword,
+            async (normalizedStoredPassword) => {
+              await db
+                .update(users)
+                .set({ proxyPassword: normalizedStoredPassword })
+                .where(eq(users.id, authUserId));
+            },
+          );
+        } catch (error) {
+          logger.error("Saved proxy password could not be materialized", {
+            error: error instanceof Error ? error.message : String(error),
+            userId: authUserId,
+          });
+          return jsonErrorWithReason(
+            "Saved proxy password could not be read. Update it in settings and try again.",
+            500,
+            "proxy-password-unreadable",
+          );
+        }
+      }
+
       resolvedProxyUrl =
         baseProxyUrl !== undefined &&
-        row?.proxyUsername !== null &&
-        row?.proxyPassword !== null
+        (row?.proxyUsername ?? embeddedCredentials?.username) !== null &&
+        (decryptedProxyPassword ?? embeddedCredentials?.password) !== null
           ? injectProxyCredentials(
               baseProxyUrl,
-              row?.proxyUsername ?? "",
-              row?.proxyPassword ?? "",
+              row?.proxyUsername ?? embeddedCredentials?.username ?? "",
+              decryptedProxyPassword ?? embeddedCredentials?.password ?? "",
             )
           : baseProxyUrl;
       allowInsecureTls = row === null ? false : row.allowInsecureTls;
