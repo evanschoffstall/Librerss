@@ -48,10 +48,7 @@ function getLandingRevealTransition(delay: number) {
 const LandingView = () => {
   return (
     <div
-      className="
-        relative box-border flex flex-1 flex-col items-center justify-center
-        overflow-hidden
-      "
+      className="relative box-border flex flex-1 flex-col overflow-hidden"
     >
       <ThemeNoticeDialog />
 
@@ -104,86 +101,89 @@ const LandingView = () => {
       {/* Content */}
       <div
         className="
-          relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4
-          text-center
+          relative z-10 mx-auto flex min-h-full w-full max-w-4xl flex-1 flex-col
+          px-4
           sm:px-6
         "
       >
-        {/* Headline */}
-        <motion.h1
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className="
-            mb-5 text-[2.5rem] leading-[1.1] font-bold tracking-tight
-            sm:mb-7 sm:text-6xl
-            lg:text-8xl
+            flex flex-1 flex-col items-center justify-center py-10 text-center
+            sm:py-14
           "
-          initial={{ opacity: 0, y: 24 }}
-          transition={getLandingRevealTransition(0.08)}
         >
-          <span className="block">Your reading,</span>
-          <span
+          {/* Headline */}
+          <motion.h1
+            animate={{ opacity: 1, y: 0 }}
             className="
-              block bg-linear-to-br from-foreground/60 via-muted-foreground/60
-              to-muted-foreground/40 bg-clip-text text-transparent
+              mb-5 text-[2.5rem] leading-[1.1] font-bold tracking-tight
+              sm:mb-7 sm:text-6xl
+              lg:text-8xl
             "
+            initial={{ opacity: 0, y: 24 }}
+            transition={getLandingRevealTransition(0.08)}
           >
-            without the noise.
-          </span>
-        </motion.h1>
+            <span className="block">Your reading,</span>
+            <span
+              className="
+                block bg-linear-to-br from-foreground/60 via-muted-foreground/60
+                to-muted-foreground/40 bg-clip-text text-transparent
+              "
+            >
+              without the noise.
+            </span>
+          </motion.h1>
 
-        {/* Subtitle */}
-        <motion.p
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            mx-auto mb-9 max-w-lg text-base text-muted-foreground
-            sm:mb-12 sm:text-xl
-          "
-          initial={{ opacity: 0, y: 24 }}
-          transition={getLandingRevealTransition(0.16)}
-        >
-          A free, open-source feed hub for RSS. All your sources in one calm,
-          focused inbox.
-        </motion.p>
+          {/* Subtitle */}
+          <motion.p
+            animate={{ opacity: 1, y: 0 }}
+            className="
+              mx-auto mb-9 max-w-lg text-base text-muted-foreground
+              sm:mb-12 sm:text-xl
+            "
+            initial={{ opacity: 0, y: 24 }}
+            transition={getLandingRevealTransition(0.16)}
+          >
+            A free, open-source feed hub for RSS. All your sources in one calm,
+            focused inbox.
+          </motion.p>
 
-        {/* Single CTA */}
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            mb-12
-            sm:mb-16
-          "
-          initial={{ opacity: 0, y: 24 }}
-          transition={getLandingRevealTransition(0.24)}
-        >
-          <motion.div whileHover={{ y: -2 }}>
-            <Button asChild className="h-12 px-8 text-base shadow-sm" size="lg">
-              <Link
-                className="group inline-flex items-center"
-                href="/dashboard"
-              >
-                Open Dashboard
-                <motion.span
-                  animate={{ x: [0, 4, 0] }}
-                  className="ml-2 inline-flex"
-                  transition={{
-                    duration: 1.4,
-                    ease: "easeInOut",
-                    repeat: Number.POSITIVE_INFINITY,
-                  }}
-                  whileHover={{ x: 6 }}
+          {/* Single CTA */}
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 24 }}
+            transition={getLandingRevealTransition(0.24)}
+          >
+            <motion.div whileHover={{ y: -2 }}>
+              <Button asChild className="h-12 px-8 text-base shadow-sm" size="lg">
+                <Link
+                  className="group inline-flex items-center"
+                  href="/dashboard"
                 >
-                  <ArrowRight className="size-4" />
-                </motion.span>
-              </Link>
-            </Button>
+                  Open Dashboard
+                  <motion.span
+                    animate={{ x: [0, 4, 0] }}
+                    className="ml-2 inline-flex"
+                    transition={{
+                      duration: 1.4,
+                      ease: "easeInOut",
+                      repeat: Number.POSITIVE_INFINITY,
+                    }}
+                    whileHover={{ x: 6 }}
+                  >
+                    <ArrowRight className="size-4" />
+                  </motion.span>
+                </Link>
+              </Button>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
 
         {/* Feature pillars */}
         <div
           className="
-            mx-auto grid max-w-3xl gap-3
-            sm:grid-cols-3 sm:gap-4
+            mx-auto grid w-full max-w-3xl gap-3 pb-6
+            sm:grid-cols-3 sm:gap-4 sm:pb-10
           "
         >
           {features.map(({ desc, icon: Icon, label }, index) => (
