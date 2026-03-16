@@ -1,16 +1,110 @@
+import { act, render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
-import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { useCallback, useRef } from "react";
 import { renderToString } from "react-dom/server";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import { getScrollLockReleaseMs } from "@/app/dashboard/hooks/feed-surface-scroll-lock";
 import {
   FEED_PULL_HEIGHT,
   FEED_PULL_OFFSET,
   useFeedPullRefresh,
   useFeedScrollLock,
 } from "@/app/dashboard/hooks/useFeedSurface";
+
+const PULL_RELEASE_MS = 200;
+const WHEEL_RELEASE_MS = 480;
+
+const originalDateNow = Date.now;
+const originalClearTimeout = globalThis.clearTimeout;
+const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+const originalSetTimeout = globalThis.setTimeout;
+
+type FakeTimerCallback = () => void;
+type FakeTimerHandle = ReturnType<typeof originalSetTimeout>;
+
+let fakeNow = 0;
+let nextTimerId = 1;
+let scheduledTimers = new Map<
+  number,
+  { callback: FakeTimerCallback; runAt: number }
+>();
+
+function installFakeTimers() {
+  fakeNow = originalDateNow();
+  nextTimerId = 1;
+  scheduledTimers = new Map();
+
+  Date.now = () => fakeNow;
+
+  const fakeSetTimeout = ((callback: TimerHandler, delay?: number) => {
+    const timerId = nextTimerId++;
+    scheduledTimers.set(timerId, {
+      callback: () => {
+        if (typeof callback !== "function") {
+          throw new TypeError(
+            "String timer callbacks are not supported in tests.",
+          );
+        }
+        callback();
+      },
+      runAt: fakeNow + Math.max(0, Number(delay ?? 0)),
+    });
+    return timerId as unknown as FakeTimerHandle;
+  }) as unknown as typeof globalThis.setTimeout;
+
+  const fakeClearTimeout: typeof globalThis.clearTimeout = ((
+    timerId: FakeTimerHandle,
+  ) => {
+    scheduledTimers.delete(timerId as unknown as number);
+  }) as typeof globalThis.clearTimeout;
+
+  globalThis.setTimeout = fakeSetTimeout;
+  globalThis.clearTimeout = fakeClearTimeout;
+  window.setTimeout = fakeSetTimeout;
+  window.clearTimeout = fakeClearTimeout;
+  globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) =>
+    fakeSetTimeout(
+      () => callback(fakeNow),
+      16,
+    ) as unknown as number) as typeof requestAnimationFrame;
+  globalThis.cancelAnimationFrame = ((frameId: number) => {
+    fakeClearTimeout(frameId as unknown as FakeTimerHandle);
+  }) as typeof cancelAnimationFrame;
+  window.requestAnimationFrame = globalThis.requestAnimationFrame;
+  window.cancelAnimationFrame = globalThis.cancelAnimationFrame;
+}
+
+function restoreFakeTimers() {
+  Date.now = originalDateNow;
+  globalThis.setTimeout = originalSetTimeout;
+  globalThis.clearTimeout = originalClearTimeout;
+  globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+  globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+  window.setTimeout = originalSetTimeout;
+  window.clearTimeout = originalClearTimeout;
+  window.requestAnimationFrame = originalRequestAnimationFrame;
+  window.cancelAnimationFrame = originalCancelAnimationFrame;
+  scheduledTimers.clear();
+}
+
+function tickFakeTimers(ms: number) {
+  const targetTime = fakeNow + ms;
+  while (true) {
+    const nextDueTimer = [...scheduledTimers.entries()]
+      .filter(([, timer]) => timer.runAt <= targetTime)
+      .sort((left, right) => left[1].runAt - right[1].runAt)[0];
+
+    if (!nextDueTimer) break;
+
+    const [timerId, timer] = nextDueTimer;
+    scheduledTimers.delete(timerId);
+    fakeNow = timer.runAt;
+    timer.callback();
+  }
+  fakeNow = targetTime;
+}
 
 beforeEach(() => {
   mock.restore();
@@ -22,8 +116,20 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
+async function withFakeTimers<T>(run: () => Promise<T> | T): Promise<T> {
+  installFakeTimers();
+  try {
+    return await run();
+  } finally {
+    restoreFakeTimers();
+  }
+}
+
 const waitForMs = async (ms: number) => {
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  act(() => {
+    tickFakeTimers(ms);
+  });
+  await Promise.resolve();
 };
 
 function createRect(top: number, height: number) {
@@ -197,72 +303,79 @@ describe("useFeedPullRefresh", () => {
   });
 
   test("resets shallow pulls on scrollend", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 70;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 70;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+      });
 
-    expect(viewport.scrollTop).toBe(70);
+      expect(viewport.scrollTop).toBe(70);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("scrollend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("scrollend"));
+      });
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
       expect(onRefresh).not.toHaveBeenCalled();
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("committed pulls trigger refresh and hold position", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+      });
 
-    expect(onRefresh).not.toHaveBeenCalled();
+      expect(onRefresh).not.toHaveBeenCalled();
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(onRefresh).toHaveBeenCalledTimes(1);
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("loading state does not cancel an active refresh hold", async () => {
-    const onRefresh = mock(() => {});
-    const { rerenderHarness, unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { rerenderHarness, unmount, viewport } =
+        renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+      });
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
+
+      rerenderHarness(true);
+
+      expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+
+      unmount();
     });
-
-    rerenderHarness(true);
-
-    expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-
-    unmount();
   });
 
   test("real Radix nesting keeps the feed wrapper unconstrained", () => {
@@ -303,289 +416,310 @@ describe("useFeedPullRefresh", () => {
   });
 
   test("touch cancel releases back to the hidden rest offset", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 70;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchcancel"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 70;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchcancel"));
+      });
 
-    expect(viewport.scrollTop).toBe(70);
+      expect(viewport.scrollTop).toBe(70);
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
       expect(onRefresh).not.toHaveBeenCalled();
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("disabled pulls never trigger refresh", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh, true);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh, true);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+      });
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
       expect(onRefresh).not.toHaveBeenCalled();
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("expand lock clears an armed pull before refresh can race through", async () => {
-    const onRefresh = mock(() => {});
-    const lockRef = { current: false as false | number };
-    const { feedWrapper, unmount, viewport } = renderPullHarness(
-      onRefresh,
-      false,
-      lockRef,
-    );
-    const { result, unmount: unmountLock } = renderHook(() =>
-      useFeedScrollLock(lockRef),
-    );
-    const article = document.createElement("article");
-    article.setAttribute("data-article-key", "article-race-expand");
-    viewport.getBoundingClientRect = (() =>
-      createRect(100, 500)) as typeof viewport.getBoundingClientRect;
-    article.getBoundingClientRect = (() =>
-      createRect(180, 40)) as typeof article.getBoundingClientRect;
-    viewport.append(article);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const lockRef = { current: false as false | number };
+      const { feedWrapper, unmount, viewport } = renderPullHarness(
+        onRefresh,
+        false,
+        lockRef,
+      );
+      const { result, unmount: unmountLock } = renderHook(() =>
+        useFeedScrollLock(lockRef),
+      );
+      const article = document.createElement("article");
+      article.setAttribute("data-article-key", "article-race-expand");
+      viewport.getBoundingClientRect = (() =>
+        createRect(100, 500)) as typeof viewport.getBoundingClientRect;
+      article.getBoundingClientRect = (() =>
+        createRect(180, 40)) as typeof article.getBoundingClientRect;
+      viewport.append(article);
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-      result.current.activateExpandLock("article-race-expand");
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+        result.current.activateExpandLock("article-race-expand");
+      });
 
-    await waitFor(() => {
+      await waitForMs(16);
+
       expect(lockRef.current).toBe(-1);
       expect(feedWrapper.dataset.pulling).toBe("false");
       expect(feedWrapper.dataset.ready).toBe("false");
-    });
 
-    await waitForMs(260);
-    expect(onRefresh).not.toHaveBeenCalled();
+      await waitForMs(260);
+      expect(onRefresh).not.toHaveBeenCalled();
 
-    act(() => {
-      article.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
-      );
-    });
+      act(() => {
+        article.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
+        );
+      });
 
-    await waitFor(() => {
+      await waitForMs(80);
+
       expect(lockRef.current).toBe(false);
       expect(viewport.scrollTop).toBe(40);
-    });
 
-    unmountLock();
-    unmount();
+      unmountLock();
+      unmount();
+    });
   });
 
   test("collapse lock clears an armed pull without later snapping back", async () => {
-    const onRefresh = mock(() => {});
-    const lockRef = { current: false as false | number };
-    const { feedWrapper, unmount, viewport } = renderPullHarness(
-      onRefresh,
-      false,
-      lockRef,
-    );
-    const { result, unmount: unmountLock } = renderHook(() =>
-      useFeedScrollLock(lockRef),
-    );
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const lockRef = { current: false as false | number };
+      const { feedWrapper, unmount, viewport } = renderPullHarness(
+        onRefresh,
+        false,
+        lockRef,
+      );
+      const { result, unmount: unmountLock } = renderHook(() =>
+        useFeedScrollLock(lockRef),
+      );
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-      result.current.activateCollapseLock(viewport, 220);
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+        result.current.activateCollapseLock(viewport, 220);
+      });
 
-    await waitFor(() => {
+      await waitForMs(16);
+
       expect(lockRef.current).toBe(220);
       expect(viewport.scrollTop).toBe(220);
       expect(feedWrapper.dataset.pulling).toBe("false");
       expect(feedWrapper.dataset.ready).toBe("false");
+
+      await waitForMs(420);
+      expect(lockRef.current).toBe(false);
+      expect(viewport.scrollTop).toBe(220);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmountLock();
+      unmount();
     });
-
-    await waitForMs(420);
-    expect(lockRef.current).toBe(false);
-    expect(viewport.scrollTop).toBe(220);
-    expect(onRefresh).not.toHaveBeenCalled();
-
-    unmountLock();
-    unmount();
   });
 
   test("touch release commits an armed sentinel even without an active touch-pull flag", async () => {
-    const onRefresh = mock(() => {});
-    const { feedWrapper, unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { feedWrapper, unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-    });
+      act(() => {
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+      });
 
-    expect(feedWrapper.dataset.pulling).toBe("true");
-    expect(feedWrapper.dataset.ready).toBe("true");
+      expect(feedWrapper.dataset.pulling).toBe("true");
+      expect(feedWrapper.dataset.ready).toBe("true");
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(new Event("touchend"));
+      });
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(onRefresh).toHaveBeenCalledTimes(1);
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
       expect(feedWrapper.dataset.pulling).toBe("true");
       expect(feedWrapper.dataset.ready).toBe("true");
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("wheel or trackpad upward scroll commits once scrolling ends and input settles", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
-    const wheelEvent = new Event("wheel");
-    Object.defineProperty(wheelEvent, "deltaY", {
-      configurable: true,
-      value: -120,
-    });
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
+      const wheelEvent = new Event("wheel");
+      Object.defineProperty(wheelEvent, "deltaY", {
+        configurable: true,
+        value: -120,
+      });
 
-    act(() => {
-      viewport.dispatchEvent(wheelEvent);
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("scrollend"));
-    });
+      act(() => {
+        viewport.dispatchEvent(wheelEvent);
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("scrollend"));
+      });
 
-    await waitFor(() => {
+      await waitForMs(WHEEL_RELEASE_MS);
+
       expect(onRefresh).toHaveBeenCalledTimes(1);
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("wheel pull can proxy into the hidden sentinel without native scroll events", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
-    const wheelEvent = new Event("wheel");
-    Object.defineProperty(wheelEvent, "deltaY", {
-      configurable: true,
-      value: -120,
-    });
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
+      const wheelEvent = new Event("wheel");
+      Object.defineProperty(wheelEvent, "deltaY", {
+        configurable: true,
+        value: -120,
+      });
 
-    act(() => {
-      viewport.scrollTop = FEED_PULL_OFFSET;
-      viewport.dispatchEvent(wheelEvent);
-    });
+      act(() => {
+        viewport.scrollTop = FEED_PULL_OFFSET;
+        viewport.dispatchEvent(wheelEvent);
+      });
 
-    expect(onRefresh).not.toHaveBeenCalled();
-    expect(viewport.scrollTop).toBeLessThan(FEED_PULL_OFFSET);
+      expect(onRefresh).not.toHaveBeenCalled();
+      expect(viewport.scrollTop).toBeLessThan(FEED_PULL_OFFSET);
 
-    await waitForMs(520);
-    await waitFor(() => {
+      await waitForMs(WHEEL_RELEASE_MS);
+
       expect(onRefresh).toHaveBeenCalledTimes(1);
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 44);
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("touch scrolling from below the top does not enter pull refresh or jump back", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.scrollTop = 260;
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 100;
-      viewport.dispatchEvent(new Event("scroll"));
+      act(() => {
+        viewport.scrollTop = 260;
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 100;
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+
+      expect(viewport.scrollTop).toBe(100);
+
+      act(() => {
+        viewport.dispatchEvent(new Event("touchend"));
+      });
+
+      await waitForMs(250);
+      expect(viewport.scrollTop).toBe(100);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
     });
-
-    expect(viewport.scrollTop).toBe(100);
-
-    act(() => {
-      viewport.dispatchEvent(new Event("touchend"));
-    });
-
-    await waitForMs(250);
-    expect(viewport.scrollTop).toBe(100);
-    expect(onRefresh).not.toHaveBeenCalled();
-
-    unmount();
   });
 
   test("scrollend after ordinary touch scrolling near the top does not snap back", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.scrollTop = 260;
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 100;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-      viewport.dispatchEvent(new Event("scrollend"));
+      act(() => {
+        viewport.scrollTop = 260;
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 100;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+        viewport.dispatchEvent(new Event("scrollend"));
+      });
+
+      await waitForMs(250);
+      expect(viewport.scrollTop).toBe(100);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
     });
-
-    await waitForMs(250);
-    expect(viewport.scrollTop).toBe(100);
-    expect(onRefresh).not.toHaveBeenCalled();
-
-    unmount();
   });
 
   test("touch scrolling from the rest position into the feed does not arm pull refresh", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.scrollTop = FEED_PULL_OFFSET;
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 220;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
+      act(() => {
+        viewport.scrollTop = FEED_PULL_OFFSET;
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 220;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+      });
+
+      await waitForMs(250);
+      expect(viewport.scrollTop).toBe(220);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
     });
-
-    await waitForMs(250);
-    expect(viewport.scrollTop).toBe(220);
-    expect(onRefresh).not.toHaveBeenCalled();
-
-    unmount();
   });
 
   test("small near-top touch drags do not arm pull refresh or snap back", async () => {
-    const onRefresh = mock(() => {});
-    const { unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.scrollTop = FEED_PULL_OFFSET;
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = FEED_PULL_OFFSET - 10;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("touchend"));
-      viewport.dispatchEvent(new Event("scrollend"));
+      act(() => {
+        viewport.scrollTop = FEED_PULL_OFFSET;
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = FEED_PULL_OFFSET - 10;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("touchend"));
+        viewport.dispatchEvent(new Event("scrollend"));
+      });
+
+      await waitForMs(250);
+      expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 10);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
     });
-
-    await waitForMs(250);
-    expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET - 10);
-    expect(onRefresh).not.toHaveBeenCalled();
-
-    unmount();
   });
 
   test("over-pulling past the top does not force the viewport back against the active touch drag", async () => {
@@ -628,26 +762,28 @@ describe("useFeedPullRefresh", () => {
       ResizeObserverMock as unknown as typeof ResizeObserver;
 
     try {
-      const onRefresh = mock(() => {});
-      const { unmount, viewport } = renderPullHarness(onRefresh);
+      await withFakeTimers(async () => {
+        const onRefresh = mock(() => {});
+        const { unmount, viewport } = renderPullHarness(onRefresh);
 
-      act(() => {
-        viewport.scrollTop = 150;
-        viewport.dispatchEvent(new Event("touchstart"));
-        viewport.scrollTop = 100;
-        viewport.dispatchEvent(new Event("scroll"));
-        viewport.dispatchEvent(new Event("touchend"));
+        act(() => {
+          viewport.scrollTop = 150;
+          viewport.dispatchEvent(new Event("touchstart"));
+          viewport.scrollTop = 100;
+          viewport.dispatchEvent(new Event("scroll"));
+          viewport.dispatchEvent(new Event("touchend"));
+        });
+
+        act(() => {
+          resizeCallback?.();
+        });
+
+        await waitForMs(PULL_RELEASE_MS);
+        expect(viewport.scrollTop).toBe(100);
+        expect(onRefresh).not.toHaveBeenCalled();
+
+        unmount();
       });
-
-      act(() => {
-        resizeCallback?.();
-      });
-
-      await waitForMs(250);
-      expect(viewport.scrollTop).toBe(100);
-      expect(onRefresh).not.toHaveBeenCalled();
-
-      unmount();
     } finally {
       global.ResizeObserver = originalResizeObserver;
     }
@@ -694,11 +830,11 @@ describe("useFeedPullRefresh", () => {
         resizeCallback?.();
       });
 
-      await waitFor(() => {
-        expect(feedWrapper.dataset.pulling).toBe("false");
-        expect(feedWrapper.dataset.ready).toBe("false");
-        expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
-      });
+      await Promise.resolve();
+
+      expect(feedWrapper.dataset.pulling).toBe("false");
+      expect(feedWrapper.dataset.ready).toBe("false");
+      expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
       expect(onRefresh).not.toHaveBeenCalled();
 
       unmount();
@@ -708,40 +844,48 @@ describe("useFeedPullRefresh", () => {
   });
 
   test("cold-start top-edge exposure restores the hidden rest offset without refreshing", async () => {
-    const onRefresh = mock(() => {});
-    const { feedWrapper, unmount, viewport } = renderPullHarness(onRefresh);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { feedWrapper, unmount, viewport } = renderPullHarness(onRefresh);
 
-    act(() => {
-      viewport.scrollTop = 0;
-      viewport.dispatchEvent(new Event("scroll"));
-      viewport.dispatchEvent(new Event("scrollend"));
-    });
+      act(() => {
+        viewport.scrollTop = 0;
+        viewport.dispatchEvent(new Event("scroll"));
+        viewport.dispatchEvent(new Event("scrollend"));
+      });
 
-    await waitFor(() => {
+      await waitForMs(PULL_RELEASE_MS);
+
       expect(viewport.scrollTop).toBe(FEED_PULL_OFFSET);
       expect(feedWrapper.dataset.pulling).toBe("false");
-    });
-    expect(onRefresh).not.toHaveBeenCalled();
+      expect(onRefresh).not.toHaveBeenCalled();
 
-    unmount();
+      unmount();
+    });
   });
 
   test("touch release does not override an active scroll lock", async () => {
-    const onRefresh = mock(() => {});
-    const lockRef = { current: 180 as false | number };
-    const { unmount, viewport } = renderPullHarness(onRefresh, false, lockRef);
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const lockRef = { current: 180 as false | number };
+      const { unmount, viewport } = renderPullHarness(
+        onRefresh,
+        false,
+        lockRef,
+      );
 
-    act(() => {
-      viewport.dispatchEvent(new Event("touchstart"));
-      viewport.scrollTop = 40;
-      viewport.dispatchEvent(new Event("touchend"));
+      act(() => {
+        viewport.dispatchEvent(new Event("touchstart"));
+        viewport.scrollTop = 40;
+        viewport.dispatchEvent(new Event("touchend"));
+      });
+
+      await waitForMs(PULL_RELEASE_MS);
+      expect(viewport.scrollTop).toBe(40);
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
     });
-
-    await waitForMs(250);
-    expect(viewport.scrollTop).toBe(40);
-    expect(onRefresh).not.toHaveBeenCalled();
-
-    unmount();
   });
 });
 
@@ -764,36 +908,38 @@ describe("useFeedScrollLock", () => {
   });
 
   test("collapse lock release follows the CSS motion duration", async () => {
-    const lockRef = { current: false as false | number };
-    const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
-    const viewport = document.createElement("div");
-    const originalGetComputedStyle =
-      globalThis.getComputedStyle ?? window.getComputedStyle.bind(window);
-    try {
-      globalThis.getComputedStyle = ((element: Element) => {
-        const styles = originalGetComputedStyle(element);
-        return {
-          ...styles,
-          getPropertyValue(name: string) {
-            if (name === "--motion-duration-expand") return "360ms";
-            return styles.getPropertyValue(name);
-          },
-        } as CSSStyleDeclaration;
-      }) as typeof getComputedStyle;
+    await withFakeTimers(async () => {
+      const lockRef = { current: false as false | number };
+      const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
+      const viewport = document.createElement("div");
+      const originalGetComputedStyle =
+        globalThis.getComputedStyle ?? window.getComputedStyle.bind(window);
+      try {
+        globalThis.getComputedStyle = ((element: Element) => {
+          const styles = originalGetComputedStyle(element);
+          return {
+            ...styles,
+            getPropertyValue(name: string) {
+              if (name === "--motion-duration-expand") return "360ms";
+              return styles.getPropertyValue(name);
+            },
+          } as CSSStyleDeclaration;
+        }) as typeof getComputedStyle;
 
-      act(() => {
-        result.current.activateCollapseLock(viewport, 180);
-      });
+        act(() => {
+          result.current.activateCollapseLock(viewport, 180);
+        });
 
-      await waitForMs(330);
-      expect(lockRef.current).toBe(180);
+        await waitForMs(getScrollLockReleaseMs() - 110);
+        expect(lockRef.current).toBe(180);
 
-      await waitForMs(140);
-      expect(lockRef.current).toBe(false);
-    } finally {
-      globalThis.getComputedStyle = originalGetComputedStyle;
-      unmount();
-    }
+        await waitForMs(140);
+        expect(lockRef.current).toBe(false);
+      } finally {
+        globalThis.getComputedStyle = originalGetComputedStyle;
+        unmount();
+      }
+    });
   });
 
   test("collapse lock without a saved target uses the hidden rest offset", () => {
@@ -813,59 +959,63 @@ describe("useFeedScrollLock", () => {
   });
 
   test("collapse lock re-applies the saved target while layout is still settling", async () => {
-    const lockRef = { current: false as false | number };
-    const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
-    const viewport = document.createElement("div");
-    viewport.scrollTop = 260;
+    await withFakeTimers(async () => {
+      const lockRef = { current: false as false | number };
+      const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
+      const viewport = document.createElement("div");
+      viewport.scrollTop = 260;
 
-    act(() => {
-      result.current.activateCollapseLock(viewport, 220);
-    });
+      act(() => {
+        result.current.activateCollapseLock(viewport, 220);
+      });
 
-    expect(viewport.scrollTop).toBe(220);
+      expect(viewport.scrollTop).toBe(220);
 
-    act(() => {
-      viewport.scrollTop = 164;
-    });
+      act(() => {
+        viewport.scrollTop = 164;
+      });
 
-    await waitFor(() => {
+      await waitForMs(32);
+
       expect(viewport.scrollTop).toBe(220);
       expect(lockRef.current).toBe(220);
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("expand lock releases after the article expand-settled event", async () => {
-    const lockRef = { current: false as false | number };
-    const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
-    const viewport = document.createElement("div");
-    viewport.setAttribute("data-radix-scroll-area-viewport", "");
-    viewport.scrollTop = 260;
-    const article = document.createElement("article");
-    article.setAttribute("data-article-key", "article-1");
-    viewport.append(article);
-    document.body.append(viewport);
+    await withFakeTimers(async () => {
+      const lockRef = { current: false as false | number };
+      const { result, unmount } = renderHook(() => useFeedScrollLock(lockRef));
+      const viewport = document.createElement("div");
+      viewport.setAttribute("data-radix-scroll-area-viewport", "");
+      viewport.scrollTop = 260;
+      const article = document.createElement("article");
+      article.setAttribute("data-article-key", "article-1");
+      viewport.append(article);
+      document.body.append(viewport);
 
-    act(() => {
-      result.current.activateExpandLock("article-1");
-    });
+      act(() => {
+        result.current.activateExpandLock("article-1");
+      });
 
-    expect(lockRef.current).toBe(-1);
-    expect(result.current.preExpandViewport.current).toBe(viewport);
-    expect(result.current.preExpandScrollTop.current).toBe(260);
+      expect(lockRef.current).toBe(-1);
+      expect(result.current.preExpandViewport.current).toBe(viewport);
+      expect(result.current.preExpandScrollTop.current).toBe(260);
 
-    act(() => {
-      article.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
-      );
-    });
+      act(() => {
+        article.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
+        );
+      });
 
-    await waitFor(() => {
+      await waitForMs(80);
+
       expect(lockRef.current).toBe(false);
-    });
 
-    unmount();
+      unmount();
+    });
   });
 
   test("expand lock scrolls the article top into view when it starts below the viewport", () => {
