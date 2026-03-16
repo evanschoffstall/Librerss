@@ -73,6 +73,7 @@ describe("AuthService", () => {
     const user = await AuthService.signup("newuser@example.com", "password123");
 
     expect(mockAxiosInstance.post).toHaveBeenCalledWith("/api/auth/signup", {
+      acceptedLegalVersion: "2026-03-15",
       email: "newuser@example.com",
       password: "password123",
     });
@@ -841,6 +842,7 @@ describe("AuthService", () => {
 
     const user = await AuthService.signup("new@example.com", "newpassword");
     expect(mx.post).toHaveBeenCalledWith("/api/auth/signup", {
+      acceptedLegalVersion: "2026-03-15",
       email: "new@example.com",
       password: "newpassword",
     });

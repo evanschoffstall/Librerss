@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
+import { LEGAL_CONSENT_VERSION } from "@/app/components/legal/metadata";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
@@ -17,13 +18,29 @@ import { logAndRespondError, requireMutableRequest } from "@/lib/server";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
 
 interface SignupPayload {
+  acceptedLegalVersion: string;
   email: string;
   password: string;
 }
 
-export async function POST(request: NextRequest) {
+interface SignupRouteDeps {
+  createSessionFn?: typeof createSession;
+  getDbFn?: () => unknown;
+  hashPasswordFn?: typeof hashPassword;
+  isUniqueConstraintErrorFn?: typeof isUniqueConstraintError;
+  logAndRespondErrorFn?: typeof logAndRespondError;
+  logger?: Pick<typeof logger, "error" | "info" | "warn">;
+  requireMutableRequestFn?: typeof requireMutableRequest;
+  runtimeFlags?: Pick<typeof RUNTIME_FLAGS, "allowSignup" | "usePlaceholderData">;
+  setSessionCookieFn?: typeof setSessionCookie;
+}
+
+export async function POST(request: NextRequest, deps: SignupRouteDeps = {}) {
+  const appLogger = deps.logger ?? logger;
+  const requireRequest = deps.requireMutableRequestFn ?? requireMutableRequest;
+  const runtimeFlags = deps.runtimeFlags ?? RUNTIME_FLAGS;
   try {
-    const requestError = requireMutableRequest(request, {
+    const requestError = requireRequest(request, {
       rateLimit: {
         key: "signup",
         maxAttempts: CONFIG.RATE_LIMIT_SIGNUP_MAX_ATTEMPTS,
@@ -34,20 +51,23 @@ export async function POST(request: NextRequest) {
       return requestError;
     }
 
-    if (!RUNTIME_FLAGS.allowSignup) {
-      logger.warn("Signup attempt when signup is disabled");
+    if (!runtimeFlags.allowSignup) {
+      appLogger.warn("Signup attempt when signup is disabled");
       return jsonError("Signup is disabled by server configuration", 403);
     }
 
-    if (RUNTIME_FLAGS.usePlaceholderData) {
-      logger.warn("Signup attempt when using placeholder data");
+    if (runtimeFlags.usePlaceholderData) {
+      appLogger.warn("Signup attempt when using placeholder data");
       return jsonError(
         "Signup is disabled when DATABASE_URL is not configured",
         503,
       );
     }
 
-    const db = getDb();
+    const db = ((deps.getDbFn?.() ?? getDb()) as Pick<
+      ReturnType<typeof getDb>,
+      "insert" | "select"
+    >);
 
     const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) {
@@ -58,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }
-    const { email, password } = parsedPayload;
+    const { acceptedLegalVersion, email, password } = parsedPayload;
 
     // Check for existing user
     const existingUsers = await db
@@ -68,7 +88,7 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (existingUsers.length > 0) {
-      logger.warn("Signup attempt with existing email", { email });
+      appLogger.warn("Signup attempt with existing email", { email });
       // Don't reveal that email exists (prevents enumeration)
       return jsonError(
         "Unable to create account. Please try a different email or contact support.",
@@ -77,7 +97,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await (deps.hashPasswordFn ?? hashPassword)(password);
 
     const createdUsers = await db
       .insert(users)
@@ -85,41 +105,59 @@ export async function POST(request: NextRequest) {
       .returning({ email: users.email, id: users.id });
 
     if (createdUsers.length === 0) {
-      logger.error("Failed to create user during signup", { email });
+      appLogger.error("Failed to create user during signup", { email });
       return jsonError("Failed to create account", 500);
     }
     const createdUser = createdUsers[0];
 
     // Create session
-    const token = await createSession(createdUser.id);
+    const token = await (deps.createSessionFn ?? createSession)(createdUser.id);
 
-    logger.info("User signed up successfully", {
+    appLogger.info("User signed up successfully", {
+      acceptedLegalVersion,
       email: createdUser.email,
       userId: createdUser.id,
     });
 
     const response = NextResponse.json({ user: createdUser }, { status: 201 });
-    setSessionCookie(response, token);
+    (deps.setSessionCookieFn ?? setSessionCookie)(response, token);
 
     return response;
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      logger.warn("Signup attempt with existing email");
+    if ((deps.isUniqueConstraintErrorFn ?? isUniqueConstraintError)(error)) {
+      appLogger.warn("Signup attempt with existing email");
       return jsonError(
         "Unable to create account. Please try a different email or contact support.",
         400,
       );
     }
 
-    return logAndRespondError("Signup error", error);
+    return (deps.logAndRespondErrorFn ?? logAndRespondError)(
+      "Signup error",
+      error,
+    );
   }
 }
 
 function parseSignupPayload(
   payload: Record<string, unknown>,
 ): Response | SignupPayload {
+  const acceptedLegalVersion = payload.acceptedLegalVersion;
   const email = normalizeEmailInput(payload.email);
   const password = payload.password;
+
+  if (acceptedLegalVersion !== LEGAL_CONSENT_VERSION) {
+    logger.warn("Signup attempt without current legal acceptance", {
+      acceptedLegalVersion:
+        typeof acceptedLegalVersion === "string"
+          ? acceptedLegalVersion
+          : "missing",
+    });
+    return jsonError(
+      "You must accept the current privacy policy and terms for this deployment before creating an account.",
+      400,
+    );
+  }
 
   if (!email || !isValidEmail(email)) {
     logger.warn("Signup attempt with invalid email", {
@@ -136,5 +174,5 @@ function parseSignupPayload(
     );
   }
 
-  return { email, password };
+  return { acceptedLegalVersion, email, password };
 }

@@ -1,6 +1,8 @@
-import { getApiClient } from "./http";
-
 import type { AuthSession, AuthUser } from "@/lib/core/types";
+
+import { LEGAL_CONSENT_VERSION } from "@/app/components/legal/metadata";
+
+import { getApiClient } from "./http";
 
 interface AuthSessionResponse {
   user: AuthUser;
@@ -35,6 +37,7 @@ export const AuthService = {
     const response = await getApiClient().post<AuthSessionResponse>(
       `${authServiceBaseUrl}/signup`,
       {
+        acceptedLegalVersion: LEGAL_CONSENT_VERSION,
         email,
         password,
       },

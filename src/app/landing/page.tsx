@@ -246,6 +246,9 @@ const LandingView = () => {
   );
 };
 
+/**
+ * Renders the public marketing landing page and legal footer links.
+ */
 export default function Landing() {
   return (
     <main className="min-h-dvh overflow-hidden">
@@ -277,25 +280,45 @@ export default function Landing() {
 
           <footer
             className="
-              relative z-10 mx-auto mt-8 w-full max-w-5xl px-4 pt-4 pb-6
-              text-center text-xs text-muted-foreground/50
+              relative z-10 mx-auto mt-8 flex w-full max-w-5xl flex-nowrap
+              items-center justify-center gap-2 px-4 pt-4 pb-6 text-center
+              text-xs text-muted-foreground
               sm:mt-10 sm:px-6 sm:pt-6 sm:pb-8
             "
           >
-            <p>
-              Made with ❤️ by{" "}
-              <a
-                className="
-                  underline-offset-2
-                  hover:underline
-                "
-                href="https://github.com/evanschoffstall"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Evan Schoffstall
-              </a>
+            <Link
+              className="
+                whitespace-nowrap transition-colors
+                hover:text-foreground
+              "
+              href="/privacy"
+            >
+              Privacy Policy
+            </Link>
+
+            <span aria-hidden="true" className="text-muted-foreground/40">
+              •
+            </span>
+
+            <p className="
+              text-center whitespace-nowrap text-muted-foreground/50
+            ">
+              Made with ❤️ by Evan Schoffstall
             </p>
+
+            <span aria-hidden="true" className="text-muted-foreground/40">
+              •
+            </span>
+
+            <Link
+              className="
+                whitespace-nowrap transition-colors
+                hover:text-foreground
+              "
+              href="/terms"
+            >
+              Terms
+            </Link>
           </footer>
         </div>
       </ScrollArea>
