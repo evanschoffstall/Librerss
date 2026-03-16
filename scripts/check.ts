@@ -48,6 +48,8 @@ interface StepConfig {
   postProcess?: InlineTypeScriptConfig | Record<string, unknown>;
   preRun?: boolean;
   summary?: Summary;
+  /** Max drain time for buffered output after a timed-out step is terminated. */
+  timeoutDrainMs?: number | string;
   /** Environment variable that overrides `timeoutMs` at runtime. */
   timeoutEnvVar?: string;
   timeoutMs?: number | string;
@@ -221,6 +223,7 @@ interface ProcessedCheck {
 interface RunOptions {
   extraEnv?: Record<string, string>;
   label?: string;
+  timeoutDrainMs?: number;
   timeoutMs?: number;
 }
 
@@ -334,6 +337,15 @@ function resolveTokenString(
 /** Resolves `{token}` placeholders in each element of an args array. */
 const resolveArgs = (args: string[], tokens: Record<string, string>) =>
   args.map((argument) => resolveTokenString(argument, tokens));
+
+function resolveStepTimeoutDrainMsValue(step: StepConfig): null | number {
+  if (typeof step.timeoutDrainMs === "number")
+    return parsePositiveTimeoutMs(step.timeoutDrainMs);
+  if (typeof step.timeoutDrainMs !== "string") return null;
+  return parsePositiveTimeoutMs(
+    resolveTokenString(step.timeoutDrainMs, getStepTokens(step)),
+  );
+}
 
 function resolveStepTimeoutMsValue(step: StepConfig): null | number {
   const envMs = step.timeoutEnvVar
@@ -476,6 +488,16 @@ interface StreamCollector {
 const DOM_ASSERTION_RECEIVED_LINE =
   /^Received:\s+(?:HTML|SVG|Window|Document|Element|Node|NodeList|HTMLCollection|Text)\w*\s*\{/;
 
+function appendTimedOutDrainMessage(
+  output: string,
+  label: string,
+  timeoutDrainMs: number,
+): string {
+  const drainLine = `${label} output drain exceeded the ${formatDuration(timeoutDrainMs)} timeout after termination\n`;
+  if (!output.trim()) return drainLine;
+  return `${output.endsWith("\n") ? output : `${output}\n`}${drainLine}`;
+}
+
 function appendTimedOutMessage(
   output: string,
   label: string,
@@ -503,6 +525,16 @@ function buildSummary(step: StepConfig, cmd: Command): string {
   const tokens = getStepTokens(step);
   if (!summary || summary.type === "simple") {
     if (cmd.exitCode === 0) return "passed";
+
+    if (cmd.timedOut) {
+      const timeoutLine =
+        splitLines(cmd.output)
+          .reverse()
+          .find((line) => /\btimeout\b/i.test(line)) ??
+        `${step.label} exceeded its timeout`;
+      return step.failMsg ? `${step.failMsg}: ${timeoutLine}` : timeoutLine;
+    }
+
     const firstError = splitLines(cmd.output).find((l) => !l.startsWith("$ "));
     return firstError
       ? `${step.failMsg ?? "failed"}: ${firstError}`
@@ -752,13 +784,19 @@ function createStreamCollector(
   };
 }
 
-async function flushCollectors(collectors: StreamCollector[]): Promise<void> {
-  const delay = createDelay(STREAM_FLUSH_GRACE_MS, undefined);
+async function flushCollectors(
+  collectors: StreamCollector[],
+  timeoutMs = STREAM_FLUSH_GRACE_MS,
+): Promise<boolean> {
+  const delay = createDelay(timeoutMs, false);
   try {
-    await Promise.race([
-      Promise.all(collectors.map((collector) => collector.done)),
+    const outcome = await Promise.race([
+      Promise.all(collectors.map((collector) => collector.done)).then(
+        () => true,
+      ),
       delay.promise,
     ]);
+    return outcome;
   } finally {
     delay.cancel();
   }
@@ -802,7 +840,9 @@ export async function run(
   options: RunOptions = {},
 ): Promise<Command> {
   const startMs = Date.now();
-  const { extraEnv, label = cmd, timeoutMs } = options;
+  const { extraEnv, label = cmd, timeoutDrainMs, timeoutMs } = options;
+  const activeTimeoutDrainMs =
+    parsePositiveTimeoutMs(timeoutDrainMs) ?? STREAM_FLUSH_GRACE_MS;
   if (cmd === "bunx" && !isBunxCommandAvailable(args)) {
     const target = getBunxCommandTarget(args) ?? "bunx target";
     return {
@@ -853,15 +893,22 @@ export async function run(
   if (outcome.kind === "timeout") {
     const activeTimeoutMs = timeoutMs ?? 1;
     await terminateProcess(child);
-    await flushCollectors([stdoutCollector, stderrCollector]);
+    const didFlushOutput = await flushCollectors(
+      [stdoutCollector, stderrCollector],
+      activeTimeoutDrainMs,
+    );
+    let output = appendTimedOutMessage(
+      `${stdoutCollector.getOutput()}${stderrCollector.getOutput()}`,
+      label,
+      activeTimeoutMs,
+    );
+    if (!didFlushOutput) {
+      output = appendTimedOutDrainMessage(output, label, activeTimeoutDrainMs);
+    }
     return {
       durationMs: Date.now() - startMs,
       exitCode: 124,
-      output: appendTimedOutMessage(
-        `${stdoutCollector.getOutput()}${stderrCollector.getOutput()}`,
-        label,
-        activeTimeoutMs,
-      ),
+      output,
       timedOut: true,
     };
   }
@@ -1273,39 +1320,53 @@ export async function runCheckSuite(
       ? {}
       : await runStepBatch(mainSteps, deadlineMs);
   const runs = { ...preRunResults, ...mainResults };
+  const suiteExpiredBeforeOutput =
+    !preRunTimedOut &&
+    !suiteExpiredBeforeMain &&
+    hasDeadlineExpired(deadlineMs);
 
   const timedOut =
     suiteExpiredBeforeMain ||
+    suiteExpiredBeforeOutput ||
     Object.values(runs).some((result) => result.timedOut);
   const allExecutedSteps = [...preRunSteps, ...executedMainSteps];
   const missingSteps = allExecutedSteps
     .filter((step) => runs[step.key]?.notFound)
     .map((s) => s.label);
-  const processedResults = Object.fromEntries(
-    await Promise.all(
-      allExecutedSteps.map(async (step) => {
-        const filteredOutput = step.outputFilter
-          ? applyOutputFilter(step.outputFilter, runs[step.key].output)
-          : runs[step.key].output;
-        return [
-          step.key,
-          {
-            displayOutput: filteredOutput,
-            postProcess: await runStepPostProcess(
-              step,
-              runs[step.key],
-              filteredOutput,
-            ),
-          },
-        ] as const;
-      }),
-    ),
-  ) as Record<
-    string,
-    { displayOutput: string; postProcess: null | StepPostProcessResult }
-  >;
+  const processedResults = suiteExpiredBeforeOutput
+    ? Object.fromEntries(
+        allExecutedSteps.map((step) => {
+          const filteredOutput = step.outputFilter
+            ? applyOutputFilter(step.outputFilter, runs[step.key].output)
+            : runs[step.key].output;
+          return [
+            step.key,
+            { displayOutput: filteredOutput, postProcess: null },
+          ] as const;
+        }),
+      )
+    : Object.fromEntries(
+        await Promise.all(
+          allExecutedSteps.map(async (step) => {
+            const filteredOutput = step.outputFilter
+              ? applyOutputFilter(step.outputFilter, runs[step.key].output)
+              : runs[step.key].output;
+            return [
+              step.key,
+              {
+                displayOutput: filteredOutput,
+                postProcess: await runStepPostProcess(
+                  step,
+                  runs[step.key],
+                  filteredOutput,
+                ),
+              },
+            ] as const;
+          }),
+        ),
+      );
 
-  if (!summaryOnly) {
+  if (!summaryOnly && !suiteExpiredBeforeOutput) {
     for (const step of allExecutedSteps) {
       if (runs[step.key]?.notFound) continue;
       const displayOutput =
@@ -1343,7 +1404,14 @@ export async function runCheckSuite(
   });
 
   if (!summaryOnly) {
+    if (suiteExpiredBeforeOutput) {
+      console.log(
+        `\n${paint("Suite deadline reached before detailed output; skipping step output and post-processing.", ANSI.bold, ANSI.yellow)}`,
+      );
+    }
+
     for (const step of executedMainSteps) {
+      if (suiteExpiredBeforeOutput) break;
       const processed = processedResults[step.key]?.postProcess;
       if (processed?.messages?.length) {
         printPostProcessMessages(processed.messages);
@@ -1496,6 +1564,7 @@ function runStep(
     [...resolveArgs(step.args ?? [], tokens), ...extraArgs],
     {
       label: step.label,
+      timeoutDrainMs: resolveStepTimeoutDrainMsValue(step) ?? undefined,
       timeoutMs,
     },
   );
