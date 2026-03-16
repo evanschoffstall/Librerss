@@ -290,6 +290,7 @@ function hasMissingSignal(output: string): boolean {
   const text = stripAnsi(output);
   return [
     /command not found:/i,
+    /\bscript not found\b/i,
     /should be provided by a local binary/i,
     /cannot find package ['"][^'"]+['"]/i,
     /cannot find module ['"][^'"]+['"]/i,
