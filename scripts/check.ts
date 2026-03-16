@@ -1584,7 +1584,7 @@ export {
   applyOutputFilter,
   buildSummary,
   compactDomAssertionNoise,
-  runStepPostProcess,
+  runStepPostProcess
 };
 
 if (import.meta.main && shouldAutoRunCheckCli(Bun.argv)) void main();
