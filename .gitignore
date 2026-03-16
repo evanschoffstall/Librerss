@@ -47,6 +47,7 @@ yarn.lock
 
 # TypeScript
 *.tsbuildinfo
+tsconfig.playwright*.json
 next-env.d.ts
 
 # logs
