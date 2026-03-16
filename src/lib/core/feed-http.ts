@@ -47,7 +47,7 @@ export async function fetchFeedXml(
 
         if (status === 403 && dataDomeHeader === "protected") {
           throw new Error(
-            "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
+            "Upstream request received a vendor access response (DataDome) [HTTP 403]",
           );
         }
       },
