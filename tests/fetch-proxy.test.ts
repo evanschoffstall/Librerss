@@ -6,9 +6,8 @@
  * No module mocks used. Tests pure proxy URL parsing logic.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import axios from "axios";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { extractionAxios } from "@/lib/fetch/fingerprint";

@@ -2,32 +2,31 @@
  * Covers the reading pipeline from captured article HTML through sanitize output.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { NextRequest } from "next/server";
 
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  parseAndValidateArticleUrl,
+    clearArticleExtractCacheForTests,
+    fetchHtml,
+    parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import {
-  decompressBody,
-  fetchHtmlWithFingerprint,
-  generateBrowserHeaders,
-  GotScrapingError,
-  parseSocksProxy,
+    decompressBody,
+    fetchHtmlWithFingerprint,
+    generateBrowserHeaders,
+    GotScrapingError,
+    parseSocksProxy,
 } from "@/lib/fetch";
 import {
-  buildMetadataImageFallbackHtml,
-  cleanSanitizedHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  normalizeArticleHtmlSpacing,
-  preCleanHtml,
-  sanitizeRawContent,
-  stripCommentEngagementBoilerplate,
-  toParagraphHtml,
+    buildMetadataImageFallbackHtml,
+    cleanSanitizedHtml,
+    hasReadableArticleBody,
+    isLikelyNavFooterBoilerplate,
+    normalizeArticleHtmlSpacing,
+    preCleanHtml,
+    sanitizeRawContent,
+    stripCommentEngagementBoilerplate,
+    toParagraphHtml,
 } from "@/lib/sanitize";
 
 const mockReq = () =>

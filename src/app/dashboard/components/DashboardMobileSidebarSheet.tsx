@@ -1,7 +1,5 @@
 import type { ComponentProps } from "react";
 
-import { DashboardSidebarContent } from "./DashboardSidebarContent";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -9,6 +7,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
+import { DashboardSidebarContent } from "./DashboardSidebarContent";
 
 export interface DashboardMobileSidebarSheetProps {
   isOpen: boolean;

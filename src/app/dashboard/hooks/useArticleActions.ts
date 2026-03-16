@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { getArticleKey } from "../services/article-collection";
+import { type Article, ArticleService, type CategoryTreeNode } from "@/lib";
 
+import { getArticleKey } from "../services/article-collection";
 import { toggleReadStatus } from "./article-toggle-state";
 import { getScrollLockReleaseMs } from "./feed-surface-scroll-lock";
 import {
@@ -13,8 +14,6 @@ import {
 } from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
 import { useFeedScrollLock } from "./useFeedSurface";
-
-import { type Article, ArticleService, type CategoryTreeNode } from "@/lib";
 
 /** Duration used to keep unread-filter removals mounted while the row exits. */
 export const ARTICLE_REMOVAL_ANIMATION_MS = 320;

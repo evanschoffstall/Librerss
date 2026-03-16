@@ -1,6 +1,6 @@
-import { getArticleKey } from "./article-collection";
-
 import type { Article } from "@/lib";
+
+import { getArticleKey } from "./article-collection";
 
 export const ARTICLE_FILTER_OPTIONS = [
   "all",

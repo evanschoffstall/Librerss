@@ -5,10 +5,11 @@
  * class patterns, then extracts title and description from meta tags.
  */
 
-import { findArticleBody } from "./body-selection";
+import { parsePageTitle, readMetaTagContent } from "@/lib/sanitize";
+
 import type { DistilledArticle, DistillOptions } from "./types";
 
-import { parsePageTitle, readMetaTagContent } from "@/lib/sanitize";
+import { findArticleBody } from "./body-selection";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
 

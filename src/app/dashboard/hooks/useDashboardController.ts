@@ -8,10 +8,12 @@ import {
   useRef,
 } from "react";
 
+import { type Article } from "@/lib";
+import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
+
 import { type BackgroundMode, FEED_SCROLL_SESSION_KEY } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
-
 import { useArticleActions } from "./useArticleActions";
 import { useDashboardCategoryTree } from "./useDashboardCategoryTree";
 import { useDashboardEffects } from "./useDashboardEffects";
@@ -22,9 +24,6 @@ import { useDashboardState } from "./useDashboardState";
 import { useFeedLoader } from "./useFeedLoader";
 import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
 import { useRefreshStatus } from "./useRefreshStatus";
-
-import { type Article } from "@/lib";
-import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
 /**
  * External inputs required to assemble the dashboard controller.

@@ -3,6 +3,7 @@
  * Tests for src/app/dashboard/hooks/useArticleActions.ts
  */
 
+import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   afterAll,
   afterEach,
@@ -14,17 +15,16 @@ import {
   test,
 } from "bun:test";
 
-import { act, renderHook, waitFor } from "@testing-library/react";
-
-import { createMockArticle } from "./support/test-utils";
+import type { Article } from "@/lib";
 
 import {
   toggleReadStatus,
   toggleStarredStatus,
 } from "@/app/dashboard/hooks/article-toggle-state";
 import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
-import type { Article } from "@/lib";
 import { ArticleService } from "@/lib";
+
+import { createMockArticle } from "./support/test-utils";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());

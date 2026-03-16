@@ -9,7 +9,6 @@ import {
 } from "react";
 
 import { DASHBOARD_EVENTS } from "../constants";
-
 import {
   clearPersistedPreExpandScroll,
   findArticleViewport,

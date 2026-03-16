@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { Article } from "@/lib/core/types";
+
 import { parseDateOrNull } from "@/lib/utils/dates";
 
 // ── Response builders ─────────────────────────────────────────────────────────

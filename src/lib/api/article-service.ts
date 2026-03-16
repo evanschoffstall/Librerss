@@ -1,6 +1,6 @@
-import { getApiClient } from "./http";
-
 import type { Article } from "@/lib/core/types";
+
+import { getApiClient } from "./http";
 
 interface ArticleByIdResponse {
   content?: unknown;

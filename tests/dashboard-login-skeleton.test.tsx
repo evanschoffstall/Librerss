@@ -1,6 +1,5 @@
-import { describe, expect, test } from "bun:test";
-
 import { render } from "@testing-library/react";
+import { describe, expect, test } from "bun:test";
 
 import { LoginViewSkeleton } from "@/app/dashboard/components/login/LoginViewSkeleton";
 

@@ -1,13 +1,14 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool } from "pg";
 
-import * as schema from "./schema";
 import type {
   DatabaseProviderResult,
   QueryResultRow,
   SqlQueryExecutor,
   SqlQueryResult,
 } from "./types";
+
+import * as schema from "./schema";
 
 interface NodePostgresDatabaseOptions {
   connectionString: string;

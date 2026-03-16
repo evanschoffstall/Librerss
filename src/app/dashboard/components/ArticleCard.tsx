@@ -21,20 +21,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { DASHBOARD_EVENTS } from "../constants";
-import { type ArticleRemovalAnimationMode } from "../hooks/useArticleActions";
-import { useArticleExpansion } from "../hooks/useArticleExpansion";
-import { useArticleHeights } from "../hooks/useArticleHeights";
-import { useFavicon } from "../hooks/useFavicon";
-import { useSwipeToRead } from "../hooks/useSwipeToRead";
-import { useSwipeToStar } from "../hooks/useSwipeToStar";
-import {
-  buildPreview,
-  getArticleSourceLabel,
-  getRichContentClass,
-} from "../services/article-content";
-import { setCachedFaviconIndex } from "../services/favicons";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -60,6 +46,20 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type Article, formatRelativeDate } from "@/lib";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
+
+import { DASHBOARD_EVENTS } from "../constants";
+import { type ArticleRemovalAnimationMode } from "../hooks/useArticleActions";
+import { useArticleExpansion } from "../hooks/useArticleExpansion";
+import { useArticleHeights } from "../hooks/useArticleHeights";
+import { useFavicon } from "../hooks/useFavicon";
+import { useSwipeToRead } from "../hooks/useSwipeToRead";
+import { useSwipeToStar } from "../hooks/useSwipeToStar";
+import {
+  buildPreview,
+  getArticleSourceLabel,
+  getRichContentClass,
+} from "../services/article-content";
+import { setCachedFaviconIndex } from "../services/favicons";
 
 interface ArticleCardProps {
   article: Article;

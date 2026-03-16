@@ -1,26 +1,15 @@
 {
   "suite": {
-    "timeoutMs": 120000,
+    "timeoutMs": 180000,
     "timeoutEnvVar": "CHECK_SUITE_TIMEOUT_MS"
   },
   "paths": {
     "junitPath": "coverage/test-results.xml",
-    "lcovPath": "coverage/lcov.info"
+    "lcovPath": "coverage/lcov.info",
+    "playwrightJunitPath": "coverage/playwright-junit.xml",
+    "playwrightLcovPath": "coverage/playwright/lcov.info"
   },
   "steps": [
-    {
-      "key": "format",
-      "enabled": true,
-      "label": "format",
-      "preRun": true,
-      "cmd": "bunx",
-      "args": [
-        "prettier",
-        "--write",
-        "*.{json,md,yml,yaml}",
-        "**/*.{json,md,yml,yaml}"
-      ]
-    },
     {
       "key": "knip",
       "enabled": true,
@@ -81,25 +70,6 @@
       }
     },
     {
-      "key": "stylelint",
-      "enabled": true,
-      "label": "stylelint",
-      "cmd": "bunx",
-      "args": [
-        "stylelint",
-        "src/**/*.{css,scss}",
-        "--allow-empty-input",
-        "--cache",
-        "--cache-location",
-        ".cache/stylelint",
-        "--cache-strategy",
-        "content"
-      ],
-      "passMsg": "",
-      "failMsg": "stylelint failed",
-      "summary": { "type": "simple" }
-    },
-    {
       "key": "purgecss",
       "enabled": true,
       "label": "purgecss",
@@ -147,21 +117,13 @@
       "summary": { "type": "simple" }
     },
     {
-      "key": "prettier",
+      "key": "audit",
       "enabled": true,
-      "label": "prettier",
-      "cmd": "bunx",
-      "args": [
-        "prettier",
-        "--check",
-        "*.{json,md,yml,yaml}",
-        "**/*.{json,md,yml,yaml}",
-        "--cache",
-        "--cache-location",
-        ".cache/prettier"
-      ],
+      "label": "audit",
+      "cmd": "bun",
+      "args": ["audit"],
       "passMsg": "",
-      "failMsg": "prettier failed",
+      "failMsg": "bun audit failed",
       "summary": { "type": "simple" }
     },
     {

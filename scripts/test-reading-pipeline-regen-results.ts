@@ -1,13 +1,13 @@
+import { NextRequest } from "next/server";
 /**
  * Regenerates expected HTML outputs for the reading-pipeline fixtures.
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { NextRequest } from "next/server";
+import type { AuthenticatedUser } from "@/lib/server";
 
 import { POST } from "@/app/api/articles/extract/route";
-import type { AuthenticatedUser } from "@/lib/server";
 
 const ANONYMOUS_USER: AuthenticatedUser = {
   email: "anonymous",

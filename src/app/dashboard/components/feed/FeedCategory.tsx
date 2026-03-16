@@ -2,11 +2,11 @@ import { Globe } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { memo } from "react";
 
-import { useFavicon } from "../../hooks/useFavicon";
-import { setCachedFaviconIndex } from "../../services/favicons";
-
 import { type CategoryTreeNode } from "@/lib";
 import { getUrlHostnameLabel } from "@/lib/utils/url";
+
+import { useFavicon } from "../../hooks/useFavicon";
+import { setCachedFaviconIndex } from "../../services/favicons";
 
 interface FeedCategoryProps {
   category: CategoryTreeNode;

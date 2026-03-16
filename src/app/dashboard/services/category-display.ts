@@ -1,10 +1,10 @@
+import { type CategoryTreeNode, normalizeCategoryLabelKey } from "@/lib";
+
 import {
   collectKnownCategoryLabels,
   toCategoryKey,
   toDistinctCategoryLabels,
 } from "./category-tree";
-
-import { type CategoryTreeNode, normalizeCategoryLabelKey } from "@/lib";
 
 export function buildDisplayCategories(
   categories: CategoryTreeNode[],

@@ -1,11 +1,12 @@
+import type { CategoryTreeNode } from "@/lib";
+import type { FeedSource } from "@/lib/core/types";
+
+import { FeedService } from "@/lib";
+
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
 } from "./category-tree";
-
-import type { CategoryTreeNode } from "@/lib";
-import { FeedService } from "@/lib";
-import type { FeedSource } from "@/lib/core/types";
 
 interface FeedSourceTreeDependencies {
   buildCategoriesFromSources: (sources: FeedSource[]) => CategoryTreeNode[];

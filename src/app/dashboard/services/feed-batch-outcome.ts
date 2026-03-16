@@ -1,11 +1,11 @@
+import { type Article } from "@/lib";
+
 import { type FeedBatchSource, mapBatchResultsToArticles } from "./feed-batch";
 import {
   type FeedBatchResult,
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
 } from "./feed-loader-helpers";
-
-import { type Article } from "@/lib";
 
 interface FeedBatchOutcome {
   articles: Article[];

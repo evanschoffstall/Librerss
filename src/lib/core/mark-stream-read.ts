@@ -1,5 +1,14 @@
 import { and, eq, lt } from "drizzle-orm";
 
+import { getDb } from "@/lib/db/db";
+import {
+  articles,
+  articleStatuses,
+  feedCategories,
+  feeds,
+  feedSources,
+} from "@/lib/db/schema";
+
 import {
   canUseArticleStatusesTable,
   upsertArticleStatuses,
@@ -9,15 +18,6 @@ import {
   parseUserLabel,
   STARRED_STATE,
 } from "./stream-ids";
-
-import { getDb } from "@/lib/db/db";
-import {
-  articles,
-  articleStatuses,
-  feedCategories,
-  feeds,
-  feedSources,
-} from "@/lib/db/schema";
 
 // Upper bound for mark-all-as-read to prevent unbounded queries.
 const MARK_ALL_READ_LIMIT = 10_000;

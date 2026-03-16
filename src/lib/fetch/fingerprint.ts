@@ -1,6 +1,11 @@
+import type { CookieJar } from "tough-cookie";
+
 import axios from "axios";
 import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
-import type { CookieJar } from "tough-cookie";
+
+import { CONFIG } from "@/lib/config";
+import { logger } from "@/lib/logger";
+import { stripUrlFragment } from "@/lib/utils/url";
 
 import { TLS_CLIENT_CHROME_VER } from "./constants";
 import {
@@ -10,10 +15,6 @@ import {
 } from "./cookies";
 import { GotScrapingError, pickDiagnosticHeaders } from "./response";
 import { ensureTlsClient, tlsClientFetch } from "./tls-client";
-
-import { CONFIG } from "@/lib/config";
-import { logger } from "@/lib/logger";
-import { stripUrlFragment } from "@/lib/utils/url";
 
 export const extractionAxios = cookieJarWrapper(axios.create());
 

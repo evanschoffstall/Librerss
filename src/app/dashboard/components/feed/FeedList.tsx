@@ -14,6 +14,9 @@ import {
   useState,
 } from "react";
 
+import { type Article } from "@/lib";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
+
 import {
   ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS,
   ARTICLE_REMOVAL_ANIMATION_MS,
@@ -23,7 +26,6 @@ import {
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
 import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
-
 import {
   FEED_LOAD_MORE_THRESHOLD_PX,
   FEED_ROW_COLLAPSE_FLOOR_PX,
@@ -38,9 +40,6 @@ import {
   FEED_ROW_VIRTUAL_OVERSCAN,
   VIRTUAL_FEED_ROW_ESTIMATE_PX,
 } from "./constants";
-
-import { type Article } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 interface FeedListProps {
   collapseSettlingArticleKey?: null | string;
@@ -913,9 +912,7 @@ export const FeedList = memo(function FeedList({
 
             <div className="space-y-2">
               <h3
-                className="
-                text-xl font-semibold tracking-tight text-foreground
-              "
+                className="text-xl font-semibold tracking-tight text-foreground"
               >
                 {searchTerm ? "No results" : "You're up to date"}
               </h3>

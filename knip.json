@@ -1,10 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.ts"],
+  "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}"],
   "project": [
     "next-env.test-d.ts",
     "src/**/*.{js,jsx,ts,tsx}",
-    "scripts/**/*.{js,ts}",
+    "scripts/**/*.{js,ts,mjs}",
     "tests/**/*.{ts,tsx}"
   ],
   "ignoreIssues": {
@@ -15,7 +15,7 @@
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
     "@0xts/gitleaks-cli",
-    "@commitlint/cli",
+    "@radix-ui/react-alert-dialog",
     "@lexical/code",
     "@lexical/link",
     "@lexical/list",

@@ -8,10 +8,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { NextRequest } from "next/server";
 
 import type { ProxyRouteDeps } from "@/app/api/settings/proxy/route";
+
 import {
   resetApiClientForTesting,
   setApiClientForTesting,

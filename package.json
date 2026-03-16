@@ -20,19 +20,8 @@
     "db:studio": "bunx drizzle-kit studio"
   },
   "lint-staged": {
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ],
     "*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}": [
       "bun scripts/check.ts lint --fix"
-    ],
-    "*.{css,scss}": [
-      "stylelint --fix"
-    ]
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
     ]
   },
   "dependencies": {
@@ -48,6 +37,8 @@
     "@mozilla/readability": "^0.6.0",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
@@ -56,22 +47,22 @@
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
-    "@tanstack/react-query": "^5.90.5",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-virtual": "^3.13.22",
-    "@vercel/analytics": "^1.6.1",
+    "@vercel/analytics": "^2.0.1",
     "axios": "^1.13.6",
     "axios-cookiejar-support": "^6.0.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "defuddle": "^0.11.0",
+    "defuddle": "^0.13.0",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
     "lexical": "^0.41.0",
     "linkedom": "^0.18.12",
     "lodash": "^4.17.23",
-    "lucide-react": "^0.575.0",
+    "lucide-react": "^0.577.0",
     "motion": "^12.36.0",
     "next": "^16.1.6",
     "next-themes": "^0.4.6",
@@ -85,7 +76,7 @@
     "rss-parser": "^3.13.0",
     "sanitize-html": "^2.17.1",
     "socks": "^2.8.7",
-    "socks-proxy-agent": "^8.0.5",
+    "socks-proxy-agent": "^9.0.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
@@ -95,9 +86,8 @@
   },
   "devDependencies": {
     "@0xts/gitleaks-cli": "^0.1.3",
-    "@commitlint/cli": "^20.4.4",
-    "@commitlint/config-conventional": "^20.4.4",
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
     "@secretlint/secretlint-rule-preset-recommend": "^11.3.1",
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/react": "^16.3.2",
@@ -108,22 +98,23 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/sanitize-html": "^2.16.1",
-    "@typescript-eslint/eslint-plugin": "8.56.1",
+    "@typescript-eslint/eslint-plugin": "8.57.0",
     "dependency-cruiser": "^17.3.9",
     "drizzle-kit": "^0.31.9",
-    "eslint": "^9.39.4",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-better-tailwindcss": "^4.3.2",
-    "eslint-plugin-boundaries": "^5.4.0",
+    "eslint-plugin-boundaries": "^6.0.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-no-only-tests": "^3.3.0",
     "eslint-plugin-perfectionist": "^5.6.0",
+    "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-promise": "^7.2.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-regexp": "^3.1.0",
     "eslint-plugin-security": "^4.0.0",
-    "eslint-plugin-simple-import-sort": "^12.1.1",
-    "eslint-plugin-sonarjs": "^3.0.7",
+    "eslint-plugin-sonarjs": "^4.0.2",
     "eslint-plugin-tailwindcss": "^4.0.0-beta.0",
     "eslint-plugin-unicorn": "^63.0.0",
     "eslint-plugin-unused-imports": "^4.4.1",
@@ -132,12 +123,11 @@
     "jscpd": "^4.0.8",
     "knip": "^5.86.0",
     "lint-staged": "^16.4.0",
+    "monocart-coverage-reports": "^2.12.9",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
     "purgecss": "^8.0.0",
     "secretlint": "^11.3.1",
-    "stylelint": "^17.4.0",
-    "stylelint-config-standard": "^40.0.0",
     "tailwindcss": "^4.2.1",
     "ts-prune": "^0.10.3",
     "tsd": "^0.33.0",
@@ -145,6 +135,8 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
+    "flatted": "3.4.1",
+    "undici": "7.24.3",
     "minimatch": "3.1.4",
     "esbuild": "0.25.12"
   },

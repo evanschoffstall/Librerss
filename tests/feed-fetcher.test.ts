@@ -5,6 +5,9 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import type { FeedRecord } from "@/lib/core/feed-refresh";
+import type { getDb } from "@/lib/db/db";
+
 import {
   fetchAndCacheFeedArticles,
   fetchAndCacheFeedArticlesBatch,
@@ -13,12 +16,10 @@ import {
   resetFeedFetcherDependenciesForTesting,
   setFeedFetcherDependenciesForTesting,
 } from "@/lib/core/feed-fetcher";
-import type { FeedRecord } from "@/lib/core/feed-refresh";
 import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
 } from "@/lib/core/feed-url-validator";
-import type { getDb } from "@/lib/db/db";
 
 // Mock dependencies
 const mockDb = {

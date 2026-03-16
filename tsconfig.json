@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -20,14 +24,30 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/components": ["./src/components/index.ts"],
-      "@/components/*": ["./src/components/*"],
-      "@/lib": ["./src/lib/index.ts"],
-      "@/lib/utils": ["./src/lib/utils/index.ts"],
-      "@/lib/sanitize": ["./src/lib/sanitize/index.ts"],
-      "@/lib/server": ["./src/lib/server/index.ts"],
-      "@/lib/*": ["./src/lib/*"],
-      "@/*": ["./src/*"]
+      "@/components": [
+        "./src/components/index.ts"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/lib": [
+        "./src/lib/index.ts"
+      ],
+      "@/lib/utils": [
+        "./src/lib/utils/index.ts"
+      ],
+      "@/lib/sanitize": [
+        "./src/lib/sanitize/index.ts"
+      ],
+      "@/lib/server": [
+        "./src/lib/server/index.ts"
+      ],
+      "@/lib/*": [
+        "./src/lib/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
   "include": [

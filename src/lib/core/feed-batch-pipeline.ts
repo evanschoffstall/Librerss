@@ -5,6 +5,15 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 
+import type { getDb } from "@/lib/db/db";
+
+import { CONFIG } from "@/lib/config";
+import { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } from "@/lib/core/article-preview";
+import { feedRecordFields } from "@/lib/db/feed-records";
+import { feeds, feedSources } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
+import { toPlainText } from "@/lib/sanitize";
+
 import {
   type FeedRecord,
   refreshFeedFromUpstream,
@@ -12,14 +21,6 @@ import {
   shouldRefreshFeed,
   type UpstreamRefreshResult,
 } from "./feed-refresh";
-
-import { CONFIG } from "@/lib/config";
-import { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } from "@/lib/core/article-preview";
-import type { getDb } from "@/lib/db/db";
-import { feedRecordFields } from "@/lib/db/feed-records";
-import { feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
-import { toPlainText } from "@/lib/sanitize";
 
 // ─── Concurrency helper ──────────────────────────────────────────────────────
 

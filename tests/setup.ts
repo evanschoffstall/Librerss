@@ -3,9 +3,8 @@
  * Runs before all tests
  */
 
-import { afterAll, afterEach, mock } from "bun:test";
-
 import { cleanup } from "@testing-library/react";
+import { afterAll, afterEach, mock } from "bun:test";
 // Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
 import { Window } from "happy-dom";
 

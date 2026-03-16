@@ -2,10 +2,10 @@ import { Rss } from "lucide-react";
 import { motion } from "motion/react";
 import { memo } from "react";
 
-import { FeedCategory } from "./feed/FeedCategory";
-import { DashboardSidebarSkeleton } from "./DashboardLoadingSurfaces";
-
 import { type CategoryTreeNode } from "@/lib";
+
+import { DashboardSidebarSkeleton } from "./DashboardLoadingSurfaces";
+import { FeedCategory } from "./feed/FeedCategory";
 
 const SIDEBAR_SECTION_TRANSITION = {
   duration: 0.24,

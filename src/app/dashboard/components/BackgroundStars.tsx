@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import { useBackgroundCanvasAnimation } from "../hooks/useBackgroundCanvasAnimation";
-
 import { getBackgroundCanvasScale } from "./background-canvas";
 
 interface Star {

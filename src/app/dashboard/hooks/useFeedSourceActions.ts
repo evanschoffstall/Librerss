@@ -7,6 +7,10 @@
 
 import { useCallback } from "react";
 
+import { type OpmlFeedImportEntry } from "@/lib";
+
+import type { FeedSourceActionState } from "./types";
+
 import {
   addFeedSourceAndRefresh,
   moveFeedByDropAndPersist,
@@ -17,10 +21,6 @@ import {
   updateFeedSettingsAndRefresh,
 } from "../services/feed-source-operations";
 import { importOpmlFeedsAndRefresh } from "../services/opml-import";
-
-import type { FeedSourceActionState } from "./types";
-
-import { type OpmlFeedImportEntry } from "@/lib";
 
 interface UseFeedSourceActionsOptions extends FeedSourceActionState {
   ensureCategoryLabelExists: (label: string) => void;

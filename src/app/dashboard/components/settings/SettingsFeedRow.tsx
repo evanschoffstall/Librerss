@@ -10,17 +10,16 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { MotionSpinner } from "../MotionSpinner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { type CategoryTreeNode } from "@/lib";
 
+import { MotionSpinner } from "../MotionSpinner";
 import {
   animTransitionColorsClass,
   settingsDragHandleCls,
   SettingsIconButton,
 } from "./SettingsIconButton";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { type CategoryTreeNode } from "@/lib";
 
 export interface SettingsFeedRowProps {
   categoryLabel: string;

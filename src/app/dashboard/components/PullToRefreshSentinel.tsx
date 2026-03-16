@@ -1,6 +1,7 @@
+import type { Ref } from "react";
+
 import { ArrowDown } from "lucide-react";
 import { motion } from "motion/react";
-import type { Ref } from "react";
 
 const DASHBOARD_PULL_HINT_TRANSITION = {
   duration: 0.18,

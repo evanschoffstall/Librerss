@@ -4,10 +4,10 @@
 
 import axios from "axios";
 
+import { CONFIG } from "@/lib/config";
+
 import { assertPublicFeedUrl } from "./feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "./upstream-http";
-
-import { CONFIG } from "@/lib/config";
 
 const MAX_FEED_REDIRECTS = 5;
 

@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { act, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createElement, type RefCallback } from "react";
 
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";

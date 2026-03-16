@@ -2,10 +2,11 @@
  * Helpers for mapping batch feed-fetch results into article lists.
  */
 
-import { dedupeAndSortArticles } from "./article-collection";
+import type { BatchFeedResponseItem } from "@/lib/api/http";
 
 import { type Article, type CategoryTreeNode } from "@/lib";
-import type { BatchFeedResponseItem } from "@/lib/api/http";
+
+import { dedupeAndSortArticles } from "./article-collection";
 
 export interface FeedBatchSource {
   name: string | undefined;

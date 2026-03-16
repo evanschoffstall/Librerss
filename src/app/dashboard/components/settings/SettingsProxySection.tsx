@@ -1,17 +1,14 @@
 "use client";
 
 import {
-  Bug,
-  CheckCircle2,
-  Globe,
-  Info,
-  Save,
-  Trash2,
-  XCircle,
+    CheckCircle2,
+    Globe,
+    Info,
+    Save,
+    Trash2,
+    XCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-
-import { MotionSpinner } from "../MotionSpinner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

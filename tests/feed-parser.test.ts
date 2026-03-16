@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-
 import Parser from "rss-parser";
 
 describe("RSS Parser content:encoded handling", () => {

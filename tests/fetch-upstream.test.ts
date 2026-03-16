@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import type { AxiosError, AxiosResponse } from "axios";
+
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { CookieJar } from "tough-cookie";
 
 import {
-  EXTRACT_403_RETRIES,
-  fetchHtml,
-  PROXY_FINGERPRINT_POOL,
+    EXTRACT_403_RETRIES,
+    fetchHtml,
+    PROXY_FINGERPRINT_POOL,
 } from "@/lib/extract";
 import { GotScrapingError } from "@/lib/fetch";
 

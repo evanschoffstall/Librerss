@@ -9,10 +9,11 @@
  * path and should age out together under the same freshness budget.
  */
 
-import type { ArticleRow } from "./feed-batch-pipeline";
-
 import type { FeedSourceListRow } from "@/lib/api/feeds/types";
+
 import { CONFIG } from "@/lib/config";
+
+import type { ArticleRow } from "./feed-batch-pipeline";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

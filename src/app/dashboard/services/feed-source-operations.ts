@@ -1,16 +1,5 @@
 import { toast } from "sonner";
 
-import { ALL_FEEDS_NODE_KEY } from "../constants";
-
-import {
-  findFeedNodeByKey,
-  findFeedNodeByUrl,
-  getAllFeedNodes,
-  getFirstFeedNode,
-  relocateFeedInCategories,
-} from "./category-tree";
-import type { FeedFetchOptions } from "./selection";
-
 import {
   type Article,
   type CategoryTreeNode,
@@ -20,6 +9,17 @@ import {
   isValidUrl,
   normalizeCategory,
 } from "@/lib";
+
+import type { FeedFetchOptions } from "./selection";
+
+import { ALL_FEEDS_NODE_KEY } from "../constants";
+import {
+  findFeedNodeByKey,
+  findFeedNodeByUrl,
+  getAllFeedNodes,
+  getFirstFeedNode,
+  relocateFeedInCategories,
+} from "./category-tree";
 
 export async function addFeedSourceAndRefresh({
   category,

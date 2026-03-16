@@ -1,6 +1,6 @@
-import type { Article, FeedSource } from "./types";
-
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils/url";
+
+import type { Article, FeedSource } from "./types";
 
 export const PLACEHOLDER_CATEGORY = "Placeholder Feeds";
 

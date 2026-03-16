@@ -1,5 +1,7 @@
 import sanitizeHtml from "sanitize-html";
 
+import { CONFIG } from "@/lib/config";
+
 import {
   decodeHtmlEntities,
   normalizeArticleHtmlSpacing,
@@ -10,8 +12,6 @@ import {
   stripOrphanedRelatedBlocks,
 } from "./cleaners";
 import { purifyRawHtml } from "./purify";
-
-import { CONFIG } from "@/lib/config";
 
 function isKnownPlaceholderImage(
   attribs: Record<string, string | undefined> | undefined,

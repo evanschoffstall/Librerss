@@ -1,8 +1,8 @@
+import { type Article, type CategoryTreeNode } from "@/lib";
+
 import { type ArticleFilter, filterArticlesByState } from "./article-filters";
 import { buildDisplayCategories } from "./category-display";
 import { findFeedNodeByKey, SYSTEM_ALL_FEEDS_CATEGORY } from "./category-tree";
-
-import { type Article, type CategoryTreeNode } from "@/lib";
 
 const articleContentSearchTextCache = new WeakMap<Article, string>();
 const articleTitleSearchTextCache = new WeakMap<Article, string>();

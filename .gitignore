@@ -24,11 +24,15 @@ yarn.lock
 
 # framework, build, and coverage outputs
 /.next/
+/.next-playwright*/
 /.nyc_output/
 /build/
 /coverage/
 /dist/
 /out/
+/playwright-report/
+/playwright-report-*/
+/test-results/
 /tests/templates/
 /.cache/
 /.tsc-out/

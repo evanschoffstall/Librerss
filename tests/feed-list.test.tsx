@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-
 import { act, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { ThemeProvider } from "next-themes";
 import * as React from "react";
 

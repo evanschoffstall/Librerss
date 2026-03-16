@@ -1,8 +1,9 @@
-import { DEFAULT_CATEGORY_LABEL } from "./categories";
-import { tryNormalizeFeedUrl } from "./url";
+import type { CategoryTreeNode } from "@/lib/core/types";
 
 import { CONFIG } from "@/lib/config";
-import type { CategoryTreeNode } from "@/lib/core/types";
+
+import { DEFAULT_CATEGORY_LABEL } from "./categories";
+import { tryNormalizeFeedUrl } from "./url";
 
 export interface OpmlFeedImportEntry {
   category: string;

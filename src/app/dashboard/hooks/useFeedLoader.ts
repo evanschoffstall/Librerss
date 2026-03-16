@@ -4,6 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import type { Article, CategoryTreeNode } from "@/lib";
+
+import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
+import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
+
+import type { FeedFetchOptions } from "../services/selection";
+
 import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-tree";
 import {
   buildBatchRequestSignature,
@@ -29,11 +36,6 @@ import {
   getFeedBatchQueryKey,
   getFeedSourceTreeQueryKey,
 } from "../services/query-keys";
-import type { FeedFetchOptions } from "../services/selection";
-
-import type { Article, CategoryTreeNode } from "@/lib";
-import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
-import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 
 interface BeginFeedRequestOptions {
   forceRefresh: boolean;
