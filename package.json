@@ -17,7 +17,6 @@
     "test:e2e:headed": "bun scripts/run-playwright.ts --headed",
     "test:e2e:ui": "bun scripts/run-playwright.ts --ui",
     "test:regen": "bun run scripts/test-pipeline-regen-results.ts",
-    "types": "tsc --noEmit",
     "db:provision": "bun scripts/db-provision.ts",
     "db:create-user": "bun scripts/db-create-user.ts",
     "db:generate": "bunx drizzle-kit generate",

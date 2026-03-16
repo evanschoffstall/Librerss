@@ -290,8 +290,8 @@
       "key": "types",
       "enabled": true,
       "label": "tsc",
-      "cmd": "bun",
-      "args": ["run", "types"],
+      "cmd": "tsc",
+      "args": ["--noEmit"],
       "passMsg": "",
       "failMsg": "typecheck failed",
       "summary": {
