@@ -18,24 +18,26 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ArticleService } from "@/lib/api/services";
 
-interface BotResult {
-  blocked: boolean;
+import { MotionSpinner } from "../MotionSpinner";
+
+interface CompatibilityResult {
+  compatibilitySignalDetected: boolean;
   error?: string;
-  protection: string;
   statusCode?: number;
   success: boolean;
+  vendor: string;
 }
 
-interface BotResultsCache {
+interface CompatibilityResultsCache {
   checkedAt: number;
-  results: BotResult[];
+  results: CompatibilityResult[];
 }
 
 type ProxyUIStatus =
@@ -46,7 +48,8 @@ type ProxyUIStatus =
   | "unreachable";
 
 const ERROR_PREVIEW_CHARS = 88;
-const BOT_RESULTS_CACHE_KEY = "librerss:settings:proxy:bot-results:v1";
+const COMPATIBILITY_RESULTS_CACHE_KEY =
+  "librerss:settings:proxy:compatibility-results:v1";
 
 export function SettingsProxySection() {
   const [proxyUrl, setProxyUrl] = useState("");
@@ -58,10 +61,14 @@ export function SettingsProxySection() {
   const [proxyPassword, setProxyPassword] = useState("");
   const [hasProxyPassword, setHasProxyPassword] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [testingBot, setTestingBot] = useState(false);
-  const [botResults, setBotResults] = useState<BotResult[] | null>(null);
-  const [botError, setBotError] = useState<null | string>(null);
-  const [botCheckedAt, setBotCheckedAt] = useState<null | number>(null);
+  const [isRunningCompatibilityCheck, setIsRunningCompatibilityCheck] =
+    useState(false);
+  const [compatibilityResults, setCompatibilityResults] =
+    useState<CompatibilityResult[] | null>(null);
+  const [compatibilityError, setCompatibilityError] =
+    useState<null | string>(null);
+  const [compatibilityCheckedAt, setCompatibilityCheckedAt] =
+    useState<null | number>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const resultsRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollToResultsRef = useRef(false);
@@ -83,17 +90,17 @@ export function SettingsProxySection() {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(BOT_RESULTS_CACHE_KEY);
+      const raw = window.localStorage.getItem(COMPATIBILITY_RESULTS_CACHE_KEY);
       if (!raw) return;
       const parsed: unknown = JSON.parse(raw);
-      if (!isBotResultsCache(parsed)) return;
+      if (!isCompatibilityResultsCache(parsed)) return;
       if (
         typeof parsed.checkedAt !== "number" ||
         !Array.isArray(parsed.results)
       )
         return;
-      setBotResults(parsed.results);
-      setBotCheckedAt(parsed.checkedAt);
+      setCompatibilityResults(parsed.results);
+      setCompatibilityCheckedAt(parsed.checkedAt);
     } catch {
       // ignore malformed cache
     }
@@ -109,7 +116,7 @@ export function SettingsProxySection() {
   }, []);
 
   useEffect(() => {
-    if (!botResults || !shouldAutoScrollToResultsRef.current) return;
+    if (!compatibilityResults || !shouldAutoScrollToResultsRef.current) return;
     shouldAutoScrollToResultsRef.current = false;
     window.requestAnimationFrame(() => {
       resultsRef.current?.scrollIntoView({
@@ -117,7 +124,7 @@ export function SettingsProxySection() {
         block: "end",
       });
     });
-  }, [botResults]);
+  }, [compatibilityResults]);
 
   if (proxyStatus === "loading") return <ProxySkeleton />;
 
@@ -126,13 +133,13 @@ export function SettingsProxySection() {
     proxyStatus === "unreachable" ||
     proxyStatus === "checking";
 
-  const clearBotDetectionResults = () => {
-    setBotResults(null);
-    setBotCheckedAt(null);
-    setBotError(null);
+  const clearCompatibilityResults = () => {
+    setCompatibilityResults(null);
+    setCompatibilityCheckedAt(null);
+    setCompatibilityError(null);
     shouldAutoScrollToResultsRef.current = false;
     try {
-      window.localStorage.removeItem(BOT_RESULTS_CACHE_KEY);
+      window.localStorage.removeItem(COMPATIBILITY_RESULTS_CACHE_KEY);
     } catch {
       // ignore storage errors
     }
@@ -141,7 +148,7 @@ export function SettingsProxySection() {
   const handleSave = async () => {
     const trimmed = proxyUrl.trim();
     if (!trimmed) return;
-    clearBotDetectionResults();
+    clearCompatibilityResults();
     setSaving(true);
     setError(null);
     setProxyStatus("checking");
@@ -172,7 +179,7 @@ export function SettingsProxySection() {
   };
 
   const handleClear = async () => {
-    clearBotDetectionResults();
+    clearCompatibilityResults();
     setSaving(true);
     setError(null);
     try {
@@ -194,29 +201,29 @@ export function SettingsProxySection() {
     }
   };
 
-  const handleTestBotDetection = async () => {
-    setTestingBot(true);
-    setBotError(null);
+  const handleRunCompatibilityCheck = async () => {
+    setIsRunningCompatibilityCheck(true);
+    setCompatibilityError(null);
     setError(null);
     try {
-      const response = await ArticleService.testBotDetection({
+      const response = await ArticleService.runProxyCompatibilityCheck({
         useProxy: hasProxy,
       });
       shouldAutoScrollToResultsRef.current = true;
-      setBotResults(response.results);
+      setCompatibilityResults(response.results);
       const checkedAt = Date.now();
-      setBotCheckedAt(checkedAt);
+      setCompatibilityCheckedAt(checkedAt);
       window.localStorage.setItem(
-        BOT_RESULTS_CACHE_KEY,
+        COMPATIBILITY_RESULTS_CACHE_KEY,
         JSON.stringify({
           checkedAt,
           results: response.results,
-        } satisfies BotResultsCache),
+        } satisfies CompatibilityResultsCache),
       );
     } catch (err) {
-      setBotError(err instanceof Error ? err.message : "Test failed");
+      setCompatibilityError(err instanceof Error ? err.message : "Check failed");
     } finally {
-      setTestingBot(false);
+      setIsRunningCompatibilityCheck(false);
     }
   };
 
@@ -228,11 +235,15 @@ export function SettingsProxySection() {
           <div>
             <h3 className="section-heading">
               <Globe className="icon-muted" />
-              Extraction Proxy
+              Connection Routing
             </h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Route article extraction through a proxy to bypass
-              geo-restrictions or bot detection.
+              Route article requests through your own proxy when a source is
+              more reliable from a different network path.
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Optional proxy usernames are stored with your settings. Proxy
+              passwords are encrypted before they are written to storage.
             </p>
           </div>
           <StatusBadge status={proxyStatus} />
@@ -410,42 +421,42 @@ export function SettingsProxySection() {
 
         <Separator />
 
-        {/* Anti-bot test */}
+        {/* Compatibility test */}
         <div className="space-y-3">
           <div className="row-between">
             <div>
-              <p className="text-xs font-medium">Anti-Bot Detection Test</p>
+              <p className="text-xs font-medium">Compatibility Check</p>
               <p className="text-[11px] text-muted-foreground">
-                Verify bypass against DataDome, PerimeterX, Cloudflare, and
-                reCAPTCHA
+                Compare how a few common source environments respond from this
+                app
                 {hasProxy ? " via proxy" : ""}.
               </p>
-              {botCheckedAt && (
+              {compatibilityCheckedAt && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Last check {formatElapsed(botCheckedAt, nowTs)}
+                  Last check {formatElapsed(compatibilityCheckedAt, nowTs)}
                 </p>
               )}
             </div>
             <Button
               className="h-8 shrink-0 gap-1.5"
-              disabled={testingBot || saving}
+              disabled={isRunningCompatibilityCheck || saving}
               onClick={() => {
-                void handleTestBotDetection();
+                void handleRunCompatibilityCheck();
               }}
               size="sm"
               type="button"
               variant="outline"
             >
-              {testingBot ? (
+              {isRunningCompatibilityCheck ? (
                 <MotionSpinner iconClassName="size-3.5" />
               ) : (
-                <Bug className="size-3.5" />
+                <Globe className="size-3.5" />
               )}
-              {testingBot ? "Testing…" : "Run Test"}
+              {isRunningCompatibilityCheck ? "Checking…" : "Run Check"}
             </Button>
           </div>
 
-          {botError && (
+          {compatibilityError && (
             <div
               className="
                 flex min-w-0 items-center gap-1.5 text-xs text-destructive
@@ -455,29 +466,29 @@ export function SettingsProxySection() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="max-w-md min-w-0 truncate">
-                    {previewText(botError)}
+                    {previewText(compatibilityError)}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-160 text-xs" side="top">
-                  <p className="break-all">{botError}</p>
+                  <p className="break-all">{compatibilityError}</p>
                 </TooltipContent>
               </Tooltip>
             </div>
           )}
 
-          {botResults && (
+          {compatibilityResults && (
             <div
               className="divide-y divide-border rounded-lg border bg-muted/30"
               ref={resultsRef}
             >
-              {botResults.map((r, i) => (
+              {compatibilityResults.map((r, i) => (
                 <div
                   className="flex items-center justify-between gap-3 px-3 py-2"
                   key={i}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     <span className="shrink-0 text-xs font-medium">
-                      {r.protection}
+                      {r.vendor}
                     </span>
                     {!!r.statusCode && r.statusCode > 0 && (
                       <span className="
@@ -508,7 +519,7 @@ export function SettingsProxySection() {
                       </Tooltip>
                     )}
                   </div>
-                  <BotResultBadge result={r} />
+                  <CompatibilityResultBadge result={r} />
                 </div>
               ))}
             </div>
@@ -519,9 +530,13 @@ export function SettingsProxySection() {
   );
 }
 
-function BotResultBadge({ result }: { result: BotResult }) {
+function CompatibilityResultBadge({
+  result,
+}: {
+  result: CompatibilityResult;
+}) {
   const base = "h-5 shrink-0 px-1.5 text-[10px]";
-  if (result.success && !result.blocked) {
+  if (result.success && !result.compatibilitySignalDetected) {
     return (
       <Badge
         className={`
@@ -535,7 +550,11 @@ function BotResultBadge({ result }: { result: BotResult }) {
       </Badge>
     );
   }
-  if (result.blocked && result.statusCode && result.statusCode > 0) {
+  if (
+    result.compatibilitySignalDetected &&
+    result.statusCode &&
+    result.statusCode > 0
+  ) {
     return (
       <Badge
         className={`
@@ -545,7 +564,7 @@ function BotResultBadge({ result }: { result: BotResult }) {
         `}
         variant="outline"
       >
-        Blocked
+        Limited
       </Badge>
     );
   }
@@ -573,7 +592,9 @@ function formatElapsed(checkedAt: number, now: number) {
   return `${elapsedDay}d ago`;
 }
 
-function isBotResultsCache(value: unknown): value is BotResultsCache {
+function isCompatibilityResultsCache(
+  value: unknown,
+): value is CompatibilityResultsCache {
   if (typeof value !== "object" || value === null) {
     return false;
   }

@@ -887,9 +887,9 @@ describe("fetch/fingerprint – blocked URL throws", () => {
   });
 });
 
-// ── lib/fetch/bot-detection – detectBotProtection ────────────────────────────
+// ── lib/fetch/compatibility-signal – detectSourceCompatibilitySignal ────────
 
-describe("lib/fetch/bot-detection – detectBotProtection", () => {
+describe("lib/fetch/compatibility-signal – detectSourceCompatibilitySignal", () => {
   const isAxiosErr = (is: boolean) =>
     ((_e: unknown) => is) as typeof import("axios").default.isAxiosError;
   const makeErr = (
@@ -899,70 +899,76 @@ describe("lib/fetch/bot-detection – detectBotProtection", () => {
   ) => ({ response: { data, headers, status } });
 
   test("returns detected:false for non-axios errors", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(new Error("generic"), isAxiosErr(false));
-    expect(result.bot.detected).toBe(false);
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
+      new Error("generic"),
+      isAxiosErr(false),
+    );
+    expect(result.signal.detected).toBe(false);
     expect(result.retryable).toBe(false);
   });
 
-  test("returns retryable:true for 403 with no bot fingerprints", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(
+  test("returns retryable:true for 403 with no compatibility fingerprints", async () => {
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
       makeErr(403, {}, "some generic error"),
       isAxiosErr(true),
     );
     expect(result.retryable).toBe(true);
-    expect(result.bot.detected).toBe(false);
+    expect(result.signal.detected).toBe(false);
   });
 
   test("returns detected:false for non-403/429 status codes", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
       makeErr(500, {}, "Internal Server Error"),
       isAxiosErr(true),
     );
-    expect(result.bot.detected).toBe(false);
+    expect(result.signal.detected).toBe(false);
     expect(result.retryable).toBe(false);
   });
 
   test("detects DataDome via x-datadome:protected header", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
       makeErr(403, { "x-datadome": "protected" }),
       isAxiosErr(true),
     );
-    expect(result.bot.detected).toBe(true);
-    if (result.bot.detected) expect(result.bot.provider).toBe("DataDome");
+    expect(result.signal.detected).toBe(true);
+    if (result.signal.detected) expect(result.signal.provider).toBe("DataDome");
   });
 
   test("detects PerimeterX via px-captcha in response body", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
       makeErr(403, {}, "blocked by px-captcha challenge"),
       isAxiosErr(true),
     );
-    expect(result.bot.detected).toBe(true);
-    if (result.bot.detected) expect(result.bot.provider).toBe("PerimeterX");
+    expect(result.signal.detected).toBe(true);
+    if (result.signal.detected)
+      expect(result.signal.provider).toBe("PerimeterX");
   });
 
   test("detects Cloudflare via cf-mitigated:challenge header", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
       makeErr(403, { "cf-mitigated": "challenge" }),
       isAxiosErr(true),
     );
-    expect(result.bot.detected).toBe(true);
-    if (result.bot.detected) expect(result.bot.provider).toBe("Cloudflare");
+    expect(result.signal.detected).toBe(true);
+    if (result.signal.detected)
+      expect(result.signal.provider).toBe("Cloudflare");
   });
 
   test("detects reCAPTCHA via g-recaptcha class in body", async () => {
-    const { detectBotProtection } = await import("@/lib/fetch");
-    const result = detectBotProtection(
+    const { detectSourceCompatibilitySignal } = await import("@/lib/fetch");
+    const result = detectSourceCompatibilitySignal(
       makeErr(403, {}, '<div class="g-recaptcha" data-sitekey="abc"></div>'),
       isAxiosErr(true),
     );
-    expect(result.bot.detected).toBe(true);
-    if (result.bot.detected) expect(result.bot.provider).toBe("reCAPTCHA");
+    expect(result.signal.detected).toBe(true);
+    if (result.signal.detected)
+      expect(result.signal.provider).toBe("reCAPTCHA");
   });
 });
 

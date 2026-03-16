@@ -158,7 +158,7 @@ export function SettingsDisplaySection({
           </Select>
         </div>
         <div className="row-between">
-          <Label>Content extraction</Label>
+          <Label>Readable article mode</Label>
           <Select
             onValueChange={onDistillStrategyChange}
             value={distillStrategy}

@@ -1,31 +1,31 @@
 import axios from "axios";
 import { CookieJar } from "tough-cookie";
 
-import {
-  ARTICLE_EXTRACT_SEC_CH_UA,
-  EXTRACT_403_RETRIES,
-  EXTRACT_FINGERPRINT_POOL,
-  PROXY_FINGERPRINT_POOL,
-} from "./constants";
-
 import { toBodySnippet } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import {
-  type BotDetection,
-  buildAxiosGet,
-  buildDdgReferer,
-  buildProxyConfig,
-  detectBotProtection,
-  fetchHtmlWithFingerprint,
-  GotScrapingError,
-  pickDiagnosticHeaders,
-  SOCKS_PROTOCOLS,
+    buildAxiosGet,
+    buildDdgReferer,
+    buildProxyConfig,
+    detectSourceCompatibilitySignal,
+    fetchHtmlWithFingerprint,
+    GotScrapingError,
+    pickDiagnosticHeaders,
+    SOCKS_PROTOCOLS,
+    type SourceCompatibilitySignal,
 } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
+
+import {
+    ARTICLE_EXTRACT_SEC_CH_UA,
+    EXTRACT_403_RETRIES,
+    EXTRACT_FINGERPRINT_POOL,
+    PROXY_FINGERPRINT_POOL,
+} from "./constants";
 
 interface FetchHtmlDeps {
   axiosGetFn?: typeof axios.get;
@@ -56,7 +56,7 @@ export async function fetchHtml(
   const useProxy = options?.useProxy === true;
   const configuredProxyUrl = options?.proxyUrl;
 
-  // ── Proxy path: TLS fingerprint from first attempt ────────────────────────
+  // ── Proxy path: alternate request profile from first attempt ──────────────
   if (useProxy && configuredProxyUrl && !injectedGet) {
     let lastError: unknown;
     const attempts = 1 + EXTRACT_403_RETRIES;
@@ -109,13 +109,13 @@ export async function fetchHtml(
         const is403 = gsErr?.statusCode === 403;
         const is429 = gsErr?.statusCode === 429;
 
-        const proxyPxDetected =
+        const proxyPerimeterXDetected =
           is403 &&
           (/px[-_]captcha|perimeterx|\/_px\//i.test(gsErr.responseBody) ||
             Object.keys(gsErr.responseHeaders).some((h) =>
               h.toLowerCase().startsWith("x-px-"),
             ));
-        const proxyDdDetected =
+        const proxyDataDomeDetected =
           is403 &&
           (() => {
             const dataDomeHeader = gsErr.responseHeaders["x-datadome"];
@@ -128,14 +128,15 @@ export async function fetchHtml(
                 )
               : false;
           })();
-        const ipBlocked = proxyPxDetected || proxyDdDetected;
-        const botProvider = proxyPxDetected
+        const accessConstrained =
+          proxyPerimeterXDetected || proxyDataDomeDetected;
+        const accessConstraintProvider = proxyPerimeterXDetected
           ? "PerimeterX"
-          : proxyDdDetected
+          : proxyDataDomeDetected
             ? "DataDome"
             : null;
         const willRetry =
-          (is403 || is429) && !ipBlocked && attempt < attempts - 1;
+          (is403 || is429) && !accessConstrained && attempt < attempts - 1;
 
         logger.error(
           `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
@@ -155,13 +156,13 @@ export async function fetchHtml(
               statusCode: gsErr.statusCode,
             }),
             error: err instanceof Error ? err.message : String(err),
-            ...(ipBlocked && {
-              note: `${botProvider ?? "Unknown"} challenge detected — requires JS execution or residential proxy to bypass`,
+            ...(accessConstrained && {
+              note: `${accessConstraintProvider ?? "Unknown"} access constraint detected — this source may require a browser-capable client or a different network route`,
             }),
             ...(!willRetry &&
-              !ipBlocked &&
+              !accessConstrained &&
               (is403 || is429) && {
-                note: "Site may be blocking proxy IP or requires manual access",
+                note: "Source may be limiting this network route or require manual review",
               }),
           },
         );
@@ -173,12 +174,15 @@ export async function fetchHtml(
     throw lastError;
   }
 
-  // ── Direct path: axios with fingerprint rotation, then TLS fallback ───────
+  // ── Direct path: axios with alternate request profiles, then TLS fallback ─
   const attempts = injectedGet ? 1 : 1 + EXTRACT_403_RETRIES;
   let lastError: unknown;
-  const attemptState: { botDetection: BotDetection; gotRetryable: boolean } = {
-    botDetection: { detected: false },
+  const attemptState: {
+    gotRetryable: boolean;
+    sourceCompatibilitySignal: SourceCompatibilitySignal;
+  } = {
     gotRetryable: false,
+    sourceCompatibilitySignal: { detected: false },
   };
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -236,11 +240,14 @@ export async function fetchHtml(
           maxRedirects: 5,
           onAxiosError: (error, isAxios) => {
             if (!isAxios(error)) return;
-            const { bot, retryable } = detectBotProtection(error, isAxiosError);
-            if (bot.detected) {
-              attemptState.botDetection = bot;
+            const { retryable, signal } = detectSourceCompatibilitySignal(
+              error,
+              isAxiosError,
+            );
+            if (signal.detected) {
+              attemptState.sourceCompatibilitySignal = signal;
               throw new Error(
-                `Upstream blocked request with anti-bot protection (${bot.provider}) [HTTP 403]`,
+                `Upstream request received a source access response (${signal.provider}) [HTTP 403]`,
               );
             }
             if (retryable) attemptState.gotRetryable = true;
@@ -267,7 +274,7 @@ export async function fetchHtml(
       return html;
     } catch (err) {
       lastError = err;
-      if (attemptState.botDetection.detected) break; // exit loop — TLS fallback handles this
+      if (attemptState.sourceCompatibilitySignal.detected) break;
       if (attemptState.gotRetryable && attempt < attempts - 1) continue;
       if (!injectedGet)
         logger.error(
@@ -287,10 +294,10 @@ export async function fetchHtml(
     }
   }
 
-  // ── TLS fingerprint fallback (DataDome / PerimeterX only) ─────────────────
-  if (attemptState.botDetection.detected && !injectedGet) {
-    const detectedBot = attemptState.botDetection;
-    const { challengeCookies, provider } = detectedBot;
+  // ── TLS fingerprint fallback for selected source access responses ──────────
+  if (attemptState.sourceCompatibilitySignal.detected && !injectedGet) {
+    const detectedProtection = attemptState.sourceCompatibilitySignal;
+    const { challengeCookies, provider } = detectedProtection;
     const connectionMode = useProxy ? "proxy" : "direct";
     const fallbackFp = PROXY_FINGERPRINT_POOL[0];
     const fpFallback = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
@@ -305,7 +312,7 @@ export async function fetchHtml(
       url,
     };
     logger.info(
-      `TLS fingerprint fallback started (${provider}, ${connectionMode})`,
+      `Alternate TLS request profile started (${provider}, ${connectionMode})`,
       logCtx,
     );
 
@@ -330,7 +337,7 @@ export async function fetchHtml(
         },
       );
       logger.info(
-        `TLS fingerprint fallback succeeded (${provider}, ${html.length} bytes)`,
+        `Alternate TLS request profile succeeded (${provider}, ${html.length} bytes)`,
         {
           ...logCtx,
           headers: sentHeaders,
@@ -341,7 +348,7 @@ export async function fetchHtml(
     } catch (fallbackErr) {
       const fallbackGsErr =
         fallbackErr instanceof GotScrapingError ? fallbackErr : null;
-      logger.error(`TLS fingerprint fallback failed (${provider})`, {
+      logger.error(`Alternate TLS request profile failed (${provider})`, {
         ...logCtx,
         error: toErrorMessage(fallbackErr),
         headers: fallbackGsErr?.requestHeaders,

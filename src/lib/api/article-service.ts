@@ -10,6 +10,19 @@ interface ArticleExtractResponse {
   content?: unknown;
 }
 
+interface CompatibilityCheckResponse {
+  results: {
+    compatibilitySignalDetected: boolean;
+    error?: string;
+    responseSize?: number;
+    site: string;
+    statusCode?: number;
+    success: boolean;
+    url: string;
+    vendor: string;
+  }[];
+}
+
 interface ProxySettings {
   allowInsecureTls: boolean;
   configured: boolean;
@@ -24,19 +37,6 @@ interface ProxyStatusResponse {
   configured: boolean;
   proxyUrl: null | string;
   status: "checking" | "reachable" | "unreachable";
-}
-
-interface TestBotDetectionResponse {
-  results: {
-    blocked: boolean;
-    error?: string;
-    protection: string;
-    responseSize?: number;
-    site: string;
-    statusCode?: number;
-    success: boolean;
-    url: string;
-  }[];
 }
 
 const articleServiceBaseUrl = "/api";
@@ -110,6 +110,16 @@ export const ArticleService = {
     );
   },
 
+  async runProxyCompatibilityCheck(options?: {
+    useProxy?: boolean;
+  }): Promise<CompatibilityCheckResponse> {
+    const response = await getApiClient().post<CompatibilityCheckResponse>(
+      `${articleServiceBaseUrl}/settings/proxy/compatibility-check`,
+      options ?? {},
+    );
+    return response.data;
+  },
+
   async saveProxyUrl(
     proxyUrl: null | string,
     options?: {
@@ -121,16 +131,6 @@ export const ArticleService = {
     const response = await getApiClient().put<ProxySettings>(
       `${articleServiceBaseUrl}/settings/proxy`,
       { proxyUrl, ...options },
-    );
-    return response.data;
-  },
-
-  async testBotDetection(options?: {
-    useProxy?: boolean;
-  }): Promise<TestBotDetectionResponse> {
-    const response = await getApiClient().post<TestBotDetectionResponse>(
-      `${articleServiceBaseUrl}/settings/proxy/test-bot-detection`,
-      options ?? {},
     );
     return response.data;
   },

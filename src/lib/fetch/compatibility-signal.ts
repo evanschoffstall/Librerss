@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export type BotDetection =
+export type SourceCompatibilitySignal =
   | {
       challengeCookies: string[];
       detected: true;
@@ -8,12 +8,14 @@ export type BotDetection =
     }
   | { detected: false };
 
-export function detectBotProtection(
+export function detectSourceCompatibilitySignal(
   error: unknown,
   isAxiosError: typeof axios.isAxiosError,
-): { bot: BotDetection; retryable: boolean } {
-  if (!isAxiosError(error))
-    return { bot: { detected: false }, retryable: false };
+): { retryable: boolean; signal: SourceCompatibilitySignal } {
+  if (!isAxiosError(error)) {
+    return { retryable: false, signal: { detected: false } };
+  }
+
   const resp = (
     error as {
       response?: {
@@ -24,62 +26,78 @@ export function detectBotProtection(
     }
   ).response;
   const responseStatus = resp?.status;
-  if (responseStatus !== 403 && responseStatus !== 429)
-    return { bot: { detected: false }, retryable: false };
+  if (responseStatus !== 403 && responseStatus !== 429) {
+    return { retryable: false, signal: { detected: false } };
+  }
 
   const headers = resp?.headers;
   const challengeCookies = getChallengeCookies(headers);
   const responseBody = typeof resp?.data === "string" ? resp.data : "";
   const responseBodyLower = responseBody.toLowerCase();
-  const responseHeaderKeys = Object.keys(headers ?? {}).map((h) =>
-    h.toLowerCase(),
+  const responseHeaderKeys = Object.keys(headers ?? {}).map((header) =>
+    header.toLowerCase(),
   );
 
   const ddHeader = headerText(headers, "x-datadome");
   if (ddHeader === "protected") {
     return {
-      bot: { challengeCookies, detected: true, provider: "DataDome" },
       retryable: false,
+      signal: { challengeCookies, detected: true, provider: "DataDome" },
     };
   }
 
   const isPx =
     /px[-_]captcha|perimeterx|\/_px\//i.test(responseBody) ||
-    responseHeaderKeys.some((h) => h.startsWith("x-px-"));
-  if (isPx)
+    responseHeaderKeys.some((header) => header.startsWith("x-px-"));
+  if (isPx) {
     return {
-      bot: { challengeCookies: [], detected: true, provider: "PerimeterX" },
       retryable: false,
+      signal: {
+        challengeCookies: [],
+        detected: true,
+        provider: "PerimeterX",
+      },
     };
+  }
 
   const isCloudflare =
     headerText(headers, "cf-mitigated") === "challenge" ||
     /attention required!?\s*\|\s*cloudflare|cf-browser-verification|__cf_chl_|\/cdn-cgi\/challenge-platform|cf challenge/i.test(
       responseBody,
     );
-  if (isCloudflare)
+  if (isCloudflare) {
     return {
-      bot: { challengeCookies, detected: true, provider: "Cloudflare" },
       retryable: false,
+      signal: {
+        challengeCookies,
+        detected: true,
+        provider: "Cloudflare",
+      },
     };
+  }
 
   const isRecaptcha =
     /(?:^|\W)g-recaptcha(?:\W|$)|grecaptcha(?:\W|$)|recaptcha\/api(?:2)?(?:\.js|\/anchor|\/reload)|google\.com\/recaptcha|gstatic\.com\/recaptcha/i.test(
       responseBody,
     ) || responseBodyLower.includes("i'm not a robot");
-  if (isRecaptcha)
+  if (isRecaptcha) {
     return {
-      bot: { challengeCookies: [], detected: true, provider: "reCAPTCHA" },
       retryable: false,
+      signal: {
+        challengeCookies: [],
+        detected: true,
+        provider: "reCAPTCHA",
+      },
     };
+  }
 
-  return { bot: { detected: false }, retryable: true };
+  return { retryable: true, signal: { detected: false } };
 }
 
 function getChallengeCookies(headers: Record<string, unknown> | undefined) {
   const setCookie = headers?.["set-cookie"];
   return Array.isArray(setCookie)
-    ? setCookie.filter((v): v is string => typeof v === "string")
+    ? setCookie.filter((value): value is string => typeof value === "string")
     : typeof setCookie === "string"
       ? [setCookie]
       : [];

@@ -337,13 +337,15 @@ export async function updateFeedSettingsAndRefresh({
     if (typeof settings.extractionDisabled === "boolean") {
       toast.success(
         settings.extractionDisabled
-          ? "Extraction disabled."
-          : "Extraction enabled.",
+          ? "Readable article mode disabled."
+          : "Readable article mode enabled.",
       );
     }
     if (typeof settings.proxyEnabled === "boolean") {
       toast.success(
-        settings.proxyEnabled ? "Proxy enabled." : "Proxy disabled.",
+        settings.proxyEnabled
+          ? "Connection routing enabled."
+          : "Connection routing disabled.",
       );
     }
     return true;

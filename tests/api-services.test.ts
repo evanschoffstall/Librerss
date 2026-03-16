@@ -749,7 +749,7 @@ describe("FeedService – renameFeedSource, setFeedSourceEnabled, getCategoryOrd
 
 // ── api/services – ArticleService additional methods ────────────────────────
 
-describe("ArticleService – getProxyStatus, testBotDetection", () => {
+describe("ArticleService – getProxyStatus, runProxyCompatibilityCheck", () => {
   test("getProxyStatus calls GET /api/articles/proxy-status", async () => {
     const mx = makeMockAxiosClient();
     mx.get = mock(async () => ({
@@ -766,34 +766,36 @@ describe("ArticleService – getProxyStatus, testBotDetection", () => {
     expect(result).toMatchObject({ configured: true });
   });
 
-  test("testBotDetection posts to proxy/test-bot-detection", async () => {
+  test("runProxyCompatibilityCheck posts to proxy/compatibility-check", async () => {
     const mx = makeMockAxiosClient();
     const results = [
       {
-        blocked: false,
-        protection: "none",
+        compatibilitySignalDetected: false,
         site: "example.com",
         success: true,
         url: "https://example.com",
+        vendor: "none",
       },
     ];
     mx.post = mock(async () => ({ data: { results } }));
     setApiClientForTesting(mx);
 
-    const response = await ArticleService.testBotDetection({ useProxy: true });
+    const response = await ArticleService.runProxyCompatibilityCheck({
+      useProxy: true,
+    });
     expect(mx.post).toHaveBeenCalledWith(
-      "/api/settings/proxy/test-bot-detection",
+      "/api/settings/proxy/compatibility-check",
       { useProxy: true },
     );
     expect(response.results).toEqual(results);
   });
 
-  test("testBotDetection without options sends empty object", async () => {
+  test("runProxyCompatibilityCheck without options sends empty object", async () => {
     const mx = makeMockAxiosClient();
     mx.post = mock(async () => ({ data: { results: [] } }));
     setApiClientForTesting(mx);
 
-    await ArticleService.testBotDetection();
+    await ArticleService.runProxyCompatibilityCheck();
     const call = (mx.post as ReturnType<typeof mock>).mock.calls[0];
     expect(call?.[1]).toEqual({});
   });
