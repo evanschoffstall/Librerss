@@ -88,11 +88,11 @@ const iconLinkCls =
   "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/40 transition-colors duration-200 ease-out hover:text-foreground";
 
 const ARTICLE_BODY_COLLAPSE_TRANSITION = {
-  duration: 0.16,
+  duration: 0,
   ease: [0.4, 0, 0.6, 1] as const,
 };
 const ARTICLE_BODY_EXPAND_TRANSITION = {
-  duration: 0.24,
+  duration: 0,
   ease: [0.16, 1, 0.3, 1] as const,
 };
 const ARTICLE_SWIPE_TRANSITION = {
@@ -102,7 +102,7 @@ const ARTICLE_SWIPE_TRANSITION = {
   type: "spring" as const,
 };
 const ARTICLE_CONTENT_TRANSITION = {
-  duration: 0.2,
+  duration: 0,
   ease: [0.16, 1, 0.3, 1] as const,
 };
 const TAP_DRIFT_PX = 4;
@@ -183,12 +183,13 @@ export const ArticleCard = memo(function ArticleCard({
     !expandTransitionDone && (isExpanded || showSkeleton || showFullContent);
   const visuallyExpanded =
     isDeExpandingRemoval ||
+    phase === "loading" ||
     phase === "collapsing" ||
     phase === "expanding" ||
     phase === "expanded";
   const suppressCollapsedReadDimming = removalAnimationMode === "de-expanding";
 
-  const cardT = "220ms cubic-bezier(0.2, 0, 0, 1)" as const;
+  const cardT = "0ms cubic-bezier(0.2, 0, 0, 1)" as const;
 
   const richContentClassName = getRichContentClass(isExpanded);
   const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
@@ -218,6 +219,15 @@ export const ArticleCard = memo(function ArticleCard({
       ? ARTICLE_BODY_COLLAPSE_TRANSITION
       : ARTICLE_BODY_EXPAND_TRANSITION;
 
+  useEffect(() => {
+    if (
+      !shouldAnimateBodyHeight &&
+      (phase === "collapsing" || phase === "expanding")
+    ) {
+      onBodyAnimationComplete();
+    }
+  }, [onBodyAnimationComplete, phase, shouldAnimateBodyHeight]);
+
   const {
     faviconCacheKey,
     faviconCandidates,
@@ -238,15 +248,6 @@ export const ArticleCard = memo(function ArticleCard({
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
   const previousPhaseRef = useRef(phase);
-
-  useEffect(() => {
-    if (
-      !shouldAnimateBodyHeight &&
-      (phase === "collapsing" || phase === "expanding")
-    ) {
-      onBodyAnimationComplete();
-    }
-  }, [onBodyAnimationComplete, phase, shouldAnimateBodyHeight]);
 
   useEffect(() => {
     if (
@@ -824,12 +825,13 @@ export const ArticleCard = memo(function ArticleCard({
         className={`
           article-swipe-surface group relative overflow-visible border
           border-border
+          *:transition-opacity *:duration-300 *:ease-out
           dark:shadow-2xl dark:shadow-zinc-900/50
           ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
           ${
             article.isRead && !visuallyExpanded && !suppressCollapsedReadDimming
               ? `
-                *:opacity-55 *:transition-opacity *:duration-200
+                *:opacity-55
                 hover:*:opacity-100
               `
               : ""
@@ -1256,10 +1258,10 @@ export const ArticleCard = memo(function ArticleCard({
             >
               {showSkeleton ? (
                 <motion.div
-                  animate={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: 1 }}
                   className="space-y-2 py-1"
                   data-article-hydration-state="loading"
-                  initial={{ opacity: 0, y: 6 }}
+                  initial={{ opacity: 0 }}
                   transition={ARTICLE_CONTENT_TRANSITION}
                 >
                   <Skeleton className="h-3 w-full" />

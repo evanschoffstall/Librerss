@@ -112,18 +112,20 @@ const SIDEBAR_SKELETON_GROUPS: DashboardSidebarSkeletonGroupDescriptor[] = [
 export function DashboardFeedListSkeleton() {
   return (
     <motion.div
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1 }}
       className="
         relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5 px-1
         lg:max-w-none lg:px-3
       "
-      initial={{ opacity: 0, y: 10 }}
+      data-dashboard-feed-list-skeleton="true"
+      initial={{ opacity: 0 }}
       transition={SKELETON_REVEAL_TRANSITION}
     >
       {ARTICLE_SKELETON_CARDS.map((descriptor, index) => (
         <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1 }}
+          data-dashboard-feed-list-skeleton-item="true"
+          initial={{ opacity: 0 }}
           key={index}
           transition={{
             ...SKELETON_REVEAL_TRANSITION,
@@ -157,16 +159,17 @@ export function DashboardPullSentinelSkeleton() {
 export function DashboardSidebarSkeleton() {
   return (
     <motion.div
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1 }}
       className="space-y-2 px-2"
-      initial={{ opacity: 0, y: 8 }}
+      data-dashboard-sidebar-skeleton="true"
+      initial={{ opacity: 0 }}
       transition={SKELETON_REVEAL_TRANSITION}
     >
       {SIDEBAR_SKELETON_GROUPS.map((group, groupIndex) => (
         <motion.div
-          animate={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1 }}
           className="space-y-0.5"
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0 }}
           key={groupIndex}
           transition={{
             ...SKELETON_REVEAL_TRANSITION,
@@ -211,12 +214,13 @@ export function DashboardTopBarSkeleton() {
           "
         >
           <motion.div
-            animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1 }}
             className="
               mx-auto w-full max-w-3xl px-2
               lg:max-w-none lg:px-4
             "
-            initial={{ opacity: 0, y: 8 }}
+            data-dashboard-top-bar-skeleton-surface="true"
+            initial={{ opacity: 0 }}
             transition={SKELETON_REVEAL_TRANSITION}
           >
             <div

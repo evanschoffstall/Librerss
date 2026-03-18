@@ -102,9 +102,73 @@ describe("ArticleCard", () => {
     const hydrationEl = container.querySelector(
       '[data-article-hydration-state="loading"]',
     );
+    const articleSurface = container.querySelector<HTMLElement>(
+      'article[data-article-key="article-1"]',
+    );
+
     expect(hydrationEl).toBeTruthy();
     expect(hydrationEl?.querySelectorAll("div").length).toBeGreaterThan(0);
     expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
+    expect(articleSurface?.style.userSelect).toBe("text");
+    expect((hydrationEl as HTMLElement | null)?.style.transform ?? "").not.toContain(
+      "translateY",
+    );
+  });
+
+  test("swaps loading skeleton for hydrated expanded content", async () => {
+    const hydratedContent =
+      "Expanded hydration content with enough detail to prove the full article body replaced the loading placeholder.";
+    const article = buildArticle({ content: "" });
+
+    const { container, rerender } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={true}
+        isHydrating={true}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-article-hydration-state="loading"]'),
+    ).toBeTruthy();
+
+    rerender(
+      <ArticleCard
+        article={buildArticle({ content: hydratedContent })}
+        articleKey="article-1"
+        hasScrapedContent={true}
+        isDark={false}
+        isExpanded={true}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-article-hydration-state="loading"]'),
+      ).toBeNull();
+      expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
+      expect(container.textContent?.includes(hydratedContent)).toBe(true);
+    });
   });
 
   test("does not mount the full article body while collapsed", async () => {
