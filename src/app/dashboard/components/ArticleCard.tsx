@@ -305,18 +305,8 @@ export const ArticleCard = memo(function ArticleCard({
     [],
   );
   const shouldIgnoreSwipeTarget = useCallback((target: EventTarget | null) => {
-    if (target instanceof Node && visuallyExpanded) {
-      if (!headerZoneRef.current?.contains(target)) {
-        return true;
-      }
-    }
-
     if (!(target instanceof Element)) {
       return false;
-    }
-
-    if (visuallyExpanded && contentZoneRef.current?.contains(target)) {
-      return true;
     }
 
     const control = target.closest(
@@ -328,7 +318,7 @@ export const ArticleCard = memo(function ArticleCard({
     if (!link) return false;
 
     return !contentZoneRef.current?.contains(link);
-  }, [visuallyExpanded]);
+  }, []);
 
   const commitReadSwipe = useCallback(() => {
     afterSwipeRef.current = Date.now();
@@ -361,9 +351,9 @@ export const ArticleCard = memo(function ArticleCard({
     swipeState: expandedReadSwipeState,
   } = useSwipeToRead(
     commitReadSwipe,
-    isUpdatingState || !visuallyExpanded || isMobile,
+    isUpdatingState || !visuallyExpanded,
     shouldIgnoreSwipeTarget,
-    "expanded-header-surface",
+    "expanded-article-surface",
   );
   const {
     containerRef: collapsedStarSwipeRef,
@@ -379,9 +369,9 @@ export const ArticleCard = memo(function ArticleCard({
     swipeState: expandedStarSwipeState,
   } = useSwipeToStar(
     commitStarSwipe,
-    isUpdatingState || !visuallyExpanded || isMobile,
+    isUpdatingState || !visuallyExpanded,
     shouldIgnoreSwipeTarget,
-    "expanded-header-surface",
+    "expanded-article-surface",
   );
   const readSwipeState = visuallyExpanded
     ? expandedReadSwipeState
@@ -396,16 +386,16 @@ export const ArticleCard = memo(function ArticleCard({
       articleRef.current = el;
       collapsedReadSwipeRef.current = el;
       collapsedStarSwipeRef.current = el;
+      expandedReadSwipeRef.current = el;
+      expandedStarSwipeRef.current = el;
     },
-    [collapsedReadSwipeRef, collapsedStarSwipeRef],
+    [collapsedReadSwipeRef, collapsedStarSwipeRef, expandedReadSwipeRef, expandedStarSwipeRef],
   );
   const headerSwipeZoneRef = useCallback(
     (el: HTMLDivElement | null) => {
       headerZoneRef.current = el;
-      expandedReadSwipeRef.current = el;
-      expandedStarSwipeRef.current = el;
     },
-    [expandedReadSwipeRef, expandedStarSwipeRef],
+    [],
   );
 
   const shouldBlockArticleInteraction = () =>
