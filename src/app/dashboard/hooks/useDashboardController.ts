@@ -224,7 +224,7 @@ export function useDashboardController({
     loading || isQuickFilterPending || isSearchPending;
 
   const onArticleToggle = useCallback(
-    (article: Article) => void handleArticleToggle(article),
+    (article: Article) => { handleArticleToggle(article); },
     [handleArticleToggle],
   );
   const onArticlePrepareExpand = useCallback(

@@ -32,4 +32,42 @@ describe("DashboardShellSkeleton", () => {
       ),
     ).toHaveLength(6);
   });
+
+  test("does not stack a second scaffold inset above the first article skeleton", () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    expect(
+      container.querySelectorAll(
+        '[class*="pt-[calc(env(safe-area-inset-top)+3.8rem)]"]',
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("shared dashboard skeleton surfaces do not start with a vertical translate", () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+    const firstArticleSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton-item="true"]',
+    );
+    const topBarSkeletonSurface = container.querySelector<HTMLElement>(
+      '[data-dashboard-top-bar-skeleton-surface="true"]',
+    );
+    const sidebarSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-sidebar-skeleton="true"]',
+    );
+
+    expect(feedListSkeleton?.style.transform ?? "").not.toContain("translateY");
+    expect(firstArticleSkeleton?.style.transform ?? "").not.toContain(
+      "translateY",
+    );
+    expect(topBarSkeletonSurface?.style.transform ?? "").not.toContain(
+      "translateY",
+    );
+    expect(sidebarSkeleton?.style.transform ?? "").not.toContain(
+      "translateY",
+    );
+  });
 });

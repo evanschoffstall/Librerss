@@ -266,7 +266,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("releases layout space immediately for standard unread collapse rows", async () => {
+  test("hides content immediately and animates height for standard unread collapse rows", async () => {
     const article = buildArticle({
       link: "https://example.com/articles/immediate-layout-release",
       title: "Immediate layout release article",
@@ -300,14 +300,13 @@ describe("FeedList", () => {
 
       expect(row).toBeTruthy();
       expect(row?.dataset.feedRowState).toBe("collapsing");
-      // Height and marginBottom must be set via the React style prop directly
-      // (not deferred through Framer Motion) so the browser never paints the
-      // full-height row before the collapse lands.
-      expect(row?.style.height).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
-      expect(row?.style.marginBottom).toBe(`-${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
-      expect(row?.style.minHeight).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+      // Opacity is set immediately via the style prop so the row disappears
+      // without waiting for Motion's RAF-deferred write. Height and margin are
+      // animated by Motion so the scroll position adjusts gradually instead of
+      // jumping in a single frame.
       expect(row?.style.opacity).toBe("0");
       expect(row?.style.overflow).toBe("hidden");
+      expect(row?.style.minHeight).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
     });
   });
 

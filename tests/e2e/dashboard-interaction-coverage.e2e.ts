@@ -303,6 +303,31 @@ async function performArticleActionAndCollectFrameSamples(
   )) as ArticleTopFrameSample[];
 }
 
+async function readArticleBodyState(page: Page, articleKey: string) {
+  return await page.evaluate((targetArticleKey) => {
+    const article = [...document.querySelectorAll<HTMLElement>('article[data-article-key]')].find(
+      (candidate) => candidate.dataset.articleKey === targetArticleKey,
+    );
+
+    if (!article) {
+      throw new Error('Expected article to exist while reading body state.');
+    }
+
+    const body = article.querySelector<HTMLElement>('.article-swipe-body');
+    if (!body) {
+      throw new Error('Expected article body surface to exist.');
+    }
+
+    return {
+      bodyTextLength: body.innerText.trim().length,
+      hasHydrationLoading: Boolean(
+        article.querySelector('[data-article-hydration-state="loading"]'),
+      ),
+      hasPreview: Boolean(article.querySelector('[data-article-preview="true"]')),
+    };
+  }, articleKey);
+}
+
 async function readArticleTopSnapshot(page: Page, articleKeys: string[]) {
   const snapshot = new Map<string, number>();
 
@@ -390,8 +415,24 @@ test.describe("dashboard interaction coverage", () => {
       article.getByRole("button", { name: "Remove star" }),
     ).toBeVisible();
 
+    const collapsedBodyState = await readArticleBodyState(page, articleKey);
+
     await toggleArticle(article);
     await expectArticleExpanded(article, true);
+    await expect
+      .poll(async () => {
+        return await readArticleBodyState(page, articleKey);
+      })
+      .toMatchObject({
+        hasHydrationLoading: false,
+        hasPreview: false,
+      });
+    await expect
+      .poll(async () => {
+        const expandedBodyState = await readArticleBodyState(page, articleKey);
+        return expandedBodyState.bodyTextLength;
+      })
+      .toBeGreaterThan(collapsedBodyState.bodyTextLength + 80);
     await expect(article.getByRole("link", { name: "Open article" })).toHaveAttribute(
       "href",
       articleKey,
@@ -751,6 +792,12 @@ test.describe("dashboard interaction coverage", () => {
       "raf-3",
       "raf-4",
     ]);
+    expectTrackedRowState(
+      swipeFrameSamples[0] as ArticleTopFrameSample,
+      firstArticleKey,
+      "swipe-read",
+      "collapsing",
+    );
     expectTrackedRowState(
       swipeFrameSamples[1] as ArticleTopFrameSample,
       firstArticleKey,

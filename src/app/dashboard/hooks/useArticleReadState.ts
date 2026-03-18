@@ -37,7 +37,6 @@ export function useArticleReadState({
           getArticleKey(a) === articleKey ? { ...a, isRead: nextReadState } : a,
         ),
       );
-      await Promise.resolve();
 
       try {
         if (!usePlaceholderData) {

@@ -10,11 +10,12 @@ type ExpansionPhase =
   | "loading";
 
 /**
- * Coordinates the article body's Motion-driven expand and collapse states.
+ * Coordinates the article body's expand and collapse state contract.
  *
- * Full content stays mounted during collapse so the body can animate down to
- * the compact preview. Once the body animation settles, the hook marks the
- * card as fully expanded or fully collapsed for the cheaper resting state.
+ * The card still uses the richer phase model so loading, expanded, and
+ * collapse rendering all preserve the previous hydration behavior. Motion
+ * timings are now zeroed elsewhere, so these phases settle immediately in
+ * practice while keeping the old rendering semantics intact.
  */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
@@ -36,8 +37,10 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
         );
       }
     } else {
-      setPhase((cur) =>
-        cur === "expanded" || cur === "expanding" || cur === "loading"
+      setPhase((current) =>
+        current === "expanded" ||
+        current === "expanding" ||
+        current === "loading"
           ? "collapsing"
           : "collapsed",
       );

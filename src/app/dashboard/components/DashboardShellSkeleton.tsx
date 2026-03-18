@@ -23,12 +23,7 @@ export function DashboardShellSkeleton() {
       className="h-full overflow-hidden bg-background"
     >
       <div
-        className="
-          relative flex h-full justify-center overflow-hidden px-4
-          pt-[calc(env(safe-area-inset-top)+3.8rem)]
-          pb-[env(safe-area-inset-bottom)]
-          md:px-6
-        "
+        className="relative h-full overflow-hidden"
       >
         <div
           aria-hidden="true"

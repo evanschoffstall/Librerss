@@ -16,9 +16,21 @@ import {
 import { useArticleReadState } from "./useArticleReadState";
 import { useFeedScrollLock } from "./useFeedSurface";
 
-/** Duration used to keep unread-filter removals mounted while the row exits. */
-export const ARTICLE_REMOVAL_ANIMATION_MS = 320;
-export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 220;
+/**
+ * Duration used to keep unread-filter removals mounted while the row exits.
+ * Keeping this to roughly one frame preserves DOM continuity without leaving a
+ * noticeable delay before the row is gone.
+ */
+export const ARTICLE_REMOVAL_ANIMATION_MS = 16;
+export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 16;
+/**
+ * Height-collapse duration for standard read-toggle removals.
+ *
+ * Long enough for the browser to gradually adjust scroll position instead of
+ * clamping it in a single frame, which prevents the pull-to-refresh sentinel
+ * from flashing into view when few articles remain.
+ */
+export const ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS = 120;
 export type ArticleRemovalAnimationMode =
   | "collapse"
   | "de-expanding"
@@ -50,6 +62,7 @@ interface UseArticleActionsOptions {
 export function getArticleRemovalAnimationDuration(
   mode: ArticleRemovalAnimationMode,
 ) {
+  if (mode === "collapse") return ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS;
   return mode === "de-expanding"
     ? ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS
     : ARTICLE_REMOVAL_ANIMATION_MS;
@@ -214,15 +227,6 @@ export function useArticleActions({
     setCollapseSettlingArticleKey(null);
   }, []);
 
-  /** Lets collapse state render for one frame before the filtered feed mutates. */
-  const waitForRemovalAnimationMount = useCallback(async () => {
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => {
-        resolve();
-      });
-    });
-  }, []);
-
   /** Clears every staged unread-removal so expand flows can start from rest. */
   const clearRemovalAnimations = useCallback(() => {
     for (const timeoutId of collapseRemovalTimeoutsRef.current.values()) {
@@ -325,7 +329,7 @@ export function useArticleActions({
   );
 
   const handleArticleToggle = useCallback(
-    async (article: Article) => {
+    (article: Article) => {
       const nextArticleKey = getArticleKey(article);
       const isCollapsing = expandedArticleKey === nextArticleKey;
 
@@ -355,7 +359,7 @@ export function useArticleActions({
       // Mark as handled so the auto-hydration effect skips this key.
       awaitingExpandedSyncKeyRef.current = nextArticleKey;
       autoHydratedExpandedKeyRef.current = nextArticleKey;
-      await hydrateArticleContent(article);
+      void hydrateArticleContent(article);
     },
     [
       articleFilter,
@@ -402,8 +406,9 @@ export function useArticleActions({
     async (article: Article) => {
       const nextReadState = toggleReadStatus(Boolean(article.isRead));
       if (articleFilter === "unread" && nextReadState) {
-        startRemovalAnimation(article, "swipe-read");
-        await waitForRemovalAnimationMount();
+        flushSync(() => {
+          startRemovalAnimation(article, "swipe-read");
+        });
       }
       await toggleArticleReadState(article);
     },
@@ -411,7 +416,6 @@ export function useArticleActions({
       articleFilter,
       startRemovalAnimation,
       toggleArticleReadState,
-      waitForRemovalAnimationMount,
     ],
   );
 

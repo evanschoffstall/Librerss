@@ -507,6 +507,117 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
+  test("handleSwipeRead stages the swipe removal before the status request settles", async () => {
+    let resolveStatusUpdate: (() => void) | undefined;
+    ArticleService.updateArticleStatus = mock(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStatusUpdate = resolve;
+        }),
+    ) as unknown as typeof ArticleService.updateArticleStatus;
+
+    const article = createMockArticle({
+      id: 130,
+      isRead: false,
+      link: "https://example.com/swipe-removal-immediate",
+    });
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "unread",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    let swipeReadPromise: Promise<void> | undefined;
+    await act(async () => {
+      swipeReadPromise = result.current.handleSwipeRead(article);
+    });
+
+    expect(feedState[0]?.isRead).toBe(true);
+    expect(result.current.collapsingArticles).toEqual({
+      [article.link]: {
+        article,
+        index: 0,
+        mode: "swipe-read",
+      },
+    });
+
+    resolveStatusUpdate?.();
+    await swipeReadPromise;
+  });
+
+  test("handleArticleToggle expands before hydration settles", async () => {
+    let resolveHydration: (() => void) | undefined;
+    ArticleService.extractArticleContent = mock(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveHydration = () => resolve("<p>Extracted content</p>");
+        }),
+    ) as unknown as typeof ArticleService.extractArticleContent;
+
+    const article = createMockArticle({
+      id: 140,
+      isRead: false,
+      link: "https://example.com/expand-immediate",
+    });
+    let expandedArticleKey: null | string = null;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: any) => {
+      expandedArticleKey =
+        typeof updater === "function" ? updater(expandedArticleKey) : updater;
+      return expandedArticleKey;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey,
+        feed: [article],
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    await act(async () => {
+      result.current.handleArticleToggle(article);
+    });
+
+    if (expandedArticleKey === null) {
+      throw new Error("Expected the article to expand before hydration settled.");
+    }
+
+    if (expandedArticleKey !== article.link) {
+      throw new Error("Expected the article key to update before hydration settled.");
+    }
+
+    expect(setExpandedArticleKey).toHaveBeenCalled();
+
+    resolveHydration?.();
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+    });
+
+    const extractCall = (
+      ArticleService.extractArticleContent as ReturnType<typeof mock>
+    ).mock.calls.at(-1);
+
+    expect(extractCall?.[0]).toBe(article.link);
+    expect(extractCall?.[1]).toEqual(
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
   test("collapsing an already-read expanded article stages the de-expansion hold", async () => {
     const article = createMockArticle({ isRead: true });
     const setFeed = mock(() => {});
