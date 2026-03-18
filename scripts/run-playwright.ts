@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { rmSync } from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
@@ -231,35 +232,64 @@ async function main() {
 
   let cleaningUp = false;
 
+  /** Collects all temporary paths that must be removed on exit. */
+  const temporaryPaths = [
+    distDir,
+    tsconfigPath,
+    ...(PLAYWRIGHT_COVERAGE_ENABLED ? [rawCoverageOutputDir] : []),
+    ...(coverageGeneratorRuntimePath ? [coverageGeneratorRuntimePath] : []),
+  ];
+
   const cleanup = async () => {
     if (cleaningUp) {
       return;
     }
 
     cleaningUp = true;
-    await stopProcess(testProcess).catch(() => undefined);
-    await stopProcess(serverProcess).catch(() => undefined);
-    if (PLAYWRIGHT_COVERAGE_ENABLED) {
-      await removePlaywrightRuntimeDirectory(rawCoverageOutputDir).catch(
-        () => undefined,
-      );
-    }
-    if (coverageGeneratorRuntimePath) {
-      await removePlaywrightRuntimeDirectory(coverageGeneratorRuntimePath).catch(
-        () => undefined,
-      );
-    }
-    await removePlaywrightRuntimeDirectory(distDir).catch(() => undefined);
-    await removePlaywrightRuntimeDirectory(tsconfigPath).catch(() => undefined);
+
+    await Promise.allSettled([
+      stopProcess(testProcess),
+      stopProcess(serverProcess),
+    ]);
+
+    await Promise.allSettled(
+      temporaryPaths.map((target) =>
+        removePlaywrightRuntimeDirectory(target),
+      ),
+    );
   };
 
+  /** Best-effort synchronous fallback that kills processes and removes temp files. */
   const cleanupSync = () => {
     stopProcessNow(testProcess);
     stopProcessNow(serverProcess);
+
+    for (const target of temporaryPaths) {
+      try {
+        rmSync(join(process.cwd(), target), { force: true, recursive: true });
+      } catch {
+        // Best-effort only — the process is already exiting.
+      }
+    }
   };
 
   const exitWithCleanup = async (exitCode: number) => {
-    await cleanup();
+    const forceExitTimer = setTimeout(() => {
+      console.error("Async cleanup timed out — forcing exit.");
+      cleanupSync();
+      process.exit(exitCode);
+    }, PLAYWRIGHT_SHUTDOWN_TIMEOUT_MS * 2);
+
+    forceExitTimer.unref();
+
+    try {
+      await cleanup();
+    } catch {
+      cleanupSync();
+    } finally {
+      clearTimeout(forceExitTimer);
+    }
+
     process.exit(exitCode);
   };
 
@@ -267,10 +297,36 @@ async function main() {
     cleanupSync();
   });
 
-  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
-    process.once(signal, () => {
+  let signalCount = 0;
+
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT"] as const) {
+    process.on(signal, () => {
+      signalCount++;
+
+      if (signalCount > 1) {
+        console.error(`Received ${signal} again — forcing immediate exit.`);
+        cleanupSync();
+        process.exit(
+          128 +
+            (signal === "SIGINT"
+              ? 2
+              : signal === "SIGTERM"
+                ? 15
+                : signal === "SIGQUIT"
+                  ? 3
+                  : 1),
+        );
+      }
+
       void exitWithCleanup(
-        128 + (signal === "SIGINT" ? 2 : signal === "SIGTERM" ? 15 : 1),
+        128 +
+          (signal === "SIGINT"
+            ? 2
+            : signal === "SIGTERM"
+              ? 15
+              : signal === "SIGQUIT"
+                ? 3
+                : 1),
       );
     });
   }
