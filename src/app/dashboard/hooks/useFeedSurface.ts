@@ -211,9 +211,12 @@ export function useFeedPullRefresh(
     const hasActiveLock = () => typeof lockRef?.current === "number";
 
     const syncLayout = (pinTarget?: number) => {
+      viewport.style.overflowAnchor = "none";
       viewport.style.overscrollBehaviorY = "contain";
       viewport.style.overflowY = "scroll";
       viewport.style.touchAction = "pan-y";
+      wrapper.style.overflowAnchor = "none";
+      sentinel.style.overflowAnchor = "none";
       sentinel.style.height = `${FEED_PULL_HEIGHT}px`;
       const currentPad = parseFloat(wrapper.style.paddingBottom) || 0;
       const contentHeight = wrapper.offsetHeight - currentPad;
@@ -522,9 +525,12 @@ export function useFeedPullRefresh(
       overflowObserver?.disconnect();
       stopLockMonitor();
       clearGestureTimers();
+      viewport.style.overflowAnchor = "";
       viewport.style.overscrollBehaviorY = "";
       viewport.style.overflowY = "";
       viewport.style.touchAction = "";
+      wrapper.style.overflowAnchor = "";
+      sentinel.style.overflowAnchor = "";
       sentinel.style.height = "";
       wrapper.style.paddingBottom = "";
     };
