@@ -1,9 +1,11 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
+
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
-import type { KeyboardEvent } from "react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -15,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthService, type AuthUser } from "@/lib";
@@ -43,6 +46,7 @@ export const LoginView = ({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [hasAcceptedLegalTerms, setHasAcceptedLegalTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -65,6 +69,13 @@ export const LoginView = ({
     if (mode === "signup") {
       if (password.length < 8) {
         toast.error("Password must be at least 8 characters.");
+        return;
+      }
+
+      if (!hasAcceptedLegalTerms) {
+        toast.error(
+          "Accept the current privacy policy and terms for this deployment before creating an account.",
+        );
         return;
       }
 
@@ -185,24 +196,55 @@ export const LoginView = ({
               />
             </div>
             {mode === "signup" && (
-              <div className="space-y-1.5">
-                <Label
-                  className="text-xs text-muted-foreground"
-                  htmlFor="auth-confirm"
-                >
-                  Confirm password
-                </Label>
-                <Input
-                  id="auth-confirm"
-                  onChange={(event) => {
-                    setConfirmPassword(event.target.value);
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder="••••••••"
-                  type="password"
-                  value={confirmPassword}
-                />
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <Label
+                    className="text-xs text-muted-foreground"
+                    htmlFor="auth-confirm"
+                  >
+                    Confirm password
+                  </Label>
+                  <Input
+                    id="auth-confirm"
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="••••••••"
+                    type="password"
+                    value={confirmPassword}
+                  />
+                </div>
+                <div className="
+                  rounded-xl border border-border/60 bg-muted/30 p-3
+                ">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={hasAcceptedLegalTerms}
+                      id="auth-legal-consent"
+                      onCheckedChange={(
+                        checked: "indeterminate" | boolean,
+                      ) => {
+                        setHasAcceptedLegalTerms(checked === true);
+                      }}
+                    />
+                    <Label
+                      className="space-y-1 text-xs/5 text-muted-foreground"
+                      htmlFor="auth-legal-consent"
+                    >
+                      <span className="block text-foreground">
+                        I accept the current Privacy Policy and Terms for this
+                        deployment.
+                      </span>
+                      <span className="block">
+                        Other LibreRSS deployments, and future versions of this
+                        software, may publish different terms or data-handling
+                        disclosures.
+                      </span>
+                    </Label>
+                  </div>
+                </div>
+              </>
             )}
             <Button
               className="w-full"
@@ -252,6 +294,31 @@ export const LoginView = ({
                 Explore without an account
               </Button>
             )}
+            <div
+              className="
+                flex items-center justify-center gap-4 text-xs
+                text-muted-foreground
+              "
+            >
+              <Link
+                className="
+                  transition-colors
+                  hover:text-foreground
+                "
+                href="/privacy"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                className="
+                  transition-colors
+                  hover:text-foreground
+                "
+                href="/terms"
+              >
+                Terms
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

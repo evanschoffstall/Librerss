@@ -1,13 +1,6 @@
 import { toast } from "sonner";
 
 import {
-  collectKnownCategoryLabels,
-  findFeedNodeByUrl,
-  getFeedUrlBySelectedKey,
-  toCategoryKey,
-} from "./category-tree";
-
-import {
   type CategoryTreeNode,
   FeedService,
   findCategoryByLabel,
@@ -17,6 +10,13 @@ import {
   removeCategoryLabel,
   replaceCategoryLabel,
 } from "@/lib";
+
+import {
+  collectKnownCategoryLabels,
+  findFeedNodeByUrl,
+  getFeedUrlBySelectedKey,
+  toCategoryKey,
+} from "./category-tree";
 
 export function addCategoryLabel({
   categories,

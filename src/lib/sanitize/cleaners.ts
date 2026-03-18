@@ -1,7 +1,7 @@
+import { maxArticleConsecutiveBlankLines } from "@/lib/config";
+
 import { hasApJunkClass, isRelatedHeading, readAttrValue } from "./patterns";
 import { purifyRawHtml } from "./purify";
-
-import { maxArticleConsecutiveBlankLines } from "@/lib/config";
 
 // Cached at first call — env does not change at runtime in a Node.js server
 // process, and this value is read on every article parse invocation.

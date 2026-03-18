@@ -1010,7 +1010,7 @@ describe("feed-batch-pipeline", () => {
 
     expect(serializedQuery).toContain("publication_date DESC");
     expect(serializedQuery).toContain("LEFT(");
-    expect(serializedQuery).not.toContain("regexp_replace");
+    expect(serializedQuery).toContain("regexp_replace");
     expect(serializedQuery).toContain("LIMIT ");
     expect(serializedQuery).not.toContain(
       String(ARTICLE_CONTENT_PREVIEW_LENGTH),

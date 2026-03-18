@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { ArticleCard } from "@/app/dashboard/components/ArticleCard";
 import { type Article } from "@/lib";
@@ -28,6 +27,14 @@ function buildArticle(overrides?: Partial<Article>): Article {
     title: "Performance-sensitive article",
     ...overrides,
   };
+}
+
+function getHeaderSwipeSurface(target: Element): HTMLElement {
+  const headerSurface = target.closest('[data-article-swipe-zone="header"]');
+
+  expect(headerSurface).not.toBeNull();
+
+  return headerSurface as HTMLElement;
 }
 
 function installPointerCaptureSpies(surface: HTMLElement) {
@@ -288,6 +295,45 @@ describe("ArticleCard", () => {
     );
   });
 
+  test("does not toggle the card when the read button is clicked", () => {
+    const article = buildArticle();
+    const onPrepareExpand = mock(() => {});
+    const onToggle = mock(() => {});
+    const onToggleRead = mock(() => {});
+
+    const { getByRole } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onPrepareExpand={onPrepareExpand}
+        onToggle={onToggle}
+        onToggleRead={onToggleRead}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    fireEvent.pointerDown(getByRole("button", { name: "Mark as read" }), {
+      clientX: 24,
+      clientY: 20,
+      pointerId: 7,
+      pointerType: "mouse",
+    });
+    fireEvent.click(getByRole("button", { name: "Mark as read" }));
+
+    expect(onToggleRead).toHaveBeenCalledTimes(1);
+    expect(onPrepareExpand).not.toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
   test("commits swipe-to-read from the collapsed header", async () => {
     const article = buildArticle();
     const onToggle = mock(() => {});
@@ -360,11 +406,10 @@ describe("ArticleCard", () => {
     );
 
     const heading = getByRole("heading", { name: article.title });
-    const articleSurface = heading.closest("article");
+    const articleSurface = getHeaderSwipeSurface(heading);
 
-    expect(articleSurface).not.toBeNull();
     const { releasePointerCapture, setPointerCapture } =
-      installPointerCaptureSpies(articleSurface as HTMLElement);
+      installPointerCaptureSpies(articleSurface);
 
     swipeOnTouch(heading, 12, 24, 210);
 
@@ -377,7 +422,7 @@ describe("ArticleCard", () => {
     });
   });
 
-  test("commits swipe-to-read from the expanded article body", async () => {
+  test("does not commit swipe-to-read from the expanded article body", async () => {
     const article = buildArticle({
       content: "Expanded body copy repeated for swipe surface coverage.",
     });
@@ -415,9 +460,9 @@ describe("ArticleCard", () => {
     swipeOnTouch(bodySurface as Element, 15, 30, 220);
 
     await waitFor(() => {
-      expect(setPointerCapture).toHaveBeenCalledWith(15);
-      expect(releasePointerCapture).toHaveBeenCalledWith(15);
-      expect(onExpandedSwipeRead).toHaveBeenCalledTimes(1);
+      expect(setPointerCapture).not.toHaveBeenCalled();
+      expect(releasePointerCapture).not.toHaveBeenCalled();
+      expect(onExpandedSwipeRead).not.toHaveBeenCalled();
       expect(onToggleRead).not.toHaveBeenCalled();
       expect(onToggle).not.toHaveBeenCalled();
     });
@@ -468,11 +513,10 @@ describe("ArticleCard", () => {
     );
 
     const heading = getByRole("heading", { name: article.title });
-    const articleSurface = heading.closest("article");
+    const articleSurface = getHeaderSwipeSurface(heading);
 
-    expect(articleSurface).not.toBeNull();
     const { releasePointerCapture, setPointerCapture } =
-      installPointerCaptureSpies(articleSurface as HTMLElement);
+      installPointerCaptureSpies(articleSurface);
 
     swipeOnTouch(heading, 13, 30, 215);
 

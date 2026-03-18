@@ -8,10 +8,12 @@ import {
   useRef,
 } from "react";
 
+import { type Article } from "@/lib";
+import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
+
 import { type BackgroundMode, FEED_SCROLL_SESSION_KEY } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
-
 import { useArticleActions } from "./useArticleActions";
 import { useDashboardCategoryTree } from "./useDashboardCategoryTree";
 import { useDashboardEffects } from "./useDashboardEffects";
@@ -22,9 +24,6 @@ import { useDashboardState } from "./useDashboardState";
 import { useFeedLoader } from "./useFeedLoader";
 import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
 import { useRefreshStatus } from "./useRefreshStatus";
-
-import { type Article } from "@/lib";
-import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
 /**
  * External inputs required to assemble the dashboard controller.
@@ -191,8 +190,7 @@ export function useDashboardController({
 
   const {
     collapseSettlingArticleKey,
-    collapsingArticleKey,
-    collapsingArticleMode,
+    collapsingArticles,
     handleArticleToggle,
     handleExpandedSwipeRead,
     handleSwipeRead,
@@ -266,7 +264,7 @@ export function useDashboardController({
       buildDashboardViewModel({
         articleFilter: deferredArticleFilter,
         categories,
-        collapsingArticleKey,
+        collapsingArticleKeys: Object.keys(collapsingArticles),
         customCategoryLabels,
         expandedArticleKey,
         feed,
@@ -276,7 +274,7 @@ export function useDashboardController({
       }),
     [
       categories,
-      collapsingArticleKey,
+      collapsingArticles,
       customCategoryLabels,
       deferredArticleFilter,
       deferredSearchTerm,
@@ -341,6 +339,10 @@ export function useDashboardController({
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
   const previousLoadingRef = useRef(loading);
+  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
+  const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
+  const feedWrapperRef = useRef<HTMLDivElement | null>(null);
   const pendingRefreshRestoreRef = useRef<null | {
     capturedFeed: Article[];
     capturedLastRefreshedAt: Date | null;
@@ -391,14 +393,19 @@ export function useDashboardController({
       return;
     }
 
-    pendingRefreshRestoreRef.current = null;
-    flushFeedScroll();
-  }, [feed, flushFeedScroll, lastRefreshedAt, loading]);
+    const feedViewport =
+      feedScrollRootRef.current?.querySelector<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ) ?? feedScrollRootRef.current;
 
-  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
-  const feedScrollRootRef = useRef<HTMLElement | null>(null);
-  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
-  const feedWrapperRef = useRef<HTMLDivElement | null>(null);
+    pendingRefreshRestoreRef.current = null;
+
+    if (feedViewport && feedViewport.scrollTop < sentinelScrollOffset) {
+      return;
+    }
+
+    flushFeedScroll();
+  }, [feed, flushFeedScroll, lastRefreshedAt, loading, sentinelScrollOffset]);
 
   /**
    * Merges local feed-scroll bookkeeping with persisted viewport restoration.
@@ -529,8 +536,7 @@ export function useDashboardController({
   return {
     feedList: {
       collapseSettlingArticleKey,
-      collapsingArticleKey,
-      collapsingArticleMode,
+      collapsingArticles,
       expandedArticleKey,
       feedWrapperRef,
       filteredFeed,

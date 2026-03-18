@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { buildRefreshPlan } from "../src/lib/core/feed-batch-pipeline";
 import type { FeedRecord } from "../src/lib/core/feed-refresh";
+
+import { buildRefreshPlan } from "../src/lib/core/feed-batch-pipeline";
 
 test("buildRefreshPlan returns per-feed refresh decisions", () => {
   const skippedFeed: FeedRecord = {

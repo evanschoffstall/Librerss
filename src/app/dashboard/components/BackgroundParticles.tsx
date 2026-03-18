@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { useBackgroundCanvasAnimation } from "../hooks/useBackgroundCanvasAnimation";
 import { useBackgroundCanvasWindowEvents } from "../hooks/useBackgroundCanvasWindowEvents";
-
 import { getBackgroundCanvasScale } from "./background-canvas";
 
 interface Circle {

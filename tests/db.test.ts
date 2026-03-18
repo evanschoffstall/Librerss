@@ -4,7 +4,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { Client, Pool } from "pg";
 
 import type {

@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { act, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createElement, type RefCallback } from "react";
 
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
@@ -172,6 +171,33 @@ describe("useViewportRestore", () => {
     viewport!.dispatchEvent(new Event("scroll"));
     await waitForRaf();
     expect(window.sessionStorage.getItem("restore:persist")).toBeNull();
+  });
+
+  test("wheel input cancels a queued restore before the next frame can snap the viewport back", async () => {
+    let capture = () => {};
+    const { container } = render(
+      createElement(RestoreAnchoredListHarness, {
+        onReady: (restore) => {
+          capture = restore.capture;
+        },
+        sessionKey: "restore:wheel-race",
+      }),
+    );
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected restore harness viewport to exist.");
+    }
+
+    act(() => {
+      capture();
+      viewport.scrollTop = 132;
+      viewport.dispatchEvent(new Event("wheel"));
+    });
+
+    await waitForRaf();
+    expect(viewport.scrollTop).toBe(132);
   });
 
   test("flush reapplies the captured scroll position after the anchor shifts", async () => {

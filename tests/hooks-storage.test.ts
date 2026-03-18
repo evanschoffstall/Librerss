@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
-
 import { act, renderHook } from "@testing-library/react";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 
 import { useDebugState } from "@/lib/hooks/useDebugState";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";

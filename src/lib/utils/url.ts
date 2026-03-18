@@ -4,6 +4,36 @@
  */
 
 /**
+ * Extracts embedded URL credentials while returning a version of the URL with
+ * userinfo removed.
+ */
+export function getUrlCredentials(raw: string): null | {
+  password: null | string;
+  sanitizedUrl: string;
+  username: null | string;
+} {
+  try {
+    const parsed = new URL(raw);
+    const username = parsed.username
+      ? decodeURIComponent(parsed.username)
+      : null;
+    const password = parsed.password
+      ? decodeURIComponent(parsed.password)
+      : null;
+    parsed.username = "";
+    parsed.password = "";
+
+    return {
+      password,
+      sanitizedUrl: formatUrlWithoutCredentials(parsed),
+      username,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Human-friendly hostname label with optional `www.` stripping.
  */
 export function getUrlHostnameDisplayLabel(
@@ -35,10 +65,6 @@ export function getUrlHostnameLabel(
   return tryGetUrlHostname(raw) ?? raw;
 }
 
-/**
- * Injects username/password credentials into a proxy URL.
- * Returns the original URL if it's unparseable.
- */
 /**
  * Injects username/password credentials into a proxy URL.
  * The URL API's `.username` / `.password` setters apply the correct userinfo
@@ -135,6 +161,13 @@ export function redactUrlForLogs(raw: string): string {
 }
 
 /**
+ * Removes embedded URL credentials while preserving the rest of the URL.
+ */
+export function stripUrlCredentials(raw: string): string {
+  return getUrlCredentials(raw)?.sanitizedUrl ?? raw;
+}
+
+/**
  * Strips the URL fragment (hash) if present.  Returns the original string
  * when it is not a valid URL or has no fragment.
  *
@@ -187,4 +220,14 @@ export function tryNormalizeFeedUrl(raw: string): string {
     // Invalid URL - return trimmed fallback
     return raw.trim().replace(/\/+$/, "");
   }
+}
+
+/**
+ * Injects username/password credentials into a proxy URL.
+ * Returns the original URL if it's unparseable.
+ */
+function formatUrlWithoutCredentials(parsed: URL): string {
+  const base = `${parsed.protocol}//${parsed.host}`;
+  const path = parsed.pathname === "/" ? "" : parsed.pathname;
+  return `${base}${path}${parsed.search}${parsed.hash}`;
 }

@@ -3,6 +3,14 @@
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
+import type { AuthSession, AuthUser } from "@/lib/core/types";
+
+import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
+import { AuthService } from "@/lib/api/auth-service";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+
+import type { BackgroundMode } from "./constants";
+
 import {
   ParticlesBackground,
   ParticlesBackgroundLight,
@@ -11,16 +19,10 @@ import {
 } from "./components/Background";
 import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
 import { LoginView } from "./components/login/LoginView";
-import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
-import type { BackgroundMode } from "./constants";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
-
-import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
-import { AuthService } from "@/lib/api/auth-service";
-import type { AuthSession, AuthUser } from "@/lib/core/types";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
 
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;

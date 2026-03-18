@@ -123,6 +123,10 @@ export function useViewportRestore(
       stopRestore();
     };
 
+    const handleWheel = () => {
+      stopRestore();
+    };
+
     const handleScroll = () => {
       if (applyingRef.current) return;
 
@@ -139,10 +143,12 @@ export function useViewportRestore(
     viewport.addEventListener("touchstart", handleTouchStart, {
       passive: true,
     });
+    viewport.addEventListener("wheel", handleWheel, { passive: true });
     viewport.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
       viewport.removeEventListener("touchstart", handleTouchStart);
+      viewport.removeEventListener("wheel", handleWheel);
       viewport.removeEventListener("scroll", handleScroll);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();

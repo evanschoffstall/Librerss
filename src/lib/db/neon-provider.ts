@@ -6,7 +6,6 @@ import {
 } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 
-import * as schema from "./schema";
 import type {
   Database,
   DatabaseProviderResult,
@@ -14,6 +13,8 @@ import type {
   SqlQueryExecutor,
   SqlQueryResult,
 } from "./types";
+
+import * as schema from "./schema";
 
 interface NeonDatabaseOptions {
   connectionString: string;
@@ -50,7 +51,9 @@ export function createNeonQueryExecutor(
   connectionString: string,
 ): SqlQueryExecutor {
   return {
-    async close() {},
+    close() {
+      return Promise.resolve();
+    },
     async query<TRow extends QueryResultRow = QueryResultRow>(
       queryText: string,
       params: readonly unknown[] = [],

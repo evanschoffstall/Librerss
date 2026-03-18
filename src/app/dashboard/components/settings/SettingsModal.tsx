@@ -1,16 +1,6 @@
 import { Download, Plus, Rss, Settings2, X } from "lucide-react";
 
-import { useSettingsModalState } from "../../hooks/useSettingsModalState";
-import { MotionSpinner } from "../MotionSpinner";
-
-import { SettingsCategoryList } from "./SettingsCategoryList";
-import {
-  SettingsDisplaySection,
-  type SettingsDisplaySectionProps,
-} from "./SettingsDisplaySection";
-import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
-import { SettingsProxySection } from "./SettingsProxySection";
-
+import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +25,16 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
+
+import { useSettingsModalState } from "../../hooks/useSettingsModalState";
+import { MotionSpinner } from "../MotionSpinner";
+import { SettingsCategoryList } from "./SettingsCategoryList";
+import {
+  SettingsDisplaySection,
+  type SettingsDisplaySectionProps,
+} from "./SettingsDisplaySection";
+import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
+import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
@@ -94,6 +94,7 @@ function SettingsBody({
   categories,
   distillStrategy,
   isPreviewMode = false,
+  onAccountDeleted,
   onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
@@ -107,6 +108,7 @@ function SettingsBody({
 }: SettingsDisplaySectionProps & {
   categories: CategoryTreeNode[];
   isPreviewMode?: boolean;
+  onAccountDeleted: () => void;
   onRemoveCategory: (label: string) => Promise<boolean>;
   pendingCategoryRemovalLabel: null | string;
   state: ReturnType<typeof useSettingsModalState>;
@@ -226,6 +228,10 @@ function SettingsBody({
         {isPreviewMode && <DemoOverlay />}
         <SettingsProxySection />
       </div>
+
+      {!isPreviewMode && (
+        <SettingsAccountSection onAccountDeleted={onAccountDeleted} />
+      )}
     </div>
   );
 }
@@ -282,6 +288,10 @@ export const SettingsModal = ({
     categories,
     distillStrategy,
     isPreviewMode,
+    onAccountDeleted: () => {
+      onClose();
+      window.location.assign("/landing");
+    },
     onAutoRefreshIntervalMinutesChange,
     onBackgroundModeChange,
     onDistillStrategyChange,

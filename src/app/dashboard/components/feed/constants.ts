@@ -2,7 +2,6 @@
 export const VIRTUAL_FEED_ROW_ESTIMATE_PX = 168;
 /** Viewport distance from the bottom that should trigger the next page load. */
 export const FEED_LOAD_MORE_THRESHOLD_PX = VIRTUAL_FEED_ROW_ESTIMATE_PX * 3;
-export const FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS = 90;
 export const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
 export const FEED_ROW_GAP_PX = 6;
 export const FEED_ROW_COLLAPSE_OFFSET_PX =

@@ -6,18 +6,22 @@
  * modules to avoid inflating the public server API.
  */
 export {
-  type AuthenticatedUser,
-  logAndRespondError,
-  requireAuthenticatedUser,
-  requireMutableAuthenticatedUser,
-  requireMutableRequest,
-  requireMutableUserAndJsonBody,
+    type AuthenticatedUser,
+    logAndRespondError,
+    requireAuthenticatedUser,
+    requireMutableAuthenticatedUser,
+    requireMutableRequest, requireMutableUserAndJsonBody
 } from "./guards";
 export {
-  detectProxyProtocol,
-  MAX_PROXY_CREDENTIAL_LENGTH,
-  MAX_PROXY_URL_LENGTH,
-  normalizeProxyUrl,
-  probeProxy,
-  type ProxyStatus,
+    detectProxyProtocol,
+    MAX_PROXY_CREDENTIAL_LENGTH, MAX_PROXY_URL_LENGTH, normalizeProxyUrl,
+    probeProxy,
+    type ProxyStatus
 } from "./proxy";
+export {
+    encryptStoredProxyPassword,
+    materializeStoredProxyPassword,
+    type ResolvedStoredProxyPassword,
+    resolveStoredProxyPassword
+} from "./proxy-credentials";
+

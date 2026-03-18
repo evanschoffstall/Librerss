@@ -1,0 +1,355 @@
+import { expect, type Locator, type Page } from "@playwright/test";
+
+const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
+const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
+const PLAYWRIGHT_SENTINEL_STORAGE_KEY = "librerss:playwright-sentinel";
+
+/** Returns the indexed rendered article card within the explore feed. */
+export function articleCard(page: Page, index: number): Locator {
+  return page.locator("article[data-article-key]").nth(index);
+}
+
+/** Returns the rendered article card matching a previously captured article key. */
+export function articleCardByKey(page: Page, articleKey: string): Locator {
+  return page.locator(
+    `xpath=//article[@data-article-key=${toXPathStringLiteral(articleKey)}]`,
+  );
+}
+
+/** Returns the feed row wrapper that owns a given article card. */
+export function articleRow(article: Locator): Locator {
+  return article.locator("xpath=ancestor::*[@data-scroll-restore-key][1]");
+}
+
+/** Returns the feed row wrapper matching a previously captured article key. */
+export function articleRowByKey(page: Page, articleKey: string): Locator {
+  return page.locator(
+    `xpath=//*[@data-scroll-restore-key=${toXPathStringLiteral(articleKey)}]`,
+  );
+}
+
+/** Opens the unauthenticated dashboard and enters preview mode through the UI. */
+export async function enterPreviewFromLogin(page: Page) {
+  await page.goto("/dashboard");
+  await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
+  await expect(
+    page.getByText("Access your saved feeds and reading preferences."),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Explore without an account" })
+    .click();
+  await expectPreviewDashboard(page);
+}
+
+/** Waits for an article card to reach the expected expanded state. */
+export async function expectArticleExpanded(article: Locator, expanded: boolean) {
+  await expect(article).toHaveAttribute("aria-expanded", expanded ? "true" : "false");
+}
+
+/** Waits for the unauthenticated dashboard login shell to become visible. */
+export async function expectDashboardLogin(page: Page) {
+  await page.waitForURL((url) => url.pathname === "/dashboard");
+  await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
+  await expect(
+    page.getByText("Access your saved feeds and reading preferences."),
+  ).toBeVisible();
+}
+
+/** Waits for the preview dashboard shell to become interactive. */
+export async function expectPreviewDashboard(page: Page) {
+  await page.waitForURL((url) => {
+    return (
+      url.pathname === "/dashboard" &&
+      (
+        url.searchParams.get("explore") === "1" ||
+        url.searchParams.get("preview") === "1" ||
+        url.search === ""
+      )
+    );
+  });
+  await expect(page.getByText("demo", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
+
+  const mobileActionsMenuButton = page.getByRole("button", {
+    name: "Open actions menu",
+  });
+  const desktopSettingsButton = page.getByRole("button", {
+    name: "Open dashboard settings",
+  });
+
+  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+    await expect(mobileActionsMenuButton).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
+      timeout: 15_000,
+    });
+    return;
+  }
+
+  await expect(desktopSettingsButton).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+    timeout: 15_000,
+  });
+}
+
+/** Returns the first rendered article card in the feed list. */
+export function firstArticleCard(page: Page): Locator {
+  return page.locator("article[data-article-key]").first();
+}
+
+/** Returns the first article title within the feed list. */
+export function firstArticleTitle(page: Page): Locator {
+  return firstArticleCard(page).getByRole("heading").first();
+}
+
+/** Returns whether the feed list is still rendering the load-more sentinel. */
+export async function hasLoadMoreSentinel(page: Page) {
+  return (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0;
+}
+
+/** Opens dashboard settings and waits for the modal content to render. */
+export async function openDashboardSettings(page: Page) {
+  const settingsHeading = page.getByRole("heading", { name: "Reader Settings" });
+  if (await settingsHeading.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const mobileActionsMenuButton = page.getByRole("button", {
+    name: "Open actions menu",
+  });
+
+  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+    await mobileActionsMenuButton.click();
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+  } else {
+    await page.getByRole("button", { name: "Open dashboard settings" }).click();
+  }
+
+  await expect(settingsHeading).toBeVisible({ timeout: 15_000 });
+}
+
+/** Reads the article key used by the feed row and card surfaces. */
+export async function readArticleKey(article: Locator) {
+  const articleKey = await article.getAttribute("data-article-key");
+  if (!articleKey) {
+    throw new Error("Expected article card to include a data-article-key.");
+  }
+
+  return articleKey;
+}
+
+/** Measures an article's top edge relative to its owning feed viewport. */
+export async function readArticleTopWithinViewport(article: Locator) {
+  return await article.evaluate((node) => {
+    const viewport = node.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+    if (!viewport) {
+      throw new Error("Expected article to be rendered inside the feed viewport.");
+    }
+
+    return node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+  });
+}
+
+/** Reads the sentinel values that exercise localStorage and sessionStorage cleanup. */
+export async function readClientStateSentinel(page: Page) {
+  return await page.evaluate((storageKey) => {
+    return {
+      localStorageValue: window.localStorage.getItem(storageKey),
+      sessionStorageValue: window.sessionStorage.getItem(storageKey),
+    };
+  }, PLAYWRIGHT_SENTINEL_STORAGE_KEY);
+}
+
+/** Reads the active feed viewport metrics used by expand and scroll-restore flows. */
+export async function readFeedViewportMetrics(page: Page) {
+  return await page.evaluate(() => {
+    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
+    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
+    }, null);
+
+    if (!viewport) {
+      throw new Error("Expected a dashboard feed viewport.");
+    }
+
+    return {
+      clientHeight: viewport.clientHeight,
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+    };
+  });
+}
+
+/** Returns the current preview cookie and localStorage persistence values. */
+export async function readPreviewPersistence(page: Page) {
+  const previewCookieValue =
+    (await page.context().cookies()).find(
+      (cookie) => cookie.name === DASHBOARD_PREVIEW_COOKIE_NAME,
+    )?.value ?? null;
+  const previewStorageValue = await page.evaluate((storageKey) => {
+    return window.localStorage.getItem(storageKey);
+  }, DASHBOARD_PREVIEW_STORAGE_KEY);
+
+  return {
+    previewCookieValue,
+    previewStorageValue,
+  };
+}
+
+/** Reads the current number of rendered article cards in the active feed. */
+export async function readRenderedArticleCount(page: Page) {
+  return await page.locator("article[data-article-key]").count();
+}
+
+/** Scrolls the active feed viewport to its current bottom edge. */
+export async function scrollFeedViewportToBottom(page: Page) {
+  await page.evaluate(() => {
+    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
+    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
+    }, null);
+
+    if (!viewport) {
+      throw new Error("Expected a dashboard feed viewport.");
+    }
+
+    viewport.scrollTop = viewport.scrollHeight;
+    viewport.dispatchEvent(new Event("scroll"));
+  });
+}
+
+/** Seeds origin-scoped web storage so reset and sign-out cleanup can be verified. */
+export async function seedClientStateSentinel(page: Page, value = "present") {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await page.evaluate(
+        ({ storageKey, storageValue }) => {
+          window.localStorage.setItem(storageKey, storageValue);
+          window.sessionStorage.setItem(storageKey, storageValue);
+        },
+        {
+          storageKey: PLAYWRIGHT_SENTINEL_STORAGE_KEY,
+          storageValue: value,
+        },
+      );
+      return;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("Execution context was destroyed") ||
+        attempt === 1
+      ) {
+        throw error;
+      }
+
+      await page.waitForLoadState("domcontentloaded");
+    }
+  }
+}
+
+/** Selects visible expanded article text and returns the current selection content. */
+export async function selectExpandedArticleText(article: Locator) {
+  return await article.evaluate((node) => {
+    const selectableTarget = node.querySelector<HTMLElement>(".article-swipe-body");
+
+    if (!selectableTarget || selectableTarget.innerText.trim().length <= 20) {
+      return "";
+    }
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+
+    selection?.removeAllRanges();
+    range.selectNodeContents(selectableTarget);
+    selection?.addRange(range);
+
+    return selection?.toString().trim() ?? "";
+  });
+}
+
+/** Scrolls the active feed viewport to a target offset. */
+export async function setFeedViewportScrollTop(page: Page, scrollTop: number) {
+  await page.evaluate((nextScrollTop) => {
+    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
+    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
+    }, null);
+
+    if (!viewport) {
+      throw new Error("Expected a dashboard feed viewport.");
+    }
+
+    viewport.scrollTop = nextScrollTop;
+    viewport.dispatchEvent(new Event("scroll"));
+  }, scrollTop);
+}
+
+/** Drags horizontally across an article card to exercise swipe actions. */
+export async function swipeArticle(
+  article: Locator,
+  options: {
+    endRatio: number;
+    startRatio: number;
+    yRatio?: number;
+  },
+) {
+  await article.scrollIntoViewIfNeeded();
+  const box = await article.boundingBox();
+
+  if (!box) {
+    throw new Error("Expected article card to have a measurable bounding box.");
+  }
+
+  const yRatio = options.yRatio ?? 0.5;
+  const startX = box.x + box.width * options.startRatio;
+  const endX = box.x + box.width * options.endRatio;
+  const y = box.y + box.height * yRatio;
+  const pointerId = Math.floor(Date.now() % 10_000) + 1;
+
+  await article.dispatchEvent("pointerdown", {
+    clientX: startX,
+    clientY: y,
+    pointerId,
+    pointerType: "touch",
+  });
+  await article.dispatchEvent("pointermove", {
+    clientX: endX,
+    clientY: y + 2,
+    pointerId,
+    pointerType: "touch",
+  });
+  await article.dispatchEvent("pointerup", {
+    clientX: endX,
+    clientY: y + 2,
+    pointerId,
+    pointerType: "touch",
+  });
+}
+
+/** Toggles an article by clicking its title region instead of nested action buttons. */
+export async function toggleArticle(article: Locator) {
+  await article.scrollIntoViewIfNeeded();
+  await article
+    .locator("[data-article-swipe-zone='header']")
+    .first()
+    .click({ position: { x: 32, y: 48 } });
+}
+
+function toXPathStringLiteral(value: string) {
+  if (!value.includes('"')) {
+    return `"${value}"`;
+  }
+
+  if (!value.includes("'")) {
+    return `'${value}'`;
+  }
+
+  return `concat(${value
+    .split('"')
+    .map((segment) => `"${segment}"`)
+    .join(`, '"', `)})`;
+}

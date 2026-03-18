@@ -2,6 +2,10 @@
 
 import { useCallback, useState } from "react";
 
+import { includesCategoryLabel } from "@/lib";
+
+import type { FeedSourceActionState } from "./types";
+
 import {
   addCategoryLabel,
   moveCategoryByDropInOrder,
@@ -9,10 +13,6 @@ import {
   renameCategoryAndRefresh,
 } from "../services/category-operations";
 import { hasCategoryLabelInTree } from "../services/category-tree";
-
-import type { FeedSourceActionState } from "./types";
-
-import { includesCategoryLabel } from "@/lib";
 
 interface UseCategoryCrudActionsOptions extends Omit<
   FeedSourceActionState,

@@ -1,8 +1,5 @@
 import { toast } from "sonner";
 
-import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-tree";
-import type { FeedFetchOptions } from "./selection";
-
 import {
   type CategoryTreeNode,
   FeedService,
@@ -10,6 +7,10 @@ import {
   normalizeCategory,
   type OpmlFeedImportEntry,
 } from "@/lib";
+
+import type { FeedFetchOptions } from "./selection";
+
+import { findFeedNodeByUrl, getFeedUrlBySelectedKey } from "./category-tree";
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 

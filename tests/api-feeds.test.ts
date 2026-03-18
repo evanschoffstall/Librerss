@@ -13,10 +13,7 @@ import {
   mock,
   test,
 } from "bun:test";
-
 import { NextRequest } from "next/server";
-
-import { createMockFeed, createMockRequest } from "./support/test-utils";
 
 import {
   getRequestedFeedUrl,
@@ -27,6 +24,8 @@ import {
   parseToggleFeedEnabledPayloadFromBody,
   parseUpdateFeedSettingsPayloadFromBody,
 } from "@/lib/api/feeds/parsers";
+
+import { createMockFeed, createMockRequest } from "./support/test-utils";
 
 const createSelectChain = () => ({
   leftJoin: () => createSelectChain(),

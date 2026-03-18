@@ -30,7 +30,7 @@ export function useCategoryOrderState({
           setOrderedCategoryLabels(labels);
         }
       })
-      .catch(() => {});
+      .catch(() => undefined);
   }, [usePlaceholderData]);
 
   useEffect(() => {
@@ -48,7 +48,9 @@ export function useCategoryOrderState({
     }
 
     savePendingRef.current = setTimeout(() => {
-      void FeedService.saveCategoryOrder(orderedCategoryLabels).catch(() => {});
+      void FeedService.saveCategoryOrder(orderedCategoryLabels).catch(
+        () => undefined,
+      );
     }, 500);
 
     return () => {

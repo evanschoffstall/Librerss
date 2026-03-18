@@ -214,7 +214,8 @@ export class RateLimiter {
 
     // No usable proxy header — bucket all unidentified clients together.
     // User-agent is intentionally NOT used: a shared UA across many genuine
-    // users funnels them into one bucket; a bot that picks a unique UA escapes.
+    // users funnels them into one bucket; an automated client that rotates a
+    // unique UA escapes.
     return "unknown";
   }
 }

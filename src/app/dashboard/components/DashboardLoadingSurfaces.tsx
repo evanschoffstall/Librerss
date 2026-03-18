@@ -2,10 +2,10 @@
 
 import { motion } from "motion/react";
 
-import { FEED_PULL_HEIGHT } from "../hooks/useFeedSurface";
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+
+import { FEED_PULL_HEIGHT } from "../hooks/useFeedSurface";
 
 const SKELETON_REVEAL_TRANSITION = {
   duration: 0.26,

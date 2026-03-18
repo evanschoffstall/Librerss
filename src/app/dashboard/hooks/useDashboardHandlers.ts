@@ -2,13 +2,13 @@
 
 import { useCallback } from "react";
 
+import { type CategoryTreeNode } from "@/lib";
+
 import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
   type FeedSelectionFetchers,
   refreshCurrentSelection,
 } from "../services/selection";
-
-import { type CategoryTreeNode } from "@/lib";
 
 /**
  * Inputs for the dashboard action handlers that drive selection and refresh.

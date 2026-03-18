@@ -108,24 +108,24 @@ async function testProxyPipeline() {
       console.log();
     }
 
-    // Check for bot detection indicators
-    console.log("BOT DETECTION CHECK");
+    // Check for vendor compatability indicators
+    console.log("Vendor Compatability Check");
     console.log("=".repeat(70));
-    const botIndicators = {
+    const vendorCompatabilityIssues = {
       cloudflare: /cf-browser-verification|challenge-platform/i.test(html),
       datadome: /datadome/i.test(html),
       perimeterX: /px[-_]captcha|perimeterx|\/_px\//i.test(html),
       recaptcha: /recaptcha/i.test(html),
     };
 
-    if (Object.values(botIndicators).some(Boolean)) {
-      console.log("⚠️  Bot detection indicators found:");
-      if (botIndicators.datadome) console.log("  - DataDome");
-      if (botIndicators.perimeterX) console.log("  - PerimeterX");
-      if (botIndicators.cloudflare) console.log("  - Cloudflare Challenge");
-      if (botIndicators.recaptcha) console.log("  - reCAPTCHA");
+    if (Object.values(vendorCompatabilityIssues).some(Boolean)) {
+      console.log("⚠️ Vendor compatability issues found:");
+      if (vendorCompatabilityIssues.datadome) console.log("  - DataDome");
+      if (vendorCompatabilityIssues.perimeterX) console.log("  - PerimeterX");
+      if (vendorCompatabilityIssues.cloudflare) console.log("  - Cloudflare Challenge");
+      if (vendorCompatabilityIssues.recaptcha) console.log("  - reCAPTCHA");
     } else {
-      console.log("✅ No bot detection indicators found");
+      console.log("✅ No vendor compatability issues found");
     }
     console.log("=".repeat(70));
 

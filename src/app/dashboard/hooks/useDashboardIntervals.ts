@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+
 import { useEffect, useEffectEvent, useRef } from "react";
 
 import { toAutoRefreshIntervalMs } from "../services/refresh-policy";

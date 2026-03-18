@@ -9,6 +9,8 @@ import { logger } from "@/lib/logger";
 import {
   type AuthenticatedUser,
   detectProxyProtocol,
+  encryptStoredProxyPassword,
+  materializeStoredProxyPassword,
   MAX_PROXY_CREDENTIAL_LENGTH,
   MAX_PROXY_URL_LENGTH,
   normalizeProxyUrl,
@@ -16,7 +18,11 @@ import {
   type ProxyStatus,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
-import { injectProxyCredentials, redactUrlForLogs } from "@/lib/utils/url";
+import {
+  getUrlCredentials,
+  injectProxyCredentials,
+  redactUrlForLogs,
+} from "@/lib/utils/url";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +35,10 @@ export interface ProxyRouteDeps {
   ) => Promise<AuthenticatedUser | Response>;
 }
 
+/**
+ * Returns the saved proxy configuration for the authenticated user and probes
+ * the current endpoint with any stored credentials applied.
+ */
 export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
   const result = await resolveAuth(request, deps);
   if (result instanceof Response) return result;
@@ -48,18 +58,52 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
   if (rows.length === 0) return unconfiguredResponse();
   const user = rows[0];
 
-  const proxyUrl = user.proxyUrl?.trim() ?? "";
-  if (!proxyUrl) return unconfiguredResponse();
+  const rawProxyUrl = user.proxyUrl?.trim() ?? "";
+  if (!rawProxyUrl) return unconfiguredResponse();
+
+  const embeddedCredentials = getUrlCredentials(rawProxyUrl);
+  const proxyUrl = embeddedCredentials?.sanitizedUrl ?? rawProxyUrl;
+  const proxyUsername =
+    user.proxyUsername ?? embeddedCredentials?.username ?? null;
+
+  let decryptedProxyPassword: null | string;
+  try {
+    decryptedProxyPassword = await materializeStoredProxyPassword(
+      user.proxyPassword,
+      async (normalizedStoredPassword) => {
+        await db
+          .update(users)
+          .set({ proxyPassword: normalizedStoredPassword })
+          .where(eq(users.id, result.auth.userId));
+      },
+    );
+  } catch (error) {
+    logger.error("Saved proxy password could not be materialized", {
+      error: error instanceof Error ? error.message : String(error),
+      userId: result.auth.userId,
+    });
+    return configuredResponseWithError(
+      proxyUrl,
+      user.allowInsecureTls,
+      proxyUsername,
+      user.proxyPassword !== null || embeddedCredentials?.password !== null,
+      "Saved proxy password could not be read. Save it again to continue using authenticated proxy access.",
+    );
+  }
+
   return probeAndRespond(
     proxyUrl,
     result.probe,
     "Proxy unreachable on GET",
     user.allowInsecureTls,
-    user.proxyUsername,
-    user.proxyPassword,
+    proxyUsername,
+    decryptedProxyPassword ?? embeddedCredentials?.password ?? null,
   );
 }
 
+/**
+ * Validates and stores proxy settings for the authenticated user.
+ */
 export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   const result = await resolveAuth(request, deps);
   if (result instanceof Response) return result;
@@ -76,6 +120,7 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     typeof body.proxyUrl === "string" ? body.proxyUrl.trim() : null;
   const raw =
     trimmed && trimmed !== "null" && trimmed !== "undefined" ? trimmed : null;
+  const embeddedCredentials = raw ? getUrlCredentials(raw) : null;
   const allowInsecureTls =
     typeof body.allowInsecureTls === "boolean"
       ? body.allowInsecureTls
@@ -92,6 +137,20 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
       : body.proxyPassword === null || body.proxyPassword === ""
         ? null
         : undefined;
+
+  const hasEmbeddedProxyCredentials =
+    embeddedCredentials !== null &&
+    (embeddedCredentials.username !== null ||
+      embeddedCredentials.password !== null);
+
+  if (
+    hasEmbeddedProxyCredentials &&
+    (proxyUsername !== undefined || proxyPassword !== undefined)
+  ) {
+    return unconfiguredResponse(
+      "Provide proxy credentials either in the dedicated username/password fields or in the URL, but not both.",
+    );
+  }
 
   if (raw && raw.length > MAX_PROXY_URL_LENGTH) {
     logger.error("Proxy URL exceeds max length", {
@@ -134,13 +193,41 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
   }
 
   const db = getDb();
+  const effectiveProxyUsername =
+    proxyUsername !== undefined
+      ? proxyUsername
+      : embeddedCredentials?.username ?? undefined;
+  const effectiveProxyPassword =
+    proxyPassword !== undefined
+      ? proxyPassword
+      : embeddedCredentials?.password ?? undefined;
+  let storedProxyPassword = effectiveProxyPassword;
+
+  if (effectiveProxyPassword !== undefined && effectiveProxyPassword !== null) {
+    try {
+      storedProxyPassword = encryptStoredProxyPassword(effectiveProxyPassword);
+    } catch (error) {
+      logger.error("Proxy password encryption failed", {
+        error: error instanceof Error ? error.message : String(error),
+        userId: result.auth.userId,
+      });
+      return unconfiguredResponse(
+        "Proxy password encryption is not configured correctly on this deployment.",
+      );
+    }
+  }
+
   const updatedRows = await db
     .update(users)
     .set({
       proxyUrl,
       ...(allowInsecureTls !== undefined && { allowInsecureTls }),
-      ...(proxyUsername !== undefined && { proxyUsername }),
-      ...(proxyPassword !== undefined && { proxyPassword }),
+      ...(effectiveProxyUsername !== undefined && {
+        proxyUsername: effectiveProxyUsername,
+      }),
+      ...(storedProxyPassword !== undefined && {
+        proxyPassword: storedProxyPassword,
+      }),
     })
     .where(eq(users.id, result.auth.userId))
     .returning({
@@ -153,8 +240,36 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     updatedRows.length === 0 ? false : updatedRows[0].allowInsecureTls;
   const effectiveUsername =
     updatedRows.length === 0 ? null : updatedRows[0].proxyUsername;
-  const effectivePassword =
-    updatedRows.length === 0 ? null : updatedRows[0].proxyPassword;
+  let effectivePassword: null | string;
+
+  if (effectiveProxyPassword !== undefined) {
+    effectivePassword = effectiveProxyPassword;
+  } else {
+    try {
+      effectivePassword = await materializeStoredProxyPassword(
+        updatedRows.length === 0 ? null : updatedRows[0].proxyPassword,
+        async (normalizedStoredPassword) => {
+          await db
+            .update(users)
+            .set({ proxyPassword: normalizedStoredPassword })
+            .where(eq(users.id, result.auth.userId));
+        },
+      );
+    } catch (error) {
+      logger.error("Saved proxy password could not be materialized", {
+        error: error instanceof Error ? error.message : String(error),
+        userId: result.auth.userId,
+      });
+      if (!proxyUrl) return unconfiguredResponse();
+      return configuredResponseWithError(
+        proxyUrl,
+        effectiveTls,
+        effectiveUsername,
+        updatedRows.length > 0 && updatedRows[0].proxyPassword !== null,
+        "Saved proxy password could not be read. Save it again to continue using authenticated proxy access.",
+      );
+    }
+  }
 
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
@@ -165,6 +280,28 @@ export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
     effectiveUsername,
     effectivePassword,
   );
+}
+
+/**
+ * Returns a configured proxy response while surfacing a non-fatal credential
+ * read error to the settings client.
+ */
+function configuredResponseWithError(
+  proxyUrl: string,
+  allowInsecureTls: boolean,
+  proxyUsername: null | string,
+  hasProxyPassword: boolean,
+  error: string,
+): Response {
+  return NextResponse.json({
+    allowInsecureTls,
+    configured: true,
+    error,
+    hasProxyPassword,
+    proxyUrl,
+    proxyUsername,
+    status: "unreachable" as ProxyStatus,
+  });
 }
 
 async function probeAndRespond(

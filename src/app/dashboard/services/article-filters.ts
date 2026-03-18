@@ -1,6 +1,6 @@
-import { getArticleKey } from "./article-collection";
-
 import type { Article } from "@/lib";
+
+import { getArticleKey } from "./article-collection";
 
 export const ARTICLE_FILTER_OPTIONS = [
   "all",
@@ -15,8 +15,10 @@ export function filterArticlesByState(
   articles: Article[],
   articleFilter: ArticleFilter,
   expandedArticleKey: null | string,
-  collapsingArticleKey: null | string,
+  collapsingArticleKeys: string[],
 ): Article[] {
+  const collapsingArticleKeySet = new Set(collapsingArticleKeys);
+
   return articles.filter((article) => {
     if (articleFilter === "all") {
       return true;
@@ -34,7 +36,7 @@ export function filterArticlesByState(
     return (
       !article.isRead ||
       expandedArticleKey === articleKey ||
-      collapsingArticleKey === articleKey
+      collapsingArticleKeySet.has(articleKey)
     );
   });
 }

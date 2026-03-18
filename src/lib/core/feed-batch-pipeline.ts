@@ -5,6 +5,15 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 
+import type { getDb } from "@/lib/db/db";
+
+import { CONFIG } from "@/lib/config";
+import { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } from "@/lib/core/article-preview";
+import { feedRecordFields } from "@/lib/db/feed-records";
+import { feeds, feedSources } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
+import { toPlainText } from "@/lib/sanitize";
+
 import {
   type FeedRecord,
   refreshFeedFromUpstream,
@@ -12,14 +21,6 @@ import {
   shouldRefreshFeed,
   type UpstreamRefreshResult,
 } from "./feed-refresh";
-
-import { CONFIG } from "@/lib/config";
-import { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } from "@/lib/core/article-preview";
-import type { getDb } from "@/lib/db/db";
-import { feedRecordFields } from "@/lib/db/feed-records";
-import { feeds, feedSources } from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
-import { toPlainText } from "@/lib/sanitize";
 
 // ─── Concurrency helper ──────────────────────────────────────────────────────
 
@@ -260,10 +261,10 @@ export async function queryTopArticlesPerFeed(
   // the ROW_NUMBER() window function which scans ALL rows before filtering.
   // The outer LIMIT caps total rows across the entire batch so an all-feeds
   // dashboard load cannot pull feedCount * MAX_ARTICLES_PER_FEED full article
-  // bodies from Neon in one query. The inner projection trims raw article HTML
-  // to a bounded snippet; plain-text preview shaping happens in application
-  // code so inline-heavy markup does not produce phantom spaces between words
-  // or characters.
+  // bodies from Neon in one query. The inner projection strips HTML tags
+  // before clipping the preview source so leading image/embed markup does not
+  // consume the collapsed preview budget; final plain-text normalization still
+  // happens in application code.
   const queryResult = await db.execute<RankedRow>(sql`
     SELECT a.id, a.title, a.link, a.content,
            a.publication_date AS "publicationDate",
@@ -279,7 +280,15 @@ export async function queryTopArticlesPerFeed(
       SELECT sub.id,
              sub.title,
              sub.link,
-             LEFT(sub.content, ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}) AS content,
+             LEFT(
+               regexp_replace(
+                 regexp_replace(sub.content, '<[^>]+>', ' ', 'gi'),
+                 '\s+',
+                 ' ',
+                 'g'
+               ),
+               ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}
+             ) AS content,
              sub.publication_date, sub.feed_id, sub.last_checked
       FROM "Article" sub
       WHERE sub.feed_id = fid.id

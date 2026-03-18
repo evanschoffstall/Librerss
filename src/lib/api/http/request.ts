@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { jsonError } from "./responses";
-
 import { CONFIG } from "@/lib/config";
+
+import { jsonError } from "./responses";
 
 interface ParsedJsonFailure {
   ok: false;

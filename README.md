@@ -87,6 +87,15 @@ bun dev
 
 Open **[http://localhost:3000](http://localhost:3000)** to start reading in a clean, self-hosted dashboard.
 
+### 5 · Run the Playwright e2e suite
+
+The e2e suite starts its own dedicated Next.js dev server on port `3100`, uses a separate `.next-playwright` build directory so it does not collide with your normal local app session, shuts that server down when the run finishes, and removes the temporary build output afterward so repo checks stay clean.
+
+```bash
+bunx playwright install chromium
+bun run test:e2e
+```
+
 ---
 
 ## Stack

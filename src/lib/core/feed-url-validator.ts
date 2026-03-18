@@ -5,14 +5,14 @@
 
 import { isIP } from "node:net";
 
-import { resolvesToBlockedAddress } from "./dns-cache";
-
 import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
 } from "@/lib/utils/ssrf";
 import { isValidUrl } from "@/lib/utils/url";
+
+import { resolvesToBlockedAddress } from "./dns-cache";
 
 export const PUBLIC_FEED_URL_ERROR =
   "Feed URL must use http or https and resolve to a public host";

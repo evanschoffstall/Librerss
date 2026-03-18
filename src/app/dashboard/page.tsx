@@ -1,6 +1,14 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
+import type { AuthSession } from "@/lib/core/types";
+
+import {
+  getUserFromSessionToken,
+  SESSION_COOKIE_NAME,
+} from "@/lib/auth/session";
+import { RUNTIME_FLAGS } from "@/lib/core/runtime";
+
 import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
 import { LoginViewSkeleton } from "./components/login/LoginViewSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
@@ -9,15 +17,15 @@ import {
   resolveDashboardPreviewMode,
 } from "./preview-mode";
 
-import {
-  getUserFromSessionToken,
-  SESSION_COOKIE_NAME,
-} from "@/lib/auth/session";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import type { AuthSession } from "@/lib/core/types";
+interface DashboardPageProps {
+  searchParams: Promise<{
+    explore?: string | string[];
+    preview?: string | string[];
+  }>;
+}
 
 /** Resolves the dashboard route shell and authenticated session state. */
-export default async function Dashboard(props: PageProps<"/dashboard">) {
+export default async function Dashboard(props: DashboardPageProps) {
   const [cookieStore, resolvedSearchParams] = await Promise.all([
     cookies(),
     props.searchParams,

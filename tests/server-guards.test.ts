@@ -7,7 +7,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { NextRequest } from "next/server";
 
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";

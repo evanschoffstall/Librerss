@@ -7,6 +7,13 @@
 import { eq, sql } from "drizzle-orm";
 import Parser from "rss-parser";
 
+import type { getDb } from "@/lib/db/db";
+
+import { CONFIG } from "@/lib/config";
+import { articles, feeds } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
+import { toErrorMessage } from "@/lib/utils/errors";
+
 import { fetchFeedXml } from "./feed-http";
 import {
   dedupePendingArticles,
@@ -14,12 +21,6 @@ import {
   type PendingArticle,
   toPendingArticle,
 } from "./feed-parser";
-
-import { CONFIG } from "@/lib/config";
-import type { getDb } from "@/lib/db/db";
-import { articles, feeds } from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
 
 // ─── Diagnostic logging helpers ───────────────────────────────────────────────
 export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {

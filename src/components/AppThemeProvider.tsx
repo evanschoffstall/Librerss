@@ -1,8 +1,8 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
 import { ThemeProvider, useTheme } from "next-themes";
+import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 

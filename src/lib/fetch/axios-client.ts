@@ -1,10 +1,11 @@
-import https from "node:https";
-
-import axios from "axios";
 import type { CookieJar } from "tough-cookie";
 
-import { extractionAxios } from "./fingerprint";
+import axios from "axios";
+import https from "node:https";
+
 import type { buildProxyConfig } from "./proxy";
+
+import { extractionAxios } from "./fingerprint";
 
 export function buildAxiosGet(
   injectedGet: typeof axios.get | undefined,

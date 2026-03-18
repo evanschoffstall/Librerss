@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import type { AxiosError, AxiosResponse } from "axios";
+
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { CookieJar } from "tough-cookie";
 
 import {
-  EXTRACT_403_RETRIES,
-  fetchHtml,
-  PROXY_FINGERPRINT_POOL,
+    EXTRACT_403_RETRIES,
+    fetchHtml,
+    PROXY_FINGERPRINT_POOL,
 } from "@/lib/extract";
 import { GotScrapingError } from "@/lib/fetch";
 
@@ -1470,7 +1470,7 @@ describe("fetchHtml", () => {
     });
   });
 
-  describe("mixed bot protection scenarios", () => {
+  describe("mixed vendor access-response scenarios", () => {
     test("handles 403 with both DataDome and PerimeterX indicators (DataDome takes precedence)", async () => {
       const mockAxiosGet = mock(async () => {
         const error = createAxiosError(
@@ -1534,10 +1534,10 @@ describe("fetchHtml", () => {
   });
 });
 
-// ── lib/extract/upstream – TLS fingerprint fallback (bot detection) ───────────
+// ── lib/extract/upstream – TLS fingerprint fallback (compatibility signals) ─
 
 describe("lib/extract/upstream – proxy path with fingerprintFetchFn", () => {
-  // The direct-path TLS fallback (botDetection.detected && !injectedGet) cannot
+  // The direct-path TLS fallback (sourceCompatibilitySignal.detected && !injectedGet) cannot
   // be tested with injected deps because injecting axiosGetFn sets `injectedGet`
   // which bypasses the fallback. Instead, we test the PROXY path which always
   // uses fingerprintFetchFn directly.
@@ -1762,7 +1762,7 @@ describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
     ).rejects.toThrow("proxy connection refused");
   });
 
-  test("re-throws when axiosGetFn throws a bot-detected error (non-retryable)", async () => {
+  test("re-throws when axiosGetFn throws a compatibility-signaled error (non-retryable)", async () => {
     const { fetchHtml } = await import("@/lib/extract/upstream");
 
     // Build a minimal AxiosError-like object for DataDome detection

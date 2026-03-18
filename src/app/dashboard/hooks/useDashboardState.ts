@@ -8,14 +8,6 @@ import {
   useState,
 } from "react";
 
-import { ALL_FEEDS_NODE_KEY, INITIAL_CATEGORIES } from "../constants";
-import { type ArticleFilter } from "../services/article-filters";
-import {
-  AUTO_REFRESH_INTERVAL_STORAGE_KEY,
-  normalizeAutoRefreshIntervalMinutes,
-  resolveDefaultAutoRefreshIntervalMinutes,
-} from "../services/refresh-policy";
-
 import {
   DEFAULT_ARTICLE_PAGE_SIZE,
   normalizeArticlePageSize,
@@ -27,6 +19,14 @@ import {
   useSessionState,
 } from "@/lib";
 import { clientFeedCacheTtlMinutes } from "@/lib/config";
+
+import { ALL_FEEDS_NODE_KEY, INITIAL_CATEGORIES } from "../constants";
+import { type ArticleFilter } from "../services/article-filters";
+import {
+  AUTO_REFRESH_INTERVAL_STORAGE_KEY,
+  normalizeAutoRefreshIntervalMinutes,
+  resolveDefaultAutoRefreshIntervalMinutes,
+} from "../services/refresh-policy";
 
 /**
  * Owns the dashboard's local and persisted state buckets.

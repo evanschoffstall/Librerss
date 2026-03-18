@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { useSwipeGesture } from "@/app/dashboard/hooks/useSwipeGesture";
 
@@ -130,6 +129,41 @@ describe("useSwipeGesture", () => {
       expect(setPointerCapture).toHaveBeenCalledWith(2);
       expect(releasePointerCapture).toHaveBeenCalledWith(2);
       expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("does not capture diagonal drags that still favor vertical scrolling", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    const { releasePointerCapture, setPointerCapture } =
+      installPointerCaptureSpies(surface);
+
+    fireEvent.pointerDown(handle, {
+      clientX: 20,
+      clientY: 10,
+      pointerId: 5,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: 74,
+      clientY: 86,
+      pointerId: 5,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(handle, {
+      clientX: 74,
+      clientY: 86,
+      pointerId: 5,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(setPointerCapture).not.toHaveBeenCalled();
+      expect(releasePointerCapture).not.toHaveBeenCalled();
+      expect(onCommit).not.toHaveBeenCalled();
     });
   });
 

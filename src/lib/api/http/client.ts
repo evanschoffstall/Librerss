@@ -23,7 +23,7 @@ export function createLinkedAbortController(signal?: AbortSignal): {
   if (!signal) {
     return {
       controller,
-      dispose: () => {},
+      dispose: () => undefined,
     };
   }
 
@@ -31,7 +31,7 @@ export function createLinkedAbortController(signal?: AbortSignal): {
     controller.abort();
     return {
       controller,
-      dispose: () => {},
+      dispose: () => undefined,
     };
   }
 

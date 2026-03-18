@@ -122,7 +122,7 @@ describe("dashboard article filters", () => {
         articles,
         filterName as ArticleFilter,
         null,
-        null,
+        [],
       ).map((article) => article.link);
       const expectedLinks = articles
         .filter((_, index) => expectedVisibility[index])
@@ -136,7 +136,7 @@ describe("dashboard article filters", () => {
         articles,
         "unread",
         "https://example.com/read",
-        null,
+        [],
       ).map((article) => article.link),
     ).toEqual(["https://example.com/unread", "https://example.com/read"]);
 
@@ -145,7 +145,7 @@ describe("dashboard article filters", () => {
         articles,
         "unread",
         null,
-        "https://example.com/starred",
+        ["https://example.com/starred"],
       ).map((article) => article.link),
     ).toEqual(["https://example.com/unread", "https://example.com/starred"]);
   });

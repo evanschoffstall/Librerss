@@ -1,9 +1,10 @@
-import { motion } from "motion/react";
 import type { ComponentProps } from "react";
 
-import { DashboardSidebarContent } from "./DashboardSidebarContent";
+import { motion } from "motion/react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { DashboardSidebarContent } from "./DashboardSidebarContent";
 
 const DASHBOARD_SIDEBAR_TRANSITION = {
   duration: 0.28,

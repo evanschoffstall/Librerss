@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim() || ".next",
   async headers() {
     return [
       {
@@ -80,6 +81,10 @@ const nextConfig: NextConfig = {
     "node-tls-client",
     "koffi",
   ],
+  typescript: {
+    tsconfigPath:
+      process.env.NEXT_TYPESCRIPT_CONFIG_PATH?.trim() || "tsconfig.json",
+  },
 };
 
 export default nextConfig;

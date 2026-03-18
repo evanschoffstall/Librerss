@@ -1,3 +1,8 @@
+import { logger } from "@/lib/logger";
+import { toErrorMessage } from "@/lib/utils/errors";
+
+import type { Database, DatabasePool, DatabaseProviderResult } from "./types";
+
 import {
   assertDatabaseConfigured,
   getConnectionString,
@@ -8,10 +13,6 @@ import {
 } from "./config";
 import { createNeonDatabase } from "./neon-provider";
 import { createNodePostgresDatabase } from "./node-postgres-provider";
-import type { Database, DatabasePool, DatabaseProviderResult } from "./types";
-
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
 
 const globalForDb = globalThis as unknown as {
   db?: Database;

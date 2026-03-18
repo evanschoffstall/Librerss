@@ -4,12 +4,6 @@
  */
 
 import {
-  ALL_FEEDS_LABEL,
-  ALL_FEEDS_NODE_KEY,
-  INITIAL_CATEGORIES,
-} from "../constants";
-
-import {
   type CategoryTreeNode,
   includesCategoryLabel,
   normalizeCategory,
@@ -19,6 +13,12 @@ import {
   PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
 } from "@/lib/core/placeholder";
+
+import {
+  ALL_FEEDS_LABEL,
+  ALL_FEEDS_NODE_KEY,
+  INITIAL_CATEGORIES,
+} from "../constants";
 
 // ─── Category key generation ──────────────────────────────────────────────────
 

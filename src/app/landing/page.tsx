@@ -47,15 +47,9 @@ function getLandingRevealTransition(delay: number) {
 
 const LandingView = () => {
   return (
-    <div
-      className="
-        relative box-border flex flex-1 flex-col items-center justify-center
-        overflow-hidden
-      "
-    >
+    <div className="relative box-border flex flex-1 flex-col overflow-hidden">
       <ThemeNoticeDialog />
 
-      {/* Ambient background glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/2 left-1/2 -translate-1/2">
           <motion.div
@@ -91,7 +85,6 @@ const LandingView = () => {
         />
       </div>
 
-      {/* Subtle grid pattern */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.015]"
         style={{
@@ -101,98 +94,100 @@ const LandingView = () => {
         }}
       />
 
-      {/* Content */}
-      <div
-        className="
-          relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center px-4
-          text-center
-          sm:px-6
-        "
-      >
-        {/* Headline */}
-        <motion.h1
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            mb-5 text-[2.5rem] leading-[1.1] font-bold tracking-tight
-            sm:mb-7 sm:text-6xl
-            lg:text-8xl
-          "
-          initial={{ opacity: 0, y: 24 }}
-          transition={getLandingRevealTransition(0.08)}
-        >
-          <span className="block">Your reading,</span>
-          <span
+      <div className="
+        relative z-10 mx-auto flex min-h-full w-full max-w-4xl flex-1 flex-col
+        px-4
+        sm:px-6
+      ">
+        <div className="
+          flex flex-1 flex-col items-center justify-center pt-5 pb-6 text-center
+          sm:py-14
+        ">
+          <motion.h1
+            animate={{ opacity: 1, y: 0 }}
             className="
+              mb-5 max-w-[9.5ch] text-[clamp(2.6rem,13vw,4.25rem)] leading-[0.9]
+              font-bold tracking-[-0.05em]
+              sm:mb-7 sm:max-w-none sm:text-6xl sm:leading-[1.02]
+              lg:text-8xl
+            "
+            initial={{ opacity: 0, y: 24 }}
+            transition={getLandingRevealTransition(0.08)}
+          >
+            <span className="block">Your reading,</span>
+            <span className="
               block bg-linear-to-br from-foreground/60 via-muted-foreground/60
               to-muted-foreground/40 bg-clip-text text-transparent
+            ">
+              without the noise.
+            </span>
+          </motion.h1>
+
+          <motion.p
+            animate={{ opacity: 1, y: 0 }}
+            className="
+              mx-auto mb-6 max-w-74 text-[0.95rem]/[1.7]
+              text-muted-foreground/95
+              sm:mb-12 sm:max-w-lg sm:text-xl/8
             "
+            initial={{ opacity: 0, y: 24 }}
+            transition={getLandingRevealTransition(0.16)}
           >
-            without the noise.
-          </span>
-        </motion.h1>
+            A free, open-source feed hub for RSS. All your sources in one calm,
+            focused inbox.
+          </motion.p>
 
-        {/* Subtitle */}
-        <motion.p
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            mx-auto mb-9 max-w-lg text-base text-muted-foreground
-            sm:mb-12 sm:text-xl
-          "
-          initial={{ opacity: 0, y: 24 }}
-          transition={getLandingRevealTransition(0.16)}
-        >
-          A free, open-source feed hub for RSS. All your sources in one calm,
-          focused inbox.
-        </motion.p>
-
-        {/* Single CTA */}
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            mb-12
-            sm:mb-16
-          "
-          initial={{ opacity: 0, y: 24 }}
-          transition={getLandingRevealTransition(0.24)}
-        >
-          <motion.div whileHover={{ y: -2 }}>
-            <Button asChild className="h-12 px-8 text-base shadow-sm" size="lg">
-              <Link
-                className="group inline-flex items-center"
-                href="/dashboard"
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="
+              w-full max-w-70
+              sm:w-auto sm:max-w-none
+            "
+            initial={{ opacity: 0, y: 24 }}
+            transition={getLandingRevealTransition(0.24)}
+          >
+            <motion.div whileHover={{ y: -2 }}>
+              <Button
+                asChild
+                className="
+                  h-12 w-full rounded-xl px-5 text-[1rem] shadow-sm
+                  sm:h-12 sm:w-auto sm:px-8 sm:text-base
+                "
+                size="lg"
               >
-                Open Dashboard
-                <motion.span
-                  animate={{ x: [0, 4, 0] }}
-                  className="ml-2 inline-flex"
-                  transition={{
-                    duration: 1.4,
-                    ease: "easeInOut",
-                    repeat: Number.POSITIVE_INFINITY,
-                  }}
-                  whileHover={{ x: 6 }}
-                >
-                  <ArrowRight className="size-4" />
-                </motion.span>
-              </Link>
-            </Button>
+                <Link className="group inline-flex items-center justify-center" href="/dashboard">
+                  Open Dashboard
+                  <motion.span
+                    animate={{ x: [0, 4, 0] }}
+                    className="ml-2 inline-flex"
+                    transition={{
+                      duration: 1.4,
+                      ease: "easeInOut",
+                      repeat: Number.POSITIVE_INFINITY,
+                    }}
+                    whileHover={{ x: 6 }}
+                  >
+                    <ArrowRight className="size-4" />
+                  </motion.span>
+                </Link>
+              </Button>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
 
-        {/* Feature pillars */}
-        <div
-          className="
-            mx-auto grid max-w-3xl gap-3
-            sm:grid-cols-3 sm:gap-4
-          "
-        >
+        <div className="
+          mx-auto grid w-full max-w-sm gap-2.5 pb-4
+          sm:max-w-3xl sm:grid-cols-3 sm:gap-4 sm:pb-10
+        ">
           {features.map(({ desc, icon: Icon, label }, index) => (
             <motion.div
               animate="visible"
               className="
-                flex items-center gap-4 rounded-xl border border-border/20 p-4
+                flex min-h-[6.9rem] flex-col items-center justify-center gap-2.5
+                rounded-[1.4rem] border border-border/20 bg-card/[0.035] p-4
+                text-center
                 hover:-translate-y-1 hover:border-border/50 hover:bg-card/50
-                sm:flex-col sm:items-center sm:gap-3 sm:p-5
+                sm:min-h-0 sm:gap-3 sm:p-5
               "
               initial="hidden"
               key={label}
@@ -207,12 +202,10 @@ const LandingView = () => {
               <div className="
                 relative flex shrink-0 items-center justify-center
               ">
-                <div
-                  className="
-                    absolute size-14 rounded-full border border-border/20
-                    max-sm:hidden
-                  "
-                />
+                <div className="
+                  absolute size-14 rounded-full border border-border/20
+                  max-sm:hidden
+                " />
                 <motion.div
                   className="
                     relative flex size-10 items-center justify-center rounded-lg
@@ -229,14 +222,21 @@ const LandingView = () => {
                   <Icon className="size-5 text-muted-foreground" />
                 </motion.div>
               </div>
-              <div
-                className="
-                  flex flex-col items-start gap-0.5
-                  sm:items-center
-                "
-              >
-                <span className="text-sm font-medium">{label}</span>
-                <span className="text-xs text-muted-foreground">{desc}</span>
+              <div className="
+                flex max-w-56 flex-col items-center gap-0.5 text-center
+              ">
+                <span className="
+                  text-[0.95rem] font-semibold tracking-[-0.02em]
+                  sm:text-sm
+                ">
+                  {label}
+                </span>
+                <span className="
+                  text-[0.84rem]/[1.45] text-muted-foreground/85
+                  sm:text-xs/5
+                ">
+                  {desc}
+                </span>
               </div>
             </motion.div>
           ))}
@@ -246,56 +246,67 @@ const LandingView = () => {
   );
 };
 
+/**
+ * Renders the public marketing landing page and legal footer links.
+ */
 export default function Landing() {
   return (
     <main className="min-h-dvh overflow-hidden">
       <ScrollArea className="h-dvh">
         <div className="flex min-h-dvh flex-col">
-          <header
-            className="
-              relative z-10 mx-auto w-full max-w-5xl px-4 pt-4 pb-6
-              sm:px-6 sm:pt-6 sm:pb-8
-            "
-          >
+          <header className="
+            relative z-10 mx-auto w-full max-w-5xl px-4 py-3
+            sm:px-6 sm:pt-6 sm:pb-8
+          ">
             <div className="flex items-start justify-center">
-              <div
-                className="
-                  inline-flex max-w-full items-center gap-2 rounded-full border
-                  border-border/50 bg-card/50 px-3.5 py-1.5 text-xs font-medium
-                  text-muted-foreground backdrop-blur-sm
-                "
-              >
+              <div className="
+                inline-flex max-w-full items-center gap-2 rounded-full border
+                border-border/50 bg-card/50 px-3.5 py-1.5 text-[0.68rem]/4
+                font-medium tracking-[0.03em] text-muted-foreground
+                backdrop-blur-sm
+                sm:text-xs
+              ">
                 <Rss className="size-3 shrink-0" />
-                <span className="truncate">
-                  Open-source · Self-hostable · Feed-first
-                </span>
+                <span className="truncate">Open-source · Self-hostable · Feed-first</span>
               </div>
             </div>
           </header>
 
           <LandingView />
 
-          <footer
-            className="
-              relative z-10 mx-auto mt-8 w-full max-w-5xl px-4 pt-4 pb-6
-              text-center text-xs text-muted-foreground/50
-              sm:mt-10 sm:px-6 sm:pt-6 sm:pb-8
-            "
-          >
-            <p>
-              Made with ❤️ by{" "}
-              <a
-                className="
-                  underline-offset-2
-                  hover:underline
-                "
-                href="https://github.com/evanschoffstall"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Evan Schoffstall
-              </a>
+          <footer className="
+            relative z-10 mx-auto mt-4 flex w-full max-w-5xl flex-row
+            flex-nowrap items-center justify-center gap-2 px-4 pt-2 pb-4
+            text-center text-[0.72rem]/5 text-muted-foreground
+            sm:mt-10 sm:px-6 sm:pt-6 sm:pb-8 sm:text-xs/4
+          ">
+            <Link className="
+              whitespace-nowrap transition-colors
+              hover:text-foreground
+            " href="/privacy">
+              Privacy Policy
+            </Link>
+
+            <span aria-hidden="true" className="text-muted-foreground/40">
+              •
+            </span>
+
+            <p className="
+              text-center whitespace-nowrap text-muted-foreground/50
+            ">
+              Made with ❤️ by Evan Schoffstall
             </p>
+
+            <span aria-hidden="true" className="text-muted-foreground/40">
+              •
+            </span>
+
+            <Link className="
+              whitespace-nowrap transition-colors
+              hover:text-foreground
+            " href="/terms">
+              Terms
+            </Link>
           </footer>
         </div>
       </ScrollArea>

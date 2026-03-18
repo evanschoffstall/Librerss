@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 
 const SWIPE_THRESHOLD = 0.3;
-const MIN_SWIPE_PX = 6;
-const HORIZONTAL_LOCK_RATIO = 0.45;
-const VERTICAL_LOCK_RATIO = 1.35;
+const MIN_SWIPE_PX = 12;
+const HORIZONTAL_LOCK_RATIO = 1.15;
+const VERTICAL_LOCK_RATIO = 1.15;
 
 /** Visual state for an in-progress swipe gesture. */
 interface SwipeState {
@@ -111,11 +111,14 @@ export function useSwipeGesture(
         const hasHorizontalIntent =
           (isRight ? dx > 0 : dx < 0) &&
           absDx >= MIN_SWIPE_PX &&
-          absDx >= absDy * HORIZONTAL_LOCK_RATIO;
+          absDx > absDy * HORIZONTAL_LOCK_RATIO;
         if (hasHorizontalIntent) {
           lockedRef.current = "horizontal";
           if (!hasCaptureRef.current) trySetPointerCapture(e.pointerId);
-        } else if (absDy >= MIN_SWIPE_PX && absDy > absDx * VERTICAL_LOCK_RATIO)
+        } else if (
+          absDy >= MIN_SWIPE_PX &&
+          absDy > absDx * VERTICAL_LOCK_RATIO
+        )
           lockedRef.current = "vertical";
         else return;
       }

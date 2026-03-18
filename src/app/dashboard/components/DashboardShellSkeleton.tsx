@@ -1,3 +1,5 @@
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 import {
   DashboardFeedListSkeleton,
   DashboardPullSentinelSkeleton,
@@ -5,8 +7,6 @@ import {
   DashboardTopBarSkeleton,
 } from "./DashboardLoadingSurfaces";
 import { DashboardFeedViewport, DashboardScaffold } from "./DashboardScaffold";
-
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 /**
  * Route-level dashboard loading shell that mirrors the full feed-plus-sidebar layout.

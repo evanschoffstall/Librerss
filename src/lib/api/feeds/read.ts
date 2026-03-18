@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";
-import type { FeedSourceListRow } from "./types";
-
 import {
   getCachedFeedSourceList,
   setCachedFeedSourceList,
@@ -16,6 +13,10 @@ import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
 import { tryNormalizeFeedUrl } from "@/lib/utils/url";
+
+import type { FeedSourceListRow } from "./types";
+
+import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";
 
 interface HandleFeedReadDeps {
   fetchAndCacheFeedArticlesFn?: typeof fetchAndCacheFeedArticles;

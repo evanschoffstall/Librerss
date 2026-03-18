@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { fireEvent, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { FeedCategory } from "@/app/dashboard/components/feed/FeedCategory";
 import { type CategoryTreeNode } from "@/lib";

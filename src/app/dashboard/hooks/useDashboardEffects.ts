@@ -3,13 +3,13 @@
 import { type RefObject, useEffect } from "react";
 import { toast } from "sonner";
 
+import type { CategoryTreeNode } from "@/lib";
+
 import { DASHBOARD_EVENTS } from "../constants";
 import {
   type FeedSelectionFetchers,
   initializeDashboardSelection,
 } from "../services/selection";
-
-import type { CategoryTreeNode } from "@/lib";
 
 /**
  * Options for broadcasting dashboard UI state to decoupled listeners.

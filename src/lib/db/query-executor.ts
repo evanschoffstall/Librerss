@@ -1,3 +1,5 @@
+import type { SqlQueryExecutor } from "./types";
+
 import {
   assertDatabaseConfigured,
   getConnectionString,
@@ -5,7 +7,6 @@ import {
 } from "./config";
 import { createNeonQueryExecutor } from "./neon-provider";
 import { createNodePostgresQueryExecutor } from "./node-postgres-provider";
-import type { SqlQueryExecutor } from "./types";
 
 type QueryExecutorFactory = () => SqlQueryExecutor;
 

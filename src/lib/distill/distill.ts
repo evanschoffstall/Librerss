@@ -1,11 +1,12 @@
-import { defuddleDistill } from "./defuddle";
-import { librerssDistill } from "./librerss";
-import { readabilityDistill } from "./readability";
 import type {
   DistilledArticle,
   DistillOptions,
   DistillStrategy,
 } from "./types";
+
+import { defuddleDistill } from "./defuddle";
+import { librerssDistill } from "./librerss";
+import { readabilityDistill } from "./readability";
 
 /**
  * Distill an article from pre-cleaned HTML using the given strategy.

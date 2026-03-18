@@ -1,14 +1,13 @@
 import { Layers, Plus } from "lucide-react";
 
-import { type UseSettingsDragReturn } from "../../hooks/useSettingsDrag";
-
-import { SettingsCategoryAccordionItem } from "./SettingsCategoryAccordionItem";
-import { type SettingsFeedRowProps } from "./SettingsFeedRow";
-
 import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
+
+import { type UseSettingsDragReturn } from "../../hooks/useSettingsDrag";
+import { SettingsCategoryAccordionItem } from "./SettingsCategoryAccordionItem";
+import { type SettingsFeedRowProps } from "./SettingsFeedRow";
 
 interface AddCategoryControlsProps {
   buttonClassName: string;

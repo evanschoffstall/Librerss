@@ -1,8 +1,9 @@
-import { getArticleKey } from "../services/article-collection";
-import type { FeedBatchSource } from "../services/feed-batch";
-
 import type { Article } from "@/lib";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
+
+import type { FeedBatchSource } from "../services/feed-batch";
+
+import { getArticleKey } from "../services/article-collection";
 
 export function formatLastRefreshLabel(timestamp: Date | null): string {
   if (!timestamp) {

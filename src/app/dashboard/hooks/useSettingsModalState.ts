@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { useSettingsDrag, type UseSettingsDragReturn } from "./useSettingsDrag";
-
 import {
   type CategoryTreeNode,
   DEFAULT_CATEGORY_LABEL,
@@ -12,6 +10,8 @@ import {
   type OpmlFeedImportEntry,
   parseOpmlFeedImport,
 } from "@/lib";
+
+import { useSettingsDrag, type UseSettingsDragReturn } from "./useSettingsDrag";
 
 interface SharedFeedRowProps {
   deletingKey: null | string;

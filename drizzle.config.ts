@@ -1,6 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-
 import { defineConfig } from "drizzle-kit";
+import { existsSync, readFileSync } from "node:fs";
 
 function readDatabaseUrlFromEnvFile(filePath: string): null | string {
   if (!existsSync(filePath)) return null;

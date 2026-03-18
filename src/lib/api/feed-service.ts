@@ -1,3 +1,7 @@
+import type { Article, FeedSource } from "@/lib/core/types";
+
+import { normalizeDistinctUrlList } from "@/lib/utils/url";
+
 import {
   BATCH_REQUEST_TIMEOUT_MS,
   type BatchFeedResponseItem,
@@ -7,9 +11,6 @@ import {
   normalizeBatchItem,
   withRequestDeadline,
 } from "./http";
-
-import type { Article, FeedSource } from "@/lib/core/types";
-import { normalizeDistinctUrlList } from "@/lib/utils/url";
 
 interface CategoryOrderResponse {
   orderedLabels?: unknown;

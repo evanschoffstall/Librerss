@@ -1,14 +1,5 @@
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 
-import { MotionSpinner } from "../MotionSpinner";
-
-import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
-import {
-  animTransitionColorsClass,
-  settingsDragHandleCls,
-  SettingsIconButton,
-} from "./SettingsIconButton";
-
 import {
   AccordionContent,
   AccordionItem,
@@ -17,6 +8,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode, isSameCategoryLabel } from "@/lib";
+
+import { MotionSpinner } from "../MotionSpinner";
+import { SettingsFeedRow, type SettingsFeedRowProps } from "./SettingsFeedRow";
+import {
+  animTransitionColorsClass,
+  settingsDragHandleCls,
+  SettingsIconButton,
+} from "./SettingsIconButton";
 
 interface SettingsCategoryAccordionItemProps {
   // Inline add-feed form

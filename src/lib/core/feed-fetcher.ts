@@ -17,6 +17,12 @@
 
 import { and, desc, eq, sql } from "drizzle-orm";
 
+import type { getDb } from "@/lib/db/db";
+
+import { CONFIG } from "@/lib/config";
+import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
+import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
+
 import {
   type ArticleRow,
   buildRefreshPlan,
@@ -38,11 +44,6 @@ import {
   shouldForceRefreshFeed,
   shouldRefreshFeed,
 } from "./feed-refresh";
-
-import { CONFIG } from "@/lib/config";
-import type { getDb } from "@/lib/db/db";
-import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
-import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
 
 interface FeedFetcherDependencies {
   buildRefreshPlan: typeof buildRefreshPlan;

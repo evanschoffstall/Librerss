@@ -1,13 +1,6 @@
 import { Monitor } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import type { BackgroundMode } from "../../constants";
-import {
-  MANUAL_REFRESH_INTERVAL_MINUTES,
-  MIN_AUTO_REFRESH_INTERVAL_MINUTES,
-  normalizeAutoRefreshIntervalMinutes,
-} from "../../services/refresh-policy";
-
 import { ARTICLE_PAGE_SIZE_OPTIONS } from "@/app/dashboard/services/page-size";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +12,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+
+import type { BackgroundMode } from "../../constants";
+
+import {
+  MANUAL_REFRESH_INTERVAL_MINUTES,
+  MIN_AUTO_REFRESH_INTERVAL_MINUTES,
+  normalizeAutoRefreshIntervalMinutes,
+} from "../../services/refresh-policy";
 
 export interface SettingsDisplaySectionProps {
   autoRefreshIntervalMinutes: number;
@@ -157,7 +158,7 @@ export function SettingsDisplaySection({
           </Select>
         </div>
         <div className="row-between">
-          <Label>Content extraction</Label>
+          <Label>Readable article mode</Label>
           <Select
             onValueChange={onDistillStrategyChange}
             value={distillStrategy}

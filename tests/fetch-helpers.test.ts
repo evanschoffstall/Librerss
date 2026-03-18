@@ -1,5 +1,5 @@
-import * as zlib from "node:zlib";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as zlib from "node:zlib";
 
 import {
   addCookiesToHeaders,

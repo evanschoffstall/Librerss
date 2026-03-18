@@ -2,32 +2,31 @@
  * Covers the reading pipeline from captured article HTML through sanitize output.
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-
 import { NextRequest } from "next/server";
 
 import { getHostname, POST } from "@/app/api/articles/extract/route";
 import {
-  clearArticleExtractCacheForTests,
-  fetchHtml,
-  parseAndValidateArticleUrl,
+    clearArticleExtractCacheForTests,
+    fetchHtml,
+    parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import {
-  decompressBody,
-  fetchHtmlWithFingerprint,
-  generateBrowserHeaders,
-  GotScrapingError,
-  parseSocksProxy,
+    decompressBody,
+    fetchHtmlWithFingerprint,
+    generateBrowserHeaders,
+    GotScrapingError,
+    parseSocksProxy,
 } from "@/lib/fetch";
 import {
-  buildMetadataImageFallbackHtml,
-  cleanSanitizedHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  normalizeArticleHtmlSpacing,
-  preCleanHtml,
-  sanitizeRawContent,
-  stripCommentEngagementBoilerplate,
-  toParagraphHtml,
+    buildMetadataImageFallbackHtml,
+    cleanSanitizedHtml,
+    hasReadableArticleBody,
+    isLikelyNavFooterBoilerplate,
+    normalizeArticleHtmlSpacing,
+    preCleanHtml,
+    sanitizeRawContent,
+    stripCommentEngagementBoilerplate,
+    toParagraphHtml,
 } from "@/lib/sanitize";
 
 const mockReq = () =>
@@ -936,13 +935,13 @@ describe("article extract cleanup", () => {
     });
   });
 
-  // ─── Proxy loop bot-detection abort ───────────────────────────────────────
+  // ─── Proxy loop compatibility-signal abort ────────────────────────────────
   // When PerimeterX or DataDome block the proxy egress IP, the block is at IP
   // reputation level — UA/fingerprint rotation cannot bypass it.  The proxy
   // loop must abort immediately on the first detected attempt rather than
   // burning all retry slots and delaying the caller by ~3 seconds.
 
-  describe("proxy loop bot-detection abort", () => {
+  describe("proxy loop compatibility-signal abort", () => {
     const pxBody =
       '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /></head></html>';
 
@@ -1029,7 +1028,7 @@ describe("article extract cleanup", () => {
       expect(getCount()).toBe(1);
     });
 
-    test("retries all 3 attempts on generic 403 (no bot-detection signal)", async () => {
+    test("retries all 3 attempts on generic 403 (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(
         403,
         "<html>generic 403</html>",
@@ -1051,7 +1050,7 @@ describe("article extract cleanup", () => {
       expect(getCount()).toBe(3);
     });
 
-    test("retries all 3 attempts on 429 rate-limit (no bot signal)", async () => {
+    test("retries all 3 attempts on 429 rate-limit (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(429, "");
 
       await expect(

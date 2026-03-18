@@ -4,10 +4,10 @@
 
 import axios from "axios";
 
+import { CONFIG } from "@/lib/config";
+
 import { assertPublicFeedUrl } from "./feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "./upstream-http";
-
-import { CONFIG } from "@/lib/config";
 
 const MAX_FEED_REDIRECTS = 5;
 
@@ -47,7 +47,7 @@ export async function fetchFeedXml(
 
         if (status === 403 && dataDomeHeader === "protected") {
           throw new Error(
-            "Upstream blocked request with anti-bot protection (DataDome) [HTTP 403]",
+            "Upstream request received a vendor access response (DataDome) [HTTP 403]",
           );
         }
       },

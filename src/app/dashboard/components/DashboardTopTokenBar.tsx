@@ -4,14 +4,13 @@ import { RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { memo } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
 } from "../services/article-filters";
-
 import { MotionSpinner } from "./MotionSpinner";
-
-import { Skeleton } from "@/components/ui/skeleton";
 
 /** Presentation props for the dashboard token bar controls and refresh status. */
 interface DashboardTopTokenBarProps {

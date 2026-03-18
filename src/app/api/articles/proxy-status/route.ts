@@ -9,6 +9,7 @@ import {
   type ProxyStatus,
   requireAuthenticatedUser,
 } from "@/lib/server";
+import { stripUrlCredentials } from "@/lib/utils/url";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,8 @@ export async function GET(request: NextRequest) {
     .where(eq(users.id, authResult.userId))
     .limit(1);
 
-  const proxyUrl = rows.length === 0 ? null : (rows[0].proxyUrl?.trim() ?? "");
-  if (!proxyUrl) {
+  const rawProxyUrl = rows.length === 0 ? null : (rows[0].proxyUrl?.trim() ?? "");
+  if (!rawProxyUrl) {
     logger.info("Proxy status check: no proxy configured", {
       userId: authResult.userId,
     });
@@ -36,19 +37,23 @@ export async function GET(request: NextRequest) {
   }
 
   logger.info("Proxy status check started", {
-    proxyUrl,
+    proxyUrl: stripUrlCredentials(rawProxyUrl),
     userId: authResult.userId,
   });
-  const reachable = await probeProxy(proxyUrl);
+  const reachable = await probeProxy(rawProxyUrl);
   const status: ProxyStatus = reachable ? "reachable" : "unreachable";
   if (!reachable) {
-    logger.error("Proxy status check: unreachable", { proxyUrl });
+    logger.error("Proxy status check: unreachable", {
+      proxyUrl: stripUrlCredentials(rawProxyUrl),
+    });
   } else {
-    logger.info("Proxy status check: reachable", { proxyUrl });
+    logger.info("Proxy status check: reachable", {
+      proxyUrl: stripUrlCredentials(rawProxyUrl),
+    });
   }
   return NextResponse.json({
     configured: true,
-    proxyUrl,
+    proxyUrl: stripUrlCredentials(rawProxyUrl),
     status,
   });
 }
