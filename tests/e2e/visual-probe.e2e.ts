@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 
 test('visual probe: capture rapid screenshots during button-read removal', async ({ page }) => {
-  await page.goto('http://192.168.2.117:3000/dashboard?explore=1');
+  await page.goto('/dashboard?explore=1');
   await page.waitForTimeout(2000);
   await page.click('button:has-text("unread")');
   await page.waitForTimeout(1200);
