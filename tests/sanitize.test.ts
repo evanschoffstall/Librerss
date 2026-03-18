@@ -590,6 +590,77 @@ describe("sanitize – toPlainText", () => {
     expect(result).toContain("After");
     expect(result).not.toContain("YouTube Video");
   });
+
+  test("decodes &lt; and &gt; entities", () => {
+    expect(toPlainText("2 &lt; 3 and 5 &gt; 4")).toBe("2 < 3 and 5 > 4");
+  });
+
+  test("decodes &quot; entity", () => {
+    expect(toPlainText('He said &quot;hello&quot;')).toBe('He said "hello"');
+  });
+
+  test("decodes &#39; numeric apostrophe entity", () => {
+    expect(toPlainText("It&#39;s working")).toBe("It's working");
+  });
+
+  test("decodes &#x27; hex apostrophe entity", () => {
+    expect(toPlainText("It&#x27;s working")).toBe("It's working");
+  });
+
+  test("decodes &apos; named entity", () => {
+    expect(toPlainText("It&apos;s working")).toBe("It's working");
+  });
+
+  test("decodes smart quote entities", () => {
+    expect(toPlainText("&ldquo;Hello&rdquo; and &lsquo;World&rsquo;")).toBe(
+      "\u201CHello\u201D and \u2018World\u2019",
+    );
+  });
+
+  test("decodes dash entities", () => {
+    expect(toPlainText("A&mdash;B and C&ndash;D")).toBe("A\u2014B and C\u2013D");
+  });
+
+  test("decodes &hellip; entity", () => {
+    expect(toPlainText("Wait&hellip; what")).toBe("Wait\u2026 what");
+  });
+
+  test("decodes numeric character references for smart quotes", () => {
+    expect(toPlainText("&#8220;Hello&#8221; he said")).toBe(
+      "\u201CHello\u201D he said",
+    );
+  });
+
+  test("decodes &#8217; right single quote", () => {
+    expect(toPlainText("It&#8217;s a great day")).toBe(
+      "It\u2019s a great day",
+    );
+  });
+
+  test("decodes mixed entities in a realistic article snippet", () => {
+    const html =
+      "<p>The team&rsquo;s plan &mdash; dubbed &ldquo;Project X&rdquo; &mdash; aims to reduce CO&lt;sub&gt;2&lt;/sub&gt; by 50%.</p>";
+    const result = toPlainText(html);
+    expect(result).toContain("team\u2019s plan");
+    expect(result).toContain("\u2014 dubbed");
+    expect(result).toContain("\u201CProject X\u201D");
+  });
+
+  test("preserves Unicode characters that are already decoded", () => {
+    const unicode = "<p>Caf\u00E9 \u2014 the best \u201Ccoffee\u201D</p>";
+    const result = toPlainText(unicode);
+    expect(result).toBe("Caf\u00E9 \u2014 the best \u201Ccoffee\u201D");
+  });
+
+  test("converts non-breaking space U+00A0 to regular space", () => {
+    expect(toPlainText("Hello\u00A0World")).toBe("Hello World");
+  });
+
+  test("decodes &#160; to regular space (not non-breaking space)", () => {
+    const result = toPlainText("Hello&#160;World");
+    expect(result).toBe("Hello World");
+    expect(result).not.toContain("\u00A0");
+  });
 });
 
 describe("sanitize – sanitizeArticleHtml", () => {
@@ -1184,5 +1255,141 @@ describe("Image Sanitization", () => {
     expect(result).not.toContain("data-evil");
     expect(result).not.toContain("style");
     expect(result).not.toContain("class");
+  });
+});
+
+// ─── Full pipeline: raw HTML → sanitize → plaintext → preview ──────────────
+
+describe("sanitize – full content preview pipeline preserves characters", () => {
+  function collapsedPreview(rawHtml: string): string {
+    const sanitized = sanitizeArticleHtml(rawHtml);
+    const normalized = toPlainText(sanitized).trim();
+    const content = normalized || "No description available";
+    const words = content.replaceAll(/\s+/g, " ").trim();
+    return words;
+  }
+
+  test("preserves every letter s through the pipeline", () => {
+    const html =
+      "<p>Scientists suggest several species survive storms safely.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toBe(
+      "Scientists suggest several species survive storms safely.",
+    );
+  });
+
+  test("preserves possessive 's after entity decoding", () => {
+    const html = "<p>The team&rsquo;s research shows results.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toContain("team\u2019s research");
+  });
+
+  test("preserves M&S brand name through pipeline", () => {
+    const html = "<p>M&amp;S is a great store with lots of success.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toContain("M&S");
+    expect(result).toContain("success");
+  });
+
+  test("does not strip s after semicolon in M&S; pattern", () => {
+    const html = "<p>M&amp;S; analysis shows growth results.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toContain("M&S;");
+    expect(result).toContain("shows");
+    expect(result).toContain("results");
+  });
+
+  test("preserves smart quotes around s-words", () => {
+    const html =
+      '<p>She said &ldquo;success&rdquo; is the key to satisfaction.</p>';
+    const result = collapsedPreview(html);
+    expect(result).toContain("\u201Csuccess\u201D");
+    expect(result).toContain("satisfaction");
+  });
+
+  test("decodes &lt; and &gt; without eating surrounding characters", () => {
+    const html = "<p>x &lt; 10 suggests something.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toBe("x < 10 suggests something.");
+  });
+
+  test("preserves text with semicolons that look entity-like", () => {
+    const html = "<p>business; services; specialists; discussion;</p>";
+    const result = collapsedPreview(html);
+    expect(result).toBe("business; services; specialists; discussion;");
+  });
+
+  test("decodes double-encoded ampersand without eating adjacent chars", () => {
+    const html = "<p>Tom &amp; Jerry&rsquo;s show is classic.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toContain("Tom & Jerry\u2019s");
+  });
+
+  test("preserves s inside em-dash separated clauses", () => {
+    const html =
+      "<p>The results &mdash; surprising as they seem &mdash; suggest success.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toContain("results");
+    expect(result).toContain("surprising");
+    expect(result).toContain("suggest");
+    expect(result).toContain("success");
+  });
+
+  test("preserves all characters in realistic article content", () => {
+    const html =
+      "<p>NASA&rsquo;s Artemis program &mdash; its most ambitious mission since Apollo &mdash; aims to send astronauts back to the Moon&rsquo;s surface. Scientists suggest the mission&rsquo;s success depends on several key systems.</p>";
+    const result = collapsedPreview(html);
+    expect(result).toContain("NASA\u2019s Artemis");
+    expect(result).toContain("mission\u2019s success");
+    expect(result).toContain("Scientists");
+    expect(result).toContain("systems");
+  });
+
+  test("section nonTextTag suppresses all content", () => {
+    const html =
+      "<section><p>Secret science shows surprising stats.</p></section>";
+    const result = collapsedPreview(html);
+    expect(result).toBe("No description available");
+  });
+});
+
+describe("sanitize – sanitizeArticleTitle preserves characters", () => {
+  test("preserves M&S brand name", () => {
+    const result = sanitizeArticleTitle("M&amp;S Quarterly Results");
+    expect(result).toBe("M&S Quarterly Results");
+  });
+
+  test("does not strip S after decoded ampersand with semicolon", () => {
+    const result = sanitizeArticleTitle("M&amp;S; Latest Results");
+    expect(result).toBe("M&S; Latest Results");
+  });
+
+  test("does not strip content after decoded &amp; followed by word;", () => {
+    const result = sanitizeArticleTitle("&amp;S; Tests Show Results");
+    expect(result).toContain("&S;");
+    expect(result).toContain("Tests");
+    expect(result).toContain("Results");
+  });
+
+  test("preserves possessive s after smart quote entity", () => {
+    const result = sanitizeArticleTitle("The Team&rsquo;s Success Story");
+    expect(result).toBe("The Team\u2019s Success Story");
+  });
+
+  test("preserves every s in s-heavy title", () => {
+    const result = sanitizeArticleTitle(
+      "Scientists Suggest Several Species Survive",
+    );
+    expect(result).toBe("Scientists Suggest Several Species Survive");
+  });
+
+  test("preserves smart quotes around s-words", () => {
+    const result = sanitizeArticleTitle("&ldquo;Success&rdquo; Stories");
+    expect(result).toBe("\u201CSuccess\u201D Stories");
+  });
+
+  test("preserves AT&T with semicolons in surrounding text", () => {
+    const result = sanitizeArticleTitle("AT&amp;T; Stock Surges");
+    expect(result).toBe("AT&T; Stock Surges");
   });
 });

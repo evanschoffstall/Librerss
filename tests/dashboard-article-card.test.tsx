@@ -267,6 +267,247 @@ describe("ArticleCard", () => {
     );
   });
 
+  test("collapsed preview decodes HTML entities to visible characters", () => {
+    const article = buildArticle({
+      content:
+        "<p>The team&rsquo;s &ldquo;Project X&rdquo; &mdash; is great.</p>",
+    });
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-entities"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const previewText = collapsedPreview?.textContent ?? "";
+
+    expect(previewText).toContain("team\u2019s");
+    expect(previewText).toContain("\u201CProject X\u201D");
+    expect(previewText).toContain("\u2014");
+    expect(previewText).not.toContain("&rsquo;");
+    expect(previewText).not.toContain("&ldquo;");
+    expect(previewText).not.toContain("&rdquo;");
+    expect(previewText).not.toContain("&mdash;");
+  });
+
+  test("collapsed preview preserves angle brackets from &lt; and &gt;", () => {
+    const article = buildArticle({
+      content: "<p>Check if x &lt; 10 and y &gt; 5 in your formula.</p>",
+    });
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-angle-brackets"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const previewText = collapsedPreview?.textContent ?? "";
+
+    expect(previewText).toContain("x < 10");
+    expect(previewText).toContain("y > 5");
+    expect(previewText).not.toContain("&lt;");
+    expect(previewText).not.toContain("&gt;");
+  });
+
+  test("collapsed preview preserves numeric entity decoded characters", () => {
+    const article = buildArticle({
+      content:
+        "<p>It&#8217;s a &#8220;wonderful&#8221; day &#8212; really.</p>",
+    });
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-numeric-entities"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const previewText = collapsedPreview?.textContent ?? "";
+
+    expect(previewText).toBe(
+      "It\u2019s a \u201Cwonderful\u201D day \u2014 really.",
+    );
+  });
+
+  test("full extract→sanitize→hydrate pipeline preserves all characters", () => {
+    // Simulate the feed extraction + sanitization pipeline that stores content
+    const { sanitizeArticleHtml } = require("@/lib/sanitize");
+    const rawFeedContent = `
+      <p>NASA&rsquo;s Artemis program &mdash; its most ambitious mission
+      since Apollo &mdash; aims to send astronauts to the Moon&rsquo;s surface.
+      Scientists suggest the mission&rsquo;s success depends on systems
+      &amp; processes working together.</p>
+    `;
+    // This is what gets stored in the DB after extraction
+    const storedContent = sanitizeArticleHtml(rawFeedContent);
+
+    const article = buildArticle({ content: storedContent });
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-full-pipeline"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const preview = collapsedPreview?.textContent ?? "";
+
+    // Every "s" character must survive the pipeline (sanitize-html decodes &rsquo; to literal ')
+    expect(preview).toContain("NASA\u2019s Artemis");
+    expect(preview).toContain("astronauts");
+    expect(preview).toContain("Scientists");
+    expect(preview).toContain("suggest");
+    expect(preview).toContain("mission\u2019s success depends on");
+
+    // No raw entity text should appear
+    expect(preview).not.toContain("&rsquo;");
+    expect(preview).not.toContain("&mdash;");
+    expect(preview).not.toContain("&amp;");
+  });
+
+  test("full pipeline preserves M&S brand and s-heavy content", () => {
+    const { sanitizeArticleHtml } = require("@/lib/sanitize");
+    const rawFeedContent =
+      "<p>M&amp;S scientists suggest several species success stories are special.</p>";
+    const storedContent = sanitizeArticleHtml(rawFeedContent);
+
+    const article = buildArticle({ content: storedContent });
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-s-heavy"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const preview = collapsedPreview?.textContent ?? "";
+
+    expect(preview).toContain("M&S");
+    expect(preview).toContain("scientists");
+    expect(preview).toContain("suggest");
+    expect(preview).toContain("several");
+    expect(preview).toContain("species");
+    expect(preview).toContain("success");
+    expect(preview).toContain("stories");
+    expect(preview).toContain("special");
+  });
+
+  test("full pipeline with semicolons near s does not strip text", () => {
+    const { sanitizeArticleHtml } = require("@/lib/sanitize");
+    const rawFeedContent =
+      "<p>business; services &amp; specialists; discussion; success;</p>";
+    const storedContent = sanitizeArticleHtml(rawFeedContent);
+
+    const article = buildArticle({ content: storedContent });
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-semicolons"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+    const preview = collapsedPreview?.textContent ?? "";
+
+    expect(preview).toContain("business;");
+    expect(preview).toContain("services");
+    expect(preview).toContain("specialists;");
+    expect(preview).toContain("discussion;");
+    expect(preview).toContain("success;");
+  });
+
   test("primes the pre-expand snapshot on pointer down before toggling", () => {
     const article = buildArticle();
     const onPrepareExpand = mock(() => {});

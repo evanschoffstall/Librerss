@@ -516,6 +516,106 @@ describe("article-content – buildPreview", () => {
   });
 });
 
+describe("article-content – buildPreview preserves characters", () => {
+  test("preserves apostrophes from HTML entities", () => {
+    const result = buildPreview("It\u2019s a great day");
+    expect(result.preview).toBe("It\u2019s a great day");
+  });
+
+  test("preserves smart quotes", () => {
+    const result = buildPreview(
+      "\u201CHello,\u201D she said, \u201CHow are you?\u201D",
+    );
+    expect(result.preview).toBe(
+      "\u201CHello,\u201D she said, \u201CHow are you?\u201D",
+    );
+  });
+
+  test("preserves em dashes and en dashes", () => {
+    const result = buildPreview(
+      "The project \u2014 which started in 2020 \u2013 is ongoing",
+    );
+    expect(result.preview).toBe(
+      "The project \u2014 which started in 2020 \u2013 is ongoing",
+    );
+  });
+
+  test("preserves angle brackets decoded from entities", () => {
+    const result = buildPreview("Use 2 < 3 and 5 > 4 in comparisons");
+    expect(result.preview).toBe(
+      "Use 2 < 3 and 5 > 4 in comparisons",
+    );
+  });
+
+  test("preserves ellipsis character", () => {
+    const result = buildPreview("Wait\u2026 what happened?");
+    expect(result.preview).toBe("Wait\u2026 what happened?");
+  });
+
+  test("preserves accented characters", () => {
+    const result = buildPreview("Caf\u00E9 cr\u00E8me with na\u00EFvet\u00E9");
+    expect(result.preview).toBe(
+      "Caf\u00E9 cr\u00E8me with na\u00EFvet\u00E9",
+    );
+  });
+
+  test("truncation preserves special characters at word boundary", () => {
+    const longText =
+      "\u201CThis is a fairly long article preview that contains smart quotes and special characters \u2014 including dashes, ellipses\u2026 and more content to exceed the 170 character preview limit for overflow\u201D";
+    const result = buildPreview(longText);
+    expect(result.hasOverflow).toBe(true);
+    expect(result.preview).toContain("\u201C");
+    expect(result.preview).toContain("\u2014");
+  });
+
+  test("full preview pipeline: HTML entities → plain text → preview", () => {
+    const { toPlainText } = require("@/lib/sanitize");
+    const { normalizeArticleHtmlSpacing } = require("@/lib/sanitize");
+
+    const rawHtml =
+      "<p>The team&rsquo;s &ldquo;Project X&rdquo; &mdash; aims to cut costs.</p>";
+    const normalized = normalizeArticleHtmlSpacing(rawHtml);
+    const plain = toPlainText(normalized).trim();
+    const result = buildPreview(plain);
+
+    expect(result.preview).toContain("team\u2019s");
+    expect(result.preview).toContain("\u201CProject X\u201D");
+    expect(result.preview).toContain("\u2014");
+    expect(result.preview).not.toContain("&rsquo;");
+    expect(result.preview).not.toContain("&ldquo;");
+    expect(result.preview).not.toContain("&rdquo;");
+    expect(result.preview).not.toContain("&mdash;");
+  });
+
+  test("full preview pipeline: numeric entities decoded in preview", () => {
+    const { toPlainText } = require("@/lib/sanitize");
+    const { normalizeArticleHtmlSpacing } = require("@/lib/sanitize");
+
+    const rawHtml = "<p>It&#8217;s a &#8220;great&#8221; day &#8212; really.</p>";
+    const normalized = normalizeArticleHtmlSpacing(rawHtml);
+    const plain = toPlainText(normalized).trim();
+    const result = buildPreview(plain);
+
+    expect(result.preview).toBe(
+      "It\u2019s a \u201Cgreat\u201D day \u2014 really.",
+    );
+  });
+
+  test("full preview pipeline: &lt; and &gt; decoded in preview", () => {
+    const { toPlainText } = require("@/lib/sanitize");
+    const { normalizeArticleHtmlSpacing } = require("@/lib/sanitize");
+
+    const rawHtml = "<p>Use x &lt; 10 and y &gt; 5 in your code.</p>";
+    const normalized = normalizeArticleHtmlSpacing(rawHtml);
+    const plain = toPlainText(normalized).trim();
+    const result = buildPreview(plain);
+
+    expect(result.preview).toBe("Use x < 10 and y > 5 in your code.");
+    expect(result.preview).not.toContain("&lt;");
+    expect(result.preview).not.toContain("&gt;");
+  });
+});
+
 describe("article-content – getArticleSourceLabel", () => {
   test("uses feed name when available", async () => {
     const article = {
