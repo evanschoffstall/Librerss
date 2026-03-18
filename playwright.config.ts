@@ -6,6 +6,7 @@ import { availableParallelism } from "node:os";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100";
 const htmlReportDir =
   process.env.PLAYWRIGHT_HTML_REPORT_DIR ?? "playwright-report";
+const includeMobileWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
 const isCoverageRun = process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const junitReportPath = process.env.PLAYWRIGHT_JUNIT_REPORT_PATH?.trim();
 const outputDir =
@@ -58,10 +59,31 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: "**/*.mobile.e2e.ts",
       use: {
         ...devices["Desktop Chrome"],
       },
     },
+    {
+      name: "mobile-chromium",
+      testMatch: "**/*.mobile.e2e.ts",
+      use: {
+        ...devices["Pixel 7"],
+        browserName: "chromium" as const,
+      },
+    },
+    ...(includeMobileWebKit
+      ? [
+          {
+            name: "mobile-webkit",
+            testMatch: "**/*.mobile.e2e.ts",
+            use: {
+              ...devices["iPhone 14"],
+              browserName: "webkit" as const,
+            },
+          },
+        ]
+      : []),
   ],
   reporter,
   retries: process.env.CI ? 1 : 0,

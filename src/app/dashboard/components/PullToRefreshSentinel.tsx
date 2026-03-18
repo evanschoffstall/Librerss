@@ -33,6 +33,12 @@ export function PullToRefreshSentinel({
   sentinelHeight,
   sentinelRef,
 }: PullToRefreshSentinelProps) {
+  const sentinelState = readyToRefresh
+    ? "ready"
+    : isPulling
+      ? "pulling"
+      : "idle";
+
   return (
     <motion.div
       animate={{
@@ -43,42 +49,45 @@ export function PullToRefreshSentinel({
           : "rgb(0 0 0 / 0)",
       }}
       className="mb-2 flex items-end justify-center bg-background"
+      data-dashboard-pull-sentinel="true"
+      data-dashboard-pull-state={sentinelState}
       initial={false}
       ref={sentinelRef}
-      style={{ height: sentinelHeight }}
+      style={{ height: sentinelHeight, overflowAnchor: "none" }}
       transition={DASHBOARD_PULL_HINT_TRANSITION}
     >
-      {isPulling && (
+      <motion.div
+        animate={{ opacity: isPulling ? 1 : 0, y: isPulling ? 0 : 6 }}
+        aria-hidden="true"
+        className="
+          flex items-center gap-1.5 pb-3 text-sky-600
+          dark:text-sky-400
+        "
+        data-dashboard-pull-hint="true"
+        initial={false}
+        style={{ pointerEvents: "none", visibility: isPulling ? "visible" : "hidden" }}
+        transition={DASHBOARD_PULL_HINT_TRANSITION}
+      >
         <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            flex items-center gap-1.5 pb-3 text-sky-600
-            dark:text-sky-400
-          "
-          initial={{ opacity: 0, y: 6 }}
+          animate={{
+            opacity: readyToRefresh ? 1 : 0.6,
+            rotate: readyToRefresh ? 180 : 0,
+            scale: readyToRefresh ? 1.1 : 0.9,
+          }}
+          initial={false}
           transition={DASHBOARD_PULL_HINT_TRANSITION}
         >
-          <motion.div
-            animate={{
-              opacity: readyToRefresh ? 1 : 0.6,
-              rotate: readyToRefresh ? 180 : 0,
-              scale: readyToRefresh ? 1.1 : 0.9,
-            }}
-            initial={false}
-            transition={DASHBOARD_PULL_HINT_TRANSITION}
-          >
-            <ArrowDown className="size-4" />
-          </motion.div>
-          <motion.span
-            animate={{ opacity: readyToRefresh ? 1 : 0.7 }}
-            className="text-xs font-medium"
-            initial={false}
-            transition={DASHBOARD_PULL_HINT_TRANSITION}
-          >
-            {pullRefreshHint}
-          </motion.span>
+          <ArrowDown className="size-4" />
         </motion.div>
-      )}
+        <motion.span
+          animate={{ opacity: readyToRefresh ? 1 : 0.7 }}
+          className="text-xs font-medium"
+          initial={false}
+          transition={DASHBOARD_PULL_HINT_TRANSITION}
+        >
+          {pullRefreshHint}
+        </motion.span>
+      </motion.div>
     </motion.div>
   );
 }

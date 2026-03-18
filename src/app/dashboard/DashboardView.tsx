@@ -58,8 +58,7 @@ export const DashboardView = ({
           >
             <FeedList
               collapseSettlingArticleKey={feedList.collapseSettlingArticleKey}
-              collapsingArticleKey={feedList.collapsingArticleKey}
-              collapsingArticleMode={feedList.collapsingArticleMode}
+              collapsingArticles={feedList.collapsingArticles}
               expandedArticleKey={feedList.expandedArticleKey}
               filteredFeed={feedList.filteredFeed}
               hydratedArticleLinks={feedList.hydratedArticleLinks}

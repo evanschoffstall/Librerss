@@ -96,8 +96,6 @@ bunx playwright install chromium
 bun run test:e2e
 ```
 
-The suite always targets `http://127.0.0.1:3100` through that managed server.
-
 ---
 
 ## Stack

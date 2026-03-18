@@ -280,8 +280,43 @@ export const ArticleCard = memo(function ArticleCard({
       ),
     [visuallyExpanded],
   );
+  const isInteractiveControlTarget = useCallback(
+    (target: EventTarget | null) => {
+      if (!(target instanceof Element)) {
+        return false;
+      }
+
+      return Boolean(
+        target.closest(
+          [
+            "button",
+            "a[href]",
+            "input",
+            "textarea",
+            "select",
+            "summary",
+            '[contenteditable="true"]',
+            '[role="menuitem"]',
+          ].join(", "),
+        ),
+      );
+    },
+    [],
+  );
   const shouldIgnoreSwipeTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof Element)) return false;
+    if (target instanceof Node && visuallyExpanded) {
+      if (!headerZoneRef.current?.contains(target)) {
+        return true;
+      }
+    }
+
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    if (visuallyExpanded && contentZoneRef.current?.contains(target)) {
+      return true;
+    }
 
     const control = target.closest(
       'button, input, textarea, select, summary, [contenteditable="true"]',
@@ -292,44 +327,84 @@ export const ArticleCard = memo(function ArticleCard({
     if (!link) return false;
 
     return !contentZoneRef.current?.contains(link);
-  }, []);
+  }, [visuallyExpanded]);
 
-  const { containerRef: readSwipeRef, swipeState: readSwipeState } =
-    useSwipeToRead(
-      () => {
-        afterSwipeRef.current = Date.now();
-        if (isExpanded) {
-          onExpandedSwipeRead(article);
-          return;
-        }
-        if (onSwipeRead) {
-          onSwipeRead(article);
-          return;
-        }
-        onToggleRead(article);
-      },
-      isUpdatingState,
-      shouldIgnoreSwipeTarget,
-    );
-  const { containerRef: starSwipeRef, swipeState: starSwipeState } =
-    useSwipeToStar(
-      () => {
-        afterSwipeRef.current = Date.now();
-        onToggleStarred(article);
-      },
-      isUpdatingState,
-      shouldIgnoreSwipeTarget,
-    );
+  const commitReadSwipe = useCallback(() => {
+    afterSwipeRef.current = Date.now();
+    if (isExpanded) {
+      onExpandedSwipeRead(article);
+      return;
+    }
+    if (onSwipeRead) {
+      onSwipeRead(article);
+      return;
+    }
+    onToggleRead(article);
+  }, [article, isExpanded, onExpandedSwipeRead, onSwipeRead, onToggleRead]);
+  const commitStarSwipe = useCallback(() => {
+    afterSwipeRef.current = Date.now();
+    onToggleStarred(article);
+  }, [article, onToggleStarred]);
+
+  const {
+    containerRef: collapsedReadSwipeRef,
+    swipeState: collapsedReadSwipeState,
+  } = useSwipeToRead(
+    commitReadSwipe,
+    isUpdatingState || visuallyExpanded,
+    shouldIgnoreSwipeTarget,
+    "collapsed-article-surface",
+  );
+  const {
+    containerRef: expandedReadSwipeRef,
+    swipeState: expandedReadSwipeState,
+  } = useSwipeToRead(
+    commitReadSwipe,
+    isUpdatingState || !visuallyExpanded || isMobile,
+    shouldIgnoreSwipeTarget,
+    "expanded-header-surface",
+  );
+  const {
+    containerRef: collapsedStarSwipeRef,
+    swipeState: collapsedStarSwipeState,
+  } = useSwipeToStar(
+    commitStarSwipe,
+    isUpdatingState || visuallyExpanded,
+    shouldIgnoreSwipeTarget,
+    "collapsed-article-surface",
+  );
+  const {
+    containerRef: expandedStarSwipeRef,
+    swipeState: expandedStarSwipeState,
+  } = useSwipeToStar(
+    commitStarSwipe,
+    isUpdatingState || !visuallyExpanded || isMobile,
+    shouldIgnoreSwipeTarget,
+    "expanded-header-surface",
+  );
+  const readSwipeState = visuallyExpanded
+    ? expandedReadSwipeState
+    : collapsedReadSwipeState;
+  const starSwipeState = visuallyExpanded
+    ? expandedStarSwipeState
+    : collapsedStarSwipeState;
   const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
   const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
   const articleSurfaceRef = useCallback(
     (el: HTMLElement | null) => {
       articleRef.current = el;
-      if (!el) return;
-      readSwipeRef.current = el;
-      starSwipeRef.current = el;
+      collapsedReadSwipeRef.current = el;
+      collapsedStarSwipeRef.current = el;
     },
-    [readSwipeRef, starSwipeRef],
+    [collapsedReadSwipeRef, collapsedStarSwipeRef],
+  );
+  const headerSwipeZoneRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      headerZoneRef.current = el;
+      expandedReadSwipeRef.current = el;
+      expandedStarSwipeRef.current = el;
+    },
+    [expandedReadSwipeRef, expandedStarSwipeRef],
   );
 
   const shouldBlockArticleInteraction = () =>
@@ -349,9 +424,21 @@ export const ArticleCard = memo(function ArticleCard({
   const handleRawHtmlOpenChange = makeOpenChangeHandler(setIsRawHtmlOpen);
   const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
   const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
+  const stopArticleInteractionPropagation = useCallback(
+    (event: React.SyntheticEvent) => {
+      event.stopPropagation();
+    },
+    [],
+  );
+  const articleActionControlProps = {
+    onPointerDown: stopArticleInteractionPropagation,
+    onPointerUp: stopArticleInteractionPropagation,
+  };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    if (isExpandedBodyTarget(e.target)) return;
+    if (isExpandedBodyTarget(e.target) || isInteractiveControlTarget(e.target)) {
+      return;
+    }
     if (shouldBlockArticleInteraction()) {
       e.stopPropagation();
       return;
@@ -365,7 +452,9 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    if (isExpandedBodyTarget(e.target)) return;
+    if (isExpandedBodyTarget(e.target) || isInteractiveControlTarget(e.target)) {
+      return;
+    }
     if (pressPointerIdRef.current !== e.pointerId) return;
     const start = pressStartPos.current;
     if (!start) return;
@@ -375,13 +464,17 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
-    if (isExpandedBodyTarget(e.target)) return;
+    if (isExpandedBodyTarget(e.target) || isInteractiveControlTarget(e.target)) {
+      return;
+    }
     if (pressPointerIdRef.current !== e.pointerId) return;
     pressPointerIdRef.current = null;
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
-    if (isExpandedBodyTarget(e.target)) return;
+    if (isExpandedBodyTarget(e.target) || isInteractiveControlTarget(e.target)) {
+      return;
+    }
     if (pressPointerIdRef.current !== e.pointerId) return;
     pressPointerIdRef.current = null;
     pressStartPos.current = null;
@@ -389,6 +482,12 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const toggleExpanded = (e: React.MouseEvent) => {
+    if (isInteractiveControlTarget(e.target)) {
+      pressPointerIdRef.current = null;
+      pressStartPos.current = null;
+      pressMovedRef.current = false;
+      return;
+    }
     if (shouldBlockArticleInteraction()) {
       e.stopPropagation();
       return;
@@ -418,7 +517,21 @@ export const ArticleCard = memo(function ArticleCard({
     onToggle(article);
   };
 
+  const stopExpandedContentPropagation = useCallback(
+    (event: React.MouseEvent | React.PointerEvent) => {
+      if (!visuallyExpanded) {
+        return;
+      }
+
+      event.stopPropagation();
+    },
+    [visuallyExpanded],
+  );
+
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (isInteractiveControlTarget(event.target)) {
+      return;
+    }
     if (shouldBlockArticleInteraction()) {
       event.stopPropagation();
       return;
@@ -723,6 +836,14 @@ export const ArticleCard = memo(function ArticleCard({
           }
         `}
         data-article-key={articleKey}
+        data-swipe-active={anySwiping ? "true" : "false"}
+        data-swipe-direction={
+          readSwipeState.swiping
+            ? "read"
+            : starSwipeState.swiping
+              ? "star"
+              : "idle"
+        }
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
         onMouseEnter={() => {
@@ -762,7 +883,8 @@ export const ArticleCard = memo(function ArticleCard({
                 : `rounded-t-xl bg-card/70 px-3 pt-3`
             }
           `}
-          ref={headerZoneRef}
+          data-article-swipe-zone="header"
+          ref={headerSwipeZoneRef}
           style={{
             touchAction: "pan-y",
             userSelect: "none",
@@ -861,6 +983,7 @@ export const ArticleCard = memo(function ArticleCard({
                   aria-label={
                     article.isRead ? "Mark as unread" : "Mark as read"
                   }
+                  {...articleActionControlProps}
                   className={iconBtnCls}
                   disabled={isUpdatingState}
                   onClick={(event) => {
@@ -885,6 +1008,7 @@ export const ArticleCard = memo(function ArticleCard({
                   aria-label={
                     article.isStarred ? "Remove star" : "Star article"
                   }
+                  {...articleActionControlProps}
                   className={iconBtnCls}
                   disabled={isUpdatingState}
                   onClick={(event) => {
@@ -911,6 +1035,7 @@ export const ArticleCard = memo(function ArticleCard({
                 {supportsNativeShare ? (
                   <button
                     aria-label="Share article"
+                    {...articleActionControlProps}
                     className={iconBtnCls}
                     onClick={(event) => {
                       void handleShare(event);
@@ -927,6 +1052,7 @@ export const ArticleCard = memo(function ArticleCard({
                     <DropdownMenuTrigger asChild>
                       <button
                         aria-label="Share article options"
+                        {...articleActionControlProps}
                         className={iconBtnCls}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -1002,6 +1128,7 @@ export const ArticleCard = memo(function ArticleCard({
                 {isDevelopment ? (
                   <button
                     aria-label="View raw article HTML"
+                    {...articleActionControlProps}
                     className={iconBtnCls}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -1015,6 +1142,7 @@ export const ArticleCard = memo(function ArticleCard({
 
                 <a
                   aria-label="Open article"
+                  {...articleActionControlProps}
                   className={iconLinkCls}
                   href={article.link}
                   onClick={(e) => {
@@ -1057,6 +1185,13 @@ export const ArticleCard = memo(function ArticleCard({
                 : `rounded-b-xl px-3 pt-2 pb-3`
             }
           `}
+          data-article-swipe-zone="content"
+          onClick={stopExpandedContentPropagation}
+          onMouseDown={stopExpandedContentPropagation}
+          onPointerCancel={stopExpandedContentPropagation}
+          onPointerDown={stopExpandedContentPropagation}
+          onPointerMove={stopExpandedContentPropagation}
+          onPointerUp={stopExpandedContentPropagation}
           ref={contentZoneRef}
         >
           <div

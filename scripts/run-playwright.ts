@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const PLAYWRIGHT_COVERAGE_ENABLED =
@@ -7,11 +7,13 @@ const PLAYWRIGHT_COVERAGE_ENABLED =
 const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_OUTPUT_DIR ?? "coverage/playwright-raw";
 const PLAYWRIGHT_HOST = "127.0.0.1";
-const PLAYWRIGHT_COVERAGE_GENERATOR_PATH = join(
+const PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH = join(
   process.cwd(),
   "scripts",
-  "generate-playwright-coverage.mjs",
+  "generate-playwright-coverage.ts",
 );
+const PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY =
+  ".cache/playwright-runtime";
 const PLAYWRIGHT_PORT_START = Number.parseInt(
   process.env.PLAYWRIGHT_PORT_START ?? "3100",
   10,
@@ -103,6 +105,32 @@ function createOutputMirror(child: ChildProcess) {
   };
 }
 
+/** Transpiles the TypeScript coverage generator to a temporary Node-executable module. */
+async function createPlaywrightCoverageGeneratorRuntimeFile(runId: string) {
+  const runtimeDirectoryPath = join(
+    process.cwd(),
+    PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY,
+  );
+  const coverageGeneratorRuntimePath = join(
+    PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY,
+    `generate-playwright-coverage.${runId}.mjs`,
+  );
+  const coverageGeneratorSource = await readFile(
+    PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH,
+    "utf8",
+  );
+  const transpiler = new Bun.Transpiler({ loader: "ts" });
+
+  await mkdir(runtimeDirectoryPath, { recursive: true });
+  await writeFile(
+    join(process.cwd(), coverageGeneratorRuntimePath),
+    transpiler.transformSync(coverageGeneratorSource),
+    "utf8",
+  );
+
+  return coverageGeneratorRuntimePath;
+}
+
 /** Creates a filesystem-safe run identifier for per-run Playwright artifacts. */
 function createPlaywrightRunId() {
   return `${Date.now()}-${process.pid}`;
@@ -131,7 +159,10 @@ function createStartupError(message: string, recentOutput: string) {
 }
 
 /** Generates the aggregated Playwright coverage reports after a coverage run. */
-async function generatePlaywrightCoverageReport(rawCoverageOutputDir: string) {
+async function generatePlaywrightCoverageReport(
+  rawCoverageOutputDir: string,
+  coverageGeneratorRuntimePath: string,
+) {
   try {
     await access(join(process.cwd(), rawCoverageOutputDir));
   } catch {
@@ -140,7 +171,7 @@ async function generatePlaywrightCoverageReport(rawCoverageOutputDir: string) {
 
   const generatorProcess = spawn(
     "node",
-    [PLAYWRIGHT_COVERAGE_GENERATOR_PATH],
+    [join(process.cwd(), coverageGeneratorRuntimePath)],
     {
       cwd: process.cwd(),
       env: {
@@ -171,6 +202,9 @@ function isPortUnavailableOutput(output: string) {
 async function main() {
   const forwardedArguments = process.argv.slice(2);
   const runId = createPlaywrightRunId();
+  const coverageGeneratorRuntimePath = PLAYWRIGHT_COVERAGE_ENABLED
+    ? await createPlaywrightCoverageGeneratorRuntimeFile(runId)
+    : null;
   const rawCoverageOutputDir = PLAYWRIGHT_COVERAGE_ENABLED
     ? `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${runId}`
     : PLAYWRIGHT_COVERAGE_OUTPUT_DIR;
@@ -191,6 +225,11 @@ async function main() {
     await stopProcess(serverProcess).catch(() => undefined);
     if (PLAYWRIGHT_COVERAGE_ENABLED) {
       await removePlaywrightRuntimeDirectory(rawCoverageOutputDir).catch(
+        () => undefined,
+      );
+    }
+    if (coverageGeneratorRuntimePath) {
+      await removePlaywrightRuntimeDirectory(coverageGeneratorRuntimePath).catch(
         () => undefined,
       );
     }
@@ -257,7 +296,10 @@ async function main() {
     }
 
     const coverageExitCode = PLAYWRIGHT_COVERAGE_ENABLED
-      ? await generatePlaywrightCoverageReport(rawCoverageOutputDir)
+      ? await generatePlaywrightCoverageReport(
+          rawCoverageOutputDir,
+          coverageGeneratorRuntimePath ?? "",
+        )
       : 0;
     const exitCode =
       code === 0
