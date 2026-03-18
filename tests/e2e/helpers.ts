@@ -139,18 +139,6 @@ export async function readArticleKey(article: Locator) {
   return articleKey;
 }
 
-/** Measures an article's top edge relative to its owning feed viewport. */
-export async function readArticleTopWithinViewport(article: Locator) {
-  return await article.evaluate((node) => {
-    const viewport = node.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
-    if (!viewport) {
-      throw new Error("Expected article to be rendered inside the feed viewport.");
-    }
-
-    return node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
-  });
-}
-
 /** Reads the sentinel values that exercise localStorage and sessionStorage cleanup. */
 export async function readClientStateSentinel(page: Page) {
   return await page.evaluate((storageKey) => {
@@ -337,6 +325,18 @@ export async function toggleArticle(article: Locator) {
     .locator("[data-article-swipe-zone='header']")
     .first()
     .click({ position: { x: 32, y: 48 } });
+}
+
+/** Measures an article's top edge relative to its owning feed viewport. */
+async function readArticleTopWithinViewport(article: Locator) {
+  return await article.evaluate((node) => {
+    const viewport = node.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+    if (!viewport) {
+      throw new Error("Expected article to be rendered inside the feed viewport.");
+    }
+
+    return node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+  });
 }
 
 function toXPathStringLiteral(value: string) {

@@ -752,6 +752,12 @@ test.describe("dashboard interaction coverage", () => {
       "raf-4",
     ]);
     expectTrackedRowState(
+      swipeFrameSamples[0] as ArticleTopFrameSample,
+      firstArticleKey,
+      "swipe-read",
+      "collapsing",
+    );
+    expectTrackedRowState(
       swipeFrameSamples[1] as ArticleTopFrameSample,
       firstArticleKey,
       "swipe-read",

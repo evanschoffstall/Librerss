@@ -30,6 +30,7 @@ import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 import {
+  ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS,
   ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS,
   ARTICLE_REMOVAL_ANIMATION_MS,
   type ArticleRemovalAnimationMode,
@@ -363,11 +364,18 @@ const FeedListRow = memo(function FeedListRow({
         Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
 
       if (isStandardCollapseExit) {
-        // Height, marginBottom, and opacity are set directly in the CSS style
-        // prop to bypass Framer Motion's RAF-deferred write. That keeps the
-        // collapsing row from visibly overlapping the incoming sibling during
-        // the first released-layout frame.
-        return undefined;
+        const collapseHeightSeconds =
+          ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS / 1000;
+        return {
+          height: {
+            duration: collapseHeightSeconds,
+            ease: FEED_ROW_EXIT_EASING,
+          },
+          marginBottom: {
+            duration: collapseHeightSeconds,
+            ease: FEED_ROW_EXIT_EASING,
+          },
+        };
       }
 
       return {
@@ -413,15 +421,18 @@ const FeedListRow = memo(function FeedListRow({
   return (
     <motion.div
       animate={
-        isStandardCollapseExit
-          ? undefined
-          : shouldAnimateRemoval
+        shouldAnimateRemoval
+          ? isStandardCollapseExit
             ? {
+                height: resolvedHeight,
+                marginBottom: resolvedMarginBottom,
+              }
+            : {
                 height: resolvedHeight,
                 marginBottom: resolvedMarginBottom,
                 opacity: resolvedOpacity,
               }
-            : undefined
+          : undefined
       }
       className="overflow-visible"
       data-feed-row-animation={removalAnimationMode ?? "idle"}
@@ -433,19 +444,15 @@ const FeedListRow = memo(function FeedListRow({
       layout={shouldAnimateReflow ? "position" : false}
       ref={setRowElement}
       style={{
-        height: isStandardCollapseExit
-          ? // Bypass Framer Motion: set the collapsed height directly so the
-            // browser never paints the pre-collapse height during its first RAF.
-            FEED_ROW_COLLAPSE_FLOOR_PX
-          : shouldAnimateRemoval
-            ? resolvedRemovalHeight
+        height: shouldAnimateRemoval
+          ? resolvedRemovalHeight
+          : isStandardCollapseExit
+            ? FEED_ROW_COLLAPSE_FLOOR_PX
             : undefined,
-        marginBottom: isStandardCollapseExit
-          ? // Collapsed row contributes exactly 0px to flow (12 + -12 = 0),
-            // so the next row stays at a stable position both during the
-            // collapse animation and after the collapsing row is removed.
-            -FEED_ROW_COLLAPSE_FLOOR_PX
-          : FEED_ROW_GAP_PX,
+        marginBottom:
+          isStandardCollapseExit && !shouldAnimateRemoval
+            ? -FEED_ROW_COLLAPSE_FLOOR_PX
+            : FEED_ROW_GAP_PX,
         minHeight:
           isStandardCollapseExit || (isRemoving && isRemovalTransitionActive)
             ? FEED_ROW_COLLAPSE_FLOOR_PX
@@ -468,7 +475,7 @@ const FeedListRow = memo(function FeedListRow({
           ? isDeExpandingHold
             ? "height, margin-bottom, opacity"
             : isStandardCollapseExit
-              ? undefined
+              ? "height, margin-bottom"
               : "height, margin-bottom, opacity, transform"
           : undefined,
       }}
