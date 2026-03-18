@@ -113,7 +113,7 @@ test.describe("dashboard mobile gestures", () => {
     );
   });
 
-  test("keeps expanded header drags from dismissing mobile articles", async ({
+  test("commits swipe-to-read on expanded header of mobile articles", async ({
     page,
   }) => {
     await page.goto("/dashboard?explore=1");
@@ -138,13 +138,9 @@ test.describe("dashboard mobile gestures", () => {
       },
     );
 
-    expect(swipeSignalDuringDrag.swipeActive).toBe(false);
-    expect(swipeSignalDuringDrag.swipeDirection).toBe("idle");
-    await expectArticleExpanded(article, true);
-    await expect(articleRow(article)).toHaveAttribute(
-      "data-feed-row-animation",
-      "idle",
-    );
+    expect(swipeSignalDuringDrag.swipeActive).toBe(true);
+    expect(swipeSignalDuringDrag.swipeDirection).toBe("read");
+    await expectArticleExpanded(article, false);
   });
 
   test("requires clearly horizontal intent before mobile swipe-read commits", async ({
