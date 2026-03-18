@@ -287,6 +287,45 @@ describe("ArticleCard", () => {
     );
   });
 
+  test("does not toggle the card when the read button is clicked", () => {
+    const article = buildArticle();
+    const onPrepareExpand = mock(() => {});
+    const onToggle = mock(() => {});
+    const onToggleRead = mock(() => {});
+
+    const { getByRole } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onPrepareExpand={onPrepareExpand}
+        onToggle={onToggle}
+        onToggleRead={onToggleRead}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    fireEvent.pointerDown(getByRole("button", { name: "Mark as read" }), {
+      clientX: 24,
+      clientY: 20,
+      pointerId: 7,
+      pointerType: "mouse",
+    });
+    fireEvent.click(getByRole("button", { name: "Mark as read" }));
+
+    expect(onToggleRead).toHaveBeenCalledTimes(1);
+    expect(onPrepareExpand).not.toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
   test("commits swipe-to-read from the collapsed header", async () => {
     const article = buildArticle();
     const onToggle = mock(() => {});
