@@ -339,6 +339,10 @@ export function useDashboardController({
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
   const previousLoadingRef = useRef(loading);
+  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
+  const feedScrollRootRef = useRef<HTMLElement | null>(null);
+  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
+  const feedWrapperRef = useRef<HTMLDivElement | null>(null);
   const pendingRefreshRestoreRef = useRef<null | {
     capturedFeed: Article[];
     capturedLastRefreshedAt: Date | null;
@@ -389,14 +393,19 @@ export function useDashboardController({
       return;
     }
 
-    pendingRefreshRestoreRef.current = null;
-    flushFeedScroll();
-  }, [feed, flushFeedScroll, lastRefreshedAt, loading]);
+    const feedViewport =
+      feedScrollRootRef.current?.querySelector<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ) ?? feedScrollRootRef.current;
 
-  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
-  const feedScrollRootRef = useRef<HTMLElement | null>(null);
-  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
-  const feedWrapperRef = useRef<HTMLDivElement | null>(null);
+    pendingRefreshRestoreRef.current = null;
+
+    if (feedViewport && feedViewport.scrollTop < sentinelScrollOffset) {
+      return;
+    }
+
+    flushFeedScroll();
+  }, [feed, flushFeedScroll, lastRefreshedAt, loading, sentinelScrollOffset]);
 
   /**
    * Merges local feed-scroll bookkeeping with persisted viewport restoration.
