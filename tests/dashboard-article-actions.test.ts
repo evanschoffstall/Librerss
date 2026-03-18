@@ -118,8 +118,7 @@ describe("useArticleActions - State Management", () => {
     expect(result.current.updatingArticleState).toEqual({});
     expect(result.current.hydratedArticleLinks).toEqual({});
     expect(result.current.hydratingArticleLinks).toEqual({});
-    expect(result.current.collapsingArticleKey).toBeNull();
-    expect(result.current.collapsingArticleMode).toBeNull();
+    expect(result.current.collapsingArticles).toEqual({});
   });
 
   test("handleToggleStarredState marks article as starred", async () => {
@@ -369,8 +368,13 @@ describe("useArticleActions - State Management", () => {
     });
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
-    expect(result.current.collapsingArticleKey).toBe(articleKey);
-    expect(result.current.collapsingArticleMode).toBe("de-expanding");
+    expect(result.current.collapsingArticles).toEqual({
+      [articleKey]: {
+        article,
+        index: 0,
+        mode: "de-expanding",
+      },
+    });
   });
 
   test("handleArticleToggle treats expanded unread articles as read when collapsing in unread filter", async () => {
@@ -396,8 +400,13 @@ describe("useArticleActions - State Management", () => {
       await result.current.handleArticleToggle(article);
     });
 
-    expect(result.current.collapsingArticleKey).toBe(article.link);
-    expect(result.current.collapsingArticleMode).toBe("de-expanding");
+    expect(result.current.collapsingArticles).toEqual({
+      [article.link]: {
+        article,
+        index: 0,
+        mode: "de-expanding",
+      },
+    });
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
 
@@ -453,8 +462,13 @@ describe("useArticleActions - State Management", () => {
     });
 
     expect(feedState[0].isRead).toBe(true);
-    expect(result.current.collapsingArticleKey).toBe(article.link);
-    expect(result.current.collapsingArticleMode).toBe("collapse");
+    expect(result.current.collapsingArticles).toEqual({
+      [article.link]: {
+        article,
+        index: 0,
+        mode: "collapse",
+      },
+    });
   });
 
   test("handleSwipeRead stages unread-filter removals with the swipe animation", async () => {
@@ -484,8 +498,13 @@ describe("useArticleActions - State Management", () => {
     });
 
     expect(feedState[0].isRead).toBe(true);
-    expect(result.current.collapsingArticleKey).toBe(article.link);
-    expect(result.current.collapsingArticleMode).toBe("swipe-read");
+    expect(result.current.collapsingArticles).toEqual({
+      [article.link]: {
+        article,
+        index: 0,
+        mode: "swipe-read",
+      },
+    });
   });
 
   test("collapsing an already-read expanded article stages the de-expansion hold", async () => {
@@ -507,8 +526,13 @@ describe("useArticleActions - State Management", () => {
       await result.current.handleArticleToggle(article);
     });
 
-    expect(result.current.collapsingArticleKey).toBe(article.link);
-    expect(result.current.collapsingArticleMode).toBe("de-expanding");
+    expect(result.current.collapsingArticles).toEqual({
+      [article.link]: {
+        article,
+        index: 0,
+        mode: "de-expanding",
+      },
+    });
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
 
@@ -546,8 +570,60 @@ describe("useArticleActions - State Management", () => {
     expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(11, {
       isRead: true,
     });
-    expect(result.current.collapsingArticleMode).toBe("swipe-read");
+    expect(result.current.collapsingArticles).toEqual({
+      [article.link]: {
+        article,
+        index: 0,
+        mode: "swipe-read",
+      },
+    });
     expect(setExpandedArticleKey).toHaveBeenCalled();
+  });
+
+  test("tracks overlapping unread-removal animations independently", async () => {
+    const firstArticle = createMockArticle({
+      id: 31,
+      isRead: false,
+      link: "https://example.com/first-overlap",
+    });
+    const secondArticle = createMockArticle({
+      id: 32,
+      isRead: false,
+      link: "https://example.com/second-overlap",
+    });
+    let feedState = [firstArticle, secondArticle];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "unread",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleSwipeRead(firstArticle);
+      await result.current.handleSwipeRead(secondArticle);
+    });
+
+    expect(result.current.collapsingArticles).toEqual({
+      [firstArticle.link]: {
+        article: firstArticle,
+        index: 0,
+        mode: "swipe-read",
+      },
+      [secondArticle.link]: {
+        article: secondArticle,
+        index: 1,
+        mode: "swipe-read",
+      },
+    });
   });
 
   test("setArticleReadState sets specific read state", async () => {

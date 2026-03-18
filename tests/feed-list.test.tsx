@@ -4,6 +4,9 @@ import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
 import {
+  FEED_ROW_COLLAPSE_FLOOR_PX,
+} from "@/app/dashboard/components/feed/constants";
+import {
   FeedList,
   measureFeedListItemSize,
   shouldLoadMoreArticles,
@@ -70,6 +73,20 @@ function buildArticle(overrides?: Partial<Article>): Article {
     publicationDate: new Date("2026-03-13T09:00:00.000Z"),
     title: "Performance-sensitive article",
     ...overrides,
+  };
+}
+
+function buildCollapsingArticleState(
+  article: Article,
+  index: number,
+  mode: "collapse" | "de-expanding" | "swipe-read",
+) {
+  return {
+    [article.link]: {
+      article,
+      index,
+      mode,
+    },
   };
 }
 
@@ -217,8 +234,7 @@ describe("FeedList", () => {
     const article = buildArticle();
     const { container, getByText } = renderFeedList(
       <FeedList
-        collapsingArticleKey={article.link}
-        collapsingArticleMode="collapse"
+        collapsingArticles={buildCollapsingArticleState(article, 0, "collapse")}
         expandedArticleKey={null}
         filteredFeed={[article]}
         hydratedArticleLinks={{}}
@@ -250,6 +266,50 @@ describe("FeedList", () => {
     });
   });
 
+  test("releases layout space immediately for standard unread collapse rows", async () => {
+    const article = buildArticle({
+      link: "https://example.com/articles/immediate-layout-release",
+      title: "Immediate layout release article",
+    });
+    const { container, getByText } = renderFeedList(
+      <FeedList
+        collapsingArticles={buildCollapsingArticleState(article, 0, "collapse")}
+        expandedArticleKey={null}
+        filteredFeed={[article]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(article.title)).toBeTruthy();
+      const row = container.querySelector<HTMLElement>(
+        `[data-scroll-restore-key="${article.link}"][data-feed-row-animation="collapse"]`,
+      );
+
+      expect(row).toBeTruthy();
+      expect(row?.dataset.feedRowState).toBe("collapsing");
+      // Height and marginBottom must be set via the React style prop directly
+      // (not deferred through Framer Motion) so the browser never paints the
+      // full-height row before the collapse lands.
+      expect(row?.style.height).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+      expect(row?.style.marginBottom).toBe(`-${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+      expect(row?.style.minHeight).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+      expect(row?.style.overflow).toBe("hidden");
+    });
+  });
+
   test("marks swipe-driven removals with the off-screen row animation", async () => {
     const article = buildArticle({
       link: "https://example.com/articles/swipe-removal",
@@ -257,8 +317,7 @@ describe("FeedList", () => {
     });
     const { container, getByText } = renderFeedList(
       <FeedList
-        collapsingArticleKey={article.link}
-        collapsingArticleMode="swipe-read"
+        collapsingArticles={buildCollapsingArticleState(article, 0, "swipe-read")}
         expandedArticleKey={null}
         filteredFeed={[article]}
         hydratedArticleLinks={{}}
@@ -294,8 +353,7 @@ describe("FeedList", () => {
     });
     const { container, getByText } = renderFeedList(
       <FeedList
-        collapsingArticleKey={article.link}
-        collapsingArticleMode="de-expanding"
+        collapsingArticles={buildCollapsingArticleState(article, 0, "de-expanding")}
         expandedArticleKey={null}
         filteredFeed={[article]}
         hydratedArticleLinks={{}}
@@ -367,8 +425,7 @@ describe("FeedList", () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <div data-radix-scroll-area-viewport="">
           <FeedList
-            collapsingArticleKey={article.link}
-            collapsingArticleMode="de-expanding"
+            collapsingArticles={buildCollapsingArticleState(article, 0, "de-expanding")}
             expandedArticleKey={null}
             filteredFeed={[]}
             hydratedArticleLinks={{}}
@@ -483,8 +540,7 @@ describe("FeedList", () => {
     rerender(
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <FeedList
-          collapsingArticleKey={article.link}
-          collapsingArticleMode="collapse"
+          collapsingArticles={buildCollapsingArticleState(article, 0, "collapse")}
           expandedArticleKey={null}
           filteredFeed={[article, sibling]}
           hydratedArticleLinks={{}}
@@ -516,7 +572,7 @@ describe("FeedList", () => {
       expect(row?.dataset.feedRowLayout).toBe("none");
       expect(row?.dataset.feedRowState).toBe("collapsing");
       expect(siblingRow).toBeTruthy();
-      expect(siblingRow?.dataset.feedRowLayout).toBe("position");
+      expect(siblingRow?.dataset.feedRowLayout).toBe("none");
     });
   });
 
@@ -549,8 +605,7 @@ describe("FeedList", () => {
     rerender(
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <FeedList
-          collapsingArticleKey={article.link}
-          collapsingArticleMode="collapse"
+          collapsingArticles={buildCollapsingArticleState(article, 0, "collapse")}
           expandedArticleKey={null}
           filteredFeed={[]}
           hydratedArticleLinks={{}}
@@ -577,6 +632,89 @@ describe("FeedList", () => {
 
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain(article.title);
+    });
+  });
+
+  test("retains multiple collapsing rows after consecutive unread removals", async () => {
+    const firstArticle = buildArticle({
+      link: "https://example.com/articles/retained-first",
+      title: "Retained first collapse article",
+    });
+    const secondArticle = buildArticle({
+      id: 2,
+      link: "https://example.com/articles/retained-second",
+      title: "Retained second collapse article",
+    });
+    const { container, getByText, rerender } = renderFeedList(
+      <FeedList
+        expandedArticleKey={null}
+        filteredFeed={[firstArticle, secondArticle]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        pageSize={25}
+        paginationResetKey="all:unread:"
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+      expect(getByText(secondArticle.title)).toBeTruthy();
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <FeedList
+          collapsingArticles={{
+            [firstArticle.link]: {
+              article: firstArticle,
+              index: 0,
+              mode: "swipe-read",
+            },
+            [secondArticle.link]: {
+              article: secondArticle,
+              index: 1,
+              mode: "swipe-read",
+            },
+          }}
+          expandedArticleKey={null}
+          filteredFeed={[]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          pageSize={25}
+          paginationResetKey="all:unread:"
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector(
+          `[data-scroll-restore-key="${firstArticle.link}"][data-feed-row-animation="swipe-read"]`,
+        ),
+      ).toBeTruthy();
+      expect(
+        container.querySelector(
+          `[data-scroll-restore-key="${secondArticle.link}"][data-feed-row-animation="swipe-read"]`,
+        ),
+      ).toBeTruthy();
     });
   });
 
@@ -615,8 +753,7 @@ describe("FeedList", () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <div data-radix-scroll-area-viewport="">
           <FeedList
-            collapsingArticleKey={article.link}
-            collapsingArticleMode="collapse"
+            collapsingArticles={buildCollapsingArticleState(article, 0, "collapse")}
             expandedArticleKey={null}
             filteredFeed={[]}
             hydratedArticleLinks={{}}
@@ -722,6 +859,56 @@ describe("FeedList", () => {
         container.querySelector("[data-feed-load-more-sentinel='true']"),
       ).toBeTruthy();
     });
+  });
+
+  test("does not emit the React flushSync lifecycle warning when binding to the dashboard viewport", async () => {
+    const article = buildArticle({
+      title: "Viewport warning regression article",
+    });
+    const consoleMessages: string[] = [];
+    const originalConsoleError = console.error;
+
+    console.error = (...args: Parameters<typeof console.error>) => {
+      consoleMessages.push(String(args[0] ?? ""));
+    };
+
+    try {
+      const { getByText } = renderFeedList(
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            expandedArticleKey={null}
+            filteredFeed={[article]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            pageSize={1}
+            paginationResetKey="all:unread:"
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>,
+      );
+
+      await waitFor(() => {
+        expect(getByText(article.title)).toBeTruthy();
+      });
+
+      expect(
+        consoleMessages.some((message) =>
+          message.includes(
+            "flushSync was called from inside a lifecycle method",
+          ),
+        ),
+      ).toBe(false);
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 
   test("renders the mounted feed without virtualization while an article is expanded", async () => {
@@ -901,8 +1088,7 @@ describe("FeedList", () => {
     const { container, getByText } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          collapsingArticleKey={article.link}
-          collapsingArticleMode="de-expanding"
+          collapsingArticles={buildCollapsingArticleState(article, 0, "de-expanding")}
           expandedArticleKey={null}
           filteredFeed={[article, sibling]}
           hydratedArticleLinks={{}}

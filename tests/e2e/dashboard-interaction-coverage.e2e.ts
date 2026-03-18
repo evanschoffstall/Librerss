@@ -1,6 +1,9 @@
+import type { Page } from "@playwright/test";
+
 import {
     articleCard,
     articleCardByKey,
+  articleRowByKey,
     expectArticleExpanded,
     expectPreviewDashboard,
     hasLoadMoreSentinel,
@@ -13,6 +16,340 @@ import {
     toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
+
+type ArticleFrameAction = "button-read" | "swipe-read";
+
+interface ArticleTopFrameSample {
+  label: string;
+  rows: Record<
+    string,
+    | undefined
+    | {
+        animation: null | string;
+        state: null | string;
+      }
+  >;
+  tops: Record<string, number>;
+}
+
+async function clickArticleReadButtonAndCollectFrameSamples(
+  page: Page,
+  articleKey: string,
+  articleKeys: string[],
+  rowKeys: string[],
+  frameCount = 4,
+) {
+  return await performArticleActionAndCollectFrameSamples(
+    page,
+    articleKey,
+    articleKeys,
+    rowKeys,
+    "button-read",
+    frameCount,
+  );
+}
+
+async function collectArticleTopFrameSamples(
+  page: Page,
+  articleKeys: string[],
+  frameCount = 24,
+) {
+  return (await page.evaluate(
+    async ({ nextFrameCount, targetArticleKeys }) => {
+      const readArticleTopWithinActiveViewport = (articleKey: string) => {
+        const articles = Array.from(
+          document.querySelectorAll<HTMLElement>("article[data-article-key]"),
+        );
+        const article = articles.find(
+          (candidate) => candidate.dataset.articleKey === articleKey,
+        );
+        const viewports = Array.from(
+          document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]"),
+        );
+        let viewport: HTMLElement | null = null;
+
+        for (const candidate of viewports) {
+          if (!viewport || candidate.scrollHeight > viewport.scrollHeight) {
+            viewport = candidate;
+          }
+        }
+
+        if (!article || !viewport) {
+          throw new Error("Expected article and active feed viewport to be present.");
+        }
+
+        return article.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+      };
+
+      const sample = (label: string) => {
+        const tops: Record<string, number> = {};
+
+        for (const articleKey of targetArticleKeys) {
+          tops[articleKey] = readArticleTopWithinActiveViewport(articleKey);
+        }
+
+        return {
+          label,
+          rows: {},
+          tops,
+        };
+      };
+
+      const samples = [sample("current")];
+      for (let frameIndex = 0; frameIndex < nextFrameCount; frameIndex += 1) {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+        samples.push(sample(`raf-${frameIndex + 1}`));
+      }
+
+      return samples;
+    },
+    { nextFrameCount: frameCount, targetArticleKeys: articleKeys },
+  )) as ArticleTopFrameSample[];
+}
+
+function expectFrameSampleLabels(
+  samples: ArticleTopFrameSample[],
+  labels: string[],
+) {
+  expect(samples.map((sample) => sample.label)).toEqual(labels);
+}
+
+function expectImmediateLayoutRelease(
+  articleLabel: string,
+  baselineTop: number,
+  frameSamples: ArticleTopFrameSample[],
+) {
+  const topTimeline = readArticleTopTimeline(frameSamples, articleLabel);
+
+  expect(frameSamples.length).toBeGreaterThanOrEqual(3);
+  expect(topTimeline[0] ?? Number.POSITIVE_INFINITY).toBeLessThan(baselineTop - 4);
+  expect(topTimeline[1] ?? Number.POSITIVE_INFINITY).toBeLessThan(baselineTop - 4);
+
+  for (let sampleIndex = 1; sampleIndex < topTimeline.length; sampleIndex += 1) {
+    expect(
+      topTimeline[sampleIndex] - topTimeline[sampleIndex - 1],
+      `${articleLabel} moved downward during the first animation frames after button-read`,
+    ).toBeLessThanOrEqual(2);
+  }
+}
+
+function expectMonotonicUpwardMotion(
+  articleLabel: string,
+  topTimeline: number[],
+) {
+  expect(topTimeline.length).toBeGreaterThan(1);
+  expect(topTimeline.at(-1) ?? Number.POSITIVE_INFINITY).toBeLessThan(
+    (topTimeline[0] ?? 0) - 40,
+  );
+
+  for (let sampleIndex = 1; sampleIndex < topTimeline.length; sampleIndex += 1) {
+    expect(
+      topTimeline[sampleIndex] - topTimeline[sampleIndex - 1],
+      `${articleLabel} moved downward during unread swipe reflow`,
+    ).toBeLessThanOrEqual(2);
+  }
+}
+
+function expectTrackedRowState(
+  sample: ArticleTopFrameSample,
+  articleKey: string,
+  expectedAnimation: string,
+  expectedState: string,
+) {
+  expect(sample.rows[articleKey]).toEqual({
+    animation: expectedAnimation,
+    state: expectedState,
+  });
+}
+
+async function performArticleActionAndCollectFrameSamples(
+  page: Page,
+  articleKey: string,
+  articleKeys: string[],
+  rowKeys: string[],
+  action: ArticleFrameAction,
+  frameCount = 4,
+) {
+  return (await page.evaluate(
+    async ({ actionName, nextFrameCount, targetArticleKey, targetArticleKeys, targetRowKeys }) => {
+      const readArticleTopWithinActiveViewport = (articleKey: string) => {
+        const article = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")].find(
+          (candidate) => candidate.dataset.articleKey === articleKey,
+        );
+        const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
+        const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
+          if (!selected) {
+            return candidate;
+          }
+
+          return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
+        }, null);
+
+        if (!article || !viewport) {
+          throw new Error("Expected article and active feed viewport to be present.");
+        }
+
+        return article.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+      };
+
+      const sample = (label: string) => {
+        const rows = Object.fromEntries(
+          targetRowKeys.map((rowKey) => {
+            const row = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-restore-key]")).find(
+              (candidate) => candidate.dataset.scrollRestoreKey === rowKey,
+            );
+
+            return [
+              rowKey,
+              row
+                ? {
+                    animation: row.dataset.feedRowAnimation ?? null,
+                    state: row.dataset.feedRowState ?? null,
+                  }
+                : undefined,
+            ];
+          }),
+        );
+
+        return {
+          label,
+          rows,
+          tops: Object.fromEntries(
+            targetArticleKeys.map((articleKey) => [
+              articleKey,
+              readArticleTopWithinActiveViewport(articleKey),
+            ]),
+          ),
+        };
+      };
+
+      const article = Array.from(
+        document.querySelectorAll<HTMLElement>("article[data-article-key]"),
+      ).find((candidate) => candidate.dataset.articleKey === targetArticleKey);
+
+      if (!article) {
+        throw new Error("Expected target article to be present for frame sampling.");
+      }
+
+      if (actionName === "button-read") {
+        const button = Array.from(article.querySelectorAll<HTMLButtonElement>("button")).find(
+          (candidate) => candidate.getAttribute("aria-label") === "Mark as read",
+        );
+
+        if (!button) {
+          throw new Error("Expected Mark as read button to exist for frame sampling.");
+        }
+
+        button.click();
+      } else {
+        const rect = article.getBoundingClientRect();
+        const pointerId = 501;
+        const y = rect.top + rect.height * 0.5;
+        const dispatchPointer = (type: string, clientX: number) => {
+          article.dispatchEvent(new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            clientX,
+            clientY: y,
+            pointerId,
+            pointerType: "touch",
+          }));
+        };
+
+        dispatchPointer("pointerdown", rect.left + rect.width * 0.24);
+        dispatchPointer("pointermove", rect.left + rect.width * 0.92);
+        dispatchPointer("pointerup", rect.left + rect.width * 0.92);
+      }
+
+      const samples = [sample("sync-after-action")];
+      for (let frameIndex = 0; frameIndex < nextFrameCount; frameIndex += 1) {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+        samples.push(sample(`raf-${frameIndex + 1}`));
+      }
+
+      return samples;
+    },
+    {
+      actionName: action,
+      nextFrameCount: frameCount,
+      targetArticleKey: articleKey,
+      targetArticleKeys: articleKeys,
+      targetRowKeys: rowKeys,
+    },
+  )) as ArticleTopFrameSample[];
+}
+
+async function readArticleTopSnapshot(page: Page, articleKeys: string[]) {
+  const snapshot = new Map<string, number>();
+
+  for (const articleKey of articleKeys) {
+    snapshot.set(
+      articleKey,
+      await readArticleTopWithinActiveViewport(page, articleKey),
+    );
+  }
+
+  return snapshot;
+}
+
+function readArticleTopTimeline(
+  samples: ArticleTopFrameSample[],
+  articleKey: string,
+) {
+  return samples.map(
+    (sample) => sample.tops[articleKey] ?? Number.POSITIVE_INFINITY,
+  );
+}
+
+async function readArticleTopWithinActiveViewport(
+  page: Page,
+  articleKey: string,
+) {
+  return await page.evaluate((targetArticleKey) => {
+    const article = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")].find(
+      (candidate) => candidate.dataset.articleKey === targetArticleKey,
+    );
+    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
+    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
+      if (!selected) {
+        return candidate;
+      }
+
+      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
+    }, null);
+
+    if (!article || !viewport) {
+      throw new Error("Expected article and active feed viewport to be present.");
+    }
+
+    return article.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+  }, articleKey);
+}
+
+async function swipeArticleReadAndCollectFrameSamples(
+  page: Page,
+  articleKey: string,
+  articleKeys: string[],
+  rowKeys: string[],
+  frameCount = 4,
+) {
+  return await performArticleActionAndCollectFrameSamples(
+    page,
+    articleKey,
+    articleKeys,
+    rowKeys,
+    "swipe-read",
+    frameCount,
+  );
+}
 
 test.describe("dashboard interaction coverage", () => {
   test("covers article actions, expanded text selection, and collapse flows", async ({
@@ -165,6 +502,385 @@ test.describe("dashboard interaction coverage", () => {
 
     await page.getByRole("button", { name: "Reset app state" }).click();
     await expectPreviewDashboard(page);
+  });
+
+  test("keeps mixed unread button-read and swipe-read removals moving sibling rows upward", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard?explore=1");
+    await expectPreviewDashboard(page);
+    await page.getByRole("button", { exact: true, name: "unread" }).click();
+
+    const firstArticleKey = await readArticleKey(articleCard(page, 0));
+    const secondArticleKey = await readArticleKey(articleCard(page, 1));
+    const thirdArticleKey = await readArticleKey(articleCard(page, 2));
+    const fourthArticleKey = await readArticleKey(articleCard(page, 3));
+
+    const firstRemovalBaseline = await readArticleTopSnapshot(page, [
+      secondArticleKey,
+      thirdArticleKey,
+    ]);
+    const firstRemovalFrameSamples = await clickArticleReadButtonAndCollectFrameSamples(
+      page,
+      firstArticleKey,
+      [secondArticleKey, thirdArticleKey],
+      [firstArticleKey],
+    );
+    await expect(
+      page.locator("article[data-article-key][aria-expanded='true']"),
+    ).toHaveCount(0);
+
+    expectFrameSampleLabels(firstRemovalFrameSamples, [
+      "sync-after-action",
+      "raf-1",
+      "raf-2",
+      "raf-3",
+      "raf-4",
+    ]);
+    expectTrackedRowState(
+      firstRemovalFrameSamples[0] as ArticleTopFrameSample,
+      firstArticleKey,
+      "collapse",
+      "collapsing",
+    );
+    expectTrackedRowState(
+      firstRemovalFrameSamples[1] as ArticleTopFrameSample,
+      firstArticleKey,
+      "collapse",
+      "collapsing",
+    );
+    expectImmediateLayoutRelease(
+      secondArticleKey,
+      firstRemovalBaseline.get(secondArticleKey) ?? 0,
+      firstRemovalFrameSamples,
+    );
+    expectImmediateLayoutRelease(
+      thirdArticleKey,
+      firstRemovalBaseline.get(thirdArticleKey) ?? 0,
+      firstRemovalFrameSamples,
+    );
+
+    const firstRemovalSamples = await collectArticleTopFrameSamples(page, [
+      secondArticleKey,
+      thirdArticleKey,
+    ]);
+    const firstRemovalTimeline = readArticleTopTimeline(
+      firstRemovalSamples,
+      secondArticleKey,
+    );
+    const firstRemovalThirdTimeline = readArticleTopTimeline(
+      firstRemovalSamples,
+      thirdArticleKey,
+    );
+
+    await expect.poll(async () => {
+      return await articleCardByKey(page, firstArticleKey).count();
+    }).toBe(
+      0,
+    );
+    await expect(articleCardByKey(page, firstArticleKey)).toHaveCount(0);
+    expectMonotonicUpwardMotion(
+      secondArticleKey,
+      [
+        firstRemovalBaseline.get(secondArticleKey) ?? 0,
+        ...firstRemovalTimeline,
+      ],
+    );
+    expectMonotonicUpwardMotion(
+      thirdArticleKey,
+      [
+        firstRemovalBaseline.get(thirdArticleKey) ?? 0,
+        ...firstRemovalThirdTimeline,
+      ],
+    );
+
+    expect(await readArticleKey(articleCard(page, 0))).toBe(secondArticleKey);
+    expect(await readArticleKey(articleCard(page, 1))).toBe(thirdArticleKey);
+    expect(await readArticleKey(articleCard(page, 2))).toBe(fourthArticleKey);
+
+    const secondArticle = articleCardByKey(page, secondArticleKey);
+    const secondArticleRow = articleRowByKey(page, secondArticleKey);
+    const secondSwipeBaseline = await readArticleTopSnapshot(page, [
+      thirdArticleKey,
+      fourthArticleKey,
+    ]);
+    await swipeArticle(secondArticle, { endRatio: 0.92, startRatio: 0.24 });
+    await expect(secondArticleRow).toHaveAttribute(
+      "data-feed-row-animation",
+      "swipe-read",
+    );
+
+    const secondSwipeFrameSamples = await collectArticleTopFrameSamples(page, [
+      thirdArticleKey,
+      fourthArticleKey,
+    ]);
+    const secondSwipeTimeline = readArticleTopTimeline(
+      secondSwipeFrameSamples,
+      thirdArticleKey,
+    );
+    const secondSwipeFourthTimeline = readArticleTopTimeline(
+      secondSwipeFrameSamples,
+      fourthArticleKey,
+    );
+
+    await expect.poll(async () => {
+      return await articleCardByKey(page, secondArticleKey).count();
+    }).toBe(
+      0,
+    );
+    await expect(articleCardByKey(page, secondArticleKey)).toHaveCount(0);
+    expectMonotonicUpwardMotion(
+      thirdArticleKey,
+      [
+        secondSwipeBaseline.get(thirdArticleKey) ?? 0,
+        ...secondSwipeTimeline,
+      ],
+    );
+    expectMonotonicUpwardMotion(
+      fourthArticleKey,
+      [
+        secondSwipeBaseline.get(fourthArticleKey) ?? 0,
+        ...secondSwipeFourthTimeline,
+      ],
+    );
+  });
+
+  test("keeps consecutive top unread button-read removals releasing layout immediately", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard?explore=1");
+    await expectPreviewDashboard(page);
+    await page.getByRole("button", { exact: true, name: "unread" }).click();
+
+    for (let removalIndex = 0; removalIndex < 3; removalIndex += 1) {
+      const removalArticleKey = await readArticleKey(articleCard(page, 0));
+      const secondArticleKey = await readArticleKey(articleCard(page, 1));
+      const thirdArticleKey = await readArticleKey(articleCard(page, 2));
+      const fourthArticleKey = await readArticleKey(articleCard(page, 3));
+      const baseline = await readArticleTopSnapshot(page, [
+        secondArticleKey,
+        thirdArticleKey,
+      ]);
+      const frameSamples = await clickArticleReadButtonAndCollectFrameSamples(
+        page,
+        removalArticleKey,
+        [secondArticleKey, thirdArticleKey],
+        [removalArticleKey],
+      );
+
+      expectFrameSampleLabels(frameSamples, [
+        "sync-after-action",
+        "raf-1",
+        "raf-2",
+        "raf-3",
+        "raf-4",
+      ]);
+      expectTrackedRowState(
+        frameSamples[0] as ArticleTopFrameSample,
+        removalArticleKey,
+        "collapse",
+        "collapsing",
+      );
+      expectTrackedRowState(
+        frameSamples[1] as ArticleTopFrameSample,
+        removalArticleKey,
+        "collapse",
+        "collapsing",
+      );
+      expectImmediateLayoutRelease(
+        secondArticleKey,
+        baseline.get(secondArticleKey) ?? 0,
+        frameSamples,
+      );
+      expectImmediateLayoutRelease(
+        thirdArticleKey,
+        baseline.get(thirdArticleKey) ?? 0,
+        frameSamples,
+      );
+
+      await expect(articleCardByKey(page, removalArticleKey)).toHaveCount(0);
+      expect(await readArticleKey(articleCard(page, 0))).toBe(secondArticleKey);
+      expect(await readArticleKey(articleCard(page, 1))).toBe(thirdArticleKey);
+      expect(await readArticleKey(articleCard(page, 2))).toBe(fourthArticleKey);
+    }
+  });
+
+  test("keeps alternating top unread swipe and button removals preserving row motion contracts", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard?explore=1");
+    await expectPreviewDashboard(page);
+    await page.getByRole("button", { exact: true, name: "unread" }).click();
+
+    const firstArticleKey = await readArticleKey(articleCard(page, 0));
+    const secondArticleKey = await readArticleKey(articleCard(page, 1));
+    const thirdArticleKey = await readArticleKey(articleCard(page, 2));
+    const fourthArticleKey = await readArticleKey(articleCard(page, 3));
+
+    const swipeBaseline = await readArticleTopSnapshot(page, [
+      secondArticleKey,
+      thirdArticleKey,
+    ]);
+    const swipeFrameSamples = await swipeArticleReadAndCollectFrameSamples(
+      page,
+      firstArticleKey,
+      [secondArticleKey, thirdArticleKey],
+      [firstArticleKey],
+    );
+
+    expectFrameSampleLabels(swipeFrameSamples, [
+      "sync-after-action",
+      "raf-1",
+      "raf-2",
+      "raf-3",
+      "raf-4",
+    ]);
+    expectTrackedRowState(
+      swipeFrameSamples[1] as ArticleTopFrameSample,
+      firstArticleKey,
+      "swipe-read",
+      "collapsing",
+    );
+    expectTrackedRowState(
+      swipeFrameSamples[2] as ArticleTopFrameSample,
+      firstArticleKey,
+      "swipe-read",
+      "collapsing",
+    );
+
+    const swipeFollowerSamples = await collectArticleTopFrameSamples(page, [
+      secondArticleKey,
+      thirdArticleKey,
+    ]);
+
+    await expect(articleCardByKey(page, firstArticleKey)).toHaveCount(0);
+    expectMonotonicUpwardMotion(
+      secondArticleKey,
+      [
+        swipeBaseline.get(secondArticleKey) ?? 0,
+        ...readArticleTopTimeline(swipeFollowerSamples, secondArticleKey),
+      ],
+    );
+    expectMonotonicUpwardMotion(
+      thirdArticleKey,
+      [
+        swipeBaseline.get(thirdArticleKey) ?? 0,
+        ...readArticleTopTimeline(swipeFollowerSamples, thirdArticleKey),
+      ],
+    );
+
+    const buttonBaseline = await readArticleTopSnapshot(page, [
+      thirdArticleKey,
+      fourthArticleKey,
+    ]);
+    const buttonFrameSamples = await clickArticleReadButtonAndCollectFrameSamples(
+      page,
+      secondArticleKey,
+      [thirdArticleKey, fourthArticleKey],
+      [secondArticleKey],
+    );
+
+    expectFrameSampleLabels(buttonFrameSamples, [
+      "sync-after-action",
+      "raf-1",
+      "raf-2",
+      "raf-3",
+      "raf-4",
+    ]);
+    expectTrackedRowState(
+      buttonFrameSamples[0] as ArticleTopFrameSample,
+      secondArticleKey,
+      "collapse",
+      "collapsing",
+    );
+    expectTrackedRowState(
+      buttonFrameSamples[1] as ArticleTopFrameSample,
+      secondArticleKey,
+      "collapse",
+      "collapsing",
+    );
+    expectImmediateLayoutRelease(
+      thirdArticleKey,
+      buttonBaseline.get(thirdArticleKey) ?? 0,
+      buttonFrameSamples,
+    );
+    expectImmediateLayoutRelease(
+      fourthArticleKey,
+      buttonBaseline.get(fourthArticleKey) ?? 0,
+      buttonFrameSamples,
+    );
+
+    await expect(articleCardByKey(page, secondArticleKey)).toHaveCount(0);
+    expect(await readArticleKey(articleCard(page, 0))).toBe(thirdArticleKey);
+    expect(await readArticleKey(articleCard(page, 1))).toBe(fourthArticleKey);
+  });
+
+  test("never pushes sibling rows downward during button-read standard collapse", async ({
+    page,
+  }) => {
+    // Regression for: reading an article briefly introduces space at the top
+    // (pre-collapse row height painted for one RAF frame via Framer Motion's
+    // deferred style write), which causes siblings below to appear to move down
+    // before jumping back up.  The fix: height and marginBottom are written via
+    // the React inline style prop directly (bypassing Framer Motion's RAF
+    // scheduler) so the browser first paint always sees the final collapsed
+    // values.
+    await page.goto("/dashboard?explore=1");
+    await expectPreviewDashboard(page);
+    await page.getByRole("button", { exact: true, name: "unread" }).click();
+
+    // Track articles below the top one so we can verify they never move DOWN.
+    const firstArticleKey = await readArticleKey(articleCard(page, 0));
+    const secondArticleKey = await readArticleKey(articleCard(page, 1));
+    const thirdArticleKey = await readArticleKey(articleCard(page, 2));
+    const fourthArticleKey = await readArticleKey(articleCard(page, 3));
+
+    const trackedKeys = [secondArticleKey, thirdArticleKey, fourthArticleKey];
+
+    // Baseline top positions before the removal.
+    const baseline = await readArticleTopSnapshot(page, trackedKeys);
+
+    // Collect sync + 6 RAF frames sampling positions and row dataset state.
+    const frameSamples = await clickArticleReadButtonAndCollectFrameSamples(
+      page,
+      firstArticleKey,
+      trackedKeys,
+      [firstArticleKey],
+      6,
+    );
+
+    // --- Core invariant: no sibling must move DOWN at any point ---
+    // A row is allowed to stay in place (delta = 0) or move up (delta < 0).
+    // Any positive delta (moved down) indicates the flash regression.
+    for (const sample of frameSamples) {
+      for (const trackedKey of trackedKeys) {
+        const baselineTop = baseline.get(trackedKey) ?? 0;
+        const sampleTop = sample.tops[trackedKey] ?? baselineTop;
+        expect(
+          sampleTop,
+          `${trackedKey} moved DOWN at sample "${sample.label}" (${sampleTop}px > baseline ${baselineTop}px)`,
+        ).toBeLessThanOrEqual(baselineTop + 1); // 1px tolerance for subpixel rounding
+      }
+    }
+
+    // --- Upward shift invariant: siblings must be above baseline immediately --
+    // The layout space from the collapsed row must be released in the very
+    // first sampled frame (sync-after-action), not after several RAFs.
+    const baselineSecond = baseline.get(secondArticleKey) ?? 0;
+    const syncSecond =
+      (frameSamples[0] as ArticleTopFrameSample).tops[secondArticleKey] ?? NaN;
+    expect(
+      syncSecond,
+      "second article must be above its baseline position in sync-after-action frame",
+    ).toBeLessThan(baselineSecond - 4);
+
+    // Collapsing row state must be set from the very first sync frame.
+    expectTrackedRowState(
+      frameSamples[0] as ArticleTopFrameSample,
+      firstArticleKey,
+      "collapse",
+      "collapsing",
+    );
   });
 
   test("supports swipe actions and loads more feed pages in preview", async ({

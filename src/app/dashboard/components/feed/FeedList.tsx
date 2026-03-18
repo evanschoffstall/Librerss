@@ -21,7 +21,8 @@ import {
   ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS,
   ARTICLE_REMOVAL_ANIMATION_MS,
   type ArticleRemovalAnimationMode,
-  getArticleRemovalAnimationDuration,
+  type CollapsingArticles,
+  type CollapsingArticleState,
 } from "../../hooks/useArticleActions";
 import { getArticleKey } from "../../services/article-collection";
 import { ArticleCard } from "../ArticleCard";
@@ -29,7 +30,6 @@ import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
 import {
   FEED_LOAD_MORE_THRESHOLD_PX,
   FEED_ROW_COLLAPSE_FLOOR_PX,
-  FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS,
   FEED_ROW_COLLAPSE_OFFSET_PX,
   FEED_ROW_EXIT_EASING,
   FEED_ROW_GAP_PX,
@@ -43,8 +43,7 @@ import {
 
 interface FeedListProps {
   collapseSettlingArticleKey?: null | string;
-  collapsingArticleKey?: null | string;
-  collapsingArticleMode?: ArticleRemovalAnimationMode | null;
+  collapsingArticles?: Readonly<CollapsingArticles>;
   expandedArticleKey: null | string;
   filteredFeed: Article[];
   hydratedArticleLinks: Record<string, boolean>;
@@ -88,7 +87,8 @@ interface RetainedCollapsingArticle {
   article: Article;
   height: null | number;
   index: number;
-  source: "retained" | "visible";
+  mode: ArticleRemovalAnimationMode;
+  source: "snapshot" | "visible";
 }
 
 /**
@@ -121,6 +121,8 @@ const FeedListRow = memo(function FeedListRow({
   const isRemoving = removalAnimationMode !== null;
   const isDeExpandingHold = removalAnimationMode === "de-expanding";
   const isSwipeReadExit = removalAnimationMode === "swipe-read";
+  const isStandardCollapseExit =
+    isRemoving && !isDeExpandingHold && !isSwipeReadExit;
   const stableHeightRef = useRef(
     Math.max(initialMeasuredHeight ?? 0, FEED_ROW_COLLAPSE_FLOOR_PX),
   );
@@ -169,7 +171,7 @@ const FeedListRow = memo(function FeedListRow({
     };
   }, [children, onMeasuredHeightChange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isRemoving) {
       if (removalActivationTimeoutRef.current !== null) {
         window.clearTimeout(removalActivationTimeoutRef.current);
@@ -186,11 +188,7 @@ const FeedListRow = memo(function FeedListRow({
       stableHeightRef.current;
 
     setRemovalHeight(Math.max(nextRemovalHeight, FEED_ROW_COLLAPSE_FLOOR_PX));
-    setIsRemovalTransitionActive(false);
-    removalActivationTimeoutRef.current = window.setTimeout(() => {
-      setIsRemovalTransitionActive(true);
-      removalActivationTimeoutRef.current = null;
-    }, 0);
+    setIsRemovalTransitionActive(true);
 
     return () => {
       if (removalActivationTimeoutRef.current !== null) {
@@ -208,14 +206,18 @@ const FeedListRow = memo(function FeedListRow({
     removalHeight !== null || measuredHeight !== null;
   const shouldAnimateRemoval = isRemoving && hasResolvedRemovalHeight;
   const resolvedHeight = isRemoving
-    ? isRemovalTransitionActive
+    ? isStandardCollapseExit
+      ? FEED_ROW_COLLAPSE_FLOOR_PX
+      : isRemovalTransitionActive
       ? FEED_ROW_COLLAPSE_FLOOR_PX
       : resolvedRemovalHeight
     : undefined;
   const resolvedMarginBottom = isRemoving
-    ? isRemovalTransitionActive
-      ? -FEED_ROW_COLLAPSE_OFFSET_PX
-      : FEED_ROW_GAP_PX
+    ? isStandardCollapseExit
+      ? -FEED_ROW_COLLAPSE_FLOOR_PX
+      : isRemovalTransitionActive
+        ? -FEED_ROW_COLLAPSE_OFFSET_PX
+        : FEED_ROW_GAP_PX
     : FEED_ROW_GAP_PX;
   const resolvedOpacity = isRemoving && isRemovalTransitionActive ? 0 : 1;
   const resolvedTransform = isDeExpandingHold
@@ -244,14 +246,24 @@ const FeedListRow = memo(function FeedListRow({
         };
       }
 
-      const collapseDurationSeconds =
-        (ARTICLE_REMOVAL_ANIMATION_MS - FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS) /
-        1000;
-      const collapseDelaySeconds = FEED_ROW_COLLAPSE_HEIGHT_DELAY_MS / 1000;
+      const collapseDurationSeconds = ARTICLE_REMOVAL_ANIMATION_MS / 1000;
+      const collapseDelaySeconds = 0;
       const swipeHeightDelaySeconds =
         Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
       const opacityDurationSeconds =
         Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
+
+      if (isStandardCollapseExit) {
+        // Height and marginBottom are set directly in the CSS style prop to
+        // bypass Framer Motion's RAF-deferred write, which avoids a one-frame
+        // flash at the original row height before the collapse lands.
+        return {
+          opacity: {
+            duration: opacityDurationSeconds,
+            ease: FEED_ROW_OPACITY_EASING,
+          },
+        };
+      }
 
       return {
         height: {
@@ -285,18 +297,28 @@ const FeedListRow = memo(function FeedListRow({
         ease: FEED_ROW_EXIT_EASING,
       },
     };
-  }, [isDeExpandingHold, isRemoving, isSwipeReadExit, shouldAnimateReflow]);
+  }, [
+    isDeExpandingHold,
+    isRemoving,
+    isStandardCollapseExit,
+    isSwipeReadExit,
+    shouldAnimateReflow,
+  ]);
 
   return (
     <motion.div
       animate={
-        shouldAnimateRemoval
-          ? {
-              height: resolvedHeight,
-              marginBottom: resolvedMarginBottom,
-              opacity: resolvedOpacity,
-            }
-          : undefined
+        isStandardCollapseExit
+          ? // Height and marginBottom are written via the style prop directly;
+            // only opacity needs Framer Motion for its timed fade.
+            { opacity: resolvedOpacity }
+          : shouldAnimateRemoval
+            ? {
+                height: resolvedHeight,
+                marginBottom: resolvedMarginBottom,
+                opacity: resolvedOpacity,
+              }
+            : undefined
       }
       className="overflow-visible"
       data-feed-row-animation={removalAnimationMode ?? "idle"}
@@ -308,13 +330,27 @@ const FeedListRow = memo(function FeedListRow({
       layout={shouldAnimateReflow ? "position" : false}
       ref={setRowElement}
       style={{
-        height: shouldAnimateRemoval ? resolvedRemovalHeight : undefined,
-        marginBottom: FEED_ROW_GAP_PX,
+        height: isStandardCollapseExit
+          ? // Bypass Framer Motion: set the collapsed height directly so the
+            // browser never paints the pre-collapse height during its first RAF.
+            FEED_ROW_COLLAPSE_FLOOR_PX
+          : shouldAnimateRemoval
+            ? resolvedRemovalHeight
+            : undefined,
+        marginBottom: isStandardCollapseExit
+          ? // Collapsed row contributes exactly 0px to flow (12 + -12 = 0),
+            // so the next row stays at a stable position both during the
+            // collapse animation and after the collapsing row is removed.
+            -FEED_ROW_COLLAPSE_FLOOR_PX
+          : FEED_ROW_GAP_PX,
         minHeight:
-          isRemoving && isRemovalTransitionActive
+          isStandardCollapseExit || (isRemoving && isRemovalTransitionActive)
             ? FEED_ROW_COLLAPSE_FLOOR_PX
             : undefined,
-        overflow: isRemoving ? "hidden" : "visible",
+        overflow:
+          isSwipeReadExit || isDeExpandingHold || isStandardCollapseExit
+            ? "hidden"
+            : "visible",
         pointerEvents: isRemoving ? "none" : undefined,
         transform: resolvedTransform,
         transformOrigin: isSwipeReadExit ? "center left" : "top center",
@@ -327,7 +363,9 @@ const FeedListRow = memo(function FeedListRow({
         willChange: isRemoving
           ? isDeExpandingHold
             ? "height, margin-bottom, opacity"
-            : "height, margin-bottom, opacity, transform"
+            : isStandardCollapseExit
+              ? "opacity"
+              : "height, margin-bottom, opacity, transform"
           : undefined,
       }}
       transition={rowMotionTransition}
@@ -338,7 +376,8 @@ const FeedListRow = memo(function FeedListRow({
 });
 
 interface FeedRowReflowAnimationOptions {
-  activeCollapsingArticleKey: null | string;
+  activeCollapsingArticleKeys: ReadonlySet<string>;
+  hasAnimatedRemoval: boolean;
 }
 
 /**
@@ -371,7 +410,8 @@ export function shouldLoadMoreArticles({
  * rest of the feed.
  */
 function shouldAnimateFeedRowReflow({
-  activeCollapsingArticleKey,
+  activeCollapsingArticleKeys,
+  hasAnimatedRemoval,
 }: FeedRowReflowAnimationOptions) {
   return ({
     articleKey,
@@ -380,15 +420,15 @@ function shouldAnimateFeedRowReflow({
     articleKey: string;
     removalAnimationMode: ArticleRemovalAnimationMode | null;
   }) =>
-    activeCollapsingArticleKey !== null &&
-    articleKey !== activeCollapsingArticleKey &&
+    hasAnimatedRemoval &&
+    activeCollapsingArticleKeys.size > 0 &&
+    !activeCollapsingArticleKeys.has(articleKey) &&
     removalAnimationMode === null;
 }
 
 export const FeedList = memo(function FeedList({
   collapseSettlingArticleKey = null,
-  collapsingArticleKey = null,
-  collapsingArticleMode = null,
+  collapsingArticles = {},
   expandedArticleKey,
   filteredFeed,
   hydratedArticleLinks,
@@ -415,7 +455,6 @@ export const FeedList = memo(function FeedList({
   );
   const [visibleArticleCount, setVisibleArticleCount] = useState(pageSize);
   const collapseSettleTimeoutRef = useRef<null | number>(null);
-  const collapseDisplayTimeoutRef = useRef<null | number>(null);
   const hasUserScrolledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const previousExpandedArticleKeyRef = useRef<null | string>(
@@ -423,21 +462,14 @@ export const FeedList = memo(function FeedList({
   );
   const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
     useState(false);
-  const [displayedCollapsingArticleKey, setDisplayedCollapsingArticleKey] =
-    useState<null | string>(collapsingArticleKey);
-  const [displayedCollapsingArticleMode, setDisplayedCollapsingArticleMode] =
-    useState<ArticleRemovalAnimationMode | null>(collapsingArticleMode);
+  const viewportHostRef = useRef<HTMLDivElement | null>(null);
+  const resolvedScrollViewportRef = useRef<HTMLElement | null>(null);
   const retainedVisibleArticleHeightsRef = useRef(new Map<string, number>());
-  const retainedVisibleArticlesRef = useRef(new Map<string, Article>());
-  const retainedVisibleArticleIndicesRef = useRef(new Map<string, number>());
 
   useEffect(
     () => () => {
       if (collapseSettleTimeoutRef.current !== null) {
         window.clearTimeout(collapseSettleTimeoutRef.current);
-      }
-      if (collapseDisplayTimeoutRef.current !== null) {
-        window.clearTimeout(collapseDisplayTimeoutRef.current);
       }
     },
     [],
@@ -463,98 +495,92 @@ export const FeedList = memo(function FeedList({
     setIsVirtualizationResumeDeferred(true);
   }, [expandedArticleKey]);
 
-  useEffect(() => {
-    if (!collapsingArticleKey) {
-      return;
-    }
-
-    const collapseDisplayDuration = collapsingArticleMode
-      ? getArticleRemovalAnimationDuration(collapsingArticleMode)
-      : ARTICLE_REMOVAL_ANIMATION_MS;
-
-    if (collapseDisplayTimeoutRef.current !== null) {
-      window.clearTimeout(collapseDisplayTimeoutRef.current);
-    }
-
-    setDisplayedCollapsingArticleKey(collapsingArticleKey);
-    setDisplayedCollapsingArticleMode(collapsingArticleMode);
-    collapseDisplayTimeoutRef.current = window.setTimeout(() => {
-      setDisplayedCollapsingArticleKey(null);
-      setDisplayedCollapsingArticleMode(null);
-      collapseDisplayTimeoutRef.current = null;
-    }, collapseDisplayDuration);
-  }, [collapsingArticleKey, collapsingArticleMode]);
-
-  const pendingCollapsingArticleKey =
-    collapsingArticleKey ?? displayedCollapsingArticleKey;
-  const pendingCollapsingArticleMode =
-    collapsingArticleMode ?? displayedCollapsingArticleMode;
-  const activeCollapsingArticleKey = pendingCollapsingArticleKey;
-  const activeCollapsingArticleMode =
-    activeCollapsingArticleKey === null ? null : pendingCollapsingArticleMode;
+  const activeCollapsingArticleEntries = useMemo(
+    () =>
+      Object.entries(collapsingArticles)
+        .filter(
+          (
+            collapsingArticleEntry,
+          ): collapsingArticleEntry is [string, CollapsingArticleState] => {
+            return collapsingArticleEntry[1] !== undefined;
+          },
+        )
+        .sort(([, leftState], [, rightState]) => {
+          return leftState.index - rightState.index;
+        }),
+    [collapsingArticles],
+  );
+  const activeCollapsingArticleKeys = useMemo(
+    () => new Set(activeCollapsingArticleEntries.map(([articleKey]) => articleKey)),
+    [activeCollapsingArticleEntries],
+  );
   const visibleFeed = useMemo(
     () => filteredFeed.slice(0, visibleArticleCount),
     [filteredFeed, visibleArticleCount],
   );
-  const collapsingArticleSnapshot =
-    useMemo<null | RetainedCollapsingArticle>(() => {
-      if (!activeCollapsingArticleKey) {
-        return null;
-      }
+  const collapsingArticleSnapshots = useMemo<RetainedCollapsingArticle[]>(() => {
+    const nextSnapshots: RetainedCollapsingArticle[] = [];
+
+    for (const [articleKey, collapsingArticleState] of activeCollapsingArticleEntries) {
 
       const visibleArticleIndex = visibleFeed.findIndex(
-        (article) => getArticleKey(article) === activeCollapsingArticleKey,
+        (article) => getArticleKey(article) === articleKey,
       );
       if (visibleArticleIndex >= 0) {
-        return {
+        nextSnapshots.push({
           article: visibleFeed[visibleArticleIndex],
-          height:
-            retainedVisibleArticleHeightsRef.current.get(
-              activeCollapsingArticleKey,
-            ) ?? null,
+          height: retainedVisibleArticleHeightsRef.current.get(articleKey) ?? null,
           index: visibleArticleIndex,
+          mode: collapsingArticleState.mode,
           source: "visible",
-        };
+        });
+        continue;
       }
 
-      const retainedArticle = retainedVisibleArticlesRef.current.get(
-        activeCollapsingArticleKey,
-      );
-      if (!retainedArticle) {
-        return null;
-      }
+      nextSnapshots.push({
+        article: collapsingArticleState.article,
+        height: retainedVisibleArticleHeightsRef.current.get(articleKey) ?? null,
+        index: collapsingArticleState.index,
+        mode: collapsingArticleState.mode,
+        source: "snapshot",
+      });
+    }
 
-      return {
-        article: retainedArticle,
-        height:
-          retainedVisibleArticleHeightsRef.current.get(
-            activeCollapsingArticleKey,
-          ) ?? null,
-        index:
-          retainedVisibleArticleIndicesRef.current.get(
-            activeCollapsingArticleKey,
-          ) ?? visibleFeed.length,
-        source: "retained",
-      };
-    }, [activeCollapsingArticleKey, visibleFeed]);
+    return nextSnapshots;
+  }, [activeCollapsingArticleEntries, visibleFeed]);
   const renderedFeed = useMemo(() => {
-    if (!collapsingArticleSnapshot) {
-      return visibleFeed;
-    }
-    if (collapsingArticleSnapshot.source === "visible") {
+    if (collapsingArticleSnapshots.length === 0) {
       return visibleFeed;
     }
 
-    const insertIndex = Math.min(
-      collapsingArticleSnapshot.index,
-      visibleFeed.length,
-    );
     const nextRenderedFeed = [...visibleFeed];
-    nextRenderedFeed.splice(insertIndex, 0, collapsingArticleSnapshot.article);
+
+    let insertionOffset = 0;
+    for (const collapsingArticleSnapshot of collapsingArticleSnapshots) {
+      if (collapsingArticleSnapshot.source === "visible") {
+        continue;
+      }
+
+      const nextInsertIndex = Math.min(
+        collapsingArticleSnapshot.index + insertionOffset,
+        nextRenderedFeed.length,
+      );
+      nextRenderedFeed.splice(
+        nextInsertIndex,
+        0,
+        collapsingArticleSnapshot.article,
+      );
+      insertionOffset += 1;
+    }
+
     return nextRenderedFeed;
-  }, [collapsingArticleSnapshot, visibleFeed]);
+  }, [collapsingArticleSnapshots, visibleFeed]);
+  const hasAnimatedRemoval = activeCollapsingArticleEntries.some(
+    ([, state]) => state.mode !== "collapse",
+  );
   const shouldAnimateRowReflow = shouldAnimateFeedRowReflow({
-    activeCollapsingArticleKey,
+    activeCollapsingArticleKeys,
+    hasAnimatedRemoval,
   });
   /**
    * Grows the rendered article window by exactly one page while retaining the
@@ -598,30 +624,6 @@ export const FeedList = memo(function FeedList({
     hasUserScrolledRef.current = false;
     setVisibleArticleCount(pageSize);
   }, [pageSize, paginationResetKey]);
-
-  useEffect(() => {
-    const retainedVisibleArticles = retainedVisibleArticlesRef.current;
-    const retainedVisibleArticleIndices =
-      retainedVisibleArticleIndicesRef.current;
-    const nextVisibleArticleKeys = visibleFeed.map((article, index) => {
-      const articleKey = getArticleKey(article);
-      retainedVisibleArticles.set(articleKey, article);
-      retainedVisibleArticleIndices.set(articleKey, index);
-      return articleKey;
-    });
-
-    const allowedKeys = new Set(nextVisibleArticleKeys);
-    if (activeCollapsingArticleKey) {
-      allowedKeys.add(activeCollapsingArticleKey);
-    }
-
-    for (const articleKey of retainedVisibleArticles.keys()) {
-      if (!allowedKeys.has(articleKey)) {
-        retainedVisibleArticles.delete(articleKey);
-        retainedVisibleArticleIndices.delete(articleKey);
-      }
-    }
-  }, [activeCollapsingArticleKey, visibleFeed]);
 
   useEffect(() => {
     if (!scrollViewport) {
@@ -704,31 +706,43 @@ export const FeedList = memo(function FeedList({
   ]);
 
   /**
-   * Locates the Radix viewport so the virtualized list can reuse the existing
-   * dashboard scroller instead of creating a nested scrolling surface.
+   * Resolves the surrounding Radix viewport in a microtask so virtualization
+   * can reuse the dashboard scroller without issuing a lifecycle-phase update.
    */
-  const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) {
+  const syncResolvedScrollViewport = useCallback(() => {
+    const nextViewport =
+      viewportHostRef.current?.closest<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ) ?? null;
+
+    if (resolvedScrollViewportRef.current === nextViewport) {
       return;
     }
 
-    const nextViewport =
-      node.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null;
-    setScrollViewport((currentViewport) =>
-      currentViewport === nextViewport ? currentViewport : nextViewport,
-    );
+    resolvedScrollViewportRef.current = nextViewport;
+    setScrollViewport(nextViewport);
   }, []);
+
+  const handleViewportHostRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      viewportHostRef.current = node;
+      queueMicrotask(syncResolvedScrollViewport);
+    },
+    [syncResolvedScrollViewport],
+  );
 
   /**
    * Expanded cards keep dynamic measured height, sticky chrome, and hydrated
-   * content mounted. Suspending virtualization during that interaction, and
-   * during staged collapse exits, avoids remount and re-measure churn while
-   * the feed is still animating and restoring scroll position.
+   * content mounted. Suspending virtualization during animated collapse exits
+   * (swipe-read, de-expanding) avoids remount and re-measure churn while the
+   * feed is animating.  Standard button-click collapses keep the virtualizer
+   * active to avoid a DOM restructuring flash when switching between the
+   * virtualizer and grid containers.
    */
   const shouldVirtualizeFeed =
     scrollViewport !== null &&
     expandedArticleKey === null &&
-    activeCollapsingArticleKey === null &&
+    !hasAnimatedRemoval &&
     collapseSettlingArticleKey === null &&
     !isVirtualizationResumeDeferred;
 
@@ -780,10 +794,7 @@ export const FeedList = memo(function FeedList({
     ) => {
       const articleKey = getArticleKey(article);
       const articleLink = article.link.trim();
-      const removalAnimationMode =
-        activeCollapsingArticleKey === articleKey
-          ? activeCollapsingArticleMode
-          : null;
+      const removalAnimationMode = collapsingArticles[articleKey]?.mode ?? null;
 
       return (
         <FeedListRow
@@ -824,8 +835,7 @@ export const FeedList = memo(function FeedList({
       );
     },
     [
-      activeCollapsingArticleKey,
-      activeCollapsingArticleMode,
+      collapsingArticles,
       expandedArticleKey,
       hydratedArticleLinks,
       hydratingArticleLinks,

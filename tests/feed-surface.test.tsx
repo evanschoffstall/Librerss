@@ -722,6 +722,54 @@ describe("useFeedPullRefresh", () => {
     });
   });
 
+  test("touch pull frames stay monotonic while the sentinel arms", async () => {
+    await withFakeTimers(async () => {
+      const onRefresh = mock(() => {});
+      const { feedWrapper, unmount, viewport } = renderPullHarness(onRefresh);
+      const frameSamples: {
+        pulling: string;
+        ready: string;
+        scrollTop: number;
+      }[] = [];
+
+      act(() => {
+        viewport.scrollTop = FEED_PULL_OFFSET;
+        viewport.dispatchEvent(new Event("touchstart"));
+      });
+
+      for (const nextScrollTop of [98, 86, 74, 40]) {
+        act(() => {
+          viewport.scrollTop = nextScrollTop;
+          viewport.dispatchEvent(new Event("scroll"));
+        });
+
+        await waitForMs(16);
+        frameSamples.push({
+          pulling: feedWrapper.dataset.pulling ?? "",
+          ready: feedWrapper.dataset.ready ?? "",
+          scrollTop: viewport.scrollTop,
+        });
+      }
+
+      expect(frameSamples.map((sample) => sample.scrollTop)).toEqual([
+        98,
+        86,
+        74,
+        40,
+      ]);
+      expect(frameSamples.map((sample) => sample.pulling)).toEqual([
+        "false",
+        "true",
+        "true",
+        "true",
+      ]);
+      expect(frameSamples.at(-1)?.ready).toBe("true");
+      expect(onRefresh).not.toHaveBeenCalled();
+
+      unmount();
+    });
+  });
+
   test("over-pulling past the top does not force the viewport back against the active touch drag", async () => {
     const onRefresh = mock(() => {});
     const { unmount, viewport } = renderPullHarness(

@@ -10,7 +10,7 @@ const articleTitleSearchTextCache = new WeakMap<Article, string>();
 interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
   categories: CategoryTreeNode[];
-  collapsingArticleKey: null | string;
+  collapsingArticleKeys: string[];
   customCategoryLabels: string[];
   expandedArticleKey: null | string;
   feed: Article[];
@@ -22,7 +22,7 @@ interface DashboardViewModelInput {
 export function buildDashboardViewModel({
   articleFilter,
   categories,
-  collapsingArticleKey,
+  collapsingArticleKeys,
   customCategoryLabels,
   expandedArticleKey,
   feed,
@@ -34,7 +34,7 @@ export function buildDashboardViewModel({
     feed,
     articleFilter,
     expandedArticleKey,
-    collapsingArticleKey,
+    collapsingArticleKeys,
   );
 
   const filteredFeed = filterArticlesBySearchTerm(feedByState, searchTerm);

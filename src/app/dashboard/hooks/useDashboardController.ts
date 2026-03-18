@@ -190,8 +190,7 @@ export function useDashboardController({
 
   const {
     collapseSettlingArticleKey,
-    collapsingArticleKey,
-    collapsingArticleMode,
+    collapsingArticles,
     handleArticleToggle,
     handleExpandedSwipeRead,
     handleSwipeRead,
@@ -265,7 +264,7 @@ export function useDashboardController({
       buildDashboardViewModel({
         articleFilter: deferredArticleFilter,
         categories,
-        collapsingArticleKey,
+        collapsingArticleKeys: Object.keys(collapsingArticles),
         customCategoryLabels,
         expandedArticleKey,
         feed,
@@ -275,7 +274,7 @@ export function useDashboardController({
       }),
     [
       categories,
-      collapsingArticleKey,
+      collapsingArticles,
       customCategoryLabels,
       deferredArticleFilter,
       deferredSearchTerm,
@@ -528,8 +527,7 @@ export function useDashboardController({
   return {
     feedList: {
       collapseSettlingArticleKey,
-      collapsingArticleKey,
-      collapsingArticleMode,
+      collapsingArticles,
       expandedArticleKey,
       feedWrapperRef,
       filteredFeed,
