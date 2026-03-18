@@ -306,6 +306,7 @@ describe("FeedList", () => {
       expect(row?.style.height).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
       expect(row?.style.marginBottom).toBe(`-${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
       expect(row?.style.minHeight).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+      expect(row?.style.opacity).toBe("0");
       expect(row?.style.overflow).toBe("hidden");
     });
   });
@@ -781,9 +782,9 @@ describe("FeedList", () => {
 
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain(article.title);
-      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-        null,
-      );
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
     });
   });
 

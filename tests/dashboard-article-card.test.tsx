@@ -29,6 +29,14 @@ function buildArticle(overrides?: Partial<Article>): Article {
   };
 }
 
+function getHeaderSwipeSurface(target: Element): HTMLElement {
+  const headerSurface = target.closest('[data-article-swipe-zone="header"]');
+
+  expect(headerSurface).not.toBeNull();
+
+  return headerSurface as HTMLElement;
+}
+
 function installPointerCaptureSpies(surface: HTMLElement) {
   const setPointerCapture = mock(() => {});
   const releasePointerCapture = mock(() => {});
@@ -398,11 +406,10 @@ describe("ArticleCard", () => {
     );
 
     const heading = getByRole("heading", { name: article.title });
-    const articleSurface = heading.closest("article");
+    const articleSurface = getHeaderSwipeSurface(heading);
 
-    expect(articleSurface).not.toBeNull();
     const { releasePointerCapture, setPointerCapture } =
-      installPointerCaptureSpies(articleSurface as HTMLElement);
+      installPointerCaptureSpies(articleSurface);
 
     swipeOnTouch(heading, 12, 24, 210);
 
@@ -415,7 +422,7 @@ describe("ArticleCard", () => {
     });
   });
 
-  test("commits swipe-to-read from the expanded article body", async () => {
+  test("does not commit swipe-to-read from the expanded article body", async () => {
     const article = buildArticle({
       content: "Expanded body copy repeated for swipe surface coverage.",
     });
@@ -453,9 +460,9 @@ describe("ArticleCard", () => {
     swipeOnTouch(bodySurface as Element, 15, 30, 220);
 
     await waitFor(() => {
-      expect(setPointerCapture).toHaveBeenCalledWith(15);
-      expect(releasePointerCapture).toHaveBeenCalledWith(15);
-      expect(onExpandedSwipeRead).toHaveBeenCalledTimes(1);
+      expect(setPointerCapture).not.toHaveBeenCalled();
+      expect(releasePointerCapture).not.toHaveBeenCalled();
+      expect(onExpandedSwipeRead).not.toHaveBeenCalled();
       expect(onToggleRead).not.toHaveBeenCalled();
       expect(onToggle).not.toHaveBeenCalled();
     });
@@ -506,11 +513,10 @@ describe("ArticleCard", () => {
     );
 
     const heading = getByRole("heading", { name: article.title });
-    const articleSurface = heading.closest("article");
+    const articleSurface = getHeaderSwipeSurface(heading);
 
-    expect(articleSurface).not.toBeNull();
     const { releasePointerCapture, setPointerCapture } =
-      installPointerCaptureSpies(articleSurface as HTMLElement);
+      installPointerCaptureSpies(articleSurface);
 
     swipeOnTouch(heading, 13, 30, 215);
 

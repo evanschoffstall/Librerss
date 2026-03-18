@@ -26,6 +26,7 @@ interface ArticleTopFrameSample {
     | undefined
     | {
         animation: null | string;
+        opacity: null | string;
         state: null | string;
       }
   >;
@@ -154,16 +155,30 @@ function expectMonotonicUpwardMotion(
   }
 }
 
+function expectTrackedRowOpacity(
+  sample: ArticleTopFrameSample,
+  articleKey: string,
+  expectedOpacity: string,
+) {
+  expect(sample.rows[articleKey]).toEqual(
+    expect.objectContaining({
+      opacity: expectedOpacity,
+    }),
+  );
+}
+
 function expectTrackedRowState(
   sample: ArticleTopFrameSample,
   articleKey: string,
   expectedAnimation: string,
   expectedState: string,
 ) {
-  expect(sample.rows[articleKey]).toEqual({
-    animation: expectedAnimation,
-    state: expectedState,
-  });
+  expect(sample.rows[articleKey]).toEqual(
+    expect.objectContaining({
+      animation: expectedAnimation,
+      state: expectedState,
+    }),
+  );
 }
 
 async function performArticleActionAndCollectFrameSamples(
@@ -208,6 +223,7 @@ async function performArticleActionAndCollectFrameSamples(
               row
                 ? {
                     animation: row.dataset.feedRowAnimation ?? null,
+                    opacity: row.style.opacity || null,
                     state: row.dataset.feedRowState ?? null,
                   }
                 : undefined,
@@ -880,6 +896,11 @@ test.describe("dashboard interaction coverage", () => {
       firstArticleKey,
       "collapse",
       "collapsing",
+    );
+    expectTrackedRowOpacity(
+      frameSamples[0] as ArticleTopFrameSample,
+      firstArticleKey,
+      "0",
     );
   });
 

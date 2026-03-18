@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Coordinates the dashboard's article feed rendering pipeline.
+ *
+ * This module deliberately keeps paging, virtualization, retained collapsing
+ * rows, and empty-state presentation in one place because those concerns all
+ * share ownership of the same scroll surface. The implementation is therefore
+ * more stateful than a typical list component: each decision about when to
+ * virtualize or retain a row directly affects exit-animation correctness,
+ * scroll anchoring, and whether an expanded card can collapse without a visual
+ * flash.
+ */
+
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { SearchX, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
@@ -41,53 +53,121 @@ import {
   VIRTUAL_FEED_ROW_ESTIMATE_PX,
 } from "./constants";
 
+/**
+ * Inputs required to render and control the dashboard article list.
+ *
+ * The parent controller owns all feed mutations, expansion state, and
+ * hydration bookkeeping. FeedList consumes that state and turns it into the
+ * correct visual surface, including virtualization, retained collapsing rows,
+ * and load-more behavior.
+ */
 interface FeedListProps {
+  /**
+   * Article key that is still in its post-collapse settling window.
+   * Virtualization stays suspended while this is set so the DOM surface does
+   * not switch underneath a finishing animation.
+   */
   collapseSettlingArticleKey?: null | string;
+  /**
+   * Active unread-removal states keyed by article key.
+   * Each entry carries the row snapshot needed to keep the item rendered until
+   * its exit choreography completes.
+   */
   collapsingArticles?: Readonly<CollapsingArticles>;
+  /** Currently expanded article, or null when the feed is in list mode. */
   expandedArticleKey: null | string;
+  /** Already-filtered article collection for the current dashboard selection. */
   filteredFeed: Article[];
+  /** Link-level hydration completion state for rich article content. */
   hydratedArticleLinks: Record<string, boolean>;
+  /** Link-level hydration in-flight state used to show loading affordances. */
   hydratingArticleLinks: Record<string, boolean>;
+  /** Whether the initial dashboard feed payload is still loading. */
   isInitialLoading: boolean;
+  /** Refresh flag owned by the parent; preserved for API symmetry. */
   isRefreshing: boolean;
+  /** Swipe-to-read handler for the expanded article surface. */
   onExpandedSwipeRead: (article: Article) => void;
+  /** Optional pre-expansion hook for loading or measurement preparation. */
   onPrepareExpand?: (article: Article) => void;
+  /** Swipe-to-read handler for collapsed row surfaces. */
   onSwipeRead?: (article: Article) => void;
+  /** Expand or collapse a specific article card. */
   onToggle: (article: Article) => void;
+  /** Toggle article read state from any rendered feed row. */
   onToggleRead: (article: Article) => void;
+  /** Toggle article starred state from any rendered feed row. */
   onToggleStarred: (article: Article) => void;
+  /** Number of articles revealed per paging step. */
   pageSize: number;
+  /** External reset token used when the feed selection changes. */
   paginationResetKey: string;
+  /** Search term used to select the empty-state copy and iconography. */
   searchTerm: string;
+  /** Whether favicon chrome should render within article cards. */
   showFavicons: boolean;
+  /** Per-article mutation state for read/star toggles and similar actions. */
   updatingArticleState: Record<string, boolean>;
 }
 
+/**
+ * Props for the retained row wrapper that owns measurement and exit layout.
+ *
+ * The wrapper exists so the article card can stay focused on article UI while
+ * the list surface controls how rows are measured, animated, and reflowed.
+ */
 interface FeedListRowProps {
+  /** Stable article identity used for restore attributes and retained height maps. */
   articleKey: string;
+  /** Actual card content rendered inside the measured row shell. */
   children: React.ReactNode;
+  /** Virtual row index written for TanStack Virtual diagnostics and measurement. */
   dataIndex?: number;
+  /** Previously retained height reused before the row is measured again. */
   initialMeasuredHeight?: number;
+  /** Called whenever the content height changes so the parent can cache it. */
   onMeasuredHeightChange?: (height: number) => void;
+  /** Measurement callback forwarded to the virtualizer when virtualization is active. */
   onMeasureElement?: (element: HTMLDivElement | null) => void;
+  /** Active removal choreography, or null when the row is stable. */
   removalAnimationMode: ArticleRemovalAnimationMode | null;
+  /** Whether siblings should animate positional reflow around this row. */
   shouldAnimateReflow: boolean;
 }
 
+/**
+ * Snapshot of scroll-surface state used to decide whether another page should
+ * be revealed.
+ */
 interface FeedLoadMoreState {
+  /** Current viewport height in pixels. */
   clientHeight: number;
+  /** Guard that prevents auto-expanding before the user interacts with the feed. */
   hasUserScrolled: boolean;
+  /** Total scrollable content height in pixels. */
   scrollHeight: number;
+  /** Current scroll offset from the top of the feed surface. */
   scrollTop: number;
+  /** Number of articles available in the filtered collection. */
   totalArticleCount: number;
+  /** Number of articles currently rendered or eligible for rendering. */
   visibleArticleCount: number;
 }
 
+/**
+ * Retained metadata for a row that is leaving the visible feed but still needs
+ * to exist long enough to animate out.
+ */
 interface RetainedCollapsingArticle {
+  /** Full article payload used to keep rendering the row during exit. */
   article: Article;
+  /** Last known row height, if one was recorded before removal started. */
   height: null | number;
+  /** Original feed index used to splice the retained row back into view order. */
   index: number;
+  /** Exit choreography chosen by the article-action layer. */
   mode: ArticleRemovalAnimationMode;
+  /** Whether the row still exists in the visible slice or comes from a snapshot. */
   source: "snapshot" | "visible";
 }
 
@@ -105,6 +185,12 @@ export function measureFeedListItemSize(element: Element): number {
 /**
  * Preserves a row long enough for unread removals to animate out without
  * tearing the virtualization state or skipping the exit.
+ *
+ * The row shell owns three closely-related concerns:
+ * 1. Measure the card content and report stable heights upward.
+ * 2. Freeze that height once removal starts so collapse math is deterministic.
+ * 3. Apply the correct exit strategy for button collapse, swipe-read, and
+ *    de-expanding removal flows.
  */
 const FeedListRow = memo(function FeedListRow({
   articleKey,
@@ -123,6 +209,8 @@ const FeedListRow = memo(function FeedListRow({
   const isSwipeReadExit = removalAnimationMode === "swipe-read";
   const isStandardCollapseExit =
     isRemoving && !isDeExpandingHold && !isSwipeReadExit;
+  // Keep the most trustworthy non-zero height we have seen so a removal can
+  // still animate cleanly even if the row is unmounted or remeasured mid-churn.
   const stableHeightRef = useRef(
     Math.max(initialMeasuredHeight ?? 0, FEED_ROW_COLLAPSE_FLOOR_PX),
   );
@@ -146,6 +234,8 @@ const FeedListRow = memo(function FeedListRow({
     const node = contentRef.current;
     if (!node) return;
 
+    // Measure in layout so the parent height cache and the virtualizer see the
+    // committed DOM size before the browser paints the next frame.
     const updateMeasuredHeight = () => {
       const nextHeight = Math.max(
         node.offsetHeight,
@@ -182,6 +272,8 @@ const FeedListRow = memo(function FeedListRow({
       return;
     }
 
+    // Capture the row height exactly when removal begins. Exit animation math
+    // should not depend on later content changes while the row is collapsing.
     const nextRemovalHeight =
       contentRef.current?.offsetHeight ??
       measuredHeight ??
@@ -205,6 +297,9 @@ const FeedListRow = memo(function FeedListRow({
   const hasResolvedRemovalHeight =
     removalHeight !== null || measuredHeight !== null;
   const shouldAnimateRemoval = isRemoving && hasResolvedRemovalHeight;
+  // Standard read-toggle collapse immediately snaps the layout footprint to the
+  // floor height and lets opacity finish the perceived exit. Swipe-read and
+  // de-expanding removals keep more of the original height contract for longer.
   const resolvedHeight = isRemoving
     ? isStandardCollapseExit
       ? FEED_ROW_COLLAPSE_FLOOR_PX
@@ -220,6 +315,11 @@ const FeedListRow = memo(function FeedListRow({
         : FEED_ROW_GAP_PX
     : FEED_ROW_GAP_PX;
   const resolvedOpacity = isRemoving && isRemovalTransitionActive ? 0 : 1;
+  const resolvedStyleOpacity = isStandardCollapseExit
+    ? 0
+    : shouldAnimateRemoval
+      ? 1
+      : undefined;
   const resolvedTransform = isDeExpandingHold
     ? undefined
     : isRemoving
@@ -229,6 +329,15 @@ const FeedListRow = memo(function FeedListRow({
           : "scale(0.985)"
         : "translate3d(0px, 0px, 0px) scale(1)"
       : undefined;
+
+  /**
+   * Motion transition map for the current row state.
+   *
+   * Standard collapse intentionally avoids Motion-driven height writes to dodge
+   * a one-frame flash before the collapse lands. Swipe-read and de-expanding
+   * exits keep full transition objects because they need staged transform and
+   * height choreography.
+   */
   const rowMotionTransition = useMemo(() => {
     if (isRemoving) {
       if (isDeExpandingHold) {
@@ -254,15 +363,11 @@ const FeedListRow = memo(function FeedListRow({
         Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
 
       if (isStandardCollapseExit) {
-        // Height and marginBottom are set directly in the CSS style prop to
-        // bypass Framer Motion's RAF-deferred write, which avoids a one-frame
-        // flash at the original row height before the collapse lands.
-        return {
-          opacity: {
-            duration: opacityDurationSeconds,
-            ease: FEED_ROW_OPACITY_EASING,
-          },
-        };
+        // Height, marginBottom, and opacity are set directly in the CSS style
+        // prop to bypass Framer Motion's RAF-deferred write. That keeps the
+        // collapsing row from visibly overlapping the incoming sibling during
+        // the first released-layout frame.
+        return undefined;
       }
 
       return {
@@ -309,9 +414,7 @@ const FeedListRow = memo(function FeedListRow({
     <motion.div
       animate={
         isStandardCollapseExit
-          ? // Height and marginBottom are written via the style prop directly;
-            // only opacity needs Framer Motion for its timed fade.
-            { opacity: resolvedOpacity }
+          ? undefined
           : shouldAnimateRemoval
             ? {
                 height: resolvedHeight,
@@ -347,6 +450,7 @@ const FeedListRow = memo(function FeedListRow({
           isStandardCollapseExit || (isRemoving && isRemovalTransitionActive)
             ? FEED_ROW_COLLAPSE_FLOOR_PX
             : undefined,
+        opacity: resolvedStyleOpacity,
         overflow:
           isSwipeReadExit || isDeExpandingHold || isStandardCollapseExit
             ? "hidden"
@@ -364,19 +468,26 @@ const FeedListRow = memo(function FeedListRow({
           ? isDeExpandingHold
             ? "height, margin-bottom, opacity"
             : isStandardCollapseExit
-              ? "opacity"
+              ? undefined
               : "height, margin-bottom, opacity, transform"
           : undefined,
       }}
       transition={rowMotionTransition}
     >
+      {/*
+        Measure the natural card height from an inner wrapper so the outer
+        motion shell can independently clamp and animate its own box metrics.
+      */}
       <div ref={contentRef}>{children}</div>
     </motion.div>
   );
 });
 
+/** Options used to decide whether sibling rows should receive layout reflow. */
 interface FeedRowReflowAnimationOptions {
+  /** Keys of rows that are currently retained for active removal choreography. */
   activeCollapsingArticleKeys: ReadonlySet<string>;
+  /** Whether any active removal mode requires sibling motion instead of a hard snap. */
   hasAnimatedRemoval: boolean;
 }
 
@@ -413,6 +524,11 @@ function shouldAnimateFeedRowReflow({
   activeCollapsingArticleKeys,
   hasAnimatedRemoval,
 }: FeedRowReflowAnimationOptions) {
+  /**
+   * Only non-collapsing siblings opt into Motion's position reflow.
+   * This keeps ordinary article expand/collapse from animating the entire feed
+   * while still allowing nearby rows to settle around a retained exit row.
+   */
   return ({
     articleKey,
     removalAnimationMode,
@@ -426,6 +542,18 @@ function shouldAnimateFeedRowReflow({
     removalAnimationMode === null;
 }
 
+  /**
+   * Renders the dashboard's article feed.
+   *
+   * The component has three top-level modes:
+   * 1. Initial loading skeleton.
+   * 2. Empty state when the filtered feed has no rows.
+   * 3. Feed list mode, which may be virtualized or rendered as a full grid.
+   *
+   * Virtualization is intentionally suspended during expanded-card mode and
+   * animated removal flows because those states depend on DOM continuity more
+   * than they depend on reducing mounted row count.
+   */
 export const FeedList = memo(function FeedList({
   collapseSettlingArticleKey = null,
   collapsingArticles = {},
@@ -466,6 +594,8 @@ export const FeedList = memo(function FeedList({
   const resolvedScrollViewportRef = useRef<HTMLElement | null>(null);
   const retainedVisibleArticleHeightsRef = useRef(new Map<string, number>());
 
+  // Defensive cleanup for any pending post-collapse deferral when the list
+  // unmounts or the owning dashboard surface changes.
   useEffect(
     () => () => {
       if (collapseSettleTimeoutRef.current !== null) {
@@ -475,6 +605,8 @@ export const FeedList = memo(function FeedList({
     [],
   );
 
+  // When an expanded card closes, defer re-enabling virtualization for a beat
+  // so the feed can settle on the same DOM surface before rows become virtual.
   useLayoutEffect(() => {
     const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
     previousExpandedArticleKeyRef.current = expandedArticleKey;
@@ -510,6 +642,8 @@ export const FeedList = memo(function FeedList({
         }),
     [collapsingArticles],
   );
+  // The set form is cheaper to probe inside per-row animation decisions than
+  // repeatedly scanning the ordered tuple array.
   const activeCollapsingArticleKeys = useMemo(
     () => new Set(activeCollapsingArticleEntries.map(([articleKey]) => articleKey)),
     [activeCollapsingArticleEntries],
@@ -518,6 +652,12 @@ export const FeedList = memo(function FeedList({
     () => filteredFeed.slice(0, visibleArticleCount),
     [filteredFeed, visibleArticleCount],
   );
+
+  /**
+   * Preserve rows that are actively animating out even after they disappear
+   * from the current visible slice. This lets the feed keep rendering them at
+   * their original index until the removal finishes.
+   */
   const collapsingArticleSnapshots = useMemo<RetainedCollapsingArticle[]>(() => {
     const nextSnapshots: RetainedCollapsingArticle[] = [];
 
@@ -548,6 +688,9 @@ export const FeedList = memo(function FeedList({
 
     return nextSnapshots;
   }, [activeCollapsingArticleEntries, visibleFeed]);
+
+  // Merge retained snapshot rows back into the visible feed in index order so
+  // sibling positioning and scroll anchoring match the pre-removal layout.
   const renderedFeed = useMemo(() => {
     if (collapsingArticleSnapshots.length === 0) {
       return visibleFeed;
@@ -601,6 +744,8 @@ export const FeedList = memo(function FeedList({
       return;
     }
 
+    // Paging is intentionally gated on real user scroll intent so simply
+    // mounting into a short viewport does not immediately reveal the full list.
     if (
       shouldLoadMoreArticles({
         clientHeight: scrollViewport.clientHeight,
@@ -625,6 +770,8 @@ export const FeedList = memo(function FeedList({
     setVisibleArticleCount(pageSize);
   }, [pageSize, paginationResetKey]);
 
+  // Any touch, wheel, or actual scroll movement marks the feed as user-driven,
+  // which unlocks incremental paging and cancels virtualization deferral.
   useEffect(() => {
     if (!scrollViewport) {
       return;
@@ -688,6 +835,8 @@ export const FeedList = memo(function FeedList({
         maybeLoadNextPage();
       },
       {
+        // Extend the root margin downward so the next page starts loading a
+        // little before the user fully reaches the end of the current window.
         root: scrollViewport,
         rootMargin: `0px 0px ${FEED_LOAD_MORE_THRESHOLD_PX}px 0px`,
         threshold: 0,
@@ -746,9 +895,34 @@ export const FeedList = memo(function FeedList({
     collapseSettlingArticleKey === null &&
     !isVirtualizationResumeDeferred;
 
+  // TanStack Virtual callbacks may run outside React render timing, so keep a
+  // ref to the latest rendered feed instead of closing over a stale array.
+  const renderedFeedRef = useRef(renderedFeed);
+  renderedFeedRef.current = renderedFeed;
+
+  /**
+   * Estimate a row size for unmeasured items.
+   *
+   * Previously measured heights win because they dramatically improve scroll
+   * anchoring when rows are revisited after virtualization or collapse churn.
+   */
+  const estimateItemSize = useCallback(
+    (index: number) => {
+      const article = renderedFeedRef.current[index];
+      const retained = retainedVisibleArticleHeightsRef.current.get(
+        getArticleKey(article),
+      );
+      return retained ?? VIRTUAL_FEED_ROW_ESTIMATE_PX;
+    },
+    [],
+  );
+
+  // The virtualizer is effectively paused by setting count to zero and
+  // returning null for the scroll element. That preserves the instance while
+  // cleanly dropping back to the fully rendered grid surface.
   const feedVirtualizer = useVirtualizer({
     count: shouldVirtualizeFeed ? renderedFeed.length : 0,
-    estimateSize: () => VIRTUAL_FEED_ROW_ESTIMATE_PX,
+    estimateSize: estimateItemSize,
     getItemKey: (index) =>
       renderedFeed[index]
         ? getArticleKey(renderedFeed[index])
@@ -760,6 +934,8 @@ export const FeedList = memo(function FeedList({
   const virtualFeedItems = shouldVirtualizeFeed
     ? feedVirtualizer.getVirtualItems()
     : [];
+  // Before TanStack Virtual has enough measurements to compute a window, render
+  // a small deterministic prefix so the user still sees content immediately.
   const fallbackVirtualFeedItems = useMemo(
     () => renderedFeed.slice(0, Math.min(pageSize, renderedFeed.length)),
     [pageSize, renderedFeed],
@@ -803,6 +979,8 @@ export const FeedList = memo(function FeedList({
           initialMeasuredHeight={options?.initialMeasuredHeight}
           key={options?.key ?? articleKey}
           onMeasuredHeightChange={(height) => {
+            // Persist the last stable row height so future virtualization and
+            // retained-exit passes do not have to guess from the default size.
             retainedVisibleArticleHeightsRef.current.set(articleKey, height);
           }}
           onMeasureElement={options?.onMeasureElement}
@@ -859,6 +1037,8 @@ export const FeedList = memo(function FeedList({
         aria-hidden="true"
         data-feed-load-more-sentinel="true"
         ref={loadMoreSentinelRef}
+        // Keep the sentinel height aligned with the same threshold used by both
+        // the scroll-distance gate and the intersection observer root margin.
         style={{ height: `${FEED_LOAD_MORE_THRESHOLD_PX}px` }}
       />
     ) : null;
@@ -972,6 +1152,12 @@ export const FeedList = memo(function FeedList({
               data-feed-virtualizer="true"
               layoutScroll
             >
+              {/*
+                Manual spacer blocks mirror TanStack Virtual's computed start/end
+                offsets. The list intentionally does not use paddingStart here,
+                because that combination can create a visible gap above the first
+                article.
+              */}
               {hasMeasuredVirtualViewport && virtualFeedTopPadding > 0 ? (
                 <div
                   aria-hidden="true"
@@ -994,6 +1180,8 @@ export const FeedList = memo(function FeedList({
                       key: String(virtualFeedItem.key),
                       onMeasureElement: (element) => {
                         if (element) {
+                          // Measure the outer row shell so TanStack Virtual sees
+                          // the same box model that participates in layout.
                           feedVirtualizer.measureElement(element);
                         }
                       },

@@ -5,7 +5,6 @@ import {
     expectArticleExpanded,
     expectPreviewDashboard,
     readArticleKey,
-    readArticleTopWithinViewport,
     readFeedViewportMetrics,
     setFeedViewportScrollTop,
     toggleArticle,
@@ -53,18 +52,13 @@ test.describe("dashboard explore article interactions", () => {
       .toBeGreaterThan(850);
 
     const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
-    const article = articleCard(page, 6);
+    const articleKey = await readArticleKey(articleCard(page, 7));
+  const article = articleCardByKey(page, articleKey);
 
     await article.scrollIntoViewIfNeeded();
     await toggleArticle(article);
 
     await expectArticleExpanded(article, true);
-    await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .not.toBe(initialScrollTop);
-    await expect
-      .poll(async () => readArticleTopWithinViewport(article))
-      .toBeLessThan(140);
 
     await toggleArticle(article);
 

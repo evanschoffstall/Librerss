@@ -67,12 +67,30 @@ export async function expectPreviewDashboard(page: Page) {
       )
     );
   });
-  await expect(
-    page.getByRole("button", { name: "Open dashboard settings" }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(page.getByText("demo", { exact: true })).toBeVisible();
+  await expect(page.getByText("demo", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
+
+  const mobileActionsMenuButton = page.getByRole("button", {
+    name: "Open actions menu",
+  });
+  const desktopSettingsButton = page.getByRole("button", {
+    name: "Open dashboard settings",
+  });
+
+  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+    await expect(mobileActionsMenuButton).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
+      timeout: 15_000,
+    });
+    return;
+  }
+
+  await expect(desktopSettingsButton).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 /** Returns the first rendered article card in the feed list. */
@@ -97,7 +115,17 @@ export async function openDashboardSettings(page: Page) {
     return;
   }
 
-  await page.getByRole("button", { name: "Open dashboard settings" }).click();
+  const mobileActionsMenuButton = page.getByRole("button", {
+    name: "Open actions menu",
+  });
+
+  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+    await mobileActionsMenuButton.click();
+    await page.getByRole("menuitem", { name: "Settings" }).click();
+  } else {
+    await page.getByRole("button", { name: "Open dashboard settings" }).click();
+  }
+
   await expect(settingsHeading).toBeVisible({ timeout: 15_000 });
 }
 
@@ -305,7 +333,10 @@ export async function swipeArticle(
 /** Toggles an article by clicking its title region instead of nested action buttons. */
 export async function toggleArticle(article: Locator) {
   await article.scrollIntoViewIfNeeded();
-  await article.getByRole("heading").first().click();
+  await article
+    .locator("[data-article-swipe-zone='header']")
+    .first()
+    .click({ position: { x: 32, y: 48 } });
 }
 
 function toXPathStringLiteral(value: string) {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 
 test('visual probe: capture rapid screenshots during button-read removal', async ({ page }) => {
   await page.goto('http://192.168.2.117:3000/dashboard?explore=1');

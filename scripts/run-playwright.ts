@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { join } from "node:path";
 
 const PLAYWRIGHT_COVERAGE_ENABLED =
@@ -192,6 +193,21 @@ async function generatePlaywrightCoverageReport(
   return code ?? 1;
 }
 
+/**
+ * Quickly probes whether a TCP port can be bound without spawning a full
+ * Next.js process.  Returns in ~1 ms per port, letting the scan skip
+ * obviously-taken ports before paying the cost of a child process.
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once("error", () => resolve(false));
+    probe.listen(port, PLAYWRIGHT_HOST, () => {
+      probe.close(() => resolve(true));
+    });
+  });
+}
+
 /** Detects startup failures that should retry the next port immediately. */
 function isPortUnavailableOutput(output: string) {
   return /(EADDRINUSE|address already in use|port\s+\d+\s+is in use)/iu.test(
@@ -321,12 +337,28 @@ async function removePlaywrightRuntimeDirectory(directoryName: string) {
   });
 }
 
-/** Starts Next on the first port that survives startup instead of stalling. */
+/**
+ * Starts Next on the first available port.  Randomises the starting port so
+ * hundreds of concurrent runs spread across the range instead of all piling
+ * up on port 3100.  A fast TCP probe skips obviously-taken ports before
+ * spawning a child process.
+ */
 async function startFirstAvailableDevServer(
   distDir: string,
   tsconfigPath: string,
 ) {
-  for (let port = PLAYWRIGHT_PORT_START; port <= 65_535; port += 1) {
+  const portRangeSize = 65_535 - PLAYWRIGHT_PORT_START + 1;
+  const randomOffset = Math.floor(Math.random() * portRangeSize);
+
+  for (let attempt = 0; attempt < portRangeSize; attempt++) {
+    const port =
+      PLAYWRIGHT_PORT_START + ((randomOffset + attempt) % portRangeSize);
+
+    const portFree = await isPortAvailable(port);
+    if (!portFree) {
+      continue;
+    }
+
     const server = startPlaywrightDevServer(port, distDir, tsconfigPath);
 
     try {
@@ -513,14 +545,19 @@ async function waitForServerReadiness(
   );
 }
 
-/** Waits briefly for early process death so used ports can roll to the next one. */
+/**
+ * Detects whether the dev server has claimed its port by watching child-process
+ * output for the "- Local:" line that Next.js emits once its HTTP server is
+ * listening.  Falls back to EADDRINUSE detection and process-exit checks so
+ * the port-scan loop can advance without the old two-second blind timer.
+ */
 async function waitForServerStartup(
   child: ChildProcess,
   getRecentOutput: () => string,
 ) {
-  const startDeadline = Date.now() + 2_000;
+  const deadline = Date.now() + PLAYWRIGHT_SERVER_TIMEOUT_MS;
 
-  while (Date.now() < startDeadline) {
+  while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {
       throw createStartupError(
         "Playwright dev server exited before startup completed.",
@@ -528,8 +565,28 @@ async function waitForServerStartup(
       );
     }
 
+    const output = getRecentOutput();
+
+    if (isPortUnavailableOutput(output)) {
+      throw createStartupError(
+        "Playwright dev server port is already in use.",
+        output,
+      );
+    }
+
+    // Next.js (webpack and turbopack) prints "- Local:" followed by the
+    // bound address once its HTTP server is listening.
+    if (/- Local:\s+http/iu.test(output)) {
+      return;
+    }
+
     await Bun.sleep(50);
   }
+
+  throw createStartupError(
+    "Timed out waiting for Playwright dev server to claim its port.",
+    getRecentOutput(),
+  );
 }
 
 void main();

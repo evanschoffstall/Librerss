@@ -42,6 +42,7 @@ test.describe("dashboard preview mode", () => {
     ).toBeVisible();
 
     await page.getByPlaceholder("Search...").fill("");
+    await expect(firstArticleCard(page)).toContainText(firstTitle);
     await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
     await firstArticleCard(page)
       .getByRole("button", { name: "Star article" })

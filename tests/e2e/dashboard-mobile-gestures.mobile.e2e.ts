@@ -1,8 +1,10 @@
 import {
   articleCard,
+  articleCardByKey,
   articleRow,
   expectArticleExpanded,
   expectPreviewDashboard,
+  readArticleKey,
   readFeedViewportMetrics,
   selectExpandedArticleText,
   setFeedViewportScrollTop,
@@ -200,7 +202,8 @@ test.describe("dashboard mobile gestures", () => {
       .toBeGreaterThan(850);
 
     const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
-    const article = articleCard(page, 6);
+  const articleKey = await readArticleKey(articleCard(page, 6));
+  const article = articleCardByKey(page, articleKey);
 
     await toggleArticle(article);
     await expectArticleExpanded(article, true);
