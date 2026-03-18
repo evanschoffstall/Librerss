@@ -1,30 +1,23 @@
-import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { getDb } from "@/lib/db/db";
-import { categoryOrders } from "@/lib/db/schema";
 import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
+import {
+  getCategoryOrder,
+  saveCategoryOrder,
+  ServiceError,
+} from "@/lib/server/services";
 
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuthenticatedUser(request);
-    if (user instanceof Response) {
-      return user;
-    }
+    if (user instanceof Response) return user;
 
-    const db = getDb();
-    const rows = await db
-      .select({ orderedLabels: categoryOrders.orderedLabels })
-      .from(categoryOrders)
-      .where(eq(categoryOrders.userId, user.userId))
-      .limit(1);
-
-    const labels =
-      rows.length === 0 ? [] : safeParseLabelArray(rows[0].orderedLabels);
+    const labels = await getCategoryOrder(user.userId);
     return NextResponse.json({ orderedLabels: labels });
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Error reading category order", error);
   }
 }
@@ -32,14 +25,10 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const user = await requireMutableFeedAccess(request);
-    if (user instanceof Response) {
-      return user;
-    }
+    if (user instanceof Response) return user;
 
     const bodyOrResponse = await parseJsonObjectBodyOrResponse(request);
-    if (bodyOrResponse instanceof Response) {
-      return bodyOrResponse;
-    }
+    if (bodyOrResponse instanceof Response) return bodyOrResponse;
 
     const { orderedLabels } = bodyOrResponse;
     if (!Array.isArray(orderedLabels)) {
@@ -49,41 +38,10 @@ export async function PUT(request: NextRequest) {
     const labels = orderedLabels.filter(
       (item): item is string => typeof item === "string",
     );
-
-    const db = getDb();
-    const serializedLabels = JSON.stringify(labels);
-    await db
-      .insert(categoryOrders)
-      .values({
-        orderedLabels: serializedLabels,
-        updatedAt: new Date(),
-        userId: user.userId,
-      })
-      .onConflictDoUpdate({
-        set: {
-          orderedLabels: serializedLabels,
-          updatedAt: new Date(),
-        },
-        target: categoryOrders.userId,
-      });
-
-    return NextResponse.json({ orderedLabels: labels });
+    const saved = await saveCategoryOrder(user.userId, labels);
+    return NextResponse.json({ orderedLabels: saved });
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Error saving category order", error);
-  }
-}
-
-/**
- * Safely parses the stored JSON string into a string array.
- * Returns an empty array if the value is malformed.
- */
-function safeParseLabelArray(raw: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is string => typeof item === "string");
-  } catch {
-    // Intentionally return empty array for malformed JSON
-    return [];
   }
 }

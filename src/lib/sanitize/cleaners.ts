@@ -158,7 +158,7 @@ export function toPlainText(value: string): string {
   const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
 
-  return stripEmbeddedMediaBlocks(value)
+  const tagStripped = stripEmbeddedMediaBlocks(value)
     .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")
     .replace(/<figcaption\b[^>]*>[\s\S]*?<\/figcaption>/gi, "\n")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -166,9 +166,10 @@ export function toPlainText(value: string): string {
       /<\/(?:p|div|section|article|blockquote|li|h[1-6]|ul|ol|pre)>/gi,
       "\n",
     )
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
+    .replace(/<[^>]*>/g, " ");
+
+  return decodeHtmlEntities(tagStripped)
+    .replace(/\u00A0/g, " ")
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+/g, " ")
     .replace(/[ \t]*\n[ \t]*/g, "\n")

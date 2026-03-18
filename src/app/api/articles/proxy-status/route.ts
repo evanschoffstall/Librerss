@@ -1,15 +1,9 @@
-import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
-import { getDb } from "@/lib/db/db";
-import { users } from "@/lib/db/schema";
+import { jsonError } from "@/lib/api/http";
 import { logger } from "@/lib/logger";
-import {
-  probeProxy,
-  type ProxyStatus,
-  requireAuthenticatedUser,
-} from "@/lib/server";
-import { stripUrlCredentials } from "@/lib/utils/url";
+import { requireAuthenticatedUser } from "@/lib/server";
+import { getProxyStatus, ServiceError } from "@/lib/server/services";
 
 export const dynamic = "force-dynamic";
 
@@ -17,43 +11,20 @@ export async function GET(request: NextRequest) {
   const authResult = await requireAuthenticatedUser(request);
   if (authResult instanceof Response) return authResult;
 
-  const db = getDb();
-  const rows = await db
-    .select({ proxyUrl: users.proxyUrl })
-    .from(users)
-    .where(eq(users.id, authResult.userId))
-    .limit(1);
+  logger.info("Proxy status check started", { userId: authResult.userId });
 
-  const rawProxyUrl = rows.length === 0 ? null : (rows[0].proxyUrl?.trim() ?? "");
-  if (!rawProxyUrl) {
-    logger.info("Proxy status check: no proxy configured", {
-      userId: authResult.userId,
-    });
-    return NextResponse.json({
-      configured: false,
-      proxyUrl: null,
-      status: "unreachable" as ProxyStatus,
-    });
+  try {
+    const result = await getProxyStatus(authResult.userId);
+    if (result.configured && result.status === "reachable") {
+      logger.info("Proxy status check: reachable", {
+        proxyUrl: result.proxyUrl,
+      });
+    }
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    return NextResponse.json(
+      { configured: false, proxyUrl: null, status: "unreachable" },
+    );
   }
-
-  logger.info("Proxy status check started", {
-    proxyUrl: stripUrlCredentials(rawProxyUrl),
-    userId: authResult.userId,
-  });
-  const reachable = await probeProxy(rawProxyUrl);
-  const status: ProxyStatus = reachable ? "reachable" : "unreachable";
-  if (!reachable) {
-    logger.error("Proxy status check: unreachable", {
-      proxyUrl: stripUrlCredentials(rawProxyUrl),
-    });
-  } else {
-    logger.info("Proxy status check: reachable", {
-      proxyUrl: stripUrlCredentials(rawProxyUrl),
-    });
-  }
-  return NextResponse.json({
-    configured: true,
-    proxyUrl: stripUrlCredentials(rawProxyUrl),
-    status,
-  });
 }

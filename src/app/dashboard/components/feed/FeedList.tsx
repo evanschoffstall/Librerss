@@ -444,15 +444,14 @@ const FeedListRow = memo(function FeedListRow({
       layout={shouldAnimateReflow ? "position" : false}
       ref={setRowElement}
       style={{
-        height: shouldAnimateRemoval
-          ? resolvedRemovalHeight
-          : isStandardCollapseExit
-            ? FEED_ROW_COLLAPSE_FLOOR_PX
+        height: isStandardCollapseExit
+          ? FEED_ROW_COLLAPSE_FLOOR_PX
+          : shouldAnimateRemoval
+            ? resolvedRemovalHeight
             : undefined,
-        marginBottom:
-          isStandardCollapseExit && !shouldAnimateRemoval
-            ? -FEED_ROW_COLLAPSE_FLOOR_PX
-            : FEED_ROW_GAP_PX,
+        marginBottom: isStandardCollapseExit
+          ? -FEED_ROW_COLLAPSE_FLOOR_PX
+          : FEED_ROW_GAP_PX,
         minHeight:
           isStandardCollapseExit || (isRemoving && isRemovalTransitionActive)
             ? FEED_ROW_COLLAPSE_FLOOR_PX
