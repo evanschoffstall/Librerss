@@ -235,9 +235,12 @@ export function sanitizeArticleTitle(title: null | string | undefined): string {
     allowedAttributes: {},
     allowedTags: [],
   }).trim();
+  // After decodeHtmlEntities, remaining entity-like patterns with 2+ char names
+  // are unknown entities that sanitize-html double-encoded (e.g. &amp;foobar;
+  // → &foobar;). Single-char patterns like &S; from "M&S;" are real text.
   const cleaned =
     decodeHtmlEntities(stripped)
-      .replace(/&[a-z0-9#]+;/gi, "")
+      .replace(/&[a-z][a-z0-9]+;/gi, "")
       .replace(/\s+/g, " ")
       .trim() || "Untitled";
   if (cleaned.length <= CONFIG.MAX_ARTICLE_TITLE_LENGTH) return cleaned;
