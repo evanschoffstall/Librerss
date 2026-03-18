@@ -1,4 +1,3 @@
-import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -7,24 +6,19 @@ import {
   parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
-import { CONFIG } from "@/lib/config";
-import {
-  listUserOwnedArticles,
-  withNormalizedArticleContent,
-} from "@/lib/core/article-records";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb } from "@/lib/db/db";
-import { articles, feeds, feedSources } from "@/lib/db/schema";
-import {
-  sanitizeAndTruncateArticleContent,
-  sanitizeArticleTitle,
-} from "@/lib/sanitize";
 import {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
+import {
+  createArticle,
+  type CreateArticleParams,
+  listUserArticles,
+  ServiceError,
+} from "@/lib/server/services";
 import { parseDateOrNull } from "@/lib/utils/dates";
 import { isValidUrl } from "@/lib/utils/url";
 
@@ -38,43 +32,21 @@ interface ArticlesRouteDeps {
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
 }
 
-interface CreateArticlePayload {
-  feedId: number;
-  lastChecked: Date;
-  link: string;
-  publicationDate: Date;
-  rawContent: string;
-  rawTitle: string;
-}
-
 export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
   const requireAuth =
     deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
-  const getDbForRoute = deps.getDbFn ?? getDb;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
     const authResult = await requireAuth(request);
-    if (authResult instanceof Response) {
-      return authResult;
-    }
-    const user = authResult;
+    if (authResult instanceof Response) return authResult;
 
-    if (RUNTIME_FLAGS.usePlaceholderData) {
-      // In placeholder mode there is no database, so return an empty list
-      // instead of throwing on the missing DATABASE_URL.
-      return NextResponse.json([]);
-    }
-
-    const db = getDbForRoute();
-    const userArticles = await listUserOwnedArticles(
-      db,
-      user.userId,
-      CONFIG.MAX_ALL_ARTICLES_LIMIT,
-    );
-
-    return NextResponse.json(userArticles.map(withNormalizedArticleContent));
+    const articles = await listUserArticles(authResult.userId, {
+      getDbFn: deps.getDbFn,
+    });
+    return NextResponse.json(articles);
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return respondError("Articles GET error", error);
   }
 }
@@ -82,72 +54,25 @@ export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
 export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
   const requireMutableAuth =
     deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
-  const isAllowedFeedUrlForRoute = deps.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
-  const getDbForRoute = deps.getDbFn ?? getDb;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
     const user = await requireMutableAuth(request);
-    if (user instanceof Response) {
-      return user;
-    }
+    if (user instanceof Response) return user;
 
     const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
-    if (payloadOrResponse instanceof Response) {
-      return payloadOrResponse;
-    }
+    if (payloadOrResponse instanceof Response) return payloadOrResponse;
 
     const parsedPayload = parseCreateArticlePayload(payloadOrResponse);
-    if (parsedPayload instanceof Response) {
-      return parsedPayload;
-    }
-    const payload = parsedPayload;
+    if (parsedPayload instanceof Response) return parsedPayload;
 
-    // SSRF guard — reject links that resolve to private/internal addresses.
-    if (!(await isAllowedFeedUrlForRoute(payload.link))) {
-      return jsonError("Article link must resolve to a public host", 400);
-    }
-
-    // Sanitize at write time — defence in depth against XSS.
-    // sanitizeAndTruncateArticleContent strips unsafe HTML, enforces the length
-    // cap, then re-sanitizes to close any tags broken by truncation.
-    const title = sanitizeArticleTitle(payload.rawTitle);
-    const content = sanitizeAndTruncateArticleContent(payload.rawContent);
-
-    const db = getDbForRoute();
-
-    const ownedFeeds = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .innerJoin(
-        feedSources,
-        and(
-          eq(feedSources.url, feeds.url),
-          eq(feedSources.userId, user.userId),
-          eq(feedSources.enabled, true),
-        ),
-      )
-      .where(eq(feeds.id, payload.feedId))
-      .limit(1);
-
-    if (ownedFeeds.length === 0) {
-      return jsonError("Feed not found for authenticated user", 403);
-    }
-
-    const newArticles = await db
-      .insert(articles)
-      .values({
-        content,
-        feedId: payload.feedId,
-        lastChecked: payload.lastChecked,
-        link: payload.link,
-        publicationDate: payload.publicationDate,
-        title,
-      })
-      .returning();
-
-    return NextResponse.json(newArticles[0]);
+    const article = await createArticle(user.userId, parsedPayload, {
+      getDbFn: deps.getDbFn,
+      isAllowedFeedUrlFn: deps.isAllowedFeedUrlFn,
+    });
+    return NextResponse.json(article);
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return respondError("Articles POST error", error);
   }
 }
@@ -174,35 +99,25 @@ function parseCreateArticleDates(
 
 function parseCreateArticlePayload(
   payload: Record<string, unknown>,
-): CreateArticlePayload | Response {
+): CreateArticleParams | Response {
   const rawTitle = asTrimmedString(payload.title);
   const link = asTrimmedString(payload.link);
   const rawContent = typeof payload.content === "string" ? payload.content : "";
   const feedId = parsePositiveInt(payload.feed_id);
 
-  if (!rawTitle) {
-    return jsonError("Title is required", 400);
-  }
-
-  if (!link || !isValidUrl(link)) {
-    return jsonError("A valid article link is required", 400);
-  }
-
-  if (!feedId) {
-    return jsonError("A valid feed_id is required", 400);
-  }
+  if (!rawTitle) return jsonError("Title is required", 400);
+  if (!link || !isValidUrl(link)) return jsonError("A valid article link is required", 400);
+  if (!feedId) return jsonError("A valid feed_id is required", 400);
 
   const parsedDates = parseCreateArticleDates(payload);
-  if (parsedDates instanceof Response) {
-    return parsedDates;
-  }
+  if (parsedDates instanceof Response) return parsedDates;
 
   return {
+    content: rawContent,
     feedId,
     lastChecked: parsedDates.lastChecked,
     link,
     publicationDate: parsedDates.publicationDate,
-    rawContent,
-    rawTitle,
+    title: rawTitle,
   };
 }

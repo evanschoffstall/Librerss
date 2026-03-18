@@ -24,4 +24,5 @@ export {
     type ResolvedStoredProxyPassword,
     resolveStoredProxyPassword
 } from "./proxy-credentials";
+export * from "./services";
 

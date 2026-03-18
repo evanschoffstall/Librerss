@@ -1,5 +1,4 @@
 import axios from "axios";
-import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import type { DistilledArticle, DistillStrategy } from "@/lib/distill";
@@ -16,8 +15,6 @@ import {
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
-import { getDb } from "@/lib/db/db";
-import { users } from "@/lib/db/schema";
 import { DISTILL_STRATEGIES, distillArticle } from "@/lib/distill";
 import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
@@ -39,16 +36,11 @@ import {
   sanitizeRawContent,
 } from "@/lib/sanitize";
 import {
-  materializeStoredProxyPassword,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
+import { resolveUserProxy, ServiceError } from "@/lib/server/services";
 import { toErrorMessage } from "@/lib/utils/errors";
-import {
-  getUrlCredentials,
-  injectProxyCredentials,
-  redactUrlForLogs,
-  tryGetUrlHostname,
-} from "@/lib/utils/url";
+import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 
 // ─── Inlined helpers (from route-helpers.ts) ─────────────────────────────────
 
@@ -146,66 +138,16 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
     // Resolve the user's proxy URL and TLS settings from DB when proxy is requested
     let allowInsecureTls = false;
     if (useProxy && authUserId) {
-      const db = getDb();
-      const rows = await db
-        .select({
-          allowInsecureTls: users.allowInsecureTls,
-          proxyPassword: users.proxyPassword,
-          proxyUrl: users.proxyUrl,
-          proxyUsername: users.proxyUsername,
-        })
-        .from(users)
-        .where(eq(users.id, authUserId))
-        .limit(1);
-      const row = rows.length === 0 ? null : rows[0];
-      const rawProxyUrl = row?.proxyUrl?.trim();
-      const embeddedCredentials = rawProxyUrl
-        ? getUrlCredentials(rawProxyUrl)
-        : null;
-      const baseProxyUrl =
-        rawProxyUrl !== undefined &&
-        rawProxyUrl !== "" &&
-        rawProxyUrl !== "null" &&
-        rawProxyUrl !== "undefined"
-          ? embeddedCredentials?.sanitizedUrl ?? rawProxyUrl
-          : undefined;
-      let decryptedProxyPassword: null | string = null;
-
-      if (row !== null) {
-        try {
-          decryptedProxyPassword = await materializeStoredProxyPassword(
-            row.proxyPassword,
-            async (normalizedStoredPassword) => {
-              await db
-                .update(users)
-                .set({ proxyPassword: normalizedStoredPassword })
-                .where(eq(users.id, authUserId));
-            },
-          );
-        } catch (error) {
-          logger.error("Saved proxy password could not be materialized", {
-            error: error instanceof Error ? error.message : String(error),
-            userId: authUserId,
-          });
-          return jsonErrorWithReason(
-            "Saved proxy password could not be read. Update it in settings and try again.",
-            500,
-            "proxy-password-unreadable",
-          );
+      try {
+        const resolved = await resolveUserProxy(authUserId);
+        resolvedProxyUrl = resolved.proxyUrl;
+        allowInsecureTls = resolved.allowInsecureTls;
+      } catch (error) {
+        if (error instanceof ServiceError && error.reason === "proxy-password-unreadable") {
+          return jsonErrorWithReason(error.message, error.status, error.reason);
         }
+        throw error;
       }
-
-      resolvedProxyUrl =
-        baseProxyUrl !== undefined &&
-        (row?.proxyUsername ?? embeddedCredentials?.username) !== null &&
-        (decryptedProxyPassword ?? embeddedCredentials?.password) !== null
-          ? injectProxyCredentials(
-              baseProxyUrl,
-              row?.proxyUsername ?? embeddedCredentials?.username ?? "",
-              decryptedProxyPassword ?? embeddedCredentials?.password ?? "",
-            )
-          : baseProxyUrl;
-      allowInsecureTls = row === null ? false : row.allowInsecureTls;
     }
 
     const parsedUrl = await parseArticleUrl(requestedUrl);

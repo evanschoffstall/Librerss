@@ -1,10 +1,7 @@
-import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseJsonBodyOrResponse } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
-import { getDb } from "@/lib/db/db";
-import { users } from "@/lib/db/schema";
 import {
   fetchHtmlWithFingerprint,
   GotScrapingError,
@@ -12,10 +9,9 @@ import {
 } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import {
-  materializeStoredProxyPassword,
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
-import { getUrlCredentials, injectProxyCredentials } from "@/lib/utils/url";
+import { resolveUserProxy, ServiceError } from "@/lib/server/services";
 
 export const dynamic = "force-dynamic";
 
@@ -81,69 +77,19 @@ export async function POST(request: NextRequest) {
   let allowInsecureTls = false;
 
   if (useProxy) {
-    const db = getDb();
-    const usersWithProxy = await db
-      .select({
-        allowInsecureTls: users.allowInsecureTls,
-        proxyPassword: users.proxyPassword,
-        proxyUrl: users.proxyUrl,
-        proxyUsername: users.proxyUsername,
-      })
-      .from(users)
-      .where(eq(users.id, authResult.userId))
-      .limit(1);
-
-    const user = usersWithProxy.length === 0 ? null : usersWithProxy[0];
-    const rawProxyUrl = user?.proxyUrl?.trim();
-    const embeddedCredentials = rawProxyUrl
-      ? getUrlCredentials(rawProxyUrl)
-      : null;
-    const baseProxyUrl =
-      rawProxyUrl !== undefined &&
-      rawProxyUrl !== "" &&
-      rawProxyUrl !== "null" &&
-      rawProxyUrl !== "undefined"
-        ? embeddedCredentials?.sanitizedUrl ?? rawProxyUrl
-        : undefined;
-    let decryptedProxyPassword: null | string = null;
-
-    if (user !== null) {
-      try {
-        decryptedProxyPassword = await materializeStoredProxyPassword(
-          user.proxyPassword,
-          async (normalizedStoredPassword) => {
-            await db
-              .update(users)
-              .set({ proxyPassword: normalizedStoredPassword })
-              .where(eq(users.id, authResult.userId));
-          },
-        );
-      } catch (error) {
-        logger.error("Saved proxy password could not be materialized", {
-          error: error instanceof Error ? error.message : String(error),
-          userId: authResult.userId,
-        });
+    try {
+      const resolved = await resolveUserProxy(authResult.userId);
+      proxyUrl = resolved.proxyUrl;
+      allowInsecureTls = resolved.allowInsecureTls;
+    } catch (error) {
+      if (error instanceof ServiceError && error.reason === "proxy-password-unreadable") {
         return NextResponse.json(
-          {
-            error:
-              "Saved proxy password could not be read. Update it in settings and try again.",
-          },
-          { status: 500 },
+          { error: error.message },
+          { status: error.status },
         );
       }
+      throw error;
     }
-
-    proxyUrl =
-      baseProxyUrl !== undefined &&
-      (user?.proxyUsername ?? embeddedCredentials?.username) !== null &&
-      (decryptedProxyPassword ?? embeddedCredentials?.password) !== null
-        ? injectProxyCredentials(
-            baseProxyUrl,
-            user?.proxyUsername ?? embeddedCredentials?.username ?? "",
-            decryptedProxyPassword ?? embeddedCredentials?.password ?? "",
-          )
-        : baseProxyUrl;
-    allowInsecureTls = user === null ? false : user.allowInsecureTls;
 
     if (!proxyUrl) {
       return NextResponse.json(

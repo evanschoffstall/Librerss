@@ -27,16 +27,20 @@ import {
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
-  invalidateUserCache,
-  invalidateUserFeedSourceListCache,
-} from "@/lib/core/feed-cache";
-import {
   isFeedSourceNotFoundError,
   isUpstreamFeedError,
 } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
 import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
+import {
+  createFeed,
+  deleteFeed,
+  renameFeed,
+  ServiceError,
+  setFeedEnabled,
+  updateFeedSettings,
+} from "@/lib/server/services";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
 
@@ -75,15 +79,12 @@ interface FeedRouteDeps {
   warnFn?: typeof logger.warn;
 }
 
-// ─── Shared upstream error handler ────────────────────────────────────────────
+// ─── Route handlers ───────────────────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
   const requireMutable =
     deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseDeleteId = deps.parseDeleteSourceIdFn ?? parseDeleteSourceId;
-  const deleteSource =
-    deps.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
-  const toJsonError = deps.jsonErrorFn ?? jsonError;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
@@ -93,22 +94,15 @@ export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
     const sourceId = parseDeleteId(request);
     if (sourceId instanceof Response) return sourceId;
 
-    const deletedSource = await deleteSource(user.userId, sourceId);
-
-    if (!deletedSource) {
-      // Row was deleted by a concurrent request; treat as already gone.
-      return toJsonError("Feed source not found", 404);
-    }
-
-    invalidateUserCache(user.userId);
-    invalidateUserFeedSourceListCache(user.userId);
+    const deletedSource = await deleteFeed(user.userId, sourceId, {
+      deleteFeedSourceForUserFn: deps.deleteFeedSourceForUserFn,
+    });
     return NextResponse.json(deletedSource);
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return respondError("Error deleting feed source", error);
   }
 }
-
-// ─── Route handlers ───────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest, deps: FeedRouteDeps = {}) {
   const requireAuth =
@@ -164,13 +158,6 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
     deps.parseUpdateFeedSettingsPayloadFromBodyFn ??
     parseUpdateFeedSettingsPayloadFromBody;
   const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
-  const renameSource =
-    deps.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
-  const setSourceEnabled =
-    deps.setFeedSourceEnabledForUserFn ?? setFeedSourceEnabledForUser;
-  const updateSettings =
-    deps.updateFeedSettingsForUserFn ?? updateFeedSettingsForUser;
-  const toJsonError = deps.jsonErrorFn ?? jsonError;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
@@ -181,21 +168,13 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       const parsedPayload = await parseRenamePayload(request);
       if (parsedPayload instanceof Response) return parsedPayload;
 
-      const { name, sourceId, url } = parsedPayload;
-
-      const invalidFeedUrlResponse = await assertAllowedUrl(url);
+      const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
       if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
 
-      const updatedSource = await renameSource(
-        user.userId,
-        sourceId,
-        name,
-        url,
+      const updatedSource = await renameFeed(
+        user.userId, parsedPayload.sourceId, parsedPayload.name, parsedPayload.url,
+        { renameFeedSourceForUserFn: deps.renameFeedSourceForUserFn },
       );
-      if (!updatedSource) return toJsonError("Feed source not found", 404);
-
-      invalidateUserCache(user.userId);
-      invalidateUserFeedSourceListCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -208,15 +187,10 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       const parsedTogglePayload = parseToggleEnabledPayloadFromBody(payload);
       if (parsedTogglePayload instanceof Response) return parsedTogglePayload;
 
-      const updatedSource = await setSourceEnabled(
-        user.userId,
-        parsedTogglePayload.sourceId,
-        parsedTogglePayload.enabled,
+      const updatedSource = await setFeedEnabled(
+        user.userId, parsedTogglePayload.sourceId, parsedTogglePayload.enabled,
+        { setFeedSourceEnabledForUserFn: deps.setFeedSourceEnabledForUserFn },
       );
-      if (!updatedSource) return toJsonError("Feed source not found", 404);
-
-      invalidateUserCache(user.userId);
-      invalidateUserFeedSourceListCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
@@ -227,36 +201,29 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
       const parsedSettings = parseUpdateSettingsFromBody(payload);
       if (parsedSettings instanceof Response) return parsedSettings;
 
-      const updatedSource = await updateSettings(
-        user.userId,
-        parsedSettings.sourceId,
-        {
+      const updatedSource = await updateFeedSettings(
+        user.userId, parsedSettings.sourceId, {
           extractionDisabled: parsedSettings.extractionDisabled,
           proxyEnabled: parsedSettings.proxyEnabled,
         },
+        { updateFeedSettingsForUserFn: deps.updateFeedSettingsForUserFn },
       );
-      if (!updatedSource) return toJsonError("Feed source not found", 404);
-
-      invalidateUserCache(user.userId);
-      invalidateUserFeedSourceListCache(user.userId);
       return NextResponse.json(updatedSource);
     }
 
     const parsedPayload = parseRenamePayloadFromBody(payload);
     if (parsedPayload instanceof Response) return parsedPayload;
 
-    const { name, sourceId, url } = parsedPayload;
-
-    const invalidFeedUrlResponse = await assertAllowedUrl(url);
+    const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
     if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
 
-    const updatedSource = await renameSource(user.userId, sourceId, name, url);
-    if (!updatedSource) return toJsonError("Feed source not found", 404);
-
-    invalidateUserCache(user.userId);
-    invalidateUserFeedSourceListCache(user.userId);
+    const updatedSource = await renameFeed(
+      user.userId, parsedPayload.sourceId, parsedPayload.name, parsedPayload.url,
+      { renameFeedSourceForUserFn: deps.renameFeedSourceForUserFn },
+    );
     return NextResponse.json(updatedSource);
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return respondError("Error renaming feed source", error);
   }
 }
@@ -267,9 +234,6 @@ export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
   const parseCreatePayload =
     deps.parseCreateFeedPayloadFn ?? parseCreateFeedPayload;
   const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
-  const getDbForRoute = deps.getDbFn ?? getDb;
-  const createOrUpdate =
-    deps.createOrUpdateFeedSourceFn ?? createOrUpdateFeedSource;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
 
   try {
@@ -288,19 +252,17 @@ export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
     const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
     if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
 
-    const db = getDbForRoute();
-    const { isNew, sourceRecord } = await db.transaction((tx) =>
-      createOrUpdate(tx, user.userId, parsedPayload),
-    );
-
-    invalidateUserCache(user.userId);
-    invalidateUserFeedSourceListCache(user.userId);
+    const result = await createFeed(user.userId, parsedPayload, {
+      createOrUpdateFeedSourceFn: deps.createOrUpdateFeedSourceFn,
+      getDbFn: deps.getDbFn,
+    });
 
     return NextResponse.json(
-      { ...sourceRecord, category: parsedPayload.category },
-      { status: isNew ? 201 : 200 },
+      { ...result.sourceRecord, category: parsedPayload.category },
+      { status: result.isNew ? 201 : 200 },
     );
   } catch (error) {
+    if (error instanceof ServiceError) return jsonError(error.message, error.status);
     return respondError("Error creating feed source", error);
   }
 }
