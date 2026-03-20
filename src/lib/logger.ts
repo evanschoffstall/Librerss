@@ -3,7 +3,7 @@
  * Prevents sensitive data leakage and provides better debugging
  */
 
-import { CONFIG } from "@/lib/config";
+import { CONFIG, isDevelopment } from "@/lib/config";
 
 interface LogContext {
   [key: string]: unknown;
@@ -18,7 +18,6 @@ type LogLevel = "debug" | "error" | "info" | "warn";
 
 export class Logger {
   private readonly dim = "\u001b[2m";
-  private readonly isDevelopment = process.env.NODE_ENV === "development";
   private readonly levelColors: Record<LogLevel, string> = {
     debug: "\u001b[38;5;141m",
     error: "\u001b[38;5;196m",
@@ -40,7 +39,7 @@ export class Logger {
   ]);
 
   debug(message: string, context?: LogContext): void {
-    if (!this.isDevelopment || this.getCurrentLogLevel() !== "verbose") return;
+    if (!isDevelopment() || this.getCurrentLogLevel() !== "verbose") return;
     const sanitized = this.sanitizeContext(context);
     console.debug(this.formatMessage("debug", message, sanitized));
   }
@@ -165,7 +164,7 @@ export class Logger {
     }
 
     if (value instanceof Error) {
-      return this.isDevelopment
+      return isDevelopment()
         ? { message: value.message, stack: value.stack }
         : { message: value.message };
     }

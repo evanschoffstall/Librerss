@@ -6,7 +6,7 @@ import React from "react";
 
 import "./globals.css";
 import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
-import { ENV } from "@/lib/config";
+import { isDevelopment } from "@/lib/config";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -33,6 +33,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const developmentMode = isDevelopment();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -42,14 +44,14 @@ export default function RootLayout({
           text-foreground antialiased
         `}
       >
-        {ENV.isDevelopment && (
+        {developmentMode && (
           <>
             <DebugBorder />
             <DebugGrid />
           </>
         )}
         <AppThemeProvider>{children}</AppThemeProvider>
-        {!ENV.isDevelopment ? <Analytics /> : null}
+        {!developmentMode ? <Analytics /> : null}
       </body>
     </html>
   );

@@ -32,7 +32,7 @@ export function getCachedExtractPayload(
 
 export function isExtractCacheEnabled(): boolean {
   if (!envBooleanOptional("ARTICLE_EXTRACT_CACHE_ENABLED", true)) return false;
-  if (isDevelopment) {
+  if (isDevelopment()) {
     return envBooleanOptional("ARTICLE_EXTRACT_CACHE_DEV_ENABLED", true);
   }
   return true;
