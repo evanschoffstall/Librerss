@@ -49,7 +49,7 @@ export default function RootLayout({
           </>
         )}
         <AppThemeProvider>{children}</AppThemeProvider>
-        <Analytics />
+        {!ENV.isDevelopment ? <Analytics /> : null}
       </body>
     </html>
   );
