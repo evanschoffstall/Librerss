@@ -101,9 +101,88 @@ function buildContentSecurityPolicy() {
   ].join("; ");
 }
 
+/**
+ * Non-secret server config keys whose .env defaults are serialised at build
+ * time.  Next.js DefinePlugin bakes the resulting JSON blob into server
+ * bundles so values survive into Vercel serverless functions even when .env
+ * files are not loaded into process.env at runtime.
+ *
+ * Sensitive values (DATABASE_URL, PROXY_CREDENTIAL_ENCRYPTION_KEY) are
+ * intentionally excluded — set them via hosting platform env vars.
+ */
+const SERVER_CONFIG_KEYS = [
+  "ALLOW_SIGNUP",
+  "ARTICLE_EXTRACT_CACHE_DEV_ENABLED",
+  "ARTICLE_EXTRACT_CACHE_ENABLED",
+  "DB_EAGER_CONNECT_CHECK",
+  "DNS_CACHE_MAX_ENTRIES",
+  "DNS_CACHE_TTL_MS",
+  "DNS_LOOKUP_TIMEOUT_MS",
+  "FEED_BATCH_CONCURRENCY",
+  "FEED_BATCH_MAX_URLS",
+  "FEED_CACHE_TTL_MINUTES",
+  "FEED_FORCE_REFRESH_TTL_MINUTES",
+  "FEED_LOADING_FAILSAFE_MS",
+  "FEED_REFRESH_DIAGNOSTICS_ENABLED",
+  "FEED_REQUEST_ACCEPT",
+  "FEED_REQUEST_TIMEOUT_MS",
+  "FEED_REQUEST_USER_AGENT",
+  "LEGAL_DEPLOYMENT_NAME",
+  "LEGAL_OPERATOR_NAME",
+  "LEGAL_PROFILE",
+  "LOG_COLORS_ENABLED",
+  "LOG_LEVEL",
+  "MARK_ALL_READ_LIMIT",
+  "MAX_ALL_ARTICLES_LIMIT",
+  "MAX_ARTICLE_CONSECUTIVE_BLANK_LINES",
+  "MAX_ARTICLE_CONTENT_LENGTH",
+  "MAX_ARTICLE_TITLE_LENGTH",
+  "MAX_ARTICLES_PER_FEED",
+  "MAX_CATEGORY_NAME_LENGTH",
+  "MAX_EMAIL_LENGTH",
+  "MAX_FAVICON_CACHE_ENTRIES",
+  "MAX_FEED_NAME_LENGTH",
+  "MAX_FEED_RESPONSE_SIZE_BYTES",
+  "MAX_JSON_BODY_BYTES",
+  "MAX_SESSIONS_PER_USER",
+  "MIN_ARTICLE_IMAGE_HEIGHT_PX",
+  "MIN_ARTICLE_IMAGE_WIDTH_PX",
+  "OPERATOR_CONTACT_EMAIL",
+  "OPML_MAX_IMPORT_ENTRIES",
+  "PASSWORD_COMPLEXITY_REQUIRED_TYPES",
+  "PASSWORD_MAX_LENGTH",
+  "PASSWORD_MIN_LENGTH",
+  "RATE_LIMIT_DISABLED_IN_DEV",
+  "RATE_LIMIT_EXTRACT_MAX_REQUESTS",
+  "RATE_LIMIT_EXTRACT_WINDOW_MS",
+  "RATE_LIMIT_FEED_BATCH_MAX_REQUESTS",
+  "RATE_LIMIT_FEED_BATCH_WINDOW_MS",
+  "RATE_LIMIT_FEED_MAX_REQUESTS",
+  "RATE_LIMIT_FEED_WINDOW_MS",
+  "RATE_LIMIT_LOGIN_MAX_ATTEMPTS",
+  "RATE_LIMIT_LOGIN_WINDOW_MS",
+  "RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS",
+  "RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS",
+  "RATE_LIMIT_PROXY_MAX_REQUESTS",
+  "RATE_LIMIT_PROXY_WINDOW_MS",
+  "RATE_LIMIT_SIGNUP_MAX_ATTEMPTS",
+  "RATE_LIMIT_SIGNUP_WINDOW_MS",
+  "SESSION_DURATION_DAYS",
+  "TRUSTED_PROXY_COUNT",
+] as const;
+
+const buildTimeServerConfig = Object.fromEntries(
+  SERVER_CONFIG_KEYS
+    .filter((key) => process.env[key] !== undefined)
+    .map((key) => [key, process.env[key] as string]),
+);
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: resolveAllowedDevOrigins(),
   distDir: process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim() || ".next",
+  env: {
+    LIBRERSS_BUILD_CONFIG: JSON.stringify(buildTimeServerConfig),
+  },
   async headers() {
     const contentSecurityPolicy = buildContentSecurityPolicy();
 

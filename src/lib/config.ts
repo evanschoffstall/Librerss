@@ -7,14 +7,38 @@
  *
  * Server-side CONFIG values are resolved lazily through a Proxy that reads
  * `process.env[key]` at access time — no values are captured at module load.
- * Required env vars are validated at server startup via `instrumentation.ts`
- * so missing keys surface immediately instead of on the first request.
+ * Build-time defaults from .env are baked in via next.config.ts `env:`
+ * (DefinePlugin) so values are available on Vercel even when .env files
+ * are not loaded into process.env at runtime.
  */
 
 /** Resolves development mode at call time so no module caches NODE_ENV early. */
 export function isDevelopment(): boolean {
   return process.env.NODE_ENV === "development";
 }
+
+/**
+ * Build-time config defaults injected by next.config.ts via DefinePlugin.
+ * Ensures CONFIG reads succeed on Vercel where .env file values may not be in
+ * process.env at runtime.  Falls back to empty in tests / local dev where
+ * process.env is populated directly by @next/env.
+ */
+const buildTimeDefaults: Record<string, string> = (() => {
+  try {
+    // DefinePlugin replaces this literal with the JSON string at build time.
+    const raw = process.env.LIBRERSS_BUILD_CONFIG;
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+})();
+
+/**
+ * Reads an environment variable with build-time fallback.  Runtime values
+ * (hosting platform env vars, .env.local) always take precedence.
+ */
+const getEnv = (key: string): string | undefined =>
+  process.env[key] ?? buildTimeDefaults[key];
 
 function parseEnvBoolean(value: string, key: string): boolean {
   const normalized = value.trim().toLowerCase();
@@ -51,7 +75,7 @@ function requireEnvValue(value: string | undefined, key: string): string {
 // ── Server env accessors (dynamic key lookup) ────────────────────────────────
 
 const envString = (key: string): string =>
-  requireEnvValue(process.env[key], key);
+  requireEnvValue(getEnv(key), key);
 
 const envNumber = (key: string): number => parseEnvNumber(envString(key), key);
 
@@ -66,7 +90,7 @@ export const envBooleanOptional = (
   key: string,
   defaultValue: boolean,
 ): boolean => {
-  const raw = process.env[key];
+  const raw = getEnv(key);
   if (raw === undefined || raw.trim() === "") return defaultValue;
   return parseEnvBoolean(raw, key);
 };
