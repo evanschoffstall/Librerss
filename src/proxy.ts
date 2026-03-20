@@ -70,7 +70,7 @@ export const config = {
         { key: "next-router-prefetch", type: "header" },
         { key: "purpose", type: "header", value: "prefetch" },
       ],
-      source: "/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)",
+      source: "/((?!_next(?:/|$)|favicon.ico|favicon.svg).*)",
     },
   ],
 };
