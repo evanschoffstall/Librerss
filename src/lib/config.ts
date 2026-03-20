@@ -1,21 +1,44 @@
 /**
  * Environment helpers.
- * This module intentionally avoids a centralized per-key config registry.
  *
  * NEXT_PUBLIC_* variables must be referenced via their literal
  * `process.env.NEXT_PUBLIC_*` token — Next.js inlines them at build time
- * and dynamic key lookup does not work.  The `requireEnvValue` +
- * `parseEnvNumber` / `parseEnvBoolean` helpers let client-safe accessors
- * share parsing logic with the server helpers without duplicating it.
+ * and dynamic key lookup does not work.
+ *
+ * Server-side CONFIG values are resolved lazily through a Proxy that reads
+ * `process.env[key]` at access time — no values are captured at module load.
+ * Build-time defaults from .env are baked in via next.config.ts `env:`
+ * (DefinePlugin) so values are available on Vercel even when .env files
+ * are not loaded into process.env at runtime.
  */
 
-export const isDevelopment = process.env.NODE_ENV === "development";
+/** Resolves development mode at call time so no module caches NODE_ENV early. */
+export function isDevelopment(): boolean {
+  return process.env.NODE_ENV === "development";
+}
 
-export const ENV = {
-  isDevelopment,
-} as const;
+/**
+ * Build-time config defaults injected by next.config.ts via DefinePlugin.
+ * Ensures CONFIG reads succeed on Vercel where .env file values may not be in
+ * process.env at runtime.  Falls back to empty in tests / local dev where
+ * process.env is populated directly by @next/env.
+ */
+const buildTimeDefaults: Record<string, string> = (() => {
+  try {
+    // DefinePlugin replaces this literal with the JSON string at build time.
+    const raw = process.env.LIBRERSS_BUILD_CONFIG;
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+})();
 
-// ── Low-level parsers (shared by server + client accessors) ──────────────────
+/**
+ * Reads an environment variable with build-time fallback.  Runtime values
+ * (hosting platform env vars, .env.local) always take precedence.
+ */
+const getEnv = (key: string): string | undefined =>
+  process.env[key] ?? buildTimeDefaults[key];
 
 function parseEnvBoolean(value: string, key: string): boolean {
   const normalized = value.trim().toLowerCase();
@@ -52,7 +75,7 @@ function requireEnvValue(value: string | undefined, key: string): string {
 // ── Server env accessors (dynamic key lookup) ────────────────────────────────
 
 const envString = (key: string): string =>
-  requireEnvValue(process.env[key], key);
+  requireEnvValue(getEnv(key), key);
 
 const envNumber = (key: string): number => parseEnvNumber(envString(key), key);
 
@@ -61,14 +84,13 @@ const envBoolean = (key: string): boolean =>
 
 /**
  * Reads an optional boolean env variable, returning `defaultValue` when the
- * key is missing or empty.  Uses the same true/false vocabulary as
- * {@link envBoolean} ("1", "true", "yes", "on" / "0", "false", "no", "off").
+ * key is missing or empty.
  */
 export const envBooleanOptional = (
   key: string,
   defaultValue: boolean,
 ): boolean => {
-  const raw = process.env[key];
+  const raw = getEnv(key);
   if (raw === undefined || raw.trim() === "") return defaultValue;
   return parseEnvBoolean(raw, key);
 };
@@ -88,8 +110,9 @@ const envEnum = <T extends string>(
   return value as T;
 };
 
-const getLogLevel = (): "error" | "info" | "none" | "verbose" | "warn" =>
-  envEnum("LOG_LEVEL", ["none", "error", "warn", "info", "verbose"] as const);
+const LOG_LEVEL_VALUES = ["none", "error", "warn", "info", "verbose"] as const;
+
+type LogLevel = (typeof LOG_LEVEL_VALUES)[number];
 
 // ── Client env accessors (literal NEXT_PUBLIC_* references) ──────────────────
 
@@ -124,9 +147,56 @@ export const maxArticleConsecutiveBlankLines = (): number => {
   return envNumber("MAX_ARTICLE_CONSECUTIVE_BLANK_LINES");
 };
 
+// ── CONFIG Proxy ─────────────────────────────────────────────────────────────
+
+interface ConfigKeys {
+  DNS_CACHE_MAX_ENTRIES: number;
+  DNS_CACHE_TTL_MS: number;
+  DNS_LOOKUP_TIMEOUT_MS: number;
+  FEED_BATCH_CONCURRENCY: number;
+  FEED_BATCH_MAX_URLS: number;
+  FEED_CACHE_TTL_MINUTES: number;
+  FEED_FORCE_REFRESH_TTL_MINUTES: number;
+  FEED_REFRESH_DIAGNOSTICS_ENABLED: boolean;
+  FEED_REQUEST_ACCEPT: string;
+  FEED_REQUEST_TIMEOUT_MS: number;
+  FEED_REQUEST_USER_AGENT: string;
+  LOG_LEVEL: LogLevel;
+  MAX_ALL_ARTICLES_LIMIT: number;
+  MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: number;
+  MAX_ARTICLE_CONTENT_LENGTH: number;
+  MAX_ARTICLE_TITLE_LENGTH: number;
+  MAX_ARTICLES_PER_FEED: number;
+  MAX_CATEGORY_NAME_LENGTH: number;
+  MAX_EMAIL_LENGTH: number;
+  MAX_FEED_NAME_LENGTH: number;
+  MAX_FEED_RESPONSE_SIZE_BYTES: number;
+  MAX_JSON_BODY_BYTES: number;
+  MAX_SESSIONS_PER_USER: number;
+  MIN_ARTICLE_IMAGE_HEIGHT_PX: number;
+  MIN_ARTICLE_IMAGE_WIDTH_PX: number;
+  OPML_MAX_IMPORT_ENTRIES: number;
+  PASSWORD_COMPLEXITY_REQUIRED_TYPES: number;
+  PASSWORD_MAX_LENGTH: number;
+  PASSWORD_MIN_LENGTH: number;
+  RATE_LIMIT_EXTRACT_MAX_REQUESTS: number;
+  RATE_LIMIT_EXTRACT_WINDOW_MS: number;
+  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: number;
+  RATE_LIMIT_FEED_BATCH_WINDOW_MS: number;
+  RATE_LIMIT_FEED_MAX_REQUESTS: number;
+  RATE_LIMIT_FEED_WINDOW_MS: number;
+  RATE_LIMIT_LOGIN_MAX_ATTEMPTS: number;
+  RATE_LIMIT_LOGIN_WINDOW_MS: number;
+  RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS: number;
+  RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS: number;
+  RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: number;
+  RATE_LIMIT_SIGNUP_WINDOW_MS: number;
+  SESSION_DURATION_DAYS: number;
+}
+
 const resolveConfigValue = (key: string): unknown => {
   if (key === "LOG_LEVEL") {
-    return getLogLevel();
+    return envEnum("LOG_LEVEL", LOG_LEVEL_VALUES);
   }
 
   if (key.endsWith("_USER_AGENT") || key.endsWith("_ACCEPT")) {
@@ -140,66 +210,10 @@ const resolveConfigValue = (key: string): unknown => {
   return envNumber(key);
 };
 
-// CONFIG uses a Proxy for dynamic env key resolution. Each key returns a type
-// based on its suffix convention (_ENABLED → boolean, _MAX_ → number, etc.).
-// TypeScript cannot express per-key return types on runtime Proxy traps, so we
-// use a mapped type with known keys + an index signature fallback. This
-// satisfies the no-boundary-any requirement while preserving runtime flexibility.
-
-interface ConfigKeys {
-  DNS_CACHE_MAX_ENTRIES: number;
-
-  DNS_CACHE_TTL_MS: number;
-  DNS_LOOKUP_TIMEOUT_MS: number;
-  FEED_BATCH_CONCURRENCY: number;
-  FEED_BATCH_MAX_URLS: number;
-  FEED_CACHE_TTL_MINUTES: number;
-  FEED_FORCE_REFRESH_TTL_MINUTES: number;
-  // ── Booleans (suffix _ENABLED) ──
-  FEED_REFRESH_DIAGNOSTICS_ENABLED: boolean;
-  FEED_REQUEST_ACCEPT: string;
-  FEED_REQUEST_TIMEOUT_MS: number;
-  // ── Strings (user agent, accept headers) ──
-  FEED_REQUEST_USER_AGENT: string;
-  // ── Enum ──
-  LOG_LEVEL: "error" | "info" | "none" | "verbose" | "warn";
-  MAX_ALL_ARTICLES_LIMIT: number;
-  MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: number;
-  MAX_ARTICLE_CONTENT_LENGTH: number;
-  MAX_ARTICLE_TITLE_LENGTH: number;
-  MAX_ARTICLES_PER_FEED: number;
-  MAX_CATEGORY_NAME_LENGTH: number;
-  MAX_EMAIL_LENGTH: number;
-  MAX_FEED_NAME_LENGTH: number;
-  MAX_FEED_RESPONSE_SIZE_BYTES: number;
-  // ── Numbers (various suffixes) ──
-  MAX_JSON_BODY_BYTES: number;
-  MAX_SESSIONS_PER_USER: number;
-  MIN_ARTICLE_IMAGE_HEIGHT_PX: number;
-  MIN_ARTICLE_IMAGE_WIDTH_PX: number;
-  OPML_MAX_IMPORT_ENTRIES: number;
-  PASSWORD_COMPLEXITY_REQUIRED_TYPES: number;
-  PASSWORD_MAX_LENGTH: number;
-  PASSWORD_MIN_LENGTH: number;
-  RATE_LIMIT_AUTH_MAX_REQUESTS: number;
-  RATE_LIMIT_AUTH_WINDOW_MS: number;
-  RATE_LIMIT_EXTRACT_MAX_REQUESTS: number;
-  RATE_LIMIT_EXTRACT_WINDOW_MS: number;
-  RATE_LIMIT_FEED_BATCH_MAX_REQUESTS: number;
-  RATE_LIMIT_FEED_BATCH_WINDOW_MS: number;
-  RATE_LIMIT_FEED_MAX_REQUESTS: number;
-  RATE_LIMIT_FEED_WINDOW_MS: number;
-  RATE_LIMIT_LOGIN_MAX_ATTEMPTS: number;
-  RATE_LIMIT_LOGIN_WINDOW_MS: number;
-  RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS: number;
-  RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS: number;
-
-  RATE_LIMIT_SIGNUP_MAX_ATTEMPTS: number;
-  RATE_LIMIT_SIGNUP_WINDOW_MS: number;
-
-  SESSION_DURATION_DAYS: number;
-}
-
+/**
+ * Lazily-resolved server config. Every property access reads `process.env` at
+ * call time through the Proxy getter — no values are captured at module load.
+ */
 export const CONFIG = new Proxy<ConfigKeys & Record<string, unknown>>(
   {} as ConfigKeys & Record<string, unknown>,
   {

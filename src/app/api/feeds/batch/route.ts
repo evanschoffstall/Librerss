@@ -12,8 +12,6 @@ import {
 import { parseDateOrNull } from "@/lib/utils/dates";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
 
-const DIAG = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
-
 export interface BatchRouteDeps {
   fetchAndCacheFeedArticlesBatchFn?: typeof fetchAndCacheFeedArticlesBatch;
   getDbFn?: typeof getDb;
@@ -36,6 +34,7 @@ interface BatchUrlDescriptor {
 
 export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
   try {
+    const diagnosticsEnabled = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
     const requireMutableAuthenticatedUserForRoute =
       deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
     const user = await requireMutableAuthenticatedUserForRoute(request, {
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
         ? body.requestSource
         : "unspecified";
 
-    if (DIAG) {
+    if (diagnosticsEnabled) {
       logger.info("Feed batch request received", {
         forceRefresh,
         requestedUrlCount: urls.length,
@@ -103,7 +102,7 @@ export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
     const invalidUrlCount = requestUrls.length - normalizedUrls.length;
 
     if (normalizedUrls.length === 0) {
-      if (DIAG)
+      if (diagnosticsEnabled)
         logger.info(
           "Feed batch request had no valid URLs after normalization",
           { invalidUrlCount, userId: user.userId },
@@ -209,7 +208,7 @@ export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
       );
     }
 
-    if (DIAG) {
+    if (diagnosticsEnabled) {
       logger.info("Feed batch request completed", {
         forceRefresh,
         invalidUrlCount,

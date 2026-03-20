@@ -14,17 +14,6 @@ import { createSqlQueryExecutor } from "../src/lib/db/query-executor";
 
 const scrypt = promisify(scryptCallback);
 
-const DATABASE_URL = process.env.DATABASE_URL?.trim();
-
-if (!DATABASE_URL) {
-  console.error(
-    "ERROR: DATABASE_URL is not set.\n" +
-      "Create a .env.local file with:\n\n" +
-      '  DATABASE_URL="postgres://user:password@host:5432/dbname"\n',
-  );
-  process.exit(1);
-}
-
 const [email, password] = process.argv.slice(2);
 
 if (!email || !email.includes("@")) {
@@ -37,38 +26,56 @@ if (!password || password.length < 8) {
   process.exit(1);
 }
 
+function ensureDatabaseUrl(): void {
+  if (process.env.DATABASE_URL?.trim()) {
+    return;
+  }
+
+  console.error(
+    "ERROR: DATABASE_URL is not set.\n" +
+      "Create a .env.local file with:\n\n" +
+      '  DATABASE_URL="postgres://user:password@host:5432/dbname"\n',
+  );
+  process.exit(1);
+}
+
 async function hashPassword(pw: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const key = (await scrypt(pw, salt, 64)) as Buffer;
   return `${salt}:${key.toString("hex")}`;
 }
 
-const db = createSqlQueryExecutor();
+async function main(): Promise<void> {
+  ensureDatabaseUrl();
+  const db = createSqlQueryExecutor();
 
-try {
-  const existing = await db.query<{ id: number }>(
-    `SELECT id FROM "User" WHERE email = $1 LIMIT 1`,
-    [email.toLowerCase()],
-  );
+  try {
+    const existing = await db.query<{ id: number }>(
+      `SELECT id FROM "User" WHERE email = $1 LIMIT 1`,
+      [email.toLowerCase()],
+    );
 
-  if (existing.rowCount && existing.rowCount > 0) {
-    console.error(`ERROR: An account with ${email} already exists.`);
+    if (existing.rowCount && existing.rowCount > 0) {
+      console.error(`ERROR: An account with ${email} already exists.`);
+      process.exit(1);
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    const result = await db.query<{ email: string; id: number }>(
+      `INSERT INTO "User" (email, password_hash) VALUES ($1, $2) RETURNING id, email`,
+      [email.toLowerCase(), passwordHash],
+    );
+
+    const user = result.rows[0];
+    console.log(`Created user: ${user.email} (id: ${user.id})`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`ERROR: ${message}`);
     process.exit(1);
+  } finally {
+    await db.close();
   }
-
-  const passwordHash = await hashPassword(password);
-
-  const result = await db.query<{ email: string; id: number }>(
-    `INSERT INTO "User" (email, password_hash) VALUES ($1, $2) RETURNING id, email`,
-    [email.toLowerCase(), passwordHash],
-  );
-
-  const user = result.rows[0];
-  console.log(`Created user: ${user.email} (id: ${user.id})`);
-} catch (err) {
-  const message = err instanceof Error ? err.message : String(err);
-  console.error(`ERROR: ${message}`);
-  process.exit(1);
-} finally {
-  await db.close();
 }
+
+await main();

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { CONFIG, ENV } from "@/lib/config";
+import { CONFIG, isDevelopment } from "@/lib/config";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -37,6 +37,65 @@ describe("lib/config – envBooleanOptional", () => {
       expect(envBooleanOptional("TEST_BOOL_OPT_YES", false)).toBe(true);
     } finally {
       delete process.env.TEST_BOOL_OPT_YES;
+    }
+  });
+});
+
+describe("lib/config – lazy runtime access", () => {
+  test("isDevelopment resolves NODE_ENV at access time", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+
+    try {
+      process.env.NODE_ENV = "development";
+      expect(isDevelopment()).toBe(true);
+
+      process.env.NODE_ENV = "production";
+      expect(isDevelopment()).toBe(false);
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
+    }
+  });
+
+  test("CONFIG.MAX_JSON_BODY_BYTES reads process.env lazily", () => {
+    const previousMaxJsonBodyBytes = process.env.MAX_JSON_BODY_BYTES;
+
+    try {
+      process.env.MAX_JSON_BODY_BYTES = "12";
+      expect(CONFIG.MAX_JSON_BODY_BYTES).toBe(12);
+
+      process.env.MAX_JSON_BODY_BYTES = "24";
+      expect(CONFIG.MAX_JSON_BODY_BYTES).toBe(24);
+    } finally {
+      if (previousMaxJsonBodyBytes === undefined) {
+        delete process.env.MAX_JSON_BODY_BYTES;
+      } else {
+        process.env.MAX_JSON_BODY_BYTES = previousMaxJsonBodyBytes;
+      }
+    }
+  });
+
+  test("known server config keys are not captured at module load", async () => {
+    // Verify the Proxy defers to process.env at access time by reading a
+    // value, changing the env, and reading again — the second read must
+    // reflect the updated env.
+    const prev = process.env.SESSION_DURATION_DAYS;
+
+    try {
+      process.env.SESSION_DURATION_DAYS = "7";
+      expect(CONFIG.SESSION_DURATION_DAYS).toBe(7);
+
+      process.env.SESSION_DURATION_DAYS = "14";
+      expect(CONFIG.SESSION_DURATION_DAYS).toBe(14);
+    } finally {
+      if (prev === undefined) {
+        delete process.env.SESSION_DURATION_DAYS;
+      } else {
+        process.env.SESSION_DURATION_DAYS = prev;
+      }
     }
   });
 });
@@ -204,7 +263,7 @@ describe("config", () => {
     expect(CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS).toBeGreaterThan(0);
   });
 
-  test("ENV flags are booleans", () => {
-    expect(typeof ENV.isDevelopment).toBe("boolean");
+  test("isDevelopment returns a boolean", () => {
+    expect(typeof isDevelopment()).toBe("boolean");
   });
 });

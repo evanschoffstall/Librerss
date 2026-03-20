@@ -33,6 +33,15 @@ export interface SessionUser {
   userId: number;
 }
 
+function getBaseCookieOptions() {
+  return {
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+  };
+}
+
 /** Lazily resolved so the env read happens at call time, not at module load. */
 function getSessionDurationMs() {
   return 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
@@ -58,42 +67,9 @@ const hashSessionToken = (token: string) =>
 const SCRYPT_V1 = { N: 16384, p: 1, r: 8 } as const; // legacy (read-only)
 const SCRYPT_V2 = { N: 16384, p: 1, r: 8 } as const; // current — bump N when runtime allows
 
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex");
-  const key = await scrypt(password, salt, 64, SCRYPT_V2);
-  return `v2:${salt}:${key.toString("hex")}`;
-}
-
-export async function verifyPassword(
-  password: string,
-  storedHash: string,
-): Promise<boolean> {
-  // Detect hash version from the format prefix.
-  const isV2 = storedHash.startsWith("v2:");
-  const stripped = isV2 ? storedHash.slice(3) : storedHash;
-  const params = isV2 ? SCRYPT_V2 : SCRYPT_V1;
-
-  const [salt, keyHex] = stripped.split(":");
-  if (!salt || !keyHex) return false;
-
-  const derived = await scrypt(password, salt, 64, params);
-  const stored = Buffer.from(keyHex, "hex");
-
-  if (derived.length !== stored.length) return false;
-
-  return timingSafeEqual(derived, stored);
-}
-
-const baseCookieOptions = {
-  httpOnly: true,
-  path: "/",
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-};
-
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE_NAME, "", {
-    ...baseCookieOptions,
+    ...getBaseCookieOptions(),
     expires: new Date(0),
   });
 }
@@ -127,9 +103,11 @@ export async function createSession(userId: number): Promise<string> {
       .for("update");
 
     // If user has too many sessions, delete the oldest ones
-    if (userSessions.length >= CONFIG.MAX_SESSIONS_PER_USER) {
+    const maxSessionsPerUser = CONFIG.MAX_SESSIONS_PER_USER;
+
+    if (userSessions.length >= maxSessionsPerUser) {
       const idsToDelete = userSessions
-        .slice(0, userSessions.length - CONFIG.MAX_SESSIONS_PER_USER + 1)
+        .slice(0, userSessions.length - maxSessionsPerUser + 1)
         .map((s) => s.id);
 
       await tx.delete(sessions).where(inArray(sessions.id, idsToDelete));
@@ -204,11 +182,37 @@ export async function getUserFromSessionToken(
   return activeSessions[0] ?? null;
 }
 
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const key = await scrypt(password, salt, 64, SCRYPT_V2);
+  return `v2:${salt}:${key.toString("hex")}`;
+}
+
 export function setSessionCookie(response: NextResponse, token: string): void {
   response.cookies.set(SESSION_COOKIE_NAME, token, {
-    ...baseCookieOptions,
+    ...getBaseCookieOptions(),
     maxAge: getSessionDurationMs() / 1000,
   });
+}
+
+export async function verifyPassword(
+  password: string,
+  storedHash: string,
+): Promise<boolean> {
+  // Detect hash version from the format prefix.
+  const isV2 = storedHash.startsWith("v2:");
+  const stripped = isV2 ? storedHash.slice(3) : storedHash;
+  const params = isV2 ? SCRYPT_V2 : SCRYPT_V1;
+
+  const [salt, keyHex] = stripped.split(":");
+  if (!salt || !keyHex) return false;
+
+  const derived = await scrypt(password, salt, 64, params);
+  const stored = Buffer.from(keyHex, "hex");
+
+  if (derived.length !== stored.length) return false;
+
+  return timingSafeEqual(derived, stored);
 }
 
 // ── Shared credential authentication ─────────────────────────────────────────
