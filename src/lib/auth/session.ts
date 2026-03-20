@@ -1,6 +1,6 @@
 import type { NextRequest, NextResponse } from "next/server";
 
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   createHash,
   randomBytes,
@@ -94,17 +94,26 @@ export async function createSession(userId: number): Promise<string> {
   // Without this two simultaneous logins can both read count = N-1, skip
   // deletion, and insert — leaving N+1 sessions until the next login cleans up.
   await db.transaction(async (tx) => {
-    // Lock all existing sessions for this user before reading their count.
+    // Prune expired sessions for this user in the same transaction —
+    // prevents unbounded row accumulation from long-lived accounts.
+    await tx
+      .delete(sessions)
+      .where(
+        and(eq(sessions.userId, userId), sql`${sessions.expiresAt} <= now()`),
+      );
+
+    // Lock only the rows we might need to evict. The LIMIT caps the scan so
+    // users with many historical rows don't over-fetch.
+    const maxSessionsPerUser = CONFIG.MAX_SESSIONS_PER_USER;
     const userSessions = await tx
       .select({ id: sessions.id })
       .from(sessions)
       .where(eq(sessions.userId, userId))
       .orderBy(asc(sessions.createdAt))
+      .limit(maxSessionsPerUser)
       .for("update");
 
     // If user has too many sessions, delete the oldest ones
-    const maxSessionsPerUser = CONFIG.MAX_SESSIONS_PER_USER;
-
     if (userSessions.length >= maxSessionsPerUser) {
       const idsToDelete = userSessions
         .slice(0, userSessions.length - maxSessionsPerUser + 1)

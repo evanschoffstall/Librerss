@@ -319,19 +319,30 @@ const originalDbUrl = process.env.DATABASE_URL;
 
 function buildMockDb(state: {
   activeSessionRows: ActiveSessionRow[];
+  deleteExpiredSessionCalls: number;
   deleteOldSessionCalls: number;
   deleteSessionCalls: number;
   insertedSessionCalls: number;
   userRows: UserRow[];
   userSessions: SessionRow[];
 }) {
+  let txDeleteCallIndex = 0;
   const tx = {
-    delete: mock(() => ({
-      where: mock(async () => {
-        state.deleteOldSessionCalls += 1;
-        return [];
-      }),
-    })),
+    delete: mock(() => {
+      // First tx.delete is the expired-session cleanup; subsequent calls
+      // are the over-limit eviction path.
+      const callIndex = txDeleteCallIndex++;
+      return {
+        where: mock(async () => {
+          if (callIndex === 0) {
+            state.deleteExpiredSessionCalls += 1;
+          } else {
+            state.deleteOldSessionCalls += 1;
+          }
+          return [];
+        }),
+      };
+    }),
     insert: mock(() => ({
       values: mock(async () => {
         state.insertedSessionCalls += 1;
@@ -342,7 +353,9 @@ function buildMockDb(state: {
       from: mock(() => ({
         where: mock(() => ({
           orderBy: mock(() => ({
-            for: mock(async () => state.userSessions),
+            limit: mock(() => ({
+              for: mock(async () => state.userSessions),
+            })),
           })),
         })),
       })),
@@ -392,6 +405,7 @@ describe("session non-placeholder paths", () => {
   test("createSession enforces max sessions and inserts new session", async () => {
     const state = {
       activeSessionRows: [],
+      deleteExpiredSessionCalls: 0,
       deleteOldSessionCalls: 0,
       deleteSessionCalls: 0,
       insertedSessionCalls: 0,
@@ -409,6 +423,7 @@ describe("session non-placeholder paths", () => {
 
     expect(typeof token).toBe("string");
     expect(token.length).toBe(64);
+    expect(state.deleteExpiredSessionCalls).toBe(1);
     expect(state.deleteOldSessionCalls).toBe(1);
     expect(state.insertedSessionCalls).toBe(1);
   });
@@ -416,6 +431,7 @@ describe("session non-placeholder paths", () => {
   test("deleteSessionByToken executes delete query", async () => {
     const state = {
       activeSessionRows: [],
+      deleteExpiredSessionCalls: 0,
       deleteOldSessionCalls: 0,
       deleteSessionCalls: 0,
       insertedSessionCalls: 0,
@@ -437,6 +453,7 @@ describe("session non-placeholder paths", () => {
   test("getUserFromSessionToken returns null for empty token and DB miss", async () => {
     const state = {
       activeSessionRows: [],
+      deleteExpiredSessionCalls: 0,
       deleteOldSessionCalls: 0,
       deleteSessionCalls: 0,
       insertedSessionCalls: 0,
@@ -466,6 +483,7 @@ describe("session non-placeholder paths", () => {
           userId: 7,
         },
       ],
+      deleteExpiredSessionCalls: 0,
       deleteOldSessionCalls: 0,
       deleteSessionCalls: 0,
       insertedSessionCalls: 0,
@@ -501,6 +519,7 @@ describe("session non-placeholder paths", () => {
 
     const state = {
       activeSessionRows: [],
+      deleteExpiredSessionCalls: 0,
       deleteOldSessionCalls: 0,
       deleteSessionCalls: 0,
       insertedSessionCalls: 0,
