@@ -228,6 +228,7 @@
       "key": "junit",
       "enabled": true,
       "label": "junit",
+      "serialGroup": "coverage-tests",
       "tokens": {
         "lineCoverageThreshold": 85,
         "testTimeoutMs": 5000
@@ -263,6 +264,7 @@
       "key": "playwright",
       "enabled": true,
       "label": "playwright",
+      "serialGroup": "coverage-tests",
       "tokens": {
         "lineCoverageThreshold": 85
       },
