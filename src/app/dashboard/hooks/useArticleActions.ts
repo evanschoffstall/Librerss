@@ -1,36 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { toast } from "sonner";
 
 import { type Article, ArticleService, type CategoryTreeNode } from "@/lib";
 
 import { getArticleKey } from "../services/article-collection";
-import { toggleReadStatus } from "./article-toggle-state";
-import { getScrollLockReleaseMs } from "./feed-surface-scroll-lock";
 import {
+  escapeArticleKey,
   type FeedExtractionSettings,
   useArticleHydration,
 } from "./useArticleHydration";
 import { useArticleReadState } from "./useArticleReadState";
-import { useFeedScrollLock } from "./useFeedSurface";
 
 /**
  * Duration used to keep unread-filter removals mounted while the row exits.
- * Keeping this to roughly one frame preserves DOM continuity without leaving a
- * noticeable delay before the row is gone.
  */
-export const ARTICLE_REMOVAL_ANIMATION_MS = 16;
-export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 16;
-/**
- * Height-collapse duration for standard read-toggle removals.
- *
- * Long enough for the browser to gradually adjust scroll position instead of
- * clamping it in a single frame, which prevents the pull-to-refresh sentinel
- * from flashing into view when few articles remain.
- */
-export const ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS = 120;
+export const ARTICLE_REMOVAL_ANIMATION_MS = 180;
+export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 130;
+const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 900;
 export type ArticleRemovalAnimationMode =
   | "collapse"
   | "de-expanding"
@@ -50,11 +38,8 @@ interface UseArticleActionsOptions {
   distillStrategy?: string;
   expandedArticleKey: null | string;
   feed: Article[];
-  /** Called when any article begins expanding; settles scroll restore. */
-  onExpand?: () => void;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  suppressSnapRef?: React.RefObject<false | number>;
   usePlaceholderData?: boolean;
 }
 
@@ -62,7 +47,6 @@ interface UseArticleActionsOptions {
 export function getArticleRemovalAnimationDuration(
   mode: ArticleRemovalAnimationMode,
 ) {
-  if (mode === "collapse") return ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS;
   return mode === "de-expanding"
     ? ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS
     : ARTICLE_REMOVAL_ANIMATION_MS;
@@ -74,10 +58,8 @@ export function useArticleActions({
   distillStrategy,
   expandedArticleKey,
   feed,
-  onExpand,
   setExpandedArticleKey,
   setFeed,
-  suppressSnapRef,
   usePlaceholderData = false,
 }: UseArticleActionsOptions) {
   const {
@@ -111,7 +93,18 @@ export function useArticleActions({
   } = useArticleHydration({ distillStrategy, getFeedSettings, setFeed });
   const autoHydratedExpandedKeyRef = useRef<null | string>(null);
   const awaitingExpandedSyncKeyRef = useRef<null | string>(null);
+  const collapseRemovalTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  const collapseScrollRestoreCleanupRef = useRef<(() => void) | null>(null);
+  const preExpandArticleKeyRef = useRef<null | string>(null);
+  const preExpandScrollTopRef = useRef<null | number>(null);
+  const preExpandViewportRef = useRef<HTMLElement | null>(null);
   const previousDistillStrategyRef = useRef(distillStrategy);
+  const [isCollapseScrollRestoreActive, setIsCollapseScrollRestoreActive] =
+    useState(false);
+  const [collapsingArticles, setCollapsingArticles] =
+    useState<CollapsingArticles>({});
 
   // When the feed loads after a hot-reload or page refresh, the expandedArticleKey
   // is restored from sessionStorage but hydratedArticleLinks is in-memory only.
@@ -154,18 +147,159 @@ export function useArticleActions({
     hydrateArticleContent,
   ]);
 
-  const feedRef = useRef(feed);
-  feedRef.current = feed;
+  useEffect(() => {
+    const removalTimeouts = collapseRemovalTimeoutsRef.current;
 
-  const scrollLock = useFeedScrollLock(suppressSnapRef);
+    return () => {
+      setIsCollapseScrollRestoreActive(false);
+      collapseScrollRestoreCleanupRef.current?.();
+      collapseScrollRestoreCleanupRef.current = null;
+      for (const timeoutId of removalTimeouts.values()) {
+        clearTimeout(timeoutId);
+      }
+      removalTimeouts.clear();
+    };
+  }, []);
 
-  const collapseSettleTimeoutRef = useRef<null | number>(null);
-  const collapseRemovalTimeoutsRef = useRef(new Map<string, number>());
-  const [collapseSettlingArticleKey, setCollapseSettlingArticleKey] = useState<
-    null | string
-  >(null);
-  const [collapsingArticles, setCollapsingArticles] =
-    useState<CollapsingArticles>({});
+  const clearPreExpandSnapshot = useCallback(() => {
+    preExpandArticleKeyRef.current = null;
+    preExpandScrollTopRef.current = null;
+    preExpandViewportRef.current = null;
+  }, []);
+
+  const cancelCollapseScrollRestore = useCallback(() => {
+    collapseScrollRestoreCleanupRef.current?.();
+    collapseScrollRestoreCleanupRef.current = null;
+    setIsCollapseScrollRestoreActive(false);
+  }, []);
+
+  const capturePreExpandSnapshot = useCallback((article: Article) => {
+    const articleKey = getArticleKey(article);
+    const articleElement = document.querySelector<HTMLElement>(
+      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+    );
+    const viewport =
+      articleElement?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+      null;
+
+    if (!articleElement || !viewport) {
+      return;
+    }
+
+    preExpandArticleKeyRef.current = articleKey;
+    preExpandScrollTopRef.current = viewport.scrollTop;
+    preExpandViewportRef.current = viewport;
+  }, []);
+
+  const restoreCollapseScrollPosition = useCallback(
+    (articleKey: string) => {
+      const targetScrollTop =
+        preExpandArticleKeyRef.current === articleKey
+          ? preExpandScrollTopRef.current
+          : null;
+      const viewport =
+        preExpandArticleKeyRef.current === articleKey
+          ? preExpandViewportRef.current
+          : null;
+
+      if (targetScrollTop === null || !viewport) {
+        setIsCollapseScrollRestoreActive(false);
+        clearPreExpandSnapshot();
+        return;
+      }
+
+      cancelCollapseScrollRestore();
+      setIsCollapseScrollRestoreActive(true);
+
+      const releaseAt =
+        performance.now() +
+        ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
+        ARTICLE_SCROLL_RESTORE_BUFFER_MS;
+      let animationFrameId = 0;
+
+      const syncViewportScroll = () => {
+        viewport.scrollTop = targetScrollTop;
+
+        if (performance.now() >= releaseAt) {
+          viewport.scrollTop = targetScrollTop;
+          setIsCollapseScrollRestoreActive(false);
+          clearPreExpandSnapshot();
+          collapseScrollRestoreCleanupRef.current = null;
+          return;
+        }
+
+        animationFrameId = window.requestAnimationFrame(syncViewportScroll);
+      };
+
+      syncViewportScroll();
+
+      collapseScrollRestoreCleanupRef.current = () => {
+        if (animationFrameId !== 0) {
+          window.cancelAnimationFrame(animationFrameId);
+        }
+        setIsCollapseScrollRestoreActive(false);
+      };
+    },
+    [cancelCollapseScrollRestore, clearPreExpandSnapshot],
+  );
+
+  const clearRemovalAnimation = useCallback((articleKey: string) => {
+    const timeoutId = collapseRemovalTimeoutsRef.current.get(articleKey);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      collapseRemovalTimeoutsRef.current.delete(articleKey);
+    }
+
+    setCollapsingArticles((current) => {
+      if (!current[articleKey]) {
+        return current;
+      }
+
+      const { [articleKey]: _removed, ...rest } = current;
+      return rest;
+    });
+  }, []);
+
+  const startRemovalAnimation = useCallback(
+    (article: Article, mode: ArticleRemovalAnimationMode) => {
+      const articleKey = getArticleKey(article);
+      const index = feed.findIndex((candidate) => getArticleKey(candidate) === articleKey);
+
+      if (index < 0) {
+        return;
+      }
+
+      const timeoutId = collapseRemovalTimeoutsRef.current.get(articleKey);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      setCollapsingArticles((current) => ({
+        ...current,
+        [articleKey]: {
+          article,
+          index,
+          mode,
+        },
+      }));
+
+      collapseRemovalTimeoutsRef.current.set(
+        articleKey,
+        setTimeout(() => {
+          collapseRemovalTimeoutsRef.current.delete(articleKey);
+          setCollapsingArticles((current) => {
+            if (!current[articleKey]) {
+              return current;
+            }
+
+            const { [articleKey]: _removed, ...rest } = current;
+            return rest;
+          });
+        }, getArticleRemovalAnimationDuration(mode)),
+      );
+    },
+    [feed],
+  );
 
   useEffect(() => {
     if (previousDistillStrategyRef.current === distillStrategy) return;
@@ -191,139 +325,42 @@ export function useArticleActions({
     hydrateArticleContent,
   ]);
 
-  useEffect(
-    () => () => {
-      if (collapseSettleTimeoutRef.current !== null) {
-        window.clearTimeout(collapseSettleTimeoutRef.current);
-      }
-      for (const timeoutId of collapseRemovalTimeoutsRef.current.values()) {
-        window.clearTimeout(timeoutId);
-      }
-      collapseRemovalTimeoutsRef.current.clear();
-    },
-    [],
-  );
-
-  /** Keeps the feed surface stable while collapse scroll restoration settles. */
-  const stageCollapseSettling = useCallback((articleKey: string) => {
-    if (collapseSettleTimeoutRef.current !== null) {
-      window.clearTimeout(collapseSettleTimeoutRef.current);
-    }
-
-    setCollapseSettlingArticleKey(articleKey);
-    collapseSettleTimeoutRef.current = window.setTimeout(() => {
-      setCollapseSettlingArticleKey((current) =>
-        current === articleKey ? null : current,
-      );
-      collapseSettleTimeoutRef.current = null;
-    }, getScrollLockReleaseMs());
-  }, []);
-
-  const clearCollapseSettling = useCallback(() => {
-    if (collapseSettleTimeoutRef.current !== null) {
-      window.clearTimeout(collapseSettleTimeoutRef.current);
-      collapseSettleTimeoutRef.current = null;
-    }
-    setCollapseSettlingArticleKey(null);
-  }, []);
-
-  /** Clears every staged unread-removal so expand flows can start from rest. */
-  const clearRemovalAnimations = useCallback(() => {
-    for (const timeoutId of collapseRemovalTimeoutsRef.current.values()) {
-      window.clearTimeout(timeoutId);
-    }
-    collapseRemovalTimeoutsRef.current.clear();
-    setCollapsingArticles({});
-  }, []);
-
-  /** Keeps a soon-to-be-removed unread article mounted long enough to animate out. */
-  const startRemovalAnimation = useCallback(
-    (article: Article, mode: ArticleRemovalAnimationMode = "collapse") => {
-      const articleKey = getArticleKey(article);
-      const removalDuration = getArticleRemovalAnimationDuration(mode);
-      const existingTimeout = collapseRemovalTimeoutsRef.current.get(articleKey);
-      if (existingTimeout !== undefined) {
-        window.clearTimeout(existingTimeout);
-      }
-
-      const articleIndex = feedRef.current.findIndex(
-        (feedArticle) => getArticleKey(feedArticle) === articleKey,
-      );
-
-      setCollapsingArticles((current) => {
-        return {
-          ...current,
-          [articleKey]: {
-            article,
-            index: articleIndex >= 0 ? articleIndex : 0,
-            mode,
-          },
-        };
-      });
-
-      const timeoutId = window.setTimeout(() => {
-        collapseRemovalTimeoutsRef.current.delete(articleKey);
-        setCollapsingArticles((current) => {
-          if (!(articleKey in current)) {
-            return current;
-          }
-
-          const { [articleKey]: _removedArticle, ...remainingArticles } =
-            current;
-          return remainingArticles;
-        });
-      }, removalDuration);
-
-      collapseRemovalTimeoutsRef.current.set(articleKey, timeoutId);
-    },
-    [],
-  );
-
   const collapseExpandedArticle = useCallback(
     (
       article: Article,
       options?: {
-        animateRemoval?: boolean;
         animationMode?: ArticleRemovalAnimationMode;
         treatAsRead?: boolean;
       },
     ) => {
-      const nextArticleKey = getArticleKey(article);
-      const collapseRestoreTarget =
-        scrollLock.getCollapseRestoreTarget(nextArticleKey);
+      const articleKey = getArticleKey(article);
+
+      if (options?.treatAsRead && articleFilter === "unread") {
+        startRemovalAnimation(
+          article,
+          options.animationMode ?? "de-expanding",
+        );
+      } else {
+        clearRemovalAnimation(articleKey);
+      }
+
+      restoreCollapseScrollPosition(articleKey);
 
       setExpandedArticleKey((current) =>
-        current === nextArticleKey ? null : current,
+        current === articleKey ? null : current,
       );
       awaitingExpandedSyncKeyRef.current = null;
       autoHydratedExpandedKeyRef.current = null;
 
       const link = article.link.trim();
       if (link) cancelHydration(link);
-
-      scrollLock.activateCollapseLock(
-        collapseRestoreTarget.viewport,
-        collapseRestoreTarget.scrollTop,
-      );
-      stageCollapseSettling(nextArticleKey);
-
-      const shouldAnimateRemoval =
-        options?.animateRemoval !== false &&
-        articleFilter === "unread" &&
-        (options?.treatAsRead ?? article.isRead);
-      if (!shouldAnimateRemoval) return;
-
-      startRemovalAnimation(
-        article,
-        options?.animationMode ?? "de-expanding",
-      );
     },
     [
       articleFilter,
       cancelHydration,
-      scrollLock,
+      clearRemovalAnimation,
+      restoreCollapseScrollPosition,
       setExpandedArticleKey,
-      stageCollapseSettling,
       startRemovalAnimation,
     ],
   );
@@ -335,23 +372,17 @@ export function useArticleActions({
 
       if (isCollapsing) {
         collapseExpandedArticle(article, {
-          treatAsRead: articleFilter === "unread" ? true : undefined,
+          treatAsRead: articleFilter === "unread",
         });
         return;
       }
 
+      clearRemovalAnimation(nextArticleKey);
+      cancelCollapseScrollRestore();
+
       setExpandedArticleKey((current) =>
         current === nextArticleKey ? null : nextArticleKey,
       );
-
-      // Cancel any in-progress scroll pin / collapse removal.
-      clearRemovalAnimations();
-      clearCollapseSettling();
-      scrollLock.cancelLock();
-
-      onExpand?.();
-      scrollLock.activateExpandLock(nextArticleKey);
-
       if (!article.isRead && !updatingArticleState[nextArticleKey]) {
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
@@ -363,12 +394,10 @@ export function useArticleActions({
     },
     [
       articleFilter,
-      clearRemovalAnimations,
-      clearCollapseSettling,
+      cancelCollapseScrollRestore,
+      clearRemovalAnimation,
       collapseExpandedArticle,
       expandedArticleKey,
-      onExpand,
-      scrollLock,
       updatingArticleState,
       setExpandedArticleKey,
       setArticleReadState,
@@ -383,7 +412,6 @@ export function useArticleActions({
         void setArticleReadState(article, true, { suppressErrorToast: true });
       }
       collapseExpandedArticle(article, {
-        animateRemoval: true,
         animationMode: "swipe-read",
         treatAsRead: true,
       });
@@ -391,50 +419,29 @@ export function useArticleActions({
     [collapseExpandedArticle, setArticleReadState, updatingArticleState],
   );
 
-  /** Captures the pre-expand scroll position before pointer focus can move it. */
-  const prepareArticleExpand = useCallback(
-    (article: Article) => {
-      const articleKey = getArticleKey(article);
-      if (expandedArticleKey === articleKey) return;
-      scrollLock.capturePreExpandSnapshot(articleKey);
-    },
-    [expandedArticleKey, scrollLock],
-  );
-
-  /** Applies swipe-driven read toggles while using the off-screen exit animation. */
+  /** Applies swipe-driven read toggles immediately without staging a row exit. */
   const handleSwipeRead = useCallback(
     async (article: Article) => {
-      const nextReadState = toggleReadStatus(Boolean(article.isRead));
-      if (articleFilter === "unread" && nextReadState) {
-        flushSync(() => {
-          startRemovalAnimation(article, "swipe-read");
-        });
+      if (articleFilter === "unread" && !article.isRead) {
+        startRemovalAnimation(article, "swipe-read");
       }
+
       await toggleArticleReadState(article);
     },
-    [
-      articleFilter,
-      startRemovalAnimation,
-      toggleArticleReadState,
-    ],
+    [articleFilter, startRemovalAnimation, toggleArticleReadState],
   );
 
   /** Applies direct read toggles and stages unread-filter removals for exit motion. */
   const handleToggleReadState = useCallback(
     async (article: Article) => {
-      const nextReadState = toggleReadStatus(Boolean(article.isRead));
+      const nextReadState = !article.isRead;
       if (articleFilter === "unread" && nextReadState) {
-        flushSync(() => {
-          startRemovalAnimation(article);
-        });
+        startRemovalAnimation(article, "collapse");
       }
+
       await toggleArticleReadState(article);
     },
-    [
-      articleFilter,
-      startRemovalAnimation,
-      toggleArticleReadState,
-    ],
+    [articleFilter, startRemovalAnimation, toggleArticleReadState],
   );
 
   const handleToggleStarredState = useCallback(
@@ -492,7 +499,7 @@ export function useArticleActions({
   );
 
   return {
-    collapseSettlingArticleKey,
+    capturePreExpandSnapshot,
     collapsingArticles,
     handleArticleToggle,
     handleExpandedSwipeRead,
@@ -501,7 +508,7 @@ export function useArticleActions({
     handleToggleStarredState,
     hydratedArticleLinks,
     hydratingArticleLinks,
-    prepareArticleExpand,
+    isCollapseScrollRestoreActive,
     setArticleReadState,
     updatingArticleState,
   };

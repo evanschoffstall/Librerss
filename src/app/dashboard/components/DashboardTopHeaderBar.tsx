@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AuthService } from "@/lib/api/auth-service";
 import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
@@ -255,6 +256,21 @@ export function DashboardTopHeaderBar() {
         </div>
 
         <DropdownMenu>
+          <button
+            aria-label="Refresh selected feed"
+            className={`
+              ${toolbarBtnClass}
+              shrink-0
+              md:hidden
+            `}
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
+            }
+            type="button"
+          >
+            <RefreshCw className="size-4" />
+          </button>
+
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Open actions menu"
@@ -269,14 +285,6 @@ export function DashboardTopHeaderBar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={8}>
-            <DropdownMenuItem
-              onSelect={() =>
-                window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
-              }
-            >
-              <RefreshCw className="size-4" />
-              Refresh selected feed
-            </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isMarkingAllRead}
               onSelect={() =>
@@ -411,20 +419,24 @@ export function DashboardTopHeaderBar() {
 
           <span className="h-3 w-px bg-border" />
 
-          <button
-            aria-label={themeToggleLabel}
-            className={toolbarBtnClass}
-            onClick={() => {
-              setTheme(nextTheme);
-            }}
-            type="button"
-          >
-            {mounted && isDark ? (
-              <Sun className="size-4" />
-            ) : (
-              <Moon className="size-4" />
-            )}
-          </button>
+          {mounted ? (
+            <button
+              aria-label={themeToggleLabel}
+              className={toolbarBtnClass}
+              onClick={() => {
+                setTheme(nextTheme);
+              }}
+              type="button"
+            >
+              {isDark ? (
+                <Sun className="size-4" />
+              ) : (
+                <Moon className="size-4" />
+              )}
+            </button>
+          ) : (
+            <Skeleton className="size-4 rounded-full" />
+          )}
         </div>
       </div>
     </div>

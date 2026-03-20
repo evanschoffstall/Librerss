@@ -46,6 +46,7 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
               mx-auto w-full max-w-3xl px-2
               lg:max-w-none lg:px-4
             "
+            data-dashboard-width-link="feed"
           >
             <div
               className="
@@ -91,14 +92,9 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
                   {loading ? (
                     <MotionSpinner iconClassName="size-2.5" />
                   ) : (
-                    <motion.span
-                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                      className="inline-flex shrink-0"
-                      initial={{ opacity: 0, rotate: -20, scale: 0.9 }}
-                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                    >
+                    <span className="inline-flex shrink-0">
                       <RefreshCw className="size-2.5 shrink-0" />
-                    </motion.span>
+                    </span>
                   )}
                   {loading ? (
                     <Skeleton
