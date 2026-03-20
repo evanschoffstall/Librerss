@@ -1,8 +1,31 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import {
+  type ConsoleMessage,
+  expect,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
+const KNOWN_NON_RUNTIME_CONSOLE_ERROR_PATTERNS = [
+  /Cross-Origin-Opener-Policy header has been ignored/iu,
+  /va\.vercel-scripts\.com\/v1\/script\.debug\.js/iu,
+];
+const NEXT_JS_CONSOLE_ERROR_PATTERN =
+  /(?:Build Error|ChunkLoadError|Failed to compile|Runtime Error|Unhandled Runtime Error)/iu;
+const NEXT_JS_OVERLAY_ERROR_PATTERN =
+  /(?:Build Error|Runtime Error|Unhandled Runtime Error)/iu;
 const PLAYWRIGHT_SENTINEL_STORAGE_KEY = "librerss:playwright-sentinel";
+
+export interface NextJsErrorMonitor {
+  assertNoNextJsErrors: () => Promise<void>;
+  dispose: () => void;
+}
+
+interface NextJsErrorSignal {
+  source: "console" | "overlay" | "pageerror";
+  text: string;
+}
 
 /** Returns the indexed rendered article card within the explore feed. */
 export function articleCard(page: Page, index: number): Locator {
@@ -26,6 +49,61 @@ export function articleRowByKey(page: Page, articleKey: string): Locator {
   return page.locator(
     `xpath=//*[@data-scroll-restore-key=${toXPathStringLiteral(articleKey)}]`,
   );
+}
+
+/**
+ * Captures actual Next.js build/runtime failures without failing on expected
+ * local-development browser noise like HTTP COOP warnings.
+ */
+export function createNextJsErrorMonitor(page: Page): NextJsErrorMonitor {
+  const runtimeSignals: NextJsErrorSignal[] = [];
+
+  const handleConsoleMessage = (message: ConsoleMessage) => {
+    if (!shouldCaptureNextJsConsoleError(message)) {
+      return;
+    }
+
+    runtimeSignals.push({
+      source: "console",
+      text: normalizeRuntimeSignalText(message.text()),
+    });
+  };
+  const handlePageError = (error: Error) => {
+    runtimeSignals.push({
+      source: "pageerror",
+      text: normalizeRuntimeSignalText(error.stack ?? error.message),
+    });
+  };
+
+  page.on("console", handleConsoleMessage);
+  page.on("pageerror", handlePageError);
+
+  return {
+    async assertNoNextJsErrors() {
+      const nextJsPortalText = await readNextJsPortalText(page);
+      const collectedSignals = [...runtimeSignals];
+
+      if (NEXT_JS_OVERLAY_ERROR_PATTERN.test(nextJsPortalText)) {
+        collectedSignals.push({
+          source: "overlay",
+          text: nextJsPortalText,
+        });
+      }
+
+      expect(
+        collectedSignals,
+        collectedSignals.length === 0
+          ? undefined
+          : collectedSignals
+              .map((signal) => `[${signal.source}] ${signal.text}`)
+              .join("\n\n"),
+      ).toEqual([]);
+    },
+    dispose() {
+      page.off("console", handleConsoleMessage);
+      page.off("pageerror", handlePageError);
+    },
+  };
 }
 
 /** Opens the unauthenticated dashboard and enters preview mode through the UI. */
@@ -327,6 +405,30 @@ export async function toggleArticle(article: Locator) {
     .click({ position: { x: 32, y: 48 } });
 }
 
+/**
+ * Waits for the preview dashboard shell to render, finish document loading,
+ * and clear any visible article hydration placeholders.
+ */
+export async function waitForPreviewDashboardHydration(page: Page) {
+  await expectPreviewDashboard(page);
+  await page.waitForFunction(() => document.readyState === "complete");
+  await expect
+    .poll(async () => {
+      return await page.locator('[data-article-hydration-state="loading"]').count();
+    })
+    .toBe(0);
+}
+
+function isKnownNonRuntimeConsoleError(message: string) {
+  return KNOWN_NON_RUNTIME_CONSOLE_ERROR_PATTERNS.some((pattern) => {
+    return pattern.test(message);
+  });
+}
+
+function normalizeRuntimeSignalText(text: string) {
+  return text.replace(/\s+/gu, " ").trim();
+}
+
 /** Measures an article's top edge relative to its owning feed viewport. */
 async function readArticleTopWithinViewport(article: Locator) {
   return await article.evaluate((node) => {
@@ -337,6 +439,34 @@ async function readArticleTopWithinViewport(article: Locator) {
 
     return node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
   });
+}
+
+async function readNextJsPortalText(page: Page) {
+  return normalizeRuntimeSignalText(
+    await page.evaluate(() => {
+      const portal = document.querySelector("nextjs-portal");
+
+      if (!(portal instanceof HTMLElement)) {
+        return "";
+      }
+
+      return `${portal.textContent ?? ""} ${portal.shadowRoot?.textContent ?? ""}`;
+    }),
+  );
+}
+
+function shouldCaptureNextJsConsoleError(message: ConsoleMessage) {
+  if (message.type() !== "error") {
+    return false;
+  }
+
+  const text = normalizeRuntimeSignalText(message.text());
+
+  if (isKnownNonRuntimeConsoleError(text)) {
+    return false;
+  }
+
+  return NEXT_JS_CONSOLE_ERROR_PATTERN.test(text);
 }
 
 function toXPathStringLiteral(value: string) {
