@@ -3,13 +3,20 @@ import { Suspense } from "react";
 
 import type { AuthSession } from "@/lib/core/types";
 
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getUserFromSessionToken,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth/session";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 
-import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
+import {
+  DashboardFeedViewport,
+  DashboardScaffold,
+} from "./components/DashboardScaffold";
+import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
+import { DashboardTopBarSkeleton } from "./components/DashboardTopTokenBar";
+import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { LoginViewSkeleton } from "./components/login/LoginViewSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
 import {
@@ -48,7 +55,11 @@ export default async function Dashboard(props: DashboardPageProps) {
     <div className="h-dvh overflow-hidden overscroll-contain">
       <Suspense
         fallback={
-          showLoginSkeleton ? <LoginViewSkeleton /> : <DashboardShellSkeleton />
+          showLoginSkeleton ? (
+            <LoginViewSkeleton />
+          ) : (
+            <DashboardShellFallback />
+          )
         }
       >
         <DashboardRouter
@@ -69,6 +80,43 @@ function buildAnonymousSession(): AuthSession {
     usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
     user: null,
   };
+}
+
+/**
+ * Inline shell skeleton fallback that composes the native component skeletons
+ * through the same `DashboardScaffold` used by the hydrated dashboard.
+ */
+function DashboardShellFallback() {
+  return (
+    <main
+      aria-busy="true"
+      aria-label="Loading dashboard"
+      className="h-full overflow-hidden bg-background"
+    >
+      <div className="relative h-full overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="
+            pointer-events-none absolute top-1/2 size-64 -translate-y-1/2
+            rounded-full bg-primary/5 blur-3xl
+          "
+        />
+        <DashboardScaffold
+          feed={
+            <DashboardFeedViewport>
+              <FeedListSkeleton />
+            </DashboardFeedViewport>
+          }
+          sidebar={
+            <ScrollArea className="h-full">
+              <DashboardSidebarSkeleton />
+            </ScrollArea>
+          }
+          topBar={<DashboardTopBarSkeleton />}
+        />
+      </div>
+    </main>
+  );
 }
 
 /**

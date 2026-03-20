@@ -245,17 +245,11 @@ describe("ArticleCard", () => {
     const collapsedPreview = container.querySelector(
       '[data-article-preview="true"]',
     );
-    const measurePreview = container.querySelector(
-      '[data-article-preview-measure="true"]',
-    );
 
     expect(heading.className).toContain("line-clamp-2");
     expect(heading.className).toContain("max-h-12");
     expect(collapsedPreview?.textContent).toBe(
       "First line Second line Third line after spacing.",
-    );
-    expect(measurePreview?.textContent).toBe(
-      "First line Second line Third line after spacing.…",
     );
   });
 

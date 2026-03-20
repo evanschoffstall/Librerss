@@ -347,7 +347,7 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
-  test("handleArticleToggle schedules removal animation for read articles in unread filter", async () => {
+  test("handleArticleToggle collapses read articles in unread filter without staging a non-swipe removal", async () => {
     const article = createMockArticle({ isRead: true });
     const articleKey = "https://example.com/article";
     const setFeed = mock(() => {});
@@ -369,7 +369,7 @@ describe("useArticleActions - State Management", () => {
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
     expect(result.current.collapsingArticles).toEqual({
-      [articleKey]: {
+      [article.link]: {
         article,
         index: 0,
         mode: "de-expanding",
@@ -377,7 +377,7 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
-  test("handleArticleToggle treats expanded unread articles as read when collapsing in unread filter", async () => {
+  test("handleArticleToggle treats expanded unread articles as read when collapsing in unread filter without staging a non-swipe removal", async () => {
     const article = createMockArticle({
       id: 22,
       isRead: false,
@@ -435,7 +435,7 @@ describe("useArticleActions - State Management", () => {
     expect(feedState[0].isRead).toBe(true);
   });
 
-  test("handleToggleReadState stages unread-filter removals for animation", async () => {
+  test("handleToggleReadState updates unread-filter articles without staging a non-swipe removal", async () => {
     const article = createMockArticle({
       id: 12,
       isRead: false,
@@ -471,7 +471,7 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
-  test("handleSwipeRead stages unread-filter removals with the swipe animation", async () => {
+  test("handleSwipeRead updates unread-filter articles without staging a swipe-removal row", async () => {
     const article = createMockArticle({
       id: 13,
       isRead: false,
@@ -507,7 +507,7 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
-  test("handleSwipeRead stages the swipe removal before the status request settles", async () => {
+  test("handleSwipeRead updates read state before the status request settles without staging a swipe-removal row", async () => {
     let resolveStatusUpdate: (() => void) | undefined;
     ArticleService.updateArticleStatus = mock(
       () =>
@@ -618,7 +618,7 @@ describe("useArticleActions - State Management", () => {
     );
   });
 
-  test("collapsing an already-read expanded article stages the de-expansion hold", async () => {
+  test("collapsing an already-read expanded article clears expansion without staging the removed de-expansion hold", async () => {
     const article = createMockArticle({ isRead: true });
     const setFeed = mock(() => {});
     const setExpandedArticleKey = mock(() => {});
@@ -647,7 +647,7 @@ describe("useArticleActions - State Management", () => {
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
 
-  test("handleExpandedSwipeRead marks article read and collapses without toggling", async () => {
+  test("handleExpandedSwipeRead marks article read and collapses without staging a swipe-removal row", async () => {
     const article = createMockArticle({
       id: 11,
       isRead: false,
@@ -691,7 +691,7 @@ describe("useArticleActions - State Management", () => {
     expect(setExpandedArticleKey).toHaveBeenCalled();
   });
 
-  test("tracks overlapping unread-removal animations independently", async () => {
+  test("tracks overlapping swipe reads without staging retained removal rows", async () => {
     const firstArticle = createMockArticle({
       id: 31,
       isRead: false,
