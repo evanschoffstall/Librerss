@@ -25,9 +25,7 @@ interface LegalDeploymentProfile {
 
 type LegalProfile = (typeof LEGAL_PROFILES)[number];
 
-const trimOptionalEnv = (key: string): string | undefined => {
-  const rawValue = process.env[key];
-
+const trimOptionalEnv = (rawValue: string | undefined): string | undefined => {
   if (rawValue === undefined) {
     return undefined;
   }
@@ -38,9 +36,10 @@ const trimOptionalEnv = (key: string): string | undefined => {
 
 const readOptionalDisplayEnv = (
   key: string,
+  rawValue: string | undefined,
   maximumLength: number,
 ): string | undefined => {
-  const value = trimOptionalEnv(key);
+  const value = trimOptionalEnv(rawValue);
 
   if (value === undefined) {
     return undefined;
@@ -55,8 +54,11 @@ const readOptionalDisplayEnv = (
   return value;
 };
 
-const readOptionalEmailEnv = (key: string): string | undefined => {
-  const value = trimOptionalEnv(key);
+const readOptionalEmailEnv = (
+  key: string,
+  rawValue: string | undefined,
+): string | undefined => {
+  const value = trimOptionalEnv(rawValue);
 
   if (value === undefined) {
     return undefined;
@@ -70,7 +72,7 @@ const readOptionalEmailEnv = (key: string): string | undefined => {
 };
 
 const readLegalProfile = (): LegalProfile => {
-  const rawValue = trimOptionalEnv("LEGAL_PROFILE")?.toLowerCase();
+  const rawValue = trimOptionalEnv(process.env.LEGAL_PROFILE)?.toLowerCase();
 
   if (rawValue === undefined) {
     return "generic";
@@ -92,17 +94,28 @@ const readLegalProfile = (): LegalProfile => {
 export const getLegalDeploymentProfile = (): LegalDeploymentProfile => {
   const profile = readLegalProfile();
   const deploymentName =
-    readOptionalDisplayEnv("LEGAL_DEPLOYMENT_NAME", 80) ??
+    readOptionalDisplayEnv(
+      "LEGAL_DEPLOYMENT_NAME",
+      process.env.LEGAL_DEPLOYMENT_NAME,
+      80,
+    ) ??
     (profile === "official"
       ? DEFAULT_OFFICIAL_DEPLOYMENT_NAME
       : DEFAULT_GENERIC_DEPLOYMENT_NAME);
   const operatorName =
-    readOptionalDisplayEnv("LEGAL_OPERATOR_NAME", 80) ??
+    readOptionalDisplayEnv(
+      "LEGAL_OPERATOR_NAME",
+      process.env.LEGAL_OPERATOR_NAME,
+      80,
+    ) ??
     (profile === "official" ? DEFAULT_OFFICIAL_OPERATOR_NAME : undefined);
 
   return {
     deploymentName,
-    operatorContactEmail: readOptionalEmailEnv("OPERATOR_CONTACT_EMAIL"),
+    operatorContactEmail: readOptionalEmailEnv(
+      "OPERATOR_CONTACT_EMAIL",
+      process.env.OPERATOR_CONTACT_EMAIL,
+    ),
     operatorName,
     profile,
   };
