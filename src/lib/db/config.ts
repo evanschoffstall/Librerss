@@ -1,4 +1,5 @@
 import { envBooleanOptional } from "@/lib/config";
+import { normalizePostgresConnectionString } from "@/lib/db/connection-string";
 
 /** Supported runtime database drivers for the application. */
 type DbDriver = "neon" | "pg";
@@ -16,7 +17,9 @@ export function assertDatabaseConfigured(): void {
   }
 }
 
-/** Reads and validates DATABASE_URL for all database entrypoints. */
+/**
+ * Reads, validates, and normalizes DATABASE_URL for pg-compatible entrypoints.
+ */
 export function getConnectionString(): string {
   const connectionString = process.env.DATABASE_URL?.trim();
   if (!connectionString) {
@@ -26,7 +29,7 @@ export function getConnectionString(): string {
     );
   }
 
-  return connectionString;
+  return normalizePostgresConnectionString(connectionString);
 }
 
 /** Selects the database driver, defaulting to the existing node-postgres path. */
