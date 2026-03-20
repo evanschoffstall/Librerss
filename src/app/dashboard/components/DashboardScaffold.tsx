@@ -4,8 +4,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DashboardFeedViewportProps {
   children: React.ReactNode;
-  feedWrapperRef?: React.Ref<HTMLDivElement>;
-  pullSentinel?: React.ReactNode;
   scrollAreaRef?: ComponentPropsWithRef<typeof ScrollArea>["ref"];
 }
 
@@ -23,8 +21,6 @@ interface DashboardScaffoldProps {
  */
 export function DashboardFeedViewport({
   children,
-  feedWrapperRef,
-  pullSentinel,
   scrollAreaRef,
 }: DashboardFeedViewportProps) {
   return (
@@ -37,8 +33,13 @@ export function DashboardFeedViewport({
       "
       ref={scrollAreaRef}
     >
-      <div className="w-full min-w-0 p-1" ref={feedWrapperRef}>
-        {pullSentinel}
+      <div
+        className="
+          mx-auto w-full max-w-3xl min-w-0 px-2 py-1
+          lg:max-w-none lg:px-4
+        "
+        data-dashboard-width-link="feed"
+      >
         {children}
       </div>
     </ScrollArea>

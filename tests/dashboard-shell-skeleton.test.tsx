@@ -1,7 +1,48 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { DashboardShellSkeleton } from "@/app/dashboard/components/DashboardShellSkeleton";
+import {
+  DashboardFeedViewport,
+  DashboardScaffold,
+} from "@/app/dashboard/components/DashboardScaffold";
+import { DashboardSidebarSkeleton } from "@/app/dashboard/components/DashboardSidebarContent";
+import { DashboardTopBarSkeleton } from "@/app/dashboard/components/DashboardTopTokenBar";
+import { FeedListSkeleton } from "@/app/dashboard/components/feed/FeedListSkeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+/** Constructs the same shell skeleton composition used by page.tsx and DashboardRouter. */
+function DashboardShellSkeleton() {
+  return (
+    <main
+      aria-busy="true"
+      aria-label="Loading dashboard"
+      className="h-full overflow-hidden bg-background"
+    >
+      <div className="relative h-full overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="
+            pointer-events-none absolute top-1/2 size-64 -translate-y-1/2
+            rounded-full bg-primary/5 blur-3xl
+          "
+        />
+        <DashboardScaffold
+          feed={
+            <DashboardFeedViewport>
+              <FeedListSkeleton />
+            </DashboardFeedViewport>
+          }
+          sidebar={
+            <ScrollArea className="h-full">
+              <DashboardSidebarSkeleton />
+            </ScrollArea>
+          }
+          topBar={<DashboardTopBarSkeleton />}
+        />
+      </div>
+    </main>
+  );
+}
 
 describe("DashboardShellSkeleton", () => {
   test("matches the full dashboard shell width while loading", () => {
@@ -20,9 +61,6 @@ describe("DashboardShellSkeleton", () => {
         '[data-dashboard-top-bar-filter-skeleton="true"]',
       ),
     ).toHaveLength(4);
-    expect(
-      container.querySelector('[data-dashboard-pull-sentinel-skeleton="true"]'),
-    ).toBeTruthy();
     expect(
       container.querySelectorAll('[data-dashboard-article-skeleton="true"]'),
     ).toHaveLength(4);

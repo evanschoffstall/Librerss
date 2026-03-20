@@ -71,9 +71,6 @@ describe("dashboard preview mode", () => {
       StarsBackground: () => <div data-testid="bg-stars" />,
       StarsBackgroundLight: () => <div data-testid="bg-stars-light" />,
     }));
-    mock.module("@/app/dashboard/components/DashboardShellSkeleton", () => ({
-      DashboardShellSkeleton: () => <div data-testid="dashboard-skeleton" />,
-    }));
     mock.module("@/app/dashboard/components/login/LoginView", () => ({
       LoginView: () => <div data-testid="login-view" />,
     }));

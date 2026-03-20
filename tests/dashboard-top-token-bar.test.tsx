@@ -1,9 +1,32 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
+import { DashboardFeedViewport } from "@/app/dashboard/components/DashboardScaffold";
 import { DashboardTopTokenBar } from "@/app/dashboard/components/DashboardTopTokenBar";
 
 describe("DashboardTopTokenBar", () => {
+  test("shares the feed-width CSS contract with the article viewport", () => {
+    const { container } = render(
+      <>
+        <DashboardTopTokenBar
+          articleFilter="unread"
+          lastRefreshLabel="just now"
+          loading={false}
+          onArticleFilterChange={() => {}}
+        />
+        <DashboardFeedViewport>
+          <div>Feed</div>
+        </DashboardFeedViewport>
+      </>,
+    );
+
+    const linkedWidthSurfaces = container.querySelectorAll(
+      '[data-dashboard-width-link="feed"]',
+    );
+
+    expect(linkedWidthSurfaces).toHaveLength(2);
+  });
+
   test("shows the Motion spinner while the refresh label is skeletoning", () => {
     const { container, getByLabelText, queryByText, rerender } = render(
       <DashboardTopTokenBar
