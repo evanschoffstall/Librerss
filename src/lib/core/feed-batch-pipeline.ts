@@ -283,7 +283,7 @@ export async function queryTopArticlesPerFeed(
              LEFT(
                regexp_replace(
                  regexp_replace(sub.content, '<[^>]+>', ' ', 'gi'),
-                 '\s+',
+                 '\\s+',
                  ' ',
                  'g'
                ),

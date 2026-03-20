@@ -1,10 +1,10 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
-import { motion } from "motion/react";
 import { memo } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 import {
   ARTICLE_FILTER_OPTIONS,
@@ -12,12 +12,80 @@ import {
 } from "../services/article-filters";
 import { MotionSpinner } from "./MotionSpinner";
 
+const TOP_BAR_FILTER_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
+
 /** Presentation props for the dashboard token bar controls and refresh status. */
 interface DashboardTopTokenBarProps {
   articleFilter: ArticleFilter;
   lastRefreshLabel: string;
   loading: boolean;
   onArticleFilterChange: (value: ArticleFilter) => void;
+}
+
+/** Top-bar loading skeleton aligned with the dashboard filter strip. */
+export function DashboardTopBarSkeleton() {
+  return (
+    <div
+      className="sticky top-0 z-40 shrink-0 py-1"
+      data-dashboard-top-bar-skeleton="true"
+    >
+      <div className="flex items-center gap-0">
+        <div
+          className="
+            hidden
+            lg:block lg:w-[220px] lg:shrink-0
+          "
+        />
+        <div
+          className="
+            flex-1
+            lg:min-w-0
+          "
+        >
+          <div
+            className="
+              mx-auto w-full max-w-3xl px-2
+              lg:max-w-none lg:px-4
+            "
+            data-dashboard-top-bar-skeleton-surface="true"
+          >
+            <div
+              className="
+                rounded-xl border border-border/60 bg-card/75 px-2
+                backdrop-blur-sm
+              "
+            >
+              <div className="flex min-h-8 items-center gap-2">
+                {TOP_BAR_FILTER_SKELETON_WIDTHS.map((widthClassName) => (
+                  <Skeleton
+                    className={cn("h-5 rounded-full", widthClassName)}
+                    data-dashboard-top-bar-filter-skeleton="true"
+                    key={widthClassName}
+                  />
+                ))}
+
+                <span
+                  aria-live="polite"
+                  className="
+                    ml-auto flex items-center gap-1.5 text-right text-[11px]
+                    whitespace-nowrap text-muted-foreground/50 select-none
+                  "
+                >
+                  <Skeleton className="size-2.5 rounded-full" />
+                  <Skeleton
+                    aria-label="Refreshing"
+                    className="
+                      inline-block h-[11px] w-12 rounded-sm align-middle
+                    "
+                  />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
@@ -46,6 +114,7 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
               mx-auto w-full max-w-3xl px-2
               lg:max-w-none lg:px-4
             "
+            data-dashboard-width-link="feed"
           >
             <div
               className="
@@ -91,14 +160,9 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
                   {loading ? (
                     <MotionSpinner iconClassName="size-2.5" />
                   ) : (
-                    <motion.span
-                      animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                      className="inline-flex shrink-0"
-                      initial={{ opacity: 0, rotate: -20, scale: 0.9 }}
-                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                    >
+                    <span className="inline-flex shrink-0">
                       <RefreshCw className="size-2.5 shrink-0" />
-                    </motion.span>
+                    </span>
                   )}
                   {loading ? (
                     <Skeleton

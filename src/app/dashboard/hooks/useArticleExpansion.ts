@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ExpansionPhase =
   | "collapsed"
@@ -9,13 +9,14 @@ type ExpansionPhase =
   | "expanding"
   | "loading";
 
+const ARTICLE_EXPAND_DURATION_MS = 160;
+const ARTICLE_COLLAPSE_DURATION_MS = 130;
+
 /**
  * Coordinates the article body's expand and collapse state contract.
  *
- * The card still uses the richer phase model so loading, expanded, and
- * collapse rendering all preserve the previous hydration behavior. Motion
- * timings are now zeroed elsewhere, so these phases settle immediately in
- * practice while keeping the old rendering semantics intact.
+ * The card keeps a richer phase model so hydration, expand, and collapse can
+ * animate while preserving the prior rendering semantics.
  */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
@@ -24,45 +25,52 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [expandTransitionDone, setExpandTransitionDone] = useState(
     isExpanded && !isHydrating,
   );
+  const settleTimeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
+    return () => {
+      if (settleTimeoutRef.current) {
+        clearTimeout(settleTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (settleTimeoutRef.current) {
+      clearTimeout(settleTimeoutRef.current);
+      settleTimeoutRef.current = null;
+    }
+
     if (isExpanded) {
       if (isHydrating) {
         setPhase("loading");
         setExpandTransitionDone(false);
       } else {
         setPhase((current) => (current === "expanded" ? current : "expanding"));
-        setExpandTransitionDone((current) =>
-          phase === "expanded" ? current : false,
-        );
+        setExpandTransitionDone(false);
+        settleTimeoutRef.current = setTimeout(() => {
+          setPhase("expanded");
+          setExpandTransitionDone(true);
+        }, ARTICLE_EXPAND_DURATION_MS);
       }
     } else {
-      setPhase((current) =>
-        current === "expanded" ||
-        current === "expanding" ||
-        current === "loading"
-          ? "collapsing"
-          : "collapsed",
-      );
+      setPhase((current) => {
+        if (
+          current === "expanded" ||
+          current === "expanding" ||
+          current === "loading"
+        ) {
+          settleTimeoutRef.current = setTimeout(() => {
+            setPhase("collapsed");
+          }, ARTICLE_COLLAPSE_DURATION_MS);
+          return "collapsing";
+        }
+
+        return "collapsed";
+      });
       setExpandTransitionDone(false);
     }
-  }, [isExpanded, isHydrating, phase]);
-
-  const onBodyAnimationComplete = useCallback(() => {
-    if (!isExpanded) {
-      setPhase((current) => (current === "collapsing" ? "collapsed" : current));
-      return;
-    }
-
-    if (isHydrating) {
-      return;
-    }
-
-    setPhase((current) =>
-      current === "expanding" || current === "loading" ? "expanded" : current,
-    );
-    setExpandTransitionDone(true);
   }, [isExpanded, isHydrating]);
 
-  return { expandTransitionDone, onBodyAnimationComplete, phase };
+  return { expandTransitionDone, phase };
 }

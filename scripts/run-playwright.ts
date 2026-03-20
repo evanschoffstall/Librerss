@@ -4,11 +4,17 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
+import {
+  buildPlaywrightBaseUrl,
+  DEFAULT_PLAYWRIGHT_HOST,
+  DEFAULT_PLAYWRIGHT_PORT,
+} from "./playwright-base-url";
+
 const PLAYWRIGHT_COVERAGE_ENABLED =
   process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_OUTPUT_DIR ?? "coverage/playwright-raw";
-const PLAYWRIGHT_HOST = "127.0.0.1";
+const PLAYWRIGHT_HOST = DEFAULT_PLAYWRIGHT_HOST;
 const PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH = join(
   process.cwd(),
   "scripts",
@@ -17,7 +23,7 @@ const PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH = join(
 const PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY =
   ".cache/playwright-runtime";
 const PLAYWRIGHT_PORT_START = Number.parseInt(
-  process.env.PLAYWRIGHT_PORT_START ?? "3100",
+  process.env.PLAYWRIGHT_PORT_START ?? String(DEFAULT_PLAYWRIGHT_PORT),
   10,
 );
 const PLAYWRIGHT_SERVER_TIMEOUT_MS = Number.parseInt(
@@ -355,6 +361,7 @@ async function main() {
 
     testProcess = startPlaywrightTestRun(
       server.baseURL,
+      server.port,
       forwardedArguments,
       rawCoverageOutputDir,
       runId,
@@ -479,7 +486,7 @@ function startPlaywrightDevServer(
   const outputMirror = createOutputMirror(child);
 
   return {
-    baseURL: `http://${PLAYWRIGHT_HOST}:${port}`,
+    baseURL: buildPlaywrightBaseUrl(PLAYWRIGHT_HOST, port),
     getRecentOutput: outputMirror.getRecentOutput,
     port,
     process: child,
@@ -490,6 +497,7 @@ function startPlaywrightDevServer(
 /** Runs the Playwright CLI with the dynamically selected base URL. */
 function startPlaywrightTestRun(
   baseURL: string,
+  port: number,
   forwardedArguments: string[],
   rawCoverageOutputDir: string,
   runId: string,
@@ -500,10 +508,12 @@ function startPlaywrightTestRun(
       ...process.env,
       PLAYWRIGHT_BASE_URL: baseURL,
       PLAYWRIGHT_COVERAGE_OUTPUT_DIR: rawCoverageOutputDir,
+      PLAYWRIGHT_HOST,
       PLAYWRIGHT_HTML_REPORT_DIR:
         process.env.PLAYWRIGHT_HTML_REPORT_DIR ?? `playwright-report/${runId}`,
       PLAYWRIGHT_OUTPUT_DIR:
         process.env.PLAYWRIGHT_OUTPUT_DIR ?? `test-results/playwright/${runId}`,
+      PLAYWRIGHT_PORT: String(port),
     },
     stdio: "inherit",
   });

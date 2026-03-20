@@ -7,6 +7,7 @@ import { type ReactNode, Suspense, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
 import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Provides the app-wide theme context along with shared floating UI such as
@@ -155,25 +156,29 @@ function ThemeModeToggle() {
 
   return (
     <div className="fixed top-4 right-6 z-50">
-      <button
-        aria-label={`Switch to ${nextTheme} mode`}
-        className="
-          text-muted-foreground transition-colors duration-200
-          hover:text-foreground
-          focus-visible:ring-2 focus-visible:ring-ring
-          focus-visible:outline-none
-        "
-        onClick={() => {
-          setTheme(nextTheme);
-        }}
-        type="button"
-      >
-        {mounted && isDark ? (
-          <Sun className="size-4" />
-        ) : (
-          <Moon className="size-4" />
-        )}
-      </button>
+      {mounted ? (
+        <button
+          aria-label={`Switch to ${nextTheme} mode`}
+          className="
+            text-muted-foreground transition-colors duration-200
+            hover:text-foreground
+            focus-visible:ring-2 focus-visible:ring-ring
+            focus-visible:outline-none
+          "
+          onClick={() => {
+            setTheme(nextTheme);
+          }}
+          type="button"
+        >
+          {isDark ? (
+            <Sun className="size-4" />
+          ) : (
+            <Moon className="size-4" />
+          )}
+        </button>
+      ) : (
+        <Skeleton className="size-4 rounded-full" />
+      )}
     </div>
   );
 }

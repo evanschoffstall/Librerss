@@ -38,6 +38,7 @@ import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
 const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
+
 interface SettingsModalProps extends SettingsDisplaySectionProps {
   categories: CategoryTreeNode[];
   categoryOptions: string[];
@@ -98,10 +99,8 @@ function SettingsBody({
   onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
-  onPageSizeChange,
   onRemoveCategory,
   onShowFaviconsChange,
-  pageSize,
   pendingCategoryRemovalLabel,
   showFavicons,
   state,
@@ -122,9 +121,7 @@ function SettingsBody({
         onAutoRefreshIntervalMinutesChange={onAutoRefreshIntervalMinutesChange}
         onBackgroundModeChange={onBackgroundModeChange}
         onDistillStrategyChange={onDistillStrategyChange}
-        onPageSizeChange={onPageSizeChange}
         onShowFaviconsChange={onShowFaviconsChange}
-        pageSize={pageSize}
         showFavicons={showFavicons}
       />
 
@@ -252,7 +249,6 @@ export const SettingsModal = ({
   onDropCategory,
   onDropFeed,
   onImportOpml,
-  onPageSizeChange,
   onRemoveCategory,
   onRemoveFeed,
   onRenameCategory,
@@ -260,7 +256,6 @@ export const SettingsModal = ({
   onSetFeedEnabled,
   onShowFaviconsChange,
   onUpdateFeedSettings,
-  pageSize,
   pendingCategoryRemovalLabel,
   selectedCategory,
   showFavicons,
@@ -295,10 +290,8 @@ export const SettingsModal = ({
     onAutoRefreshIntervalMinutesChange,
     onBackgroundModeChange,
     onDistillStrategyChange,
-    onPageSizeChange,
     onRemoveCategory,
     onShowFaviconsChange,
-    pageSize,
     pendingCategoryRemovalLabel,
     showFavicons,
     state,

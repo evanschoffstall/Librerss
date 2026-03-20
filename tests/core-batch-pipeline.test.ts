@@ -59,3 +59,21 @@ test("buildRefreshPlan returns per-feed refresh decisions", () => {
     },
   ]);
 });
+
+// Regression test: \s in a JS template literal is cooked to "s" by Drizzle's sql
+// tag, so the regex sent to PostgreSQL becomes 's+' — matching ALL lowercase 's'
+// and replacing them with spaces instead of collapsing whitespace.
+// The fix is '\\s+' (escaped backslash) which sends '\s+' to PostgreSQL.
+test("SQL whitespace-collapse regex escaping does not strip lowercase s", () => {
+  const { sql } = require("drizzle-orm") as typeof import("drizzle-orm");
+
+  // Simulate the actual pattern from queryTopArticlesPerFeed
+  const q = sql`regexp_replace(content, '\\s+', ' ', 'g')`;
+  // Access query chunks via Drizzle's internal structure
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = JSON.stringify((q as any).queryChunks);
+
+  // The SQL must contain literal '\s+' (with backslash) not 's+'
+  expect(raw).toContain("\\\\s+");
+  expect(raw).not.toMatch(/'s\+'/);
+});

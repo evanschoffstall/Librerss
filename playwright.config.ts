@@ -3,12 +3,15 @@ import type { ReporterDescription } from "@playwright/test";
 import { defineConfig, devices } from "@playwright/test";
 import { availableParallelism } from "node:os";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100";
+import { resolvePlaywrightBaseUrl } from "./scripts/playwright-base-url";
+
+const baseURL = resolvePlaywrightBaseUrl();
 const htmlReportDir =
   process.env.PLAYWRIGHT_HTML_REPORT_DIR ?? "playwright-report";
 const includeMobileWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
 const isCoverageRun = process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const junitReportPath = process.env.PLAYWRIGHT_JUNIT_REPORT_PATH?.trim();
+const nextJsRuntimePreflightSpec = "**/dashboard-runtime-preflight.e2e.ts";
 const outputDir =
   process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results/playwright";
 const workerOverride = process.env.PLAYWRIGHT_WORKERS?.trim();
@@ -58,13 +61,23 @@ export default defineConfig({
   outputDir,
   projects: [
     {
+      name: "dashboard-preflight",
+      testMatch: nextJsRuntimePreflightSpec,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL,
+      },
+    },
+    {
+      dependencies: ["dashboard-preflight"],
       name: "chromium",
-      testIgnore: "**/*.mobile.e2e.ts",
+      testIgnore: [nextJsRuntimePreflightSpec, "**/*.mobile.e2e.ts"],
       use: {
         ...devices["Desktop Chrome"],
       },
     },
     {
+      dependencies: ["dashboard-preflight"],
       name: "mobile-chromium",
       testMatch: "**/*.mobile.e2e.ts",
       use: {
@@ -75,6 +88,7 @@ export default defineConfig({
     ...(includeMobileWebKit
       ? [
           {
+            dependencies: ["dashboard-preflight"],
             name: "mobile-webkit",
             testMatch: "**/*.mobile.e2e.ts",
             use: {

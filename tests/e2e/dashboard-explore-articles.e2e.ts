@@ -53,7 +53,7 @@ test.describe("dashboard explore article interactions", () => {
 
     const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
     const articleKey = await readArticleKey(articleCard(page, 7));
-  const article = articleCardByKey(page, articleKey);
+    const article = articleCardByKey(page, articleKey);
 
     await article.scrollIntoViewIfNeeded();
     await toggleArticle(article);
@@ -134,5 +134,61 @@ test.describe("dashboard explore article interactions", () => {
       await toggleArticle(article);
       await expectArticleExpanded(article, false);
     }
+  });
+
+  test("keeps an expanded article header sticky at the top of the feed viewport while the article scrolls", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard?explore=1");
+    await expectPreviewDashboard(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const article = articleCard(page, 0);
+
+    await toggleArticle(article);
+    await expectArticleExpanded(article, true);
+
+    const readExpandedOffsets = async () => {
+      return await article.evaluate((node) => {
+        const header = node.querySelector("[data-article-swipe-zone='header']");
+        const viewport = node.closest("[data-radix-scroll-area-viewport]");
+
+        if (
+          !(header instanceof HTMLElement) ||
+          !(node instanceof HTMLElement) ||
+          !(viewport instanceof HTMLElement)
+        ) {
+          throw new Error("Expected expanded article header and viewport to be present.");
+        }
+
+        const articleRect = node.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        const viewportRect = viewport.getBoundingClientRect();
+
+        return {
+          articleTop: articleRect.top,
+          headerTop: headerRect.top,
+          relativeTop: headerRect.top - articleRect.top,
+          viewportTop: viewportRect.top,
+        };
+      });
+    };
+
+    const beforeScroll = await readExpandedOffsets();
+
+    await setFeedViewportScrollTop(page, 600);
+
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBeGreaterThan(500);
+
+    const afterScroll = await readExpandedOffsets();
+
+    expect(Math.abs(beforeScroll.relativeTop)).toBeLessThan(8);
+    expect(afterScroll.articleTop).toBeLessThan(beforeScroll.articleTop - 500);
+    expect(Math.abs(afterScroll.headerTop - afterScroll.viewportTop)).toBeLessThan(
+      8,
+    );
+    expect(afterScroll.headerTop).toBeLessThan(beforeScroll.headerTop + 8);
   });
 });

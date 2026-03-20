@@ -21,7 +21,6 @@ export const DASHBOARD_EVENTS = {
   SEARCH_SYNC: "dashboard:search-sync",
   TITLE_CHANGE: "dashboard:title-change",
 } as const;
-export const FEED_SCROLL_SESSION_KEY = "librerss:scroll:feed";
 
 export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   {

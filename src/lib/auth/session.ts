@@ -25,13 +25,17 @@ const scrypt = promisify(scryptCallback) as (
 ) => Promise<Buffer>;
 
 export const SESSION_COOKIE_NAME = "librerss_session";
-const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 
 export interface SessionUser {
   email: string;
   expiresAt: Date;
   sessionId: number;
   userId: number;
+}
+
+/** Lazily resolved so the env read happens at call time, not at module load. */
+function getSessionDurationMs() {
+  return 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 }
 
 const hashSessionToken = (token: string) =>
@@ -106,7 +110,7 @@ export async function createSession(userId: number): Promise<string> {
   const db = getDb();
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashSessionToken(token);
-  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+  const expiresAt = new Date(Date.now() + getSessionDurationMs());
 
   // Use transaction to ensure session limit is enforced.
   // SELECT FOR UPDATE serializes concurrent logins for the same user so each
@@ -171,7 +175,7 @@ export async function getUserFromSessionToken(
 
     return {
       email: PLACEHOLDER_ADMIN_USER.email,
-      expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
+      expiresAt: new Date(Date.now() + getSessionDurationMs()),
       sessionId: 0,
       userId: PLACEHOLDER_ADMIN_USER.id,
     };
@@ -203,7 +207,7 @@ export async function getUserFromSessionToken(
 export function setSessionCookie(response: NextResponse, token: string): void {
   response.cookies.set(SESSION_COOKIE_NAME, token, {
     ...baseCookieOptions,
-    maxAge: SESSION_DURATION_MS / 1000,
+    maxAge: getSessionDurationMs() / 1000,
   });
 }
 

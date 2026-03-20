@@ -11,7 +11,7 @@ import {
 import { type Article } from "@/lib";
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
-import { type BackgroundMode, FEED_SCROLL_SESSION_KEY } from "../constants";
+import { type BackgroundMode } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
 import { useArticleActions } from "./useArticleActions";
@@ -22,7 +22,6 @@ import { useDashboardHandlers } from "./useDashboardHandlers";
 import { useDashboardIntervals } from "./useDashboardIntervals";
 import { useDashboardState } from "./useDashboardState";
 import { useFeedLoader } from "./useFeedLoader";
-import { useFeedPullOffset, useFeedPullRefresh } from "./useFeedSurface";
 import { useRefreshStatus } from "./useRefreshStatus";
 
 /**
@@ -65,7 +64,6 @@ export function useDashboardController({
 }: DashboardControllerProps) {
   const refreshStatus = useRefreshStatus(usePlaceholderData);
   const {
-    lastRefreshedAt,
     lastRefreshLabel,
     setLastRefreshedAt,
     setRelativeRefreshTick,
@@ -91,7 +89,6 @@ export function useDashboardController({
     isCategoriesLoading,
     isMobileSidebarOpen,
     isSidebarVisible,
-    pageSize,
   } = dashboardState;
   const {
     setArticleFilter,
@@ -103,7 +100,6 @@ export function useDashboardController({
     setIsMobileSidebarOpen,
     setIsSidebarVisible,
     setLoading,
-    setPageSize,
     setSearchTerm,
     setSelectedCategory,
     setShowFavicons,
@@ -156,17 +152,6 @@ export function useDashboardController({
     usePlaceholderData,
   });
 
-  /** Hidden rest offset used by the pull-to-refresh surface and scroll restore logic. */
-  const sentinelScrollOffset = useFeedPullOffset();
-  /** Shared scroll-snap suppression flag used while gesture-driven animations are in flight. */
-  const suppressSnapRef = useRef<false | number>(false);
-  const {
-    capture: captureFeedScroll,
-    flush: flushFeedScroll,
-    invalidate: invalidateFeedScroll,
-    ref: feedScrollRef,
-    settle: settleFeedScroll,
-  } = useViewportRestore(FEED_SCROLL_SESSION_KEY, sentinelScrollOffset);
   const { ref: sidebarScrollRef } = useViewportRestore(
     "librerss:scroll:sidebar",
   );
@@ -181,15 +166,13 @@ export function useDashboardController({
     distillStrategy,
     expandedArticleKey,
     feed,
-    onExpand: settleFeedScroll,
     setExpandedArticleKey,
     setFeed,
-    suppressSnapRef,
     usePlaceholderData,
   });
 
   const {
-    collapseSettlingArticleKey,
+    capturePreExpandSnapshot,
     collapsingArticles,
     handleArticleToggle,
     handleExpandedSwipeRead,
@@ -198,7 +181,7 @@ export function useDashboardController({
     handleToggleStarredState,
     hydratedArticleLinks,
     hydratingArticleLinks,
-    prepareArticleExpand,
+    isCollapseScrollRestoreActive,
     updatingArticleState,
   } = articleActions;
 
@@ -213,15 +196,10 @@ export function useDashboardController({
   const deferredArticleFilter = useDeferredValue(articleFilter);
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const isSearchPending = searchTerm !== deferredSearchTerm;
-  const isQuickFilterPending =
-    articleFilter !== deferredArticleFilter &&
-    searchTerm === deferredSearchTerm;
   /** Initial feed loads are the only times the article surface should skeleton. */
   const isFeedListInitialLoading = loading && feed.length === 0;
   /** Refreshes should preserve visible articles and only signal background work. */
   const isFeedListRefreshing = loading && feed.length > 0;
-  const isFeedInteractionBlocked =
-    loading || isQuickFilterPending || isSearchPending;
 
   const onArticleToggle = useCallback(
     (article: Article) => { handleArticleToggle(article); },
@@ -229,9 +207,9 @@ export function useDashboardController({
   );
   const onArticlePrepareExpand = useCallback(
     (article: Article) => {
-      prepareArticleExpand(article);
+      capturePreExpandSnapshot(article);
     },
-    [prepareArticleExpand],
+    [capturePreExpandSnapshot],
   );
   const onArticleToggleRead = useCallback(
     (article: Article) => void handleToggleReadState(article),
@@ -338,23 +316,7 @@ export function useDashboardController({
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
-  const previousLoadingRef = useRef(loading);
-  /** Root scroll element for the feed surface, shared by visibility and pull-refresh hooks. */
   const feedScrollRootRef = useRef<HTMLElement | null>(null);
-  /** Wrapper around the rendered feed list, exposed for layout-sensitive consumers. */
-  const feedWrapperRef = useRef<HTMLDivElement | null>(null);
-  const pendingRefreshRestoreRef = useRef<null | {
-    capturedFeed: Article[];
-    capturedLastRefreshedAt: Date | null;
-  }>(null);
-
-  const handleBeforeRefresh = useCallback(() => {
-    pendingRefreshRestoreRef.current = {
-      capturedFeed: feed,
-      capturedLastRefreshedAt: lastRefreshedAt,
-    };
-    captureFeedScroll();
-  }, [captureFeedScroll, feed, lastRefreshedAt]);
 
   useEffect(() => {
     const categoryChanged =
@@ -363,63 +325,20 @@ export function useDashboardController({
 
     if (categoryChanged || filterChanged) {
       setExpandedArticleKey(null);
-      invalidateFeedScroll();
     }
 
     previousSelectedCategoryRef.current = selectedCategory;
     previousArticleFilterRef.current = articleFilter;
-  }, [
-    articleFilter,
-    invalidateFeedScroll,
-    selectedCategory,
-    setExpandedArticleKey,
-  ]);
-
-  useEffect(() => {
-    const wasLoading = previousLoadingRef.current;
-    previousLoadingRef.current = loading;
-
-    const pendingRestore = pendingRefreshRestoreRef.current;
-    if (!pendingRestore) {
-      return;
-    }
-
-    const feedChanged = pendingRestore.capturedFeed !== feed;
-    const completedBatchRefresh =
-      pendingRestore.capturedLastRefreshedAt !== lastRefreshedAt;
-    const foregroundRefreshFinished = wasLoading && !loading;
-
-    if (!feedChanged && !completedBatchRefresh && !foregroundRefreshFinished) {
-      return;
-    }
-
-    const feedViewport =
-      feedScrollRootRef.current?.querySelector<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      ) ?? feedScrollRootRef.current;
-
-    pendingRefreshRestoreRef.current = null;
-
-    if (feedViewport && feedViewport.scrollTop < sentinelScrollOffset) {
-      return;
-    }
-
-    flushFeedScroll();
-  }, [feed, flushFeedScroll, lastRefreshedAt, loading, sentinelScrollOffset]);
+  }, [articleFilter, selectedCategory, setExpandedArticleKey]);
 
   /**
-   * Merges local feed-scroll bookkeeping with persisted viewport restoration.
-   *
-   * The dashboard needs direct access to the scroll root for observer-based list
-   * growth, while the viewport restore hook needs the same node to capture and
-   * reapply position across feed changes.
+   * Keeps a live handle to the feed scroll root for the virtualized list.
    */
   const mergedFeedScrollRef = useCallback(
     (node: HTMLElement | null) => {
       feedScrollRootRef.current = node;
-      feedScrollRef(node);
     },
-    [feedScrollRef],
+    [],
   );
 
   const {
@@ -429,16 +348,13 @@ export function useDashboardController({
     handleFeedClick,
     handleFeedPrefetch,
     handleRefreshSelection,
-    refreshFeedList,
   } = useDashboardHandlers({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
-    onBeforeRefresh: handleBeforeRefresh,
     onFeedSwitch: useCallback(() => {
-      invalidateFeedScroll();
       setArticleFilter("unread");
-    }, [invalidateFeedScroll, setArticleFilter]),
+    }, [setArticleFilter]),
     prefetchAllFeeds,
     prefetchCategoryFeeds,
     prefetchFeed,
@@ -454,22 +370,6 @@ export function useDashboardController({
     autoRefreshIntervalMinutes,
     setRelativeRefreshTick,
   });
-
-  /**
-   * Pull-to-refresh gesture state for touch and trackpad interactions on the
-   * feed surface.
-   */
-  const {
-    pulling: isPulling,
-    readyToRefresh,
-    sentinelHeight,
-    sentinelRef: pullSentinelRef,
-  } = useFeedPullRefresh(
-    feedScrollRootRef,
-    refreshFeedList,
-    isFeedInteractionBlocked,
-    suppressSnapRef,
-  );
 
   /** Applies an optimistic local read-state update after a successful mark-all-read action. */
   const handleMarkAllReadLocally = useCallback(() => {
@@ -535,15 +435,13 @@ export function useDashboardController({
    */
   return {
     feedList: {
-      collapseSettlingArticleKey,
       collapsingArticles,
       expandedArticleKey,
-      feedWrapperRef,
       filteredFeed,
       hydratedArticleLinks,
       hydratingArticleLinks,
+      isCollapseScrollRestoreActive,
       isInitialLoading: isFeedListInitialLoading,
-      isPulling,
       isRefreshing: isFeedListRefreshing,
       mergedFeedScrollRef,
       onArticleExpandedSwipeRead,
@@ -552,15 +450,7 @@ export function useDashboardController({
       onArticleToggle,
       onArticleToggleRead,
       onArticleToggleStarred,
-      pageSize,
-      paginationResetKey: `${selectedCategory}:${articleFilter}:${searchTerm}`,
-      pullRefreshHint: readyToRefresh
-        ? "Release to refresh"
-        : "Pull down to refresh",
-      pullSentinelRef,
-      readyToRefresh,
       searchTerm,
-      sentinelHeight,
       showFavicons,
       updatingArticleState,
     },
@@ -574,10 +464,8 @@ export function useDashboardController({
       handleCloseSettings,
       onBackgroundModeChange,
       onDistillStrategyChange,
-      pageSize,
       selectedCategory,
       setAutoRefreshIntervalMinutes,
-      setPageSize,
       setShowFavicons,
       showFavicons,
       showSettingsModal,
