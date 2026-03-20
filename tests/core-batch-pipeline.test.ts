@@ -70,7 +70,7 @@ test("SQL whitespace-collapse regex escaping does not strip lowercase s", () => 
   // Simulate the actual pattern from queryTopArticlesPerFeed
   const q = sql`regexp_replace(content, '\\s+', ' ', 'g')`;
   // Access query chunks via Drizzle's internal structure
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const raw = JSON.stringify((q as any).queryChunks);
 
   // The SQL must contain literal '\s+' (with backslash) not 's+'
