@@ -33,7 +33,7 @@ import {
 import { getArticleKey } from "../../services/article-collection";
 import { type ArticleFilter } from "../../services/article-filters";
 import { ArticleCard } from "../ArticleCard";
-import { FEED_ROW_GAP_PX } from "./constants";
+import { FEED_ROW_COLLAPSE_FLOOR_PX, FEED_ROW_GAP_PX } from "./constants";
 import { FeedListSkeleton } from "./FeedListSkeleton";
 
 /** Inputs required to render and control the dashboard article list. */
@@ -67,7 +67,6 @@ interface FeedListRowProps {
 type FeedRowReleasePhase = "collapsing" | "fading" | "idle";
 type FeedViewportResolutionState = "missing" | "pending" | "ready";
 
-const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
 const FEED_LOAD_MORE_THRESHOLD_PX = 504;
 const FEED_PAGE_SIZE = 12;
 const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
