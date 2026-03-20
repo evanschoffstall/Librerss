@@ -1,11 +1,13 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 import type { AuthSession, AuthUser } from "@/lib/core/types";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AuthService } from "@/lib/api/auth-service";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
@@ -17,7 +19,13 @@ import {
   StarsBackground,
   StarsBackgroundLight,
 } from "./components/Background";
-import { DashboardShellSkeleton } from "./components/DashboardShellSkeleton";
+import {
+  DashboardFeedViewport,
+  DashboardScaffold,
+} from "./components/DashboardScaffold";
+import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
+import { DashboardTopBarSkeleton } from "./components/DashboardTopTokenBar";
+import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { LoginView } from "./components/login/LoginView";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
@@ -150,49 +158,97 @@ export function DashboardRouter({
     window.location.assign("/dashboard?explore=1");
   };
 
-  if (isSessionLoading) {
-    return <DashboardShellSkeleton />;
-  }
-
-  if (!currentUser && !resolvedPreviewMode) {
-    return (
-      <main className="h-full overflow-hidden bg-background">
-        <LoginView
-          allowSignup={allowSignup}
-          onAuthenticated={setCurrentUser}
-          onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
-        />
-      </main>
-    );
-  }
+  const viewKey = isSessionLoading
+    ? "skeleton"
+    : !currentUser && !resolvedPreviewMode
+      ? "login"
+      : "dashboard";
 
   return (
-    <main className="relative h-full overflow-hidden bg-background">
-      <ThemeNoticeDialog />
-      {resolvedBackgroundMode === "particles" ? (
-        isLightMode ? (
-          <ParticlesBackgroundLight />
-        ) : (
-          <ParticlesBackground />
-        )
-      ) : resolvedBackgroundMode === "stars" ? (
-        isLightMode ? (
-          <StarsBackgroundLight />
-        ) : (
-          <StarsBackground />
-        )
-      ) : null}
-      <div className="relative z-10 h-full">
-        <DashboardQueryProvider>
-          <DashboardView
-            backgroundMode={resolvedBackgroundMode}
-            distillStrategy={resolvedDistillStrategy}
-            onBackgroundModeChange={setBackgroundMode}
-            onDistillStrategyChange={setDistillStrategy}
-            usePlaceholderData={resolvedPreviewMode || usePlaceholderData}
+    <AnimatePresence mode="wait">
+      {isSessionLoading ? (
+        <motion.main
+          animate={{ opacity: 1, scale: 1 }}
+          aria-busy="true"
+          aria-label="Loading dashboard"
+          className="h-full overflow-hidden bg-background"
+          exit={{ filter: "blur(4px)", opacity: 0, scale: 0.98 }}
+          initial={{ opacity: 1, scale: 1 }}
+          key={viewKey}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="relative h-full overflow-hidden">
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none absolute top-1/2 size-64 -translate-y-1/2
+                rounded-full bg-primary/5 blur-3xl
+              "
+            />
+            <DashboardScaffold
+              feed={
+                <DashboardFeedViewport>
+                  <FeedListSkeleton />
+                </DashboardFeedViewport>
+              }
+              sidebar={
+                <ScrollArea className="h-full">
+                  <DashboardSidebarSkeleton />
+                </ScrollArea>
+              }
+              topBar={<DashboardTopBarSkeleton />}
+            />
+          </div>
+        </motion.main>
+      ) : !currentUser && !resolvedPreviewMode ? (
+        <motion.main
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="h-full overflow-hidden bg-background"
+          initial={{ opacity: 0, scale: 0.97, y: 8 }}
+          key={viewKey}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <LoginView
+            allowSignup={allowSignup}
+            onAuthenticated={setCurrentUser}
+            onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
           />
-        </DashboardQueryProvider>
-      </div>
-    </main>
+        </motion.main>
+      ) : (
+        <motion.main
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="relative h-full overflow-hidden bg-background"
+          initial={{ opacity: 0, scale: 0.97, y: 8 }}
+          key={viewKey}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <ThemeNoticeDialog />
+          {resolvedBackgroundMode === "particles" ? (
+            isLightMode ? (
+              <ParticlesBackgroundLight />
+            ) : (
+              <ParticlesBackground />
+            )
+          ) : resolvedBackgroundMode === "stars" ? (
+            isLightMode ? (
+              <StarsBackgroundLight />
+            ) : (
+              <StarsBackground />
+            )
+          ) : null}
+          <div className="relative z-10 h-full">
+            <DashboardQueryProvider>
+              <DashboardView
+                backgroundMode={resolvedBackgroundMode}
+                distillStrategy={resolvedDistillStrategy}
+                onBackgroundModeChange={setBackgroundMode}
+                onDistillStrategyChange={setDistillStrategy}
+                usePlaceholderData={resolvedPreviewMode || usePlaceholderData}
+              />
+            </DashboardQueryProvider>
+          </div>
+        </motion.main>
+      )}
+    </AnimatePresence>
   );
 }

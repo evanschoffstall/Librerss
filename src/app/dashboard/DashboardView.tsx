@@ -8,7 +8,6 @@ import {
 } from "./components/DashboardScaffold";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
-import { PullToRefreshSentinel } from "./components/PullToRefreshSentinel";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import {
   type DashboardControllerProps,
@@ -43,26 +42,15 @@ export const DashboardView = ({
 
       <DashboardScaffold
         feed={
-          <DashboardFeedViewport
-            feedWrapperRef={feedList.feedWrapperRef}
-            pullSentinel={
-              <PullToRefreshSentinel
-                isPulling={feedList.isPulling}
-                pullRefreshHint={feedList.pullRefreshHint}
-                readyToRefresh={feedList.readyToRefresh}
-                sentinelHeight={feedList.sentinelHeight}
-                sentinelRef={feedList.pullSentinelRef}
-              />
-            }
-            scrollAreaRef={feedList.mergedFeedScrollRef}
-          >
+          <DashboardFeedViewport scrollAreaRef={feedList.mergedFeedScrollRef}>
             <FeedList
-              collapseSettlingArticleKey={feedList.collapseSettlingArticleKey}
+              articleFilter={topBar.articleFilter}
               collapsingArticles={feedList.collapsingArticles}
               expandedArticleKey={feedList.expandedArticleKey}
               filteredFeed={feedList.filteredFeed}
               hydratedArticleLinks={feedList.hydratedArticleLinks}
               hydratingArticleLinks={feedList.hydratingArticleLinks}
+              isCollapseScrollRestoreActive={feedList.isCollapseScrollRestoreActive}
               isInitialLoading={feedList.isInitialLoading}
               isRefreshing={feedList.isRefreshing}
               onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
@@ -71,8 +59,6 @@ export const DashboardView = ({
               onToggle={feedList.onArticleToggle}
               onToggleRead={feedList.onArticleToggleRead}
               onToggleStarred={feedList.onArticleToggleStarred}
-              pageSize={feedList.pageSize}
-              paginationResetKey={feedList.paginationResetKey}
               searchTerm={feedList.searchTerm}
               showFavicons={feedList.showFavicons}
               updatingArticleState={feedList.updatingArticleState}
@@ -118,7 +104,6 @@ export const DashboardView = ({
           }}
           onDropFeed={settings.categoryTree.moveFeedByDrop}
           onImportOpml={settings.categoryTree.importOpmlFeeds}
-          onPageSizeChange={settings.setPageSize}
           onRemoveCategory={settings.categoryTree.removeCategory}
           onRemoveFeed={settings.categoryTree.removeFeedSource}
           onRenameCategory={settings.categoryTree.renameCategory}
@@ -126,7 +111,6 @@ export const DashboardView = ({
           onSetFeedEnabled={settings.categoryTree.setFeedSourceEnabled}
           onShowFaviconsChange={settings.setShowFavicons}
           onUpdateFeedSettings={settings.categoryTree.updateFeedSettings}
-          pageSize={settings.pageSize}
           pendingCategoryRemovalLabel={
             settings.categoryTree.pendingCategoryRemovalLabel
           }
