@@ -1199,11 +1199,11 @@ export const ArticleCard = memo(function ArticleCard({
         {/* Content zone */}
         <div
           className={`
-            relative bg-card/70
+            relative
             ${
               visuallyExpanded
-                ? `rounded-b-xl px-4 pt-3 pb-4`
-                : `rounded-b-xl px-3 pt-2 pb-3`
+                ? `rounded-b-xl bg-card/85 px-4 pt-3 pb-4`
+                : `rounded-b-xl bg-card/70 px-3 pt-2 pb-3`
             }
           `}
           data-article-swipe-zone="content"
