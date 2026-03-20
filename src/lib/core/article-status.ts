@@ -102,6 +102,8 @@ export async function upsertArticleStatuses(
             updatedAt: now,
           },
           target: [articleStatuses.userId, articleStatuses.articleId],
+          // Skip no-op updates: only write when a tracked field actually changes.
+          where: sql`${articleStatuses.isRead} IS DISTINCT FROM excluded.is_read OR ${articleStatuses.isStarred} IS DISTINCT FROM excluded.is_starred`,
         });
     }
   });

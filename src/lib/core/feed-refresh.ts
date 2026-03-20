@@ -116,6 +116,9 @@ export async function refreshFeedFromUpstream(
             title: sql`excluded.title`,
           },
           target: articles.link,
+          // Skip no-op updates: only write when content actually changed.
+          // Prevents write amplification for unchanged articles.
+          where: sql`${articles.title} IS DISTINCT FROM excluded.title OR ${articles.content} IS DISTINCT FROM excluded.content OR ${articles.publicationDate} IS DISTINCT FROM excluded.publication_date`,
         });
 
       diagInfo("Upstream refresh upserted articles", {
