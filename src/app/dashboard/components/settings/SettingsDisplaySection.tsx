@@ -1,7 +1,6 @@
 import { Monitor } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { ARTICLE_PAGE_SIZE_OPTIONS } from "@/app/dashboard/services/page-size";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -28,9 +27,7 @@ export interface SettingsDisplaySectionProps {
   onAutoRefreshIntervalMinutesChange: (value: number) => void;
   onBackgroundModeChange: (value: BackgroundMode) => void;
   onDistillStrategyChange: (value: string) => void;
-  onPageSizeChange: (size: number) => void;
   onShowFaviconsChange: (value: boolean) => void;
-  pageSize: number;
   showFavicons: boolean;
 }
 
@@ -41,9 +38,7 @@ export function SettingsDisplaySection({
   onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
-  onPageSizeChange,
   onShowFaviconsChange,
-  pageSize,
   showFavicons,
 }: SettingsDisplaySectionProps) {
   const [autoRefreshDraft, setAutoRefreshDraft] = useState(
@@ -76,26 +71,6 @@ export function SettingsDisplaySection({
         </p>
       </div>
       <div className="space-y-3">
-        <div className="row-between">
-          <Label>Items per page</Label>
-          <Select
-            onValueChange={(v) => {
-              onPageSizeChange(Number(v));
-            }}
-            value={String(pageSize)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select amount" />
-            </SelectTrigger>
-            <SelectContent>
-              {ARTICLE_PAGE_SIZE_OPTIONS.map((size) => (
-                <SelectItem key={size} value={String(size)}>
-                  {size} articles
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="row-between items-start gap-4">
           <div>
             <Label htmlFor="auto-refresh-interval">Auto refresh</Label>
