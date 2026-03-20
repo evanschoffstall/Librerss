@@ -1,6 +1,12 @@
 const DEFAULT_PLAYWRIGHT_HOST = "127.0.0.1";
 const DEFAULT_PLAYWRIGHT_PORT = 3100;
 
+interface PlaywrightBaseUrlEnv {
+  PLAYWRIGHT_BASE_URL?: string;
+  PLAYWRIGHT_HOST?: string;
+  PLAYWRIGHT_PORT?: string;
+}
+
 /** Builds the canonical Playwright base URL from the resolved host and port. */
 export function buildPlaywrightBaseUrl(host: string, port: number) {
   const normalizedHost = host.trim();
@@ -21,7 +27,7 @@ export function buildPlaywrightBaseUrl(host: string, port: number) {
  * then falls back to wrapper host and port env vars, then repo defaults.
  */
 export function resolvePlaywrightBaseUrl(
-  env: NodeJS.ProcessEnv = process.env,
+  env: PlaywrightBaseUrlEnv = process.env as PlaywrightBaseUrlEnv,
 ) {
   const configuredBaseUrl = env.PLAYWRIGHT_BASE_URL?.trim();
 
