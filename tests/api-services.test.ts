@@ -9,7 +9,12 @@ import {
   resetApiClientForTesting,
   setApiClientForTesting,
 } from "@/lib/api/http";
-import { ArticleService, AuthService, FeedService } from "@/lib/api/services";
+import {
+  AccountService,
+  ArticleService,
+  AuthService,
+  FeedService,
+} from "@/lib/api/services";
 
 // Create a mock axios instance
 const mockAxiosInstance: any = {
@@ -445,6 +450,34 @@ describe("FeedService", () => {
     } catch (error) {
       expect(error).toBeDefined();
     }
+  });
+});
+
+describe("AccountService", () => {
+  beforeEach(() => {
+    resetMockAxiosInstance();
+  });
+
+  test("deleteAccount calls DELETE /api/account", async () => {
+    mockAxiosInstance.delete = mock(async () => ({ data: {} }));
+
+    await AccountService.deleteAccount();
+
+    expect(mockAxiosInstance.delete).toHaveBeenCalledWith("/api/account");
+  });
+
+  test("exportAccountData requests a blob export and returns it", async () => {
+    const exportBlob = new Blob([JSON.stringify({ ok: true })], {
+      type: "application/json",
+    });
+    mockAxiosInstance.get = mock(async () => ({ data: exportBlob }));
+
+    const result = await AccountService.exportAccountData();
+
+    expect(mockAxiosInstance.get).toHaveBeenCalledWith("/api/account/export", {
+      responseType: "blob",
+    });
+    expect(result).toBe(exportBlob);
   });
 });
 
