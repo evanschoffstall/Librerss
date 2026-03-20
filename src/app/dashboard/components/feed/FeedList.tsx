@@ -1,572 +1,345 @@
 "use client";
 
 /**
- * Coordinates the dashboard's article feed rendering pipeline.
+ * Renders the dashboard article feed inside the shared Radix ScrollArea.
  *
- * This module deliberately keeps paging, virtualization, retained collapsing
- * rows, and empty-state presentation in one place because those concerns all
- * share ownership of the same scroll surface. The implementation is therefore
- * more stateful than a typical list component: each decision about when to
- * virtualize or retain a row directly affects exit-animation correctness,
- * scroll anchoring, and whether an expanded card can collapse without a visual
- * flash.
+ * The feed now delegates viewport virtualization and dynamic-height handling to
+ * react-virtuoso instead of managing manual paging, sentinels, FLIP reflow,
+ * and scroll bookkeeping in-house. Feed rows stay visually idle so expand,
+ * collapse, read, and filter updates resolve through plain layout changes.
  */
 
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { SearchX, Sparkles } from "lucide-react";
-import { motion } from "motion/react";
+import { CheckCheck, SearchX, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import {
   memo,
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
+import { Virtuoso } from "react-virtuoso";
 
 import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 import {
-  ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS,
-  ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS,
-  ARTICLE_REMOVAL_ANIMATION_MS,
   type ArticleRemovalAnimationMode,
   type CollapsingArticles,
-  type CollapsingArticleState,
+  getArticleRemovalAnimationDuration,
 } from "../../hooks/useArticleActions";
 import { getArticleKey } from "../../services/article-collection";
+import { type ArticleFilter } from "../../services/article-filters";
 import { ArticleCard } from "../ArticleCard";
-import { DashboardFeedListSkeleton } from "../DashboardLoadingSurfaces";
-import {
-  FEED_LOAD_MORE_THRESHOLD_PX,
-  FEED_ROW_COLLAPSE_FLOOR_PX,
-  FEED_ROW_COLLAPSE_OFFSET_PX,
-  FEED_ROW_EXIT_EASING,
-  FEED_ROW_GAP_PX,
-  FEED_ROW_OPACITY_EASING,
-  FEED_ROW_REFLOW_ANIMATION_MS,
-  FEED_ROW_SWIPE_EXIT_DISTANCE,
-  FEED_ROW_SWIPE_EXIT_EASING,
-  FEED_ROW_VIRTUAL_OVERSCAN,
-  VIRTUAL_FEED_ROW_ESTIMATE_PX,
-} from "./constants";
+import { FEED_ROW_GAP_PX } from "./constants";
+import { FeedListSkeleton } from "./FeedListSkeleton";
 
-/**
- * Inputs required to render and control the dashboard article list.
- *
- * The parent controller owns all feed mutations, expansion state, and
- * hydration bookkeeping. FeedList consumes that state and turns it into the
- * correct visual surface, including virtualization, retained collapsing rows,
- * and load-more behavior.
- */
+/** Inputs required to render and control the dashboard article list. */
 interface FeedListProps {
-  /**
-   * Article key that is still in its post-collapse settling window.
-   * Virtualization stays suspended while this is set so the DOM surface does
-   * not switch underneath a finishing animation.
-   */
-  collapseSettlingArticleKey?: null | string;
-  /**
-   * Active unread-removal states keyed by article key.
-   * Each entry carries the row snapshot needed to keep the item rendered until
-   * its exit choreography completes.
-   */
+  articleFilter: ArticleFilter;
   collapsingArticles?: Readonly<CollapsingArticles>;
-  /** Currently expanded article, or null when the feed is in list mode. */
   expandedArticleKey: null | string;
-  /** Already-filtered article collection for the current dashboard selection. */
   filteredFeed: Article[];
-  /** Link-level hydration completion state for rich article content. */
   hydratedArticleLinks: Record<string, boolean>;
-  /** Link-level hydration in-flight state used to show loading affordances. */
   hydratingArticleLinks: Record<string, boolean>;
-  /** Whether the initial dashboard feed payload is still loading. */
+  isCollapseScrollRestoreActive?: boolean;
   isInitialLoading: boolean;
-  /** Refresh flag owned by the parent; preserved for API symmetry. */
   isRefreshing: boolean;
-  /** Swipe-to-read handler for the expanded article surface. */
   onExpandedSwipeRead: (article: Article) => void;
-  /** Optional pre-expansion hook for loading or measurement preparation. */
   onPrepareExpand?: (article: Article) => void;
-  /** Swipe-to-read handler for collapsed row surfaces. */
   onSwipeRead?: (article: Article) => void;
-  /** Expand or collapse a specific article card. */
   onToggle: (article: Article) => void;
-  /** Toggle article read state from any rendered feed row. */
   onToggleRead: (article: Article) => void;
-  /** Toggle article starred state from any rendered feed row. */
   onToggleStarred: (article: Article) => void;
-  /** Number of articles revealed per paging step. */
-  pageSize: number;
-  /** External reset token used when the feed selection changes. */
-  paginationResetKey: string;
-  /** Search term used to select the empty-state copy and iconography. */
   searchTerm: string;
-  /** Whether favicon chrome should render within article cards. */
   showFavicons: boolean;
-  /** Per-article mutation state for read/star toggles and similar actions. */
   updatingArticleState: Record<string, boolean>;
 }
 
-/**
- * Props for the retained row wrapper that owns measurement and exit layout.
- *
- * The wrapper exists so the article card can stay focused on article UI while
- * the list surface controls how rows are measured, animated, and reflowed.
- */
 interface FeedListRowProps {
-  /** Stable article identity used for restore attributes and retained height maps. */
   articleKey: string;
-  /** Actual card content rendered inside the measured row shell. */
   children: React.ReactNode;
-  /** Virtual row index written for TanStack Virtual diagnostics and measurement. */
-  dataIndex?: number;
-  /** Previously retained height reused before the row is measured again. */
-  initialMeasuredHeight?: number;
-  /** Called whenever the content height changes so the parent can cache it. */
-  onMeasuredHeightChange?: (height: number) => void;
-  /** Measurement callback forwarded to the virtualizer when virtualization is active. */
-  onMeasureElement?: (element: HTMLDivElement | null) => void;
-  /** Active removal choreography, or null when the row is stable. */
   removalAnimationMode: ArticleRemovalAnimationMode | null;
-  /** Whether siblings should animate positional reflow around this row. */
-  shouldAnimateReflow: boolean;
 }
 
-/**
- * Snapshot of scroll-surface state used to decide whether another page should
- * be revealed.
- */
-interface FeedLoadMoreState {
-  /** Current viewport height in pixels. */
-  clientHeight: number;
-  /** Guard that prevents auto-expanding before the user interacts with the feed. */
-  hasUserScrolled: boolean;
-  /** Total scrollable content height in pixels. */
-  scrollHeight: number;
-  /** Current scroll offset from the top of the feed surface. */
-  scrollTop: number;
-  /** Number of articles available in the filtered collection. */
-  totalArticleCount: number;
-  /** Number of articles currently rendered or eligible for rendering. */
-  visibleArticleCount: number;
-}
+type FeedRowReleasePhase = "collapsing" | "fading" | "idle";
+type FeedViewportResolutionState = "missing" | "pending" | "ready";
+
+const FEED_ROW_COLLAPSE_FLOOR_PX = 12;
+const FEED_LOAD_MORE_THRESHOLD_PX = 504;
+const FEED_PAGE_SIZE = 12;
+const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
 
 /**
- * Retained metadata for a row that is leaving the visible feed but still needs
- * to exist long enough to animate out.
- */
-interface RetainedCollapsingArticle {
-  /** Full article payload used to keep rendering the row during exit. */
-  article: Article;
-  /** Last known row height, if one was recorded before removal started. */
-  height: null | number;
-  /** Original feed index used to splice the retained row back into view order. */
-  index: number;
-  /** Exit choreography chosen by the article-action layer. */
-  mode: ArticleRemovalAnimationMode;
-  /** Whether the row still exists in the visible slice or comes from a snapshot. */
-  source: "snapshot" | "visible";
-}
-
-/**
- * Keeps the virtualizer from recording impossible zero-height rows during list
- * churn, which otherwise causes poor scroll anchoring and console errors.
- */
-export function measureFeedListItemSize(element: Element): number {
-  return Math.max(
-    element.getBoundingClientRect().height,
-    FEED_ROW_COLLAPSE_FLOOR_PX,
-  );
-}
-
-/**
- * Preserves a row long enough for unread removals to animate out without
- * tearing the virtualization state or skipping the exit.
+ * Animates feed-row removal via a two-phase CSS-transition approach.
  *
- * The row shell owns three closely-related concerns:
- * 1. Measure the card content and report stable heights upward.
- * 2. Freeze that height once removal starts so collapse math is deterministic.
- * 3. Apply the correct exit strategy for button collapse, swipe-read, and
- *    de-expanding removal flows.
+ * Height measurement lives in a ref (not state) and the ResizeObserver is
+ * disconnected while a collapse is in flight.  The commit phase applies "to"
+ * styles via direct DOM mutation so no React reconciliation pass runs during
+ * the transition — eliminating the per-frame ResizeObserver → setState loop
+ * that previously dropped the animation to ~40 FPS.
  */
 const FeedListRow = memo(function FeedListRow({
   articleKey,
   children,
-  dataIndex,
-  initialMeasuredHeight,
-  onMeasuredHeightChange,
-  onMeasureElement,
   removalAnimationMode,
-  shouldAnimateReflow,
 }: FeedListRowProps) {
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const removalActivationTimeoutRef = useRef<null | number>(null);
-  const isRemoving = removalAnimationMode !== null;
-  const isDeExpandingHold = removalAnimationMode === "de-expanding";
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const measuredHeightRef = useRef(0);
+  const collapseCommittedRef = useRef(false);
+
+  const isCollapsing = removalAnimationMode !== null;
+  const isStandardCollapseExit = removalAnimationMode === "collapse";
   const isSwipeReadExit = removalAnimationMode === "swipe-read";
-  const isStandardCollapseExit =
-    isRemoving && !isDeExpandingHold && !isSwipeReadExit;
-  // Keep the most trustworthy non-zero height we have seen so a removal can
-  // still animate cleanly even if the row is unmounted or remeasured mid-churn.
-  const stableHeightRef = useRef(
-    Math.max(initialMeasuredHeight ?? 0, FEED_ROW_COLLAPSE_FLOOR_PX),
-  );
-  const [measuredHeight, setMeasuredHeight] = useState<null | number>(
-    initialMeasuredHeight ?? null,
-  );
-  const [removalHeight, setRemovalHeight] = useState<null | number>(
-    isRemoving ? (initialMeasuredHeight ?? null) : null,
-  );
-  const [isRemovalTransitionActive, setIsRemovalTransitionActive] =
-    useState(false);
+  const durationMs = removalAnimationMode
+    ? getArticleRemovalAnimationDuration(removalAnimationMode)
+    : 0;
+  const transitionMs = Math.max(durationMs, 180);
 
-  const setRowElement = useCallback(
-    (node: HTMLDivElement | null) => {
-      onMeasureElement?.(node);
-    },
-    [onMeasureElement],
-  );
-
-  useLayoutEffect(() => {
-    const node = contentRef.current;
-    if (!node) return;
-
-    // Measure in layout so the parent height cache and the virtualizer see the
-    // committed DOM size before the browser paints the next frame.
-    const updateMeasuredHeight = () => {
-      const nextHeight = Math.max(
-        node.offsetHeight,
-        FEED_ROW_COLLAPSE_FLOOR_PX,
-      );
-      stableHeightRef.current = nextHeight;
-      setMeasuredHeight(nextHeight);
-      onMeasuredHeightChange?.(nextHeight);
-    };
-
-    updateMeasuredHeight();
-
-    if (typeof ResizeObserver !== "function") {
+  // Measure height continuously when idle; freeze during collapse so the
+  // ResizeObserver doesn't fire on every CSS-transition frame.
+  useEffect(() => {
+    const node = bodyRef.current;
+    if (!node) {
       return;
     }
 
-    const observer = new ResizeObserver(() => {
-      updateMeasuredHeight();
+    measuredHeightRef.current = node.scrollHeight;
+
+    if (isCollapsing) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      measuredHeightRef.current = node.scrollHeight;
     });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, [children, onMeasuredHeightChange]);
+    resizeObserver.observe(node);
 
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [children, isCollapsing]);
+
+  // Drive the two-phase collapse entirely through refs + DOM mutation so no
+  // React re-render is needed between the "from" and "to" keyframes.
   useLayoutEffect(() => {
-    if (!isRemoving) {
-      if (removalActivationTimeoutRef.current !== null) {
-        window.clearTimeout(removalActivationTimeoutRef.current);
-        removalActivationTimeoutRef.current = null;
+    if (!isCollapsing) {
+      collapseCommittedRef.current = false;
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+      if (outer) {
+        outer.style.willChange = "";
       }
-      setIsRemovalTransitionActive(false);
-      setRemovalHeight(null);
+      if (inner) {
+        inner.style.willChange = "";
+      }
       return;
     }
 
-    // Capture the row height exactly when removal begins. Exit animation math
-    // should not depend on later content changes while the row is collapsing.
-    const nextRemovalHeight =
-      contentRef.current?.offsetHeight ??
-      measuredHeight ??
-      stableHeightRef.current;
+    collapseCommittedRef.current = false;
 
-    setRemovalHeight(Math.max(nextRemovalHeight, FEED_ROW_COLLAPSE_FLOOR_PX));
-    setIsRemovalTransitionActive(true);
+    // Promote animating elements to their own compositor layers.
+    if (outerRef.current) {
+      outerRef.current.style.willChange = "margin-bottom, opacity";
+    }
+    if (innerRef.current) {
+      innerRef.current.style.willChange = "max-height, transform";
+    }
+
+    const collapseFrameId = requestAnimationFrame(() => {
+      collapseCommittedRef.current = true;
+
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+
+      // Apply "to" styles directly — the CSS transition property (set via the
+      // style prop in JSX) interpolates from the current rendered value to
+      // these targets without a React reconciliation pass.
+      if (outer) {
+        outer.style.marginBottom = `${-FEED_ROW_COLLAPSE_OFFSET_PX}px`;
+      }
+      if (inner) {
+        inner.style.maxHeight = `${FEED_ROW_COLLAPSE_FLOOR_PX}px`;
+        inner.style.minHeight = `${FEED_ROW_COLLAPSE_FLOOR_PX}px`;
+        if (isSwipeReadExit) {
+          inner.style.transform = "translate3d(2.5rem, 0, 0)";
+        }
+      }
+    });
 
     return () => {
-      if (removalActivationTimeoutRef.current !== null) {
-        window.clearTimeout(removalActivationTimeoutRef.current);
-        removalActivationTimeoutRef.current = null;
-      }
+      cancelAnimationFrame(collapseFrameId);
     };
-  }, [isRemoving, measuredHeight]);
+  }, [isCollapsing, isSwipeReadExit]);
 
-  const resolvedRemovalHeight = Math.max(
-    removalHeight ?? measuredHeight ?? stableHeightRef.current,
-    FEED_ROW_COLLAPSE_FLOOR_PX,
-  );
-  const hasResolvedRemovalHeight =
-    removalHeight !== null || measuredHeight !== null;
-  const shouldAnimateRemoval = isRemoving && hasResolvedRemovalHeight;
-  // Standard read-toggle collapse immediately snaps the layout footprint to the
-  // floor height and lets opacity finish the perceived exit. Swipe-read and
-  // de-expanding removals keep more of the original height contract for longer.
-  const resolvedHeight = isRemoving
-    ? isStandardCollapseExit
-      ? FEED_ROW_COLLAPSE_FLOOR_PX
-      : isRemovalTransitionActive
-      ? FEED_ROW_COLLAPSE_FLOOR_PX
-      : resolvedRemovalHeight
-    : undefined;
-  const resolvedMarginBottom = isRemoving
-    ? isStandardCollapseExit
-      ? -FEED_ROW_COLLAPSE_FLOOR_PX
-      : isRemovalTransitionActive
-        ? -FEED_ROW_COLLAPSE_OFFSET_PX
-        : FEED_ROW_GAP_PX
-    : FEED_ROW_GAP_PX;
-  const resolvedOpacity = isRemoving && isRemovalTransitionActive ? 0 : 1;
-  const resolvedStyleOpacity = isStandardCollapseExit
-    ? 0
-    : shouldAnimateRemoval
+  // Read refs so any React re-render during the animation produces styles
+  // consistent with whatever the rAF callback already wrote to the DOM.
+  const isCommitted = collapseCommittedRef.current;
+  const measuredHeight = measuredHeightRef.current;
+  const releasePhase: FeedRowReleasePhase = isCollapsing ? "collapsing" : "idle";
+  const isReleaseCollapsing =
+    isStandardCollapseExit || (isCollapsing && isCommitted);
+  const rowOpacity =
+    isSwipeReadExit
       ? 1
-      : undefined;
-  const resolvedTransform = isDeExpandingHold
-    ? undefined
-    : isRemoving
-      ? isRemovalTransitionActive
-        ? isSwipeReadExit
-          ? `translate3d(${FEED_ROW_SWIPE_EXIT_DISTANCE}, 0, 0)`
-          : "scale(0.985)"
-        : "translate3d(0px, 0px, 0px) scale(1)"
-      : undefined;
-
-  /**
-   * Motion transition map for the current row state.
-   *
-   * Standard collapse intentionally avoids Motion-driven height writes to dodge
-   * a one-frame flash before the collapse lands. Swipe-read and de-expanding
-   * exits keep full transition objects because they need staged transform and
-   * height choreography.
-   */
-  const rowMotionTransition = useMemo(() => {
-    if (isRemoving) {
-      if (isDeExpandingHold) {
-        const durationSeconds = ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS / 1000;
-        return {
-          height: { duration: durationSeconds, ease: FEED_ROW_EXIT_EASING },
-          marginBottom: {
-            duration: durationSeconds,
-            ease: FEED_ROW_EXIT_EASING,
-          },
-          opacity: {
-            duration: durationSeconds,
-            ease: FEED_ROW_OPACITY_EASING,
-          },
-        };
-      }
-
-      const collapseDurationSeconds = ARTICLE_REMOVAL_ANIMATION_MS / 1000;
-      const collapseDelaySeconds = 0;
-      const swipeHeightDelaySeconds =
-        Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.44) / 1000;
-      const opacityDurationSeconds =
-        Math.round(ARTICLE_REMOVAL_ANIMATION_MS * 0.72) / 1000;
-
-      if (isStandardCollapseExit) {
-        const collapseHeightSeconds =
-          ARTICLE_COLLAPSE_HEIGHT_ANIMATION_MS / 1000;
-        return {
-          height: {
-            duration: collapseHeightSeconds,
-            ease: FEED_ROW_EXIT_EASING,
-          },
-          marginBottom: {
-            duration: collapseHeightSeconds,
-            ease: FEED_ROW_EXIT_EASING,
-          },
-        };
-      }
-
-      return {
-        height: {
-          delay: isSwipeReadExit
-            ? swipeHeightDelaySeconds
-            : collapseDelaySeconds,
-          duration: collapseDurationSeconds,
-          ease: FEED_ROW_EXIT_EASING,
-        },
-        marginBottom: {
-          delay: isSwipeReadExit
-            ? swipeHeightDelaySeconds
-            : collapseDelaySeconds,
-          duration: collapseDurationSeconds,
-          ease: FEED_ROW_EXIT_EASING,
-        },
-        opacity: {
-          duration: opacityDurationSeconds,
-          ease: FEED_ROW_OPACITY_EASING,
-        },
-      };
-    }
-
-    if (!shouldAnimateReflow) {
-      return undefined;
-    }
-
-    return {
-      layout: {
-        duration: FEED_ROW_REFLOW_ANIMATION_MS / 1000,
-        ease: FEED_ROW_EXIT_EASING,
-      },
-    };
-  }, [
-    isDeExpandingHold,
-    isRemoving,
-    isStandardCollapseExit,
-    isSwipeReadExit,
-    shouldAnimateReflow,
-  ]);
+      : isCollapsing
+        ? 0
+        : 1;
 
   return (
-    <motion.div
-      animate={
-        shouldAnimateRemoval
-          ? isStandardCollapseExit
-            ? {
-                height: resolvedHeight,
-                marginBottom: resolvedMarginBottom,
-              }
-            : {
-                height: resolvedHeight,
-                marginBottom: resolvedMarginBottom,
-                opacity: resolvedOpacity,
-              }
-          : undefined
-      }
+    <div
       className="overflow-visible"
       data-feed-row-animation={removalAnimationMode ?? "idle"}
-      data-feed-row-layout={shouldAnimateReflow ? "position" : "none"}
-      data-feed-row-state={isRemoving ? "collapsing" : "idle"}
-      data-index={dataIndex}
+      data-feed-row-layout={isCollapsing ? "releasing" : "none"}
+      data-feed-row-state={releasePhase}
       data-scroll-restore-key={articleKey}
-      initial={false}
-      layout={shouldAnimateReflow ? "position" : false}
-      ref={setRowElement}
+      ref={outerRef}
       style={{
-        height: isStandardCollapseExit
-          ? FEED_ROW_COLLAPSE_FLOOR_PX
-          : shouldAnimateRemoval
-            ? resolvedRemovalHeight
-            : undefined,
-        marginBottom: isStandardCollapseExit
-          ? -FEED_ROW_COLLAPSE_FLOOR_PX
+        marginBottom: isReleaseCollapsing
+          ? -FEED_ROW_COLLAPSE_OFFSET_PX
           : FEED_ROW_GAP_PX,
-        minHeight:
-          isStandardCollapseExit || (isRemoving && isRemovalTransitionActive)
+        opacity: rowOpacity,
+        transition: isCollapsing
+          ? `margin-bottom ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1)`
+          : "none",
+      }}
+    >
+      <div
+        className="min-w-0"
+        ref={innerRef}
+        style={{
+          maxHeight: isCollapsing
+            ? Math.max(
+                isReleaseCollapsing
+                  ? FEED_ROW_COLLAPSE_FLOOR_PX
+                  : measuredHeight,
+                FEED_ROW_COLLAPSE_FLOOR_PX,
+              )
+            : undefined,
+          minHeight: isReleaseCollapsing
             ? FEED_ROW_COLLAPSE_FLOOR_PX
             : undefined,
-        opacity: resolvedStyleOpacity,
-        overflow:
-          isSwipeReadExit || isDeExpandingHold || isStandardCollapseExit
-            ? "hidden"
-            : "visible",
-        pointerEvents: isRemoving ? "none" : undefined,
-        transform: resolvedTransform,
-        transformOrigin: isSwipeReadExit ? "center left" : "top center",
-        transition:
-          isRemoving && !isDeExpandingHold
-            ? isSwipeReadExit
-              ? `transform ${ARTICLE_REMOVAL_ANIMATION_MS}ms cubic-bezier(${FEED_ROW_SWIPE_EXIT_EASING.join(", ")})`
-              : `transform ${ARTICLE_REMOVAL_ANIMATION_MS}ms cubic-bezier(${FEED_ROW_EXIT_EASING.join(", ")})`
-            : undefined,
-        willChange: isRemoving
-          ? isDeExpandingHold
-            ? "height, margin-bottom, opacity"
-            : isStandardCollapseExit
-              ? "height, margin-bottom"
-              : "height, margin-bottom, opacity, transform"
-          : undefined,
-      }}
-      transition={rowMotionTransition}
-    >
-      {/*
-        Measure the natural card height from an inner wrapper so the outer
-        motion shell can independently clamp and animate its own box metrics.
-      */}
-      <div ref={contentRef}>{children}</div>
-    </motion.div>
+          overflow: isCollapsing ? "hidden" : "visible",
+          pointerEvents: isCollapsing ? "none" : "auto",
+          transform:
+            isSwipeReadExit
+              ? isCollapsing
+                ? "translate3d(2.5rem, 0, 0)"
+                : "translate3d(0, 0, 0)"
+              : "translate3d(0, 0, 0)",
+          transition: isCollapsing
+            ? `max-height ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1), transform ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1)`
+            : `transform ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1)`,
+        }}
+      >
+        <div className="min-h-0" ref={bodyRef}>
+          {children}
+        </div>
+      </div>
+    </div>
   );
 });
 
-/** Options used to decide whether sibling rows should receive layout reflow. */
-interface FeedRowReflowAnimationOptions {
-  /** Keys of rows that are currently retained for active removal choreography. */
-  activeCollapsingArticleKeys: ReadonlySet<string>;
-  /** Whether any active removal mode requires sibling motion instead of a hard snap. */
-  hasAnimatedRemoval: boolean;
-}
-
 /**
- * Returns whether the visible feed window should expand based on the current
- * viewport position and paging state.
+ * Self-contained empty state surface shown when no articles match filters.
+ *
+ * Extracted as a separate component so the AnimatePresence keyed transition
+ * in FeedList can animate the empty state in independently.
  */
-export function shouldLoadMoreArticles({
-  clientHeight,
-  hasUserScrolled,
-  scrollHeight,
-  scrollTop,
-  totalArticleCount,
-  visibleArticleCount,
-}: FeedLoadMoreState): boolean {
-  if (!hasUserScrolled || visibleArticleCount >= totalArticleCount) {
-    return false;
-  }
-
-  const remainingDistance = scrollHeight - (scrollTop + clientHeight);
+function FeedEmptyState({
+  articleFilter,
+  hasSearchTerm,
+  trimmedSearchTerm,
+}: {
+  articleFilter: ArticleFilter;
+  hasSearchTerm: boolean;
+  trimmedSearchTerm: string;
+}) {
+  const EmptyStateIcon = hasSearchTerm
+    ? SearchX
+    : articleFilter === "starred"
+      ? Sparkles
+      : CheckCheck;
 
   return (
-    Number.isFinite(remainingDistance) &&
-    remainingDistance <= FEED_LOAD_MORE_THRESHOLD_PX
+    <div
+      className="
+        relative isolate flex min-h-72 w-full max-w-2xl flex-col items-center
+        justify-center px-6 py-10 text-center
+        sm:min-h-80 sm:px-8 sm:py-12
+      "
+      data-feed-empty-state="true"
+    >
+      <div
+        aria-hidden="true"
+        className="
+          absolute inset-x-10 top-0 h-24 rounded-full bg-primary/10 blur-3xl
+        "
+      />
+      <div
+        aria-hidden="true"
+        className="
+          absolute inset-x-20 bottom-0 h-20 rounded-full bg-foreground/5
+          blur-3xl
+        "
+      />
+      <div
+        className="
+          relative mb-5 inline-flex size-12 items-center justify-center
+          rounded-full border border-border/70 bg-background/80
+          text-muted-foreground/75
+        "
+      >
+        <EmptyStateIcon className="size-4" />
+      </div>
+      <div className="relative space-y-2">
+        <h3 className="text-xl font-semibold tracking-tight text-foreground">
+          {hasSearchTerm ? "No results" : "You're up to date"}
+        </h3>
+        {hasSearchTerm ? (
+          <div
+            className="
+              flex max-w-[16rem] flex-col items-center gap-0.5 text-sm/relaxed
+              text-muted-foreground
+            "
+          >
+            <span>Nothing matched</span>
+            <span
+              className="
+                max-w-full truncate rounded-sm border border-border bg-muted
+                px-1.5 py-0.5 font-mono text-xs text-foreground/80
+              "
+            >
+              {trimmedSearchTerm}
+            </span>
+            <span>Try a different term.</span>
+          </div>
+        ) : (
+          <p className="max-w-[16rem] text-sm/relaxed text-muted-foreground">
+            Check back later or pull for fresh articles.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
 /**
- * Limits Motion position reflow to sibling rows that need to settle around an
- * active staged removal, preventing ordinary expand/collapse from animating the
- * rest of the feed.
+ * Renders the dashboard article feed as a virtualized list inside the Radix
+ * viewport when available, with a plain-list fallback during the first mount.
  */
-function shouldAnimateFeedRowReflow({
-  activeCollapsingArticleKeys,
-  hasAnimatedRemoval,
-}: FeedRowReflowAnimationOptions) {
-  /**
-   * Only non-collapsing siblings opt into Motion's position reflow.
-   * This keeps ordinary article expand/collapse from animating the entire feed
-   * while still allowing nearby rows to settle around a retained exit row.
-   */
-  return ({
-    articleKey,
-    removalAnimationMode,
-  }: {
-    articleKey: string;
-    removalAnimationMode: ArticleRemovalAnimationMode | null;
-  }) =>
-    hasAnimatedRemoval &&
-    activeCollapsingArticleKeys.size > 0 &&
-    !activeCollapsingArticleKeys.has(articleKey) &&
-    removalAnimationMode === null;
-}
-
-  /**
-   * Renders the dashboard's article feed.
-   *
-   * The component has three top-level modes:
-   * 1. Initial loading skeleton.
-   * 2. Empty state when the filtered feed has no rows.
-   * 3. Feed list mode, which may be virtualized or rendered as a full grid.
-   *
-   * Virtualization is intentionally suspended during expanded-card mode and
-   * animated removal flows because those states depend on DOM continuity more
-   * than they depend on reducing mounted row count.
-   */
 export const FeedList = memo(function FeedList({
-  collapseSettlingArticleKey = null,
+  articleFilter,
   collapsingArticles = {},
   expandedArticleKey,
   filteredFeed,
   hydratedArticleLinks,
   hydratingArticleLinks,
+  isCollapseScrollRestoreActive = false,
   isInitialLoading,
   isRefreshing: _isRefreshing,
   onExpandedSwipeRead,
@@ -575,8 +348,6 @@ export const FeedList = memo(function FeedList({
   onToggle,
   onToggleRead,
   onToggleStarred,
-  pageSize,
-  paginationResetKey,
   searchTerm,
   showFavicons,
   updatingArticleState,
@@ -587,41 +358,38 @@ export const FeedList = memo(function FeedList({
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(
     null,
   );
-  const [visibleArticleCount, setVisibleArticleCount] = useState(pageSize);
-  const collapseSettleTimeoutRef = useRef<null | number>(null);
+  const [visibleArticleCount, setVisibleArticleCount] = useState(FEED_PAGE_SIZE);
+  const [viewportResolutionState, setViewportResolutionState] =
+    useState<FeedViewportResolutionState>("pending");
+  const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
+    useState(false);
   const hasUserScrolledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const viewportHostRef = useRef<HTMLDivElement | null>(null);
   const previousExpandedArticleKeyRef = useRef<null | string>(
     expandedArticleKey,
   );
-  const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
-    useState(false);
-  const viewportHostRef = useRef<HTMLDivElement | null>(null);
-  const resolvedScrollViewportRef = useRef<HTMLElement | null>(null);
-  const retainedVisibleArticleHeightsRef = useRef(new Map<string, number>());
+  const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
+    viewportHostRef.current = node;
+    queueMicrotask(() => {
+      const resolvedViewport =
+        node?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+        null;
+      setScrollViewport(resolvedViewport);
+      setViewportResolutionState(resolvedViewport ? "ready" : "missing");
+    });
+  }, []);
 
-  // Defensive cleanup for any pending post-collapse deferral when the list
-  // unmounts or the owning dashboard surface changes.
-  useEffect(
-    () => () => {
-      if (collapseSettleTimeoutRef.current !== null) {
-        window.clearTimeout(collapseSettleTimeoutRef.current);
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    hasUserScrolledRef.current = false;
+    setVisibleArticleCount(FEED_PAGE_SIZE);
+  }, [articleFilter, searchTerm]);
 
-  // When an expanded card closes, defer re-enabling virtualization for a beat
-  // so the feed can settle on the same DOM surface before rows become virtual.
-  useLayoutEffect(() => {
+  useEffect(() => {
     const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
     previousExpandedArticleKeyRef.current = expandedArticleKey;
 
     if (expandedArticleKey !== null) {
-      if (collapseSettleTimeoutRef.current !== null) {
-        window.clearTimeout(collapseSettleTimeoutRef.current);
-        collapseSettleTimeoutRef.current = null;
-      }
       setIsVirtualizationResumeDeferred(false);
       return;
     }
@@ -633,151 +401,66 @@ export const FeedList = memo(function FeedList({
     setIsVirtualizationResumeDeferred(true);
   }, [expandedArticleKey]);
 
-  const activeCollapsingArticleEntries = useMemo(
-    () =>
-      Object.entries(collapsingArticles)
-        .filter(
-          (
-            collapsingArticleEntry,
-          ): collapsingArticleEntry is [string, CollapsingArticleState] => {
-            return collapsingArticleEntry[1] !== undefined;
-          },
-        )
-        .sort(([, leftState], [, rightState]) => {
-          return leftState.index - rightState.index;
-        }),
-    [collapsingArticles],
-  );
-  // The set form is cheaper to probe inside per-row animation decisions than
-  // repeatedly scanning the ordered tuple array.
-  const activeCollapsingArticleKeys = useMemo(
-    () => new Set(activeCollapsingArticleEntries.map(([articleKey]) => articleKey)),
-    [activeCollapsingArticleEntries],
-  );
-  const visibleFeed = useMemo(
-    () => filteredFeed.slice(0, visibleArticleCount),
-    [filteredFeed, visibleArticleCount],
-  );
+  const visibleFeed = filteredFeed.slice(0, visibleArticleCount);
 
-  /**
-   * Preserve rows that are actively animating out even after they disappear
-   * from the current visible slice. This lets the feed keep rendering them at
-   * their original index until the removal finishes.
-   */
-  const collapsingArticleSnapshots = useMemo<RetainedCollapsingArticle[]>(() => {
-    const nextSnapshots: RetainedCollapsingArticle[] = [];
-
-    for (const [articleKey, collapsingArticleState] of activeCollapsingArticleEntries) {
-
-      const visibleArticleIndex = visibleFeed.findIndex(
-        (article) => getArticleKey(article) === articleKey,
-      );
-      if (visibleArticleIndex >= 0) {
-        nextSnapshots.push({
-          article: visibleFeed[visibleArticleIndex],
-          height: retainedVisibleArticleHeightsRef.current.get(articleKey) ?? null,
-          index: visibleArticleIndex,
-          mode: collapsingArticleState.mode,
-          source: "visible",
-        });
-        continue;
-      }
-
-      nextSnapshots.push({
-        article: collapsingArticleState.article,
-        height: retainedVisibleArticleHeightsRef.current.get(articleKey) ?? null,
-        index: collapsingArticleState.index,
-        mode: collapsingArticleState.mode,
-        source: "snapshot",
-      });
-    }
-
-    return nextSnapshots;
-  }, [activeCollapsingArticleEntries, visibleFeed]);
-
-  // Merge retained snapshot rows back into the visible feed in index order so
-  // sibling positioning and scroll anchoring match the pre-removal layout.
-  const renderedFeed = useMemo(() => {
-    if (collapsingArticleSnapshots.length === 0) {
-      return visibleFeed;
-    }
-
-    const nextRenderedFeed = [...visibleFeed];
-
-    let insertionOffset = 0;
-    for (const collapsingArticleSnapshot of collapsingArticleSnapshots) {
-      if (collapsingArticleSnapshot.source === "visible") {
-        continue;
-      }
-
-      const nextInsertIndex = Math.min(
-        collapsingArticleSnapshot.index + insertionOffset,
-        nextRenderedFeed.length,
-      );
-      nextRenderedFeed.splice(
-        nextInsertIndex,
-        0,
-        collapsingArticleSnapshot.article,
-      );
-      insertionOffset += 1;
-    }
-
-    return nextRenderedFeed;
-  }, [collapsingArticleSnapshots, visibleFeed]);
-  const hasAnimatedRemoval = activeCollapsingArticleEntries.some(
-    ([, state]) => state.mode !== "collapse",
-  );
-  const shouldAnimateRowReflow = shouldAnimateFeedRowReflow({
-    activeCollapsingArticleKeys,
-    hasAnimatedRemoval,
-  });
-  /**
-   * Grows the rendered article window by exactly one page while retaining the
-   * full selection in memory for later infinite-scroll steps.
-   */
   const expandVisibleWindow = useCallback(() => {
     setVisibleArticleCount((currentCount) => {
       if (currentCount >= filteredFeed.length) {
         return currentCount;
       }
 
-      return Math.min(currentCount + pageSize, filteredFeed.length);
+      return Math.min(currentCount + FEED_PAGE_SIZE, filteredFeed.length);
     });
-  }, [filteredFeed.length, pageSize]);
+  }, [filteredFeed.length]);
 
   const maybeLoadNextPage = useCallback(() => {
-    if (!scrollViewport) {
+    if (!scrollViewport || visibleArticleCount >= filteredFeed.length) {
       return;
     }
 
-    // Paging is intentionally gated on real user scroll intent so simply
-    // mounting into a short viewport does not immediately reveal the full list.
+    const remainingDistance =
+      scrollViewport.scrollHeight -
+      (scrollViewport.scrollTop + scrollViewport.clientHeight);
+
     if (
-      shouldLoadMoreArticles({
-        clientHeight: scrollViewport.clientHeight,
-        hasUserScrolled: hasUserScrolledRef.current,
-        scrollHeight: scrollViewport.scrollHeight,
-        scrollTop: scrollViewport.scrollTop,
-        totalArticleCount: filteredFeed.length,
-        visibleArticleCount,
-      })
+      hasUserScrolledRef.current &&
+      Number.isFinite(remainingDistance) &&
+      remainingDistance <= FEED_LOAD_MORE_THRESHOLD_PX
     ) {
       expandVisibleWindow();
     }
-  }, [
-    expandVisibleWindow,
-    filteredFeed.length,
-    scrollViewport,
-    visibleArticleCount,
-  ]);
+  }, [expandVisibleWindow, filteredFeed.length, scrollViewport, visibleArticleCount]);
 
   useEffect(() => {
-    hasUserScrolledRef.current = false;
-    setVisibleArticleCount(pageSize);
-  }, [pageSize, paginationResetKey]);
+    if (
+      !isVirtualizationResumeDeferred ||
+      !scrollViewport ||
+      isCollapseScrollRestoreActive
+    ) {
+      return;
+    }
 
-  // Any touch, wheel, or actual scroll movement marks the feed as user-driven,
-  // which unlocks incremental paging and cancels virtualization deferral.
+    const resumeVirtualization = () => {
+      setIsVirtualizationResumeDeferred(false);
+    };
+
+    scrollViewport.addEventListener("scroll", resumeVirtualization, {
+      passive: true,
+    });
+    scrollViewport.addEventListener("touchmove", resumeVirtualization, {
+      passive: true,
+    });
+    scrollViewport.addEventListener("wheel", resumeVirtualization, {
+      passive: true,
+    });
+
+    return () => {
+      scrollViewport.removeEventListener("scroll", resumeVirtualization);
+      scrollViewport.removeEventListener("touchmove", resumeVirtualization);
+      scrollViewport.removeEventListener("wheel", resumeVirtualization);
+    };
+  }, [isCollapseScrollRestoreActive, isVirtualizationResumeDeferred, scrollViewport]);
+
   useEffect(() => {
     if (!scrollViewport) {
       return;
@@ -788,6 +471,7 @@ export const FeedList = memo(function FeedList({
       setIsVirtualizationResumeDeferred(false);
       maybeLoadNextPage();
     };
+
     const handleViewportScroll = () => {
       if (scrollViewport.scrollTop > 0) {
         hasUserScrolledRef.current = true;
@@ -829,8 +513,7 @@ export const FeedList = memo(function FeedList({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const [entry] = entries;
-        if (!entry.isIntersecting) {
+        if (!entries[0].isIntersecting) {
           return;
         }
 
@@ -841,8 +524,6 @@ export const FeedList = memo(function FeedList({
         maybeLoadNextPage();
       },
       {
-        // Extend the root margin downward so the next page starts loading a
-        // little before the user fully reaches the end of the current window.
         root: scrollViewport,
         rootMargin: `0px 0px ${FEED_LOAD_MORE_THRESHOLD_PX}px 0px`,
         threshold: 0,
@@ -850,161 +531,35 @@ export const FeedList = memo(function FeedList({
     );
 
     observer.observe(sentinel);
+
     return () => {
       observer.disconnect();
     };
-  }, [
-    filteredFeed.length,
-    maybeLoadNextPage,
-    scrollViewport,
-    visibleArticleCount,
-  ]);
+  }, [filteredFeed.length, maybeLoadNextPage, scrollViewport, visibleArticleCount]);
 
-  /**
-   * Resolves the surrounding Radix viewport in a microtask so virtualization
-   * can reuse the dashboard scroller without issuing a lifecycle-phase update.
-   */
-  const syncResolvedScrollViewport = useCallback(() => {
-    const nextViewport =
-      viewportHostRef.current?.closest<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      ) ?? null;
+  const trimmedSearchTerm = searchTerm.trim();
+  const hasSearchTerm = trimmedSearchTerm.length > 0;
 
-    if (resolvedScrollViewportRef.current === nextViewport) {
-      return;
-    }
-
-    resolvedScrollViewportRef.current = nextViewport;
-    setScrollViewport(nextViewport);
-  }, []);
-
-  const handleViewportHostRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      viewportHostRef.current = node;
-      queueMicrotask(syncResolvedScrollViewport);
-    },
-    [syncResolvedScrollViewport],
-  );
-
-  /**
-   * Expanded cards keep dynamic measured height, sticky chrome, and hydrated
-   * content mounted. Suspending virtualization during animated collapse exits
-   * (swipe-read, de-expanding) avoids remount and re-measure churn while the
-   * feed is animating.  Standard button-click collapses keep the virtualizer
-   * active to avoid a DOM restructuring flash when switching between the
-   * virtualizer and grid containers.
-   */
-  const shouldVirtualizeFeed =
-    scrollViewport !== null &&
-    expandedArticleKey === null &&
-    !hasAnimatedRemoval &&
-    collapseSettlingArticleKey === null &&
-    !isVirtualizationResumeDeferred;
-
-  // TanStack Virtual callbacks may run outside React render timing, so keep a
-  // ref to the latest rendered feed instead of closing over a stale array.
-  const renderedFeedRef = useRef(renderedFeed);
-  renderedFeedRef.current = renderedFeed;
-
-  /**
-   * Estimate a row size for unmeasured items.
-   *
-   * Previously measured heights win because they dramatically improve scroll
-   * anchoring when rows are revisited after virtualization or collapse churn.
-   */
-  const estimateItemSize = useCallback(
-    (index: number) => {
-      const article = renderedFeedRef.current[index];
-      const retained = retainedVisibleArticleHeightsRef.current.get(
-        getArticleKey(article),
-      );
-      return retained ?? VIRTUAL_FEED_ROW_ESTIMATE_PX;
-    },
-    [],
-  );
-
-  // The virtualizer is effectively paused by setting count to zero and
-  // returning null for the scroll element. That preserves the instance while
-  // cleanly dropping back to the fully rendered grid surface.
-  const feedVirtualizer = useVirtualizer({
-    count: shouldVirtualizeFeed ? renderedFeed.length : 0,
-    estimateSize: estimateItemSize,
-    getItemKey: (index) =>
-      renderedFeed[index]
-        ? getArticleKey(renderedFeed[index])
-        : `feed-missing-row-${index}`,
-    getScrollElement: () => (shouldVirtualizeFeed ? scrollViewport : null),
-    measureElement: (element) => measureFeedListItemSize(element),
-    overscan: FEED_ROW_VIRTUAL_OVERSCAN,
-  });
-  const virtualFeedItems = shouldVirtualizeFeed
-    ? feedVirtualizer.getVirtualItems()
-    : [];
-  // Before TanStack Virtual has enough measurements to compute a window, render
-  // a small deterministic prefix so the user still sees content immediately.
-  const fallbackVirtualFeedItems = useMemo(
-    () => renderedFeed.slice(0, Math.min(pageSize, renderedFeed.length)),
-    [pageSize, renderedFeed],
-  );
-  const hasMeasuredVirtualViewport = virtualFeedItems.length > 0;
-  const virtualFeedTopPadding = virtualFeedItems[0]?.start ?? 0;
-  const virtualFeedBottomPadding = Math.max(
-    feedVirtualizer.getTotalSize() -
-      (virtualFeedItems[virtualFeedItems.length - 1]?.end ?? 0),
-    0,
-  );
-
-  useEffect(() => {
-    if (shouldVirtualizeFeed) {
-      feedVirtualizer.measure();
-    }
-  }, [feedVirtualizer, renderedFeed, shouldVirtualizeFeed]);
-
-  /**
-   * Renders a single article row while preserving the scroll-restore key and
-   * removal-mode animation contract.
-   */
-  const renderArticleCard = useCallback(
-    (
-      article: Article,
-      options?: {
-        dataIndex?: number;
-        initialMeasuredHeight?: number;
-        key?: string;
-        onMeasureElement?: (element: HTMLDivElement | null) => void;
-      },
-    ) => {
+  const renderFeedRow = useCallback(
+    (article: Article) => {
       const articleKey = getArticleKey(article);
-      const articleLink = article.link.trim();
       const removalAnimationMode = collapsingArticles[articleKey]?.mode ?? null;
 
       return (
         <FeedListRow
           articleKey={articleKey}
-          dataIndex={options?.dataIndex}
-          initialMeasuredHeight={options?.initialMeasuredHeight}
-          key={options?.key ?? articleKey}
-          onMeasuredHeightChange={(height) => {
-            // Persist the last stable row height so future virtualization and
-            // retained-exit passes do not have to guess from the default size.
-            retainedVisibleArticleHeightsRef.current.set(articleKey, height);
-          }}
-          onMeasureElement={options?.onMeasureElement}
+          key={articleKey}
           removalAnimationMode={removalAnimationMode}
-          shouldAnimateReflow={shouldAnimateRowReflow({
-            articleKey,
-            removalAnimationMode,
-          })}
         >
           <ArticleCard
             article={article}
             articleKey={articleKey}
-            hasScrapedContent={hydratedArticleLinks[articleLink]}
+            hasScrapedContent={Boolean(article.hasFullContent)}
             isDark={isDark}
             isExpanded={expandedArticleKey === articleKey}
-            isHydrating={hydratingArticleLinks[articleLink]}
+            isHydrating={hydratingArticleLinks[article.link] ?? false}
             isMobile={isMobile}
-            isUpdatingState={updatingArticleState[articleKey]}
+            isUpdatingState={updatingArticleState[articleKey] ?? false}
             onExpandedSwipeRead={onExpandedSwipeRead}
             onPrepareExpand={onPrepareExpand}
             onSwipeRead={onSwipeRead}
@@ -1013,7 +568,7 @@ export const FeedList = memo(function FeedList({
             onToggleStarred={onToggleStarred}
             removalAnimationMode={removalAnimationMode}
             showFavicon={showFavicons}
-            useRichFormatting={hydratedArticleLinks[articleLink]}
+            useRichFormatting={hydratedArticleLinks[article.link] ?? false}
           />
         </FeedListRow>
       );
@@ -1025,212 +580,147 @@ export const FeedList = memo(function FeedList({
       hydratingArticleLinks,
       isDark,
       isMobile,
-      onPrepareExpand,
       onExpandedSwipeRead,
+      onPrepareExpand,
       onSwipeRead,
       onToggle,
       onToggleRead,
       onToggleStarred,
       showFavicons,
-      shouldAnimateRowReflow,
       updatingArticleState,
     ],
   );
 
-  const loadMoreSentinel =
-    renderedFeed.length > 0 && visibleArticleCount < filteredFeed.length ? (
-      <div
-        aria-hidden="true"
-        data-feed-load-more-sentinel="true"
-        ref={loadMoreSentinelRef}
-        // Keep the sentinel height aligned with the same threshold used by both
-        // the scroll-distance gate and the intersection observer root margin.
-        style={{ height: `${FEED_LOAD_MORE_THRESHOLD_PX}px` }}
-      />
-    ) : null;
+  const listClassName = "w-full min-w-0";
+  const shouldShowViewportResolutionSkeleton =
+    !isInitialLoading &&
+    filteredFeed.length > 0 &&
+    viewportResolutionState === "pending";
+  const isExpandedCollapseHandoffPending =
+    expandedArticleKey === null && previousExpandedArticleKeyRef.current !== null;
+  const shouldUseVirtualizedFeed =
+    !isInitialLoading &&
+    scrollViewport !== null &&
+    expandedArticleKey === null &&
+    !isCollapseScrollRestoreActive &&
+    !isVirtualizationResumeDeferred &&
+    !isExpandedCollapseHandoffPending;
+
+  const showEmptyState =
+    !isInitialLoading && filteredFeed.length === 0;
+
+  const feedSurfaceMode = isInitialLoading || shouldShowViewportResolutionSkeleton
+    ? "skeleton"
+    : showEmptyState
+      ? "empty"
+      : shouldUseVirtualizedFeed
+        ? "virtualized"
+        : "plain";
+
+  const contentKey = isInitialLoading
+    ? "feed-skeleton"
+    : showEmptyState
+      ? "feed-empty"
+      : shouldShowViewportResolutionSkeleton
+        ? "feed-viewport-skeleton"
+        : shouldUseVirtualizedFeed
+          ? "feed-virtualized"
+          : "feed-plain";
+
+  const skeletonExitTransition = {
+    duration: 0.25,
+    ease: [0.16, 1, 0.3, 1] as const,
+  };
+  const contentEnterTransition = {
+    duration: 0.35,
+    ease: [0.16, 1, 0.3, 1] as const,
+  };
 
   return (
-    <>
-      {isInitialLoading ? (
-        <DashboardFeedListSkeleton />
-      ) : renderedFeed.length === 0 ? (
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          className="
-            mx-auto flex w-full max-w-3xl items-center justify-center px-4 py-20
-            sm:py-32
-            lg:max-w-none lg:px-6 lg:py-40
-          "
-          initial={{ opacity: 0, y: 10 }}
-          key="feed-empty"
-          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-        >
+    <div
+      className={listClassName}
+      data-feed-surface-mode={feedSurfaceMode}
+      ref={isInitialLoading || showEmptyState ? undefined : handleViewportHostRef}
+    >
+      <AnimatePresence mode="wait">
+        {isInitialLoading || shouldShowViewportResolutionSkeleton ? (
+          <motion.div
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ filter: "blur(4px)", opacity: 0, scale: 0.97 }}
+            initial={{ opacity: 1, scale: 1 }}
+            key={contentKey}
+            transition={skeletonExitTransition}
+          >
+            <FeedListSkeleton />
+          </motion.div>
+        ) : showEmptyState ? (
+          <motion.div
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="
+              flex min-h-[clamp(20rem,calc(100dvh-12rem),34rem)] w-full
+              items-center justify-center px-1 py-3
+              sm:px-4 sm:py-6
+            "
+            data-feed-empty-state-frame="true"
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            key={contentKey}
+            transition={contentEnterTransition}
+          >
+            <FeedEmptyState
+              articleFilter={articleFilter}
+              hasSearchTerm={hasSearchTerm}
+              trimmedSearchTerm={trimmedSearchTerm}
+            />
+          </motion.div>
+        ) : shouldUseVirtualizedFeed ? (
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center gap-6 text-center"
-            initial={{ opacity: 0, y: 8 }}
-            key={searchTerm ? "empty-search" : "empty-default"}
-            transition={{ delay: 0.04, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className={listClassName}
+            initial={{ opacity: 0, y: 6 }}
+            key={contentKey}
+            transition={contentEnterTransition}
           >
-            <div className="relative flex items-center justify-center">
-              <div
-                className={`
-                  absolute size-36 rounded-full opacity-15 blur-2xl
-                  ${searchTerm ? `bg-muted-foreground` : `bg-emerald-500`}
-                `}
-              />
-              <div
-                className={`
-                  absolute size-28 rounded-full border
-                  ${searchTerm ? `border-border/40` : `border-emerald-500/10`}
-                `}
-              />
-              <div
-                className={`
-                  relative flex size-20 items-center justify-center rounded-2xl
-                  border bg-card/70 shadow-md backdrop-blur-sm
-                  ${searchTerm ? `border-border` : `border-emerald-500/25`}
-                `}
-              >
-                {searchTerm ? (
-                  <SearchX
-                    className="size-9 text-muted-foreground/55"
-                    strokeWidth={1.25}
-                  />
-                ) : (
-                  <Sparkles
-                    className="size-9 text-emerald-500/70"
-                    strokeWidth={1.25}
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3
-                className="text-xl font-semibold tracking-tight text-foreground"
-              >
-                {searchTerm ? "No results" : "You're up to date"}
-              </h3>
-              {searchTerm ? (
-                <div
-                  className="
-                    flex max-w-[16rem] flex-col items-center gap-0.5
-                    text-sm/relaxed text-muted-foreground
-                  "
-                >
-                  <span>Nothing matched</span>
-                  <span
-                    className="
-                      max-w-full truncate rounded-sm border border-border
-                      bg-muted px-1.5 py-0.5 font-mono text-xs
-                      text-foreground/80
-                    "
-                  >
-                    {searchTerm}
-                  </span>
-                  <span>Try a different term.</span>
-                </div>
-              ) : (
-                <p
-                  className="
-                    max-w-[16rem] text-sm/relaxed text-muted-foreground
-                  "
-                >
-                  Check back later or pull for fresh articles.
-                </p>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : (
-        <div
-          className="w-full min-w-0"
-          key="feed-list"
-          ref={handleViewportHostRef}
-        >
-          {shouldVirtualizeFeed ? (
-            <motion.div
-              className="
-                relative mx-auto w-full max-w-3xl px-1
-                lg:max-w-none lg:px-3
-              "
+            <Virtuoso
+              className={listClassName}
+              components={{
+                Footer: () =>
+                  visibleArticleCount < filteredFeed.length ? (
+                    <div
+                      className="h-px w-full"
+                      data-feed-load-more-sentinel="true"
+                      ref={loadMoreSentinelRef}
+                    />
+                  ) : null,
+              }}
+              computeItemKey={(_index, article) => getArticleKey(article)}
+              customScrollParent={scrollViewport}
+              data={visibleFeed}
               data-feed-virtualizer="true"
-              layoutScroll
-            >
-              {/*
-                Manual spacer blocks mirror TanStack Virtual's computed start/end
-                offsets. The list intentionally does not use paddingStart here,
-                because that combination can create a visible gap above the first
-                article.
-              */}
-              {hasMeasuredVirtualViewport && virtualFeedTopPadding > 0 ? (
-                <div
-                  aria-hidden="true"
-                  style={{ height: `${virtualFeedTopPadding}px` }}
-                />
-              ) : null}
-              {hasMeasuredVirtualViewport
-                ? virtualFeedItems.map((virtualFeedItem) => {
-                    const article = renderedFeed.at(virtualFeedItem.index);
-                    if (article === undefined) {
-                      return null;
-                    }
-
-                    return renderArticleCard(article, {
-                      dataIndex: virtualFeedItem.index,
-                      initialMeasuredHeight:
-                        retainedVisibleArticleHeightsRef.current.get(
-                          getArticleKey(article),
-                        ) ?? undefined,
-                      key: String(virtualFeedItem.key),
-                      onMeasureElement: (element) => {
-                        if (element) {
-                          // Measure the outer row shell so TanStack Virtual sees
-                          // the same box model that participates in layout.
-                          feedVirtualizer.measureElement(element);
-                        }
-                      },
-                    });
-                  })
-                : fallbackVirtualFeedItems.map((article) =>
-                    renderArticleCard(article, {
-                      initialMeasuredHeight:
-                        retainedVisibleArticleHeightsRef.current.get(
-                          getArticleKey(article),
-                        ) ?? undefined,
-                      key: getArticleKey(article),
-                    }),
-                  )}
-              {hasMeasuredVirtualViewport && virtualFeedBottomPadding > 0 ? (
-                <div
-                  aria-hidden="true"
-                  style={{ height: `${virtualFeedBottomPadding}px` }}
-                />
-              ) : null}
-              {loadMoreSentinel}
-            </motion.div>
-          ) : (
-            <div
-              className="
-                relative mx-auto grid w-full max-w-3xl grid-cols-1 px-1
-                lg:max-w-none lg:px-3
-              "
-            >
-              {renderedFeed.map((article) =>
-                renderArticleCard(article, {
-                  initialMeasuredHeight:
-                    retainedVisibleArticleHeightsRef.current.get(
-                      getArticleKey(article),
-                    ) ?? undefined,
-                  key: getArticleKey(article),
-                }),
-              )}
-              {loadMoreSentinel}
-            </div>
-          )}
-        </div>
+              increaseViewportBy={200}
+              initialItemCount={Math.min(visibleFeed.length, 8)}
+              itemContent={(_index, article) => renderFeedRow(article)}
+              overscan={200}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className={listClassName}
+            initial={{ opacity: 0, y: 6 }}
+            key={contentKey}
+            transition={contentEnterTransition}
+          >
+            {visibleFeed.map(renderFeedRow)}
+            {visibleArticleCount < filteredFeed.length ? (
+              <div
+                className="h-px w-full"
+                data-feed-load-more-sentinel="true"
+                ref={loadMoreSentinelRef}
+              />
+            ) : null}
+          </motion.div>
       )}
-    </>
+      </AnimatePresence>
+    </div>
   );
 });
