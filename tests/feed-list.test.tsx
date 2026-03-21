@@ -233,6 +233,73 @@ describe("FeedList", () => {
     });
   });
 
+  test("loads another page when the viewport has no scrollable overflow yet", async () => {
+    let testContainer: HTMLElement | null = null;
+    const articles = Array.from({ length: 10 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/viewport-fill-${index + 1}`,
+        title: `Viewport fill article ${index + 1}`,
+      }),
+    );
+    const { container, getByText, queryByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 600;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                testContainer?.querySelectorAll("[data-scroll-restore-key]")
+                  .length ?? 0;
+
+              return renderedRows >= 8 ? 1200 : 400;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    await waitFor(() => {
+      expect(getByText("Viewport fill article 8")).toBeTruthy();
+      expect(queryByText("Viewport fill article 9")).toBeNull();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
+        8,
+      );
+    });
+  });
+
   test("falls back to the plain feed surface while an article is expanded", async () => {
     const firstArticle = buildFeedListArticle();
     const secondArticle = buildFeedListArticle({

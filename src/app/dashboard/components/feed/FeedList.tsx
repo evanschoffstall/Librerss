@@ -76,6 +76,7 @@ type FeedRowReleasePhase = "collapsing" | "fading" | "idle";
 type FeedViewportResolutionState = "missing" | "pending" | "ready";
 
 const FEED_LOAD_MORE_THRESHOLD_PX = 504;
+const FEED_MIN_SCROLLABLE_OVERFLOW_PX = 1;
 const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
 
 /**
@@ -454,6 +455,7 @@ export const FeedList = memo(function FeedList({
   const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
     useState(false);
   const hasUserScrolledRef = useRef(false);
+  const hasAutoFilledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const viewportHostRef = useRef<HTMLDivElement | null>(null);
   const previousExpandedArticleKeyRef = useRef<null | string>(
@@ -472,9 +474,10 @@ export const FeedList = memo(function FeedList({
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
+    hasAutoFilledRef.current = false;
     setVisibleArticleCount(articlesPerPage);
     setIsVirtualizationResumeDeferred(false);
-  }, [articlesPerPage, feedViewKey, searchTerm]);
+  }, [articleFilter, articlesPerPage, feedViewKey, searchTerm]);
 
   useLayoutEffect(() => {
     if (!scrollViewport) {
@@ -533,6 +536,49 @@ export const FeedList = memo(function FeedList({
       expandVisibleWindow();
     }
   }, [expandVisibleWindow, filteredFeed.length, scrollViewport, visibleArticleCount]);
+
+  /**
+   * One-shot auto-fill: if the initial page doesn't produce scrollable
+   * overflow, load exactly one additional page so the user can start scrolling.
+   * Guards via `hasAutoFilledRef` to prevent cascading expansion.
+   */
+  useEffect(() => {
+    if (
+      hasAutoFilledRef.current ||
+      !scrollViewport ||
+      isInitialLoading ||
+      visibleArticleCount >= filteredFeed.length
+    ) {
+      return;
+    }
+
+    const autoFillFrameId = requestAnimationFrame(() => {
+      if (hasAutoFilledRef.current) {
+        return;
+      }
+
+      const scrollableOverflowPx =
+        scrollViewport.scrollHeight - scrollViewport.clientHeight;
+
+      if (
+        Number.isFinite(scrollableOverflowPx) &&
+        scrollableOverflowPx <= FEED_MIN_SCROLLABLE_OVERFLOW_PX
+      ) {
+        hasAutoFilledRef.current = true;
+        expandVisibleWindow();
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(autoFillFrameId);
+    };
+  }, [
+    expandVisibleWindow,
+    filteredFeed.length,
+    isInitialLoading,
+    scrollViewport,
+    visibleArticleCount,
+  ]);
 
   useEffect(() => {
     if (
@@ -793,13 +839,17 @@ export const FeedList = memo(function FeedList({
                     />
                   ) : null,
               }}
-              computeItemKey={(_index, article) => getArticleKey(article)}
+              computeItemKey={(_index, article) =>
+                getArticleKey(article)
+              }
               customScrollParent={scrollViewport}
               data={visibleFeed}
               data-feed-virtualizer="true"
               increaseViewportBy={200}
               initialItemCount={Math.min(visibleFeed.length, 8)}
-              itemContent={(_index, article) => renderFeedRow(article)}
+              itemContent={(_index, article) =>
+                renderFeedRow(article)
+              }
               key={feedViewKey}
               overscan={200}
             />
