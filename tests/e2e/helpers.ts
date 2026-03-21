@@ -44,13 +44,6 @@ export function articleRow(article: Locator): Locator {
   return article.locator("xpath=ancestor::*[@data-scroll-restore-key][1]");
 }
 
-/** Returns the feed row wrapper matching a previously captured article key. */
-export function articleRowByKey(page: Page, articleKey: string): Locator {
-  return page.locator(
-    `xpath=//*[@data-scroll-restore-key=${toXPathStringLiteral(articleKey)}]`,
-  );
-}
-
 /**
  * Captures actual Next.js build/runtime failures without failing on expected
  * local-development browser noise like HTTP COOP warnings.

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { useBackgroundCanvasAnimation } from "../hooks/useBackgroundCanvasAnimation";
 import { useBackgroundCanvasWindowEvents } from "../hooks/useBackgroundCanvasWindowEvents";
-import { getBackgroundCanvasScale } from "./background-canvas";
+import {
+  BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+  getBackgroundCanvasScale,
+} from "./background-canvas";
 
 interface Circle {
   alphaBase: number;
@@ -15,6 +18,8 @@ interface Circle {
   originY: number;
   size: number;
   sway: number;
+  translateX: number;
+  translateY: number;
 }
 
 interface ParticlesProps {
@@ -61,6 +66,8 @@ export default function BackgroundParticles({
         originY: Math.random() * height,
         size: Math.random() * 1.9 + 0.2,
         sway: Math.random() * 3.8 + 0.2,
+        translateX: 0,
+        translateY: 0,
       })),
     [],
   );
@@ -123,6 +130,8 @@ export default function BackgroundParticles({
           originY: Math.random() * (maxY - minY) + minY,
           size: Math.random() * 1.9 + 0.2,
           sway: Math.random() * 3.8 + 0.2,
+          translateX: 0,
+          translateY: 0,
         });
       }
     };
@@ -141,7 +150,7 @@ export default function BackgroundParticles({
   }, [quantity, resizeCanvas]);
 
   const renderFrame = useCallback(
-    (now: number) => {
+    (now: number, delta: number) => {
       const ctx = ctxRef.current;
       if (!ctx) {
         return;
@@ -149,7 +158,13 @@ export default function BackgroundParticles({
 
       const elapsed = (now - startedAtRef.current) / 1000;
       const { height, width } = canvasSize.current;
-      const swayScale = staticity <= 0 ? 0 : 1 / staticity;
+
+      // Frame-rate-independent lerp factor matching the stars parallax feel.
+      const dtScale =
+        delta > 0
+          ? Math.min(delta, 100) / BACKGROUND_CANVAS_BASELINE_FRAME_MS
+          : 1;
+      const lerpFactor = 1 - Math.pow(1 - 1 / ease, dtScale);
 
       ctx.clearRect(0, 0, width, height);
 
@@ -163,17 +178,19 @@ export default function BackgroundParticles({
           Math.min(0.75, circle.alphaBase + wave * 0.08),
         );
 
-        const parallaxX =
-          pointerOffsetRef.current.x *
-          swayScale *
-          (circle.sway / Math.max(1, ease));
-        const parallaxY =
-          pointerOffsetRef.current.y *
-          swayScale *
-          (circle.sway / Math.max(1, ease));
+        // Target offset uses the same depth formula as BackgroundStars so
+        // both layers move with the same luxurious momentum.
+        const magnetism = 0.1 + circle.sway * 4;
+        const targetX =
+          (pointerOffsetRef.current.x / (staticity / magnetism)) * 0.3;
+        const targetY =
+          (pointerOffsetRef.current.y / (staticity / magnetism)) * 0.3;
 
-        const drawX = circle.originX + parallaxX;
-        const drawY = circle.originY + parallaxY;
+        circle.translateX += (targetX - circle.translateX) * lerpFactor;
+        circle.translateY += (targetY - circle.translateY) * lerpFactor;
+
+        const drawX = circle.originX + circle.translateX;
+        const drawY = circle.originY + circle.translateY;
 
         ctx.beginPath();
         ctx.arc(drawX, drawY, circle.size, 0, Math.PI * 2);

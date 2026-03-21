@@ -10,7 +10,7 @@ import {
 
 interface UseBackgroundCanvasAnimationOptions {
   /** Draw callback invoked when a scheduled animation frame survives throttling. */
-  onFrame: (now: number) => void;
+  onFrame: (now: number, delta: number) => void;
   /** Optional callback invoked when animation resumes after being paused. */
   onResume?: () => void;
 }
@@ -76,7 +76,9 @@ export function useBackgroundCanvasAnimation({
       return;
     }
 
+    const delta =
+      lastFrameAtRef.current > 0 ? now - lastFrameAtRef.current : 0;
     lastFrameAtRef.current = now;
-    onFrameRef.current(now);
+    onFrameRef.current(now, delta);
   });
 }

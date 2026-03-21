@@ -184,6 +184,77 @@ describe("db-helpers", () => {
 });
 
 describe("db-config", () => {
+  test("normalizes ambiguous pg SSL aliases to verify-full", async () => {
+    const connectionStringModule: typeof import("@/lib/db/connection-string") =
+      await import(`@/lib/db/connection-string?normalize=${Date.now()}`);
+
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
+        "postgresql://user:pass@example.com/db?sslmode=require&channel_binding=require",
+      ),
+    ).toBe(
+      "postgresql://user:pass@example.com/db?sslmode=verify-full&channel_binding=require",
+    );
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
+        "postgres://user:pass@example.com/db?sslmode=verify-ca",
+      ),
+    ).toBe(
+      "postgres://user:pass@example.com/db?sslmode=verify-full",
+    );
+  });
+
+  test("preserves explicit libpq compatibility requests", async () => {
+    const connectionStringModule: typeof import("@/lib/db/connection-string") =
+      await import(`@/lib/db/connection-string?libpq=${Date.now()}`);
+
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
+        "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=true",
+      ),
+    ).toBe(
+      "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=true",
+    );
+      expect(
+        connectionStringModule.normalizePostgresConnectionString(
+          "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=on",
+        ),
+      ).toBe(
+        "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=on",
+      );
+      expect(
+        connectionStringModule.normalizePostgresConnectionString(
+          "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=1",
+        ),
+      ).toBe(
+        "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=1",
+      );
+    });
+
+    test("leaves invalid, non-postgres, and unsupported sslmode strings untouched", async () => {
+      const connectionStringModule: typeof import("@/lib/db/connection-string") =
+        await import(`@/lib/db/connection-string?passthrough=${Date.now()}`);
+
+      expect(
+        connectionStringModule.normalizePostgresConnectionString("not-a-url"),
+      ).toBe("not-a-url");
+      expect(
+        connectionStringModule.normalizePostgresConnectionString(
+          "mysql://user:pass@example.com/db?sslmode=require",
+        ),
+      ).toBe("mysql://user:pass@example.com/db?sslmode=require");
+      expect(
+        connectionStringModule.normalizePostgresConnectionString(
+          "postgresql://user:pass@example.com/db",
+        ),
+      ).toBe("postgresql://user:pass@example.com/db");
+      expect(
+        connectionStringModule.normalizePostgresConnectionString(
+          "postgresql://user:pass@example.com/db?sslmode=disable",
+        ),
+      ).toBe("postgresql://user:pass@example.com/db?sslmode=disable");
+  });
+
   test("parses connection and pool configuration from env", async () => {
     const previousEnv = {
       DATABASE_URL: process.env.DATABASE_URL,
@@ -193,7 +264,8 @@ describe("db-config", () => {
       DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
     };
 
-    process.env.DATABASE_URL = "  postgres://example/config  ";
+    process.env.DATABASE_URL =
+      "  postgres://example/config?sslmode=require&channel_binding=require  ";
     process.env.DB_DRIVER = "NeOn";
     process.env.DB_IDLE_TIMEOUT_MS = "2500";
     process.env.DB_MAX_CONNECTIONS = "7";
@@ -204,7 +276,7 @@ describe("db-config", () => {
     );
 
     expect(configModule.getConnectionString()).toBe(
-      "postgres://example/config",
+      "postgres://example/config?sslmode=verify-full&channel_binding=require",
     );
     expect(configModule.getDbDriver()).toBe("neon");
     expect(configModule.getDbIdleTimeoutMs()).toBe(2500);

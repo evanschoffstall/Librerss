@@ -352,9 +352,6 @@ export function useDashboardController({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
-    onFeedSwitch: useCallback(() => {
-      setArticleFilter("unread");
-    }, [setArticleFilter]),
     prefetchAllFeeds,
     prefetchCategoryFeeds,
     prefetchFeed,
@@ -364,6 +361,8 @@ export function useDashboardController({
     setIsMobileSidebarOpen,
     setSelectedCategory,
   });
+
+  const feedViewKey = `${selectedCategory}:${articleFilter}`;
 
   useDashboardIntervals({
     autoRefreshFeedList,
@@ -435,8 +434,10 @@ export function useDashboardController({
    */
   return {
     feedList: {
+      articleFilter,
       collapsingArticles,
       expandedArticleKey,
+      feedViewKey,
       filteredFeed,
       hydratedArticleLinks,
       hydratingArticleLinks,

@@ -28,6 +28,10 @@ import {
   toDistinctCategoryLabels,
 } from "@/app/dashboard/services/category-tree";
 import {
+  getFeedBatchQueryKey,
+  getFeedSourceTreeQueryKey,
+} from "@/app/dashboard/services/query-keys";
+import {
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
   toAutoRefreshIntervalMs,
@@ -368,6 +372,52 @@ describe("dashboard refresh policy services", () => {
     expect(resolveDefaultAutoRefreshIntervalMinutes(15)).toBe(30);
     expect(resolveDefaultAutoRefreshIntervalMinutes(45)).toBe(45);
     expect(toAutoRefreshIntervalMs(45)).toBe(45 * 60 * 1000);
+  });
+});
+
+describe("dashboard query-key services", () => {
+  test("builds stable feed batch keys for refresh and skip-refresh requests", () => {
+    const knownLastFetchedAtByUrl = new Map([
+      ["https://example.com/a.xml", new Date("2024-01-01T00:00:00.000Z")],
+      ["https://example.com/z.xml", new Date("2024-03-03T12:00:00.000Z")],
+    ]);
+
+    expect(
+      getFeedBatchQueryKey("signature", {
+        knownLastFetchedAtByUrl,
+      }),
+    ).toEqual([
+      "dashboard",
+      "feed-batch",
+      "signature",
+      "refresh",
+      "https://example.com/a.xml@2024-01-01T00:00:00.000Z|https://example.com/z.xml@2024-03-03T12:00:00.000Z",
+    ]);
+    expect(
+      getFeedBatchQueryKey("signature", {
+        knownLastFetchedAtByUrl: new Map(),
+        skipRefresh: true,
+      }),
+    ).toEqual([
+      "dashboard",
+      "feed-batch",
+      "signature",
+      "skip-refresh",
+      "",
+    ]);
+  });
+
+  test("builds live and placeholder feed source tree keys", () => {
+    expect(getFeedSourceTreeQueryKey(false)).toEqual([
+      "dashboard",
+      "feed-source-tree",
+      "live",
+    ]);
+    expect(getFeedSourceTreeQueryKey(true)).toEqual([
+      "dashboard",
+      "feed-source-tree",
+      "placeholder",
+    ]);
   });
 });
 

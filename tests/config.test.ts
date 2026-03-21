@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { CONFIG, isDevelopment } from "@/lib/config";
 
+const mutableEnv = process.env as Record<string, string | undefined>;
+
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
@@ -43,19 +45,19 @@ describe("lib/config – envBooleanOptional", () => {
 
 describe("lib/config – lazy runtime access", () => {
   test("isDevelopment resolves NODE_ENV at access time", () => {
-    const previousNodeEnv = process.env.NODE_ENV;
+    const previousNodeEnv = mutableEnv.NODE_ENV;
 
     try {
-      process.env.NODE_ENV = "development";
+      mutableEnv.NODE_ENV = "development";
       expect(isDevelopment()).toBe(true);
 
-      process.env.NODE_ENV = "production";
+      mutableEnv.NODE_ENV = "production";
       expect(isDevelopment()).toBe(false);
     } finally {
       if (previousNodeEnv === undefined) {
-        delete process.env.NODE_ENV;
+        delete mutableEnv.NODE_ENV;
       } else {
-        process.env.NODE_ENV = previousNodeEnv;
+        mutableEnv.NODE_ENV = previousNodeEnv;
       }
     }
   });

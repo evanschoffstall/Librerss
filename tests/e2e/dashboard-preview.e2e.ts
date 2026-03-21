@@ -4,6 +4,8 @@ import {
     firstArticleCard,
     firstArticleTitle,
     openDashboardSettings,
+  readFeedViewportMetrics,
+  setFeedViewportScrollTop,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -54,6 +56,62 @@ test.describe("dashboard preview mode", () => {
     await page.getByRole("button", { name: "Mark all read" }).click();
     await page.getByRole("button", { exact: true, name: "read" }).click();
     await expect(firstArticleCard(page)).toContainText(firstTitle);
+  });
+
+  test("keeps the selected token and resets the viewport when switching preview sources", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard?explore=1");
+    await expectPreviewDashboard(page);
+
+    const allButton = page.getByRole("button", { exact: true, name: "all" });
+    const unreadButton = page.getByRole("button", {
+      exact: true,
+      name: "unread",
+    });
+
+    await allButton.click();
+    await expect(allButton).toHaveAttribute("aria-pressed", "true");
+
+    const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
+    const targetScrollTop = Math.max(
+      0,
+      Math.min(900, scrollHeight - clientHeight - 24),
+    );
+
+    await setFeedViewportScrollTop(page, targetScrollTop);
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Open feeds" }).click();
+    await page
+      .getByRole("button", { name: "NASA www.nasa.gov" })
+      .click();
+
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBe(0);
+    await expect(allButton).toHaveAttribute("aria-pressed", "true");
+    await expect(unreadButton).toHaveAttribute("aria-pressed", "false");
+
+    const nasaViewportMetrics = await readFeedViewportMetrics(page);
+    const nasaTargetScrollTop = Math.max(
+      0,
+      Math.min(900, nasaViewportMetrics.scrollHeight - nasaViewportMetrics.clientHeight - 24),
+    );
+
+    await setFeedViewportScrollTop(page, nasaTargetScrollTop);
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBeGreaterThan(0);
+
+    await unreadButton.click();
+
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBe(0);
+    await expect(unreadButton).toHaveAttribute("aria-pressed", "true");
   });
 
   test("opens settings and shows demo safeguards in preview mode", async ({

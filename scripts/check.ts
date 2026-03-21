@@ -47,6 +47,7 @@ interface StepConfig {
   passMsg?: string;
   postProcess?: InlineTypeScriptConfig | Record<string, unknown>;
   preRun?: boolean;
+  serialGroup?: string;
   summary?: Summary;
   /** Max drain time for buffered output after a timed-out step is terminated. */
   timeoutDrainMs?: number | string;
@@ -1458,19 +1459,18 @@ export async function runCheckSuite(
   if (!allOk) process.exit(1);
 }
 
-/** Runs a parallel batch while refusing to start steps after the deadline. */
+/** Runs a batch in config order while refusing to start steps after the deadline. */
 export async function runStepBatch(
   steps: StepConfig[],
   deadlineMs: number,
 ): Promise<Record<string, Command>> {
-  return Object.fromEntries(
-    await Promise.all(
-      steps.map(
-        async (step) =>
-          [step.key, await runStepWithinDeadline(step, deadlineMs)] as const,
-      ),
-    ),
-  ) as Record<string, Command>;
+  const results: (readonly [string, Command])[] = [];
+
+  for (const step of steps) {
+    results.push([step.key, await runStepWithinDeadline(step, deadlineMs)]);
+  }
+
+  return Object.fromEntries(results) as Record<string, Command>;
 }
 
 /**

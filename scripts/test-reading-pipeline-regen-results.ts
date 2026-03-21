@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 /**
  * Regenerates expected HTML outputs for the reading-pipeline fixtures.
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { AuthenticatedUser } from "@/lib/server";
@@ -75,6 +75,38 @@ async function extractViaApiRoute(
 }
 
 /**
+ * Produces a unified diff between the previous expected output and the new one.
+ * Returns the diff file path, or null when no prior output existed or content is unchanged.
+ */
+function generateDiff(
+  fixtureDir: string,
+  articleName: string,
+  outputPath: string,
+  newContent: string,
+  timestamp: number,
+): null | string {
+  if (!existsSync(outputPath)) return null;
+
+  const oldContent = readFileSync(outputPath, "utf8");
+  const newNormalized = `${newContent}\n`;
+  if (oldContent === newNormalized) return null;
+
+  const articleNumber = articleName.split("-")[1];
+  const diffPath = join(
+    fixtureDir,
+    `article-results-${articleNumber}-diff-${timestamp}.diff`,
+  );
+
+  const result = Bun.spawnSync(["diff", "-u", outputPath, "-"], {
+    stdin: Buffer.from(newNormalized),
+  });
+
+  const diffText = result.stdout.toString();
+  writeFileSync(diffPath, diffText, "utf8");
+  return diffPath;
+}
+
+/**
  * Regenerates every stored output fixture in the reading pipeline set.
  */
 async function main() {
@@ -85,11 +117,20 @@ async function main() {
     .map((name) => name.replace(/\.html$/, ""))
     .sort((a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]));
 
+  const timestamp = Date.now();
+
   for (const articleName of articleFiles) {
-    const result = await regenerateReadingExpectation(fixtureDir, articleName);
+    const result = await regenerateReadingExpectation(
+      fixtureDir,
+      articleName,
+      timestamp,
+    );
     console.log(
       `regenerated ${result.articleName} -> ${result.outputPath} (${result.size} chars)`,
     );
+    if (result.diffPath) {
+      console.log(`  diff -> ${result.diffPath}`);
+    }
   }
 }
 
@@ -99,6 +140,7 @@ async function main() {
 async function regenerateReadingExpectation(
   fixtureDir: string,
   articleName: string,
+  timestamp: number,
 ) {
   const inputPath = join(fixtureDir, `${articleName}.html`);
   const outputPath = resolveExpectedPath(fixtureDir, articleName);
@@ -111,8 +153,10 @@ async function regenerateReadingExpectation(
     throw new Error(`${articleName} produced empty expectation output`);
   }
 
+  const diffPath = generateDiff(fixtureDir, articleName, outputPath, cleaned, timestamp);
+
   writeFileSync(outputPath, `${cleaned}\n`, "utf8");
-  return { articleName, outputPath, size: cleaned.length };
+  return { articleName, diffPath, outputPath, size: cleaned.length };
 }
 
 /**

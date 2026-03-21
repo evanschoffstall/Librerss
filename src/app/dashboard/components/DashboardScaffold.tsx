@@ -16,7 +16,7 @@ interface DashboardScaffoldProps {
 /**
  * Shared feed viewport chrome for both the live dashboard and route shell.
  *
- * Keeping the Radix viewport wrapper, pull-sentinel slot, and inner feed frame
+ * Keeping the Radix viewport wrapper and inner feed frame
  * identical prevents the shell from handing off to a differently sized surface.
  */
 export function DashboardFeedViewport({

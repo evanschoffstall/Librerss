@@ -17,28 +17,40 @@ export function isDevelopment(): boolean {
   return process.env.NODE_ENV === "development";
 }
 
+let cachedBuildTimeDefaults: Record<string, string> = {};
+let cachedBuildTimeDefaultsRaw: string | undefined;
+
 /**
- * Build-time config defaults injected by next.config.ts via DefinePlugin.
- * Ensures CONFIG reads succeed on Vercel where .env file values may not be in
- * process.env at runtime.  Falls back to empty in tests / local dev where
- * process.env is populated directly by @next/env.
+ * Reads build-time config defaults injected by next.config.ts via DefinePlugin.
+ * The raw JSON blob is memoized by value so repeated accesses are cheap while
+ * still tolerating module graphs that load before the env replacement is ready.
  */
-const buildTimeDefaults: Record<string, string> = (() => {
-  try {
-    // DefinePlugin replaces this literal with the JSON string at build time.
-    const raw = process.env.LIBRERSS_BUILD_CONFIG;
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
-  } catch {
-    return {};
+const getBuildTimeDefaults = (): Record<string, string> => {
+  const raw = process.env.LIBRERSS_BUILD_CONFIG;
+
+  if (raw === cachedBuildTimeDefaultsRaw) {
+    return cachedBuildTimeDefaults;
   }
-})();
+
+  cachedBuildTimeDefaultsRaw = raw;
+
+  try {
+    cachedBuildTimeDefaults = raw
+      ? (JSON.parse(raw) as Record<string, string>)
+      : {};
+  } catch {
+    cachedBuildTimeDefaults = {};
+  }
+
+  return cachedBuildTimeDefaults;
+};
 
 /**
  * Reads an environment variable with build-time fallback.  Runtime values
  * (hosting platform env vars, .env.local) always take precedence.
  */
 const getEnv = (key: string): string | undefined =>
-  process.env[key] ?? buildTimeDefaults[key];
+  process.env[key] ?? getBuildTimeDefaults()[key];
 
 function parseEnvBoolean(value: string, key: string): boolean {
   const normalized = value.trim().toLowerCase();

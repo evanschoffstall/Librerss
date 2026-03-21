@@ -19,8 +19,6 @@ import {
 type UseDashboardHandlersOptions = FeedSelectionFetchers & {
   /** Optional hook invoked immediately before a refresh starts, typically to capture scroll state. */
   onBeforeRefresh?: () => void;
-  /** Shared callback fired whenever the user changes the active feed/category selection. */
-  onFeedSwitch: () => void;
   /** Silently warms the synthetic all-feeds selection. */
   prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
   /** Silently warms a category selection before the user commits it. */
@@ -54,7 +52,6 @@ export function useDashboardHandlers({
   fetchCategoryFeeds,
   fetchFeed,
   onBeforeRefresh,
-  onFeedSwitch,
   prefetchAllFeeds,
   prefetchCategoryFeeds,
   prefetchFeed,
@@ -120,7 +117,6 @@ export function useDashboardHandlers({
    */
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
-      onFeedSwitch();
       setSelectedCategory(feedNode.key);
       setIsMobileSidebarOpen(false);
       if (feedNode.data?.url && feedNode.data.enabled !== false) {
@@ -129,7 +125,7 @@ export function useDashboardHandlers({
         });
       }
     },
-    [onFeedSwitch, setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
+    [setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
   );
 
   /** Prefetches a feed on hover/focus so selection can reuse a warm query. */
@@ -158,7 +154,6 @@ export function useDashboardHandlers({
    */
   const handleCategoryClick = useCallback(
     (categoryNode: CategoryTreeNode) => {
-      onFeedSwitch();
       setSelectedCategory(categoryNode.key);
       setIsMobileSidebarOpen(false);
 
@@ -174,7 +169,6 @@ export function useDashboardHandlers({
       });
     },
     [
-      onFeedSwitch,
       setSelectedCategory,
       setIsMobileSidebarOpen,
       fetchAllFeeds,

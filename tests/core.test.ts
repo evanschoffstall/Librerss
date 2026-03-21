@@ -577,6 +577,12 @@ describe("feed-refresh", () => {
     expect(result).toEqual({ ok: true });
     expect(insert).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(1);
+
+    // Verify the upsert includes a WHERE clause to skip no-op updates
+    const upsertArg = onConflictDoUpdate.mock.calls[0][0];
+    expect(upsertArg).toBeDefined();
+    expect(upsertArg.set).toBeDefined();
+    expect(upsertArg.where).toBeDefined();
   });
 
   test("refreshFeedFromUpstream returns error and applies cooldown on failure", async () => {

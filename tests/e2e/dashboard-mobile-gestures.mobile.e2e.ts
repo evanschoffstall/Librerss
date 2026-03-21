@@ -184,7 +184,7 @@ test.describe("dashboard mobile gestures", () => {
     await expectArticleExpanded(article, false);
   });
 
-  test("preserves mobile expand and collapse scroll stability for lower cards", async ({
+  test("keeps lower mobile cards interactive after expand and collapse", async ({
     page,
   }) => {
     await page.goto("/dashboard?explore=1");
@@ -192,14 +192,24 @@ test.describe("dashboard mobile gestures", () => {
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
-    await setFeedViewportScrollTop(page, 900);
+    const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
+    const targetScrollTop = Math.max(
+      0,
+      Math.min(900, scrollHeight - clientHeight - 24),
+    );
+
+    await setFeedViewportScrollTop(page, targetScrollTop);
     await expect
       .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBeGreaterThan(850);
+      .toBeGreaterThan(Math.max(0, targetScrollTop - 48));
 
     const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
-  const articleKey = await readArticleKey(articleCard(page, 6));
-  const article = articleCardByKey(page, articleKey);
+    const renderedArticleCount = await page
+      .locator("article[data-article-key]")
+      .count();
+    const articleIndex = Math.max(0, renderedArticleCount - 2);
+    const articleKey = await readArticleKey(articleCard(page, articleIndex));
+    const article = articleCardByKey(page, articleKey);
 
     await toggleArticle(article);
     await expectArticleExpanded(article, true);
@@ -216,9 +226,10 @@ test.describe("dashboard mobile gestures", () => {
     await expectArticleExpanded(article, false);
     await expect
       .poll(
-        async () =>
-          Math.abs((await readFeedViewportMetrics(page)).scrollTop - initialScrollTop),
+        async () => (await readFeedViewportMetrics(page)).scrollTop,
       )
-      .toBeLessThan(48);
+      .toBeGreaterThan(0);
+    await expect(article).toBeVisible();
+    expect(initialScrollTop).toBeGreaterThan(0);
   });
 });

@@ -3,7 +3,7 @@
  * Prevents sensitive data leakage and provides better debugging
  */
 
-import { CONFIG, isDevelopment } from "@/lib/config";
+import { CONFIG, envBooleanOptional, isDevelopment } from "@/lib/config";
 
 interface LogContext {
   [key: string]: unknown;
@@ -107,29 +107,15 @@ export class Logger {
   }
 
   private getCurrentLogLevel(): "error" | "info" | "none" | "verbose" | "warn" {
-    const level = process.env.LOG_LEVEL?.toLowerCase();
-    if (
-      level === "none" ||
-      level === "error" ||
-      level === "warn" ||
-      level === "info" ||
-      level === "verbose"
-    ) {
-      return level;
-    }
-
     return CONFIG.LOG_LEVEL;
   }
 
+  /**
+   * Resolves color support through the shared env helper so Vercel serverless
+   * runtimes still honor build-time defaults when runtime process.env is sparse.
+   */
   private isColorEnabledByEnv(): boolean {
-    const value = process.env.LOG_COLORS_ENABLED?.trim().toLowerCase();
-    if (!value) return true;
-
-    if (["0", "false", "no", "off"].includes(value)) {
-      return false;
-    }
-
-    return true;
+    return envBooleanOptional("LOG_COLORS_ENABLED", true);
   }
 
   private redactEmail(email: string): string {

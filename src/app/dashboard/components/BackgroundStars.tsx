@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef } from "react";
 
 import { useBackgroundCanvasAnimation } from "../hooks/useBackgroundCanvasAnimation";
-import { getBackgroundCanvasScale } from "./background-canvas";
+import {
+  BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+  getBackgroundCanvasScale,
+} from "./background-canvas";
 
 interface Star {
   alpha: number;
@@ -92,7 +95,7 @@ export default function BackgroundStars({
     const maxAlpha = isDimStar
       ? parseFloat((Math.random() * 0.2 + 0.18).toFixed(2))
       : isBrightStar
-        ? parseFloat((Math.random() * 0.22 + 0.58).toFixed(2))
+        ? parseFloat((Math.random() * 0.22 + 0.53).toFixed(2))
         : parseFloat((Math.random() * 0.22 + 0.36).toFixed(2));
 
     const darkSkyColorRoll = Math.random();
@@ -256,8 +259,16 @@ export default function BackgroundStars({
   }, [quantity, resizeCanvas, starInRegion]);
 
   const animate = useCallback(
-    (_now: number) => {
+    (_now: number, delta: number) => {
       clearContext();
+
+      // Scale the interpolation factor so the parallax feel is identical
+      // regardless of whether the animation runs at 30 fps or 60 fps.
+      const dtScale =
+        delta > 0
+          ? Math.min(delta, 100) / BACKGROUND_CANVAS_BASELINE_FRAME_MS
+          : 1;
+      const lerpFactor = 1 - Math.pow(1 - 1 / ease, dtScale);
 
       for (const star of stars.current) {
         if (star.mode !== "steady") {
@@ -274,12 +285,10 @@ export default function BackgroundStars({
           }
         }
 
-        star.translateX +=
-          (mouse.current.x / (staticity / star.magnetism) - star.translateX) /
-          ease;
-        star.translateY +=
-          (mouse.current.y / (staticity / star.magnetism) - star.translateY) /
-          ease;
+        const targetX = (mouse.current.x / (staticity / star.magnetism)) * 1.5;
+        const targetY = (mouse.current.y / (staticity / star.magnetism)) * 1.5;
+        star.translateX += (targetX - star.translateX) * lerpFactor;
+        star.translateY += (targetY - star.translateY) * lerpFactor;
 
         drawStar(star, true);
       }

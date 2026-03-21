@@ -3,6 +3,25 @@ export const BACKGROUND_CANVAS_MAX_DPR = 1.5;
 
 /** Target frame budget used to keep decorative background animation inexpensive. */
 export const BACKGROUND_CANVAS_TARGET_FRAME_MS = 1000 / 30;
+/** Baseline frame interval the original background motion was tuned for. */
+export const BACKGROUND_CANVAS_BASELINE_FRAME_MS = 1000 / 60;
+
+/**
+ * Computes a frame-rate-independent interpolation factor for background motion.
+ *
+ * @param ease Per-frame easing divisor from the original animation tuning.
+ * @param delta Elapsed time between committed animation frames in ms.
+ * @param baselineFrameMs Reference frame interval used by the original tuning.
+ * @returns Interpolation factor that preserves motion feel across frame rates.
+ */
+export function getBackgroundCanvasLerpFactor(
+  ease: number,
+  delta: number,
+  baselineFrameMs = BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+) {
+  const dtScale = delta > 0 ? Math.min(delta, 100) / baselineFrameMs : 1;
+  return 1 - Math.pow(1 - 1 / ease, dtScale);
+}
 
 /**
  * Caps the effective device-pixel ratio for decorative dashboard canvases.
@@ -20,6 +39,26 @@ export function getBackgroundCanvasScale(devicePixelRatio?: number) {
   }
 
   return Math.min(Math.max(devicePixelRatio, 1), BACKGROUND_CANVAS_MAX_DPR);
+}
+
+/**
+ * Computes a parallax offset that follows pointer motion with depth scaling.
+ *
+ * @param pointerOffset Pointer offset from canvas center on one axis.
+ * @param staticity Higher values reduce displacement.
+ * @param magnetism Per-star depth factor.
+ * @param distanceMultiplier Additional displacement tuning multiplier.
+ * @returns Target translation for one parallax axis.
+ */
+export function getBackgroundParallaxOffset(
+  pointerOffset: number,
+  staticity: number,
+  magnetism: number,
+  distanceMultiplier = 1,
+) {
+  return (
+    (pointerOffset / (staticity / magnetism)) * distanceMultiplier
+  );
 }
 
 /**
