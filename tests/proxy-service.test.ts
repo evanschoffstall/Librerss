@@ -181,6 +181,28 @@ describe("server proxy service", () => {
     });
   });
 
+  test("resolveUserProxy restores the default SOCKS port for legacy stored URLs", async () => {
+    mockProxyServiceDeps({
+      materializeImpl: async () => "stored-pass",
+      rows: [
+        {
+          allowInsecureTls: false,
+          proxyPassword: "enc-v1:stored",
+          proxyUrl: "socks5://proxy.example",
+          proxyUsername: "stored-user",
+        },
+      ],
+    });
+    const { resolveUserProxy } = await import(
+      `@/lib/server/services/proxy-service?resolve-socks-default-port=${Date.now()}`
+    );
+
+    await expect(resolveUserProxy(12)).resolves.toEqual({
+      allowInsecureTls: false,
+      proxyUrl: "socks5://stored-user:stored-pass@proxy.example:1080",
+    });
+  });
+
   test("resolveUserProxy wraps unreadable saved passwords in a ServiceError", async () => {
     const deps = mockProxyServiceDeps({
       materializeImpl: async () => {

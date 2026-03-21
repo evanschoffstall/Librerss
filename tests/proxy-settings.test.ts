@@ -890,7 +890,7 @@ describe("proxy SSRF guard functions (direct)", () => {
     expect(result).toBe("https://proxy.example.com");
   });
 
-  test("parseHostPort handles socks:// default port 1080", async () => {
+  test("parseHostPort canonicalizes socks:// to include the default port", async () => {
     mockLogger();
     const { normalizeProxyUrl } = await import("@/lib/server");
     const result = await normalizeProxyUrl(
@@ -898,8 +898,7 @@ describe("proxy SSRF guard functions (direct)", () => {
       async () => "http", // not called for explicit socks
       async () => false,
     );
-    // Should accept socks without explicit port
-    expect(result).toBe("socks5://proxy.example.com");
+    expect(result).toBe("socks5://proxy.example.com:1080");
   });
 
   test("probeProxy handles parseHostPort failure gracefully", async () => {
@@ -965,6 +964,17 @@ describe("server/proxy – normalizeProxyUrl", () => {
     );
     expect(result).toContain("socks5");
     expect(result).toContain("external.example.com");
+  });
+
+  test("SOCKS: canonicalizes missing explicit ports to 1080", async () => {
+    const { normalizeProxyUrl } = await import("@/lib/server/proxy");
+    expect(
+      await normalizeProxyUrl(
+        "socks5://external.example.com",
+        probeHttp,
+        dnsAllow,
+      ),
+    ).toBe("socks5://external.example.com:1080");
   });
 
   test("SOCKS: accepts public IPv6 literals and passes unbracketed host to DNS checks", async () => {

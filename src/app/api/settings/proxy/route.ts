@@ -19,6 +19,7 @@ import {
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
 import {
+  ensureProxyUrlHasExplicitPort,
   getUrlCredentials,
   injectProxyCredentials,
   redactUrlForLogs,
@@ -61,8 +62,10 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
   const rawProxyUrl = user.proxyUrl?.trim() ?? "";
   if (!rawProxyUrl) return unconfiguredResponse();
 
-  const embeddedCredentials = getUrlCredentials(rawProxyUrl);
-  const proxyUrl = embeddedCredentials?.sanitizedUrl ?? rawProxyUrl;
+  const canonicalProxyUrl = ensureProxyUrlHasExplicitPort(rawProxyUrl);
+
+  const embeddedCredentials = getUrlCredentials(canonicalProxyUrl);
+  const proxyUrl = embeddedCredentials?.sanitizedUrl ?? canonicalProxyUrl;
   const proxyUsername =
     user.proxyUsername ?? embeddedCredentials?.username ?? null;
 

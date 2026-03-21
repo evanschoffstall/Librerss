@@ -33,6 +33,36 @@ export function getUrlCredentials(raw: string): null | {
   }
 }
 
+const DEFAULT_PROXY_PORT_BY_PROTOCOL: Readonly<Record<string, string>> = {
+  "socks4:": "1080",
+  "socks4a:": "1080",
+  "socks5:": "1080",
+  "socks5h:": "1080",
+  "socks:": "1080",
+};
+
+/**
+ * Canonicalizes proxy URLs that rely on implicit SOCKS default ports.
+ *
+ * Some downstream proxy clients reject `socks5://host` even though the WHATWG
+ * URL parser accepts it. Returning an explicit `:1080` keeps stored legacy
+ * values usable across all fetch paths without changing HTTP/HTTPS handling.
+ */
+export function ensureProxyUrlHasExplicitPort(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    const defaultPort = DEFAULT_PROXY_PORT_BY_PROTOCOL[parsed.protocol];
+    if (!defaultPort || parsed.port) {
+      return raw;
+    }
+
+    parsed.port = defaultPort;
+    return parsed.toString();
+  } catch {
+    return raw;
+  }
+}
+
 /**
  * Human-friendly hostname label with optional `www.` stripping.
  */

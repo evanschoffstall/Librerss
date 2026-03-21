@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import {
+  ensureProxyUrlHasExplicitPort,
   getUrlCredentials,
   injectProxyCredentials,
   stripUrlCredentials,
@@ -50,16 +51,18 @@ export async function getProxyStatus(
     return { configured: false, proxyUrl: null, status: "unreachable" };
   }
 
-  const reachable = await probeProxy(rawProxyUrl);
+  const canonicalProxyUrl = ensureProxyUrlHasExplicitPort(rawProxyUrl);
+
+  const reachable = await probeProxy(canonicalProxyUrl);
   const status = reachable ? "reachable" : "unreachable";
   if (!reachable) {
     logger.error("Proxy status check: unreachable", {
-      proxyUrl: stripUrlCredentials(rawProxyUrl),
+      proxyUrl: stripUrlCredentials(canonicalProxyUrl),
     });
   }
   return {
     configured: true,
-    proxyUrl: stripUrlCredentials(rawProxyUrl),
+    proxyUrl: stripUrlCredentials(canonicalProxyUrl),
     status,
   };
 }
@@ -90,15 +93,18 @@ export async function resolveUserProxy(
   const row = rows[0];
 
   const rawProxyUrl = row.proxyUrl?.trim();
-  const embeddedCredentials = rawProxyUrl
-    ? getUrlCredentials(rawProxyUrl)
+  const canonicalProxyUrl = rawProxyUrl
+    ? ensureProxyUrlHasExplicitPort(rawProxyUrl)
+    : rawProxyUrl;
+  const embeddedCredentials = canonicalProxyUrl
+    ? getUrlCredentials(canonicalProxyUrl)
     : null;
   const baseProxyUrl =
-    rawProxyUrl !== undefined &&
-    rawProxyUrl !== "" &&
-    rawProxyUrl !== "null" &&
-    rawProxyUrl !== "undefined"
-      ? (embeddedCredentials?.sanitizedUrl ?? rawProxyUrl)
+    canonicalProxyUrl !== undefined &&
+    canonicalProxyUrl !== "" &&
+    canonicalProxyUrl !== "null" &&
+    canonicalProxyUrl !== "undefined"
+      ? (embeddedCredentials?.sanitizedUrl ?? canonicalProxyUrl)
       : undefined;
 
   let decryptedProxyPassword: null | string;
