@@ -115,6 +115,7 @@ export const ArticleCard = memo(function ArticleCard({
 }: ArticleCardProps) {
   const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
   const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
+  const isGradientTrackedRef = useRef(isExpanded);
   const [isGradientTracked, setIsGradientTracked] = useState(isExpanded);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [supportsNativeShare] = useState(
@@ -196,6 +197,8 @@ export const ArticleCard = memo(function ArticleCard({
   const headerZoneRef = useRef<HTMLDivElement | null>(null);
   const contentZoneRef = useRef<HTMLDivElement | null>(null);
   const bodyMeasureRef = useRef<HTMLDivElement | null>(null);
+  const headerGradientOverlayRef = useRef<HTMLDivElement | null>(null);
+  const contentGradientOverlayRef = useRef<HTMLDivElement | null>(null);
   const interactionBlockUntilRef = useRef(0);
   const previousPhaseRef = useRef(phase);
   const [expandedBodyHeight, setExpandedBodyHeight] = useState(
@@ -217,12 +220,8 @@ export const ArticleCard = memo(function ArticleCard({
   }, [phase]);
 
   useEffect(() => {
-    if (isExpanded) {
-      setIsGradientTracked(true);
-      return;
-    }
-
-    setIsGradientTracked(false);
+    isGradientTrackedRef.current = isExpanded;
+    setIsGradientTracked(isExpanded);
   }, [isExpanded]);
 
   useEffect(() => {
@@ -250,17 +249,7 @@ export const ArticleCard = memo(function ArticleCard({
     return () => {
       resizeObserver?.disconnect();
     };
-  }, [
-    collapsedPreview,
-    content,
-    hasReadableContent,
-    isExpanded,
-    normalizedHtml,
-    phase,
-    showFullContent,
-    showSkeleton,
-    useRichFormatting,
-  ]);
+  }, [isExpanded, normalizedHtml, useRichFormatting]);
 
   const isExpandedBodyTarget = useCallback(
     (target: EventTarget | null) =>
@@ -602,25 +591,27 @@ export const ArticleCard = memo(function ArticleCard({
     };
   }, [isRawHtmlOpen]);
 
-  // Gradient coordinate measurement for split header/content overlays
-  const [gradientCoords, setGradientCoords] = useState({
-    ch: 0,
-    cw: 0,
-    cy: 0,
-    hy: 0,
-  });
-
-  const measureGradient = useCallback(() => {
+  // Gradient coordinate measurement — writes directly to DOM to avoid
+  // re-render on every ResizeObserver callback during hover.
+  const applyGradientStyles = useCallback(() => {
     const a = articleRef.current;
     const h = headerZoneRef.current;
     const c = contentZoneRef.current;
     if (!a || !h || !c) return;
-    setGradientCoords({
-      ch: a.offsetHeight,
-      cw: a.offsetWidth,
-      cy: c.offsetTop,
-      hy: h.offsetTop,
-    });
+    const ch = a.offsetHeight;
+    const cw = a.offsetWidth;
+    if (cw <= 0 || ch <= 0) return;
+    const size = `${cw}px ${ch}px`;
+    const hel = headerGradientOverlayRef.current;
+    if (hel) {
+      hel.style.backgroundPosition = `0px -${h.offsetTop}px`;
+      hel.style.backgroundSize = size;
+    }
+    const cel = contentGradientOverlayRef.current;
+    if (cel) {
+      cel.style.backgroundPosition = `0px -${c.offsetTop}px`;
+      cel.style.backgroundSize = size;
+    }
   }, []);
 
   useEffect(() => {
@@ -632,28 +623,18 @@ export const ArticleCard = memo(function ArticleCard({
     const h = headerZoneRef.current;
     const c = contentZoneRef.current;
     if (!a || !h || !c) return;
-    measureGradient();
+    applyGradientStyles();
     const resizeObserver =
       typeof ResizeObserver === "undefined"
         ? null
-        : new ResizeObserver(measureGradient);
+        : new ResizeObserver(applyGradientStyles);
     resizeObserver?.observe(a);
     resizeObserver?.observe(h);
     resizeObserver?.observe(c);
     return () => {
       resizeObserver?.disconnect();
     };
-  }, [isGradientTracked, measureGradient]);
-
-  const { ch, cw, cy, hy } = gradientCoords;
-  const gradientReady = cw > 0 && ch > 0;
-
-  const headerGradientStyle: React.CSSProperties = gradientReady
-    ? { backgroundPosition: `0px -${hy}px`, backgroundSize: `${cw}px ${ch}px` }
-    : {};
-  const contentGradientStyle: React.CSSProperties = gradientReady
-    ? { backgroundPosition: `0px -${cy}px`, backgroundSize: `${cw}px ${ch}px` }
-    : {};
+  }, [isGradientTracked, applyGradientStyles]);
 
   const gradientCls = `absolute inset-0 bg-gradient-to-br transition-opacity duration-1000 ${
     isDark
@@ -750,7 +731,10 @@ export const ArticleCard = memo(function ArticleCard({
         ${visuallyExpanded ? "overflow-visible" : `overflow-hidden`}
         rounded-xl
       `}
-      style={{ touchAction: "pan-y" }}
+      style={{
+        contain: visuallyExpanded ? undefined : "layout style paint",
+        touchAction: "pan-y",
+      }}
     >
       {/* Swipe-to-read / swipe-to-star background indicators */}
       <div
@@ -867,10 +851,14 @@ export const ArticleCard = memo(function ArticleCard({
         onClick={toggleExpanded}
         onKeyDown={handleKeyDown}
         onMouseEnter={() => {
-          setIsGradientTracked(true);
+          if (!isGradientTrackedRef.current) {
+            isGradientTrackedRef.current = true;
+            setIsGradientTracked(true);
+          }
         }}
         onMouseLeave={() => {
-          if (!isExpanded) {
+          if (!isExpanded && isGradientTrackedRef.current) {
+            isGradientTrackedRef.current = false;
             setIsGradientTracked(false);
           }
         }}
@@ -924,7 +912,7 @@ export const ArticleCard = memo(function ArticleCard({
               pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl
             "
           >
-            <div className={gradientCls} style={headerGradientStyle} />
+            <div className={gradientCls} ref={headerGradientOverlayRef} />
           </div>
           <div className="relative z-10 space-y-2">
             <div
@@ -1220,7 +1208,7 @@ export const ArticleCard = memo(function ArticleCard({
               pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl
             "
           >
-            <div className={gradientCls} style={contentGradientStyle} />
+            <div className={gradientCls} ref={contentGradientOverlayRef} />
           </div>
           <div className="relative z-10">
             <div
@@ -1228,7 +1216,7 @@ export const ArticleCard = memo(function ArticleCard({
               style={{
                 height: resolvedBodyHeight,
                 transition: `height ${bodyTransitionMs}ms ${ARTICLE_SURFACE_EASING}`,
-                willChange: "height",
+                willChange: phase === "expanding" || phase === "collapsing" ? "height" : undefined,
               }}
             >
               <div className="relative min-h-0 overflow-hidden">
@@ -1260,6 +1248,10 @@ export const ArticleCard = memo(function ArticleCard({
                   }
                   ref={bodyMeasureRef}
                   style={{
+                    containIntrinsicSize:
+                      expandTransitionDone && !visuallyExpanded
+                        ? "auto 24px"
+                        : undefined,
                     contentVisibility:
                       expandTransitionDone && !visuallyExpanded
                         ? "auto"

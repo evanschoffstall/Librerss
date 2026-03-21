@@ -4,71 +4,20 @@ import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
 import { FeedList } from "@/app/dashboard/components/feed/FeedList";
-import { type Article } from "@/lib";
 
-const originalMatchMedia = window.matchMedia;
-const originalResizeObserver = globalThis.ResizeObserver;
-
-class ResizeObserverMock {
-  disconnect() {}
-
-  observe() {}
-
-  unobserve() {}
-}
+import {
+  buildFeedListArticle,
+  installFeedListDomMocks,
+  restoreFeedListDomMocks,
+} from "./feed-list-test-utils";
 
 beforeEach(() => {
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    value: (query: string) => ({
-      addEventListener: () => {},
-      addListener: () => {},
-      dispatchEvent: () => false,
-      matches: query.includes("639"),
-      media: query,
-      onchange: null,
-      removeEventListener: () => {},
-      removeListener: () => {},
-    }),
-    writable: true,
-  });
-  Object.defineProperty(globalThis, "ResizeObserver", {
-    configurable: true,
-    value: ResizeObserverMock,
-    writable: true,
-  });
+  installFeedListDomMocks();
 });
 
 afterEach(() => {
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    value: originalMatchMedia,
-    writable: true,
-  });
-  Object.defineProperty(globalThis, "ResizeObserver", {
-    configurable: true,
-    value: originalResizeObserver,
-    writable: true,
-  });
+  restoreFeedListDomMocks();
 });
-
-function buildArticle(overrides?: Partial<Article>): Article {
-  return {
-    content: "Short preview content for the article card.",
-    feedId: 1,
-    feedName: "Example Feed",
-    feedUrl: "https://example.com/feed.xml",
-    hasFullContent: false,
-    id: 1,
-    isRead: false,
-    isStarred: false,
-    lastChecked: new Date("2026-03-13T10:00:00.000Z"),
-    link: "https://example.com/articles/perf",
-    publicationDate: new Date("2026-03-13T09:00:00.000Z"),
-    title: "Performance-sensitive article",
-    ...overrides,
-  };
-}
 
 function renderFeedList(element: React.ReactNode) {
   return render(
@@ -84,6 +33,7 @@ describe("FeedList", () => {
       <FeedList
         articleFilter="all"
         expandedArticleKey={null}
+        feedViewKey="system-all-feeds:all"
         filteredFeed={[]}
         hydratedArticleLinks={{}}
         hydratingArticleLinks={{}}
@@ -110,6 +60,7 @@ describe("FeedList", () => {
       <FeedList
         articleFilter="all"
         expandedArticleKey={null}
+        feedViewKey="system-all-feeds:all"
         filteredFeed={[]}
         hydratedArticleLinks={{}}
         hydratingArticleLinks={{}}
@@ -148,11 +99,12 @@ describe("FeedList", () => {
   });
 
   test("keeps visible cards mounted while a refresh is in flight", async () => {
-    const article = buildArticle();
+    const article = buildFeedListArticle();
     const { getByText } = renderFeedList(
       <FeedList
         articleFilter="all"
         expandedArticleKey={null}
+        feedViewKey="system-all-feeds:all"
         filteredFeed={[article]}
         hydratedArticleLinks={{}}
         hydratingArticleLinks={{}}
@@ -174,7 +126,7 @@ describe("FeedList", () => {
   });
 
   test("falls back to the empty state after unread filtering removes the last row", async () => {
-    const article = buildArticle({
+    const article = buildFeedListArticle({
       link: "https://example.com/articles/swipe-removal",
       title: "Swipe removal article",
     });
@@ -182,6 +134,7 @@ describe("FeedList", () => {
       <FeedList
         articleFilter="all"
         expandedArticleKey={null}
+        feedViewKey="system-all-feeds:all"
         filteredFeed={[article]}
         hydratedArticleLinks={{}}
         hydratingArticleLinks={{}}
@@ -213,6 +166,7 @@ describe("FeedList", () => {
             },
           }}
           expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
           filteredFeed={[]}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
@@ -237,8 +191,8 @@ describe("FeedList", () => {
   });
 
   test("renders the list through virtuoso once the dashboard viewport is available", async () => {
-    const firstArticle = buildArticle();
-    const secondArticle = buildArticle({
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
       id: 2,
       link: "https://example.com/articles/virtualized-second",
       title: "Virtualized second article",
@@ -248,6 +202,7 @@ describe("FeedList", () => {
         <FeedList
           articleFilter="all"
           expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
@@ -273,8 +228,8 @@ describe("FeedList", () => {
   });
 
   test("falls back to the plain feed surface while an article is expanded", async () => {
-    const firstArticle = buildArticle();
-    const secondArticle = buildArticle({
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
       id: 2,
       link: "https://example.com/articles/expanded-second",
       title: "Expanded second article",
@@ -284,6 +239,7 @@ describe("FeedList", () => {
         <FeedList
           articleFilter="all"
           expandedArticleKey={firstArticle.link}
+          feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
@@ -313,8 +269,8 @@ describe("FeedList", () => {
   });
 
   test("keeps the plain feed surface briefly after collapsing an expanded article", async () => {
-    const article = buildArticle();
-    const sibling = buildArticle({
+    const article = buildFeedListArticle();
+    const sibling = buildFeedListArticle({
       id: 2,
       link: "https://example.com/articles/collapse-sibling",
       title: "Collapse sibling article",
@@ -324,6 +280,7 @@ describe("FeedList", () => {
         <FeedList
           articleFilter="all"
           expandedArticleKey={article.link}
+          feedViewKey="system-all-feeds:all"
           filteredFeed={[article, sibling]}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
@@ -353,6 +310,7 @@ describe("FeedList", () => {
           <FeedList
             articleFilter="all"
             expandedArticleKey={null}
+            feedViewKey="system-all-feeds:all"
             filteredFeed={[article, sibling]}
             hydratedArticleLinks={{}}
             hydratingArticleLinks={{}}
@@ -374,5 +332,83 @@ describe("FeedList", () => {
     expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
       null,
     );
+  });
+
+  test("resets the shared feed viewport when the active source changes", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/reset-scroll-second",
+      title: "Reset scroll second article",
+    });
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          articleFilter="all"
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+    });
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    let scrollTop = 240;
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      get() {
+        return scrollTop;
+      },
+      set(nextValue: number) {
+        scrollTop = nextValue;
+      },
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="all"
+            expandedArticleKey={null}
+            feedViewKey="feed:nasa:all"
+            filteredFeed={[secondArticle]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    expect(scrollTop).toBe(0);
   });
 });

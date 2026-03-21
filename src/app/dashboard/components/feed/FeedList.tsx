@@ -36,11 +36,18 @@ import { ArticleCard } from "../ArticleCard";
 import { FEED_ROW_COLLAPSE_FLOOR_PX, FEED_ROW_GAP_PX } from "./constants";
 import { FeedListSkeleton } from "./FeedListSkeleton";
 
+type FeedArticleCardProps = React.ComponentProps<typeof ArticleCard>;
+
+interface FeedArticleRowProps extends Omit<FeedArticleCardProps, "showFavicon"> {
+  showFavicons: boolean;
+}
+
 /** Inputs required to render and control the dashboard article list. */
 interface FeedListProps {
   articleFilter: ArticleFilter;
   collapsingArticles?: Readonly<CollapsingArticles>;
   expandedArticleKey: null | string;
+  feedViewKey: string;
   filteredFeed: Article[];
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
@@ -70,6 +77,35 @@ type FeedViewportResolutionState = "missing" | "pending" | "ready";
 const FEED_LOAD_MORE_THRESHOLD_PX = 504;
 const FEED_PAGE_SIZE = 12;
 const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
+
+/**
+ * Compares per-row render inputs so unrelated feed state updates do not fan out
+ * through every visible article card.
+ */
+function areFeedArticleRowPropsEqual(
+  previousProps: FeedArticleRowProps,
+  nextProps: FeedArticleRowProps,
+) {
+  return (
+    previousProps.article === nextProps.article &&
+    previousProps.articleKey === nextProps.articleKey &&
+    previousProps.hasScrapedContent === nextProps.hasScrapedContent &&
+    previousProps.isDark === nextProps.isDark &&
+    previousProps.isExpanded === nextProps.isExpanded &&
+    previousProps.isHydrating === nextProps.isHydrating &&
+    previousProps.isMobile === nextProps.isMobile &&
+    previousProps.isUpdatingState === nextProps.isUpdatingState &&
+    previousProps.onExpandedSwipeRead === nextProps.onExpandedSwipeRead &&
+    previousProps.onPrepareExpand === nextProps.onPrepareExpand &&
+    previousProps.onSwipeRead === nextProps.onSwipeRead &&
+    previousProps.onToggle === nextProps.onToggle &&
+    previousProps.onToggleRead === nextProps.onToggleRead &&
+    previousProps.onToggleStarred === nextProps.onToggleStarred &&
+    previousProps.removalAnimationMode === nextProps.removalAnimationMode &&
+    previousProps.showFavicons === nextProps.showFavicons &&
+    previousProps.useRichFormatting === nextProps.useRichFormatting
+  );
+}
 
 /**
  * Animates feed-row removal via a two-phase CSS-transition approach.
@@ -198,6 +234,7 @@ const FeedListRow = memo(function FeedListRow({
       data-scroll-restore-key={articleKey}
       ref={outerRef}
       style={{
+        contain: isCollapsing ? undefined : "layout style",
         marginBottom: isReleaseCollapsing
           ? -FEED_ROW_COLLAPSE_OFFSET_PX
           : FEED_ROW_GAP_PX,
@@ -242,6 +279,57 @@ const FeedListRow = memo(function FeedListRow({
     </div>
   );
 });
+
+/**
+ * Wraps a single article card so row-local flags can update without
+ * reconstructing every visible feed row.
+ */
+const FeedArticleRow = memo(function FeedArticleRow({
+  article,
+  articleKey,
+  hasScrapedContent,
+  isDark,
+  isExpanded,
+  isHydrating,
+  isMobile,
+  isUpdatingState,
+  onExpandedSwipeRead,
+  onPrepareExpand,
+  onSwipeRead,
+  onToggle,
+  onToggleRead,
+  onToggleStarred,
+  removalAnimationMode = null,
+  showFavicons,
+  useRichFormatting,
+}: FeedArticleRowProps) {
+  return (
+    <FeedListRow
+      articleKey={articleKey}
+      removalAnimationMode={removalAnimationMode}
+    >
+      <ArticleCard
+        article={article}
+        articleKey={articleKey}
+        hasScrapedContent={hasScrapedContent}
+        isDark={isDark}
+        isExpanded={isExpanded}
+        isHydrating={isHydrating}
+        isMobile={isMobile}
+        isUpdatingState={isUpdatingState}
+        onExpandedSwipeRead={onExpandedSwipeRead}
+        onPrepareExpand={onPrepareExpand}
+        onSwipeRead={onSwipeRead}
+        onToggle={onToggle}
+        onToggleRead={onToggleRead}
+        onToggleStarred={onToggleStarred}
+        removalAnimationMode={removalAnimationMode}
+        showFavicon={showFavicons}
+        useRichFormatting={useRichFormatting}
+      />
+    </FeedListRow>
+  );
+}, areFeedArticleRowPropsEqual);
 
 /**
  * Self-contained empty state surface shown when no articles match filters.
@@ -557,33 +645,31 @@ export const FeedList = memo(function FeedList({
     (article: Article) => {
       const articleKey = getArticleKey(article);
       const removalAnimationMode = collapsingArticles[articleKey]?.mode ?? null;
+      const isHydrating = hydratingArticleLinks[article.link] ?? false;
+      const isUpdatingState = updatingArticleState[articleKey] ?? false;
+      const useRichFormatting = hydratedArticleLinks[article.link] ?? false;
 
       return (
-        <FeedListRow
+        <FeedArticleRow
+          article={article}
           articleKey={articleKey}
+          hasScrapedContent={Boolean(article.hasFullContent)}
+          isDark={isDark}
+          isExpanded={expandedArticleKey === articleKey}
+          isHydrating={isHydrating}
+          isMobile={isMobile}
+          isUpdatingState={isUpdatingState}
           key={articleKey}
+          onExpandedSwipeRead={onExpandedSwipeRead}
+          onPrepareExpand={onPrepareExpand}
+          onSwipeRead={onSwipeRead}
+          onToggle={onToggle}
+          onToggleRead={onToggleRead}
+          onToggleStarred={onToggleStarred}
           removalAnimationMode={removalAnimationMode}
-        >
-          <ArticleCard
-            article={article}
-            articleKey={articleKey}
-            hasScrapedContent={Boolean(article.hasFullContent)}
-            isDark={isDark}
-            isExpanded={expandedArticleKey === articleKey}
-            isHydrating={hydratingArticleLinks[article.link] ?? false}
-            isMobile={isMobile}
-            isUpdatingState={updatingArticleState[articleKey] ?? false}
-            onExpandedSwipeRead={onExpandedSwipeRead}
-            onPrepareExpand={onPrepareExpand}
-            onSwipeRead={onSwipeRead}
-            onToggle={onToggle}
-            onToggleRead={onToggleRead}
-            onToggleStarred={onToggleStarred}
-            removalAnimationMode={removalAnimationMode}
-            showFavicon={showFavicons}
-            useRichFormatting={hydratedArticleLinks[article.link] ?? false}
-          />
-        </FeedListRow>
+          showFavicons={showFavicons}
+          useRichFormatting={useRichFormatting}
+        />
       );
     },
     [
