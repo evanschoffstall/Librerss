@@ -315,6 +315,57 @@ describe("request – parseFormOrQueryParams", () => {
     expect(result).toBeInstanceOf(Response);
     expect((result as Response).status).toBe(413);
   });
+
+  test("parses multipart form data and ignores non-string values", async () => {
+    const formData = new FormData();
+    formData.set("username", "test-user");
+    formData.set("avatar", new Blob(["binary"], { type: "text/plain" }), "avatar.txt");
+
+    const request = new Request("https://example.com/api", {
+      body: formData,
+      method: "POST",
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
+
+    expect(result).toBeInstanceOf(URLSearchParams);
+    expect((result as URLSearchParams).get("username")).toBe("test-user");
+    expect((result as URLSearchParams).has("avatar")).toBe(false);
+  });
+
+  test("rejects multipart form data that exceeds the byte limit", async () => {
+    const formData = new FormData();
+    formData.set("username", "x".repeat(64));
+
+    const request = new Request("https://example.com/api", {
+      body: formData,
+      method: "POST",
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 8 });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(413);
+  });
+
+  test("returns 400 when multipart parsing throws", async () => {
+    const request = new Request("https://example.com/api", {
+      headers: { "content-type": "multipart/form-data; boundary=test" },
+      method: "POST",
+    });
+
+    Object.defineProperty(request, "formData", {
+      configurable: true,
+      value: async () => {
+        throw new Error("malformed body");
+      },
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(400);
+  });
 });
 
 describe("http diagnostics", () => {
