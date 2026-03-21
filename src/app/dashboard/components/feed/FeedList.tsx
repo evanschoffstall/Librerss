@@ -17,6 +17,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -78,6 +79,19 @@ type FeedViewportResolutionState = "missing" | "pending" | "ready";
 const FEED_LOAD_MORE_THRESHOLD_PX = 504;
 const FEED_MIN_SCROLLABLE_OVERFLOW_PX = 1;
 const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
+
+/**
+ * Average collapsed row height (113px article + 6px gap) used as a
+ * size hint so Virtuoso can estimate offsets before measuring.
+ */
+const FEED_DEFAULT_ITEM_HEIGHT_PX = 120;
+
+/**
+ * Extra pixels rendered beyond the visible viewport, biased toward the
+ * scroll direction (bottom) to pre-render items before they become visible
+ * and eliminate blank flashes during fast scrolling.
+ */
+const FEED_VIEWPORT_INCREASE = { bottom: 1500, top: 600 };
 
 /**
  * Compares per-row render inputs so unrelated feed state updates do not fan out
@@ -739,6 +753,22 @@ export const FeedList = memo(function FeedList({
   );
 
   const listClassName = "w-full min-w-0";
+
+  const hasMoreArticles = visibleArticleCount < filteredFeed.length;
+  const virtuosoComponents = useMemo(
+    () => ({
+      Footer: () =>
+        hasMoreArticles ? (
+          <div
+            className="h-px w-full"
+            data-feed-load-more-sentinel="true"
+            ref={loadMoreSentinelRef}
+          />
+        ) : null,
+    }),
+    [hasMoreArticles],
+  );
+
   const shouldShowViewportResolutionSkeleton =
     !isInitialLoading &&
     filteredFeed.length > 0 &&
@@ -829,29 +859,20 @@ export const FeedList = memo(function FeedList({
           >
             <Virtuoso
               className={listClassName}
-              components={{
-                Footer: () =>
-                  visibleArticleCount < filteredFeed.length ? (
-                    <div
-                      className="h-px w-full"
-                      data-feed-load-more-sentinel="true"
-                      ref={loadMoreSentinelRef}
-                    />
-                  ) : null,
-              }}
+              components={virtuosoComponents}
               computeItemKey={(_index, article) =>
                 getArticleKey(article)
               }
               customScrollParent={scrollViewport}
               data={visibleFeed}
               data-feed-virtualizer="true"
-              increaseViewportBy={200}
-              initialItemCount={Math.min(visibleFeed.length, 8)}
+              defaultItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
+              increaseViewportBy={FEED_VIEWPORT_INCREASE}
+              initialItemCount={Math.min(visibleFeed.length, 20)}
               itemContent={(_index, article) =>
                 renderFeedRow(article)
               }
               key={feedViewKey}
-              overscan={200}
             />
           </motion.div>
         ) : (
