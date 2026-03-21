@@ -9,6 +9,7 @@ import {
   Share2,
   Star,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   type KeyboardEvent,
   memo,
@@ -90,8 +91,12 @@ const COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME =
   "line-clamp-1 font-sans text-[0.93rem]/6 tracking-[-0.01em] text-muted-foreground/85 antialiased";
 const COLLAPSED_ARTICLE_TITLE_CLASS_NAME =
   "line-clamp-2 max-h-12 overflow-hidden text-[0.96rem]/6 font-semibold";
-const ARTICLE_SURFACE_EASING = "cubic-bezier(0.2, 0, 0, 1)";
+const ARTICLE_SURFACE_EASING = "cubic-bezier(0.25, 1, 0.5, 1)";
+const ARTICLE_SURFACE_EASING_ARRAY: [number, number, number, number] = [0.25, 1, 0.5, 1];
 const COLLAPSED_ARTICLE_BODY_HEIGHT_PX = 24;
+
+/** Spring config for micro-interaction icon transitions (mark read, star). */
+const ICON_SPRING = { damping: 22, stiffness: 320, type: "spring" as const };
 
 /** Renders a swipeable article card with header-scoped gestures while expanded. */
 export const ArticleCard = memo(function ArticleCard({
@@ -1001,16 +1006,36 @@ export const ArticleCard = memo(function ArticleCard({
                   }}
                   type="button"
                 >
-                  {article.isRead ? (
-                    <CircleCheck
-                      className="
-                        size-3.5 text-emerald-500/70
-                        dark:text-emerald-400/60
-                      "
-                    />
-                  ) : (
-                    <Circle className="size-3.5" />
-                  )}
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {article.isRead ? (
+                      <motion.span
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="inline-flex"
+                        exit={{ opacity: 0, scale: 0.75 }}
+                        initial={{ opacity: 0, scale: 0.75 }}
+                        key="read"
+                        transition={ICON_SPRING}
+                      >
+                        <CircleCheck
+                          className="
+                            size-3.5 text-emerald-500/70
+                            dark:text-emerald-400/60
+                          "
+                        />
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="inline-flex"
+                        exit={{ opacity: 0, scale: 0.75 }}
+                        initial={{ opacity: 0, scale: 0.75 }}
+                        key="unread"
+                        transition={ICON_SPRING}
+                      >
+                        <Circle className="size-3.5" />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </button>
 
                 <button
@@ -1026,19 +1051,30 @@ export const ArticleCard = memo(function ArticleCard({
                   }}
                   type="button"
                 >
-                  <Star
-                    className={`
-                      size-3.5
-                      ${
-                        article.isStarred
-                          ? `
-                            fill-current text-amber-400/90
-                            dark:text-amber-300/80
-                          `
-                          : ""
-                      }
-                    `}
-                  />
+                  <AnimatePresence initial={false} mode="popLayout">
+                    <motion.span
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="inline-flex"
+                      exit={{ opacity: 0, scale: 0.75 }}
+                      initial={{ opacity: 0, scale: 0.75 }}
+                      key={article.isStarred ? "starred" : "unstarred"}
+                      transition={ICON_SPRING}
+                    >
+                      <Star
+                        className={`
+                          size-3.5
+                          ${
+                            article.isStarred
+                              ? `
+                                fill-current text-amber-400/90
+                                dark:text-amber-300/80
+                              `
+                              : ""
+                          }
+                        `}
+                      />
+                    </motion.span>
+                  </AnimatePresence>
                 </button>
 
                 {supportsNativeShare ? (
@@ -1211,20 +1247,34 @@ export const ArticleCard = memo(function ArticleCard({
             <div className={gradientCls} ref={contentGradientOverlayRef} />
           </div>
           <div className="relative z-10">
-            <div
+            <motion.div
+              animate={{ height: resolvedBodyHeight }}
               className="overflow-hidden"
+              initial={false}
               style={{
-                height: resolvedBodyHeight,
-                transition: `height ${bodyTransitionMs}ms ${ARTICLE_SURFACE_EASING}`,
                 willChange: phase === "expanding" || phase === "collapsing" ? "height" : undefined,
+              }}
+              transition={{
+                duration: bodyTransitionMs / 1000,
+                ease: ARTICLE_SURFACE_EASING_ARRAY,
               }}
             >
               <div className="relative min-h-0 overflow-hidden">
-                <div
+                <motion.div
+                  animate={{
+                    opacity: phase === "collapsed" ? 0 : 1,
+                    y:
+                      phase === "expanding"
+                        ? 0
+                        : phase === "collapsed"
+                          ? 4
+                          : 0,
+                  }}
                   className={`
                     article-swipe-body overflow-hidden
                     ${visuallyExpanded ? `select-text` : ""}
                   `}
+                  initial={false}
                   onClick={
                     visuallyExpanded
                       ? (e) => {
@@ -1261,43 +1311,49 @@ export const ArticleCard = memo(function ArticleCard({
                       phase === "collapsed" || phase === "collapsing"
                         ? 0
                         : undefined,
-                    opacity: phase === "collapsed" ? 0 : 1,
                     pointerEvents: visuallyExpanded ? "auto" : "none",
                     position:
                       phase === "collapsed" || phase === "collapsing"
                         ? "absolute"
                         : "relative",
                     touchAction: "pan-y",
-                    transition: `opacity ${Math.max(180, bodyTransitionMs - 40)}ms ease-out`,
                     userSelect: visuallyExpanded ? "text" : "none",
                     WebkitTouchCallout: visuallyExpanded ? "default" : "none",
                     WebkitUserSelect: visuallyExpanded ? "text" : "none",
                   }}
+                  transition={{
+                    duration:
+                      Math.max(180, bodyTransitionMs - 40) / 1000,
+                    ease: [0.25, 1, 0.5, 1],
+                  }}
                 >
                   {expandedBodyContent}
-                </div>
-                {showPreviewLayer ? (
-                  <div
-                    style={{
-                      opacity: 1,
-                      position: "relative",
-                      transform: "translate3d(0, 0, 0)",
-                      transition: [
-                        `opacity ${Math.max(160, bodyTransitionMs - 60)}ms ease-out`,
-                        `transform ${bodyTransitionMs}ms ${ARTICLE_SURFACE_EASING}`,
-                      ].join(", "),
-                    }}
-                  >
-                    <p
-                      className={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
-                      data-article-preview="true"
+                </motion.div>
+                <AnimatePresence>
+                  {showPreviewLayer ? (
+                    <motion.div
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -3 }}
+                      initial={{ opacity: 0, y: 3 }}
+                      key="collapsed-preview"
+                      style={{ position: "relative" }}
+                      transition={{
+                        duration:
+                          Math.max(160, bodyTransitionMs - 60) / 1000,
+                        ease: [0.25, 1, 0.5, 1],
+                      }}
                     >
-                      {collapsedPreview}
-                    </p>
-                  </div>
-                ) : null}
+                      <p
+                        className={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
+                        data-article-preview="true"
+                      >
+                        {collapsedPreview}
+                      </p>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 
