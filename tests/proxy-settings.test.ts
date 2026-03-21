@@ -12,12 +12,14 @@ import { NextRequest } from "next/server";
 
 import type { ProxyRouteDeps } from "@/app/api/settings/proxy/route";
 
+import { ArticleService } from "@/lib";
 import {
-  resetApiClientForTesting,
-  setApiClientForTesting,
+    resetApiClientForTesting,
+    setApiClientForTesting
 } from "@/lib/api/http";
-import { ArticleService } from "@/lib/api/services";
 import { fetchHtml } from "@/lib/extract";
+
+
 
 afterEach(() => mock.restore());
 

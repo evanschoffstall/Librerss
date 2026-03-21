@@ -8,20 +8,20 @@ import type { AuthSession, AuthUser } from "@/lib/core/types";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService } from "@/lib/api/auth-service";
+import { AuthService } from "@/lib";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
 import type { BackgroundMode } from "./constants";
 
 import {
-  ParticlesBackground,
-  ParticlesBackgroundLight,
-  StarsBackground,
-  StarsBackgroundLight,
+    ParticlesBackground,
+    ParticlesBackgroundLight,
+    StarsBackground,
+    StarsBackgroundLight
 } from "./components/Background";
 import {
-  DashboardFeedViewport,
-  DashboardScaffold,
+    DashboardFeedViewport,
+    DashboardScaffold
 } from "./components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
 import { DashboardTopBarSkeleton } from "./components/DashboardTopTokenBar";
@@ -31,6 +31,10 @@ import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
 import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
+
+
+
+
 
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;

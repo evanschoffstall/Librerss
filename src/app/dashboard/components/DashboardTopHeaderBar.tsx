@@ -1,37 +1,39 @@
 "use client";
 
 import {
-  CheckCheck,
-  EllipsisVertical,
-  LogOut,
-  Menu,
-  Moon,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Settings2,
-  Sun,
+    CheckCheck,
+    EllipsisVertical,
+    LogOut,
+    Menu,
+    Moon,
+    RefreshCw,
+    RotateCcw,
+    Search,
+    Settings2,
+    Sun
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AuthService } from "@/lib/api/auth-service";
+import { AuthService } from "@/lib";
 import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
 import { MotionSpinner } from "./MotionSpinner";
+
+
 
 const toolbarBtnClass =
   "cursor-pointer transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";

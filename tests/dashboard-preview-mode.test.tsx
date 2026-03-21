@@ -2,7 +2,8 @@ import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
-import { AuthService } from "@/lib/api/auth-service";
+import { AuthService } from "@/lib";
+
 
 function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

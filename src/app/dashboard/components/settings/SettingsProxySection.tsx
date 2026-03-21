@@ -6,7 +6,7 @@ import {
     Info,
     Save,
     Trash2,
-    XCircle,
+    XCircle
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -21,11 +21,13 @@ import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
-    TooltipTrigger,
+    TooltipTrigger
 } from "@/components/ui/tooltip";
-import { ArticleService } from "@/lib/api/services";
+import { ArticleService } from "@/lib";
 
 import { MotionSpinner } from "../MotionSpinner";
+
+
 
 interface CompatibilityResult {
   compatibilitySignalDetected: boolean;

@@ -5,26 +5,29 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
+    afterAll,
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    mock,
+    test
 } from "bun:test";
 
 import type { Article } from "@/lib";
 
-import {
-  toggleReadStatus,
-  toggleStarredStatus,
-} from "@/app/dashboard/hooks/article-toggle-state";
 import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
+import {
+    toggleReadStatus,
+    toggleStarredStatus
+} from "@/app/dashboard/services/article-status-toggle";
 import { ArticleService } from "@/lib";
 
 import { createMockArticle } from "./support/test-utils";
+
+
+
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
