@@ -48,7 +48,7 @@ import { type Article, formatRelativeDate } from "@/lib";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 
 import { DASHBOARD_EVENTS } from "../constants";
-import { type ArticleRemovalAnimationMode } from "../hooks/useArticleActions";
+import { type ArticleRemovalAnimationMode } from "../hooks/useArticleCollapseState";
 import { useArticleExpansion } from "../hooks/useArticleExpansion";
 import { useFavicon } from "../hooks/useFavicon";
 import { useSwipeToRead } from "../hooks/useSwipeToRead";

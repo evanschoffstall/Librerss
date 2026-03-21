@@ -30,7 +30,7 @@ import {
   type ArticleRemovalAnimationMode,
   type CollapsingArticles,
   getArticleRemovalAnimationDuration,
-} from "../../hooks/useArticleActions";
+} from "../../hooks/useArticleCollapseState";
 import { getArticleKey } from "../../services/article-collection";
 import { type ArticleFilter } from "../../services/article-filters";
 import { ArticleCard } from "../ArticleCard";
