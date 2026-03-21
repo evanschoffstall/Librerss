@@ -246,6 +246,8 @@ const nextConfig: NextConfig = {
     "generative-bayesian-network",
     "node-tls-client",
     "koffi",
+    "piscina",
+    "tlsclientwrapper",
   ],
   typescript: {
     tsconfigPath:
