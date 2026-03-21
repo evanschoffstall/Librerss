@@ -45,6 +45,7 @@ beforeAll(() => {
 });
 
 const originalExtractArticleContent = ArticleService.extractArticleContent;
+const originalGetStoredArticleContent = ArticleService.getStoredArticleContent;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
 const originalConsoleError = console.error;
 const muteConsoleError = (() => {}) as typeof console.error;
@@ -54,6 +55,8 @@ afterAll(() => {
     originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
   ArticleService.extractArticleContent =
     originalExtractArticleContent as typeof ArticleService.extractArticleContent;
+  ArticleService.getStoredArticleContent =
+    originalGetStoredArticleContent as typeof ArticleService.getStoredArticleContent;
   console.error = originalConsoleError;
   mock.restore();
 });
@@ -70,6 +73,9 @@ describe("useArticleActions - State Management", () => {
     ArticleService.extractArticleContent = mock(
       async () => "<p>Extracted content</p>",
     ) as unknown as typeof ArticleService.extractArticleContent;
+    ArticleService.getStoredArticleContent = mock(
+      async () => "<p>Stored content</p>",
+    ) as unknown as typeof ArticleService.getStoredArticleContent;
     console.error = muteConsoleError;
   });
 
@@ -1181,5 +1187,114 @@ describe("useArticleActions - Article Hydration Integration", () => {
         useProxy: undefined,
       }),
     );
+  });
+
+  test("collapse scroll restore activates when a pre-expand snapshot exists", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => 0,
+    });
+
+    window.requestAnimationFrame = mock(() => 1) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 203,
+      link: "https://example.com/restore-scroll",
+    });
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "all",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
+    expect(viewport.scrollTop).toBe(320);
+
+    document.body.removeChild(viewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+  });
+
+  test("placeholder-data mode skips persisted starred-status writes", async () => {
+    const article = createMockArticle({ id: 204, isStarred: false });
+    let feedState: Article[] = [article];
+    const setFeed = mock((updater: unknown) => {
+      feedState =
+        typeof updater === "function"
+          ? updater(feedState)
+          : (updater as Article[]);
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    (ArticleService.updateArticleStatus as ReturnType<typeof mock>).mockClear();
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+        usePlaceholderData: true,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleToggleStarredState(article);
+    });
+
+    expect(ArticleService.updateArticleStatus).not.toHaveBeenCalled();
+    expect(feedState[0]?.isStarred).toBe(true);
   });
 });

@@ -28,6 +28,10 @@ import {
   toDistinctCategoryLabels,
 } from "@/app/dashboard/services/category-tree";
 import {
+  buildDashboardViewModel,
+  filterArticlesBySearchTerm,
+} from "@/app/dashboard/services/dashboard-view-model";
+import {
   getFeedBatchQueryKey,
   getFeedSourceTreeQueryKey,
 } from "@/app/dashboard/services/query-keys";
@@ -601,5 +605,107 @@ describe("dashboard selection services", () => {
       requestSource: undefined,
       skipRefresh: undefined,
     });
+  });
+});
+
+// ─── buildDashboardViewModel ─────────────────────────────────────────────────
+
+describe("buildDashboardViewModel", () => {
+  const baseInput = {
+    articleFilter: "all" as ArticleFilter,
+    categories: [
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", id: 1, label: "Feed 1" }),
+        makeFeedNode({ category: "Tech", enabled: false, id: 2, label: "Disabled Feed" }),
+      ]),
+    ],
+    collapsingArticleKeys: [] as string[],
+    customCategoryLabels: ["Tech"],
+    expandedArticleKey: null as null | string,
+    feed: [
+      makeArticle({ id: 1, link: "https://example.com/a1", title: "First" }),
+      makeArticle({ id: 2, link: "https://example.com/a2", title: "Second" }),
+    ],
+    orderedCategoryLabels: ["Tech"],
+    searchTerm: "",
+    selectedCategory: ALL_FEEDS_NODE_KEY,
+  };
+
+  test("returns all articles when no filter or search is active", () => {
+    const vm = buildDashboardViewModel(baseInput);
+    expect(vm.filteredFeed).toHaveLength(2);
+    expect(vm.sidebarCategories.length).toBeGreaterThanOrEqual(1);
+    expect(vm.categoryOptions).toContain("Tech");
+  });
+
+  test("filters articles by search term", () => {
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      searchTerm: "First",
+    });
+    expect(vm.filteredFeed).toHaveLength(1);
+    expect(vm.filteredFeed[0]!.title).toBe("First");
+  });
+
+  test("excludes disabled feeds from sidebar categories", () => {
+    const vm = buildDashboardViewModel(baseInput);
+    const techCategory = vm.sidebarCategories.find(
+      (c) => c.label === "Tech",
+    );
+    expect(techCategory).toBeDefined();
+    const feedLabels = (techCategory!.children ?? []).map((c) => c.label);
+    expect(feedLabels).not.toContain("Disabled Feed");
+  });
+
+  test("resolves selectedFeedUrl to undefined for disabled feeds", () => {
+    const disabledFeedKey = makeFeedNode({
+      category: "Tech",
+      enabled: false,
+      id: 2,
+    }).key;
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      selectedCategory: disabledFeedKey,
+    });
+    expect(vm.selectedFeedUrl).toBeUndefined();
+  });
+
+  test("resolves selectedFeed label for valid category", () => {
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+    });
+    expect(vm.selectedFeed).toBeDefined();
+  });
+});
+
+// ─── filterArticlesBySearchTerm ──────────────────────────────────────────────
+
+describe("filterArticlesBySearchTerm", () => {
+  const articles = [
+    makeArticle({ content: "JavaScript tutorial", id: 1, title: "Learn JS" }),
+    makeArticle({ content: "Python guide", id: 2, title: "Learn Python" }),
+    makeArticle({ content: "Rust systems", id: 3, title: "Low-level Rust" }),
+  ];
+
+  test("returns all articles for empty search", () => {
+    expect(filterArticlesBySearchTerm(articles, "")).toEqual(articles);
+    expect(filterArticlesBySearchTerm(articles, "  ")).toEqual(articles);
+  });
+
+  test("matches by title case-insensitively", () => {
+    const result = filterArticlesBySearchTerm(articles, "learn js");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.title).toBe("Learn JS");
+  });
+
+  test("matches by content", () => {
+    const result = filterArticlesBySearchTerm(articles, "systems");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.title).toBe("Low-level Rust");
+  });
+
+  test("returns empty for no match", () => {
+    expect(filterArticlesBySearchTerm(articles, "golang")).toEqual([]);
   });
 });
