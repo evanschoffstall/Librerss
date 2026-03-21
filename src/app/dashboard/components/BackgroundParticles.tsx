@@ -106,48 +106,15 @@ export default function BackgroundParticles({
     const newH = canvasSize.current.height;
     if (oldW <= 0 || oldH <= 0) return;
 
-    // Drop particles outside shrunk viewport
-    circles.current = circles.current.filter(
-      (c) => c.originX < newW && c.originY < newH,
-    );
-
-    // Fill newly exposed regions at same density
-    const density = quantity / (oldW * oldH);
-    const spawn = (
-      minX: number,
-      minY: number,
-      maxX: number,
-      maxY: number,
-      n: number,
-    ) => {
-      for (let i = 0; i < n; i++) {
-        circles.current.push({
-          alphaBase: Math.random() * 0.45 + 0.08,
-          alphaPhase: Math.random() * Math.PI * 2,
-          driftX: (Math.random() - 0.5) * 0.24,
-          driftY: (Math.random() - 0.5) * 0.24,
-          originX: Math.random() * (maxX - minX) + minX,
-          originY: Math.random() * (maxY - minY) + minY,
-          size: Math.random() * 1.9 + 0.2,
-          sway: Math.random() * 3.8 + 0.2,
-          translateX: 0,
-          translateY: 0,
-        });
-      }
-    };
-    if (newW > oldW) {
-      spawn(
-        oldW,
-        0,
-        newW,
-        Math.min(newH, oldH),
-        Math.round(density * (newW - oldW) * Math.min(newH, oldH)),
-      );
+    // Scale positions proportionally so visual density matches a fresh render
+    // at the new viewport size without regenerating the particle field.
+    const scaleX = newW / oldW;
+    const scaleY = newH / oldH;
+    for (const circle of circles.current) {
+      circle.originX *= scaleX;
+      circle.originY *= scaleY;
     }
-    if (newH > oldH) {
-      spawn(0, oldH, newW, newH, Math.round(density * newW * (newH - oldH)));
-    }
-  }, [quantity, resizeCanvas]);
+  }, [resizeCanvas]);
 
   const renderFrame = useCallback(
     (now: number, delta: number) => {
