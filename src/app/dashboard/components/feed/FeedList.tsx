@@ -860,8 +860,10 @@ export const FeedList = memo(function FeedList({
             <Virtuoso
               className={listClassName}
               components={virtuosoComponents}
-              computeItemKey={(_index, article) =>
-                getArticleKey(article)
+              computeItemKey={(index, article: Article | undefined) =>
+                article
+                  ? getArticleKey(article)
+                  : `${feedViewKey}:pending-item:${index}`
               }
               customScrollParent={scrollViewport}
               data={visibleFeed}
@@ -869,8 +871,8 @@ export const FeedList = memo(function FeedList({
               defaultItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
               increaseViewportBy={FEED_VIEWPORT_INCREASE}
               initialItemCount={Math.min(visibleFeed.length, 20)}
-              itemContent={(_index, article) =>
-                renderFeedRow(article)
+              itemContent={(_index, article: Article | undefined) =>
+                article ? renderFeedRow(article) : null
               }
               key={feedViewKey}
             />
