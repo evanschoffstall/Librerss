@@ -14,6 +14,8 @@ import {
 import { resolveUserProxy, ServiceError } from "@/lib/server/services";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 30;
 
 const COMPATIBILITY_CHECK_SITES = [
   {
