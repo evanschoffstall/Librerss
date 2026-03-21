@@ -16,7 +16,7 @@
     "test:e2e:coverage": "PLAYWRIGHT_COVERAGE_ENABLED=1 PLAYWRIGHT_COVERAGE_OUTPUT_DIR=coverage/playwright-raw PLAYWRIGHT_COVERAGE_REPORT_DIR=coverage/playwright PLAYWRIGHT_HTML_REPORT_DIR=coverage/playwright/html PLAYWRIGHT_JUNIT_REPORT_PATH=coverage/playwright-junit.xml bun scripts/run-playwright.ts",
     "test:e2e:headed": "bun scripts/run-playwright.ts --headed",
     "test:e2e:ui": "bun scripts/run-playwright.ts --ui",
-    "test:regen": "bun run scripts/test-pipeline-regen-results.ts",
+    "test:regen": "bun run scripts/test-reading-pipeline-regen-results.ts",
     "db:provision": "bun scripts/db-provision.ts",
     "db:create-user": "bun scripts/db-create-user.ts",
     "db:generate": "bunx drizzle-kit generate",
