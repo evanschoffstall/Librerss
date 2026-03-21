@@ -74,7 +74,6 @@ async function main(): Promise<void> {
     name: "playwright-e2e",
     outputDir: reportDirectoryPath,
     reports: [
-      ["console-summary"],
       ["html", { subdir: "html" }],
       ["json-summary", { file: "summary.json" }],
       ["lcovonly", { file: "lcov.info" }],
