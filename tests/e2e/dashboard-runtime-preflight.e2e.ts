@@ -13,7 +13,6 @@ test.describe("dashboard runtime preflight", () => {
     try {
       await page.goto("/dashboard?explore=1");
       await waitForPreviewDashboardHydration(page);
-      await page.waitForTimeout(1_000);
       await nextJsErrorMonitor.assertNoNextJsErrors();
     } finally {
       nextJsErrorMonitor.dispose();
