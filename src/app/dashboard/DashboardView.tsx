@@ -45,6 +45,7 @@ export const DashboardView = ({
           <DashboardFeedViewport scrollAreaRef={feedList.mergedFeedScrollRef}>
             <FeedList
               articleFilter={feedList.articleFilter}
+              articlesPerPage={feedList.articlesPerPage}
               collapsingArticles={feedList.collapsingArticles}
               expandedArticleKey={feedList.expandedArticleKey}
               feedViewKey={feedList.feedViewKey}
@@ -85,6 +86,7 @@ export const DashboardView = ({
 
       {settings.showSettingsModal && (
         <SettingsModal
+          articlesPerPage={settings.articlesPerPage}
           autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}
           categories={settings.categories}
@@ -93,6 +95,7 @@ export const DashboardView = ({
           isPreviewMode={settings.usePlaceholderData}
           onAddCategory={settings.categoryTree.addCategory}
           onAddFeed={settings.categoryTree.addFeedSource}
+          onArticlesPerPageChange={settings.setArticlesPerPage}
           onAutoRefreshIntervalMinutesChange={
             settings.setAutoRefreshIntervalMinutes
           }

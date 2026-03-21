@@ -45,6 +45,7 @@ interface FeedArticleRowProps extends Omit<FeedArticleCardProps, "showFavicon"> 
 /** Inputs required to render and control the dashboard article list. */
 interface FeedListProps {
   articleFilter: ArticleFilter;
+  articlesPerPage: number;
   collapsingArticles?: Readonly<CollapsingArticles>;
   expandedArticleKey: null | string;
   feedViewKey: string;
@@ -75,7 +76,6 @@ type FeedRowReleasePhase = "collapsing" | "fading" | "idle";
 type FeedViewportResolutionState = "missing" | "pending" | "ready";
 
 const FEED_LOAD_MORE_THRESHOLD_PX = 504;
-const FEED_PAGE_SIZE = 12;
 const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
 
 /**
@@ -422,6 +422,7 @@ function FeedEmptyState({
  */
 export const FeedList = memo(function FeedList({
   articleFilter,
+  articlesPerPage,
   collapsingArticles = {},
   expandedArticleKey,
   feedViewKey,
@@ -447,7 +448,7 @@ export const FeedList = memo(function FeedList({
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(
     null,
   );
-  const [visibleArticleCount, setVisibleArticleCount] = useState(FEED_PAGE_SIZE);
+  const [visibleArticleCount, setVisibleArticleCount] = useState(articlesPerPage);
   const [viewportResolutionState, setViewportResolutionState] =
     useState<FeedViewportResolutionState>("pending");
   const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
@@ -471,9 +472,9 @@ export const FeedList = memo(function FeedList({
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
-    setVisibleArticleCount(FEED_PAGE_SIZE);
+    setVisibleArticleCount(articlesPerPage);
     setIsVirtualizationResumeDeferred(false);
-  }, [feedViewKey, searchTerm]);
+  }, [articlesPerPage, feedViewKey, searchTerm]);
 
   useLayoutEffect(() => {
     if (!scrollViewport) {
@@ -511,9 +512,9 @@ export const FeedList = memo(function FeedList({
         return currentCount;
       }
 
-      return Math.min(currentCount + FEED_PAGE_SIZE, filteredFeed.length);
+      return Math.min(currentCount + articlesPerPage, filteredFeed.length);
     });
-  }, [filteredFeed.length]);
+  }, [articlesPerPage, filteredFeed.length]);
 
   const maybeLoadNextPage = useCallback(() => {
     if (!scrollViewport || visibleArticleCount >= filteredFeed.length) {

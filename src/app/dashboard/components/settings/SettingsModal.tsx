@@ -90,12 +90,14 @@ function DemoOverlay() {
 
 /** Shared body rendered inside both the Dialog and the Drawer. */
 function SettingsBody({
+  articlesPerPage,
   autoRefreshIntervalMinutes,
   backgroundMode,
   categories,
   distillStrategy,
   isPreviewMode = false,
   onAccountDeleted,
+  onArticlesPerPageChange,
   onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
@@ -115,9 +117,11 @@ function SettingsBody({
   return (
     <div className="space-y-4 py-1 pr-3">
       <SettingsDisplaySection
+        articlesPerPage={articlesPerPage}
         autoRefreshIntervalMinutes={autoRefreshIntervalMinutes}
         backgroundMode={backgroundMode}
         distillStrategy={distillStrategy}
+        onArticlesPerPageChange={onArticlesPerPageChange}
         onAutoRefreshIntervalMinutesChange={onAutoRefreshIntervalMinutesChange}
         onBackgroundModeChange={onBackgroundModeChange}
         onDistillStrategyChange={onDistillStrategyChange}
@@ -234,6 +238,7 @@ function SettingsBody({
 }
 
 export const SettingsModal = ({
+  articlesPerPage,
   autoRefreshIntervalMinutes,
   backgroundMode,
   categories,
@@ -242,6 +247,7 @@ export const SettingsModal = ({
   isPreviewMode = false,
   onAddCategory,
   onAddFeed,
+  onArticlesPerPageChange,
   onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onClose,
@@ -278,6 +284,7 @@ export const SettingsModal = ({
   });
 
   const bodyProps = {
+    articlesPerPage,
     autoRefreshIntervalMinutes,
     backgroundMode,
     categories,
@@ -287,6 +294,7 @@ export const SettingsModal = ({
       onClose();
       window.location.assign("/landing");
     },
+    onArticlesPerPageChange,
     onAutoRefreshIntervalMinutesChange,
     onBackgroundModeChange,
     onDistillStrategyChange,

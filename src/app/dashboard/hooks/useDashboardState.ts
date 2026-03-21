@@ -94,6 +94,12 @@ export function useDashboardState() {
     AUTO_REFRESH_INTERVAL_STORAGE_KEY,
     defaultAutoRefreshIntervalMinutes,
   );
+
+  /** Persisted articles-per-page for client-side infinite scroll pagination. */
+  const [articlesPerPage, setArticlesPerPage] = useLocalStorage<number>(
+    "librerss:articlesPerPage",
+    12,
+  );
   const autoRefreshIntervalMinutes = normalizeAutoRefreshIntervalMinutes(
     storedAutoRefreshIntervalMinutes,
     defaultAutoRefreshIntervalMinutes,
@@ -135,6 +141,7 @@ export function useDashboardState() {
 
   return {
     articleFilter,
+    articlesPerPage,
     autoRefreshIntervalMinutes,
     categories,
     categoriesRef,
@@ -149,6 +156,7 @@ export function useDashboardState() {
     searchTerm,
     selectedCategory,
     setArticleFilter,
+    setArticlesPerPage,
     setAutoRefreshIntervalMinutes,
     setCategories,
     setExpandedArticleKey,

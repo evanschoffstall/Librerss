@@ -20,10 +20,14 @@ import {
   normalizeAutoRefreshIntervalMinutes,
 } from "../../services/refresh-policy";
 
+export const ARTICLES_PER_PAGE_OPTIONS = [4, 6, 8, 12] as const;
+
 export interface SettingsDisplaySectionProps {
+  articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
   backgroundMode: BackgroundMode;
   distillStrategy: string;
+  onArticlesPerPageChange: (value: number) => void;
   onAutoRefreshIntervalMinutesChange: (value: number) => void;
   onBackgroundModeChange: (value: BackgroundMode) => void;
   onDistillStrategyChange: (value: string) => void;
@@ -32,9 +36,11 @@ export interface SettingsDisplaySectionProps {
 }
 
 export function SettingsDisplaySection({
+  articlesPerPage,
   autoRefreshIntervalMinutes,
   backgroundMode,
   distillStrategy,
+  onArticlesPerPageChange,
   onAutoRefreshIntervalMinutesChange,
   onBackgroundModeChange,
   onDistillStrategyChange,
@@ -129,6 +135,26 @@ export function SettingsDisplaySection({
               <SelectItem value="none">None</SelectItem>
               <SelectItem value="particles">Particles</SelectItem>
               <SelectItem value="stars">Stars</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="row-between">
+          <Label>Articles per page</Label>
+          <Select
+            onValueChange={(value) => {
+              onArticlesPerPageChange(Number(value));
+            }}
+            value={String(articlesPerPage)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select page size" />
+            </SelectTrigger>
+            <SelectContent>
+              {ARTICLES_PER_PAGE_OPTIONS.map((pageSize) => (
+                <SelectItem key={pageSize} value={String(pageSize)}>
+                  {pageSize}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

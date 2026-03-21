@@ -72,6 +72,7 @@ export function useDashboardController({
 
   const {
     articleFilter,
+    articlesPerPage,
     autoRefreshIntervalMinutes,
     categories,
     expandedArticleKey,
@@ -92,6 +93,7 @@ export function useDashboardController({
   } = dashboardState;
   const {
     setArticleFilter,
+    setArticlesPerPage,
     setAutoRefreshIntervalMinutes,
     setCategories,
     setExpandedArticleKey,
@@ -435,6 +437,7 @@ export function useDashboardController({
   return {
     feedList: {
       articleFilter,
+      articlesPerPage,
       collapsingArticles,
       expandedArticleKey,
       feedViewKey,
@@ -456,6 +459,7 @@ export function useDashboardController({
       updatingArticleState,
     },
     settings: {
+      articlesPerPage,
       autoRefreshIntervalMinutes,
       backgroundMode,
       categories: displayCategories,
@@ -466,6 +470,7 @@ export function useDashboardController({
       onBackgroundModeChange,
       onDistillStrategyChange,
       selectedCategory,
+      setArticlesPerPage,
       setAutoRefreshIntervalMinutes,
       setShowFavicons,
       showFavicons,

@@ -32,6 +32,7 @@ describe("FeedList", () => {
     const { container, queryByText } = renderFeedList(
       <FeedList
         articleFilter="all"
+        articlesPerPage={12}
         expandedArticleKey={null}
         feedViewKey="system-all-feeds:all"
         filteredFeed={[]}
@@ -59,6 +60,7 @@ describe("FeedList", () => {
     const { container } = renderFeedList(
       <FeedList
         articleFilter="all"
+        articlesPerPage={12}
         expandedArticleKey={null}
         feedViewKey="system-all-feeds:all"
         filteredFeed={[]}
@@ -103,6 +105,7 @@ describe("FeedList", () => {
     const { getByText } = renderFeedList(
       <FeedList
         articleFilter="all"
+        articlesPerPage={12}
         expandedArticleKey={null}
         feedViewKey="system-all-feeds:all"
         filteredFeed={[article]}
@@ -133,6 +136,7 @@ describe("FeedList", () => {
     const { container, getByText, rerender } = renderFeedList(
       <FeedList
         articleFilter="all"
+        articlesPerPage={12}
         expandedArticleKey={null}
         feedViewKey="system-all-feeds:all"
         filteredFeed={[article]}
@@ -157,7 +161,8 @@ describe("FeedList", () => {
     rerender(
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <FeedList
-          articleFilter="unread"
+        articleFilter="unread"
+          articlesPerPage={12}
           collapsingArticles={{
             [article.link]: {
               article,
@@ -200,7 +205,8 @@ describe("FeedList", () => {
     const { container, getByText } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          articleFilter="all"
+        articleFilter="all"
+          articlesPerPage={12}
           expandedArticleKey={null}
           feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}
@@ -237,7 +243,8 @@ describe("FeedList", () => {
     const { container, getByText } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          articleFilter="all"
+        articleFilter="all"
+          articlesPerPage={12}
           expandedArticleKey={firstArticle.link}
           feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}
@@ -278,7 +285,8 @@ describe("FeedList", () => {
     const { container, getByText, rerender } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          articleFilter="all"
+        articleFilter="all"
+          articlesPerPage={12}
           expandedArticleKey={article.link}
           feedViewKey="system-all-feeds:all"
           filteredFeed={[article, sibling]}
@@ -308,7 +316,8 @@ describe("FeedList", () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <div data-radix-scroll-area-viewport="">
           <FeedList
-            articleFilter="all"
+        articleFilter="all"
+            articlesPerPage={12}
             expandedArticleKey={null}
             feedViewKey="system-all-feeds:all"
             filteredFeed={[article, sibling]}
@@ -344,7 +353,8 @@ describe("FeedList", () => {
     const { container, getByText, rerender } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          articleFilter="all"
+        articleFilter="all"
+          articlesPerPage={12}
           expandedArticleKey={null}
           feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}
@@ -389,7 +399,8 @@ describe("FeedList", () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <div data-radix-scroll-area-viewport="">
           <FeedList
-            articleFilter="all"
+        articleFilter="all"
+            articlesPerPage={12}
             expandedArticleKey={null}
             feedViewKey="feed:nasa:all"
             filteredFeed={[secondArticle]}
