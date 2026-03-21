@@ -3,6 +3,9 @@ import { NextRequest } from "next/server";
 
 import type { BatchRouteDeps } from "@/app/api/feeds/batch/route";
 
+import { CONFIG } from "@/lib/config";
+import { logger } from "@/lib/logger";
+
 beforeEach(() => {
   mock.restore();
 });
@@ -182,5 +185,360 @@ describe("api/feeds/batch route", () => {
         url: normalizedUrl,
       },
     ]);
+  });
+
+  test("returns an empty array for an empty batch request without calling the fetcher", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({ urls: [] }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("logs diagnostics for an empty request when refresh diagnostics are enabled", async () => {
+    const previousDiagnostics = process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+    const previousLogLevel = process.env.LOG_LEVEL;
+    const originalInfo = logger.info;
+    const info = mock(() => undefined);
+
+    process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED = "true";
+    process.env.LOG_LEVEL = "info";
+    logger.info = info;
+
+    try {
+      const { POST } = await import("@/app/api/feeds/batch/route");
+      const { deps } = createRouteDeps();
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({ requestSource: "dashboard", urls: [] }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+
+      expect(response.status).toBe(200);
+      expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
+        forceRefresh: false,
+        requestedUrlCount: 0,
+        requestSource: "dashboard",
+        skipRefresh: false,
+        userId: user.userId,
+      });
+      expect(info).toHaveBeenNthCalledWith(
+        2,
+        "Batch [0 feeds]: client=auto | empty request",
+      );
+    } finally {
+      logger.info = originalInfo;
+      if (previousDiagnostics === undefined) {
+        delete process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+      } else {
+        process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED = previousDiagnostics;
+      }
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
+    }
+  });
+
+  test("rejects requests that exceed the configured feed limit", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const urls = Array.from(
+      { length: CONFIG.FEED_BATCH_MAX_URLS + 1 },
+      (_, index) => `https://example.com/feed-${index}`,
+    );
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({ urls }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once`,
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("rejects non-object knownLastFetchedAtByUrl payloads before calling the fetcher", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        knownLastFetchedAtByUrl: ["2026-01-01T00:00:00.000Z"],
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error:
+        "knownLastFetchedAtByUrl must be an object mapping URLs to ISO dates",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("rejects invalid knownLastFetchedAtByUrl date values", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        knownLastFetchedAtByUrl: {
+          "https://example.com/feed": "not-a-date",
+        },
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: "knownLastFetchedAtByUrl values must be valid ISO date strings",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("returns 207 for mixed invalid URLs and upstream errors", async () => {
+    const validUrl = "https://example.com/feed";
+    const timestamp = new Date("2026-03-20T12:00:00.000Z");
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps({
+      batchResult: {
+        articles: new Map([[validUrl, [{ id: 1, title: "Article" } as never]]]),
+        cachedCount: 0,
+        cooldownLimitedCount: 0,
+        errors: new Map([[validUrl, "Upstream timed out"]]),
+        lastFetchedByUrl: new Map([[validUrl, timestamp]]),
+        refreshedCount: 1,
+        resolution: "upstream",
+        unchangedUrls: new Set(),
+      },
+    });
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({ urls: ["not-a-url", validUrl] }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(207);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+    expect(data).toEqual([
+      {
+        articles: [],
+        error: "Invalid feed URL",
+        ok: false,
+        url: "not-a-url",
+      },
+      {
+        articles: [{ id: 1, title: "Article" }],
+        error: "Upstream timed out",
+        lastFetchedAt: timestamp.toISOString(),
+        ok: true,
+        url: validUrl,
+      },
+    ]);
+  });
+
+  test("logs diagnostics when all URLs are invalid after normalization", async () => {
+    const previousDiagnostics = process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+    const previousLogLevel = process.env.LOG_LEVEL;
+    const originalInfo = logger.info;
+    const info = mock(() => undefined);
+
+    process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED = "true";
+    process.env.LOG_LEVEL = "info";
+    logger.info = info;
+
+    try {
+      const { POST } = await import("@/app/api/feeds/batch/route");
+      const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({ urls: ["bad-url", "also-bad"] }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+
+      expect(response.status).toBe(207);
+      expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+      expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
+        forceRefresh: false,
+        requestedUrlCount: 2,
+        requestSource: "unspecified",
+        skipRefresh: false,
+        userId: user.userId,
+      });
+      expect(info).toHaveBeenNthCalledWith(
+        2,
+        "Feed batch request had no valid URLs after normalization",
+        { invalidUrlCount: 2, userId: user.userId },
+      );
+    } finally {
+      logger.info = originalInfo;
+      if (previousDiagnostics === undefined) {
+        delete process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+      } else {
+        process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED = previousDiagnostics;
+      }
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
+    }
+  });
+
+  test("logs completion diagnostics and forwards parsed timestamps to the batch fetcher", async () => {
+    const previousDiagnostics = process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+    const previousLogLevel = process.env.LOG_LEVEL;
+    const originalInfo = logger.info;
+    const info = mock(() => undefined);
+
+    process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED = "true";
+    process.env.LOG_LEVEL = "info";
+    logger.info = info;
+
+    try {
+      const normalizedUrl = "https://example.com/feed";
+      const knownLastFetchedAt = "2026-03-21T10:00:00.000Z";
+      const refreshedAt = new Date("2026-03-21T10:05:00.000Z");
+      const { POST } = await import("@/app/api/feeds/batch/route");
+      const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps({
+        batchResult: {
+          articles: new Map([
+            [normalizedUrl, [{ id: 7, title: "Covered" } as never]],
+          ]),
+          cachedCount: 0,
+          cooldownLimitedCount: 1,
+          errors: new Map(),
+          lastFetchedByUrl: new Map([[normalizedUrl, refreshedAt]]),
+          refreshedCount: 1,
+          resolution: "upstream",
+          unchangedUrls: new Set(),
+        },
+      });
+
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({
+          forceRefresh: true,
+          knownLastFetchedAtByUrl: { [normalizedUrl]: knownLastFetchedAt },
+          requestSource: "coverage-test",
+          urls: [normalizedUrl],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+
+      expect(response.status).toBe(200);
+      expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+      expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
+        forceRefresh: true,
+        knownLastFetchedAtByUrl: new Map([
+          [normalizedUrl, new Date(knownLastFetchedAt)],
+        ]),
+        requestSource: "coverage-test",
+        skipRefresh: false,
+      });
+      expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
+        forceRefresh: true,
+        requestedUrlCount: 1,
+        requestSource: "coverage-test",
+        skipRefresh: false,
+        userId: user.userId,
+      });
+      expect(info).toHaveBeenNthCalledWith(
+        2,
+        "Batch [1 feed]: client=force resolved=upstream | 1 refreshed, 0 cached, all throttled",
+      );
+      expect(info).toHaveBeenNthCalledWith(3, "Feed batch request completed", {
+        forceRefresh: true,
+        invalidUrlCount: 0,
+        missingCount: 0,
+        normalizedUrlCount: 1,
+        okCount: 1,
+        requestSource: "coverage-test",
+        skipRefresh: false,
+        totalArticles: 1,
+        upstreamErrorCount: 0,
+        userId: user.userId,
+      });
+    } finally {
+      logger.info = originalInfo;
+      if (previousDiagnostics === undefined) {
+        delete process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED;
+      } else {
+        process.env.FEED_REFRESH_DIAGNOSTICS_ENABLED = previousDiagnostics;
+      }
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
+    }
+  });
+
+  test("uses the error responder when the batch fetch throws", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const logAndRespondErrorFn = mock(
+      () => new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+    );
+    const deps: BatchRouteDeps = {
+      fetchAndCacheFeedArticlesBatchFn: mock(async () => {
+        throw new Error("boom");
+      }) as never,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn,
+      requireMutableAuthenticatedUserFn: async () => user,
+    };
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({ urls: ["https://example.com/feed"] }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: "internal" });
+    expect(logAndRespondErrorFn).toHaveBeenCalledWith(
+      "Feed batch fetch error",
+      expect.any(Error),
+    );
   });
 });

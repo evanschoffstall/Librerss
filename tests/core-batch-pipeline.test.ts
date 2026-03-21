@@ -1,8 +1,11 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import type { FeedRecord } from "../src/lib/core/feed-refresh";
 
-import { buildRefreshPlan } from "../src/lib/core/feed-batch-pipeline";
+import {
+  buildRefreshPlan,
+  mapRowsToArticleMap,
+} from "../src/lib/core/feed-batch-pipeline";
 
 test("buildRefreshPlan returns per-feed refresh decisions", () => {
   const skippedFeed: FeedRecord = {
@@ -76,4 +79,313 @@ test("SQL whitespace-collapse regex escaping does not strip lowercase s", () => 
   // The SQL must contain literal '\s+' (with backslash) not 's+'
   expect(raw).toContain("\\\\s+");
   expect(raw).not.toMatch(/'s\+'/);
+});
+
+// ─── buildRefreshPlan additional branches ────────────────────────────────────
+
+test("buildRefreshPlan returns use-cache for fresh feeds", () => {
+  const freshFeed: FeedRecord = {
+    id: 1,
+    lastFetched: new Date(),
+    lastFetchError: null,
+    url: "https://fresh.example/feed.xml",
+  };
+
+  const result = buildRefreshPlan(
+    new Map([[freshFeed.url, freshFeed]]),
+    [freshFeed.url],
+    false,
+    false,
+  );
+
+  expect(result).toEqual([
+    {
+      decision: "use-cache",
+      lastFetched: freshFeed.lastFetched,
+      url: freshFeed.url,
+    },
+  ]);
+});
+
+test("buildRefreshPlan returns refresh-stale for old feeds", () => {
+  const staleFeed: FeedRecord = {
+    id: 1,
+    lastFetched: new Date(0),
+    lastFetchError: null,
+    url: "https://stale.example/feed.xml",
+  };
+
+  const result = buildRefreshPlan(
+    new Map([[staleFeed.url, staleFeed]]),
+    [staleFeed.url],
+    false,
+    false,
+  );
+
+  expect(result).toEqual([
+    {
+      decision: "refresh-stale",
+      lastFetched: staleFeed.lastFetched,
+      url: staleFeed.url,
+    },
+  ]);
+});
+
+test("buildRefreshPlan returns force-cooldown-use-cache for recently-fetched feed with forceRefresh", () => {
+  const recentFeed: FeedRecord = {
+    id: 1,
+    lastFetched: new Date(),
+    lastFetchError: null,
+    url: "https://recent.example/feed.xml",
+  };
+
+  const result = buildRefreshPlan(
+    new Map([[recentFeed.url, recentFeed]]),
+    [recentFeed.url],
+    false,
+    true,
+  );
+
+  expect(result).toEqual([
+    {
+      decision: "force-cooldown-use-cache",
+      lastFetched: recentFeed.lastFetched,
+      url: recentFeed.url,
+    },
+  ]);
+});
+
+// ─── mapRowsToArticleMap ─────────────────────────────────────────────────────
+
+describe("mapRowsToArticleMap", () => {
+  const makeFeedByUrl = (entries: FeedRecord[]) =>
+    new Map(entries.map((f) => [f.url, f]));
+
+  const feed1: FeedRecord = {
+    id: 10,
+    lastFetched: new Date(),
+    lastFetchError: null,
+    url: "https://feed-one.example/rss",
+  };
+
+  const feed2: FeedRecord = {
+    id: 20,
+    lastFetched: new Date(),
+    lastFetchError: null,
+    url: "https://feed-two.example/rss",
+  };
+
+  test("maps valid rows to article arrays keyed by feed URL", () => {
+    const now = new Date();
+    const rows = [
+      {
+        content: "Hello world",
+        feedId: 10,
+        id: 1,
+        isRead: false,
+        isStarred: true,
+        lastChecked: now,
+        link: "https://example.com/article-1",
+        publicationDate: now,
+        title: "Article One",
+      },
+      {
+        content: "Second article",
+        feedId: 20,
+        id: 2,
+        isRead: true,
+        isStarred: false,
+        lastChecked: now,
+        link: "https://example.com/article-2",
+        publicationDate: now,
+        title: "Article Two",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      rows,
+      makeFeedByUrl([feed1, feed2]),
+      [feed1.url, feed2.url],
+    );
+
+    expect(result.get(feed1.url)).toHaveLength(1);
+    expect(result.get(feed2.url)).toHaveLength(1);
+
+    const art1 = result.get(feed1.url)![0]!;
+    expect(art1.id).toBe(1);
+    expect(art1.feedId).toBe(10);
+    expect(art1.isStarred).toBe(true);
+    expect(art1.title).toBe("Article One");
+    expect(art1.link).toBe("https://example.com/article-1");
+    expect(art1.hasFullContent).toBe(false);
+
+    const art2 = result.get(feed2.url)![0]!;
+    expect(art2.id).toBe(2);
+    expect(art2.isRead).toBe(true);
+  });
+
+  test("returns empty arrays for URLs with no matching rows", () => {
+    const result = mapRowsToArticleMap(
+      [],
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    expect(result.get(feed1.url)).toEqual([]);
+  });
+
+  test("skips rows with unknown feedId", () => {
+    const rows = [
+      {
+        content: "Orphan",
+        feedId: 999,
+        id: 1,
+        isRead: false,
+        isStarred: false,
+        lastChecked: new Date(),
+        link: "https://example.com/orphan",
+        publicationDate: new Date(),
+        title: "Orphan",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      rows,
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    expect(result.get(feed1.url)).toEqual([]);
+  });
+
+  test("strips span wrapper tags from content preview", () => {
+    const rows = [
+      {
+        content: "<span class='highlight'>Important</span> text",
+        feedId: 10,
+        id: 1,
+        isRead: false,
+        isStarred: false,
+        lastChecked: new Date(),
+        link: "https://example.com/a",
+        publicationDate: new Date(),
+        title: "Test",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      rows,
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    const article = result.get(feed1.url)![0]!;
+    expect(article.content).not.toContain("<span");
+    expect(article.content).toContain("Important");
+  });
+
+  test("skips malformed rows with missing required fields", () => {
+    const malformed = [
+      {
+        content: "text",
+        feedId: 10,
+        id: 1,
+        isRead: false,
+        isStarred: false,
+        lastChecked: "invalid-not-a-date-object", // still string, OK
+        link: "https://example.com/a",
+        publicationDate: undefined as any, // invalid - required
+        title: "Test",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      malformed,
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    expect(result.get(feed1.url)).toEqual([]);
+  });
+
+  test("handles null content, title, and link gracefully", () => {
+    const rows = [
+      {
+        content: null,
+        feedId: 10,
+        id: 1,
+        isRead: null,
+        isStarred: null,
+        lastChecked: new Date(),
+        link: null,
+        publicationDate: new Date(),
+        title: null,
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      rows,
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    const article = result.get(feed1.url)![0]!;
+    expect(article.content).toBe("");
+    expect(article.title).toBe("");
+    expect(article.link).toBe("");
+    expect(article.isRead).toBe(false);
+    expect(article.isStarred).toBe(false);
+  });
+
+  test("handles string-typed id and feedId", () => {
+    const rows = [
+      {
+        content: "text",
+        feedId: "10",
+        id: "42",
+        isRead: 1,
+        isStarred: 0,
+        lastChecked: new Date().toISOString(),
+        link: "https://example.com/a",
+        publicationDate: new Date().toISOString(),
+        title: "String IDs",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      rows,
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    const article = result.get(feed1.url)![0]!;
+    expect(article.id).toBe(42);
+    expect(article.feedId).toBe(10);
+    expect(article.isRead).toBe(true);
+    expect(article.isStarred).toBe(false);
+  });
+
+  test("skips rows with NaN id after coercion", () => {
+    const rows = [
+      {
+        content: "text",
+        feedId: 10,
+        id: "not-a-number",
+        isRead: false,
+        isStarred: false,
+        lastChecked: new Date(),
+        link: "https://example.com/a",
+        publicationDate: new Date(),
+        title: "Bad ID",
+      },
+    ];
+
+    const result = mapRowsToArticleMap(
+      rows,
+      makeFeedByUrl([feed1]),
+      [feed1.url],
+    );
+
+    expect(result.get(feed1.url)).toEqual([]);
+  });
 });
