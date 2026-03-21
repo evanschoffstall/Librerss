@@ -125,6 +125,7 @@ export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
               <div className="flex min-h-8 items-center gap-2">
                 {ARTICLE_FILTER_OPTIONS.map((value) => (
                   <button
+                    aria-pressed={articleFilter === value}
                     className={`
                       cursor-pointer rounded-full px-2.5 py-0.5 text-xs
                       capitalize transition-colors

@@ -335,6 +335,7 @@ export const FeedList = memo(function FeedList({
   articleFilter,
   collapsingArticles = {},
   expandedArticleKey,
+  feedViewKey,
   filteredFeed,
   hydratedArticleLinks,
   hydratingArticleLinks,
@@ -382,7 +383,20 @@ export const FeedList = memo(function FeedList({
   useEffect(() => {
     hasUserScrolledRef.current = false;
     setVisibleArticleCount(FEED_PAGE_SIZE);
-  }, [articleFilter, searchTerm]);
+    setIsVirtualizationResumeDeferred(false);
+  }, [feedViewKey, searchTerm]);
+
+  useLayoutEffect(() => {
+    if (!scrollViewport) {
+      return;
+    }
+
+    if (scrollViewport.scrollTop === 0) {
+      return;
+    }
+
+    scrollViewport.scrollTop = 0;
+  }, [feedViewKey, scrollViewport]);
 
   useEffect(() => {
     const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
@@ -698,6 +712,7 @@ export const FeedList = memo(function FeedList({
               increaseViewportBy={200}
               initialItemCount={Math.min(visibleFeed.length, 8)}
               itemContent={(_index, article) => renderFeedRow(article)}
+              key={feedViewKey}
               overscan={200}
             />
           </motion.div>

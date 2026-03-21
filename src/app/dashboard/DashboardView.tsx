@@ -44,9 +44,10 @@ export const DashboardView = ({
         feed={
           <DashboardFeedViewport scrollAreaRef={feedList.mergedFeedScrollRef}>
             <FeedList
-              articleFilter={topBar.articleFilter}
+              articleFilter={feedList.articleFilter}
               collapsingArticles={feedList.collapsingArticles}
               expandedArticleKey={feedList.expandedArticleKey}
+              feedViewKey={feedList.feedViewKey}
               filteredFeed={feedList.filteredFeed}
               hydratedArticleLinks={feedList.hydratedArticleLinks}
               hydratingArticleLinks={feedList.hydratingArticleLinks}
