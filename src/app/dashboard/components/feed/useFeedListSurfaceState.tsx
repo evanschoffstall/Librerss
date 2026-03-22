@@ -186,7 +186,6 @@ export function useFeedListSurfaceState({
 
     const handleScrollIntent = () => {
       hasUserScrolledRef.current = true;
-      setIsVirtualizationResumeDeferred(false);
       maybeLoadNextPage();
     };
 

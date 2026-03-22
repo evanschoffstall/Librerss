@@ -132,7 +132,7 @@ export function ArticleCardHeader({
                 <img
                   alt=""
                   className="size-3 rounded-sm"
-                  loading="lazy"
+                  decoding="sync"
                   onError={() => {
                     setFaviconIndex((current) => {
                       const next = current + 1;
