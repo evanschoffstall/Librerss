@@ -9,8 +9,8 @@
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { extractionAxios } from "@/lib/fetch/fingerprint";
+import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch/proxy";
 
 beforeEach(() => {
   mock.restore();

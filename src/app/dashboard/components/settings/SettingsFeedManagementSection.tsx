@@ -1,0 +1,126 @@
+import { Download, Plus, Rss } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { type CategoryTreeNode, generateOpml } from "@/lib";
+
+import type { SettingsModalState } from "../../hooks/useSettingsModalState";
+
+import { MotionSpinner } from "../MotionSpinner";
+import { SettingsCategoryList } from "./SettingsCategoryList";
+import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
+import { SettingsPreviewSection } from "./SettingsPreviewSection";
+
+interface SettingsFeedManagementSectionProps {
+  categories: CategoryTreeNode[];
+  isPreviewMode?: boolean;
+  onRemoveCategory: (label: string) => Promise<boolean>;
+  pendingCategoryRemovalLabel: null | string;
+  state: SettingsModalState;
+}
+
+/** Renders feed import, export, and category/feed management controls. */
+export function SettingsFeedManagementSection({
+  categories,
+  isPreviewMode = false,
+  onRemoveCategory,
+  pendingCategoryRemovalLabel,
+  state,
+}: SettingsFeedManagementSectionProps) {
+  return (
+    <SettingsPreviewSection isPreviewMode={isPreviewMode}>
+      <section className="settings-card">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="section-heading">
+              <Rss className="icon-muted" />
+              Feeds
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add, edit, organize, and import feed sources.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <input
+              accept=".opml,.xml,text/xml,application/xml"
+              className="hidden"
+              onChange={(event) => {
+                void state.handleOpmlFileChange(event);
+              }}
+              ref={state.opmlInputRef}
+              type="file"
+            />
+            <Button
+              className="h-8"
+              onClick={() => {
+                const xml = generateOpml(categories);
+                const blob = new Blob([xml], { type: "text/xml" });
+                const anchor = document.createElement("a");
+                anchor.href = URL.createObjectURL(blob);
+                anchor.download = "librerss-subscriptions.opml";
+                anchor.click();
+                URL.revokeObjectURL(anchor.href);
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Download className="mr-1.5 size-3.5" />
+              Export OPML
+            </Button>
+            <Button
+              className="h-8"
+              disabled={state.isImportingOpml}
+              onClick={() => state.opmlInputRef.current?.click()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {state.isImportingOpml ? (
+                <MotionSpinner className="mr-1.5" iconClassName="size-3.5" />
+              ) : (
+                <Plus className="mr-1.5 size-3.5" />
+              )}
+              Import OPML
+            </Button>
+          </div>
+        </div>
+
+        <TooltipProvider delayDuration={300}>
+          {state.isImportingOpml ? (
+            <SettingsImportSkeleton />
+          ) : (
+            <SettingsCategoryList
+              addingFeedInCategory={state.addingFeedInCategory}
+              categories={categories}
+              drag={state.drag}
+              editingCategory={state.editingCategory}
+              editingCategoryName={state.editingCategoryName}
+              isSavingFeed={state.isSavingFeed}
+              newCategoryName={state.newCategoryName}
+              newFeedName={state.newFeedName}
+              newFeedUrl={state.newFeedUrl}
+              onAddCategory={state.handleAddCategory}
+              onAddFeed={(label) => void state.handleAddFeed(label)}
+              onCancelAddFeed={state.onCancelAddFeed}
+              onCancelCategoryEdit={state.onCancelCategoryEdit}
+              onEditingCategoryNameChange={state.setEditingCategoryName}
+              onNewCategoryNameChange={state.setNewCategoryName}
+              onNewFeedNameChange={state.setNewFeedName}
+              onNewFeedUrlChange={state.setNewFeedUrl}
+              onRemoveCategory={(label) => void onRemoveCategory(label)}
+              onSaveCategoryRename={(label) =>
+                void state.handleSaveCategoryRename(label)
+              }
+              onStartCategoryEdit={state.onStartCategoryEdit}
+              onToggleAddFeed={state.onToggleAddFeed}
+              pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
+              savingCategoryLabel={state.savingCategoryLabel}
+              sharedFeedRowProps={state.sharedFeedRowProps}
+            />
+          )}
+        </TooltipProvider>
+      </section>
+    </SettingsPreviewSection>
+  );
+}

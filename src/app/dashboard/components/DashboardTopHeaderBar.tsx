@@ -12,9 +12,6 @@ import {
     Settings2,
     Sun
 } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 import {
     DropdownMenu,
@@ -25,12 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AuthService } from "@/lib";
-import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
-import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
-import { setDashboardPreviewPersistence } from "../preview-mode";
+import { useDashboardTopHeaderState } from "../hooks/useDashboardTopHeaderState";
 import { MotionSpinner } from "./MotionSpinner";
 
 
@@ -42,149 +35,26 @@ const toolbarBtnClass =
  * Top dashboard toolbar for search, quick actions, theme controls, and logout.
  */
 export function DashboardTopHeaderBar() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDevelopmentMode = process.env.NODE_ENV === "development";
-  const [isSearchPending, setIsSearchPending] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [title, setTitle] = useState("LibreRSS");
-  const [search, setSearch] = useState("");
-  const [isResetting, setIsResetting] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
-    DASHBOARD_PREVIEW_STORAGE_KEY,
-    false,
-  );
-  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const handleTitleChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ title?: string }>).detail;
-      const title = typeof detail.title === "string" ? detail.title.trim() : "";
-      setTitle(title === "" ? "LibreRSS" : title);
-    };
-
-    const handleSearchSync = (event: Event) => {
-      const detail = (event as CustomEvent<{ term?: string }>).detail;
-      setSearch(typeof detail.term === "string" ? detail.term : "");
-    };
-
-    const handleSearchPending = (event: Event) => {
-      const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
-      setIsSearchPending(detail.pending === true);
-    };
-
-    const handleEnterPreview = () => {
-      setIsPreviewMode(true);
-    };
-    const handleMarkAllReadStart = () => {
-      setIsMarkingAllRead(true);
-    };
-    const handleMarkAllReadEnd = () => {
-      setIsMarkingAllRead(false);
-    };
-
-    window.addEventListener(
-      DASHBOARD_EVENTS.TITLE_CHANGE,
-      handleTitleChange as EventListener,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.SEARCH_SYNC,
-      handleSearchSync as EventListener,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.SEARCH_PENDING,
-      handleSearchPending as EventListener,
-    );
-    window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
-    window.addEventListener(
-      DASHBOARD_EVENTS.MARK_ALL_READ_START,
-      handleMarkAllReadStart,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.MARK_ALL_READ_END,
-      handleMarkAllReadEnd,
-    );
-    return () => {
-      window.removeEventListener(
-        DASHBOARD_EVENTS.TITLE_CHANGE,
-        handleTitleChange as EventListener,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.SEARCH_SYNC,
-        handleSearchSync as EventListener,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.SEARCH_PENDING,
-        handleSearchPending as EventListener,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.ENTER_PREVIEW,
-        handleEnterPreview,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.MARK_ALL_READ_START,
-        handleMarkAllReadStart,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.MARK_ALL_READ_END,
-        handleMarkAllReadEnd,
-      );
-    };
-  }, [setIsPreviewMode]);
-
-  const isDark = mounted && (resolvedTheme ?? "dark") === "dark";
-  const nextTheme = isDark ? "light" : "dark";
-  const themeToggleLabel = mounted
-    ? `Switch to ${nextTheme} mode`
-    : "Toggle theme";
-
-  const handleSearchChange = (term: string) => {
-    setSearch(term);
-    window.dispatchEvent(
-      new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { detail: { term } }),
-    );
-  };
-
-  const handleReset = async () => {
-    if (isResetting) return;
-
-    setIsResetting(true);
-    try {
-      await clearClientOriginState();
-      window.location.reload();
-    } catch {
-      toast.error("Unable to reset app state.");
-      setIsResetting(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    if (isSigningOut) return;
-
-    if (isPreviewMode) {
-      await clearClientOriginState();
-      setIsPreviewMode(false);
-      setDashboardPreviewPersistence(false);
-      window.location.assign("/landing");
-      return;
-    }
-
-    setIsSigningOut(true);
-    try {
-      await AuthService.logout();
-      await clearClientOriginState();
-      setIsPreviewMode(false);
-      setDashboardPreviewPersistence(false);
-      window.location.assign("/landing");
-    } catch {
-      toast.error("Unable to sign out.");
-      setIsSigningOut(false);
-    }
-  };
+  const {
+    handleMarkAllRead,
+    handleOpenFeedsSidebar,
+    handleOpenSettings,
+    handleRefresh,
+    handleReset,
+    handleSearchChange,
+    handleSignOut,
+    handleToggleTheme,
+    isDark,
+    isDevelopmentMode,
+    isMarkingAllRead,
+    isResetting,
+    isSearchPending,
+    isSigningOut,
+    mounted,
+    search,
+    themeToggleLabel,
+    title,
+  } = useDashboardTopHeaderState();
 
   return (
     <div
@@ -192,6 +62,7 @@ export function DashboardTopHeaderBar() {
         pointer-events-auto fixed inset-x-0 top-0 z-50 border-b border-border/50
         bg-background/80 backdrop-blur-md
       "
+      suppressHydrationWarning
     >
       <div
         className="
@@ -207,11 +78,7 @@ export function DashboardTopHeaderBar() {
             ${toolbarBtnClass}
             lg:hidden
           `}
-          onClick={() =>
-            window.dispatchEvent(
-              new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR),
-            )
-          }
+          onClick={handleOpenFeedsSidebar}
           type="button"
         >
           <Menu className="size-4" />
@@ -265,9 +132,7 @@ export function DashboardTopHeaderBar() {
               shrink-0
               md:hidden
             `}
-            onClick={() =>
-              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
-            }
+            onClick={handleRefresh}
             type="button"
           >
             <RefreshCw className="size-4" />
@@ -289,30 +154,18 @@ export function DashboardTopHeaderBar() {
           <DropdownMenuContent align="end" sideOffset={8}>
             <DropdownMenuItem
               disabled={isMarkingAllRead}
-              onSelect={() =>
-                window.dispatchEvent(
-                  new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ),
-                )
-              }
+              onSelect={handleMarkAllRead}
             >
               <CheckCheck className="size-4" />
               Mark all read
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                window.dispatchEvent(
-                  new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS),
-                )
-              }
-            >
+            <DropdownMenuItem onSelect={handleOpenSettings}>
               <Settings2 className="size-4" />
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onSelect={() => {
-                setTheme(nextTheme);
-              }}
+              onSelect={handleToggleTheme}
             >
               {mounted && isDark ? (
                 <Sun className="size-4" />
@@ -349,9 +202,7 @@ export function DashboardTopHeaderBar() {
           <button
             aria-label="Refresh selected feed"
             className={toolbarBtnClass}
-            onClick={() =>
-              window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH))
-            }
+            onClick={handleRefresh}
             type="button"
           >
             <RefreshCw className="size-4" />
@@ -364,11 +215,7 @@ export function DashboardTopHeaderBar() {
               disabled:cursor-not-allowed disabled:opacity-70
             `}
             disabled={isMarkingAllRead}
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ),
-              )
-            }
+            onClick={handleMarkAllRead}
             type="button"
           >
             {isMarkingAllRead ? (
@@ -381,11 +228,7 @@ export function DashboardTopHeaderBar() {
           <button
             aria-label="Open dashboard settings"
             className={toolbarBtnClass}
-            onClick={() =>
-              window.dispatchEvent(
-                new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS),
-              )
-            }
+            onClick={handleOpenSettings}
             type="button"
           >
             <Settings2 className="size-4" />
@@ -425,9 +268,7 @@ export function DashboardTopHeaderBar() {
             <button
               aria-label={themeToggleLabel}
               className={toolbarBtnClass}
-              onClick={() => {
-                setTheme(nextTheme);
-              }}
+              onClick={handleToggleTheme}
               type="button"
             >
               {isDark ? (

@@ -40,6 +40,21 @@ const COMPATIBILITY_CHECK_SITES = [
   },
 ] as const;
 
+interface CompatibilityCheckDeps {
+  fetchHtmlWithFingerprintFn?: typeof fetchHtmlWithFingerprint;
+  gotScrapingErrorClass?: typeof GotScrapingError;
+  loggerInstance?: typeof logger;
+  parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
+  pickDiagnosticHeadersFn?: typeof pickDiagnosticHeaders;
+  rateLimitConfig?: {
+    maxAttempts: number;
+    windowMs: number;
+  };
+  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  resolveUserProxyFn?: typeof resolveUserProxy;
+  serviceErrorClass?: typeof ServiceError;
+}
+
 interface CompatibilityCheckRequest {
   useProxy?: boolean;
 }
@@ -59,18 +74,39 @@ interface CompatibilityCheckResult {
  * Runs vendor-sample compatibility checks for the authenticated user's current
  * network path and optional proxy settings.
  */
-export async function POST(request: NextRequest) {
-  const authResult = await requireMutableAuthenticatedUser(request, {
+export async function POST(
+  request: NextRequest,
+  deps: CompatibilityCheckDeps = {},
+) {
+  const parseJsonBodyOrResponseFn =
+    deps.parseJsonBodyOrResponseFn ?? parseJsonBodyOrResponse;
+  const requireMutableAuthenticatedUserFn =
+    deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+  const resolveUserProxyFn = deps.resolveUserProxyFn ?? resolveUserProxy;
+  const fetchHtmlWithFingerprintFn =
+    deps.fetchHtmlWithFingerprintFn ?? fetchHtmlWithFingerprint;
+  const pickDiagnosticHeadersFn =
+    deps.pickDiagnosticHeadersFn ?? pickDiagnosticHeaders;
+  const loggerInstance = deps.loggerInstance ?? logger;
+  const GotScrapingErrorClass =
+    deps.gotScrapingErrorClass ?? GotScrapingError;
+  const ServiceErrorClass = deps.serviceErrorClass ?? ServiceError;
+  const rateLimitConfig = deps.rateLimitConfig ?? {
+    maxAttempts: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS,
+    windowMs: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS,
+  };
+
+  const authResult = await requireMutableAuthenticatedUserFn(request, {
     rateLimit: {
       key: "proxy-compatibility-check",
-      maxAttempts: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS,
+      maxAttempts: rateLimitConfig.maxAttempts,
       scope: "user",
-      windowMs: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS,
+      windowMs: rateLimitConfig.windowMs,
     },
   });
   if (authResult instanceof Response) return authResult;
 
-  const body = await parseJsonBodyOrResponse<CompatibilityCheckRequest>(request);
+  const body = await parseJsonBodyOrResponseFn<CompatibilityCheckRequest>(request);
   if (body instanceof Response) return body;
 
   const useProxy = body.useProxy ?? false;
@@ -80,11 +116,14 @@ export async function POST(request: NextRequest) {
 
   if (useProxy) {
     try {
-      const resolved = await resolveUserProxy(authResult.userId);
+      const resolved = await resolveUserProxyFn(authResult.userId);
       proxyUrl = resolved.proxyUrl;
       allowInsecureTls = resolved.allowInsecureTls;
     } catch (error) {
-      if (error instanceof ServiceError && error.reason === "proxy-password-unreadable") {
+      if (
+        error instanceof ServiceErrorClass &&
+        error.reason === "proxy-password-unreadable"
+      ) {
         return NextResponse.json(
           { error: error.message },
           { status: error.status },
@@ -101,7 +140,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  logger.info("Connection compatibility check started", {
+  loggerInstance.info("Connection compatibility check started", {
     proxyConfigured: !!proxyUrl,
     sites: COMPATIBILITY_CHECK_SITES.map((site) => site.label),
     useProxy,
@@ -121,7 +160,7 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        const { html, requestHeaders } = await fetchHtmlWithFingerprint(
+        const { html, requestHeaders } = await fetchHtmlWithFingerprintFn(
           site.url,
           () => Promise.resolve(true),
           {
@@ -139,10 +178,10 @@ export async function POST(request: NextRequest) {
           html.toLowerCase(),
         );
 
-        logger.info("Connection compatibility check completed", {
+        loggerInstance.info("Connection compatibility check completed", {
           compatibilitySignalDetected: result.compatibilitySignalDetected,
           htmlSnippet: html.slice(0, 500),
-          requestHeaders: pickDiagnosticHeaders(requestHeaders),
+          requestHeaders: pickDiagnosticHeadersFn(requestHeaders),
           responseSize: result.responseSize,
           site: site.label,
           statusCode: 200,
@@ -155,7 +194,7 @@ export async function POST(request: NextRequest) {
         result.success = false;
         result.compatibilitySignalDetected = true;
 
-        if (err instanceof GotScrapingError) {
+        if (err instanceof GotScrapingErrorClass) {
           result.statusCode = err.statusCode;
           result.error = `HTTP ${err.statusCode}`;
           result.compatibilitySignalDetected = hasCompatibilitySignal(
@@ -163,14 +202,14 @@ export async function POST(request: NextRequest) {
             err.responseBody.toLowerCase(),
           );
 
-          logger.error(
+          loggerInstance.error(
             "Connection compatibility check failed with upstream response",
             {
               compatibilitySignalDetected:
                 result.compatibilitySignalDetected,
               proxyMode: err.proxyMode,
-              requestHeaders: pickDiagnosticHeaders(err.requestHeaders),
-              responseHeaders: pickDiagnosticHeaders(err.responseHeaders),
+              requestHeaders: pickDiagnosticHeadersFn(err.requestHeaders),
+              responseHeaders: pickDiagnosticHeadersFn(err.responseHeaders),
               responseSnippet: err.responseBody.slice(0, 500),
               site: site.label,
               statusCode: err.statusCode,
@@ -181,7 +220,7 @@ export async function POST(request: NextRequest) {
           );
         } else {
           result.error = err instanceof Error ? err.message : "Request failed";
-          logger.error("Connection compatibility check failed", {
+          loggerInstance.error("Connection compatibility check failed", {
             error: result.error,
             site: site.label,
             url: site.url,

@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 import type { Article } from "@/lib/core/types";
 
 import { parseDateOrNull } from "@/lib/utils/dates";
@@ -20,20 +18,20 @@ export function ensureArrayResponse<T>(data: unknown): T[] {
   return data as T[];
 }
 
-export function forbiddenResponse(message = "Forbidden"): NextResponse {
+export function forbiddenResponse(message = "Forbidden"): Response {
   return jsonError(message, 403);
 }
 
-export function jsonError(error: string, status: number): NextResponse {
-  return NextResponse.json({ error }, { status });
+export function jsonError(error: string, status: number): Response {
+  return Response.json({ error }, { status });
 }
 
 export function jsonErrorWithReason(
   error: string,
   status: number,
   reason?: string,
-): NextResponse {
-  return NextResponse.json({ error, ...(reason && { reason }) }, { status });
+): Response {
+  return Response.json({ error, ...(reason && { reason }) }, { status });
 }
 
 // ── Response normalizers ──────────────────────────────────────────────────────
@@ -63,7 +61,7 @@ export function notFoundResponse(message = "Not found"): Response {
 }
 
 export function textResponse(body: string, status = 200): Response {
-  return new NextResponse(body, {
+  return new Response(body, {
     headers: {
       "cache-control": "no-store",
       "content-type": "text/plain; charset=utf-8",

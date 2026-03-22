@@ -1,7 +1,6 @@
-import { Download, Plus, Rss, Settings2, X } from "lucide-react";
+import { Settings2, X } from "lucide-react";
 
 import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -18,22 +17,19 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  type CategoryTreeNode,
-  generateOpml,
-  type OpmlFeedImportEntry,
-} from "@/lib";
+import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
-import { useSettingsModalState } from "../../hooks/useSettingsModalState";
-import { MotionSpinner } from "../MotionSpinner";
-import { SettingsCategoryList } from "./SettingsCategoryList";
+import {
+  type SettingsModalState,
+  useSettingsModalState,
+} from "../../hooks/useSettingsModalState";
 import {
   SettingsDisplaySection,
   type SettingsDisplaySectionProps,
 } from "./SettingsDisplaySection";
-import { SettingsImportSkeleton } from "./SettingsImportSkeleton";
+import { SettingsFeedManagementSection } from "./SettingsFeedManagementSection";
+import { SettingsPreviewSection } from "./SettingsPreviewSection";
 import { SettingsProxySection } from "./SettingsProxySection";
 
 const TITLE = "Reader Settings";
@@ -41,7 +37,6 @@ const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
 
 interface SettingsModalProps extends SettingsDisplaySectionProps {
   categories: CategoryTreeNode[];
-  categoryOptions: string[];
   isPreviewMode?: boolean;
   onAddCategory: (name: string) => boolean;
   onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
@@ -64,28 +59,6 @@ interface SettingsModalProps extends SettingsDisplaySectionProps {
   ) => Promise<boolean>;
   pendingCategoryRemovalLabel: null | string;
   selectedCategory: string;
-}
-
-const DEMO_OVERLAY_LABEL = "Not available in demo mode";
-
-function DemoOverlay() {
-  return (
-    <div
-      className="
-        pointer-events-none absolute inset-0 z-10 flex items-center
-        justify-center rounded-lg bg-background/60 backdrop-blur-[2px]
-      "
-    >
-      <span
-        className="
-          rounded-md border bg-card px-2.5 py-1 text-[11px]
-          text-muted-foreground shadow-sm
-        "
-      >
-        {DEMO_OVERLAY_LABEL}
-      </span>
-    </div>
-  );
 }
 
 /** Shared body rendered inside both the Dialog and the Drawer. */
@@ -112,7 +85,7 @@ function SettingsBody({
   onAccountDeleted: () => void;
   onRemoveCategory: (label: string) => Promise<boolean>;
   pendingCategoryRemovalLabel: null | string;
-  state: ReturnType<typeof useSettingsModalState>;
+  state: SettingsModalState;
 }) {
   return (
     <div className="space-y-4 py-1 pr-3">
@@ -129,106 +102,17 @@ function SettingsBody({
         showFavicons={showFavicons}
       />
 
-      <div className="relative">
-        {isPreviewMode && <DemoOverlay />}
-        <section className="settings-card">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="section-heading">
-                <Rss className="icon-muted" />
-                Feeds
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Add, edit, organize, and import feed sources.
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <input
-                accept=".opml,.xml,text/xml,application/xml"
-                className="hidden"
-                onChange={(event) => {
-                  void state.handleOpmlFileChange(event);
-                }}
-                ref={state.opmlInputRef}
-                type="file"
-              />
-              <Button
-                className="h-8"
-                onClick={() => {
-                  const xml = generateOpml(categories);
-                  const blob = new Blob([xml], { type: "text/xml" });
-                  const a = document.createElement("a");
-                  a.href = URL.createObjectURL(blob);
-                  a.download = "librerss-subscriptions.opml";
-                  a.click();
-                  URL.revokeObjectURL(a.href);
-                }}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Download className="mr-1.5 size-3.5" />
-                Export OPML
-              </Button>
-              <Button
-                className="h-8"
-                disabled={state.isImportingOpml}
-                onClick={() => state.opmlInputRef.current?.click()}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                {state.isImportingOpml ? (
-                  <MotionSpinner className="mr-1.5" iconClassName="size-3.5" />
-                ) : (
-                  <Plus className="mr-1.5 size-3.5" />
-                )}
-                Import OPML
-              </Button>
-            </div>
-          </div>
+      <SettingsFeedManagementSection
+        categories={categories}
+        isPreviewMode={isPreviewMode}
+        onRemoveCategory={onRemoveCategory}
+        pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
+        state={state}
+      />
 
-          <TooltipProvider delayDuration={300}>
-            {state.isImportingOpml ? (
-              <SettingsImportSkeleton />
-            ) : (
-              <SettingsCategoryList
-                addingFeedInCategory={state.addingFeedInCategory}
-                categories={categories}
-                drag={state.drag}
-                editingCategory={state.editingCategory}
-                editingCategoryName={state.editingCategoryName}
-                isSavingFeed={state.isSavingFeed}
-                newCategoryName={state.newCategoryName}
-                newFeedName={state.newFeedName}
-                newFeedUrl={state.newFeedUrl}
-                onAddCategory={state.handleAddCategory}
-                onAddFeed={(label) => void state.handleAddFeed(label)}
-                onCancelAddFeed={state.onCancelAddFeed}
-                onCancelCategoryEdit={state.onCancelCategoryEdit}
-                onEditingCategoryNameChange={state.setEditingCategoryName}
-                onNewCategoryNameChange={state.setNewCategoryName}
-                onNewFeedNameChange={state.setNewFeedName}
-                onNewFeedUrlChange={state.setNewFeedUrl}
-                onRemoveCategory={(label) => void onRemoveCategory(label)}
-                onSaveCategoryRename={(label) =>
-                  void state.handleSaveCategoryRename(label)
-                }
-                onStartCategoryEdit={state.onStartCategoryEdit}
-                onToggleAddFeed={state.onToggleAddFeed}
-                pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
-                savingCategoryLabel={state.savingCategoryLabel}
-                sharedFeedRowProps={state.sharedFeedRowProps}
-              />
-            )}
-          </TooltipProvider>
-        </section>
-      </div>
-
-      <div className="relative">
-        {isPreviewMode && <DemoOverlay />}
+      <SettingsPreviewSection isPreviewMode={isPreviewMode}>
         <SettingsProxySection />
-      </div>
+      </SettingsPreviewSection>
 
       {!isPreviewMode && (
         <SettingsAccountSection onAccountDeleted={onAccountDeleted} />
@@ -242,7 +126,6 @@ export const SettingsModal = ({
   autoRefreshIntervalMinutes,
   backgroundMode,
   categories,
-  categoryOptions,
   distillStrategy,
   isPreviewMode = false,
   onAddCategory,
@@ -269,7 +152,6 @@ export const SettingsModal = ({
   const isMobile = useIsMobile();
   const state = useSettingsModalState({
     categories,
-    categoryOptions,
     onAddCategory,
     onAddFeed,
     onDropCategory,

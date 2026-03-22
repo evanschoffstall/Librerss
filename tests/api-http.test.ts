@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import { createLinkedAbortController, withRequestDeadline } from "@/lib/api/http/client";
+import {
+  buildAxiosFailureDiagnostics,
+  isVerboseLoggingEnabled,
+  toBodySnippet,
+} from "@/lib/api/http/diagnostics";
 import {
   asTrimmedString,
-  buildAxiosFailureDiagnostics,
-  createLinkedAbortController,
-  forbiddenResponse,
   getSearchParams,
-  isVerboseLoggingEnabled,
-  jsonError,
   parseFormOrQueryParams,
   parseJsonBody,
   parseJsonObjectBodyOrResponse,
   parseNonNegativeInt,
   parsePositiveInt,
-  toBodySnippet,
-  withRequestDeadline,
-} from "@/lib/api/http";
+} from "@/lib/api/http/request";
+import { forbiddenResponse, jsonError } from "@/lib/api/http/responses";
 import { parseDateOrNull } from "@/lib/utils/dates";
 
 beforeEach(() => mock.restore());
@@ -86,8 +86,6 @@ describe("api/http/diagnostics – isVerboseLoggingEnabled", () => {
     const prev = process.env.LOG_LEVEL;
     delete process.env.LOG_LEVEL;
     try {
-      const { isVerboseLoggingEnabled } =
-        await import("@/lib/api/http/diagnostics");
       // CONFIG.LOG_LEVEL throws when env var is missing → catch returns false
       const result = isVerboseLoggingEnabled();
       expect(result).toBe(false);
@@ -99,14 +97,12 @@ describe("api/http/diagnostics – isVerboseLoggingEnabled", () => {
 
 describe("api/http/diagnostics – toBodySnippet", () => {
   test("converts object with custom toString to string", async () => {
-    const { toBodySnippet } = await import("@/lib/api/http/diagnostics");
     const obj = { toString: () => "Custom object representation" };
     const result = toBodySnippet(obj);
     expect(result).toContain("Custom object representation");
   });
 
   test("truncates long toString output", async () => {
-    const { toBodySnippet } = await import("@/lib/api/http/diagnostics");
     const long = "x".repeat(500);
     const obj = { toString: () => long };
     const result = toBodySnippet(obj, 100);
@@ -115,7 +111,6 @@ describe("api/http/diagnostics – toBodySnippet", () => {
   });
 
   test("returns undefined when toString yields [object Object]", async () => {
-    const { toBodySnippet } = await import("@/lib/api/http/diagnostics");
     const obj = {}; // .toString() returns "[object Object]"
     expect(toBodySnippet(obj)).toBeUndefined();
   });

@@ -16,10 +16,13 @@ import { ALL_FEEDS_NODE_KEY } from "../constants";
 import {
   findFeedNodeByKey,
   findFeedNodeByUrl,
-  getAllFeedNodes,
-  getFirstFeedNode,
   relocateFeedInCategories,
 } from "./category-tree";
+import {
+  normalizeFeedSourceInput,
+  resolvePostEnabledToggleSelection,
+  resolvePostRemovalSelection,
+} from "./feed-source-state";
 
 export async function addFeedSourceAndRefresh({
   category,
@@ -36,12 +39,14 @@ export async function addFeedSourceAndRefresh({
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   url: string;
 }): Promise<boolean> {
-  if (!name.trim() || !url.trim()) {
+  const normalizedInput = normalizeFeedSourceInput(name, url);
+
+  if (!normalizedInput.name || !normalizedInput.url) {
     toast.error("Feed name and URL are required.");
     return false;
   }
 
-  if (!isValidUrl(url)) {
+  if (!isValidUrl(normalizedInput.url)) {
     toast.error("Please enter a valid feed URL.");
     return false;
   }
@@ -49,11 +54,11 @@ export async function addFeedSourceAndRefresh({
   try {
     await FeedService.createFeedSource({
       category: normalizeCategory(category),
-      name: name.trim(),
-      url: url.trim(),
+      name: normalizedInput.name,
+      url: normalizedInput.url,
     });
     const nextCategories = await loadFeedSources();
-    const latestNode = findFeedNodeByUrl(nextCategories, url.trim());
+    const latestNode = findFeedNodeByUrl(nextCategories, normalizedInput.url);
 
     if (latestNode?.data?.url) {
       setSelectedCategory(latestNode.key);
@@ -151,33 +156,22 @@ export async function removeFeedSourceAndRefresh({
   try {
     await FeedService.deleteFeedSource(validSourceId);
     const nextCategories = await loadFeedSources();
-    const nextAvailable = getAllFeedNodes(nextCategories);
-    const selectedFeedNode = findFeedNodeByKey(
+    const nextSelection = resolvePostRemovalSelection(
       nextCategories,
       selectedCategory,
-    );
-    const selectedCategoryNode = nextCategories.find(
-      (node) => node.key === selectedCategory,
+      key,
     );
 
-    if (nextAvailable.length === 0) {
+    if (nextSelection.type === "clear") {
       setSelectedCategory("");
       setFeed([]);
-    } else if (selectedCategory === key) {
-      const fallback = nextAvailable[0];
-      setSelectedCategory(fallback.key);
-      if (fallback.data?.url) await fetchFeed(fallback.data.url);
-    } else if (selectedFeedNode?.data?.url) {
-      await fetchFeed(selectedFeedNode.data.url);
-    } else if (selectedCategoryNode) {
-      await fetchCategoryFeeds(selectedCategoryNode);
-    } else {
-      const fallback = getFirstFeedNode(nextCategories);
-      if (!fallback) {
-        return;
+    } else if (nextSelection.type === "feed") {
+      if (nextSelection.nextSelectedCategory) {
+        setSelectedCategory(nextSelection.nextSelectedCategory);
       }
-      setSelectedCategory(fallback.key);
-      if (fallback.data?.url) await fetchFeed(fallback.data.url);
+      await fetchFeed(nextSelection.feedUrl);
+    } else if (nextSelection.type === "category") {
+      await fetchCategoryFeeds(nextSelection.categoryNode);
     }
 
     toast.success("Feed source removed.");
@@ -284,22 +278,24 @@ export async function setFeedSourceEnabledAndRefresh({
   try {
     await FeedService.setFeedSourceEnabled(sourceId, enabled);
     const nextCategories = await loadFeedSources();
+    const nextSelection = resolvePostEnabledToggleSelection(
+      nextCategories,
+      selectedCategory,
+      sourceUrl,
+      enabled,
+      key,
+    );
 
-    if (!enabled && selectedCategory === key) {
+    if (nextSelection.type === "all-feeds") {
       setSelectedCategory(ALL_FEEDS_NODE_KEY);
       await fetchAllFeeds(nextCategories, {
         requestSource: "feed-hidden-selection-fallback",
       });
-    }
-
-    if (enabled && sourceUrl) {
-      const latestNode = findFeedNodeByUrl(nextCategories, sourceUrl);
-      if (latestNode?.data?.url) {
-        await fetchFeed(latestNode.data.url, {
-          forceRefresh: true,
-          requestSource: "feed-reenabled",
-        });
-      }
+    } else if (nextSelection.type === "feed") {
+      await fetchFeed(nextSelection.feedUrl, {
+        forceRefresh: true,
+        requestSource: "feed-reenabled",
+      });
     }
 
     toast.success(enabled ? "Feed enabled." : "Feed disabled.");

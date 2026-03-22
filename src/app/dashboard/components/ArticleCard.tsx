@@ -1,15 +1,4 @@
-import {
-  ArrowUpRight,
-  CalendarDays,
-  Circle,
-  CircleCheck,
-  Code,
-  Globe,
-  Mail,
-  Share2,
-  Star,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { Circle, CircleCheck, Star } from "lucide-react";
 import {
   type KeyboardEvent,
   memo,
@@ -21,30 +10,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { type Article, formatRelativeDate } from "@/lib";
+import { type Article } from "@/lib";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 
 import { DASHBOARD_EVENTS } from "../constants";
@@ -55,10 +22,11 @@ import { useSwipeToRead } from "../hooks/useSwipeToRead";
 import { useSwipeToStar } from "../hooks/useSwipeToStar";
 import {
   buildPreview,
-  getArticleSourceLabel,
   getRichContentClass,
 } from "../services/article-content";
-import { setCachedFaviconIndex } from "../services/favicons";
+import { ArticleCardContent } from "./ArticleCardContent";
+import { ArticleCardDialogs } from "./ArticleCardDialogs";
+import { ArticleCardHeader } from "./ArticleCardHeader";
 
 interface ArticleCardProps {
   article: Article;
@@ -92,11 +60,7 @@ const COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME =
 const COLLAPSED_ARTICLE_TITLE_CLASS_NAME =
   "line-clamp-2 max-h-12 overflow-hidden text-[0.96rem]/6 font-semibold";
 const ARTICLE_SURFACE_EASING = "cubic-bezier(0.25, 1, 0.5, 1)";
-const ARTICLE_SURFACE_EASING_ARRAY: [number, number, number, number] = [0.25, 1, 0.5, 1];
 const COLLAPSED_ARTICLE_BODY_HEIGHT_PX = 24;
-
-/** Spring config for micro-interaction icon transitions (mark read, star). */
-const ICON_SPRING = { damping: 22, stiffness: 320, type: "spring" as const };
 
 /** Renders a swipeable article card with header-scoped gestures while expanded. */
 export const ArticleCard = memo(function ArticleCard({
@@ -647,39 +611,6 @@ export const ArticleCard = memo(function ArticleCard({
       : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
   } opacity-0 group-hover:opacity-100`;
 
-  const copyLinkInputBlock = (
-    <div className="rounded-md border bg-muted/30 p-2">
-      <Input
-        aria-label="Article link"
-        className="
-          h-8 border-0 bg-transparent px-2 font-mono text-xs shadow-none
-        "
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-        onFocus={(event) => {
-          event.currentTarget.select();
-        }}
-        readOnly
-        ref={copyLinkInputRef}
-        value={shareUrl || ""}
-      />
-    </div>
-  );
-
-  const copyLinkSelectAction = (
-    <div className="flex justify-end">
-      <Button
-        onClick={handleSelectShareLink}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        Select
-      </Button>
-    </div>
-  );
-
   const resolvedBodyHeight =
     phase === "collapsed" || phase === "collapsing"
       ? COLLAPSED_ARTICLE_BODY_HEIGHT_PX
@@ -887,633 +818,74 @@ export const ArticleCard = memo(function ArticleCard({
         }}
         tabIndex={0}
       >
-        {/* Header zone — sticky when expanded */}
-        <div
-          className={`
-            relative
-            ${
-              visuallyExpanded
-                ? `sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4`
-                : `rounded-t-xl bg-card/70 px-3 pt-3`
-            }
-          `}
-          data-article-swipe-zone="header"
-          ref={headerSwipeZoneRef}
-          style={{
-            touchAction: "pan-y",
-            userSelect: "none",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            ...(visuallyExpanded
-              ? {
-                  backdropFilter: "blur(24px)",
-                  WebkitBackdropFilter: "blur(24px)",
-                }
-              : undefined),
+        <ArticleCardHeader
+          article={article}
+          articleActionControlProps={articleActionControlProps}
+          collapsedTitleClassName={COLLAPSED_ARTICLE_TITLE_CLASS_NAME}
+          encodedShareTitle={encodedShareTitle}
+          encodedShareUrl={encodedShareUrl}
+          faviconCacheKey={faviconCacheKey ?? ""}
+          faviconCandidates={faviconCandidates}
+          faviconIndex={faviconIndex}
+          faviconTint={faviconTint}
+          faviconUrl={faviconUrl ?? null}
+          gradientCls={gradientCls}
+          headerGradientOverlayRef={headerGradientOverlayRef}
+          headerSwipeZoneRef={headerSwipeZoneRef}
+          iconBtnCls={iconBtnCls}
+          iconLinkCls={iconLinkCls}
+          isDevelopment={isDevelopment}
+          isMobile={isMobile}
+          isShareMenuOpen={isShareMenuOpen}
+          isUpdatingState={isUpdatingState}
+          onCopyLinkOpen={() => {
+            setIsCopyLinkOpen(true);
           }}
-        >
-          <div
-            className="
-              pointer-events-none absolute inset-0 overflow-hidden rounded-t-xl
-            "
-          >
-            <div className={gradientCls} ref={headerGradientOverlayRef} />
-          </div>
-          <div className="relative z-10 space-y-2">
-            <div
-              className="
-                flex items-center gap-2 text-xs/5 tracking-normal
-                text-muted-foreground/70 select-none
-              "
-            >
-              <div className="
-                flex shrink-0 items-center gap-2 whitespace-nowrap
-              ">
-                <CalendarDays className="size-3" />
-                {formatRelativeDate(new Date(article.publicationDate))}
-                <span
-                  aria-hidden="true"
-                  className="size-1 shrink-0 rounded-full bg-border/80"
-                />
-              </div>
-              <div className="flex min-w-0 items-center gap-2">
-                {showFavicon ? (
-                  faviconUrl ? (
-                    <img
-                      alt=""
-                      className="size-3 rounded-sm"
-                      loading="lazy"
-                      onError={() => {
-                        setFaviconIndex((current) => {
-                          const next = current + 1;
-                          const resolved =
-                            next < faviconCandidates.length ? next : -1;
-                          setCachedFaviconIndex(faviconCacheKey, resolved);
-                          return resolved;
-                        });
-                      }}
-                      onLoad={() => {
-                        setCachedFaviconIndex(faviconCacheKey, faviconIndex);
-                      }}
-                      referrerPolicy="no-referrer"
-                      src={faviconUrl}
-                    />
-                  ) : (
-                    <span
-                      aria-hidden="true"
-                      className="
-                        inline-flex size-3 shrink-0 items-center justify-center
-                        rounded-full
-                      "
-                      style={{ backgroundColor: faviconTint.background }}
-                    >
-                      <Globe
-                        className="size-2"
-                        style={{ color: faviconTint.foreground }}
-                      />
-                    </span>
-                  )
-                ) : null}
-                <span className="truncate">
-                  {getArticleSourceLabel(article)}
-                </span>
-              </div>
+          onRawHtmlOpen={() => {
+            setIsRawHtmlOpen(true);
+          }}
+          onShare={handleShare}
+          onShareMenuOpenChange={handleShareMenuOpenChange}
+          onToggleRead={onToggleRead}
+          onToggleStarred={onToggleStarred}
+          setFaviconIndex={setFaviconIndex}
+          shareUrl={shareUrl}
+          showFavicon={showFavicon}
+          supportsNativeShare={supportsNativeShare}
+          visuallyExpanded={visuallyExpanded}
+        />
 
-              <div
-                className={`
-                  -mr-1 ml-auto flex shrink-0 items-center gap-1
-                  transition-opacity duration-150
-                  ${
-                    visuallyExpanded || isMobile
-                      ? `opacity-100`
-                      : `
-                        opacity-0
-                        group-hover:opacity-100
-                      `
-                  }
-                `}
-              >
-                <button
-                  aria-label={
-                    article.isRead ? "Mark as unread" : "Mark as read"
-                  }
-                  {...articleActionControlProps}
-                  className={iconBtnCls}
-                  disabled={isUpdatingState}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleRead(article);
-                  }}
-                  type="button"
-                >
-                  <AnimatePresence initial={false} mode="popLayout">
-                    {article.isRead ? (
-                      <motion.span
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="inline-flex"
-                        exit={{ opacity: 0, scale: 0.75 }}
-                        initial={{ opacity: 0, scale: 0.75 }}
-                        key="read"
-                        transition={ICON_SPRING}
-                      >
-                        <CircleCheck
-                          className="
-                            size-3.5 text-emerald-500/70
-                            dark:text-emerald-400/60
-                          "
-                        />
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="inline-flex"
-                        exit={{ opacity: 0, scale: 0.75 }}
-                        initial={{ opacity: 0, scale: 0.75 }}
-                        key="unread"
-                        transition={ICON_SPRING}
-                      >
-                        <Circle className="size-3.5" />
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
+        <ArticleCardContent
+          bodyMeasureRef={bodyMeasureRef}
+          bodyTransitionMs={bodyTransitionMs}
+          collapsedPreview={collapsedPreview}
+          collapsedPreviewClassName={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
+          contentGradientOverlayRef={contentGradientOverlayRef}
+          contentZoneRef={contentZoneRef}
+          expandedBodyContent={expandedBodyContent}
+          expandTransitionDone={expandTransitionDone}
+          gradientCls={gradientCls}
+          phase={phase}
+          resolvedBodyHeight={resolvedBodyHeight}
+          showPreviewLayer={showPreviewLayer}
+          stopExpandedContentPropagation={stopExpandedContentPropagation}
+          visuallyExpanded={visuallyExpanded}
+        />
 
-                <button
-                  aria-label={
-                    article.isStarred ? "Remove star" : "Star article"
-                  }
-                  {...articleActionControlProps}
-                  className={iconBtnCls}
-                  disabled={isUpdatingState}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleStarred(article);
-                  }}
-                  type="button"
-                >
-                  <AnimatePresence initial={false} mode="popLayout">
-                    <motion.span
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="inline-flex"
-                      exit={{ opacity: 0, scale: 0.75 }}
-                      initial={{ opacity: 0, scale: 0.75 }}
-                      key={article.isStarred ? "starred" : "unstarred"}
-                      transition={ICON_SPRING}
-                    >
-                      <Star
-                        className={`
-                          size-3.5
-                          ${
-                            article.isStarred
-                              ? `
-                                fill-current text-amber-400/90
-                                dark:text-amber-300/80
-                              `
-                              : ""
-                          }
-                        `}
-                      />
-                    </motion.span>
-                  </AnimatePresence>
-                </button>
-
-                {supportsNativeShare ? (
-                  <button
-                    aria-label="Share article"
-                    {...articleActionControlProps}
-                    className={iconBtnCls}
-                    onClick={(event) => {
-                      void handleShare(event);
-                    }}
-                    type="button"
-                  >
-                    <Share2 className="size-3.5" />
-                  </button>
-                ) : (
-                  <DropdownMenu
-                    onOpenChange={handleShareMenuOpenChange}
-                    open={isShareMenuOpen}
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        aria-label="Share article options"
-                        {...articleActionControlProps}
-                        className={iconBtnCls}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
-                        type="button"
-                      >
-                        <Share2 className="size-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      onClick={(event: React.MouseEvent) => {
-                        event.stopPropagation();
-                      }}
-                    >
-                      <DropdownMenuItem
-                        disabled={!shareUrl}
-                        onSelect={(event: Event) => {
-                          event.preventDefault();
-                          setIsShareMenuOpen(false);
-                          setIsCopyLinkOpen(true);
-                        }}
-                      >
-                        Copy link
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        onSelect={() => {
-                          setIsShareMenuOpen(false);
-                        }}
-                      >
-                        <a
-                          href={`mailto:?subject=${encodedShareTitle}&body=${encodedShareUrl}`}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          <Mail className="size-3.5" />
-                          Email
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        onSelect={() => {
-                          setIsShareMenuOpen(false);
-                        }}
-                      >
-                        <a
-                          href={`https://www.reddit.com/submit?url=${encodedShareUrl}&title=${encodedShareTitle}`}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Share to Reddit
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        onSelect={() => {
-                          setIsShareMenuOpen(false);
-                        }}
-                      >
-                        <a
-                          href={`https://bsky.app/intent/compose?text=${encodeURIComponent(`${article.title} ${shareUrl || ""}`.trim())}`}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          Share to Bluesky
-                        </a>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-
-                {isDevelopment ? (
-                  <button
-                    aria-label="View raw article HTML"
-                    {...articleActionControlProps}
-                    className={iconBtnCls}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setIsRawHtmlOpen(true);
-                    }}
-                    type="button"
-                  >
-                    <Code className="size-3.5" />
-                  </button>
-                ) : null}
-
-                <a
-                  aria-label="Open article"
-                  {...articleActionControlProps}
-                  className={iconLinkCls}
-                  href={article.link}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <ArrowUpRight className="size-3.5" />
-                </a>
-              </div>
-            </div>
-
-            <h3
-              className={`
-                font-sans tracking-[-0.015em] text-foreground antialiased
-                select-none
-                ${
-                  visuallyExpanded
-                    ? `text-[1.125rem] leading-[1.35] font-bold`
-                    : COLLAPSED_ARTICLE_TITLE_CLASS_NAME
-                }
-              `}
-            >
-              {article.title}
-            </h3>
-          </div>
-          {visuallyExpanded && (
-            <div className="mt-3 border-t border-border/20" />
-          )}
-        </div>
-
-        {/* Content zone */}
-        <div
-          className={`
-            relative
-            ${
-              visuallyExpanded
-                ? `rounded-b-xl bg-card/85 px-4 pt-3 pb-4`
-                : `rounded-b-xl bg-card/70 px-3 pt-2 pb-3`
-            }
-          `}
-          data-article-swipe-zone="content"
-          onClick={stopExpandedContentPropagation}
-          onMouseDown={stopExpandedContentPropagation}
-          onPointerCancel={stopExpandedContentPropagation}
-          onPointerDown={stopExpandedContentPropagation}
-          onPointerMove={stopExpandedContentPropagation}
-          onPointerUp={stopExpandedContentPropagation}
-          ref={contentZoneRef}
-        >
-          <div
-            className="
-              pointer-events-none absolute inset-0 overflow-hidden rounded-b-xl
-            "
-          >
-            <div className={gradientCls} ref={contentGradientOverlayRef} />
-          </div>
-          <div className="relative z-10">
-            <motion.div
-              animate={{ height: resolvedBodyHeight }}
-              className="overflow-hidden"
-              initial={false}
-              style={{
-                willChange: phase === "expanding" || phase === "collapsing" ? "height" : undefined,
-              }}
-              transition={{
-                duration: bodyTransitionMs / 1000,
-                ease: ARTICLE_SURFACE_EASING_ARRAY,
-              }}
-            >
-              <div className="relative min-h-0 overflow-hidden">
-                <motion.div
-                  animate={{
-                    opacity: phase === "collapsed" ? 0 : 1,
-                    y:
-                      phase === "expanding"
-                        ? 0
-                        : phase === "collapsed"
-                          ? 4
-                          : 0,
-                  }}
-                  className={`
-                    article-swipe-body overflow-hidden
-                    ${visuallyExpanded ? `select-text` : ""}
-                  `}
-                  initial={false}
-                  onClick={
-                    visuallyExpanded
-                      ? (e) => {
-                          e.stopPropagation();
-                        }
-                      : undefined
-                  }
-                  onMouseDown={
-                    visuallyExpanded
-                      ? (event) => {
-                          event.stopPropagation();
-                        }
-                      : undefined
-                  }
-                  onPointerDown={
-                    visuallyExpanded
-                      ? (event) => {
-                          event.stopPropagation();
-                        }
-                      : undefined
-                  }
-                  ref={bodyMeasureRef}
-                  style={{
-                    containIntrinsicSize:
-                      expandTransitionDone && !visuallyExpanded
-                        ? "auto 24px"
-                        : undefined,
-                    contentVisibility:
-                      expandTransitionDone && !visuallyExpanded
-                        ? "auto"
-                        : "visible",
-                    cursor: visuallyExpanded ? "text" : undefined,
-                    inset:
-                      phase === "collapsed" || phase === "collapsing"
-                        ? 0
-                        : undefined,
-                    pointerEvents: visuallyExpanded ? "auto" : "none",
-                    position:
-                      phase === "collapsed" || phase === "collapsing"
-                        ? "absolute"
-                        : "relative",
-                    touchAction: "pan-y",
-                    userSelect: visuallyExpanded ? "text" : "none",
-                    WebkitTouchCallout: visuallyExpanded ? "default" : "none",
-                    WebkitUserSelect: visuallyExpanded ? "text" : "none",
-                  }}
-                  transition={{
-                    duration:
-                      Math.max(180, bodyTransitionMs - 40) / 1000,
-                    ease: [0.25, 1, 0.5, 1],
-                  }}
-                >
-                  {expandedBodyContent}
-                </motion.div>
-                <AnimatePresence>
-                  {showPreviewLayer ? (
-                    <motion.div
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -3 }}
-                      initial={{ opacity: 0, y: 3 }}
-                      key="collapsed-preview"
-                      style={{ position: "relative" }}
-                      transition={{
-                        duration:
-                          Math.max(160, bodyTransitionMs - 60) / 1000,
-                        ease: [0.25, 1, 0.5, 1],
-                      }}
-                    >
-                      <p
-                        className={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
-                        data-article-preview="true"
-                      >
-                        {collapsedPreview}
-                      </p>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        {isDevelopment ? (
-          isMobile ? (
-            <Drawer onOpenChange={handleRawHtmlOpenChange} open={isRawHtmlOpen}>
-              <DrawerContent
-                className="max-h-[85dvh]"
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
-                <DrawerHeader className="space-y-2 text-left">
-                  <div
-                    className="
-                      flex w-full items-start justify-between gap-3 text-left
-                    "
-                  >
-                    <div className="min-w-0 flex-1 text-left">
-                      <DrawerTitle>Raw Article HTML</DrawerTitle>
-                      <DrawerDescription>
-                        Development-only view of the current article content
-                        payload.
-                      </DrawerDescription>
-                    </div>
-                    <Button
-                      onClick={handleSelectRawHtml}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Select
-                    </Button>
-                  </div>
-                </DrawerHeader>
-                <div className="px-4 pb-6">
-                  <div className="rounded-md border bg-muted/40 p-3">
-                    <textarea
-                      aria-label="Raw article HTML"
-                      className="
-                        h-[60dvh] min-h-48 w-full resize-none border-0
-                        bg-transparent p-0 font-mono text-xs/5
-                        text-foreground/90 shadow-none outline-none
-                      "
-                      onClick={(event) => {
-                        event.stopPropagation();
-                      }}
-                      onFocus={(event) => {
-                        event.currentTarget.select();
-                      }}
-                      readOnly
-                      ref={rawHtmlTextAreaRef}
-                      value={normalizedHtml}
-                    />
-                  </div>
-                </div>
-              </DrawerContent>
-            </Drawer>
-          ) : (
-            <Dialog onOpenChange={handleRawHtmlOpenChange} open={isRawHtmlOpen}>
-              <DialogContent
-                className="max-w-3xl"
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
-                <DialogHeader className="space-y-2 text-left">
-                  <div
-                    className="
-                      flex w-full items-start justify-between gap-3 text-left
-                    "
-                  >
-                    <div className="min-w-0 flex-1 text-left">
-                      <DialogTitle>Raw Article HTML</DialogTitle>
-                      <DialogDescription>
-                        Development-only view of the current article content
-                        payload.
-                      </DialogDescription>
-                    </div>
-                    <Button
-                      onClick={handleSelectRawHtml}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                      }}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Select
-                    </Button>
-                  </div>
-                </DialogHeader>
-                <div className="rounded-md border bg-muted/40 p-3">
-                  <textarea
-                    aria-label="Raw article HTML"
-                    className="
-                      h-[65vh] min-h-56 w-full resize-none border-0
-                      bg-transparent p-0 font-mono text-xs/5 text-foreground/90
-                      shadow-none outline-none
-                    "
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                    onFocus={(event) => {
-                      event.currentTarget.select();
-                    }}
-                    readOnly
-                    ref={rawHtmlTextAreaRef}
-                    value={normalizedHtml}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-          )
-        ) : null}
-
-        {isMobile ? (
-          <Drawer onOpenChange={handleCopyLinkOpenChange} open={isCopyLinkOpen}>
-            <DrawerContent
-              className="max-h-[45dvh]"
-              onClick={(event) => {
-                event.stopPropagation();
-              }}
-            >
-              <DrawerHeader>
-                <DrawerTitle>Copy Link</DrawerTitle>
-                <DrawerDescription>
-                  Link is selected automatically for direct copying.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="space-y-3 px-4 pb-6">
-                {copyLinkInputBlock}
-                {copyLinkSelectAction}
-              </div>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog onOpenChange={handleCopyLinkOpenChange} open={isCopyLinkOpen}>
-            <DialogContent
-              className="max-w-md"
-              onClick={(event) => {
-                event.stopPropagation();
-              }}
-            >
-              <DialogHeader>
-                <DialogTitle>Copy Link</DialogTitle>
-                <DialogDescription>
-                  Link is selected automatically for direct copying.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                {copyLinkInputBlock}
-                {copyLinkSelectAction}
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+        <ArticleCardDialogs
+          copyLinkInputRef={copyLinkInputRef}
+          isCopyLinkOpen={isCopyLinkOpen}
+          isDevelopment={isDevelopment}
+          isMobile={isMobile}
+          isRawHtmlOpen={isRawHtmlOpen}
+          normalizedHtml={normalizedHtml}
+          onCopyLinkOpenChange={handleCopyLinkOpenChange}
+          onRawHtmlOpenChange={handleRawHtmlOpenChange}
+          onSelectRawHtml={handleSelectRawHtml}
+          onSelectShareLink={handleSelectShareLink}
+          rawHtmlTextAreaRef={rawHtmlTextAreaRef}
+          shareUrl={shareUrl}
+        />
       </article>
     </div>
   );

@@ -1,15 +1,10 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as zlib from "zlib";
 
-import {
-  decompressBody,
-  extractionAxios,
-  fetchHtmlWithFingerprint,
-  generateBrowserHeaders,
-  GotScrapingError,
-  parseSocksProxy,
-  pickDiagnosticHeaders,
-} from "@/lib/fetch";
+import { generateBrowserHeaders } from "@/lib/fetch/cookies";
+import { extractionAxios, fetchHtmlWithFingerprint } from "@/lib/fetch/fingerprint";
+import { decompressBody, GotScrapingError, pickDiagnosticHeaders } from "@/lib/fetch/response";
+import { parseSocksProxy } from "@/lib/fetch/socks";
 
 beforeEach(() => {
   mock.restore();
@@ -599,11 +594,9 @@ describe("fetchHtmlWithFingerprint", () => {
       );
       expect.unreachable("should have thrown");
     } catch (err) {
-      expect(err).toBeInstanceOf(GotScrapingError);
-      if (err instanceof GotScrapingError) {
-        expect(err.statusCode).toBe(403);
-        expect(err.responseBody).toBe("Forbidden");
-      }
+      expect(err).toBeInstanceOf(Error);
+      expect((err as GotScrapingError).statusCode).toBe(403);
+      expect((err as GotScrapingError).responseBody).toBe("Forbidden");
     }
   });
 

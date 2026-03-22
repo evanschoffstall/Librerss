@@ -2,12 +2,10 @@ import { describe, expect, test } from "bun:test";
 
 import type { FeedRecord } from "../src/lib/core/feed-refresh";
 
-import {
-  buildRefreshPlan,
-  mapRowsToArticleMap,
-} from "../src/lib/core/feed-batch-pipeline";
+const loadPipelineModule = () => import("../src/lib/core/feed-batch-pipeline");
 
-test("buildRefreshPlan returns per-feed refresh decisions", () => {
+test("buildRefreshPlan returns per-feed refresh decisions", async () => {
+  const { buildRefreshPlan } = await loadPipelineModule();
   const skippedFeed: FeedRecord = {
     id: 1,
     lastFetched: new Date(0),
@@ -83,7 +81,8 @@ test("SQL whitespace-collapse regex escaping does not strip lowercase s", () => 
 
 // ─── buildRefreshPlan additional branches ────────────────────────────────────
 
-test("buildRefreshPlan returns use-cache for fresh feeds", () => {
+test("buildRefreshPlan returns use-cache for fresh feeds", async () => {
+  const { buildRefreshPlan } = await loadPipelineModule();
   const freshFeed: FeedRecord = {
     id: 1,
     lastFetched: new Date(),
@@ -107,7 +106,8 @@ test("buildRefreshPlan returns use-cache for fresh feeds", () => {
   ]);
 });
 
-test("buildRefreshPlan returns refresh-stale for old feeds", () => {
+test("buildRefreshPlan returns refresh-stale for old feeds", async () => {
+  const { buildRefreshPlan } = await loadPipelineModule();
   const staleFeed: FeedRecord = {
     id: 1,
     lastFetched: new Date(0),
@@ -131,7 +131,8 @@ test("buildRefreshPlan returns refresh-stale for old feeds", () => {
   ]);
 });
 
-test("buildRefreshPlan returns force-cooldown-use-cache for recently-fetched feed with forceRefresh", () => {
+test("buildRefreshPlan returns force-cooldown-use-cache for recently-fetched feed with forceRefresh", async () => {
+  const { buildRefreshPlan } = await loadPipelineModule();
   const recentFeed: FeedRecord = {
     id: 1,
     lastFetched: new Date(),
@@ -175,7 +176,8 @@ describe("mapRowsToArticleMap", () => {
     url: "https://feed-two.example/rss",
   };
 
-  test("maps valid rows to article arrays keyed by feed URL", () => {
+  test("maps valid rows to article arrays keyed by feed URL", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const now = new Date();
     const rows = [
       {
@@ -224,7 +226,8 @@ describe("mapRowsToArticleMap", () => {
     expect(art2.isRead).toBe(true);
   });
 
-  test("returns empty arrays for URLs with no matching rows", () => {
+  test("returns empty arrays for URLs with no matching rows", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const result = mapRowsToArticleMap(
       [],
       makeFeedByUrl([feed1]),
@@ -234,7 +237,8 @@ describe("mapRowsToArticleMap", () => {
     expect(result.get(feed1.url)).toEqual([]);
   });
 
-  test("skips rows with unknown feedId", () => {
+  test("skips rows with unknown feedId", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const rows = [
       {
         content: "Orphan",
@@ -258,7 +262,8 @@ describe("mapRowsToArticleMap", () => {
     expect(result.get(feed1.url)).toEqual([]);
   });
 
-  test("strips span wrapper tags from content preview", () => {
+  test("strips span wrapper tags from content preview", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const rows = [
       {
         content: "<span class='highlight'>Important</span> text",
@@ -284,7 +289,8 @@ describe("mapRowsToArticleMap", () => {
     expect(article.content).toContain("Important");
   });
 
-  test("skips malformed rows with missing required fields", () => {
+  test("skips malformed rows with missing required fields", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const malformed = [
       {
         content: "text",
@@ -308,7 +314,8 @@ describe("mapRowsToArticleMap", () => {
     expect(result.get(feed1.url)).toEqual([]);
   });
 
-  test("handles null content, title, and link gracefully", () => {
+  test("handles null content, title, and link gracefully", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const rows = [
       {
         content: null,
@@ -337,7 +344,8 @@ describe("mapRowsToArticleMap", () => {
     expect(article.isStarred).toBe(false);
   });
 
-  test("handles string-typed id and feedId", () => {
+  test("handles string-typed id and feedId", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const rows = [
       {
         content: "text",
@@ -365,7 +373,8 @@ describe("mapRowsToArticleMap", () => {
     expect(article.isStarred).toBe(false);
   });
 
-  test("skips rows with NaN id after coercion", () => {
+  test("skips rows with NaN id after coercion", async () => {
+    const { mapRowsToArticleMap } = await loadPipelineModule();
     const rows = [
       {
         content: "text",

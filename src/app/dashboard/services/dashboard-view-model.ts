@@ -69,10 +69,7 @@ export function buildDashboardViewModel({
       ? undefined
       : selectedFeedNode?.data?.url;
   const selectedFeed = selectedFeedNode?.label ?? selectedCategoryNode?.label;
-  const categoryOptions = displayCategories.map((node) => node.label);
-
   return {
-    categoryOptions,
     displayCategories,
     filteredFeed,
     selectedCategoryNode,

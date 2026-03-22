@@ -42,7 +42,7 @@ export const DashboardView = ({
 
       <DashboardScaffold
         feed={
-          <DashboardFeedViewport scrollAreaRef={feedList.mergedFeedScrollRef}>
+          <DashboardFeedViewport>
             <FeedList
               articleFilter={feedList.articleFilter}
               articlesPerPage={feedList.articlesPerPage}
@@ -90,7 +90,6 @@ export const DashboardView = ({
           autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}
           categories={settings.categories}
-          categoryOptions={settings.categoryOptions}
           distillStrategy={settings.distillStrategy}
           isPreviewMode={settings.usePlaceholderData}
           onAddCategory={settings.categoryTree.addCategory}
