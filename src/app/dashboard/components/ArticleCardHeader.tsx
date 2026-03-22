@@ -95,17 +95,13 @@ export function ArticleCardHeader({
       data-article-swipe-zone="header"
       ref={headerSwipeZoneRef}
       style={{
+        backdropFilter: visuallyExpanded ? "blur(24px)" : "none",
         touchAction: "pan-y",
-        transition: "padding 250ms cubic-bezier(0.25, 1, 0.5, 1)",
+        transition: "padding 250ms cubic-bezier(0.25, 1, 0.5, 1), background-color 250ms cubic-bezier(0.25, 1, 0.5, 1), backdrop-filter 200ms ease-out, -webkit-backdrop-filter 200ms ease-out",
         userSelect: "none",
+        WebkitBackdropFilter: visuallyExpanded ? "blur(24px)" : "none",
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
-        ...(visuallyExpanded
-          ? {
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-            }
-          : undefined),
       }}
     >
       <div

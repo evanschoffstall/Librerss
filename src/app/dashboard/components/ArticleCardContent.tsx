@@ -54,7 +54,7 @@ export function ArticleCardContent({
       onPointerUp={stopExpandedContentPropagation}
       ref={contentZoneRef}
       style={{
-        transition: `padding ${bodyTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`,
+        transition: `padding ${bodyTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), background-color ${bodyTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`,
       }}
     >
       <div
