@@ -17,6 +17,7 @@ import { Virtuoso } from "react-virtuoso";
 import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
+import { type CollapsingArticles } from "../../hooks/useArticleCollapseState";
 import { getArticleKey } from "../../services/article-collection";
 import { FeedArticleRow } from "./FeedArticleRow";
 import { FeedEmptyState } from "./FeedEmptyState";
@@ -24,13 +25,15 @@ import { type FeedListProps } from "./FeedList.types";
 import { FeedListSkeleton } from "./FeedListSkeleton";
 import { useFeedListSurfaceState } from "./useFeedListSurfaceState";
 
+const EMPTY_COLLAPSING_ARTICLES: Readonly<CollapsingArticles> = {};
+
 const FEED_DEFAULT_ITEM_HEIGHT_PX = 120;
 const FEED_VIEWPORT_INCREASE = { bottom: 1500, top: 600 };
 
 export const FeedList = memo(function FeedList({
   articleFilter,
   articlesPerPage,
-  collapsingArticles = {},
+  collapsingArticles = EMPTY_COLLAPSING_ARTICLES,
   expandedArticleKey,
   feedViewKey,
   filteredFeed,
