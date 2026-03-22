@@ -768,10 +768,7 @@ export const ArticleCard = memo(function ArticleCard({
           ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
           ${
             article.isRead && !visuallyExpanded && !suppressCollapsedReadDimming
-              ? `
-                *:opacity-55 *:transition-opacity *:duration-200
-                hover:*:opacity-100
-              `
+              ? "opacity-55 transition-opacity duration-200 hover:opacity-100"
               : ""
           }
         `}
