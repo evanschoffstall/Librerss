@@ -1,8 +1,11 @@
+import type { Page } from "@playwright/test";
+
 import {
   articleCard,
   articleCardByKey,
   articleRow,
   expectArticleExpanded,
+  expectNotClipped,
   expectPreviewDashboard,
   readArticleKey,
   readFeedViewportMetrics,
@@ -78,6 +81,14 @@ async function dragTouchSurface(
   });
 
   return swipeSignalDuringDrag;
+}
+
+/** Returns the largest scroll-area viewport that contains article cards. */
+function feedScrollViewport(page: Page) {
+  return page
+    .locator("[data-radix-scroll-area-viewport]")
+    .filter({ has: page.locator("article[data-article-key]") })
+    .first();
 }
 
 async function openPreviewDashboardOnMobile(page: Parameters<typeof expectPreviewDashboard>[0]) {
@@ -229,7 +240,11 @@ test.describe("dashboard mobile gestures", () => {
         async () => (await readFeedViewportMetrics(page)).scrollTop,
       )
       .toBeGreaterThan(0);
-    await expect(article).toBeVisible();
+    await expectNotClipped(
+      article,
+      feedScrollViewport(page),
+      "article card after mobile expand-collapse",
+    );
     expect(initialScrollTop).toBeGreaterThan(0);
   });
 });

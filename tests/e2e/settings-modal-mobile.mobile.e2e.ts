@@ -1,54 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 
 import {
+  expectNotClipped,
   expectPreviewDashboard,
   openDashboardSettings,
 } from "./helpers";
 import { expect, test } from "./test";
-
-/**
- * Scrolls a locator into view, then asserts its bounding box fits entirely
- * within the dialog's visible scroll viewport — both horizontally AND
- * vertically. This catches clipping that `toBeInViewport` and `toBeVisible`
- * silently miss.
- */
-async function expectFullyContained(
-  locator: Locator,
-  dialog: Locator,
-  label: string,
-) {
-  await locator.scrollIntoViewIfNeeded();
-  const box = await locator.boundingBox();
-  expect(box, `${label}: no bounding box`).not.toBeNull();
-
-  const containerBounds = await dialog.evaluate((el) => {
-    const vp = el.querySelector("[data-radix-scroll-area-viewport]");
-    if (!vp) return null;
-    const r = vp.getBoundingClientRect();
-    return { bottom: r.bottom, left: r.left, right: r.right, top: r.top };
-  });
-  expect(containerBounds, "scroll viewport not found").not.toBeNull();
-
-  const b = box!;
-  const c = containerBounds!;
-
-  expect(
-    b.x >= c.left - 1,
-    `${label}: clipped on LEFT (el.left=${b.x.toFixed(1)}, container.left=${c.left.toFixed(1)})`,
-  ).toBe(true);
-  expect(
-    b.x + b.width <= c.right + 1,
-    `${label}: clipped on RIGHT (el.right=${(b.x + b.width).toFixed(1)}, container.right=${c.right.toFixed(1)})`,
-  ).toBe(true);
-  expect(
-    b.y >= c.top - 1,
-    `${label}: clipped on TOP (el.top=${b.y.toFixed(1)}, container.top=${c.top.toFixed(1)})`,
-  ).toBe(true);
-  expect(
-    b.y + b.height <= c.bottom + 1,
-    `${label}: clipped on BOTTOM (el.bottom=${(b.y + b.height).toFixed(1)}, container.bottom=${c.bottom.toFixed(1)})`,
-  ).toBe(true);
-}
 
 /** Open settings and wait for the proxy form to finish loading. */
 async function openSettingsAndWaitForProxy(page: Page) {
@@ -60,6 +17,11 @@ async function openSettingsAndWaitForProxy(page: Page) {
     timeout: 10_000,
   });
   return dialog;
+}
+
+/** Scroll viewport locator within the settings dialog. */
+function settingsScrollViewport(dialog: Locator) {
+  return dialog.locator("[data-radix-scroll-area-viewport]");
 }
 
 test.describe("settings modal mobile tray", () => {
@@ -114,33 +76,33 @@ test.describe("settings modal mobile tray", () => {
     const dialog = page.getByRole("dialog", { name: "Reader Settings" });
     await expect(dialog).toBeVisible();
 
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("heading", { name: "Display" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Display heading",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("spinbutton", { name: "Auto refresh" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Auto refresh input",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByText("min", { exact: true }),
-      dialog,
+      settingsScrollViewport(dialog),
       "min label",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("switch", { name: "Show favicons" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Show favicons switch",
     );
     // All three comboboxes (Background, Articles per page, Readable article mode)
     const comboboxes = dialog.getByRole("combobox");
     const count = await comboboxes.count();
     for (let i = 0; i < count; i++) {
-      await expectFullyContained(
+      await expectNotClipped(
         comboboxes.nth(i),
-        dialog,
+        settingsScrollViewport(dialog),
         `combobox[${i}]`,
       );
     }
@@ -153,24 +115,24 @@ test.describe("settings modal mobile tray", () => {
     const dialog = page.getByRole("dialog", { name: "Reader Settings" });
     await expect(dialog).toBeVisible();
 
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("heading", { exact: true, name: "Feeds" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Feeds heading",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("button", { name: "Export OPML" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Export OPML button",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("button", { name: "Import OPML" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Import OPML button",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("button", { name: /^Placeholder Feeds\s*3$/ }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Placeholder Feeds accordion",
     );
   });
@@ -180,39 +142,39 @@ test.describe("settings modal mobile tray", () => {
   }) => {
     const dialog = await openSettingsAndWaitForProxy(page);
 
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("heading", { name: "Connection Routing" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Connection Routing heading",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByPlaceholder(/proxy.*8080/),
-      dialog,
+      settingsScrollViewport(dialog),
       "Proxy URL input",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("button", { name: "Save" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Save button",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByLabel("Username"),
-      dialog,
+      settingsScrollViewport(dialog),
       "Username input",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByLabel(/^Password/),
-      dialog,
+      settingsScrollViewport(dialog),
       "Password input",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("switch", { name: "Allow insecure TLS" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Allow insecure TLS switch",
     );
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("button", { name: "Run Check" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Run Check button",
     );
   });
@@ -237,9 +199,9 @@ test.describe("settings modal mobile tray", () => {
     );
 
     // The very last interactive element must be reachable
-    await expectFullyContained(
+    await expectNotClipped(
       dialog.getByRole("button", { name: "Run Check" }),
-      dialog,
+      settingsScrollViewport(dialog),
       "Run Check (scroll bottom)",
     );
   });

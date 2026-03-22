@@ -126,6 +126,45 @@ export async function expectDashboardLogin(page: Page) {
   ).toBeVisible();
 }
 
+/**
+ * Asserts a locator's bounding box fits entirely within a container's visible
+ * bounds — both horizontally AND vertically. Catches clipping that
+ * `toBeInViewport` and `toBeVisible` silently miss.
+ */
+export async function expectNotClipped(
+  locator: Locator,
+  container: Locator,
+  label: string,
+) {
+  await expect(locator, `${label}: not visible`).toBeVisible();
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
+  expect(box, `${label}: no bounding box`).not.toBeNull();
+
+  const containerBox = await container.boundingBox();
+  expect(containerBox, `${label}: container has no bounding box`).not.toBeNull();
+
+  const b = box!;
+  const c = containerBox!;
+
+  expect(
+    b.x >= c.x - 1,
+    `${label}: clipped on LEFT (el.left=${b.x.toFixed(1)}, container.left=${c.x.toFixed(1)})`,
+  ).toBe(true);
+  expect(
+    b.x + b.width <= c.x + c.width + 1,
+    `${label}: clipped on RIGHT (el.right=${(b.x + b.width).toFixed(1)}, container.right=${(c.x + c.width).toFixed(1)})`,
+  ).toBe(true);
+  expect(
+    b.y >= c.y - 1,
+    `${label}: clipped on TOP (el.top=${b.y.toFixed(1)}, container.top=${c.y.toFixed(1)})`,
+  ).toBe(true);
+  expect(
+    b.y + b.height <= c.y + c.height + 1,
+    `${label}: clipped on BOTTOM (el.bottom=${(b.y + b.height).toFixed(1)}, container.bottom=${(c.y + c.height).toFixed(1)})`,
+  ).toBe(true);
+}
+
 /** Waits for the preview dashboard shell to become interactive. */
 export async function expectPreviewDashboard(page: Page) {
   await page.waitForURL((url) => {

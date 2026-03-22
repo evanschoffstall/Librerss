@@ -1,8 +1,11 @@
+import type { Page } from "@playwright/test";
+
 import {
     articleCard,
     articleCardByKey,
     articleRow,
     expectArticleExpanded,
+    expectNotClipped,
     expectPreviewDashboard,
     readArticleKey,
     readFeedViewportMetrics,
@@ -10,6 +13,14 @@ import {
     toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
+
+/** Returns the largest scroll-area viewport that contains article cards. */
+function feedScrollViewport(page: Page) {
+  return page
+    .locator("[data-radix-scroll-area-viewport]")
+    .filter({ has: page.locator("article[data-article-key]") })
+    .first();
+}
 
 test.describe("dashboard explore article interactions", () => {
   test("expands an explore article without changing row animation state", async ({
@@ -78,9 +89,11 @@ test.describe("dashboard explore article interactions", () => {
         async () => (await readFeedViewportMetrics(page)).scrollTop,
       )
       .toBeGreaterThan(0);
-    await expect(
+    await expectNotClipped(
       article.locator("[data-article-swipe-zone='header']"),
-    ).toBeVisible();
+      feedScrollViewport(page),
+      "article header after collapse",
+    );
     expect(initialScrollTop).toBeGreaterThan(0);
   });
 
