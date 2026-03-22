@@ -1,14 +1,14 @@
-import { ArrowLeft, FileQuestion } from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
 import { StatusPage } from "@/app/components/StatusPage";
 import { Button } from "@/components/ui/button";
 
 /**
- * Custom 404 page rendered when a route is not found.
- * Inherits the root layout, so no `<html>` or `<body>` wrapper is needed.
+ * Generic 403 page used by proxy-level request blocking and any future
+ * application-level forbidden flows.
  */
-export default function NotFound() {
+export default function ForbiddenPage() {
   return (
     <StatusPage
       action={
@@ -19,10 +19,10 @@ export default function NotFound() {
           </Link>
         </Button>
       }
-      code="404"
-      eyebrow="Page not found"
-      icon={FileQuestion}
-      message="The page you&rsquo;re looking for doesn&rsquo;t exist or has been moved."
+      code="403"
+      eyebrow="Access denied"
+      icon={ShieldAlert}
+      message="You do not have access to this page. If you expected this request to succeed, return home and try a supported route."
     />
   );
 }

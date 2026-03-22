@@ -18,6 +18,10 @@ import { DASHBOARD_EVENTS } from "../constants";
 import { type ArticleRemovalAnimationMode } from "../hooks/useArticleCollapseState";
 import { useArticleExpansion } from "../hooks/useArticleExpansion";
 import { useFavicon } from "../hooks/useFavicon";
+import {
+  SWIPE_COMMIT_SLIDE_MS,
+  SWIPE_RELEASE_MS,
+} from "../hooks/useSwipeGesture";
 import { useSwipeToRead } from "../hooks/useSwipeToRead";
 import { useSwipeToStar } from "../hooks/useSwipeToStar";
 import {
@@ -115,7 +119,7 @@ export const ArticleCard = memo(function ArticleCard({
   }, [rawHtml]);
   const hasReadableContent = plainContent.length > 0;
 
-  const { expandTransitionDone, phase } = useArticleExpansion(
+  const { phase } = useArticleExpansion(
     isExpanded,
     isHydrating,
   );
@@ -327,8 +331,22 @@ export const ArticleCard = memo(function ArticleCard({
   const starSwipeState = visuallyExpanded
     ? expandedStarSwipeState
     : collapsedStarSwipeState;
-  const anySwiping = readSwipeState.swiping || starSwipeState.swiping;
+  const readActive = readSwipeState.phase !== "idle";
+  const starActive = starSwipeState.phase !== "idle";
+  const anyActive = readActive || starActive;
+  const isActivelySwiping =
+    readSwipeState.phase === "swiping" || starSwipeState.phase === "swiping";
+  const isSwipeAnimating =
+    readSwipeState.phase === "releasing" ||
+    readSwipeState.phase === "committing" ||
+    starSwipeState.phase === "releasing" ||
+    starSwipeState.phase === "committing";
   const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
+  const swipeTransitionMs =
+    readSwipeState.phase === "committing" ||
+    starSwipeState.phase === "committing"
+      ? SWIPE_COMMIT_SLIDE_MS
+      : SWIPE_RELEASE_MS;
   const articleSurfaceRef = useCallback(
     (el: HTMLElement | null) => {
       articleRef.current = el;
@@ -639,10 +657,6 @@ export const ArticleCard = memo(function ArticleCard({
         ${visuallyExpanded ? `cursor-text select-text` : ""}
       `}
       dangerouslySetInnerHTML={{ __html: normalizedHtml }}
-      style={{
-        contain: visuallyExpanded ? "none" : "layout style paint",
-        willChange: visuallyExpanded ? "auto" : "contents",
-      }}
     />
   ) : (
     <p
@@ -668,7 +682,6 @@ export const ArticleCard = memo(function ArticleCard({
         rounded-xl
       `}
       style={{
-        contain: visuallyExpanded ? undefined : "layout style paint",
         touchAction: "pan-y",
       }}
     >
@@ -681,8 +694,13 @@ export const ArticleCard = memo(function ArticleCard({
           }
         `}
         style={{
-          opacity: readSwipeState.swiping ? 1 : 0,
+          opacity: readActive ? 1 : 0,
           transform: readSwipeState.committed ? "scale(1)" : "scale(0.985)",
+          transition: readSwipeState.phase === "releasing"
+            ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
+            : readSwipeState.phase === "committing"
+              ? `opacity ${SWIPE_COMMIT_SLIDE_MS}ms ease-out`
+              : "none",
         }}
       >
         <div
@@ -728,8 +746,13 @@ export const ArticleCard = memo(function ArticleCard({
           ${starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"}
         `}
         style={{
-          opacity: starSwipeState.swiping ? 1 : 0,
+          opacity: starActive ? 1 : 0,
           transform: starSwipeState.committed ? "scale(1)" : "scale(0.985)",
+          transition: starSwipeState.phase === "releasing"
+            ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
+            : starSwipeState.phase === "committing"
+              ? `opacity ${SWIPE_COMMIT_SLIDE_MS}ms ease-out`
+              : "none",
         }}
       >
         <div
@@ -768,16 +791,19 @@ export const ArticleCard = memo(function ArticleCard({
           ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
           ${
             article.isRead && !visuallyExpanded && !suppressCollapsedReadDimming
-              ? "opacity-55 transition-opacity duration-200 hover:opacity-100"
+              ? `
+                opacity-55 transition-opacity duration-200
+                hover:opacity-100
+              `
               : ""
           }
         `}
         data-article-key={articleKey}
-        data-swipe-active={anySwiping ? "true" : "false"}
+        data-swipe-active={anyActive ? "true" : "false"}
         data-swipe-direction={
-          readSwipeState.swiping
+          readActive
             ? "read"
-            : starSwipeState.swiping
+            : starActive
               ? "star"
               : "idle"
         }
@@ -806,9 +832,11 @@ export const ArticleCard = memo(function ArticleCard({
           touchAction: "pan-y",
           transform:
             swipeOffsetX === 0 ? undefined : `translate3d(${swipeOffsetX}px, 0, 0)`,
-          transition: anySwiping
+          transition: isActivelySwiping
             ? "none"
-            : [`border-radius ${cardT}`].join(", "),
+            : isSwipeAnimating
+              ? `transform ${swipeTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), border-radius ${cardT}`
+              : `border-radius ${cardT}`,
           userSelect: visuallyExpanded ? "text" : "none",
           WebkitTouchCallout: visuallyExpanded ? "default" : "none",
           WebkitUserSelect: visuallyExpanded ? "text" : "none",
@@ -860,7 +888,6 @@ export const ArticleCard = memo(function ArticleCard({
           contentGradientOverlayRef={contentGradientOverlayRef}
           contentZoneRef={contentZoneRef}
           expandedBodyContent={expandedBodyContent}
-          expandTransitionDone={expandTransitionDone}
           gradientCls={gradientCls}
           phase={phase}
           resolvedBodyHeight={resolvedBodyHeight}

@@ -139,14 +139,14 @@ export const FeedListRow = memo(function FeedListRow({
             : undefined,
           overflow: isCollapsing ? "hidden" : "visible",
           pointerEvents: isCollapsing ? "none" : "auto",
-          transform: isSwipeReadExit
-            ? isCollapsing
+          transform: isCollapsing
+            ? isSwipeReadExit
               ? "translate3d(2.5rem, 0, 0)"
-              : "translate3d(0, 0, 0)"
-            : "translate3d(0, 0, 0)",
+              : undefined
+            : undefined,
           transition: isCollapsing
             ? `max-height ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), transform ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`
-            : `transform ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`,
+            : undefined,
         }}
       >
         <div className="min-h-0" ref={bodyRef}>

@@ -22,6 +22,48 @@ afterEach(() => {
 });
 
 describe("Next.js proxy function", () => {
+  test("blocks reserved path prefixes and returns firewall metadata", async () => {
+    const { proxy } = await import("@/proxy");
+    const req = new NextRequest("http://localhost:3000/@blocked", {
+      headers: { accept: "application/json" },
+    });
+
+    const res = proxy(req);
+
+    expect(res.status).toBe(403);
+    expect(res.headers.get("X-Librerss-Firewall-Action")).toBe("block");
+    expect(res.headers.get("X-Librerss-Firewall-Code")).toBe("FW-RESERVED-PATH");
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+
+    const payload = (await res.json()) as {
+      code: string;
+      error: string;
+      message: string;
+    };
+
+    expect(payload).toEqual({
+      code: "FW-RESERVED-PATH",
+      error: "Forbidden",
+      message: "Access to this path is blocked.",
+    });
+  });
+
+  test("rewrites browser requests for reserved path prefixes to the 403 page", async () => {
+    const { proxy } = await import("@/proxy");
+    const req = new NextRequest("http://localhost:3000/~browser-block", {
+      headers: { accept: "text/html,application/xhtml+xml" },
+    });
+
+    const res = proxy(req);
+
+    expect(res.status).toBe(403);
+    expect(res.headers.get("x-middleware-rewrite")).toBe(
+      "http://localhost:3000/forbidden",
+    );
+    expect(res.headers.get("X-Librerss-Firewall-Action")).toBe("block");
+    expect(res.headers.get("X-Librerss-Firewall-Code")).toBe("FW-RESERVED-PATH");
+  });
+
   test("sets all required security headers (except CSP)", async () => {
     const { proxy } = await import("@/proxy");
     const req = new NextRequest("http://localhost:3000/dashboard");

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { rateLimiter } from "./lib/server/rate-limit";
+import {
+  createBlockedRequestResponse,
+  matchBlockedRequestPolicy,
+} from "./lib/server/request-blocks";
 
 /**
  * Next.js proxy for request interception, rate limiting, and security
@@ -19,6 +23,16 @@ import { rateLimiter } from "./lib/server/rate-limit";
  * policy for dynamic routes handled by the proxy runtime.
  */
 export function proxy(request: NextRequest) {
+  const blockedRequestPolicy = matchBlockedRequestPolicy(
+    request.nextUrl.pathname,
+  );
+
+  if (blockedRequestPolicy) {
+    return applySecurityHeaders(
+      createBlockedRequestResponse(request, blockedRequestPolicy),
+    );
+  }
+
   const isDevelopment = process.env.NODE_ENV === "development";
   const rateLimitDisabledInDev =
     process.env.RATE_LIMIT_DISABLED_IN_DEV === "true";
@@ -42,8 +56,14 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
+}
 
+/**
+ * Applies the shared proxy security headers to both pass-through and blocked
+ * responses.
+ */
+function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
