@@ -1,12 +1,18 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { useSwipeGesture } from "@/app/dashboard/hooks/useSwipeGesture";
+import {
+  SWIPE_COMMIT_SLIDE_MS,
+  SWIPE_RELEASE_MS,
+  type SwipePhase,
+  useSwipeGesture,
+} from "@/app/dashboard/hooks/useSwipeGesture";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
 interface SwipeHarnessProps {
+  direction?: "left" | "right";
   onCommit: () => void;
   shouldIgnoreTarget?: (target: EventTarget | null) => boolean;
 }
@@ -34,16 +40,27 @@ function installPointerCaptureSpies(surface: HTMLElement) {
   return { releasePointerCapture, setPointerCapture };
 }
 
-function SwipeHarness({ onCommit, shouldIgnoreTarget }: SwipeHarnessProps) {
-  const { containerRef } = useSwipeGesture(
-    "right",
+function SwipeHarness({
+  direction = "right",
+  onCommit,
+  shouldIgnoreTarget,
+}: SwipeHarnessProps) {
+  const { containerRef, swipeState } = useSwipeGesture(
+    direction,
     onCommit,
     false,
     shouldIgnoreTarget,
   );
 
   return (
-    <article data-testid="surface" ref={containerRef}>
+    <article
+      data-committed={String(swipeState.committed)}
+      data-offset-x={String(swipeState.offsetX)}
+      data-phase={swipeState.phase}
+      data-progress={String(swipeState.progress)}
+      data-testid="surface"
+      ref={containerRef}
+    >
       <div data-testid="ignored">
         <span data-testid="ignored-text">ignored</span>
       </div>
@@ -241,6 +258,165 @@ describe("useSwipeGesture", () => {
       expect(setPointerCapture).toHaveBeenCalledWith(4);
       expect(releasePointerCapture).not.toHaveBeenCalled();
       expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("enters releasing phase on non-committed release and settles to idle", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    fireEvent.pointerDown(handle, {
+      clientX: 20,
+      clientY: 10,
+      pointerId: 10,
+      pointerType: "touch",
+    });
+    // Move just 40px rightward – below the 30% threshold on a 300px-wide element.
+    fireEvent.pointerMove(handle, {
+      clientX: 60,
+      clientY: 11,
+      pointerId: 10,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(handle, {
+      clientX: 60,
+      clientY: 11,
+      pointerId: 10,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      const phase = surface.getAttribute("data-phase") as SwipePhase;
+      expect(phase).toBe("releasing");
+      expect(surface.getAttribute("data-offset-x")).toBe("0");
+      expect(onCommit).not.toHaveBeenCalled();
+    });
+
+    // After the release animation timer fires, phase settles to idle.
+    await waitFor(
+      () => {
+        expect(surface.getAttribute("data-phase")).toBe("idle");
+      },
+      { timeout: SWIPE_RELEASE_MS + 200 },
+    );
+  });
+
+  test("enters committing phase on committed swipe and settles to idle", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    fireEvent.pointerDown(handle, {
+      clientX: 20,
+      clientY: 10,
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: 200,
+      clientY: 12,
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(handle, {
+      clientX: 200,
+      clientY: 12,
+      pointerId: 11,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("committing");
+      expect(surface.getAttribute("data-committed")).toBe("true");
+      expect(onCommit).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(
+      () => {
+        expect(surface.getAttribute("data-phase")).toBe("idle");
+      },
+      { timeout: SWIPE_COMMIT_SLIDE_MS + 200 },
+    );
+  });
+
+  test("applies elastic resistance past the commit threshold", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    fireEvent.pointerDown(handle, {
+      clientX: 10,
+      clientY: 10,
+      pointerId: 12,
+      pointerType: "touch",
+    });
+    // Move 250px on a 300px surface: raw progress ~83%, well past threshold.
+    fireEvent.pointerMove(handle, {
+      clientX: 260,
+      clientY: 11,
+      pointerId: 12,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("swiping");
+      const offsetX = Number(surface.getAttribute("data-offset-x"));
+      // Raw delta is 250px. Elastic damping should cap it well below that.
+      expect(offsetX).toBeGreaterThan(0);
+      expect(offsetX).toBeLessThan(250);
+    });
+
+    fireEvent.pointerUp(handle, {
+      clientX: 260,
+      clientY: 11,
+      pointerId: 12,
+      pointerType: "touch",
+    });
+  });
+
+  test("reports swiping phase with offsetX during an active drag", async () => {
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    expect(surface.getAttribute("data-phase")).toBe("idle");
+
+    fireEvent.pointerDown(handle, {
+      clientX: 50,
+      clientY: 10,
+      pointerId: 13,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: 90,
+      clientY: 11,
+      pointerId: 13,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("swiping");
+      const offsetX = Number(surface.getAttribute("data-offset-x"));
+      expect(offsetX).toBeGreaterThan(0);
+    });
+
+    fireEvent.pointerCancel(handle, {
+      pointerId: 13,
+      pointerType: "touch",
+    });
+
+    // Pointer cancel should trigger a releasing phase, not jump to idle.
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("releasing");
     });
   });
 });
