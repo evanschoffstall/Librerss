@@ -5,6 +5,66 @@ import type { FeedBatchSource } from "../services/feed-batch";
 
 import { getArticleKey } from "../services/article-collection";
 
+/**
+ * Classified feed batch error with a user-facing toast title and description.
+ *
+ * Separating classification from presentation lets callers decide whether to
+ * show the toast at all (e.g. silent background refreshes).
+ */
+export interface FeedBatchErrorToast {
+  description: string;
+  title: string;
+}
+
+/**
+ * Classifies an error from a feed batch request into a user-actionable toast.
+ *
+ * The classifier duck-types the error shape to avoid importing `axios` into the
+ * dashboard service layer.
+ */
+export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
+  const status = extractHttpStatus(error);
+  const code = extractErrorCode(error);
+
+  if (status === 401) {
+    return {
+      description: "Please sign in again to continue.",
+      title: "Your session has expired.",
+    };
+  }
+
+  if (status === 429) {
+    return {
+      description: "Please wait a moment before refreshing again.",
+      title: "Too many requests.",
+    };
+  }
+
+  if (
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "ENOTFOUND" ||
+    code === "ERR_NETWORK"
+  ) {
+    return {
+      description: "Check your connection and try again.",
+      title: "Network error.",
+    };
+  }
+
+  if (error instanceof Error && error.message === "Request timeout") {
+    return {
+      description: "The server took too long to respond. Try again shortly.",
+      title: "Request timed out.",
+    };
+  }
+
+  return {
+    description: "Please try refreshing the selected source again.",
+    title: "Unable to load this feed right now.",
+  };
+}
+
 export function formatLastRefreshLabel(timestamp: Date | null): string {
   if (!timestamp) {
     return "never";
@@ -44,6 +104,8 @@ export function getNewestLastFetchedAt(
     return latest;
   }, null);
 }
+
+// ── Feed batch error classification ──────────────────────────────────────────
 
 export function getSourceNamesByUrl(
   sources: FeedBatchSource[],
@@ -98,10 +160,6 @@ export function resolveExpandedArticleKey(
   return hasExpandedArticle ? currentKey : null;
 }
 
-export type { BatchFeedResponseItem as FeedBatchResult };
-
-// ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────
-
 export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
   let okCount = 0;
   let missingCount = 0;
@@ -133,4 +191,37 @@ export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
     okCount,
     resultCount: batchResults.length,
   };
+}
+
+/** Extracts the error code (e.g. `ECONNRESET`) from an axios-shaped error, if present. */
+function extractErrorCode(error: unknown): string | undefined {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+  return undefined;
+}
+
+export type { BatchFeedResponseItem as FeedBatchResult };
+
+// ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────
+
+/** Extracts the HTTP status code from an axios-shaped error, if present. */
+function extractHttpStatus(error: unknown): number | undefined {
+  if (
+    error &&
+    typeof error === "object" &&
+    "response" in error &&
+    error.response &&
+    typeof error.response === "object" &&
+    "status" in error.response &&
+    typeof error.response.status === "number"
+  ) {
+    return error.response.status;
+  }
+  return undefined;
 }
