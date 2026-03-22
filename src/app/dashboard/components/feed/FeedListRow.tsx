@@ -20,7 +20,6 @@ export const FeedListRow = memo(function FeedListRow({
   const collapseCommittedRef = useRef(false);
 
   const isCollapsing = removalAnimationMode !== null;
-  const isStandardCollapseExit = removalAnimationMode === "collapse";
   const isSwipeReadExit = removalAnimationMode === "swipe-read";
   const durationMs = removalAnimationMode
     ? getArticleRemovalAnimationDuration(removalAnimationMode)
@@ -80,6 +79,9 @@ export const FeedListRow = memo(function FeedListRow({
 
       if (outer) {
         outer.style.marginBottom = `${-FEED_ROW_COLLAPSE_OFFSET_PX}px`;
+        if (!isSwipeReadExit) {
+          outer.style.opacity = "0";
+        }
       }
       if (inner) {
         inner.style.maxHeight = `${FEED_ROW_COLLAPSE_FLOOR_PX}px`;
@@ -98,9 +100,8 @@ export const FeedListRow = memo(function FeedListRow({
   const isCommitted = collapseCommittedRef.current;
   const measuredHeight = measuredHeightRef.current;
   const releasePhase: FeedRowReleasePhase = isCollapsing ? "collapsing" : "idle";
-  const isReleaseCollapsing =
-    isStandardCollapseExit || (isCollapsing && isCommitted);
-  const rowOpacity = isSwipeReadExit ? 1 : isCollapsing ? 0 : 1;
+  const isReleaseCollapsing = isCollapsing && isCommitted;
+  const rowOpacity = isSwipeReadExit ? 1 : isReleaseCollapsing ? 0 : 1;
 
   return (
     <div
@@ -111,13 +112,13 @@ export const FeedListRow = memo(function FeedListRow({
       data-scroll-restore-key={articleKey}
       ref={outerRef}
       style={{
-        contain: isCollapsing ? undefined : "layout style",
+        contain: "layout style",
         marginBottom: isReleaseCollapsing
           ? -FEED_ROW_COLLAPSE_OFFSET_PX
           : FEED_ROW_GAP_PX,
         opacity: rowOpacity,
         transition: isCollapsing
-          ? `margin-bottom ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1)`
+          ? `margin-bottom ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), opacity ${Math.round(transitionMs * 0.65)}ms ease-out ${Math.round(transitionMs * 0.1)}ms`
           : "none",
       }}
     >
@@ -144,8 +145,8 @@ export const FeedListRow = memo(function FeedListRow({
               : "translate3d(0, 0, 0)"
             : "translate3d(0, 0, 0)",
           transition: isCollapsing
-            ? `max-height ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1), transform ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1)`
-            : `transform ${transitionMs}ms cubic-bezier(0.2, 0, 0, 1)`,
+            ? `max-height ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), transform ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`
+            : `transform ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`,
         }}
       >
         <div className="min-h-0" ref={bodyRef}>
