@@ -115,7 +115,7 @@ export const ArticleCard = memo(function ArticleCard({
   }, [rawHtml]);
   const hasReadableContent = plainContent.length > 0;
 
-  const { expandTransitionDone, phase } = useArticleExpansion(
+  const { phase } = useArticleExpansion(
     isExpanded,
     isHydrating,
   );
@@ -639,10 +639,6 @@ export const ArticleCard = memo(function ArticleCard({
         ${visuallyExpanded ? `cursor-text select-text` : ""}
       `}
       dangerouslySetInnerHTML={{ __html: normalizedHtml }}
-      style={{
-        contain: visuallyExpanded ? "none" : "layout style paint",
-        willChange: visuallyExpanded ? "auto" : "contents",
-      }}
     />
   ) : (
     <p
@@ -668,7 +664,6 @@ export const ArticleCard = memo(function ArticleCard({
         rounded-xl
       `}
       style={{
-        contain: visuallyExpanded ? undefined : "layout style paint",
         touchAction: "pan-y",
       }}
     >
@@ -768,7 +763,10 @@ export const ArticleCard = memo(function ArticleCard({
           ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}
           ${
             article.isRead && !visuallyExpanded && !suppressCollapsedReadDimming
-              ? "opacity-55 transition-opacity duration-200 hover:opacity-100"
+              ? `
+                opacity-55 transition-opacity duration-200
+                hover:opacity-100
+              `
               : ""
           }
         `}
@@ -860,7 +858,6 @@ export const ArticleCard = memo(function ArticleCard({
           contentGradientOverlayRef={contentGradientOverlayRef}
           contentZoneRef={contentZoneRef}
           expandedBodyContent={expandedBodyContent}
-          expandTransitionDone={expandTransitionDone}
           gradientCls={gradientCls}
           phase={phase}
           resolvedBodyHeight={resolvedBodyHeight}

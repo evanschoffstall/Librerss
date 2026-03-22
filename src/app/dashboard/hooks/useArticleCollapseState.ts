@@ -12,7 +12,7 @@ import { escapeArticleKey } from "./useArticleHydration";
  */
 export const ARTICLE_REMOVAL_ANIMATION_MS = 180;
 export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 130;
-const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 900;
+const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 120;
 
 export type ArticleRemovalAnimationMode =
   | "collapse"
@@ -129,14 +129,23 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
         ARTICLE_SCROLL_RESTORE_BUFFER_MS;
       let animationFrameId = 0;
 
+      const release = () => {
+        if (animationFrameId !== 0) {
+          window.cancelAnimationFrame(animationFrameId);
+          animationFrameId = 0;
+        }
+        viewport.removeEventListener("wheel", release);
+        viewport.removeEventListener("touchmove", release);
+        setIsCollapseScrollRestoreActive(false);
+        clearPreExpandSnapshot();
+        collapseScrollRestoreCleanupRef.current = null;
+      };
+
       const syncViewportScroll = () => {
         viewport.scrollTop = targetScrollTop;
 
         if (performance.now() >= releaseAt) {
-          viewport.scrollTop = targetScrollTop;
-          setIsCollapseScrollRestoreActive(false);
-          clearPreExpandSnapshot();
-          collapseScrollRestoreCleanupRef.current = null;
+          release();
           return;
         }
 
@@ -145,11 +154,12 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
 
       syncViewportScroll();
 
+      // Stop fighting scroll if the user intentionally scrolls
+      viewport.addEventListener("wheel", release, { passive: true });
+      viewport.addEventListener("touchmove", release, { passive: true });
+
       collapseScrollRestoreCleanupRef.current = () => {
-        if (animationFrameId !== 0) {
-          window.cancelAnimationFrame(animationFrameId);
-        }
-        setIsCollapseScrollRestoreActive(false);
+        release();
       };
     },
     [cancelCollapseScrollRestore, clearPreExpandSnapshot],

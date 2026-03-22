@@ -8,7 +8,6 @@ interface ArticleCardContentProps {
   contentGradientOverlayRef: React.RefObject<HTMLDivElement | null>;
   contentZoneRef: React.RefObject<HTMLDivElement | null>;
   expandedBodyContent: React.ReactNode;
-  expandTransitionDone: boolean;
   gradientCls: string;
   phase: "collapsed" | "collapsing" | "expanded" | "expanding" | "loading";
   resolvedBodyHeight: number;
@@ -29,7 +28,6 @@ export function ArticleCardContent({
   contentGradientOverlayRef,
   contentZoneRef,
   expandedBodyContent,
-  expandTransitionDone,
   gradientCls,
   phase,
   resolvedBodyHeight,
@@ -55,6 +53,9 @@ export function ArticleCardContent({
       onPointerMove={stopExpandedContentPropagation}
       onPointerUp={stopExpandedContentPropagation}
       ref={contentZoneRef}
+      style={{
+        transition: `padding ${bodyTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`,
+      }}
     >
       <div
         className="
@@ -68,9 +69,6 @@ export function ArticleCardContent({
           animate={{ height: resolvedBodyHeight }}
           className="overflow-hidden"
           initial={false}
-          style={{
-            willChange: phase === "expanding" || phase === "collapsing" ? "height" : undefined,
-          }}
           transition={{
             duration: bodyTransitionMs / 1000,
             ease: ARTICLE_SURFACE_EASING_ARRAY,
@@ -110,10 +108,6 @@ export function ArticleCardContent({
               }
               ref={bodyMeasureRef}
               style={{
-                containIntrinsicSize:
-                  expandTransitionDone && !visuallyExpanded ? "auto 24px" : undefined,
-                contentVisibility:
-                  expandTransitionDone && !visuallyExpanded ? "auto" : "visible",
                 cursor: visuallyExpanded ? "text" : undefined,
                 inset: phase === "collapsed" || phase === "collapsing" ? 0 : undefined,
                 pointerEvents: visuallyExpanded ? "auto" : "none",
@@ -136,7 +130,7 @@ export function ArticleCardContent({
                 <motion.div
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -3 }}
-                  initial={{ opacity: 0, y: 3 }}
+                  initial={false}
                   key="collapsed-preview"
                   style={{ position: "relative" }}
                   transition={{

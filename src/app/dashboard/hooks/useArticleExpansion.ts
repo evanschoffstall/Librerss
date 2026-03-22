@@ -22,9 +22,6 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
     isExpanded ? (isHydrating ? "loading" : "expanded") : "collapsed",
   );
-  const [expandTransitionDone, setExpandTransitionDone] = useState(
-    isExpanded && !isHydrating,
-  );
   const settleTimeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
@@ -44,13 +41,10 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
     if (isExpanded) {
       if (isHydrating) {
         setPhase("loading");
-        setExpandTransitionDone(false);
       } else {
         setPhase((current) => (current === "expanded" ? current : "expanding"));
-        setExpandTransitionDone(false);
         settleTimeoutRef.current = setTimeout(() => {
           setPhase("expanded");
-          setExpandTransitionDone(true);
         }, ARTICLE_EXPAND_DURATION_MS);
       }
     } else {
@@ -68,9 +62,8 @@ export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
 
         return "collapsed";
       });
-      setExpandTransitionDone(false);
     }
   }, [isExpanded, isHydrating]);
 
-  return { expandTransitionDone, phase };
+  return { phase };
 }

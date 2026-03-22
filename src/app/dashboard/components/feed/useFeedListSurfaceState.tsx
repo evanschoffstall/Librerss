@@ -149,8 +149,16 @@ export function useFeedListSurfaceState({
       return;
     }
 
+    let rafId = 0;
     const resumeVirtualization = () => {
-      setIsVirtualizationResumeDeferred(false);
+      // Defer by one animation frame so the DOM switch doesn't happen
+      // during the same frame as the user's scroll event, avoiding a
+      // visible layout jolt when Virtuoso re-mounts.
+      if (rafId !== 0) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        setIsVirtualizationResumeDeferred(false);
+      });
     };
 
     scrollViewport.addEventListener("scroll", resumeVirtualization, {
@@ -164,6 +172,7 @@ export function useFeedListSurfaceState({
     });
 
     return () => {
+      if (rafId !== 0) cancelAnimationFrame(rafId);
       scrollViewport.removeEventListener("scroll", resumeVirtualization);
       scrollViewport.removeEventListener("touchmove", resumeVirtualization);
       scrollViewport.removeEventListener("wheel", resumeVirtualization);
@@ -277,9 +286,7 @@ export function useFeedListSurfaceState({
       ? "feed-empty"
       : shouldShowViewportResolutionSkeleton
         ? "feed-viewport-skeleton"
-        : shouldUseVirtualizedFeed
-          ? "feed-virtualized"
-          : "feed-plain";
+        : "feed-content";
 
   const virtuosoComponents = useMemo(
     () => ({

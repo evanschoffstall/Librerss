@@ -96,6 +96,7 @@ export function ArticleCardHeader({
       ref={headerSwipeZoneRef}
       style={{
         touchAction: "pan-y",
+        transition: "padding 250ms cubic-bezier(0.25, 1, 0.5, 1)",
         userSelect: "none",
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
