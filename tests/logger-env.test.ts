@@ -1,38 +1,58 @@
 import { describe, expect, test } from "bun:test";
 
+import { Logger } from "@/lib/logger";
+
 describe("logger env fallback", () => {
-  const loggerModuleUrl = new URL("../src/lib/logger.ts", import.meta.url).href;
-  const readSupportsColor = (envSetupScript: string) => {
-    const processResult = Bun.spawnSync({
-      cmd: [
-        process.execPath,
-        "--eval",
-        `${envSetupScript}\nimport { Logger } from ${JSON.stringify(loggerModuleUrl)}; const logger = new Logger(); console.log(logger["supportsColor"]());`,
-      ],
-      cwd: process.cwd(),
-      env: process.env,
-      stderr: "pipe",
-      stdout: "pipe",
-    });
+  const readSupportsColor = (envOverrides: Record<string, string | undefined>) => {
+    const previousValues = new Map<string, string | undefined>();
 
-    expect(processResult.exitCode).toBe(0);
-    expect(processResult.stderr.toString().trim()).toBe("");
+    for (const [key, value] of Object.entries(envOverrides)) {
+      previousValues.set(key, process.env[key]);
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
 
-    return processResult.stdout.toString().trim();
+    try {
+      const logger = new Logger() as unknown as {
+        supportsColor(): boolean;
+      };
+      return String(logger["supportsColor"]());
+    } finally {
+      for (const [key, value] of previousValues) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
   };
 
   test("uses build-time LOG_COLORS_ENABLED fallback when runtime env is unset", () => {
-    const supportsColor = readSupportsColor(
-      `process.env.LIBRERSS_BUILD_CONFIG = ${JSON.stringify(JSON.stringify({ LOG_COLORS_ENABLED: "false", LOG_LEVEL: "info" }))}; delete process.env.LOG_COLORS_ENABLED; process.env.NODE_ENV = "production";`,
-    );
+    const supportsColor = readSupportsColor({
+      LIBRERSS_BUILD_CONFIG: JSON.stringify({
+        LOG_COLORS_ENABLED: "false",
+        LOG_LEVEL: "info",
+      }),
+      LOG_COLORS_ENABLED: undefined,
+      NODE_ENV: "production",
+    });
 
     expect(supportsColor).toBe("false");
   });
 
   test("prefers runtime LOG_COLORS_ENABLED over build-time fallback", () => {
-    const supportsColor = readSupportsColor(
-      `process.env.LIBRERSS_BUILD_CONFIG = ${JSON.stringify(JSON.stringify({ LOG_COLORS_ENABLED: "false", LOG_LEVEL: "info" }))}; process.env.LOG_COLORS_ENABLED = "true"; process.env.NODE_ENV = "production";`,
-    );
+    const supportsColor = readSupportsColor({
+      LIBRERSS_BUILD_CONFIG: JSON.stringify({
+        LOG_COLORS_ENABLED: "false",
+        LOG_LEVEL: "info",
+      }),
+      LOG_COLORS_ENABLED: "true",
+      NODE_ENV: "production",
+    });
 
     expect(supportsColor).toBe("true");
   });

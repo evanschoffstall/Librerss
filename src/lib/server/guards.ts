@@ -32,7 +32,9 @@ export function logAndRespondError(
     status?: number;
   },
 ): Response {
-  logger.error(message, { error: toError(error) });
+  const logError =
+    typeof logger.error === "function" ? logger.error.bind(logger) : undefined;
+  logError?.(message, { error: toError(error) });
   return jsonError(
     options?.publicMessage ?? "Internal Server Error",
     options?.status ?? 500,

@@ -11,7 +11,6 @@ const htmlReportDir =
 const includeMobileWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
 const isCoverageRun = process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const junitReportPath = process.env.PLAYWRIGHT_JUNIT_REPORT_PATH?.trim();
-const nextJsRuntimePreflightSpec = "**/dashboard-runtime-preflight.e2e.ts";
 const outputDir =
   process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results/playwright";
 const workerOverride = process.env.PLAYWRIGHT_WORKERS?.trim();
@@ -42,7 +41,7 @@ function resolveWorkerCount() {
     ? Math.ceil(detectedWorkerCount * 0.75)
     : Math.ceil(detectedWorkerCount * 0.5);
 
-  return Math.min(isCoverageRun ? 4 : 8, Math.max(2, targetWorkerCount));
+  return Math.min(isCoverageRun ? 4 : 12, Math.max(2, targetWorkerCount));
 }
 
 /**
@@ -57,27 +56,17 @@ export default defineConfig({
     timeout: 5_000,
   },
   forbidOnly: Boolean(process.env.CI),
-  fullyParallel: false,
+  fullyParallel: true,
   outputDir,
   projects: [
     {
-      name: "dashboard-preflight",
-      testMatch: nextJsRuntimePreflightSpec,
-      use: {
-        ...devices["Desktop Chrome"],
-        baseURL,
-      },
-    },
-    {
-      dependencies: ["dashboard-preflight"],
       name: "chromium",
-      testIgnore: [nextJsRuntimePreflightSpec, "**/*.mobile.e2e.ts"],
+      testIgnore: ["**/*.mobile.e2e.ts"],
       use: {
         ...devices["Desktop Chrome"],
       },
     },
     {
-      dependencies: ["dashboard-preflight"],
       name: "mobile-chromium",
       testMatch: "**/*.mobile.e2e.ts",
       use: {
@@ -88,7 +77,6 @@ export default defineConfig({
     ...(includeMobileWebKit
       ? [
           {
-            dependencies: ["dashboard-preflight"],
             name: "mobile-webkit",
             testMatch: "**/*.mobile.e2e.ts",
             use: {
@@ -112,7 +100,7 @@ export default defineConfig({
     navigationTimeout: 15_000,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
-    video: "retain-on-failure",
+    video: "on-first-retry",
     viewport: { height: 900, width: 1440 },
   },
   workers: resolveWorkerCount(),

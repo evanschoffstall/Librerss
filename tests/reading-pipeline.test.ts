@@ -10,13 +10,10 @@ import {
     fetchHtml,
     parseAndValidateArticleUrl,
 } from "@/lib/extract";
-import {
-    decompressBody,
-    fetchHtmlWithFingerprint,
-    generateBrowserHeaders,
-    GotScrapingError,
-    parseSocksProxy,
-} from "@/lib/fetch";
+import { generateBrowserHeaders } from "@/lib/fetch/cookies";
+import { fetchHtmlWithFingerprint } from "@/lib/fetch/fingerprint";
+import { decompressBody, GotScrapingError } from "@/lib/fetch/response";
+import { parseSocksProxy } from "@/lib/fetch/socks";
 import {
     buildMetadataImageFallbackHtml,
     cleanSanitizedHtml,

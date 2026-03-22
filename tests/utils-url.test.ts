@@ -389,6 +389,19 @@ describe("utils/url – credential extraction", () => {
     expect(getUrlCredentials("not-a-url")).toBeNull();
     expect(stripUrlCredentials("not-a-url")).toBe("not-a-url");
   });
+
+  test("adds the default port to socks URLs that omit it", async () => {
+    const { ensureProxyUrlHasExplicitPort } = await import("@/lib/utils/url");
+
+    expect(
+      ensureProxyUrlHasExplicitPort("socks5://proxy.example.com"),
+    ).toBe("socks5://proxy.example.com:1080");
+    expect(
+      ensureProxyUrlHasExplicitPort(
+        "socks5://alice:secret@proxy.example.com",
+      ),
+    ).toBe("socks5://alice:secret@proxy.example.com:1080");
+  });
 });
 
 describe("lib/utils/url", () => {

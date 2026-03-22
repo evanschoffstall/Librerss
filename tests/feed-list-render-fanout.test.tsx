@@ -59,7 +59,8 @@ describe("FeedList row render fan-out", () => {
     const { rerender } = render(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          articleFilter="all"
+        articleFilter="all"
+          articlesPerPage={12}
           expandedArticleKey={null}
           feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}
@@ -86,7 +87,8 @@ describe("FeedList row render fan-out", () => {
     rerender(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-          articleFilter="all"
+        articleFilter="all"
+          articlesPerPage={12}
           expandedArticleKey={null}
           feedViewKey="system-all-feeds:all"
           filteredFeed={[firstArticle, secondArticle]}

@@ -6,47 +6,45 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
+    afterAll,
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    mock,
+    test
 } from "bun:test";
 import { createElement } from "react";
 import { toast } from "sonner";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import {
-  toggleReadStatus,
-  toggleStarredStatus,
-} from "@/app/dashboard/hooks/article-toggle-state";
-import {
-  escapeArticleKey,
-  useArticleHydration,
+    escapeArticleKey,
+    useArticleHydration
 } from "@/app/dashboard/hooks/useArticleHydration";
 import {
-  getNextArticle,
-  getPreviousArticle,
+    getNextArticle,
+    getPreviousArticle
 } from "@/app/dashboard/hooks/useArticleNavigation";
 import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
 import {
-  shouldShowNoFeedSourcesToast,
-  useFeedLoader,
+    shouldShowNoFeedSourcesToast,
+    useFeedLoader
 } from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
+import {
+    toggleReadStatus,
+    toggleStarredStatus
+} from "@/app/dashboard/services/article-status-toggle";
 import { type FeedBatchSource } from "@/app/dashboard/services/feed-batch";
 import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-batch-outcome";
 import {
-  type Article,
-  ArticleService,
-  type CategoryTreeNode,
-  FeedService,
+    type Article, ArticleService, type CategoryTreeNode, FeedService
 } from "@/lib";
+
 
 // ─── useArticleNavigation ─────────────────────────────────────────────────────
 

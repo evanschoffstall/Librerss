@@ -1464,13 +1464,51 @@ export async function runStepBatch(
   steps: StepConfig[],
   deadlineMs: number,
 ): Promise<Record<string, Command>> {
-  const results: (readonly [string, Command])[] = [];
+  // Group steps: steps sharing a serialGroup run sequentially within their
+  // group, but all groups (and ungrouped steps) run concurrently.
+  const serialGroups = new Map<string, StepConfig[]>();
+  const ungrouped: StepConfig[] = [];
 
   for (const step of steps) {
-    results.push([step.key, await runStepWithinDeadline(step, deadlineMs)]);
+    if (step.serialGroup) {
+      const group = serialGroups.get(step.serialGroup) ?? [];
+      group.push(step);
+      serialGroups.set(step.serialGroup, group);
+    } else {
+      ungrouped.push(step);
+    }
   }
 
-  return Object.fromEntries(results) as Record<string, Command>;
+  const tasks: Promise<(readonly [string, Command])[]>[] = [];
+
+  // Each ungrouped step runs independently in parallel.
+  for (const step of ungrouped) {
+    tasks.push(
+      runStepWithinDeadline(step, deadlineMs).then(
+        (cmd) => [[step.key, cmd] as const],
+      ),
+    );
+  }
+
+  // Each serial group runs its steps sequentially, but the group itself
+  // runs concurrently with everything else.
+  for (const groupSteps of serialGroups.values()) {
+    tasks.push(
+      (async () => {
+        const groupResults: (readonly [string, Command])[] = [];
+        for (const step of groupSteps) {
+          groupResults.push([
+            step.key,
+            await runStepWithinDeadline(step, deadlineMs),
+          ]);
+        }
+        return groupResults;
+      })(),
+    );
+  }
+
+  const settled = await Promise.all(tasks);
+  return Object.fromEntries(settled.flat()) as Record<string, Command>;
 }
 
 /**

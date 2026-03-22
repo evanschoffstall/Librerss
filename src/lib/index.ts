@@ -1,7 +1,12 @@
 // Main library exports - organized by domain
 
 // API clients
-export { ArticleService, AuthService, FeedService } from "./api/services";
+export {
+  AccountService,
+  ArticleService,
+  AuthService,
+  FeedService,
+} from "./api/services";
 // Core: types, constants, utilities, hooks
 export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
 export { useLocalStorage } from "./hooks/useLocalStorage";

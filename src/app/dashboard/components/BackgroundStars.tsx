@@ -212,21 +212,6 @@ export default function BackgroundStars({
     drawStars();
   }, [drawStars, resizeCanvas]);
 
-  const starInRegion = useCallback(
-    (minX: number, minY: number, maxX: number, maxY: number): Star => {
-      const saved = { h: canvasSize.current.h, w: canvasSize.current.w };
-      canvasSize.current.w = maxX;
-      canvasSize.current.h = maxY;
-      const s = starParams();
-      canvasSize.current.w = saved.w;
-      canvasSize.current.h = saved.h;
-      s.x = Math.floor(Math.random() * (maxX - minX)) + minX;
-      s.y = Math.floor(Math.random() * (maxY - minY)) + minY;
-      return s;
-    },
-    [starParams],
-  );
-
   const onResize = useCallback(() => {
     if (!canvasContainerRef.current || !canvasRef.current || !context.current)
       return;
@@ -237,26 +222,15 @@ export default function BackgroundStars({
     const newH = canvasSize.current.h;
     if (oldW <= 0 || oldH <= 0) return;
 
-    // Drop stars outside shrunk viewport
-    stars.current = stars.current.filter((s) => s.x < newW && s.y < newH);
-
-    // Compute density and fill newly exposed regions
-    const density = quantity / (oldW * oldH);
-    if (newW > oldW) {
-      const count = Math.round(density * (newW - oldW) * Math.min(newH, oldH));
-      for (let i = 0; i < count; i++) {
-        const s = starInRegion(oldW, 0, newW, Math.min(newH, oldH));
-        stars.current.push(s);
-      }
+    // Scale positions proportionally so visual density matches a fresh render
+    // at the new viewport size without regenerating the star field.
+    const scaleX = newW / oldW;
+    const scaleY = newH / oldH;
+    for (const star of stars.current) {
+      star.x *= scaleX;
+      star.y *= scaleY;
     }
-    if (newH > oldH) {
-      const count = Math.round(density * newW * (newH - oldH));
-      for (let i = 0; i < count; i++) {
-        const s = starInRegion(0, oldH, newW, newH);
-        stars.current.push(s);
-      }
-    }
-  }, [quantity, resizeCanvas, starInRegion]);
+  }, [resizeCanvas]);
 
   const animate = useCallback(
     (_now: number, delta: number) => {

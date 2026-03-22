@@ -18,7 +18,7 @@ import {
   requireMutableAuthenticatedUser,
   requireMutableRequest,
   requireMutableUserAndJsonBody,
-} from "@/lib/server";
+} from "@/lib/server/guards";
 import { rateLimiter } from "@/lib/server/rate-limit";
 
 /** Build a POST NextRequest that passes CSRF same-origin validation. */

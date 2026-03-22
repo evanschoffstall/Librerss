@@ -1,0 +1,45 @@
+"use client";
+
+import { useEffect } from "react";
+
+import { initializeDashboardSelection } from "../services/selection";
+import { type UseDashboardInitializationOptions } from "./dashboard-effects.types";
+
+/** Runs the one-time dashboard boot sequence that resolves the initial selection. */
+export function useDashboardInitialization({
+  fetchAllFeeds,
+  fetchCategoryFeeds,
+  fetchFeed,
+  hasInitializedDashboardRef,
+  loadFeedSources,
+  selectedCategory,
+  setIsCategoriesLoading,
+  setSelectedCategory,
+}: UseDashboardInitializationOptions) {
+  useEffect(() => {
+    if (hasInitializedDashboardRef.current) {
+      return;
+    }
+
+    hasInitializedDashboardRef.current = true;
+
+    void initializeDashboardSelection({
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      loadFeedSources,
+      selectedCategory,
+      setIsCategoriesLoading,
+      setSelectedCategory,
+    });
+  }, [
+    selectedCategory,
+    loadFeedSources,
+    fetchAllFeeds,
+    fetchFeed,
+    fetchCategoryFeeds,
+    setSelectedCategory,
+    setIsCategoriesLoading,
+    hasInitializedDashboardRef,
+  ]);
+}

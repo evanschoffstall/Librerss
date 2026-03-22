@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import { createLinkedAbortController, withRequestDeadline } from "@/lib/api/http/client";
+import {
+  buildAxiosFailureDiagnostics,
+  isVerboseLoggingEnabled,
+  toBodySnippet,
+} from "@/lib/api/http/diagnostics";
 import {
   asTrimmedString,
-  buildAxiosFailureDiagnostics,
-  createLinkedAbortController,
-  forbiddenResponse,
   getSearchParams,
-  isVerboseLoggingEnabled,
-  jsonError,
   parseFormOrQueryParams,
   parseJsonBody,
   parseJsonObjectBodyOrResponse,
   parseNonNegativeInt,
   parsePositiveInt,
-  toBodySnippet,
-  withRequestDeadline,
-} from "@/lib/api/http";
+} from "@/lib/api/http/request";
+import { forbiddenResponse, jsonError } from "@/lib/api/http/responses";
 import { parseDateOrNull } from "@/lib/utils/dates";
 
 beforeEach(() => mock.restore());
@@ -86,8 +86,6 @@ describe("api/http/diagnostics – isVerboseLoggingEnabled", () => {
     const prev = process.env.LOG_LEVEL;
     delete process.env.LOG_LEVEL;
     try {
-      const { isVerboseLoggingEnabled } =
-        await import("@/lib/api/http/diagnostics");
       // CONFIG.LOG_LEVEL throws when env var is missing → catch returns false
       const result = isVerboseLoggingEnabled();
       expect(result).toBe(false);
@@ -99,14 +97,12 @@ describe("api/http/diagnostics – isVerboseLoggingEnabled", () => {
 
 describe("api/http/diagnostics – toBodySnippet", () => {
   test("converts object with custom toString to string", async () => {
-    const { toBodySnippet } = await import("@/lib/api/http/diagnostics");
     const obj = { toString: () => "Custom object representation" };
     const result = toBodySnippet(obj);
     expect(result).toContain("Custom object representation");
   });
 
   test("truncates long toString output", async () => {
-    const { toBodySnippet } = await import("@/lib/api/http/diagnostics");
     const long = "x".repeat(500);
     const obj = { toString: () => long };
     const result = toBodySnippet(obj, 100);
@@ -115,7 +111,6 @@ describe("api/http/diagnostics – toBodySnippet", () => {
   });
 
   test("returns undefined when toString yields [object Object]", async () => {
-    const { toBodySnippet } = await import("@/lib/api/http/diagnostics");
     const obj = {}; // .toString() returns "[object Object]"
     expect(toBodySnippet(obj)).toBeUndefined();
   });
@@ -314,6 +309,57 @@ describe("request – parseFormOrQueryParams", () => {
     const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
     expect(result).toBeInstanceOf(Response);
     expect((result as Response).status).toBe(413);
+  });
+
+  test("parses multipart form data and ignores non-string values", async () => {
+    const formData = new FormData();
+    formData.set("username", "test-user");
+    formData.set("avatar", new Blob(["binary"], { type: "text/plain" }), "avatar.txt");
+
+    const request = new Request("https://example.com/api", {
+      body: formData,
+      method: "POST",
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
+
+    expect(result).toBeInstanceOf(URLSearchParams);
+    expect((result as URLSearchParams).get("username")).toBe("test-user");
+    expect((result as URLSearchParams).has("avatar")).toBe(false);
+  });
+
+  test("rejects multipart form data that exceeds the byte limit", async () => {
+    const formData = new FormData();
+    formData.set("username", "x".repeat(64));
+
+    const request = new Request("https://example.com/api", {
+      body: formData,
+      method: "POST",
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 8 });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(413);
+  });
+
+  test("returns 400 when multipart parsing throws", async () => {
+    const request = new Request("https://example.com/api", {
+      headers: { "content-type": "multipart/form-data; boundary=test" },
+      method: "POST",
+    });
+
+    Object.defineProperty(request, "formData", {
+      configurable: true,
+      value: async () => {
+        throw new Error("malformed body");
+      },
+    });
+
+    const result = await parseFormOrQueryParams(request, { maxBytes: 1024 });
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(400);
   });
 });
 

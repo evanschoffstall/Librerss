@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
       return respondInvalidCredentials();
     }
 
-    logger.info("User logged in successfully", {
+    const info =
+      typeof logger.info === "function" ? logger.info.bind(logger) : undefined;
+    info?.("User logged in successfully", {
       email: result.email,
       userId: result.userId,
     });
@@ -61,11 +63,13 @@ export async function POST(request: NextRequest) {
 function parseLoginPayload(
   payload: Record<string, unknown>,
 ): LoginPayload | Response {
+  const warn =
+    typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;
   const email = normalizeEmailInput(payload.email);
   const password = payload.password;
 
   if (!email || !isValidEmail(email)) {
-    logger.warn("Login attempt with invalid email");
+    warn?.("Login attempt with invalid email");
     return jsonError("A valid email is required", 400);
   }
 
@@ -81,6 +85,8 @@ function parseLoginPayload(
 }
 
 function respondInvalidCredentials(): Response {
-  logger.warn("Failed login attempt");
+  const warn =
+    typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;
+  warn?.("Failed login attempt");
   return jsonError("Invalid email or password", 401);
 }

@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 
+import { createRequire } from "node:module";
 import {
   type NetworkInterfaceInfo,
   networkInterfaces,
 } from "node:os";
+import { dirname, relative, sep } from "node:path";
 
 const ANY_IPV4_HOST_PATTERN = "*.*.*.*";
+const workspaceRequire = createRequire(import.meta.url);
 
 /**
  * Extracts a hostname from an absolute URL-like environment value.
@@ -102,6 +105,21 @@ function buildContentSecurityPolicy() {
 }
 
 /**
+ * Resolves a package directory glob relative to the repository root so
+ * Next.js file tracing includes native/runtime assets from external packages.
+ */
+function resolvePackageTracingGlob(packageJsonSpecifier: string) {
+  const packageDirectory = dirname(
+    workspaceRequire.resolve(packageJsonSpecifier),
+  );
+  const relativeDirectory = relative(import.meta.dirname, packageDirectory)
+    .split(sep)
+    .join("/");
+
+  return `./${relativeDirectory}/**`;
+}
+
+/**
  * Non-secret server config keys whose .env defaults are serialised at build
  * time.  Next.js DefinePlugin bakes the resulting JSON blob into server
  * bundles so values survive into Vercel serverless functions even when .env
@@ -176,6 +194,7 @@ const buildTimeServerConfig = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key] as string]),
 );
+const koffiRuntimeTracingGlob = resolvePackageTracingGlob("koffi/package.json");
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: resolveAllowedDevOrigins(),
@@ -238,6 +257,7 @@ const nextConfig: NextConfig = {
     "/api/**": [
       "./node_modules/header-generator/data_files/**",
       "./node_modules/generative-bayesian-network/**",
+      koffiRuntimeTracingGlob,
     ],
   },
   serverExternalPackages: [
@@ -246,6 +266,8 @@ const nextConfig: NextConfig = {
     "generative-bayesian-network",
     "node-tls-client",
     "koffi",
+    "piscina",
+    "tlsclientwrapper",
   ],
   typescript: {
     tsconfigPath:

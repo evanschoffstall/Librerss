@@ -8,7 +8,7 @@ import {
     fetchHtml,
     PROXY_FINGERPRINT_POOL,
 } from "@/lib/extract";
-import { GotScrapingError } from "@/lib/fetch";
+import { GotScrapingError } from "@/lib/fetch/response";
 
 // Type-cast helpers for injectable fetch dependencies
 const asAxiosGet = (

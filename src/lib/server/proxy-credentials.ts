@@ -152,8 +152,9 @@ function decryptStoredProxyPassword(encryptedPassword: string): string {
  * Resolves the secret used to derive the AES key for proxy password storage.
  */
 function getProxyPasswordEncryptionKey(): Buffer {
-  const configuredSecret =
+  const rawConfiguredSecret =
     process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY?.trim();
+  const configuredSecret = rawConfiguredSecret === "" ? undefined : rawConfiguredSecret;
   const defaultSecret = process.env.DATABASE_URL?.trim();
   const encryptionSecret = configuredSecret ?? defaultSecret;
 

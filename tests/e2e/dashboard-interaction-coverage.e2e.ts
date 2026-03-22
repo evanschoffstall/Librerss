@@ -448,7 +448,6 @@ test.describe("dashboard interaction coverage", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "Copy Link" })).toHaveCount(0);
 
-    await page.waitForTimeout(250);
     await article.hover();
     await article.getByRole("button", { name: "View raw article HTML" }).click();
     await expect(

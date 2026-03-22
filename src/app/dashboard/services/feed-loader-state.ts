@@ -1,0 +1,83 @@
+import { toast } from "sonner";
+
+import type { FeedBatchResult } from "./feed-loader-helpers";
+import type { FeedFetchOptions } from "./selection";
+
+import { getFeedBatchQueryKey } from "./query-keys";
+
+const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
+
+export type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
+
+export function isFreshFeedBatchQuery(
+  queryClient: {
+    getQueryState: (queryKey: FeedBatchQueryKey) =>
+      | undefined
+      | { dataUpdatedAt: number; status?: string };
+  },
+  queryKey: FeedBatchQueryKey,
+  staleTime: number,
+) {
+  if (staleTime <= 0) {
+    return false;
+  }
+
+  const queryState = queryClient.getQueryState(queryKey);
+  if (queryState?.status !== "success") {
+    return false;
+  }
+
+  return Date.now() - queryState.dataUpdatedAt < staleTime;
+}
+
+export function notifyFeedFailures(
+  failedFeeds: FeedBatchResult[],
+  totalFeedCount: number,
+  sourceNamesByUrl: Map<string, string | undefined>,
+  formatFeedFailureLabel: (
+    failedFeeds: FeedBatchResult[],
+    sourceNamesByUrl: Map<string, string | undefined>,
+  ) => string,
+) {
+  if (failedFeeds.length === 0) {
+    return;
+  }
+
+  if (failedFeeds.length === totalFeedCount) {
+    toast.error("Unable to fetch feeds from upstream.", {
+      description: "Try another feed or check back after the next refresh.",
+    });
+    return;
+  }
+
+  const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
+  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
+    description: "Showing cached articles. Check back after the next refresh.",
+  });
+}
+
+export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
+  if (options?.forceRefresh === true) {
+    return 0;
+  }
+
+  if (options?.skipRefresh === true) {
+    return 60_000;
+  }
+
+  if (
+    options?.requestSource === "auto-refresh" ||
+    options?.requestSource === "manual-refresh"
+  ) {
+    return 0;
+  }
+
+  return DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS;
+}
+
+export function shouldShowNoFeedSourcesToast(
+  hasConfiguredFeeds: boolean,
+  usePlaceholderData: boolean,
+): boolean {
+  return !hasConfiguredFeeds && !usePlaceholderData;
+}

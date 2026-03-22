@@ -36,6 +36,7 @@ const mockCtrl = {
   callIndex: 0,
   errorMessage: "mock get error",
   errorOnCall: null as null | number,
+  moduleOpenCalls: 0,
   next(): MockResponse {
     if (this.errorOnCall !== null && this.callIndex === this.errorOnCall) {
       this.callIndex++;
@@ -54,6 +55,7 @@ const mockCtrl = {
     this.callIndex = 0;
     this.errorOnCall = null;
     this.errorMessage = "mock get error";
+    this.moduleOpenCalls = 0;
   },
 
   responses: [] as MockResponse[],
@@ -75,6 +77,7 @@ const mockCtrl = {
 mock.module("tlsclientwrapper", () => ({
   ModuleClient: class {
     open() {
+      mockCtrl.moduleOpenCalls += 1;
       return Promise.resolve();
     }
   },
@@ -100,6 +103,17 @@ beforeEach(() => {
 // ─── ensureTlsClient ─────────────────────────────────────────────────────────
 
 describe("ensureTlsClient", () => {
+  test("reuses a single initialization across concurrent first calls", async () => {
+    const results = await Promise.all([
+      ensureTlsClient(),
+      ensureTlsClient(),
+      ensureTlsClient(),
+      ensureTlsClient(),
+    ]);
+    expect(results).toEqual([true, true, true, true]);
+    expect(mockCtrl.moduleOpenCalls).toBe(1);
+  });
+
   test("initialises TLS module and returns true on first call", async () => {
     const result = await ensureTlsClient();
     expect(result).toBe(true);

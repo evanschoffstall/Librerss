@@ -3,6 +3,7 @@ import { promises as dns } from "dns";
 import { logger } from "@/lib/logger";
 
 let tlsReady: boolean | null = null;
+let tlsInitializationPromise: null | Promise<boolean> = null;
 
 interface WrapperModuleClient {
   open: () => Promise<void>;
@@ -50,23 +51,31 @@ interface RawResponse {
 
 export async function ensureTlsClient(): Promise<boolean> {
   if (tlsReady !== null) return tlsReady;
+  if (tlsInitializationPromise) return tlsInitializationPromise;
 
-  try {
-    const { ModuleClient } = (await import("tlsclientwrapper")) as unknown as {
-      ModuleClient: new () => WrapperModuleClient;
-    };
-    moduleClient = new ModuleClient();
-    await moduleClient.open();
-    tlsReady = true;
-    logger.info("tlsclientwrapper initialized (bogdanfinn TLS backend active)");
-    return true;
-  } catch (err) {
-    tlsReady = false;
-    logger.error("TLS client failed to initialize", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return false;
-  }
+  tlsInitializationPromise = (async () => {
+    try {
+      await import("koffi");
+      const { ModuleClient } = (await import("tlsclientwrapper")) as unknown as {
+        ModuleClient: new () => WrapperModuleClient;
+      };
+      moduleClient = new ModuleClient();
+      await moduleClient.open();
+      tlsReady = true;
+      logger.info("tlsclientwrapper initialized (bogdanfinn TLS backend active)");
+      return true;
+    } catch (err) {
+      tlsReady = false;
+      logger.error("TLS client failed to initialize", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    } finally {
+      tlsInitializationPromise = null;
+    }
+  })();
+
+  return tlsInitializationPromise;
 }
 
 export async function tlsClientFetch(

@@ -4,7 +4,11 @@ import { resolvesToBlockedAddress } from "@/lib/core/dns-cache";
 import { SOCKS_PROTOCOLS } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import { isBlockedHost, normalizeHostname } from "@/lib/utils/ssrf";
-import { redactUrlForLogs, stripUrlCredentials } from "@/lib/utils/url";
+import {
+  ensureProxyUrlHasExplicitPort,
+  redactUrlForLogs,
+  stripUrlCredentials,
+} from "@/lib/utils/url";
 
 export type ProxyStatus = "checking" | "reachable" | "unreachable";
 
@@ -166,7 +170,7 @@ export async function normalizeProxyUrl(
       "Proxy URL normalization: explicit SOCKS scheme, skipping detection",
       { input: redactUrlForLogs(input) },
     );
-    return stripUrlCredentials(input);
+    return stripUrlCredentials(ensureProxyUrlHasExplicitPort(input));
   }
 
   // http/https or bare — auto-detect.

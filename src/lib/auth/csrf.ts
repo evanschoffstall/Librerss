@@ -1,11 +1,9 @@
-import type { NextResponse } from "next/server";
-
 import { forbiddenResponse } from "@/lib/api/http";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site"]);
 
-export function requireSameOrigin(request: Request): NextResponse | null {
+export function requireSameOrigin(request: Request): null | Response {
   const method = request.method.toUpperCase();
   if (SAFE_METHODS.has(method)) {
     return null;

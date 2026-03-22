@@ -7,10 +7,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { AccountService } from "@/lib/api/account-service";
+import { AccountService } from "@/lib";
 import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 
 import { MotionSpinner } from "../MotionSpinner";
+
+
 
 interface SettingsAccountSectionProps {
   onAccountDeleted: () => void;

@@ -174,6 +174,20 @@ describe("isBlockedResolvedAddress", () => {
     const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
     expect(isBlockedResolvedAddress("::ffff:8.8.8.8")).toBe(false);
   });
+
+  test("ignores malformed IPv4-mapped IPv6 values instead of treating them as mapped IPv4", async () => {
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    expect(isBlockedResolvedAddress("::ffff:127.0.0.999")).toBe(false);
+    expect(isBlockedResolvedAddress("::ffff:1:2:3")).toBe(false);
+    expect(isBlockedResolvedAddress("::ffff:1:2:3:4:5:6")).toBe(false);
+  });
+
+  test("handles invalid IPv6 compression safely", async () => {
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    expect(isBlockedResolvedAddress("2001::db8::1")).toBe(false);
+    expect(isBlockedResolvedAddress("1:2")).toBe(false);
+    expect(isBlockedResolvedAddress("2001:db8:1:2:3:4:5:")).toBe(false);
+  });
 });
 
 // ─── 4. HTML sanitization / XSS prevention ───────────────────────────────────
@@ -727,19 +741,124 @@ describe("RateLimiter trusted proxy extraction", () => {
       const config = { maxAttempts: 1, windowMs: 60_000 };
       const requestA = new Request("https://example.com/api/auth/login", {
         headers: {
-          "x-forwarded-for": "203.0.113.10, 10.0.0.5",
+          "x-forwarded-for": "8.8.8.8, 10.0.0.5",
         },
         method: "POST",
       });
       const requestB = new Request("https://example.com/api/auth/login", {
         headers: {
-          "x-forwarded-for": "198.51.100.20, 10.0.0.5",
+          "x-forwarded-for": "1.1.1.1, 10.0.0.5",
         },
         method: "POST",
       });
 
       expect(limiter.check(requestA, "login", config)).toBeNull();
       expect(limiter.check(requestB, "login", config)).toBeNull();
+    } finally {
+      limiter.destroy();
+      if (typeof previous === "string") {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+    }
+  });
+
+  test("falls back to the shared unknown bucket for malformed IPv6 client hops", async () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "1";
+
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const limiter = new RateLimiter();
+
+    try {
+      const config = { maxAttempts: 1, windowMs: 60_000 };
+
+      const malformedCompression = new Request("https://example.com/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "2001::db8::1, 10.0.0.5",
+        },
+        method: "POST",
+      });
+      const tooShort = new Request("https://example.com/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "1:2, 10.0.0.5",
+        },
+        method: "POST",
+      });
+
+      expect(limiter.check(malformedCompression, "login", config)).toBeNull();
+      const response = limiter.check(tooShort, "login", config);
+      expect(response?.status).toBe(429);
+    } finally {
+      limiter.destroy();
+      if (typeof previous === "string") {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+    }
+  });
+
+  test("treats malformed non-compressed IPv6 tokens as unknown", async () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "1";
+
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const limiter = new RateLimiter();
+
+    try {
+      const config = { maxAttempts: 1, windowMs: 60_000 };
+      const trailingColon = new Request("https://example.com/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "2001:db8:1:2:3:4:5:, 10.0.0.5",
+        },
+        method: "POST",
+      });
+      const validIpv6 = new Request("https://example.com/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "2001:db8:1:2:3:4:5:6, 10.0.0.5",
+        },
+        method: "POST",
+      });
+
+      expect(limiter.check(trailingColon, "login", config)).toBeNull();
+      expect(limiter.check(validIpv6, "login", config)).toBeNull();
+    } finally {
+      limiter.destroy();
+      if (typeof previous === "string") {
+        process.env.TRUSTED_PROXY_COUNT = previous;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+    }
+  });
+
+  test("defaults invalid TRUSTED_PROXY_COUNT values to the shared unknown bucket", async () => {
+    const previous = process.env.TRUSTED_PROXY_COUNT;
+    process.env.TRUSTED_PROXY_COUNT = "not-a-number";
+
+    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const limiter = new RateLimiter();
+
+    try {
+      const config = { maxAttempts: 1, windowMs: 60_000 };
+      const requestA = new Request("https://example.com/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "10.0.0.5",
+        },
+        method: "POST",
+      });
+      const requestB = new Request("https://example.com/api/auth/login", {
+        headers: {
+          "x-forwarded-for": "10.0.0.5",
+        },
+        method: "POST",
+      });
+
+      expect(limiter.check(requestA, "login", config)).toBeNull();
+      const response = limiter.check(requestB, "login", config);
+      expect(response?.status).toBe(429);
     } finally {
       limiter.destroy();
       if (typeof previous === "string") {

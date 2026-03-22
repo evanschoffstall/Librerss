@@ -13,6 +13,11 @@ import {
   computeNextOrderedCategoryLabels,
 } from "@/app/dashboard/services/category-display";
 import {
+  getCategoryRemovalTarget,
+  removeCategoryFromLocalState,
+  restoreSelectedCategoryFromSourceUrl,
+} from "@/app/dashboard/services/category-operation-state";
+import {
   buildCategoriesFromSources,
   buildDefaultCategories,
   collectKnownCategoryLabels,
@@ -28,6 +33,32 @@ import {
   toDistinctCategoryLabels,
 } from "@/app/dashboard/services/category-tree";
 import {
+  buildDashboardControllerState,
+  buildDashboardSidebarContentProps,
+} from "@/app/dashboard/services/dashboard-controller-state";
+import {
+  autoRefreshDashboardSelection,
+  prefetchDashboardCategory,
+  prefetchDashboardFeed,
+  refreshDashboardSelection,
+  selectDashboardCategory,
+  selectDashboardFeed,
+} from "@/app/dashboard/services/dashboard-refresh-requests";
+import { shouldResetExpandedArticle } from "@/app/dashboard/services/dashboard-selection-state";
+import {
+  buildDashboardViewModel,
+  filterArticlesBySearchTerm,
+} from "@/app/dashboard/services/dashboard-view-model";
+import {
+  isFreshFeedBatchQuery,
+  resolveFeedBatchStaleTime,
+} from "@/app/dashboard/services/feed-loader-state";
+import {
+  normalizeFeedSourceInput,
+  resolvePostEnabledToggleSelection,
+  resolvePostRemovalSelection,
+} from "@/app/dashboard/services/feed-source-state";
+import {
   getFeedBatchQueryKey,
   getFeedSourceTreeQueryKey,
 } from "@/app/dashboard/services/query-keys";
@@ -40,6 +71,11 @@ import {
   initializeDashboardSelection,
   refreshCurrentSelection,
 } from "@/app/dashboard/services/selection";
+import {
+  formatElapsed,
+  isCompatibilityResultsCache,
+  previewText,
+} from "@/app/dashboard/services/settings-proxy";
 import {
   type Article,
   type CategoryTreeNode,
@@ -375,6 +411,30 @@ describe("dashboard refresh policy services", () => {
   });
 });
 
+describe("feed loader state services", () => {
+  test("resolves selection freshness windows by request type", () => {
+    expect(resolveFeedBatchStaleTime({ forceRefresh: true })).toBe(0);
+    expect(resolveFeedBatchStaleTime({ skipRefresh: true })).toBe(60_000);
+    expect(resolveFeedBatchStaleTime({ requestSource: "manual-refresh" })).toBe(
+      0,
+    );
+    expect(resolveFeedBatchStaleTime()).toBeGreaterThan(0);
+  });
+
+  test("detects whether a cached feed batch query is still fresh", () => {
+    const queryKey = getFeedBatchQueryKey("signature", {});
+    const queryClient = {
+      getQueryState: mock(() => ({
+        dataUpdatedAt: Date.now() - 1_000,
+        status: "success",
+      })),
+    };
+
+    expect(isFreshFeedBatchQuery(queryClient, queryKey, 5_000)).toBe(true);
+    expect(isFreshFeedBatchQuery(queryClient, queryKey, 0)).toBe(false);
+  });
+});
+
 describe("dashboard query-key services", () => {
   test("builds stable feed batch keys for refresh and skip-refresh requests", () => {
     const knownLastFetchedAtByUrl = new Map([
@@ -422,6 +482,35 @@ describe("dashboard query-key services", () => {
 });
 
 describe("dashboard selection services", () => {
+  test("resets the expanded article only when category or filter changes", () => {
+    expect(
+      shouldResetExpandedArticle({
+        articleFilter: "all",
+        previousArticleFilter: "all",
+        previousSelectedCategory: "tech",
+        selectedCategory: "tech",
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldResetExpandedArticle({
+        articleFilter: "read",
+        previousArticleFilter: "all",
+        previousSelectedCategory: "tech",
+        selectedCategory: "tech",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldResetExpandedArticle({
+        articleFilter: "all",
+        previousArticleFilter: "all",
+        previousSelectedCategory: "tech",
+        selectedCategory: "design",
+      }),
+    ).toBe(true);
+  });
+
   test("initializes the all-feeds selection and always releases category loading", async () => {
     const categories = [makeCategoryNode("Tech")];
     const fetchAllFeeds = mock(async () => {});
@@ -601,5 +690,462 @@ describe("dashboard selection services", () => {
       requestSource: undefined,
       skipRefresh: undefined,
     });
+  });
+
+  test("delegates dashboard refresh requests to the shared selection service", () => {
+    const fetchAllFeeds = mock(async () => {});
+    const fetchCategoryFeeds = mock(async () => {});
+    const fetchFeed = mock(async () => {});
+    const onBeforeRefresh = mock(() => {});
+    const selectedCategoryNode = makeCategoryNode("Tech");
+
+    refreshDashboardSelection({
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      onBeforeRefresh,
+      selectedCategory: selectedCategoryNode.key,
+      selectedCategoryNode,
+    });
+    autoRefreshDashboardSelection({
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      onBeforeRefresh,
+      selectedCategory: selectedCategoryNode.key,
+      selectedCategoryNode,
+    });
+
+    expect(onBeforeRefresh).toHaveBeenCalledTimes(2);
+    expect(fetchCategoryFeeds).toHaveBeenNthCalledWith(1, selectedCategoryNode, {
+      forceRefresh: true,
+      keepExistingFeed: true,
+      requestSource: "manual-refresh",
+      skipRefresh: undefined,
+    });
+    expect(fetchCategoryFeeds).toHaveBeenNthCalledWith(2, selectedCategoryNode, {
+      forceRefresh: false,
+      keepExistingFeed: true,
+      requestSource: "auto-refresh",
+      skipRefresh: undefined,
+    });
+  });
+
+  test("handles dashboard feed and category selection requests", () => {
+    const fetchAllFeeds = mock(async () => {});
+    const fetchCategoryFeeds = mock(async () => {});
+    const fetchFeed = mock(async () => {});
+    const setIsMobileSidebarOpen = mock(() => {});
+    const setSelectedCategory = mock(() => {});
+
+    const feedNode = makeFeedNode({ category: "Tech", id: 10, key: "feed-10" });
+    selectDashboardFeed(feedNode, {
+      fetchFeed,
+      setIsMobileSidebarOpen,
+      setSelectedCategory,
+    });
+    expect(setSelectedCategory).toHaveBeenCalledWith(feedNode.key);
+    expect(setIsMobileSidebarOpen).toHaveBeenCalledWith(false);
+    expect(fetchFeed).toHaveBeenCalledWith(feedNode.data?.url, {
+      requestSource: "sidebar-feed-select",
+    });
+
+    const disabledFeedNode = makeFeedNode({
+      category: "Tech",
+      enabled: false,
+      id: 11,
+      key: "feed-11",
+    });
+    selectDashboardFeed(disabledFeedNode, {
+      fetchFeed,
+      setIsMobileSidebarOpen,
+      setSelectedCategory,
+    });
+    expect(fetchFeed).toHaveBeenCalledTimes(1);
+
+    const categoryNode = makeCategoryNode("Tech", [feedNode]);
+    selectDashboardCategory(categoryNode, {
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      setIsMobileSidebarOpen,
+      setSelectedCategory,
+    });
+    expect(fetchCategoryFeeds).toHaveBeenCalledWith(categoryNode, {
+      requestSource: "sidebar-category-select",
+    });
+
+    selectDashboardCategory(
+      { key: ALL_FEEDS_NODE_KEY, label: "All feeds" },
+      {
+        fetchAllFeeds,
+        fetchCategoryFeeds,
+        setIsMobileSidebarOpen,
+        setSelectedCategory,
+      },
+    );
+    expect(fetchAllFeeds).toHaveBeenCalledWith(undefined, {
+      requestSource: "sidebar-category-select",
+    });
+  });
+
+  test("prefetches dashboard feed and category requests only when selection changes", () => {
+    const prefetchAllFeeds = mock(async () => {});
+    const prefetchCategoryFeeds = mock(async () => {});
+    const prefetchFeed = mock(async () => {});
+    const feedNode = makeFeedNode({ category: "Tech", id: 1, key: "feed-1" });
+    const categoryNode = makeCategoryNode("Tech", [feedNode]);
+
+    prefetchDashboardFeed(feedNode, {
+      prefetchFeed,
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+    });
+    expect(prefetchFeed).toHaveBeenCalledWith(feedNode.data?.url, {
+      requestSource: "sidebar-feed-prefetch",
+    });
+
+    prefetchDashboardFeed(feedNode, {
+      prefetchFeed,
+      selectedCategory: feedNode.key,
+    });
+    expect(prefetchFeed).toHaveBeenCalledTimes(1);
+
+    prefetchDashboardCategory(categoryNode, {
+      prefetchAllFeeds,
+      prefetchCategoryFeeds,
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+    });
+    expect(prefetchCategoryFeeds).toHaveBeenCalledWith(categoryNode, {
+      requestSource: "sidebar-category-prefetch",
+    });
+
+    prefetchDashboardCategory(
+      { key: ALL_FEEDS_NODE_KEY, label: "All feeds" },
+      {
+        prefetchAllFeeds,
+        prefetchCategoryFeeds,
+        selectedCategory: categoryNode.key,
+      },
+    );
+    expect(prefetchAllFeeds).toHaveBeenCalledWith(undefined, {
+      requestSource: "sidebar-category-prefetch",
+    });
+  });
+});
+
+describe("category operation state services", () => {
+  test("chooses a non-removed category target and rehomes local feeds", () => {
+    const workFeed = makeFeedNode({ category: "Work", id: 1 });
+    const categories = [
+      makeCategoryNode("Work", [workFeed]),
+      makeCategoryNode("Personal"),
+    ];
+
+    expect(
+      getCategoryRemovalTarget(categories, ["Work", "Personal"], "Work"),
+    ).toBe("Personal");
+
+    const nextCategories = removeCategoryFromLocalState(
+      categories,
+      "Work",
+      "Archive",
+    );
+
+    expect(nextCategories.map((category) => category.label)).toEqual([
+      "Personal",
+      "Archive",
+    ]);
+    expect(nextCategories[1]?.children?.[0]?.data?.category).toBe("Archive");
+  });
+
+  test("restores the selected category from a selected source URL", () => {
+    const feedNode = makeFeedNode({ category: "Tech", id: 1, key: "feed-1" });
+    const setSelectedCategory = mock(() => {});
+
+    restoreSelectedCategoryFromSourceUrl({
+      refreshedCategories: [makeCategoryNode("Tech", [feedNode])],
+      selectedSourceUrl: feedNode.data?.url,
+      setSelectedCategory,
+    });
+
+    expect(setSelectedCategory).toHaveBeenCalledWith(feedNode.key);
+  });
+});
+
+describe("feed source state services", () => {
+  test("normalizes feed source inputs before persistence", () => {
+    expect(normalizeFeedSourceInput(" Feed ", " https://example.com/feed.xml ")).toEqual({
+      name: "Feed",
+      url: "https://example.com/feed.xml",
+    });
+  });
+
+  test("resolves post-removal selection fallbacks", () => {
+    const feedNode = makeFeedNode({ category: "Tech", id: 1, key: "feed-1" });
+    const categories = [makeCategoryNode("Tech", [feedNode])];
+    const feedUrl = feedNode.data?.url ?? "";
+
+    expect(resolvePostRemovalSelection([], "feed-1", "feed-1")).toEqual({
+      type: "clear",
+    });
+
+    expect(
+      resolvePostRemovalSelection(categories, "feed-1", "feed-1"),
+    ).toEqual({
+      feedUrl,
+      nextSelectedCategory: feedNode.key,
+      type: "feed",
+    });
+  });
+
+  test("resolves post-enabled-toggle selection targets", () => {
+    const feedNode = makeFeedNode({ category: "Tech", id: 1, key: "feed-1" });
+    const categories = [makeCategoryNode("Tech", [feedNode])];
+    const feedUrl = feedNode.data?.url ?? "";
+
+    expect(
+      resolvePostEnabledToggleSelection(
+        categories,
+        "feed-1",
+        feedUrl,
+        false,
+        "feed-1",
+      ),
+    ).toEqual({
+      nextSelectedCategory: ALL_FEEDS_NODE_KEY,
+      type: "all-feeds",
+    });
+
+    expect(
+      resolvePostEnabledToggleSelection(
+        categories,
+        ALL_FEEDS_NODE_KEY,
+        feedUrl,
+        true,
+        "feed-1",
+      ),
+    ).toEqual({
+      feedUrl,
+      type: "feed",
+    });
+  });
+});
+
+describe("settings proxy services", () => {
+  test("formats elapsed timestamps and truncates previews", () => {
+    expect(formatElapsed(Date.now() - 45_000, Date.now())).toMatch(/s ago$/);
+    expect(previewText("x".repeat(100))).toEndWith("...");
+    expect(previewText("short")).toBe("short");
+  });
+
+  test("recognizes a compatibility cache payload shape", () => {
+    expect(
+      isCompatibilityResultsCache({ checkedAt: Date.now(), results: [] }),
+    ).toBe(true);
+    expect(isCompatibilityResultsCache(null)).toBe(false);
+    expect(isCompatibilityResultsCache({ checkedAt: Date.now() })).toBe(false);
+  });
+});
+
+// ─── buildDashboardViewModel ─────────────────────────────────────────────────
+
+describe("buildDashboardViewModel", () => {
+  const baseInput = {
+    articleFilter: "all" as ArticleFilter,
+    categories: [
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", id: 1, label: "Feed 1" }),
+        makeFeedNode({ category: "Tech", enabled: false, id: 2, label: "Disabled Feed" }),
+      ]),
+    ],
+    collapsingArticleKeys: [] as string[],
+    customCategoryLabels: ["Tech"],
+    expandedArticleKey: null as null | string,
+    feed: [
+      makeArticle({ id: 1, link: "https://example.com/a1", title: "First" }),
+      makeArticle({ id: 2, link: "https://example.com/a2", title: "Second" }),
+    ],
+    orderedCategoryLabels: ["Tech"],
+    searchTerm: "",
+    selectedCategory: ALL_FEEDS_NODE_KEY,
+  };
+
+  test("returns all articles when no filter or search is active", () => {
+    const vm = buildDashboardViewModel(baseInput);
+    expect(vm.filteredFeed).toHaveLength(2);
+    expect(vm.sidebarCategories.length).toBeGreaterThanOrEqual(1);
+    expect(vm.displayCategories.map((category) => category.label)).toContain(
+      "Tech",
+    );
+  });
+
+  test("filters articles by search term", () => {
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      searchTerm: "First",
+    });
+    expect(vm.filteredFeed).toHaveLength(1);
+    expect(vm.filteredFeed[0]!.title).toBe("First");
+  });
+
+  test("excludes disabled feeds from sidebar categories", () => {
+    const vm = buildDashboardViewModel(baseInput);
+    const techCategory = vm.sidebarCategories.find(
+      (c) => c.label === "Tech",
+    );
+    expect(techCategory).toBeDefined();
+    const feedLabels = (techCategory!.children ?? []).map((c) => c.label);
+    expect(feedLabels).not.toContain("Disabled Feed");
+  });
+
+  test("resolves selectedFeedUrl to undefined for disabled feeds", () => {
+    const disabledFeedKey = makeFeedNode({
+      category: "Tech",
+      enabled: false,
+      id: 2,
+    }).key;
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      selectedCategory: disabledFeedKey,
+    });
+    expect(vm.selectedFeedUrl).toBeUndefined();
+  });
+
+  test("resolves selectedFeed label for valid category", () => {
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+    });
+    expect(vm.selectedFeed).toBeDefined();
+  });
+});
+
+describe("dashboard controller state services", () => {
+  test("builds stable sidebar props for dashboard rails", () => {
+    const sidebarCategories = [makeCategoryNode("Tech")];
+    const sidebarContentProps = buildDashboardSidebarContentProps({
+      isCategoriesLoading: false,
+      isSidebarVisible: true,
+      onCategoryClick: mock(() => {}),
+      onCategoryPrefetch: mock(() => {}),
+      onFeedClick: mock(() => {}),
+      onFeedPrefetch: mock(() => {}),
+      selectedCategory: "tech",
+      showFavicons: true,
+      sidebarCategories,
+    });
+
+    expect(sidebarContentProps.sidebarCategories).toEqual(sidebarCategories);
+    expect(sidebarContentProps.selectedCategory).toBe("tech");
+    expect(sidebarContentProps.showFavicons).toBe(true);
+  });
+
+  test("assembles grouped dashboard controller surfaces", () => {
+    const sidebarContentProps = buildDashboardSidebarContentProps({
+      isCategoriesLoading: false,
+      isSidebarVisible: true,
+      onCategoryClick: mock(() => {}),
+      onCategoryPrefetch: mock(() => {}),
+      onFeedClick: mock(() => {}),
+      onFeedPrefetch: mock(() => {}),
+      selectedCategory: "all-feeds",
+      showFavicons: false,
+      sidebarCategories: [makeCategoryNode("Tech")],
+    });
+
+    const controllerState = buildDashboardControllerState({
+      feedList: {
+        articleFilter: "all",
+        articlesPerPage: 6,
+        collapsingArticles: {},
+        expandedArticleKey: null,
+        feedViewKey: "all-feeds:all",
+        filteredFeed: [],
+        hydratedArticleLinks: {},
+        hydratingArticleLinks: {},
+        isCollapseScrollRestoreActive: false,
+        isInitialLoading: false,
+        isRefreshing: false,
+        onArticleExpandedSwipeRead: mock(() => {}),
+        onArticlePrepareExpand: mock(() => {}),
+        onArticleSwipeRead: mock(() => {}),
+        onArticleToggle: mock(() => {}),
+        onArticleToggleRead: mock(() => {}),
+        onArticleToggleStarred: mock(() => {}),
+        searchTerm: "",
+        showFavicons: false,
+        updatingArticleState: {},
+      },
+      settings: {
+        articlesPerPage: 6,
+        autoRefreshIntervalMinutes: 30,
+        backgroundMode: "none",
+        categories: [makeCategoryNode("Tech")],
+        categoryTree: { addCategory: mock(() => true) },
+        distillStrategy: "readability",
+        handleCloseSettings: mock(() => {}),
+        onBackgroundModeChange: mock(() => {}),
+        onDistillStrategyChange: mock(() => {}),
+        selectedCategory: "all-feeds",
+        setArticlesPerPage: mock(() => {}),
+        setAutoRefreshIntervalMinutes: mock(() => {}),
+        setShowFavicons: mock(() => {}),
+        showFavicons: false,
+        showSettingsModal: true,
+        usePlaceholderData: false,
+      },
+      sidebar: {
+        isMobileSidebarOpen: false,
+        isSidebarVisible: true,
+        setIsMobileSidebarOpen: mock(() => {}),
+        sidebarContentProps,
+        sidebarScrollRef: mock(() => {}),
+      },
+      topBar: {
+        articleFilter: "all",
+        lastRefreshLabel: "Updated just now",
+        loading: false,
+        setArticleFilter: mock(() => {}),
+      },
+    });
+
+    expect(controllerState.feedList.feedViewKey).toBe("all-feeds:all");
+    expect(controllerState.settings.showSettingsModal).toBe(true);
+    expect(controllerState.sidebar.sidebarContentProps).toEqual(
+      sidebarContentProps,
+    );
+    expect(controllerState.topBar.lastRefreshLabel).toBe(
+      "Updated just now",
+    );
+  });
+});
+
+// ─── filterArticlesBySearchTerm ──────────────────────────────────────────────
+
+describe("filterArticlesBySearchTerm", () => {
+  const articles = [
+    makeArticle({ content: "JavaScript tutorial", id: 1, title: "Learn JS" }),
+    makeArticle({ content: "Python guide", id: 2, title: "Learn Python" }),
+    makeArticle({ content: "Rust systems", id: 3, title: "Low-level Rust" }),
+  ];
+
+  test("returns all articles for empty search", () => {
+    expect(filterArticlesBySearchTerm(articles, "")).toEqual(articles);
+    expect(filterArticlesBySearchTerm(articles, "  ")).toEqual(articles);
+  });
+
+  test("matches by title case-insensitively", () => {
+    const result = filterArticlesBySearchTerm(articles, "learn js");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.title).toBe("Learn JS");
+  });
+
+  test("matches by content", () => {
+    const result = filterArticlesBySearchTerm(articles, "systems");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.title).toBe("Low-level Rust");
+  });
+
+  test("returns empty for no match", () => {
+    expect(filterArticlesBySearchTerm(articles, "golang")).toEqual([]);
   });
 });

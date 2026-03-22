@@ -82,8 +82,10 @@ export class RateLimiter {
     // Check if limit exceeded
     if (entry.count > config.maxAttempts) {
       const resetInSeconds = Math.ceil((entry.resetAt - now) / 1000);
+      const warn =
+        typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;
 
-      logger.warn("Rate limit exceeded", {
+      warn?.("Rate limit exceeded", {
         clientId,
         count: entry.count,
         key,
@@ -152,7 +154,9 @@ export class RateLimiter {
       for (const [key] of toRemove) {
         this.store.delete(key);
       }
-      logger.warn("Rate limiter evicted entries to enforce size bound", {
+      const warn =
+        typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;
+      warn?.("Rate limiter evicted entries to enforce size bound", {
         evicted: toRemove.length,
         expiredRemoved: removed,
       });
@@ -172,7 +176,11 @@ export class RateLimiter {
       if (!Number.isFinite(raw)) {
         const configuredProxyCount =
           process.env.TRUSTED_PROXY_COUNT ?? "undefined";
-        logger.error(
+        const logError =
+          typeof logger.error === "function"
+            ? logger.error.bind(logger)
+            : undefined;
+        logError?.(
           `Invalid TRUSTED_PROXY_COUNT: "${configuredProxyCount}". Defaulting to 1.`,
         );
         this._trustedProxyCount = 1;

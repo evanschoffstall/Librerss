@@ -283,7 +283,11 @@ function handleUpstreamFeedError(
   const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
   const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
   const toJsonError = deps.jsonErrorFn ?? jsonError;
-  const warn = deps.warnFn ?? logger.warn.bind(logger);
+  const warn =
+    deps.warnFn ??
+    (typeof logger.warn === "function"
+      ? logger.warn.bind(logger)
+      : () => undefined);
   const urlSuffix = safeUrl ? ` for ${safeUrl}` : "";
   const verboseLoggingEnabled = context?.verboseLoggingEnabled ?? false;
   const feedAttemptId = context?.feedAttemptId;

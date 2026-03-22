@@ -84,7 +84,10 @@ test.describe("dashboard preview mode", () => {
       .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
       .toBeGreaterThan(0);
 
-    await page.getByRole("button", { name: "Open feeds" }).click();
+    const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
+    if (await openFeedsButton.isVisible()) {
+      await openFeedsButton.click();
+    }
     await page
       .getByRole("button", { name: "NASA www.nasa.gov" })
       .click();
@@ -94,6 +97,13 @@ test.describe("dashboard preview mode", () => {
       .toBe(0);
     await expect(allButton).toHaveAttribute("aria-pressed", "true");
     await expect(unreadButton).toHaveAttribute("aria-pressed", "false");
+
+    await expect
+      .poll(async () => {
+        const m = await readFeedViewportMetrics(page);
+        return m.scrollHeight - m.clientHeight;
+      })
+      .toBeGreaterThan(24);
 
     const nasaViewportMetrics = await readFeedViewportMetrics(page);
     const nasaTargetScrollTop = Math.max(

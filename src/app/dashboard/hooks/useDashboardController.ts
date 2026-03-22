@@ -8,13 +8,18 @@ import {
   useRef,
 } from "react";
 
-import { type Article } from "@/lib";
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
 import { type BackgroundMode } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
+import {
+  buildDashboardControllerState,
+  buildDashboardSidebarContentProps,
+} from "../services/dashboard-controller-state";
+import { shouldResetExpandedArticle } from "../services/dashboard-selection-state";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
 import { useArticleActions } from "./useArticleActions";
+import { useDashboardArticleCallbacks } from "./useDashboardArticleCallbacks";
 import { useDashboardCategoryTree } from "./useDashboardCategoryTree";
 import { useDashboardEffects } from "./useDashboardEffects";
 import { useDashboardEvents } from "./useDashboardEvents";
@@ -72,6 +77,7 @@ export function useDashboardController({
 
   const {
     articleFilter,
+    articlesPerPage,
     autoRefreshIntervalMinutes,
     categories,
     expandedArticleKey,
@@ -92,6 +98,7 @@ export function useDashboardController({
   } = dashboardState;
   const {
     setArticleFilter,
+    setArticlesPerPage,
     setAutoRefreshIntervalMinutes,
     setCategories,
     setExpandedArticleKey,
@@ -200,35 +207,16 @@ export function useDashboardController({
   const isFeedListInitialLoading = loading && feed.length === 0;
   /** Refreshes should preserve visible articles and only signal background work. */
   const isFeedListRefreshing = loading && feed.length > 0;
-
-  const onArticleToggle = useCallback(
-    (article: Article) => { handleArticleToggle(article); },
-    [handleArticleToggle],
-  );
-  const onArticlePrepareExpand = useCallback(
-    (article: Article) => {
-      capturePreExpandSnapshot(article);
-    },
-    [capturePreExpandSnapshot],
-  );
-  const onArticleToggleRead = useCallback(
-    (article: Article) => void handleToggleReadState(article),
-    [handleToggleReadState],
-  );
-  const onArticleExpandedSwipeRead = useCallback(
-    (article: Article) => {
-      handleExpandedSwipeRead(article);
-    },
-    [handleExpandedSwipeRead],
-  );
-  const onArticleSwipeRead = useCallback(
-    (article: Article) => void handleSwipeRead(article),
-    [handleSwipeRead],
-  );
-  const onArticleToggleStarred = useCallback(
-    (article: Article) => void handleToggleStarredState(article),
-    [handleToggleStarredState],
-  );
+  const articleCallbacks = useDashboardArticleCallbacks({
+    articleFilter,
+    capturePreExpandSnapshot,
+    handleArticleToggle,
+    handleExpandedSwipeRead,
+    handleSwipeRead,
+    handleToggleReadState,
+    handleToggleStarredState,
+    selectedCategory,
+  });
 
   /**
    * Full derived dashboard model used by the sidebar, feed list, and settings.
@@ -264,7 +252,6 @@ export function useDashboardController({
   );
 
   const {
-    categoryOptions,
     displayCategories,
     filteredFeed,
     selectedFeed,
@@ -316,30 +303,22 @@ export function useDashboardController({
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
-  const feedScrollRootRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const categoryChanged =
-      previousSelectedCategoryRef.current !== selectedCategory;
-    const filterChanged = previousArticleFilterRef.current !== articleFilter;
-
-    if (categoryChanged || filterChanged) {
+    if (
+      shouldResetExpandedArticle({
+        articleFilter,
+        previousArticleFilter: previousArticleFilterRef.current,
+        previousSelectedCategory: previousSelectedCategoryRef.current,
+        selectedCategory,
+      })
+    ) {
       setExpandedArticleKey(null);
     }
 
     previousSelectedCategoryRef.current = selectedCategory;
     previousArticleFilterRef.current = articleFilter;
   }, [articleFilter, selectedCategory, setExpandedArticleKey]);
-
-  /**
-   * Keeps a live handle to the feed scroll root for the virtualized list.
-   */
-  const mergedFeedScrollRef = useCallback(
-    (node: HTMLElement | null) => {
-      feedScrollRootRef.current = node;
-    },
-    [],
-  );
 
   const {
     autoRefreshFeedList,
@@ -361,9 +340,6 @@ export function useDashboardController({
     setIsMobileSidebarOpen,
     setSelectedCategory,
   });
-
-  const feedViewKey = `${selectedCategory}:${articleFilter}`;
-
   useDashboardIntervals({
     autoRefreshFeedList,
     autoRefreshIntervalMinutes,
@@ -385,7 +361,9 @@ export function useDashboardController({
     onOpenSettings: useCallback(() => {
       setShowSettingsModal(true);
     }, [setShowSettingsModal]),
-    onRefresh: handleRefreshSelection,
+    onRefresh: () => {
+      handleRefreshSelection();
+    },
     onSearchChange: setSearchTerm,
     selectedCategory,
     selectedCategoryNode,
@@ -402,17 +380,18 @@ export function useDashboardController({
    * event bindings and derived category projections on every render.
    */
   const sidebarContentProps = useMemo(
-    () => ({
-      isCategoriesLoading,
-      isSidebarVisible,
-      onCategoryClick: handleCategoryClick,
-      onCategoryPrefetch: handleCategoryPrefetch,
-      onFeedClick: handleFeedClick,
-      onFeedPrefetch: handleFeedPrefetch,
-      selectedCategory,
-      showFavicons,
-      sidebarCategories,
-    }),
+    () =>
+      buildDashboardSidebarContentProps({
+        isCategoriesLoading,
+        isSidebarVisible,
+        onCategoryClick: handleCategoryClick,
+        onCategoryPrefetch: handleCategoryPrefetch,
+        onFeedClick: handleFeedClick,
+        onFeedPrefetch: handleFeedPrefetch,
+        selectedCategory,
+        showFavicons,
+        sidebarCategories,
+      }),
     [
       handleCategoryClick,
       handleCategoryPrefetch,
@@ -432,58 +411,106 @@ export function useDashboardController({
    * Keeping the return shape segmented reduces prop-drilling noise in the page
    * component and makes each surface's dependencies explicit.
    */
-  return {
-    feedList: {
+  return useMemo(
+    () =>
+      buildDashboardControllerState({
+        feedList: {
+          articleFilter,
+          articlesPerPage,
+          collapsingArticles,
+          expandedArticleKey,
+          feedViewKey: articleCallbacks.feedViewKey,
+          filteredFeed,
+          hydratedArticleLinks,
+          hydratingArticleLinks,
+          isCollapseScrollRestoreActive,
+          isInitialLoading: isFeedListInitialLoading,
+          isRefreshing: isFeedListRefreshing,
+          onArticleExpandedSwipeRead: articleCallbacks.onArticleExpandedSwipeRead,
+          onArticlePrepareExpand: articleCallbacks.onArticlePrepareExpand,
+          onArticleSwipeRead: articleCallbacks.onArticleSwipeRead,
+          onArticleToggle: articleCallbacks.onArticleToggle,
+          onArticleToggleRead: articleCallbacks.onArticleToggleRead,
+          onArticleToggleStarred: articleCallbacks.onArticleToggleStarred,
+          searchTerm,
+          showFavicons,
+          updatingArticleState,
+        },
+        settings: {
+          articlesPerPage,
+          autoRefreshIntervalMinutes,
+          backgroundMode,
+          categories: displayCategories,
+          categoryTree,
+          distillStrategy,
+          handleCloseSettings,
+          onBackgroundModeChange,
+          onDistillStrategyChange,
+          selectedCategory,
+          setArticlesPerPage,
+          setAutoRefreshIntervalMinutes,
+          setShowFavicons,
+          showFavicons,
+          showSettingsModal,
+          usePlaceholderData,
+        },
+        sidebar: {
+          isMobileSidebarOpen,
+          isSidebarVisible,
+          setIsMobileSidebarOpen,
+          sidebarContentProps,
+          sidebarScrollRef,
+        },
+        topBar: {
+          articleFilter,
+          lastRefreshLabel,
+          loading,
+          setArticleFilter,
+        },
+      }),
+    [
+      articleCallbacks.feedViewKey,
+      articleCallbacks.onArticleExpandedSwipeRead,
+      articleCallbacks.onArticlePrepareExpand,
+      articleCallbacks.onArticleSwipeRead,
+      articleCallbacks.onArticleToggle,
+      articleCallbacks.onArticleToggleRead,
+      articleCallbacks.onArticleToggleStarred,
       articleFilter,
+      articlesPerPage,
+      autoRefreshIntervalMinutes,
+      backgroundMode,
+      categoryTree,
       collapsingArticles,
+      displayCategories,
+      distillStrategy,
       expandedArticleKey,
-      feedViewKey,
       filteredFeed,
       hydratedArticleLinks,
       hydratingArticleLinks,
       isCollapseScrollRestoreActive,
-      isInitialLoading: isFeedListInitialLoading,
-      isRefreshing: isFeedListRefreshing,
-      mergedFeedScrollRef,
-      onArticleExpandedSwipeRead,
-      onArticlePrepareExpand,
-      onArticleSwipeRead,
-      onArticleToggle,
-      onArticleToggleRead,
-      onArticleToggleStarred,
-      searchTerm,
-      showFavicons,
-      updatingArticleState,
-    },
-    settings: {
-      autoRefreshIntervalMinutes,
-      backgroundMode,
-      categories: displayCategories,
-      categoryOptions,
-      categoryTree,
-      distillStrategy,
+      isFeedListInitialLoading,
+      isFeedListRefreshing,
+      isMobileSidebarOpen,
+      isSidebarVisible,
+      lastRefreshLabel,
+      loading,
       handleCloseSettings,
       onBackgroundModeChange,
       onDistillStrategyChange,
+      searchTerm,
       selectedCategory,
+      setArticleFilter,
+      setArticlesPerPage,
       setAutoRefreshIntervalMinutes,
+      setIsMobileSidebarOpen,
       setShowFavicons,
       showFavicons,
       showSettingsModal,
-      usePlaceholderData,
-    },
-    sidebar: {
-      isMobileSidebarOpen,
-      isSidebarVisible,
-      setIsMobileSidebarOpen,
       sidebarContentProps,
       sidebarScrollRef,
-    },
-    topBar: {
-      articleFilter,
-      lastRefreshLabel,
-      loading,
-      setArticleFilter,
-    },
-  };
+      updatingArticleState,
+      usePlaceholderData,
+    ],
+  );
 }

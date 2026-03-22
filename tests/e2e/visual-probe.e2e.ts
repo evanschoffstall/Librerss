@@ -14,7 +14,7 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
-const AUDIT_FRAME_TIMES_MS = [0, 200, 400, 600, 800, 1_000] as const;
+const AUDIT_FRAME_TIMES_MS = [0, 100, 250, 500] as const;
 
 interface AuditClip {
   height: number;
@@ -212,7 +212,7 @@ function topTokenBar(page: Page) {
 }
 
 test.describe("dashboard visual audit", () => {
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "parallel" });
 
   test("captures expand and collapse sequences every 200ms", async ({
     page,

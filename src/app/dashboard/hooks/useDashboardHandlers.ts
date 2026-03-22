@@ -4,10 +4,16 @@ import { useCallback } from "react";
 
 import { type CategoryTreeNode } from "@/lib";
 
-import { ALL_FEEDS_NODE_KEY } from "../constants";
+import {
+  autoRefreshDashboardSelection,
+  prefetchDashboardCategory,
+  prefetchDashboardFeed,
+  refreshDashboardSelection,
+  selectDashboardCategory,
+  selectDashboardFeed,
+} from "../services/dashboard-refresh-requests";
 import {
   type FeedSelectionFetchers,
-  refreshCurrentSelection,
 } from "../services/selection";
 
 /**
@@ -63,14 +69,11 @@ export function useDashboardHandlers({
 }: UseDashboardHandlersOptions) {
   /** Performs a user-initiated refresh of the current selection. */
   const handleRefreshSelection = useCallback(() => {
-    onBeforeRefresh?.();
-    refreshCurrentSelection({
+    refreshDashboardSelection({
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
-      forceRefresh: true,
-      keepExistingFeed: true,
-      requestSource: "manual-refresh",
+      onBeforeRefresh,
       selectedCategory,
       selectedCategoryNode,
       selectedFeedUrl,
@@ -87,14 +90,11 @@ export function useDashboardHandlers({
 
   /** Performs a background or interval-driven refresh of the current selection. */
   const handleAutoRefreshSelection = useCallback(() => {
-    onBeforeRefresh?.();
-    refreshCurrentSelection({
+    autoRefreshDashboardSelection({
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
-      forceRefresh: false,
-      keepExistingFeed: true,
-      requestSource: "auto-refresh",
+      onBeforeRefresh,
       selectedCategory,
       selectedCategoryNode,
       selectedFeedUrl,
@@ -117,13 +117,11 @@ export function useDashboardHandlers({
    */
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
-      setSelectedCategory(feedNode.key);
-      setIsMobileSidebarOpen(false);
-      if (feedNode.data?.url && feedNode.data.enabled !== false) {
-        void fetchFeed(feedNode.data.url, {
-          requestSource: "sidebar-feed-select",
-        });
-      }
+      selectDashboardFeed(feedNode, {
+        fetchFeed,
+        setIsMobileSidebarOpen,
+        setSelectedCategory,
+      });
     },
     [setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
   );
@@ -131,16 +129,9 @@ export function useDashboardHandlers({
   /** Prefetches a feed on hover/focus so selection can reuse a warm query. */
   const handleFeedPrefetch = useCallback(
     (feedNode: CategoryTreeNode) => {
-      if (
-        selectedCategory === feedNode.key ||
-        !feedNode.data?.url ||
-        feedNode.data.enabled === false
-      ) {
-        return;
-      }
-
-      void prefetchFeed(feedNode.data.url, {
-        requestSource: "sidebar-feed-prefetch",
+      prefetchDashboardFeed(feedNode, {
+        prefetchFeed,
+        selectedCategory,
       });
     },
     [prefetchFeed, selectedCategory],
@@ -154,18 +145,11 @@ export function useDashboardHandlers({
    */
   const handleCategoryClick = useCallback(
     (categoryNode: CategoryTreeNode) => {
-      setSelectedCategory(categoryNode.key);
-      setIsMobileSidebarOpen(false);
-
-      if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
-        void fetchAllFeeds(undefined, {
-          requestSource: "sidebar-category-select",
-        });
-        return;
-      }
-
-      void fetchCategoryFeeds(categoryNode, {
-        requestSource: "sidebar-category-select",
+      selectDashboardCategory(categoryNode, {
+        fetchAllFeeds,
+        fetchCategoryFeeds,
+        setIsMobileSidebarOpen,
+        setSelectedCategory,
       });
     },
     [
@@ -179,19 +163,10 @@ export function useDashboardHandlers({
   /** Prefetches a category on hover/focus so bulk selections land immediately. */
   const handleCategoryPrefetch = useCallback(
     (categoryNode: CategoryTreeNode) => {
-      if (selectedCategory === categoryNode.key) {
-        return;
-      }
-
-      if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
-        void prefetchAllFeeds(undefined, {
-          requestSource: "sidebar-category-prefetch",
-        });
-        return;
-      }
-
-      void prefetchCategoryFeeds(categoryNode, {
-        requestSource: "sidebar-category-prefetch",
+      prefetchDashboardCategory(categoryNode, {
+        prefetchAllFeeds,
+        prefetchCategoryFeeds,
+        selectedCategory,
       });
     },
     [prefetchAllFeeds, prefetchCategoryFeeds, selectedCategory],

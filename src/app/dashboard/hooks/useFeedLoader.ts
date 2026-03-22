@@ -31,6 +31,12 @@ import {
   resolveExpandedArticleKey,
   summarizeBatchResults,
 } from "../services/feed-loader-helpers";
+import {
+  isFreshFeedBatchQuery,
+  notifyFeedFailures,
+  resolveFeedBatchStaleTime,
+  shouldShowNoFeedSourcesToast,
+} from "../services/feed-loader-state";
 import { loadFeedSourceTree } from "../services/feed-source-tree";
 import {
   getFeedBatchQueryKey,
@@ -67,16 +73,7 @@ interface UseFeedLoaderOptions {
   usePlaceholderData: boolean;
 }
 
-/** Short-lived freshness window that lets recent selections reuse the last batch result. */
-const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
-
-/** Returns whether the real empty-feed-source onboarding toast should be shown. */
-export function shouldShowNoFeedSourcesToast(
-  hasConfiguredFeeds: boolean,
-  usePlaceholderData: boolean,
-): boolean {
-  return !hasConfiguredFeeds && !usePlaceholderData;
-}
+export { shouldShowNoFeedSourcesToast } from "../services/feed-loader-state";
 
 export function useFeedLoader({
   categoriesRef,
@@ -451,7 +448,12 @@ export function useFeedLoader({
           }
         }
 
-        notifyFeedFailures(failedFeeds, batchResults.length, sourceNamesByUrl);
+        notifyFeedFailures(
+          failedFeeds,
+          batchResults.length,
+          sourceNamesByUrl,
+          formatFeedFailureLabel,
+        );
 
         if (resolvedArticles.length > 0) {
           setExpandedArticleKey((currentKey) =>
@@ -583,65 +585,4 @@ export function useFeedLoader({
     prefetchCategoryFeeds,
     prefetchFeed,
   };
-}
-
-/** Returns whether a feed batch query is currently fresh enough to reuse inline. */
-function isFreshFeedBatchQuery(
-  queryClient: ReturnType<typeof useQueryClient>,
-  queryKey: FeedBatchQueryKey,
-  staleTime: number,
-) {
-  if (staleTime <= 0) {
-    return false;
-  }
-
-  const queryState = queryClient.getQueryState<FeedBatchResult[]>(queryKey);
-  if (queryState?.status !== "success") {
-    return false;
-  }
-
-  return Date.now() - queryState.dataUpdatedAt < staleTime;
-}
-
-function notifyFeedFailures(
-  failedFeeds: FeedBatchResult[],
-  totalFeedCount: number,
-  sourceNamesByUrl: Map<string, string | undefined>,
-) {
-  if (failedFeeds.length === 0) {
-    return;
-  }
-
-  if (failedFeeds.length === totalFeedCount) {
-    toast.error("Unable to fetch feeds from upstream.", {
-      description: "Try another feed or check back after the next refresh.",
-    });
-    return;
-  }
-
-  const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
-
-  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
-    description: "Showing cached articles. Check back after the next refresh.",
-  });
-}
-
-/** Resolves how long a dashboard feed batch should remain selection-fresh. */
-function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
-  if (options?.forceRefresh === true) {
-    return 0;
-  }
-
-  if (options?.skipRefresh === true) {
-    return 60_000;
-  }
-
-  if (
-    options?.requestSource === "auto-refresh" ||
-    options?.requestSource === "manual-refresh"
-  ) {
-    return 0;
-  }
-
-  return DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS;
 }

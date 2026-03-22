@@ -8,10 +8,16 @@ import { afterAll, afterEach, mock } from "bun:test";
 // Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
 import { Window } from "happy-dom";
 
+import * as realApiHttpModule from "@/lib/api/http";
 import * as realAuthSessionModule from "@/lib/auth/session";
+import * as realConfigModule from "@/lib/config";
 import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
+import * as realFetchModule from "@/lib/fetch";
+import * as realLoggerModule from "@/lib/logger";
+import * as realServerModule from "@/lib/server";
+import * as realServerServicesModule from "@/lib/server/services";
 import * as realUrlModule from "@/lib/utils/url";
 
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
@@ -129,13 +135,19 @@ afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
   mock.restore();
+  mock.module("@/lib/api/http", () => realApiHttpModule);
   mock.module("@/lib/db/db", () => realDbModule);
   mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
   mock.module("@/lib/auth/session", () => realAuthSessionModule);
+  mock.module("@/lib/config", () => realConfigModule);
   mock.module(
     "@/lib/core/feed-batch-pipeline",
     () => realFeedBatchHelpersModule,
   );
+  mock.module("@/lib/fetch", () => realFetchModule);
+  mock.module("@/lib/logger", () => realLoggerModule);
+  mock.module("@/lib/server", () => realServerModule);
+  mock.module("@/lib/server/services", () => realServerServicesModule);
   mock.module("@/lib/utils/url", () => realUrlModule);
 });
 

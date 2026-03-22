@@ -1,12 +1,10 @@
-import { NextResponse } from "next/server";
-
 import { CONFIG } from "@/lib/config";
 
 import { jsonError } from "./responses";
 
 interface ParsedJsonFailure {
   ok: false;
-  response: NextResponse;
+  response: Response;
 }
 
 type ParsedJsonResult<T> = ParsedJsonFailure | ParsedJsonSuccess<T>;

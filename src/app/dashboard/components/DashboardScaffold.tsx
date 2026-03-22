@@ -1,10 +1,7 @@
-import type { ComponentPropsWithRef } from "react";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DashboardFeedViewportProps {
   children: React.ReactNode;
-  scrollAreaRef?: ComponentPropsWithRef<typeof ScrollArea>["ref"];
 }
 
 interface DashboardScaffoldProps {
@@ -21,7 +18,6 @@ interface DashboardScaffoldProps {
  */
 export function DashboardFeedViewport({
   children,
-  scrollAreaRef,
 }: DashboardFeedViewportProps) {
   return (
     <ScrollArea
@@ -31,7 +27,6 @@ export function DashboardFeedViewport({
         [&_[data-radix-scroll-area-viewport]>div]:w-full!
         [&_[data-radix-scroll-area-viewport]>div]:min-w-0!
       "
-      ref={scrollAreaRef}
     >
       <div
         className="

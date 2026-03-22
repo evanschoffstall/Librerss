@@ -1,8 +1,11 @@
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 
-import { AuthService } from "@/lib/api/auth-service";
+import { AuthService } from "@/lib";
+
 
 function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
@@ -88,6 +91,44 @@ describe("DashboardTopHeaderBar", () => {
       expect(window.localStorage.getItem("librerss:test")).toBeNull();
       expect(window.sessionStorage.getItem("librerss:test")).toBeNull();
     });
+  });
+
+  test("ignores transient aria-hidden mutations during hydration", async () => {
+    setNodeEnv("development");
+
+    const originalConsoleError = console.error;
+    const consoleError = mock(() => {});
+
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
+
+    const { DashboardTopHeaderBar } =
+      await import("@/app/dashboard/components/DashboardTopHeaderBar");
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<DashboardTopHeaderBar />);
+    document.body.append(container);
+
+    const header = container.querySelector<HTMLDivElement>(
+      "div.pointer-events-auto.fixed.inset-x-0.top-0.z-50",
+    );
+    if (!header) {
+      throw new Error("Expected server-rendered dashboard header.");
+    }
+
+    header.setAttribute("aria-hidden", "true");
+    header.setAttribute("data-aria-hidden", "true");
+    console.error = consoleError;
+
+    try {
+      await act(async () => {
+        hydrateRoot(container, <DashboardTopHeaderBar />);
+        await Promise.resolve();
+      });
+
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 });
 
