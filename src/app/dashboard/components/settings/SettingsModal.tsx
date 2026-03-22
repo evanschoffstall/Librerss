@@ -213,7 +213,10 @@ export const SettingsModal = ({
               <span className="sr-only">Close</span>
             </DrawerClose>
           </DrawerHeader>
-          <ScrollArea className="flex-1 px-4 pb-6">
+          <ScrollArea className="
+            flex min-h-0 flex-1 flex-col px-4 pb-6
+            [&>[data-radix-scroll-area-viewport]>div]:block!
+          ">
             <SettingsBody {...bodyProps} />
           </ScrollArea>
         </DrawerContent>
