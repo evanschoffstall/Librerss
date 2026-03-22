@@ -25,6 +25,7 @@ import {
 } from "../services/feed-batch-outcome";
 import { resolveFeedBatchResults } from "../services/feed-batch-resolver";
 import {
+  classifyFeedBatchError,
   type FeedBatchResult,
   isCanceledBatchRequest,
   mergeHydratedContent,
@@ -255,6 +256,7 @@ export function useFeedLoader({
       normalizedSources: FeedBatchSource[],
       queryKey: FeedBatchQueryKey,
       options?: FeedFetchOptions,
+      silent = false,
     ): Promise<FeedBatchResult[] | null> => {
       try {
         if (options?.forceRefresh) {
@@ -270,9 +272,10 @@ export function useFeedLoader({
         }
 
         console.error("Batch feed fetch error:", error);
-        toast.error("Unable to load this feed right now.", {
-          description: "Please try refreshing the selected source again.",
-        });
+        if (!silent) {
+          const { description, title } = classifyFeedBatchError(error);
+          toast.error(title, { description });
+        }
         return null;
       }
     },
@@ -400,6 +403,7 @@ export function useFeedLoader({
             ...options,
             knownLastFetchedAtByUrl,
           },
+          isBackground,
         );
         if (batchResults === null) {
           logRefreshDiagnostics("refresh:no-results", {
@@ -448,12 +452,14 @@ export function useFeedLoader({
           }
         }
 
-        notifyFeedFailures(
-          failedFeeds,
-          batchResults.length,
-          sourceNamesByUrl,
-          formatFeedFailureLabel,
-        );
+        if (!isBackground) {
+          notifyFeedFailures(
+            failedFeeds,
+            batchResults.length,
+            sourceNamesByUrl,
+            formatFeedFailureLabel,
+          );
+        }
 
         if (resolvedArticles.length > 0) {
           setExpandedArticleKey((currentKey) =>

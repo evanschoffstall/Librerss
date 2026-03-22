@@ -6,6 +6,13 @@ import { useEffect, useEffectEvent, useRef } from "react";
 
 import { toAutoRefreshIntervalMs } from "../services/refresh-policy";
 
+/**
+ * Brief delay before firing an auto-refresh after tab resume, giving the
+ * browser time to restore DNS / TCP / TLS state that may have been torn
+ * down while the tab was suspended.
+ */
+const TAB_RESUME_DELAY_MS = 1_500;
+
 interface UseDashboardIntervalsOptions {
   autoRefreshFeedList: () => void;
   autoRefreshIntervalMinutes: number;
@@ -51,12 +58,21 @@ export function useDashboardIntervals({
       runRefresh();
     }, autoRefreshIntervalMs);
 
-    // When returning to a hidden tab, fire immediately if the TTL has elapsed
-    // since the last actual refresh instead of waiting a full cycle.
+    // When returning to a suspended tab, delay briefly so the browser can
+    // restore network connectivity before firing the refresh request.
+    let resumeTimerId: ReturnType<typeof setTimeout> | undefined;
+
     const handleVisibilityChange = () => {
-      if (document.hidden) return;
+      if (document.hidden) {
+        clearTimeout(resumeTimerId);
+        return;
+      }
       if (Date.now() - lastFiredAtRef.current >= autoRefreshIntervalMs) {
-        runRefresh();
+        resumeTimerId = setTimeout(() => {
+          if (!document.hidden) {
+            runRefresh();
+          }
+        }, TAB_RESUME_DELAY_MS);
       }
     };
 
@@ -64,6 +80,7 @@ export function useDashboardIntervals({
 
     return () => {
       window.clearInterval(intervalId);
+      clearTimeout(resumeTimerId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [autoRefreshIntervalMinutes]);
