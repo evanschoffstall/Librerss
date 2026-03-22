@@ -39,7 +39,7 @@ export const FeedList = memo(function FeedList({
   filteredFeed,
   hydratedArticleLinks,
   hydratingArticleLinks,
-  isCollapseScrollRestoreActive = false,
+  isCollapseScrollRestoreActive: _isCollapseScrollRestoreActive = false,
   isInitialLoading,
   isRefreshing: _isRefreshing,
   onExpandedSwipeRead,
@@ -59,22 +59,17 @@ export const FeedList = memo(function FeedList({
     contentKey,
     feedSurfaceMode,
     handleViewportHostRef,
-    hasMoreArticles,
     hasSearchTerm,
-    loadMoreSentinelRef,
     scrollViewport,
     shouldShowViewportResolutionSkeleton,
-    shouldUseVirtualizedFeed,
     trimmedSearchTerm,
     virtuosoComponents,
     visibleArticleCount,
   } = useFeedListSurfaceState({
     articleFilter,
     articlesPerPage,
-    expandedArticleKey,
     feedViewKey,
     filteredFeedLength: filteredFeed.length,
-    isCollapseScrollRestoreActive,
     isInitialLoading,
     searchTerm,
   });
@@ -185,38 +180,25 @@ export const FeedList = memo(function FeedList({
             key={contentKey}
             transition={contentEnterTransition}
           >
-            {shouldUseVirtualizedFeed ? (
-              <Virtuoso
-                className={listClassName}
-                components={virtuosoComponents}
-                computeItemKey={(index, article: Article | undefined) =>
-                  article
-                    ? getArticleKey(article)
-                    : `${feedViewKey}:pending-item:${index}`
-                }
-                customScrollParent={scrollViewport ?? undefined}
-                data={visibleFeed}
-                data-feed-virtualizer="true"
-                defaultItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
-                increaseViewportBy={FEED_VIEWPORT_INCREASE}
-                initialItemCount={Math.min(visibleFeed.length, 20)}
-                itemContent={(_index, article: Article | undefined) =>
-                  article ? renderFeedRow(article) : null
-                }
-                key={feedViewKey}
-              />
-            ) : (
-              <>
-                {visibleFeed.map(renderFeedRow)}
-                {hasMoreArticles ? (
-                  <div
-                    className="h-px w-full"
-                    data-feed-load-more-sentinel="true"
-                    ref={loadMoreSentinelRef}
-                  />
-                ) : null}
-              </>
-            )}
+            <Virtuoso
+              className={listClassName}
+              components={virtuosoComponents}
+              computeItemKey={(index, article: Article | undefined) =>
+                article
+                  ? getArticleKey(article)
+                  : `${feedViewKey}:pending-item:${index}`
+              }
+              customScrollParent={scrollViewport ?? undefined}
+              data={visibleFeed}
+              data-feed-virtualizer="true"
+              defaultItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
+              increaseViewportBy={FEED_VIEWPORT_INCREASE}
+              initialItemCount={Math.min(visibleFeed.length, 20)}
+              itemContent={(_index, article: Article | undefined) =>
+                article ? renderFeedRow(article) : null
+              }
+              key={feedViewKey}
+            />
           </motion.div>
         )}
       </AnimatePresence>
