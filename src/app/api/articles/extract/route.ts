@@ -39,6 +39,7 @@ import {
   requireMutableAuthenticatedUser,
 } from "@/lib/server";
 import { resolveUserProxy, ServiceError } from "@/lib/server/services";
+import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 
@@ -169,13 +170,14 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       );
     }
 
-    const html =
+    const rawHtml =
       localSnapshot?.html ??
       (await fetchArticleHtml(articleUrl, undefined, {
         allowInsecureTls,
         proxyUrl: resolvedProxyUrl,
         useProxy,
       }));
+    const html = await decodePossiblyCompressedText(rawHtml);
     const safeUrl = redactUrlForLogs(articleUrl);
 
     const extractableHtml = preCleanHtml(html);
