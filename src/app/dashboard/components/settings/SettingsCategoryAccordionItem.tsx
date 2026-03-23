@@ -291,14 +291,14 @@ export function SettingsCategoryAccordionItem({
           {isAddingFeed && (
             <div
               className={`
-                mb-2 space-y-2 rounded-md border border-dashed p-2.5
+                mb-2 rounded-md border border-dashed p-2.5
                 ${animTransitionColorsClass}
               `}
             >
               <div className="flex gap-2">
                 <Input
                   autoFocus
-                  className="h-8 text-sm"
+                  className="h-8 flex-1 text-sm"
                   onChange={(e) => {
                     onNewFeedNameChange(e.target.value);
                   }}
@@ -323,10 +323,8 @@ export function SettingsCategoryAccordionItem({
                   placeholder="https://example.com/feed.xml"
                   value={newFeedUrl}
                 />
-              </div>
-              <div className="flex justify-end gap-2">
                 <Button
-                  className="h-7 px-3 text-xs"
+                  className="h-8 px-3 text-xs"
                   onClick={onCancelAddFeed}
                   size="sm"
                   variant="ghost"
@@ -334,7 +332,7 @@ export function SettingsCategoryAccordionItem({
                   Cancel
                 </Button>
                 <Button
-                  className="h-7 px-3 text-xs"
+                  className="h-8 px-3 text-xs"
                   disabled={
                     !newFeedName.trim() || !newFeedUrl.trim() || isSavingFeed
                   }

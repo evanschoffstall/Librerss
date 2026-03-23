@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { format as formatWithPrettier, resolveConfig } from "prettier";
 
 import type { AuthenticatedUser } from "@/lib/server";
 
@@ -15,6 +16,22 @@ const ANONYMOUS_USER: AuthenticatedUser = {
   sessionId: -1,
   userId: -1,
 };
+
+/**
+ * Normalizes regenerated fixture output with the repo's Prettier HTML settings.
+ */
+export async function formatExpectedReadingOutput(
+  outputPath: string,
+  extractedHtml: string,
+): Promise<string> {
+  const prettierConfig = (await resolveConfig(outputPath)) ?? {};
+  const formattedHtml = await formatWithPrettier(extractedHtml, {
+    ...prettierConfig,
+    filepath: outputPath,
+  });
+
+  return formattedHtml.endsWith("\n") ? formattedHtml : `${formattedHtml}\n`;
+}
 
 /**
  * Derives a stable article URL from captured fixture HTML for extractor parity.
@@ -82,14 +99,13 @@ function generateDiff(
   fixtureDir: string,
   articleName: string,
   outputPath: string,
-  newContent: string,
+  newOutput: string,
   timestamp: number,
 ): null | string {
   if (!existsSync(outputPath)) return null;
 
   const oldContent = readFileSync(outputPath, "utf8");
-  const newNormalized = `${newContent}\n`;
-  if (oldContent === newNormalized) return null;
+  if (oldContent === newOutput) return null;
 
   const articleNumber = articleName.split("-")[1];
   const diffPath = join(
@@ -98,7 +114,7 @@ function generateDiff(
   );
 
   const result = Bun.spawnSync(["diff", "-u", outputPath, "-"], {
-    stdin: Buffer.from(newNormalized),
+    stdin: Buffer.from(newOutput),
   });
 
   const diffText = result.stdout.toString();
@@ -153,10 +169,22 @@ async function regenerateReadingExpectation(
     throw new Error(`${articleName} produced empty expectation output`);
   }
 
-  const diffPath = generateDiff(fixtureDir, articleName, outputPath, cleaned, timestamp);
+  const formattedOutput = await formatExpectedReadingOutput(outputPath, cleaned);
+  const diffPath = generateDiff(
+    fixtureDir,
+    articleName,
+    outputPath,
+    formattedOutput,
+    timestamp,
+  );
 
-  writeFileSync(outputPath, `${cleaned}\n`, "utf8");
-  return { articleName, diffPath, outputPath, size: cleaned.length };
+  writeFileSync(outputPath, formattedOutput, "utf8");
+  return {
+    articleName,
+    diffPath,
+    outputPath,
+    size: formattedOutput.trimEnd().length,
+  };
 }
 
 /**
@@ -167,4 +195,15 @@ function resolveExpectedPath(fixtureDir: string, articleName: string): string {
   return join(fixtureDir, `article-results-${articleNumber}.html`);
 }
 
-void main();
+/** Limits CLI auto-execution to direct `bun scripts/test-reading-pipeline-regen-results.ts` entrypoints. */
+function shouldAutoRunReadingFixtureRegeneration(argv: string[]): boolean {
+  const invokedScriptPath = argv[1];
+  return (
+    typeof invokedScriptPath === "string" &&
+    invokedScriptPath.endsWith("/scripts/test-reading-pipeline-regen-results.ts")
+  );
+}
+
+if (import.meta.main && shouldAutoRunReadingFixtureRegeneration(Bun.argv)) {
+  void main();
+}
