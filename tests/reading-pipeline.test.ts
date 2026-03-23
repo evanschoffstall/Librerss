@@ -369,6 +369,24 @@ describe("article extract cleanup", () => {
     expect(cleaned.toLowerCase()).not.toContain("please logout");
   });
 
+  test("cleanSanitizedHtml removes a leading linked author bio fragment before article paragraphs", () => {
+    const input =
+      '<a href="https://example.com/authors/jane-doe">Jane Doe</a>' +
+      "Jane Doe has written the publication's weekly column since 2020. " +
+      "An award-winning journalist covering labor and politics. " +
+      "Email: jane@example.com" +
+      "<p>Lead paragraph.</p>" +
+      "<p>Second paragraph.</p>";
+
+    const cleaned = cleanSanitizedHtml(input, "https://example.com/article");
+
+    expect(cleaned).toContain("Lead paragraph.");
+    expect(cleaned).toContain("Second paragraph.");
+    expect(cleaned).not.toContain("jane@example.com");
+    expect(cleaned).not.toContain("has written the publication's weekly column");
+    expect(cleaned).not.toContain("authors/jane-doe");
+  });
+
   test("sanitizeRawContent removes known placeholder image URLs without dimensions", () => {
     const cleaned = sanitizeRawContent(
       '<section><article><p><img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="Placeholder" /></p></article></section><p>Body text remains.</p>',

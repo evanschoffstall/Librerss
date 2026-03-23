@@ -1,6 +1,7 @@
 import {
   normalizeArticleHtmlSpacing,
   SOCIAL_SHARE_LINK_RE,
+  stripLeadingInlineBioBlock,
   toPlainText,
 } from "./cleaners";
 
@@ -262,7 +263,9 @@ const PROMO_CTA_RE =
  *
  * 1. Comment-engagement boilerplate — login prompts, "before commenting"
  *    notices, etc. that manipulators sometimes pull in from the comment section.
- * 2. Nav/footer boilerplate guard — if the whole remaining content still looks
+ * 2. Leading inline bio/profile fragments — linked author bios that appear
+ *    before the first paragraph block but are not article content.
+ * 3. Nav/footer boilerplate guard — if the whole remaining content still looks
  *    like site chrome (high link density + site-chrome keywords), discard it
  *    entirely so the caller can fall through to a better fallback.
  *
@@ -291,7 +294,9 @@ export function cleanSanitizedHtml(
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 
-  const withoutDuplicateLeadImage = removeLeadingDuplicateImage(withoutPromos);
+  const withoutLeadingBio = stripLeadingInlineBioBlock(withoutPromos);
+
+  const withoutDuplicateLeadImage = removeLeadingDuplicateImage(withoutLeadingBio);
 
   const withoutMediaHeadings = stripLeadMediaBoilerplateHeadings(
     withoutDuplicateLeadImage,

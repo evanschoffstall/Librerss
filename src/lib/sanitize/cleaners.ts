@@ -137,6 +137,58 @@ export function stripOrphanedInlineContent(
     .join("");
 }
 
+const LEADING_BLOCK_ELEMENT_RE =
+  /<(?:p|h[1-6]|ul|ol|li|blockquote|pre|hr|img)\b/i;
+const AUTHOR_BIO_MARKER_RE =
+  /\b(author|columnist|journalist|reporter|editor|host|producer|correspondent|staff writer|has written|writes about|writes on|award-winning|newsletter|based in|lives in|joined|email\s*:|contact\s*:|follow\s+on)\b/gi;
+const EMAIL_SIGNAL_RE = /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/i;
+
+/**
+ * Strip a leading inline author/profile bio fragment when it appears before the
+ * first true article block. These fragments commonly survive distillation as a
+ * linked name plus prose bio, but are not part of the article body itself.
+ */
+export function stripLeadingInlineBioBlock(html: string): string {
+  const firstBlockIndex = html.search(LEADING_BLOCK_ELEMENT_RE);
+  if (firstBlockIndex <= 0) return html;
+
+  const leadingInline = html.slice(0, firstBlockIndex);
+  if (!leadingInline.trim()) return html;
+
+  const remainingContent = html.slice(firstBlockIndex);
+  const anchorMatches = [
+    ...leadingInline.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi),
+  ];
+  if (anchorMatches.length === 0 || anchorMatches.length > 3) return html;
+
+  const leadingText = normalizeInlineText(leadingInline);
+  if (leadingText.length < 40 || leadingText.length > 650) return html;
+
+  const linkedLabel = normalizeInlineText(anchorMatches[0]?.[1] ?? "");
+  if (linkedLabel.length < 4) return html;
+
+  const normalizedLabel = linkedLabel.toLowerCase();
+  const normalizedLeadingText = leadingText.toLowerCase();
+  const repeatsLinkedLabel = normalizedLeadingText.startsWith(
+    `${normalizedLabel} ${normalizedLabel}`,
+  );
+  const bioMarkerHits = countBioMarkerHits(normalizedLeadingText);
+  const hasContactSignal = EMAIL_SIGNAL_RE.test(leadingText);
+  const remainingBlockCount = (
+    remainingContent.match(/<(?:p|h[1-6]|blockquote|ul|ol|pre)\b/gi) ?? []
+  ).length;
+
+  const looksLikeProfileBio =
+    repeatsLinkedLabel ||
+    bioMarkerHits >= 2 ||
+    (bioMarkerHits >= 1 && hasContactSignal);
+  const hasReadableBodyAfterPrefix = remainingBlockCount >= 2;
+
+  return looksLikeProfileBio && hasReadableBodyAfterPrefix
+    ? remainingContent.trimStart()
+    : html;
+}
+
 export function stripOrphanedRelatedBlocks(html: string): string {
   const withoutHeadingLists = html.replace(
     /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
@@ -207,6 +259,10 @@ function collapseExcessNewlines(html: string): string {
     );
 }
 
+function countBioMarkerHits(text: string): number {
+  return [...text.matchAll(AUTHOR_BIO_MARKER_RE)].length;
+}
+
 function getMaxConsecutiveBlankLines(): number {
   return (_maxConsecutiveBlankLines ??= maxArticleConsecutiveBlankLines());
 }
@@ -228,6 +284,10 @@ function isEmptyInlineHtml(content: string): boolean {
     .replaceAll("&#160;", " ");
 
   return withoutNbspEntities.trim().length === 0;
+}
+
+function normalizeInlineText(html: string): string {
+  return toPlainText(html).replace(/\s+/g, " ").trim();
 }
 
 function normalizeNoscriptForManipulation(rawHtml: string): string {
