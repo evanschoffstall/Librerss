@@ -10,7 +10,7 @@ import {
 
 import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
-import { type BackgroundMode } from "../constants";
+import { type BackgroundMode, INITIAL_CATEGORIES } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import {
   buildDashboardControllerState,
@@ -291,15 +291,41 @@ export function useDashboardController({
 
   // Keep persisted category ordering aligned with the currently available set of
   // labels without discarding user-defined order for still-present categories.
+  //
+  // Including `orderedCategoryLabels` in the dependency array ensures that an
+  // out-of-band update (e.g. the server-loaded category order arriving after
+  // feed sources have already been reconciled) triggers a follow-up
+  // reconciliation pass. The element-wise bail-out inside the functional
+  // updater prevents infinite re-render cycles: when the reconciled result
+  // matches the current state, the same array reference is returned so React
+  // skips the update entirely.
+  //
+  // Reconciliation is skipped while `categories` still points at the
+  // placeholder `INITIAL_CATEGORIES` tree — running against the placeholder
+  // would overwrite a server-loaded order with a meaningless default and
+  // could persist that default back to the server.
   useEffect(() => {
-    setOrderedCategoryLabels((currentLabels) =>
-      computeNextOrderedCategoryLabels(
+    if (categories === INITIAL_CATEGORIES) {
+      return;
+    }
+
+    setOrderedCategoryLabels((currentLabels) => {
+      const nextLabels = computeNextOrderedCategoryLabels(
         categories,
         customCategoryLabels,
         currentLabels,
-      ),
-    );
-  }, [categories, customCategoryLabels, setOrderedCategoryLabels]);
+      );
+
+      if (
+        nextLabels.length === currentLabels.length &&
+        nextLabels.every((label, index) => label === currentLabels[index])
+      ) {
+        return currentLabels;
+      }
+
+      return nextLabels;
+    });
+  }, [categories, customCategoryLabels, orderedCategoryLabels, setOrderedCategoryLabels]);
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
