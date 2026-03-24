@@ -103,7 +103,15 @@ export function useSwipeGesture(
       }
     };
 
+    /** Restores `touch-action` on the element after a horizontal-lock override. */
+    const restoreTouchAction = () => {
+      if (el.style.touchAction === "none") {
+        el.style.touchAction = "";
+      }
+    };
+
     const resetPointerState = () => {
+      restoreTouchAction();
       startRef.current = null;
       lockedRef.current = null;
       committedRef.current = false;
@@ -194,6 +202,9 @@ export function useSwipeGesture(
           absDx > absDy * HORIZONTAL_LOCK_RATIO;
         if (hasHorizontalIntent) {
           lockedRef.current = "horizontal";
+          // Suppress native touch handling to prevent browser from firing
+          // pointercancel when the user drifts vertically mid-swipe.
+          el.style.touchAction = "none";
           if (!hasCaptureRef.current) trySetPointerCapture(e.pointerId);
         } else if (
           absDy >= MIN_SWIPE_PX &&
@@ -296,6 +307,7 @@ export function useSwipeGesture(
     return () => {
       clearReleaseTimer();
       releaseCapture();
+      restoreTouchAction();
       el.removeEventListener("pointerdown", handlePointerDown, true);
       el.removeEventListener("pointermove", handlePointerMove, true);
       el.removeEventListener("pointerup", handlePointerEnd, true);
