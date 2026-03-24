@@ -27,6 +27,14 @@ export interface CollapsingArticleState {
   mode: ArticleRemovalAnimationMode;
 }
 
+interface ArticleViewportSnapshot {
+  articleBottomOffsetTop: number;
+  articleKey: string;
+  articleViewportOffsetTop: number;
+  viewport: HTMLElement;
+  viewportScrollTop: number;
+}
+
 interface UseArticleCollapseStateOptions {
   feed: Article[];
 }
@@ -51,9 +59,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     Map<string, ReturnType<typeof setTimeout>>
   >(new Map());
   const collapseScrollRestoreCleanupRef = useRef<(() => void) | null>(null);
-  const preExpandArticleKeyRef = useRef<null | string>(null);
-  const preExpandScrollTopRef = useRef<null | number>(null);
-  const preExpandViewportRef = useRef<HTMLElement | null>(null);
+  const articleViewportSnapshotRef = useRef<ArticleViewportSnapshot | null>(null);
   const [isCollapseScrollRestoreActive, setIsCollapseScrollRestoreActive] =
     useState(false);
   const [collapsingArticles, setCollapsingArticles] =
@@ -74,9 +80,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
   }, []);
 
   const clearPreExpandSnapshot = useCallback(() => {
-    preExpandArticleKeyRef.current = null;
-    preExpandScrollTopRef.current = null;
-    preExpandViewportRef.current = null;
+    articleViewportSnapshotRef.current = null;
   }, []);
 
   const cancelCollapseScrollRestore = useCallback(() => {
@@ -85,8 +89,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     setIsCollapseScrollRestoreActive(false);
   }, []);
 
-  const capturePreExpandSnapshot = useCallback((article: Article) => {
-    const articleKey = getArticleKey(article);
+  const captureArticleViewportSnapshot = useCallback((articleKey: string) => {
     const articleElement = document.querySelector<HTMLElement>(
       `[data-article-key="${escapeArticleKey(articleKey)}"]`,
     );
@@ -95,39 +98,57 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
       null;
 
     if (!articleElement || !viewport) {
-      return;
+      return null;
     }
 
-    preExpandArticleKeyRef.current = articleKey;
-    preExpandScrollTopRef.current = viewport.scrollTop;
-    preExpandViewportRef.current = viewport;
+    return {
+      articleBottomOffsetTop: getViewportOffsetTop(articleElement, viewport) +
+        articleElement.getBoundingClientRect().height,
+      articleKey,
+      articleViewportOffsetTop: getViewportOffsetTop(articleElement, viewport),
+      viewport,
+      viewportScrollTop: viewport.scrollTop,
+    } satisfies ArticleViewportSnapshot;
   }, []);
+
+  const capturePreExpandSnapshot = useCallback((article: Article) => {
+    const articleKey = getArticleKey(article);
+    articleViewportSnapshotRef.current = captureArticleViewportSnapshot(articleKey);
+  }, [captureArticleViewportSnapshot]);
 
   const restoreCollapseScrollPosition = useCallback(
     (articleKey: string) => {
-      const targetScrollTop =
-        preExpandArticleKeyRef.current === articleKey
-          ? preExpandScrollTopRef.current
-          : null;
-      const viewport =
-        preExpandArticleKeyRef.current === articleKey
-          ? preExpandViewportRef.current
-          : null;
+      const liveSnapshot = captureArticleViewportSnapshot(articleKey);
+      const storedSnapshot = articleViewportSnapshotRef.current?.articleKey === articleKey
+        ? articleViewportSnapshotRef.current
+        : null;
+      const snapshot = storedSnapshot ?? liveSnapshot;
 
-      if (targetScrollTop === null || !viewport) {
+      if (!snapshot) {
+        setIsCollapseScrollRestoreActive(false);
+        clearPreExpandSnapshot();
+        return;
+      }
+
+      if (liveSnapshot && !isRestorableArticleViewportSnapshot(liveSnapshot)) {
         setIsCollapseScrollRestoreActive(false);
         clearPreExpandSnapshot();
         return;
       }
 
       cancelCollapseScrollRestore();
+      articleViewportSnapshotRef.current = snapshot;
       setIsCollapseScrollRestoreActive(true);
 
+      const { viewport, viewportScrollTop } = snapshot;
       const releaseAt =
         performance.now() +
         ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
         ARTICLE_SCROLL_RESTORE_BUFFER_MS;
       let animationFrameId = 0;
+      const previousOverflowAnchor = viewport.style.overflowAnchor;
+
+      viewport.style.overflowAnchor = "none";
 
       const release = () => {
         if (animationFrameId !== 0) {
@@ -136,13 +157,23 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
         }
         viewport.removeEventListener("wheel", release);
         viewport.removeEventListener("touchmove", release);
+        viewport.style.overflowAnchor = previousOverflowAnchor;
         setIsCollapseScrollRestoreActive(false);
         clearPreExpandSnapshot();
         collapseScrollRestoreCleanupRef.current = null;
       };
 
       const syncViewportScroll = () => {
-        viewport.scrollTop = targetScrollTop;
+        const currentSnapshot = captureArticleViewportSnapshot(articleKey);
+
+        if (currentSnapshot?.viewport !== viewport) {
+          release();
+          return;
+        }
+
+        if (Math.abs(viewport.scrollTop - viewportScrollTop) > 1) {
+          viewport.scrollTop = viewportScrollTop;
+        }
 
         if (performance.now() >= releaseAt) {
           release();
@@ -162,7 +193,11 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
         release();
       };
     },
-    [cancelCollapseScrollRestore, clearPreExpandSnapshot],
+    [
+      cancelCollapseScrollRestore,
+      captureArticleViewportSnapshot,
+      clearPreExpandSnapshot,
+    ],
   );
 
   const clearRemovalAnimation = useCallback((articleKey: string) => {
@@ -224,6 +259,17 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     restoreCollapseScrollPosition,
     startRemovalAnimation,
   };
+}
+
+function getViewportOffsetTop(element: HTMLElement, viewport: HTMLElement) {
+  return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+}
+
+function isRestorableArticleViewportSnapshot(
+  snapshot: ArticleViewportSnapshot,
+) {
+  return snapshot.articleBottomOffsetTop > 0 &&
+    snapshot.articleViewportOffsetTop < snapshot.viewport.clientHeight;
 }
 
 function removeCollapsingArticle(

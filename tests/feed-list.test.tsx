@@ -300,7 +300,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("falls back to the plain feed surface while an article is expanded", async () => {
+  test("keeps the feed virtualized while an article is expanded", async () => {
     const firstArticle = buildFeedListArticle();
     const secondArticle = buildFeedListArticle({
       id: 2,
@@ -334,15 +334,15 @@ describe("FeedList", () => {
       expect(getByText(firstArticle.title)).toBeTruthy();
       expect(getByText(secondArticle.title)).toBeTruthy();
       expect(
-        container.querySelector("[data-feed-surface-mode='plain']"),
+        container.querySelector("[data-feed-surface-mode='virtualized']"),
       ).toBeTruthy();
-      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-        null,
-      );
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
     });
   });
 
-  test("keeps the plain feed surface briefly after collapsing an expanded article", async () => {
+  test("keeps the feed virtualized after collapsing an expanded article", async () => {
     const article = buildFeedListArticle();
     const sibling = buildFeedListArticle({
       id: 2,
@@ -374,9 +374,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText(article.title)).toBeTruthy();
-      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-        null,
-      );
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
     });
 
     rerender(
@@ -404,10 +404,14 @@ describe("FeedList", () => {
       </ThemeProvider>,
     );
 
-    expect(container.querySelector("[data-feed-surface-mode='plain']")).toBeTruthy();
-    expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-      null,
-    );
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-feed-surface-mode='virtualized']"),
+      ).toBeTruthy();
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
+    });
   });
 
   test("resets the shared feed viewport when the active source changes", async () => {
