@@ -10,6 +10,8 @@ import {
 import { logger } from "@/lib/logger";
 import {
   requireMutableAuthenticatedUser,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
 } from "@/lib/server";
 import { resolveUserProxy, ServiceError } from "@/lib/server/services";
 
@@ -76,8 +78,9 @@ interface CompatibilityCheckResult {
  */
 export async function POST(
   request: NextRequest,
-  deps: CompatibilityCheckDeps = {},
+  depsOrContext: CompatibilityCheckDeps | RouteHandlerContext = {},
 ) {
+  const deps = resolveRouteHandlerDeps<CompatibilityCheckDeps>(depsOrContext);
   const parseJsonBodyOrResponseFn =
     deps.parseJsonBodyOrResponseFn ?? parseJsonBodyOrResponse;
   const requireMutableAuthenticatedUserFn =

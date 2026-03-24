@@ -24,5 +24,10 @@ export {
     type ResolvedStoredProxyPassword,
     resolveStoredProxyPassword
 } from "./proxy-credentials";
+export {
+    isRouteHandlerContext,
+    resolveRouteHandlerDeps,
+    type RouteHandlerContext
+} from "./route-context";
 export * from "./services";
 

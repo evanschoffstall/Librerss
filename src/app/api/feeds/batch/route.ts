@@ -8,6 +8,8 @@ import { logger } from "@/lib/logger";
 import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
 } from "@/lib/server";
 import { parseDateOrNull } from "@/lib/utils/dates";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
@@ -32,7 +34,11 @@ interface BatchUrlDescriptor {
   url: string;
 }
 
-export async function POST(request: NextRequest, deps: BatchRouteDeps = {}) {
+export async function POST(
+  request: NextRequest,
+  depsOrContext: BatchRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
   try {
     const diagnosticsEnabled = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
     const requireMutableAuthenticatedUserForRoute =

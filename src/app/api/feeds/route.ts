@@ -34,6 +34,10 @@ import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
 import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
 import {
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
+} from "@/lib/server";
+import {
   createFeed,
   deleteFeed,
   renameFeed,
@@ -81,7 +85,11 @@ interface FeedRouteDeps {
 
 // ─── Route handlers ───────────────────────────────────────────────────────────
 
-export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
+export async function DELETE(
+  request: NextRequest,
+  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
   const requireMutable =
     deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseDeleteId = deps.parseDeleteSourceIdFn ?? parseDeleteSourceId;
@@ -104,7 +112,11 @@ export async function DELETE(request: NextRequest, deps: FeedRouteDeps = {}) {
   }
 }
 
-export async function GET(request: NextRequest, deps: FeedRouteDeps = {}) {
+export async function GET(
+  request: NextRequest,
+  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
   const requireAuth =
     deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
   const requestedFeedUrl = deps.getRequestedFeedUrlFn ?? getRequestedFeedUrl;
@@ -145,7 +157,11 @@ export async function GET(request: NextRequest, deps: FeedRouteDeps = {}) {
   }
 }
 
-export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
+export async function PATCH(
+  request: NextRequest,
+  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
   const requireMutable =
     deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseRenamePayloadFromBody =
@@ -228,7 +244,11 @@ export async function PATCH(request: NextRequest, deps: FeedRouteDeps = {}) {
   }
 }
 
-export async function POST(request: NextRequest, deps: FeedRouteDeps = {}) {
+export async function POST(
+  request: NextRequest,
+  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
   const requireMutable =
     deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
   const parseCreatePayload =

@@ -7,6 +7,8 @@ import {
   type AuthenticatedUser,
   logAndRespondError,
   requireMutableUserAndJsonBody,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
 } from "@/lib/server";
 import { ServiceError, updateArticleStatus } from "@/lib/server/services";
 import { isSafePositiveItemId } from "@/lib/utils/validation";
@@ -30,9 +32,13 @@ interface StatusPostDeps {
   upsertArticleStatusesFn?: typeof upsertArticleStatuses;
 }
 
-export async function POST(request: NextRequest, deps?: StatusPostDeps) {
+export async function POST(
+  request: NextRequest,
+  depsOrContext: RouteHandlerContext | StatusPostDeps = {},
+) {
+  const deps = resolveRouteHandlerDeps<StatusPostDeps>(depsOrContext);
   const requireAuth =
-    deps?.requireMutableUserAndJsonBodyFn ?? requireMutableUserAndJsonBody;
+    deps.requireMutableUserAndJsonBodyFn ?? requireMutableUserAndJsonBody;
 
   try {
     const authAndBody = await requireAuth(request);
@@ -46,8 +52,8 @@ export async function POST(request: NextRequest, deps?: StatusPostDeps) {
       isRead: payload.isRead,
       isStarred: payload.isStarred,
     }, {
-      getUserOwnedArticleByIdFn: deps?.getUserOwnedArticleByIdFn,
-      upsertArticleStatusesFn: deps?.upsertArticleStatusesFn,
+      getUserOwnedArticleByIdFn: deps.getUserOwnedArticleByIdFn,
+      upsertArticleStatusesFn: deps.upsertArticleStatusesFn,
     });
 
     return NextResponse.json({ ok: true });
