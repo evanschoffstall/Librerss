@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import * as zlib from "zlib";
 
 import { getHostname, POST } from "@/app/api/articles/extract/route";
+import { CONFIG } from "@/lib/config";
 import {
     clearArticleExtractCacheForTests,
     fetchHtml,
@@ -26,6 +27,7 @@ import {
     stripCommentEngagementBoilerplate,
     toParagraphHtml,
 } from "@/lib/sanitize";
+  import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 
 const mockReq = () =>
   new NextRequest("http://localhost/api/articles/extract", {
@@ -79,6 +81,21 @@ beforeEach(() => {
 afterEach(() => {
   mock.restore();
   clearArticleExtractCacheForTests();
+});
+
+describe("decodePossiblyCompressedText", () => {
+  test("rejects compressed latin1 payloads that expand beyond the configured limit", async () => {
+    const oversizedHtml = "x".repeat(CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES + 1);
+    const compressedHtml = zlib
+      .gzipSync(Buffer.from(oversizedHtml, "utf8"))
+      .toString("latin1");
+
+    await expect(
+      decodePossiblyCompressedText(compressedHtml, {
+        maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+      }),
+    ).rejects.toThrow("Upstream response too large");
+  });
 });
 
 describe("article extract cleanup", () => {

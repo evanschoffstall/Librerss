@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { CookieJar } from "tough-cookie";
 import * as zlib from "zlib";
 
+import { CONFIG } from "@/lib/config";
 import {
     EXTRACT_403_RETRIES,
     fetchHtml,
@@ -143,6 +144,22 @@ describe("fetchHtml", () => {
       });
 
       expect(result).toBe(html);
+    });
+
+    test("rejects compressed responses that expand beyond the configured limit", async () => {
+      const oversizedHtml = "x".repeat(CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES + 1);
+      const compressedHtml = zlib.gzipSync(Buffer.from(oversizedHtml, "utf8"));
+      const mockAxiosGet = mock(async () => ({
+        data: compressedHtml,
+        headers: { "content-encoding": "gzip" },
+        status: 200,
+      }));
+
+      await expect(
+        fetchHtml(TEST_URL, {
+          axiosGetFn: asAxiosGet(mockAxiosGet),
+        }),
+      ).rejects.toThrow("Upstream response too large");
     });
 
     test("injects custom isAllowedFeedUrl function", async () => {

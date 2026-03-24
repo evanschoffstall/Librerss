@@ -1277,6 +1277,31 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
     ).rejects.toThrow("Upstream response too large");
   });
 
+  test("throws Upstream response too large for compressed fingerprint responses", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+    const oversizedHtml = "x".repeat(15 * 1024 * 1024);
+    const compressedBody = zlib
+      .gzipSync(Buffer.from(oversizedHtml, "utf8"))
+      .toString("latin1");
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/page",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            body: compressedBody,
+            headers: { "content-encoding": "gzip" },
+            statusCode: 200,
+          }),
+        },
+      ),
+    ).rejects.toThrow("Upstream response too large");
+  });
+
   test("throws Redirect without Location header when 302 has no location", async () => {
     const { fetchHtmlWithFingerprint } =
       await import("@/lib/fetch/fingerprint");
