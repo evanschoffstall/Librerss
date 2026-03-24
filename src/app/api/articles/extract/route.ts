@@ -183,7 +183,9 @@ export async function POST(
         proxyUrl: resolvedProxyUrl,
         useProxy,
       }));
-    const html = await decodePossiblyCompressedText(rawHtml);
+    const html = await decodePossiblyCompressedText(rawHtml, {
+      maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+    });
     const safeUrl = redactUrlForLogs(articleUrl);
 
     const extractableHtml = preCleanHtml(html);

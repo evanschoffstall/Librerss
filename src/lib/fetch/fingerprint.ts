@@ -153,8 +153,9 @@ export async function fetchHtmlWithFingerprint(
     if (
       Buffer.byteLength(decodedBody, "utf8") >
       CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
-    )
+    ) {
       throw new Error("Upstream response too large");
+    }
 
     return {
       html: decodedBody,
@@ -190,5 +191,6 @@ async function resolveResponseBody(
   return decodeTextBody(
     Buffer.from(response.body, "latin1"),
     getSingleHeaderValue(response.headers, "content-encoding"),
+    { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
   );
 }

@@ -74,7 +74,11 @@ export async function fetchTextWithValidatedRedirects(
 
       return await decodeTextBody(
         toBuffer(response.data),
-        getHeaderValue(response.headers, "content-encoding"),
+        getSingleHeaderValue(response.headers, "content-encoding"),
+        {
+          maxOutputBytes:
+            options.maxContentLengthBytes ?? CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+        },
       );
     } catch (error) {
       options.onAxiosError?.(error, isAxiosError);
@@ -95,6 +99,14 @@ function getHeaderValue(
   return typeof candidate === "string" || Array.isArray(candidate)
     ? candidate
     : undefined;
+}
+
+function getSingleHeaderValue(
+  headers: unknown,
+  name: string,
+): string | undefined {
+  const headerValue = getHeaderValue(headers, name);
+  return Array.isArray(headerValue) ? headerValue[0] : headerValue;
 }
 
 function toBuffer(data: unknown): Buffer {
