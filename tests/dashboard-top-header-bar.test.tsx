@@ -13,6 +13,7 @@ function MockThemeProvider({ children }: { children: React.ReactNode }) {
 
 describe("DashboardTopHeaderBar", () => {
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalLocationAssign = window.location.assign;
   const originalLocationReload = window.location.reload;
   const originalLogout = AuthService.logout;
 
@@ -29,6 +30,11 @@ describe("DashboardTopHeaderBar", () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     setNodeEnv(originalNodeEnv);
+    Object.defineProperty(window.location, "assign", {
+      configurable: true,
+      value: originalLocationAssign,
+      writable: true,
+    });
     Object.defineProperty(window.location, "reload", {
       configurable: true,
       value: originalLocationReload,
@@ -64,18 +70,19 @@ describe("DashboardTopHeaderBar", () => {
     expect(queryByLabelText("Reset app state")).toBeNull();
   });
 
-  test("reset clears client state and reloads without logging out", async () => {
+  test("reset clears client state and navigates to a clean dashboard URL without logging out", async () => {
     setNodeEnv("development");
     const logout = mock(async () => {});
-    const reload = mock(() => {});
+    const assign = mock(() => {});
 
     AuthService.logout = logout;
     window.localStorage.setItem("librerss:test", "value");
     window.sessionStorage.setItem("librerss:test", "value");
+    document.cookie = "librerss_dashboard_preview=1; Path=/";
     mockHeaderDependencies();
-    Object.defineProperty(window.location, "reload", {
+    Object.defineProperty(window.location, "assign", {
       configurable: true,
-      value: reload,
+      value: assign,
       writable: true,
     });
 
@@ -87,9 +94,11 @@ describe("DashboardTopHeaderBar", () => {
 
     await waitFor(() => {
       expect(logout).not.toHaveBeenCalled();
-      expect(reload).toHaveBeenCalledTimes(1);
+      expect(assign).toHaveBeenCalledTimes(1);
+      expect(assign).toHaveBeenCalledWith("/dashboard");
       expect(window.localStorage.getItem("librerss:test")).toBeNull();
       expect(window.sessionStorage.getItem("librerss:test")).toBeNull();
+      expect(document.cookie).not.toContain("librerss_dashboard_preview=");
     });
   });
 

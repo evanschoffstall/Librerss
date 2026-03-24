@@ -145,7 +145,7 @@ export function useDashboardTopHeaderState() {
     setIsResetting(true);
     try {
       await clearClientOriginState();
-      window.location.reload();
+      window.location.assign("/dashboard");
     } catch {
       toast.error("Unable to reset app state.");
       setIsResetting(false);
