@@ -10,7 +10,7 @@ const getSessionStorage = () => sessionStorage;
  * Like useState, but persists value to sessionStorage so it survives HMR
  * hot-reloads and full-page refreshes within the same tab.
  *
- * - SSR-safe: reads lazily in the initializer, skips writes on the server.
+ * - SSR-safe: restores persisted state after mount so hydration stays stable.
  * - Clears automatically when the tab is closed (sessionStorage behaviour).
  *
  * @param key - sessionStorage key
