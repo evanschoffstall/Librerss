@@ -493,4 +493,101 @@ describe("FeedList", () => {
 
     expect(scrollTop).toBe(0);
   });
+
+  test("does not reset a replacement viewport while collapse scroll restore is active", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/replacement-viewport-second",
+      title: "Replacement viewport second article",
+    });
+    let firstViewportScrollTop = 180;
+    let replacementViewportScrollTop = 320;
+
+    const { rerender } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return firstViewportScrollTop;
+            },
+            set(nextValue: number) {
+              firstViewportScrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isCollapseScrollRestoreActive={false}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div
+          data-radix-scroll-area-viewport=""
+          ref={(viewport) => {
+            if (!viewport) {
+              return;
+            }
+
+            Object.defineProperty(viewport, "scrollTop", {
+              configurable: true,
+              get() {
+                return replacementViewportScrollTop;
+              },
+              set(nextValue: number) {
+                replacementViewportScrollTop = nextValue;
+              },
+            });
+          }}
+        >
+          <FeedList
+            articleFilter="unread"
+            articlesPerPage={12}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:unread"
+            filteredFeed={[firstArticle, secondArticle]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isCollapseScrollRestoreActive={true}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    expect(replacementViewportScrollTop).toBe(320);
+  });
 });

@@ -12,7 +12,7 @@ import { escapeArticleKey } from "./useArticleHydration";
  */
 export const ARTICLE_REMOVAL_ANIMATION_MS = 180;
 export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 130;
-const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 120;
+const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 1200;
 
 export type ArticleRemovalAnimationMode =
   | "collapse"
@@ -146,33 +146,66 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
         ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
         ARTICLE_SCROLL_RESTORE_BUFFER_MS;
       let animationFrameId = 0;
-      const previousOverflowAnchor = viewport.style.overflowAnchor;
+      let activeViewport = resolveCollapseRestoreViewport(articleKey, viewport) ??
+        viewport;
+      let activeOverflowAnchor = activeViewport.style.overflowAnchor;
 
-      viewport.style.overflowAnchor = "none";
+      const bindReleaseListeners = (targetViewport: HTMLElement) => {
+        targetViewport.addEventListener("wheel", release, { passive: true });
+        targetViewport.addEventListener("touchmove", release, { passive: true });
+      };
+
+      const unbindReleaseListeners = (targetViewport: HTMLElement) => {
+        targetViewport.removeEventListener("wheel", release);
+        targetViewport.removeEventListener("touchmove", release);
+      };
+
+      const adoptViewport = (nextViewport: HTMLElement) => {
+        if (nextViewport === activeViewport) {
+          return;
+        }
+
+        unbindReleaseListeners(activeViewport);
+        activeViewport.style.overflowAnchor = activeOverflowAnchor;
+        activeViewport = nextViewport;
+        activeOverflowAnchor = activeViewport.style.overflowAnchor;
+        activeViewport.style.overflowAnchor = "none";
+        bindReleaseListeners(activeViewport);
+      };
+
+      activeViewport.style.overflowAnchor = "none";
 
       const release = () => {
         if (animationFrameId !== 0) {
           window.cancelAnimationFrame(animationFrameId);
           animationFrameId = 0;
         }
-        viewport.removeEventListener("wheel", release);
-        viewport.removeEventListener("touchmove", release);
-        viewport.style.overflowAnchor = previousOverflowAnchor;
+        unbindReleaseListeners(activeViewport);
+        activeViewport.style.overflowAnchor = activeOverflowAnchor;
         setIsCollapseScrollRestoreActive(false);
         clearPreExpandSnapshot();
         collapseScrollRestoreCleanupRef.current = null;
       };
 
-      const syncViewportScroll = () => {
-        const currentSnapshot = captureArticleViewportSnapshot(articleKey);
+      bindReleaseListeners(activeViewport);
 
-        if (currentSnapshot?.viewport !== viewport) {
+      const syncViewportScroll = () => {
+        const currentViewport = resolveCollapseRestoreViewport(articleKey, activeViewport);
+
+        if (!currentViewport) {
           release();
           return;
         }
 
-        if (Math.abs(viewport.scrollTop - viewportScrollTop) > 1) {
-          viewport.scrollTop = viewportScrollTop;
+        adoptViewport(currentViewport);
+
+        if (!activeViewport.isConnected) {
+          release();
+          return;
+        }
+
+        if (Math.abs(activeViewport.scrollTop - viewportScrollTop) > 1) {
+          activeViewport.scrollTop = viewportScrollTop;
         }
 
         if (performance.now() >= releaseAt) {
@@ -184,10 +217,6 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
       };
 
       syncViewportScroll();
-
-      // Stop fighting scroll if the user intentionally scrolls
-      viewport.addEventListener("wheel", release, { passive: true });
-      viewport.addEventListener("touchmove", release, { passive: true });
 
       collapseScrollRestoreCleanupRef.current = () => {
         release();
@@ -261,8 +290,22 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
   };
 }
 
+function findFeedRestoreViewport() {
+  const viewports = document.querySelectorAll<HTMLElement>(
+    "[data-radix-scroll-area-viewport]",
+  );
+
+  return Array.from(viewports).find(isFeedRestoreViewport) ?? null;
+}
+
 function getViewportOffsetTop(element: HTMLElement, viewport: HTMLElement) {
   return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+}
+
+function isFeedRestoreViewport(viewport: HTMLElement) {
+  return Boolean(
+    viewport.querySelector("[data-feed-virtualizer='true'], [data-scroll-restore-key]"),
+  );
 }
 
 function isRestorableArticleViewportSnapshot(
@@ -282,4 +325,40 @@ function removeCollapsingArticle(
 
   const { [articleKey]: _removed, ...rest } = currentState;
   return rest;
+}
+
+/** Resolves the feed viewport that should receive collapse scroll restoration. */
+function resolveCollapseRestoreViewport(
+  articleKey: string,
+  fallbackViewport: HTMLElement,
+) {
+  const articleElement = document.querySelector<HTMLElement>(
+    `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+  );
+  const articleViewport =
+    articleElement?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+    null;
+
+  if (articleViewport) {
+    return articleViewport;
+  }
+
+  const placeholderRow = document.querySelector<HTMLElement>(
+    `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"]`,
+  );
+  const placeholderViewport =
+    placeholderRow?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+    null;
+
+  if (placeholderViewport) {
+    return placeholderViewport;
+  }
+
+  const liveFeedViewport = findFeedRestoreViewport();
+
+  if (liveFeedViewport) {
+    return liveFeedViewport;
+  }
+
+  return fallbackViewport.isConnected ? fallbackViewport : null;
 }

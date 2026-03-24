@@ -22,6 +22,7 @@ export function useFeedListSurfaceState({
   articlesPerPage,
   feedViewKey,
   filteredFeedLength,
+  isCollapseScrollRestoreActive,
   isInitialLoading,
   searchTerm,
 }: UseFeedListSurfaceStateOptions) {
@@ -32,6 +33,7 @@ export function useFeedListSurfaceState({
   const hasUserScrolledRef = useRef(false);
   const hasAutoFilledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const previousFeedViewKeyRef = useRef(feedViewKey);
   const viewportHostRef = useRef<HTMLDivElement | null>(null);
 
   const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
@@ -51,12 +53,23 @@ export function useFeedListSurfaceState({
   }, [articleFilter, articlesPerPage, feedViewKey, searchTerm]);
 
   useLayoutEffect(() => {
-    if (!scrollViewport || scrollViewport.scrollTop === 0) {
+    if (!scrollViewport) {
+      return;
+    }
+
+    const didFeedViewChange = previousFeedViewKeyRef.current !== feedViewKey;
+    previousFeedViewKeyRef.current = feedViewKey;
+
+    if (
+      !didFeedViewChange ||
+      isCollapseScrollRestoreActive ||
+      scrollViewport.scrollTop === 0
+    ) {
       return;
     }
 
     scrollViewport.scrollTop = 0;
-  }, [feedViewKey, scrollViewport]);
+  }, [feedViewKey, isCollapseScrollRestoreActive, scrollViewport]);
 
   const expandVisibleWindow = useCallback(() => {
     setVisibleArticleCount((currentCount) => {
