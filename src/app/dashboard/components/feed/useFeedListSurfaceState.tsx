@@ -59,12 +59,14 @@ export function useFeedListSurfaceState({
 
     const didFeedViewChange = previousFeedViewKeyRef.current !== feedViewKey;
     previousFeedViewKeyRef.current = feedViewKey;
+    const isViewportReplacementDuringRestore =
+      !didFeedViewChange && isCollapseScrollRestoreActive;
 
-    if (
-      !didFeedViewChange ||
-      isCollapseScrollRestoreActive ||
-      scrollViewport.scrollTop === 0
-    ) {
+    if (isViewportReplacementDuringRestore || scrollViewport.scrollTop === 0) {
+      return;
+    }
+
+    if (!didFeedViewChange) {
       return;
     }
 

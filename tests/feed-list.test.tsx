@@ -590,4 +590,87 @@ describe("FeedList", () => {
 
     expect(replacementViewportScrollTop).toBe(320);
   });
+
+  test("still resets the viewport when the feed view changes during active collapse restore", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/reset-during-restore-second",
+      title: "Reset during restore second article",
+    });
+    let scrollTop = 240;
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isCollapseScrollRestoreActive={false}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+    });
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      get() {
+        return scrollTop;
+      },
+      set(nextValue: number) {
+        scrollTop = nextValue;
+      },
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="read"
+            articlesPerPage={12}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:read"
+            filteredFeed={[secondArticle]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isCollapseScrollRestoreActive={true}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    expect(scrollTop).toBe(0);
+  });
 });
