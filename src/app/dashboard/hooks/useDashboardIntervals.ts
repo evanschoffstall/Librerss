@@ -14,7 +14,7 @@ import { toAutoRefreshIntervalMs } from "../services/refresh-policy";
 const TAB_RESUME_DELAY_MS = 1_500;
 
 interface UseDashboardIntervalsOptions {
-  autoRefreshFeedList: () => void;
+  autoRefreshFeedList: () => Promise<void>;
   autoRefreshIntervalMinutes: number;
   setRelativeRefreshTick: Dispatch<SetStateAction<number>>;
 }
@@ -43,7 +43,7 @@ export function useDashboardIntervals({
   const lastFiredAtRef = useRef(Date.now());
   const runRefresh = useEffectEvent(() => {
     lastFiredAtRef.current = Date.now();
-    autoRefreshFeedList();
+    void autoRefreshFeedList();
   });
 
   useEffect(() => {
