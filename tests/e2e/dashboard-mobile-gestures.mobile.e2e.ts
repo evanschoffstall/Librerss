@@ -6,7 +6,7 @@ import {
   articleRow,
   expectArticleExpanded,
   expectNotClipped,
-  expectPreviewDashboard,
+  gotoPreviewDashboard,
   readArticleKey,
   readFeedViewportMetrics,
   selectExpandedArticleText,
@@ -91,15 +91,14 @@ function feedScrollViewport(page: Page) {
     .first();
 }
 
-async function openPreviewDashboardOnMobile(page: Parameters<typeof expectPreviewDashboard>[0]) {
-  await expectPreviewDashboard(page);
+async function openPreviewDashboardOnMobile(page: Page) {
+  await gotoPreviewDashboard(page);
 }
 
 test.describe("dashboard mobile gestures", () => {
   test("keeps expanded article reading interactions from collapsing the card", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
     await openPreviewDashboardOnMobile(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -127,7 +126,6 @@ test.describe("dashboard mobile gestures", () => {
   test("commits swipe-to-read on expanded header of mobile articles", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
     await openPreviewDashboardOnMobile(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -157,7 +155,6 @@ test.describe("dashboard mobile gestures", () => {
   test("requires clearly horizontal intent before mobile swipe-read commits", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
     await openPreviewDashboardOnMobile(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -198,7 +195,6 @@ test.describe("dashboard mobile gestures", () => {
   test("keeps lower mobile cards interactive after expand and collapse", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
     await openPreviewDashboardOnMobile(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();

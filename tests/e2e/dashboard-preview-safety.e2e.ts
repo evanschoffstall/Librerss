@@ -1,8 +1,7 @@
 import {
-    enterPreviewFromLogin,
     expectDashboardLogin,
     expectPreviewDashboard,
-    firstArticleCard,
+  gotoPreviewDashboard,
     openDashboardSettings,
     readClientStateSentinel,
     readPreviewPersistence,
@@ -14,8 +13,7 @@ test.describe("dashboard preview safety", () => {
   test("accepts the preview query alias and persists local preview mode", async ({
     page,
   }) => {
-    await page.goto("/dashboard?preview=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page, "/dashboard?preview=1");
 
     const previewPersistence = await readPreviewPersistence(page);
 
@@ -26,11 +24,11 @@ test.describe("dashboard preview safety", () => {
   test("keeps preview mode active across direct dashboard navigation and reload", async ({
     page,
   }) => {
-    await enterPreviewFromLogin(page);
-    await page.goto("/dashboard");
+    await gotoPreviewDashboard(page, "/dashboard?preview=1");
+    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
     await expectPreviewDashboard(page);
 
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expectPreviewDashboard(page);
 
     const previewPersistence = await readPreviewPersistence(page);
@@ -42,9 +40,7 @@ test.describe("dashboard preview safety", () => {
   test("signing out from preview clears persisted preview state and origin storage", async ({
     page,
   }) => {
-    await enterPreviewFromLogin(page);
-    await page.goto("/dashboard");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page, "/dashboard?preview=1");
     await seedClientStateSentinel(page);
 
     await page.getByRole("button", { name: "Sign out" }).click();
@@ -68,9 +64,7 @@ test.describe("dashboard preview safety", () => {
   test("reset app state clears local browser storage without persisting preview mode", async ({
     page,
   }) => {
-    await enterPreviewFromLogin(page);
-    await page.goto("/dashboard");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page, "/dashboard?preview=1");
     await seedClientStateSentinel(page, "reset-me");
 
     await page.getByRole("button", { name: "Reset app state" }).click();
@@ -88,8 +82,7 @@ test.describe("dashboard preview safety", () => {
   test("preview settings hide destructive account actions while leaving safe controls visible", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await openDashboardSettings(page);
 
     await expect(page.getByText("Privacy and Account")).toHaveCount(0);
@@ -104,8 +97,7 @@ test.describe("dashboard preview safety", () => {
   test("preview display preferences persist locally across reloads", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await openDashboardSettings(page);
 
     const faviconSwitch = page.getByRole("switch", { name: "Show favicons" });
@@ -120,12 +112,8 @@ test.describe("dashboard preview safety", () => {
       page.getByRole("heading", { name: "Reader Settings" }),
     ).toHaveCount(0);
 
-    await page.reload();
-    await page.waitForURL(/\/dashboard\?(?:explore|preview)=1/);
-    await expect(page.getByText("demo", { exact: true })).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expectPreviewDashboard(page);
     await openDashboardSettings(page);
     await expect(
       page.getByRole("switch", { name: "Show favicons" }),

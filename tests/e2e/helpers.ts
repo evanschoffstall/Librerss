@@ -101,7 +101,7 @@ export function createNextJsErrorMonitor(page: Page): NextJsErrorMonitor {
 
 /** Opens the unauthenticated dashboard and enters preview mode through the UI. */
 export async function enterPreviewFromLogin(page: Page) {
-  await page.goto("/dashboard");
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
   await expect(
     page.getByText("Access your saved feeds and reading preferences."),
@@ -211,6 +211,15 @@ export function firstArticleCard(page: Page): Locator {
 /** Returns the first article title within the feed list. */
 export function firstArticleTitle(page: Page): Locator {
   return firstArticleCard(page).getByRole("heading").first();
+}
+
+/** Opens the preview dashboard without waiting for the full document load event. */
+export async function gotoPreviewDashboard(
+  page: Page,
+  path = "/dashboard?explore=1",
+) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await expectPreviewDashboard(page);
 }
 
 /** Returns whether the feed list is still rendering the load-more sentinel. */

@@ -2,7 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 
 import {
   expectNotClipped,
-  expectPreviewDashboard,
+  gotoPreviewDashboard,
   openDashboardFeedsSidebar,
   readSidebarTrayViewportMetrics,
 } from "./helpers";
@@ -78,8 +78,7 @@ async function wheelMobileFeedsTray(page: Page, deltaY: number) {
 
 test.describe("dashboard mobile feeds tray", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
   });
 
   test("scrolls from top to bottom inside the Radix viewport without falling back to the page or tray shell", async ({
