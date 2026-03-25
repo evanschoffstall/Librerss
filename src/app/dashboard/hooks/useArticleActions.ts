@@ -40,6 +40,7 @@ export function useArticleActions({
   const {
     handleToggleReadState: toggleArticleReadState,
     setArticleReadState,
+    setArticlesReadState,
     setUpdatingArticleState,
     updatingArticleState,
   } = useArticleReadState({ setFeed, usePlaceholderData });
@@ -263,6 +264,32 @@ export function useArticleActions({
     [articleFilter, startRemovalAnimation, toggleArticleReadState],
   );
 
+  /**
+   * Marks multiple articles as read using the same unread-removal path as the
+   * per-article read control, but batches the optimistic state write and server
+   * round-trips to keep the header action responsive.
+   */
+  const handleMarkArticlesRead = useCallback(
+    async (articles: Article[]) => {
+      const unreadArticles = articles.filter((article) => !article.isRead);
+
+      if (unreadArticles.length === 0) {
+        return;
+      }
+
+      if (articleFilter === "unread") {
+        for (const article of unreadArticles) {
+          startRemovalAnimation(article, "collapse");
+        }
+      }
+
+      await setArticlesReadState(unreadArticles, true, {
+        suppressErrorToast: true,
+      });
+    },
+    [articleFilter, setArticlesReadState, startRemovalAnimation],
+  );
+
   const handleToggleStarredState = useCallback(
     async (article: Article) => {
       const articleKey = getArticleKey(article);
@@ -322,6 +349,7 @@ export function useArticleActions({
     collapsingArticles,
     handleArticleToggle,
     handleExpandedSwipeRead,
+    handleMarkArticlesRead,
     handleSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,

@@ -18,6 +18,7 @@ import {
 } from "../services/dashboard-controller-state";
 import { shouldResetExpandedArticle } from "../services/dashboard-selection-state";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
+import { collectFullyVisibleUnreadArticles } from "../services/viewport-read";
 import { useArticleActions } from "./useArticleActions";
 import { useDashboardArticleCallbacks } from "./useDashboardArticleCallbacks";
 import { useDashboardCategoryTree } from "./useDashboardCategoryTree";
@@ -183,6 +184,7 @@ export function useDashboardController({
     collapsingArticles,
     handleArticleToggle,
     handleExpandedSwipeRead,
+    handleMarkArticlesRead,
     handleSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
@@ -379,8 +381,16 @@ export function useDashboardController({
     );
   }, [setFeed]);
 
+  /** Marks only the articles that are fully visible inside the current feed viewport. */
+  const handleMarkViewportRead = useCallback(async () => {
+    const visibleUnreadArticles = collectFullyVisibleUnreadArticles(feed);
+
+    await handleMarkArticlesRead(visibleUnreadArticles);
+  }, [feed, handleMarkArticlesRead]);
+
   useDashboardEvents({
     onMarkAllReadLocally: handleMarkAllReadLocally,
+    onMarkViewportRead: handleMarkViewportRead,
     onOpenFeedsSidebar: useCallback(() => {
       setIsMobileSidebarOpen(true);
     }, [setIsMobileSidebarOpen]),

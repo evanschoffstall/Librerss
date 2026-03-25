@@ -16,6 +16,7 @@ import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "../constants";
 
 interface UseDashboardEventsOptions {
   onMarkAllReadLocally?: () => void;
+  onMarkViewportRead: () => Promise<void>;
   onOpenFeedsSidebar: () => void;
   onOpenSettings: () => void;
   onRefresh: () => void;
@@ -34,6 +35,7 @@ interface UseDashboardEventsOptions {
  */
 export function useDashboardEvents({
   onMarkAllReadLocally,
+  onMarkViewportRead,
   onOpenFeedsSidebar,
   onOpenSettings,
   onRefresh,
@@ -102,6 +104,22 @@ export function useDashboardEvents({
     })();
   });
 
+  const handleMarkViewportRead = useEffectEvent(() => {
+    void (async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START),
+      );
+
+      try {
+        await onMarkViewportRead();
+      } finally {
+        window.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
+        );
+      }
+    })();
+  });
+
   const handleSearchChange = useEffectEvent((event: Event) => {
     const detail = (event as CustomEvent<{ term?: string }>).detail;
     const term = typeof detail.term === "string" ? detail.term : "";
@@ -136,6 +154,10 @@ export function useDashboardEvents({
   useEffect(() => {
     window.addEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);
     window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
+    window.addEventListener(
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ,
+      handleMarkViewportRead,
+    );
     window.addEventListener(DASHBOARD_EVENTS.OPEN_SETTINGS, handleOpenSettings);
     window.addEventListener(
       DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR,
@@ -157,6 +179,10 @@ export function useDashboardEvents({
       window.removeEventListener(
         DASHBOARD_EVENTS.MARK_ALL_READ,
         handleMarkAllRead,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_VIEWPORT_READ,
+        handleMarkViewportRead,
       );
       window.removeEventListener(
         DASHBOARD_EVENTS.OPEN_SETTINGS,

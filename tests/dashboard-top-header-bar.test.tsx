@@ -4,8 +4,18 @@ import * as React from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
+import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { AuthService } from "@/lib";
 
+
+async function loadDashboardTopHeaderBar() {
+  return import(
+    new URL(
+      `../src/app/dashboard/components/DashboardTopHeaderBar.tsx?test=${Date.now()}-${Math.random()}`,
+      import.meta.url,
+    ).href
+  );
+}
 
 function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
@@ -48,8 +58,7 @@ describe("DashboardTopHeaderBar", () => {
     AuthService.logout = mock(async () => {});
     mockHeaderDependencies();
 
-    const { DashboardTopHeaderBar } =
-      await import("@/app/dashboard/components/DashboardTopHeaderBar");
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
     const { getAllByText, getByLabelText } = render(<DashboardTopHeaderBar />);
 
     expect(getAllByText("Reset")).toHaveLength(1);
@@ -62,12 +71,45 @@ describe("DashboardTopHeaderBar", () => {
     AuthService.logout = mock(async () => {});
     mockHeaderDependencies();
 
-    const { DashboardTopHeaderBar } =
-      await import("@/app/dashboard/components/DashboardTopHeaderBar");
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
     const { queryByLabelText, queryByText } = render(<DashboardTopHeaderBar />);
 
     expect(queryByText("Reset")).toBeNull();
     expect(queryByLabelText("Reset app state")).toBeNull();
+  });
+
+  test("renders the viewport read action in the persistent header button bar", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
+
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
+    const { getAllByLabelText } = render(<DashboardTopHeaderBar />);
+
+    expect(getAllByLabelText("Mark fully visible articles as read")).toHaveLength(2);
+  });
+
+  test("shows a skeleton in the viewport read button while processing", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
+
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
+    const { getAllByLabelText } = render(<DashboardTopHeaderBar />);
+    const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START),
+      );
+      await Promise.resolve();
+    });
+
+    for (const button of viewportButtons) {
+      expect(button.querySelector(".animate-pulse")).toBeTruthy();
+    }
   });
 
   test("reset clears client state and navigates to a clean dashboard URL without logging out", async () => {
@@ -86,8 +128,7 @@ describe("DashboardTopHeaderBar", () => {
       writable: true,
     });
 
-    const { DashboardTopHeaderBar } =
-      await import("@/app/dashboard/components/DashboardTopHeaderBar");
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
     const { getByLabelText } = render(<DashboardTopHeaderBar />);
 
     fireEvent.click(getByLabelText("Reset app state"));
@@ -111,8 +152,7 @@ describe("DashboardTopHeaderBar", () => {
     AuthService.logout = mock(async () => {});
     mockHeaderDependencies();
 
-    const { DashboardTopHeaderBar } =
-      await import("@/app/dashboard/components/DashboardTopHeaderBar");
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
     const container = document.createElement("div");
     container.innerHTML = renderToString(<DashboardTopHeaderBar />);
     document.body.append(container);

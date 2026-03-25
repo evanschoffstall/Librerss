@@ -297,6 +297,7 @@ describe("useDashboardEvents", () => {
     try {
       renderHook(() =>
         useDashboardEvents({
+          onMarkViewportRead: async () => {},
           onOpenFeedsSidebar: () => {},
           onOpenSettings: () => {},
           onRefresh: () => {},
@@ -343,6 +344,7 @@ describe("useDashboardEvents", () => {
     const { rerender } = renderHook(
       ({ onSearchChange }: { onSearchChange: (term: string) => void }) =>
         useDashboardEvents({
+          onMarkViewportRead: async () => {},
           onOpenFeedsSidebar: () => {},
           onOpenSettings: () => {},
           onRefresh: () => {},
@@ -371,6 +373,64 @@ describe("useDashboardEvents", () => {
       expect(secondOnSearchChange).toHaveBeenCalledTimes(1);
       expect(secondOnSearchChange).toHaveBeenCalledWith("latest");
     });
+  });
+
+  test("marks fully visible unread articles through the viewport command", async () => {
+    const onMarkViewportRead = mock(async () => {});
+
+    renderHook(() =>
+      useDashboardEvents({
+        onMarkViewportRead,
+        onOpenFeedsSidebar: () => {},
+        onOpenSettings: () => {},
+        onRefresh: () => {},
+        onSearchChange: () => {},
+        selectedCategory: "system-all-feeds",
+        selectedCategoryNode: undefined,
+        selectedFeedUrl: undefined,
+      }),
+    );
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
+    });
+
+    await waitFor(() => {
+      expect(onMarkViewportRead).toHaveBeenCalledTimes(1);
+    });
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.info).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test("keeps the viewport command silent when there are no visible unread articles", async () => {
+    const onMarkViewportRead = mock(async () => {});
+
+    renderHook(() =>
+      useDashboardEvents({
+        onMarkViewportRead,
+        onOpenFeedsSidebar: () => {},
+        onOpenSettings: () => {},
+        onRefresh: () => {},
+        onSearchChange: () => {},
+        selectedCategory: "system-all-feeds",
+        selectedCategoryNode: undefined,
+        selectedFeedUrl: undefined,
+      }),
+    );
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
+    });
+
+    await waitFor(() => {
+      expect(onMarkViewportRead).toHaveBeenCalledTimes(1);
+    });
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.info).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
 
@@ -439,6 +499,7 @@ function registerModuleMocks() {
   mock.module("sonner", () => ({
     toast: {
       error: mock(() => {}),
+      info: mock(() => {}),
       success: mock(() => {}),
     },
   }));
@@ -1117,7 +1178,7 @@ describe("useArticleReadState", () => {
 
     const { result } = renderHook(() => useArticleReadState({ setFeed }));
 
-    let promise: Promise<void>;
+    let promise: Promise<boolean>;
     await act(async () => {
       promise = result.current.setArticleReadState(article, true);
       await Promise.resolve();

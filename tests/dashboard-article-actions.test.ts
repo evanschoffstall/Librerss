@@ -3,8 +3,10 @@
  * Tests for src/app/dashboard/hooks/useArticleActions.ts
  */
 
+import type { SetStateAction } from "react";
+
 import { act, renderHook, waitFor } from "@testing-library/react";
-import {
+  import {
     afterAll,
     afterEach,
     beforeAll,
@@ -478,6 +480,57 @@ describe("useArticleActions - State Management", () => {
         mode: "collapse",
       },
     });
+  });
+
+  test("handleMarkArticlesRead batches unread-filter removals through the same collapse path", async () => {
+    const firstArticle = createMockArticle({
+      id: 120,
+      isRead: false,
+      link: "https://example.com/batch-removal-1",
+    });
+    const secondArticle = createMockArticle({
+      id: 121,
+      isRead: false,
+      link: "https://example.com/batch-removal-2",
+    });
+    let feedState = [firstArticle, secondArticle];
+    const setFeed = mock((updater: SetStateAction<Article[]>) => {
+      feedState =
+        typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "unread",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleMarkArticlesRead([firstArticle, secondArticle]);
+    });
+
+    expect(feedState).toEqual([
+      { ...firstArticle, isRead: true },
+      { ...secondArticle, isRead: true },
+    ]);
+    expect(result.current.collapsingArticles).toEqual({
+      [firstArticle.link]: {
+        article: firstArticle,
+        index: 0,
+        mode: "collapse",
+      },
+      [secondArticle.link]: {
+        article: secondArticle,
+        index: 1,
+        mode: "collapse",
+      },
+    });
+    expect(setFeed).toHaveBeenCalledTimes(1);
   });
 
   test("handleSwipeRead updates unread-filter articles without staging a swipe-removal row", async () => {

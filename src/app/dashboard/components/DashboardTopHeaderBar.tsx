@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Check,
     CheckCheck,
     EllipsisVertical,
     LogOut,
@@ -31,12 +32,19 @@ import { MotionSpinner } from "./MotionSpinner";
 const toolbarBtnClass =
   "cursor-pointer transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
 
+interface ViewportReadButtonProps {
+  className?: string;
+  isMarkingViewportRead: boolean;
+  onClick: () => void;
+}
+
 /**
  * Top dashboard toolbar for search, quick actions, theme controls, and logout.
  */
 export function DashboardTopHeaderBar() {
   const {
     handleMarkAllRead,
+    handleMarkViewportRead,
     handleOpenFeedsSidebar,
     handleOpenSettings,
     handleRefresh,
@@ -47,6 +55,7 @@ export function DashboardTopHeaderBar() {
     isDark,
     isDevelopmentMode,
     isMarkingAllRead,
+    isMarkingViewportRead,
     isResetting,
     isSearchPending,
     isSigningOut,
@@ -138,6 +147,15 @@ export function DashboardTopHeaderBar() {
             <RefreshCw className="size-4" />
           </button>
 
+          <ViewportReadButton
+            className="
+              shrink-0
+              md:hidden
+            "
+            isMarkingViewportRead={isMarkingViewportRead}
+            onClick={handleMarkViewportRead}
+          />
+
           <DropdownMenuTrigger asChild>
             <button
               aria-label="Open actions menu"
@@ -207,6 +225,11 @@ export function DashboardTopHeaderBar() {
           >
             <RefreshCw className="size-4" />
           </button>
+
+          <ViewportReadButton
+            isMarkingViewportRead={isMarkingViewportRead}
+            onClick={handleMarkViewportRead}
+          />
 
           <button
             aria-label="Mark all read"
@@ -283,5 +306,32 @@ export function DashboardTopHeaderBar() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ViewportReadButton({
+  className,
+  isMarkingViewportRead,
+  onClick,
+}: ViewportReadButtonProps) {
+  return (
+    <button
+      aria-busy={isMarkingViewportRead}
+      aria-label="Mark fully visible articles as read"
+      className={`
+        ${toolbarBtnClass}
+        disabled:cursor-not-allowed disabled:opacity-70
+        ${className ?? ""}
+      `}
+      disabled={isMarkingViewportRead}
+      onClick={onClick}
+      type="button"
+    >
+      {isMarkingViewportRead ? (
+        <Skeleton aria-hidden="true" className="size-4 rounded-sm" />
+      ) : (
+        <Check className="size-4" />
+      )}
+    </button>
   );
 }
