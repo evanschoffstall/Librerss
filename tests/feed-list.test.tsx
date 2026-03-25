@@ -233,7 +233,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("loads another page when the viewport has no scrollable overflow yet", async () => {
+  test("keeps auto-filling additional pages when the viewport still cannot scroll", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 10 }, (_value, index) =>
       buildFeedListArticle({
@@ -292,11 +292,151 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Viewport fill article 8")).toBeTruthy();
-      expect(queryByText("Viewport fill article 9")).toBeNull();
+      expect(getByText("Viewport fill article 10")).toBeTruthy();
+      expect(queryByText("Viewport fill article 11")).toBeNull();
       expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
-        8,
+        10,
       );
+    });
+  });
+
+  test("keeps auto-filling sparse starred results across multiple pages", async () => {
+    let testContainer: HTMLElement | null = null;
+    const articles = Array.from({ length: 13 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        isStarred: true,
+        link: `https://example.com/articles/starred-autofill-${index + 1}`,
+        title: `Starred auto-fill article ${index + 1}`,
+      }),
+    );
+
+    const { container, getByText, queryByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 600;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                testContainer?.querySelectorAll("[data-scroll-restore-key]")
+                  .length ?? 0;
+
+              return renderedRows >= 12 ? 1200 : 400;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="starred"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:starred"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    await waitFor(() => {
+      expect(getByText("Starred auto-fill article 13")).toBeTruthy();
+      expect(queryByText("Starred auto-fill article 14")).toBeNull();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
+        13,
+      );
+    });
+  });
+
+  test("stops auto-filling with a no-op once all starred results are visible", async () => {
+    let testContainer: HTMLElement | null = null;
+    const articles = Array.from({ length: 6 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        isStarred: true,
+        link: `https://example.com/articles/starred-exhausted-${index + 1}`,
+        title: `Starred exhausted article ${index + 1}`,
+      }),
+    );
+
+    const { container, getByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 600;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                testContainer?.querySelectorAll("[data-scroll-restore-key]")
+                  .length ?? 0;
+
+              return renderedRows * 40;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="starred"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:starred"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    await waitFor(() => {
+      expect(getByText("Starred exhausted article 6")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
+        6,
+      );
+      expect(
+        container.querySelector("[data-feed-load-more-sentinel='true']"),
+      ).toBeNull();
     });
   });
 

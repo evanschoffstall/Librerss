@@ -79,17 +79,47 @@ export async function queryTopArticlesPerFeed(
   feedIds: number[],
 ): Promise<RankedRow[]> {
   const queryResult = await db.execute<RankedRow>(sql`
-    SELECT a.id, a.title, a.link, a.content,
-           a.publication_date AS "publicationDate",
-           a.feed_id          AS "feedId",
-           a.last_checked     AS "lastChecked",
-           COALESCE(s.is_read, false)    AS "isRead",
-           COALESCE(s.is_starred, false) AS "isStarred"
-    FROM unnest(ARRAY[${sql.join(
-      feedIds.map((id) => sql`${id}`),
-      sql`, `,
-    )}]::int[]) AS fid(id)
-    CROSS JOIN LATERAL (
+    WITH selected_feed_ids AS (
+      SELECT *
+      FROM unnest(ARRAY[${sql.join(
+        feedIds.map((id) => sql`${id}`),
+        sql`, `,
+      )}]::int[]) AS fid(id)
+    ),
+    recent_candidates AS (
+      SELECT a.id,
+             a.title,
+             a.link,
+             a.content,
+             a.publication_date,
+             a.feed_id,
+             a.last_checked
+      FROM selected_feed_ids fid
+      CROSS JOIN LATERAL (
+        SELECT sub.id,
+               sub.title,
+               sub.link,
+               LEFT(
+                 regexp_replace(
+                   regexp_replace(sub.content, '<[^>]+>', ' ', 'gi'),
+                   '\\s+',
+                   ' ',
+                   'g'
+                 ),
+                 ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}
+               ) AS content,
+               sub.publication_date,
+               sub.feed_id,
+               sub.last_checked
+        FROM "Article" sub
+        WHERE sub.feed_id = fid.id
+        ORDER BY sub.publication_date DESC
+        LIMIT ${CONFIG.MAX_ARTICLES_PER_FEED}
+      ) a
+      ORDER BY a.publication_date DESC
+      LIMIT ${CONFIG.MAX_ALL_ARTICLES_LIMIT}
+    ),
+    starred_candidates AS (
       SELECT sub.id,
              sub.title,
              sub.link,
@@ -102,16 +132,35 @@ export async function queryTopArticlesPerFeed(
                ),
                ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}
              ) AS content,
-             sub.publication_date, sub.feed_id, sub.last_checked
+             sub.publication_date,
+             sub.feed_id,
+             sub.last_checked
       FROM "Article" sub
-      WHERE sub.feed_id = fid.id
-      ORDER BY sub.publication_date DESC
-      LIMIT ${CONFIG.MAX_ARTICLES_PER_FEED}
-    ) a
-    LEFT JOIN "ArticleStatus" s
-      ON s.article_id = a.id AND s.user_id = ${userId}
-    ORDER BY a.publication_date DESC
-    LIMIT ${CONFIG.MAX_ALL_ARTICLES_LIMIT}
+      INNER JOIN selected_feed_ids fid
+        ON fid.id = sub.feed_id
+      INNER JOIN "ArticleStatus" starred_status
+        ON starred_status.article_id = sub.id
+       AND starred_status.user_id = ${userId}
+       AND starred_status.is_starred = true
+    ),
+    candidate_articles AS (
+      SELECT * FROM recent_candidates
+      UNION
+      SELECT * FROM starred_candidates
+    )
+    SELECT candidate.id,
+           candidate.title,
+           candidate.link,
+           candidate.content,
+           candidate.publication_date AS "publicationDate",
+           candidate.feed_id          AS "feedId",
+           candidate.last_checked     AS "lastChecked",
+           COALESCE(status.is_read, false)    AS "isRead",
+           COALESCE(status.is_starred, false) AS "isStarred"
+    FROM candidate_articles candidate
+    LEFT JOIN "ArticleStatus" status
+      ON status.article_id = candidate.id AND status.user_id = ${userId}
+    ORDER BY candidate.publication_date DESC
   `);
 
   return Array.isArray(queryResult)
