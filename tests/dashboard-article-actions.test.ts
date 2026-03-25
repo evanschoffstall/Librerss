@@ -1784,6 +1784,162 @@ describe("useArticleActions - Article Hydration Integration", () => {
     window.cancelAnimationFrame = nativeCancelAnimationFrame;
   });
 
+  test("collapse scroll restore reapplies before the next animation frame when layout observers fire", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+    const nativeResizeObserver = global.ResizeObserver;
+    const now = 0;
+
+    class ResizeObserverMock {
+      static instances: ResizeObserverMock[] = [];
+
+      private readonly callback: ResizeObserverCallback;
+      private readonly observedElements = new Set<Element>();
+
+      public constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+        ResizeObserverMock.instances.push(this);
+      }
+
+      public disconnect() {
+        this.observedElements.clear();
+      }
+
+      public observe(target: Element) {
+        this.observedElements.add(target);
+      }
+
+      public trigger() {
+        const entries = Array.from(this.observedElements, (target) => ({
+          target,
+        })) as ResizeObserverEntry[];
+        this.callback(entries, this as unknown as ResizeObserver);
+      }
+    }
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => now,
+    });
+
+    const rafCallbacks: FrameRequestCallback[] = [];
+    window.requestAnimationFrame = mock((callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    Object.defineProperty(global, "ResizeObserver", {
+      configurable: true,
+      value: ResizeObserverMock as unknown as typeof ResizeObserver,
+    });
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 400,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 208,
+      isRead: false,
+      link: "https://example.com/unread-restore-observer-sync",
+    });
+    let articleTop = 140;
+    const articleHeight = 520;
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: articleTop + articleHeight,
+      height: articleHeight,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: articleTop,
+      width: 0,
+      x: 0,
+      y: articleTop,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "unread",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    viewport.scrollTop = 440;
+    articleTop = 20;
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    viewport.scrollTop = 1080;
+
+    await runWithAct(() => {
+      ResizeObserverMock.instances[0]?.trigger();
+    });
+
+    expect(viewport.scrollTop).toBe(320);
+    expect(rafCallbacks.length).toBeGreaterThan(0);
+
+    document.body.removeChild(viewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+    Object.defineProperty(global, "ResizeObserver", {
+      configurable: true,
+      value: nativeResizeObserver,
+    });
+  });
+
   test("placeholder-data mode skips persisted starred-status writes", async () => {
     const article = createMockArticle({ id: 204, isStarred: false });
     let feedState: Article[] = [article];

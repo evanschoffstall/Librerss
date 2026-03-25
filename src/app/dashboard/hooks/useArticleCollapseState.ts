@@ -35,6 +35,12 @@ interface ArticleViewportSnapshot {
   viewportScrollTop: number;
 }
 
+interface CollapseRestoreLayoutObserverOptions {
+  articleKey: string;
+  onLayoutChange: () => void;
+  viewport: HTMLElement;
+}
+
 interface UseArticleCollapseStateOptions {
   feed: Article[];
 }
@@ -146,9 +152,30 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
         ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
         ARTICLE_SCROLL_RESTORE_BUFFER_MS;
       let animationFrameId = 0;
+      let disconnectLayoutObservers: (() => void) | null = null;
       let activeViewport = resolveCollapseRestoreViewport(articleKey, viewport) ??
         viewport;
       let activeOverflowAnchor = activeViewport.style.overflowAnchor;
+
+      function scheduleViewportSync() {
+        if (animationFrameId !== 0) {
+          return;
+        }
+
+        animationFrameId = window.requestAnimationFrame(() => {
+          animationFrameId = 0;
+          syncViewportScroll();
+        });
+      }
+
+      function reconnectLayoutObservers() {
+        disconnectLayoutObservers?.();
+        disconnectLayoutObservers = observeCollapseRestoreLayout({
+          articleKey,
+          onLayoutChange: syncViewportScroll,
+          viewport: activeViewport,
+        });
+      }
 
       const bindReleaseListeners = (targetViewport: HTMLElement) => {
         targetViewport.addEventListener("wheel", release, { passive: true });
@@ -171,25 +198,29 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
         activeOverflowAnchor = activeViewport.style.overflowAnchor;
         activeViewport.style.overflowAnchor = "none";
         bindReleaseListeners(activeViewport);
+        reconnectLayoutObservers();
       };
 
       activeViewport.style.overflowAnchor = "none";
 
-      const release = () => {
+      function release() {
         if (animationFrameId !== 0) {
           window.cancelAnimationFrame(animationFrameId);
           animationFrameId = 0;
         }
         unbindReleaseListeners(activeViewport);
+        disconnectLayoutObservers?.();
+        disconnectLayoutObservers = null;
         activeViewport.style.overflowAnchor = activeOverflowAnchor;
         setIsCollapseScrollRestoreActive(false);
         clearPreExpandSnapshot();
         collapseScrollRestoreCleanupRef.current = null;
-      };
+      }
 
       bindReleaseListeners(activeViewport);
+      reconnectLayoutObservers();
 
-      const syncViewportScroll = () => {
+      function syncViewportScroll() {
         const currentViewport = resolveCollapseRestoreViewport(articleKey, activeViewport);
 
         if (!currentViewport) {
@@ -213,8 +244,8 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
           return;
         }
 
-        animationFrameId = window.requestAnimationFrame(syncViewportScroll);
-      };
+        scheduleViewportSync();
+      }
 
       syncViewportScroll();
 
@@ -290,6 +321,12 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
   };
 }
 
+function findCollapseRestoreAnchor(articleKey: string) {
+  return document.querySelector<HTMLElement>(
+    `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"], [data-article-key="${escapeArticleKey(articleKey)}"]`,
+  );
+}
+
 function findFeedRestoreViewport() {
   const viewports = document.querySelectorAll<HTMLElement>(
     "[data-radix-scroll-area-viewport]",
@@ -313,6 +350,57 @@ function isRestorableArticleViewportSnapshot(
 ) {
   return snapshot.articleBottomOffsetTop > 0 &&
     snapshot.articleViewportOffsetTop < snapshot.viewport.clientHeight;
+}
+
+/**
+ * Observes the active restore viewport and its current anchor candidates so the
+ * scroll position can be re-applied in the same layout cycle that changes row
+ * height or swaps the viewport node.
+ */
+function observeCollapseRestoreLayout({
+  articleKey,
+  onLayoutChange,
+  viewport,
+}: CollapseRestoreLayoutObserverOptions) {
+  const resizeObserver =
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(() => {
+          onLayoutChange();
+        });
+  const mutationObserver =
+    typeof MutationObserver === "undefined"
+      ? null
+      : new MutationObserver(() => {
+          observeResizeTargets();
+          onLayoutChange();
+        });
+
+  const observeResizeTarget = (target: Element | null) => {
+    if (!resizeObserver || !target) {
+      return;
+    }
+
+    resizeObserver.observe(target);
+  };
+
+  const observeResizeTargets = () => {
+    resizeObserver?.disconnect();
+    observeResizeTarget(viewport);
+    observeResizeTarget(viewport.firstElementChild);
+    observeResizeTarget(findCollapseRestoreAnchor(articleKey));
+  };
+
+  observeResizeTargets();
+  mutationObserver?.observe(viewport, {
+    childList: true,
+    subtree: true,
+  });
+
+  return () => {
+    resizeObserver?.disconnect();
+    mutationObserver?.disconnect();
+  };
 }
 
 function removeCollapsingArticle(
