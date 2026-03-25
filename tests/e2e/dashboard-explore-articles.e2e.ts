@@ -6,7 +6,7 @@ import {
     articleRow,
     expectArticleExpanded,
     expectNotClipped,
-    expectPreviewDashboard,
+  gotoPreviewDashboard,
     readArticleKey,
     readFeedViewportMetrics,
     setFeedViewportScrollTop,
@@ -26,8 +26,7 @@ test.describe("dashboard explore article interactions", () => {
   test("expands an explore article without changing row animation state", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const article = articleCard(page, 0);
@@ -53,8 +52,7 @@ test.describe("dashboard explore article interactions", () => {
   test("keeps lower-card expand and collapse interactions within the active feed viewport", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
@@ -100,8 +98,7 @@ test.describe("dashboard explore article interactions", () => {
   test("keeps a single expanded article when switching between explore cards", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const firstArticleKey = await readArticleKey(articleCard(page, 0));
@@ -137,8 +134,7 @@ test.describe("dashboard explore article interactions", () => {
   test("uses the same core expanded surface for several explore articles", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     for (const articleIndex of [0, 1, 2]) {
       await page.getByRole("button", { exact: true, name: "all" }).click();
 
@@ -165,8 +161,7 @@ test.describe("dashboard explore article interactions", () => {
   test("keeps an expanded article mounted and readable while the feed viewport scrolls", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const article = articleCard(page, 0);

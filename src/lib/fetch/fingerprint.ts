@@ -5,6 +5,7 @@ import { wrapper as cookieJarWrapper } from "axios-cookiejar-support";
 
 import { CONFIG } from "@/lib/config";
 import { logger } from "@/lib/logger";
+import { decodeTextBody } from "@/lib/utils/content-encoding";
 import { stripUrlFragment } from "@/lib/utils/url";
 
 import { TLS_CLIENT_CHROME_VER } from "./constants";
@@ -13,7 +14,10 @@ import {
   generateBrowserHeaders,
   storeCookiesFromResponse,
 } from "./cookies";
-import { GotScrapingError, pickDiagnosticHeaders } from "./response";
+import {
+  GotScrapingError,
+  pickDiagnosticHeaders,
+} from "./response";
 import { ensureTlsClient, tlsClientFetch } from "./tls-client";
 
 export const extractionAxios = cookieJarWrapper(axios.create());
@@ -144,17 +148,49 @@ export async function fetchHtmlWithFingerprint(
       );
     }
 
+    const decodedBody = await resolveResponseBody(response);
+
     if (
-      Buffer.byteLength(response.body, "utf8") >
+      Buffer.byteLength(decodedBody, "utf8") >
       CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
-    )
+    ) {
       throw new Error("Upstream response too large");
+    }
 
     return {
-      html: response.body,
+      html: decodedBody,
       requestHeaders: headers as Record<string, string | string[] | undefined>,
     };
   }
 
   throw new Error("Too many redirects");
+}
+
+function getSingleHeaderValue(
+  headers: Record<string, string | string[] | undefined>,
+  headerName: string,
+): string | undefined {
+  const match = Object.entries(headers).find(
+    ([name]) => name.toLowerCase() === headerName,
+  )?.[1];
+
+  return Array.isArray(match) ? match[0] : match;
+}
+
+/**
+ * TLS client responses can preserve content-encoding while exposing the raw
+ * payload as a binary-like string. Decode those bodies before distillation so
+ * downstream extraction always receives HTML instead of compressed bytes.
+ */
+async function resolveResponseBody(
+  response: {
+    body: string;
+    headers: Record<string, string | string[] | undefined>;
+  },
+): Promise<string> {
+  return decodeTextBody(
+    Buffer.from(response.body, "latin1"),
+    getSingleHeaderValue(response.headers, "content-encoding"),
+    { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
+  );
 }

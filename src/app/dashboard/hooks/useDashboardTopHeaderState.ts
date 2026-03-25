@@ -25,6 +25,7 @@ export function useDashboardTopHeaderState() {
     false,
   );
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const [isMarkingViewportRead, setIsMarkingViewportRead] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -57,6 +58,12 @@ export function useDashboardTopHeaderState() {
     const handleMarkAllReadEnd = () => {
       setIsMarkingAllRead(false);
     };
+    const handleMarkViewportReadStart = () => {
+      setIsMarkingViewportRead(true);
+    };
+    const handleMarkViewportReadEnd = () => {
+      setIsMarkingViewportRead(false);
+    };
 
     window.addEventListener(
       DASHBOARD_EVENTS.TITLE_CHANGE,
@@ -78,6 +85,14 @@ export function useDashboardTopHeaderState() {
     window.addEventListener(
       DASHBOARD_EVENTS.MARK_ALL_READ_END,
       handleMarkAllReadEnd,
+    );
+    window.addEventListener(
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
+      handleMarkViewportReadStart,
+    );
+    window.addEventListener(
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+      handleMarkViewportReadEnd,
     );
 
     return () => {
@@ -105,6 +120,14 @@ export function useDashboardTopHeaderState() {
         DASHBOARD_EVENTS.MARK_ALL_READ_END,
         handleMarkAllReadEnd,
       );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
+        handleMarkViewportReadStart,
+      );
+      window.removeEventListener(
+        DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+        handleMarkViewportReadEnd,
+      );
     };
   }, [setIsPreviewMode]);
 
@@ -127,6 +150,10 @@ export function useDashboardTopHeaderState() {
     dispatchDashboardEvent(DASHBOARD_EVENTS.MARK_ALL_READ);
   };
 
+  const handleMarkViewportRead = () => {
+    dispatchDashboardEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ);
+  };
+
   const handleOpenFeedsSidebar = () => {
     dispatchDashboardEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR);
   };
@@ -145,7 +172,7 @@ export function useDashboardTopHeaderState() {
     setIsResetting(true);
     try {
       await clearClientOriginState();
-      window.location.reload();
+      window.location.assign("/dashboard");
     } catch {
       toast.error("Unable to reset app state.");
       setIsResetting(false);
@@ -178,6 +205,7 @@ export function useDashboardTopHeaderState() {
 
   return {
     handleMarkAllRead,
+    handleMarkViewportRead,
     handleOpenFeedsSidebar,
     handleOpenSettings,
     handleRefresh,
@@ -188,6 +216,7 @@ export function useDashboardTopHeaderState() {
     isDark,
     isDevelopmentMode,
     isMarkingAllRead,
+    isMarkingViewportRead,
     isResetting,
     isSearchPending,
     isSigningOut,

@@ -9,6 +9,11 @@ import { Toaster } from "sonner";
 import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import {
+  mobileToastViewportOffset,
+  toastViewportOffset,
+} from "./toast-viewport-offset";
+
 /**
  * Provides the app-wide theme context along with shared floating UI such as
  * the theme toggle and the global toast mount.
@@ -118,6 +123,8 @@ function ThemedToaster() {
   return (
     <Toaster
       duration={4000}
+      mobileOffset={mobileToastViewportOffset}
+      offset={toastViewportOffset}
       position="top-center"
       richColors
       theme={resolvedTheme === "dark" ? "dark" : "light"}

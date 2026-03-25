@@ -14,6 +14,27 @@ afterEach(() => {
   mock.restore();
 });
 
+async function compressWithZstd(input: string): Promise<Buffer> {
+  const zstdCompress = (zlib as Record<string, unknown>).zstdCompress as
+    | typeof zlib.brotliCompress
+    | undefined;
+
+  if (!zstdCompress) {
+    throw new Error("zstd compression is unavailable in this runtime");
+  }
+
+  return new Promise<Buffer>((resolve, reject) => {
+    zstdCompress(Buffer.from(input, "utf8"), (error, result) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+}
+
 describe("decompressBody", () => {
   test("handles brotli compression", async () => {
     const input = "test content";
@@ -688,6 +709,52 @@ describe("fetchHtmlWithFingerprint", () => {
     expect(result.html).toBe("<html>Redirected</html>");
   });
 
+  test("decompresses content-encoded bodies returned by fingerprint requests", async () => {
+    const isAllowedUrl = async () => true;
+    const html = "<html><body><article>Jacobin content</article></body></html>";
+    const compressedBody = zlib.gzipSync(Buffer.from(html, "utf8"));
+    const requestFn = async () => ({
+      body: compressedBody.toString("latin1"),
+      headers: { "content-encoding": "gzip" },
+      statusCode: 200,
+    });
+
+    const result = await fetchHtmlWithFingerprint(
+      "https://jacobin.com/article",
+      isAllowedUrl,
+      {},
+      { requestFn },
+    );
+
+    expect(result.html).toBe(html);
+  });
+
+  test("decompresses zstd-encoded bodies returned by fingerprint requests", async () => {
+    const zstdCompress = (zlib as Record<string, unknown>).zstdCompress;
+    if (!zstdCompress) {
+      expect(true).toBe(true);
+      return;
+    }
+
+    const isAllowedUrl = async () => true;
+    const html = "<!DOCTYPE html><html><body><article>Jacobin zstd content</article></body></html>";
+    const compressedBody = await compressWithZstd(html);
+    const requestFn = async () => ({
+      body: compressedBody.toString("latin1"),
+      headers: { "content-encoding": "zstd" },
+      statusCode: 200,
+    });
+
+    const result = await fetchHtmlWithFingerprint(
+      "https://jacobin.com/article",
+      isAllowedUrl,
+      {},
+      { requestFn },
+    );
+
+    expect(result.html).toBe(html);
+  });
+
   test("strips URL fragments during redirect resolution", async () => {
     const isAllowedUrl = async () => true;
     let redirectHandled = false;
@@ -1203,6 +1270,31 @@ describe("lib/fetch/fingerprint – fetchHtmlWithFingerprint additional branches
           requestFn: async () => ({
             body: bigBody,
             headers: {},
+            statusCode: 200,
+          }),
+        },
+      ),
+    ).rejects.toThrow("Upstream response too large");
+  });
+
+  test("throws Upstream response too large for compressed fingerprint responses", async () => {
+    const { fetchHtmlWithFingerprint } =
+      await import("@/lib/fetch/fingerprint");
+    const isAllowedUrl = async (_url: string) => true;
+    const oversizedHtml = "x".repeat(15 * 1024 * 1024);
+    const compressedBody = zlib
+      .gzipSync(Buffer.from(oversizedHtml, "utf8"))
+      .toString("latin1");
+
+    await expect(
+      fetchHtmlWithFingerprint(
+        "https://example.com/page",
+        isAllowedUrl,
+        {},
+        {
+          requestFn: async () => ({
+            body: compressedBody,
+            headers: { "content-encoding": "gzip" },
             statusCode: 200,
           }),
         },

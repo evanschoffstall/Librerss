@@ -394,6 +394,82 @@ describe("dashboard category display services", () => {
       ),
     ).toEqual(["Design", "Tech", "Research"]);
   });
+
+  test("returns empty display categories when all ordered labels are stale", () => {
+    const categories = [
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", id: 1, label: "Feed A" }),
+      ]),
+      makeCategoryNode("Science", [
+        makeFeedNode({ category: "Science", id: 2, label: "Feed B" }),
+      ]),
+    ];
+
+    const result = buildDisplayCategories(
+      categories,
+      [],
+      ["OldCat1", "OldCat2"],
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  test("reconciliation recovers display categories after stale labels are corrected", () => {
+    const categories = [
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", id: 1, label: "Feed A" }),
+      ]),
+      makeCategoryNode("Science", [
+        makeFeedNode({ category: "Science", id: 2, label: "Feed B" }),
+      ]),
+    ];
+
+    const staleLabels = ["OldCat1", "OldCat2"];
+    const reconciledLabels = computeNextOrderedCategoryLabels(
+      categories,
+      [],
+      staleLabels,
+    );
+
+    expect(reconciledLabels).toEqual(["Tech", "Science"]);
+
+    const result = buildDisplayCategories(categories, [], reconciledLabels);
+    expect(result.map((node) => node.label)).toEqual(["Tech", "Science"]);
+  });
+
+  test("reconciliation preserves server order for matching labels and appends new categories", () => {
+    const categories = [
+      makeCategoryNode("Tech"),
+      makeCategoryNode("Science"),
+      makeCategoryNode("News"),
+      makeCategoryNode("Gaming"),
+    ];
+
+    const serverOrder = ["News", "Tech", "Science"];
+    const reconciled = computeNextOrderedCategoryLabels(
+      categories,
+      [],
+      serverOrder,
+    );
+
+    expect(reconciled).toEqual(["News", "Tech", "Science", "Gaming"]);
+  });
+
+  test("reconciliation produces stable output on repeated calls with same input", () => {
+    const categories = [
+      makeCategoryNode("Tech"),
+      makeCategoryNode("Science"),
+    ];
+
+    const first = computeNextOrderedCategoryLabels(
+      categories,
+      [],
+      ["Tech", "Science"],
+    );
+    const second = computeNextOrderedCategoryLabels(categories, [], first);
+
+    expect(second).toEqual(first);
+  });
 });
 
 describe("dashboard refresh policy services", () => {
@@ -1016,6 +1092,56 @@ describe("buildDashboardViewModel", () => {
       selectedCategory: ALL_FEEDS_NODE_KEY,
     });
     expect(vm.selectedFeed).toBeDefined();
+  });
+
+  test("shows only All Feeds when ordered labels are fully stale", () => {
+    const categories = [
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", id: 1, label: "Feed A" }),
+      ]),
+      makeCategoryNode("Science", [
+        makeFeedNode({ category: "Science", id: 2, label: "Feed B" }),
+      ]),
+    ];
+
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      categories,
+      customCategoryLabels: [],
+      orderedCategoryLabels: ["OldCat1", "OldCat2"],
+    });
+
+    expect(vm.sidebarCategories.map((c) => c.label)).toEqual(["All Feeds"]);
+  });
+
+  test("recovers full sidebar after stale labels are reconciled", () => {
+    const categories = [
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", id: 1, label: "Feed A" }),
+      ]),
+      makeCategoryNode("Science", [
+        makeFeedNode({ category: "Science", id: 2, label: "Feed B" }),
+      ]),
+    ];
+
+    const reconciledLabels = computeNextOrderedCategoryLabels(
+      categories,
+      [],
+      ["OldCat1", "OldCat2"],
+    );
+
+    const vm = buildDashboardViewModel({
+      ...baseInput,
+      categories,
+      customCategoryLabels: [],
+      orderedCategoryLabels: reconciledLabels,
+    });
+
+    expect(vm.sidebarCategories.map((c) => c.label)).toEqual([
+      "All Feeds",
+      "Tech",
+      "Science",
+    ]);
   });
 });
 

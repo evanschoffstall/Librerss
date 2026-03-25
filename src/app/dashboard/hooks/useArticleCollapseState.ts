@@ -12,7 +12,7 @@ import { escapeArticleKey } from "./useArticleHydration";
  */
 export const ARTICLE_REMOVAL_ANIMATION_MS = 180;
 export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 130;
-const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 120;
+const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 1200;
 
 export type ArticleRemovalAnimationMode =
   | "collapse"
@@ -25,6 +25,20 @@ export interface CollapsingArticleState {
   article: Article;
   index: number;
   mode: ArticleRemovalAnimationMode;
+}
+
+interface ArticleViewportSnapshot {
+  articleBottomOffsetTop: number;
+  articleKey: string;
+  articleViewportOffsetTop: number;
+  viewport: HTMLElement;
+  viewportScrollTop: number;
+}
+
+interface CollapseRestoreLayoutObserverOptions {
+  articleKey: string;
+  onLayoutChange: () => void;
+  viewport: HTMLElement;
 }
 
 interface UseArticleCollapseStateOptions {
@@ -51,9 +65,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     Map<string, ReturnType<typeof setTimeout>>
   >(new Map());
   const collapseScrollRestoreCleanupRef = useRef<(() => void) | null>(null);
-  const preExpandArticleKeyRef = useRef<null | string>(null);
-  const preExpandScrollTopRef = useRef<null | number>(null);
-  const preExpandViewportRef = useRef<HTMLElement | null>(null);
+  const articleViewportSnapshotRef = useRef<ArticleViewportSnapshot | null>(null);
   const [isCollapseScrollRestoreActive, setIsCollapseScrollRestoreActive] =
     useState(false);
   const [collapsingArticles, setCollapsingArticles] =
@@ -74,9 +86,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
   }, []);
 
   const clearPreExpandSnapshot = useCallback(() => {
-    preExpandArticleKeyRef.current = null;
-    preExpandScrollTopRef.current = null;
-    preExpandViewportRef.current = null;
+    articleViewportSnapshotRef.current = null;
   }, []);
 
   const cancelCollapseScrollRestore = useCallback(() => {
@@ -85,8 +95,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     setIsCollapseScrollRestoreActive(false);
   }, []);
 
-  const capturePreExpandSnapshot = useCallback((article: Article) => {
-    const articleKey = getArticleKey(article);
+  const captureArticleViewportSnapshot = useCallback((articleKey: string) => {
     const articleElement = document.querySelector<HTMLElement>(
       `[data-article-key="${escapeArticleKey(articleKey)}"]`,
     );
@@ -95,74 +104,160 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
       null;
 
     if (!articleElement || !viewport) {
-      return;
+      return null;
     }
 
-    preExpandArticleKeyRef.current = articleKey;
-    preExpandScrollTopRef.current = viewport.scrollTop;
-    preExpandViewportRef.current = viewport;
+    return {
+      articleBottomOffsetTop: getViewportOffsetTop(articleElement, viewport) +
+        articleElement.getBoundingClientRect().height,
+      articleKey,
+      articleViewportOffsetTop: getViewportOffsetTop(articleElement, viewport),
+      viewport,
+      viewportScrollTop: viewport.scrollTop,
+    } satisfies ArticleViewportSnapshot;
   }, []);
+
+  const capturePreExpandSnapshot = useCallback((article: Article) => {
+    const articleKey = getArticleKey(article);
+    articleViewportSnapshotRef.current = captureArticleViewportSnapshot(articleKey);
+  }, [captureArticleViewportSnapshot]);
 
   const restoreCollapseScrollPosition = useCallback(
     (articleKey: string) => {
-      const targetScrollTop =
-        preExpandArticleKeyRef.current === articleKey
-          ? preExpandScrollTopRef.current
-          : null;
-      const viewport =
-        preExpandArticleKeyRef.current === articleKey
-          ? preExpandViewportRef.current
-          : null;
+      const liveSnapshot = captureArticleViewportSnapshot(articleKey);
+      const storedSnapshot = articleViewportSnapshotRef.current?.articleKey === articleKey
+        ? articleViewportSnapshotRef.current
+        : null;
+      const snapshot = storedSnapshot ?? liveSnapshot;
 
-      if (targetScrollTop === null || !viewport) {
+      if (!snapshot) {
+        setIsCollapseScrollRestoreActive(false);
+        clearPreExpandSnapshot();
+        return;
+      }
+
+      if (liveSnapshot && !isRestorableArticleViewportSnapshot(liveSnapshot)) {
         setIsCollapseScrollRestoreActive(false);
         clearPreExpandSnapshot();
         return;
       }
 
       cancelCollapseScrollRestore();
+      articleViewportSnapshotRef.current = snapshot;
       setIsCollapseScrollRestoreActive(true);
 
+      const { viewport, viewportScrollTop } = snapshot;
       const releaseAt =
         performance.now() +
         ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
         ARTICLE_SCROLL_RESTORE_BUFFER_MS;
       let animationFrameId = 0;
+      let disconnectLayoutObservers: (() => void) | null = null;
+      let activeViewport = resolveCollapseRestoreViewport(articleKey, viewport) ??
+        viewport;
+      let activeOverflowAnchor = activeViewport.style.overflowAnchor;
 
-      const release = () => {
+      function scheduleViewportSync() {
+        if (animationFrameId !== 0) {
+          return;
+        }
+
+        animationFrameId = window.requestAnimationFrame(() => {
+          animationFrameId = 0;
+          syncViewportScroll();
+        });
+      }
+
+      function reconnectLayoutObservers() {
+        disconnectLayoutObservers?.();
+        disconnectLayoutObservers = observeCollapseRestoreLayout({
+          articleKey,
+          onLayoutChange: syncViewportScroll,
+          viewport: activeViewport,
+        });
+      }
+
+      const bindReleaseListeners = (targetViewport: HTMLElement) => {
+        targetViewport.addEventListener("wheel", release, { passive: true });
+        targetViewport.addEventListener("touchmove", release, { passive: true });
+      };
+
+      const unbindReleaseListeners = (targetViewport: HTMLElement) => {
+        targetViewport.removeEventListener("wheel", release);
+        targetViewport.removeEventListener("touchmove", release);
+      };
+
+      const adoptViewport = (nextViewport: HTMLElement) => {
+        if (nextViewport === activeViewport) {
+          return;
+        }
+
+        unbindReleaseListeners(activeViewport);
+        activeViewport.style.overflowAnchor = activeOverflowAnchor;
+        activeViewport = nextViewport;
+        activeOverflowAnchor = activeViewport.style.overflowAnchor;
+        activeViewport.style.overflowAnchor = "none";
+        bindReleaseListeners(activeViewport);
+        reconnectLayoutObservers();
+      };
+
+      activeViewport.style.overflowAnchor = "none";
+
+      function release() {
         if (animationFrameId !== 0) {
           window.cancelAnimationFrame(animationFrameId);
           animationFrameId = 0;
         }
-        viewport.removeEventListener("wheel", release);
-        viewport.removeEventListener("touchmove", release);
+        unbindReleaseListeners(activeViewport);
+        disconnectLayoutObservers?.();
+        disconnectLayoutObservers = null;
+        activeViewport.style.overflowAnchor = activeOverflowAnchor;
         setIsCollapseScrollRestoreActive(false);
         clearPreExpandSnapshot();
         collapseScrollRestoreCleanupRef.current = null;
-      };
+      }
 
-      const syncViewportScroll = () => {
-        viewport.scrollTop = targetScrollTop;
+      bindReleaseListeners(activeViewport);
+      reconnectLayoutObservers();
+
+      function syncViewportScroll() {
+        const currentViewport = resolveCollapseRestoreViewport(articleKey, activeViewport);
+
+        if (!currentViewport) {
+          release();
+          return;
+        }
+
+        adoptViewport(currentViewport);
+
+        if (!activeViewport.isConnected) {
+          release();
+          return;
+        }
+
+        if (Math.abs(activeViewport.scrollTop - viewportScrollTop) > 1) {
+          activeViewport.scrollTop = viewportScrollTop;
+        }
 
         if (performance.now() >= releaseAt) {
           release();
           return;
         }
 
-        animationFrameId = window.requestAnimationFrame(syncViewportScroll);
-      };
+        scheduleViewportSync();
+      }
 
       syncViewportScroll();
-
-      // Stop fighting scroll if the user intentionally scrolls
-      viewport.addEventListener("wheel", release, { passive: true });
-      viewport.addEventListener("touchmove", release, { passive: true });
 
       collapseScrollRestoreCleanupRef.current = () => {
         release();
       };
     },
-    [cancelCollapseScrollRestore, clearPreExpandSnapshot],
+    [
+      cancelCollapseScrollRestore,
+      captureArticleViewportSnapshot,
+      clearPreExpandSnapshot,
+    ],
   );
 
   const clearRemovalAnimation = useCallback((articleKey: string) => {
@@ -226,6 +321,88 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
   };
 }
 
+function findCollapseRestoreAnchor(articleKey: string) {
+  return document.querySelector<HTMLElement>(
+    `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"], [data-article-key="${escapeArticleKey(articleKey)}"]`,
+  );
+}
+
+function findFeedRestoreViewport() {
+  const viewports = document.querySelectorAll<HTMLElement>(
+    "[data-radix-scroll-area-viewport]",
+  );
+
+  return Array.from(viewports).find(isFeedRestoreViewport) ?? null;
+}
+
+function getViewportOffsetTop(element: HTMLElement, viewport: HTMLElement) {
+  return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+}
+
+function isFeedRestoreViewport(viewport: HTMLElement) {
+  return Boolean(
+    viewport.querySelector("[data-feed-virtualizer='true'], [data-scroll-restore-key]"),
+  );
+}
+
+function isRestorableArticleViewportSnapshot(
+  snapshot: ArticleViewportSnapshot,
+) {
+  return snapshot.articleBottomOffsetTop > 0 &&
+    snapshot.articleViewportOffsetTop < snapshot.viewport.clientHeight;
+}
+
+/**
+ * Observes the active restore viewport and its current anchor candidates so the
+ * scroll position can be re-applied in the same layout cycle that changes row
+ * height or swaps the viewport node.
+ */
+function observeCollapseRestoreLayout({
+  articleKey,
+  onLayoutChange,
+  viewport,
+}: CollapseRestoreLayoutObserverOptions) {
+  const resizeObserver =
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(() => {
+          onLayoutChange();
+        });
+  const mutationObserver =
+    typeof MutationObserver === "undefined"
+      ? null
+      : new MutationObserver(() => {
+          observeResizeTargets();
+          onLayoutChange();
+        });
+
+  const observeResizeTarget = (target: Element | null) => {
+    if (!resizeObserver || !target) {
+      return;
+    }
+
+    resizeObserver.observe(target);
+  };
+
+  const observeResizeTargets = () => {
+    resizeObserver?.disconnect();
+    observeResizeTarget(viewport);
+    observeResizeTarget(viewport.firstElementChild);
+    observeResizeTarget(findCollapseRestoreAnchor(articleKey));
+  };
+
+  observeResizeTargets();
+  mutationObserver?.observe(viewport, {
+    childList: true,
+    subtree: true,
+  });
+
+  return () => {
+    resizeObserver?.disconnect();
+    mutationObserver?.disconnect();
+  };
+}
+
 function removeCollapsingArticle(
   currentState: CollapsingArticles,
   articleKey: string,
@@ -236,4 +413,40 @@ function removeCollapsingArticle(
 
   const { [articleKey]: _removed, ...rest } = currentState;
   return rest;
+}
+
+/** Resolves the feed viewport that should receive collapse scroll restoration. */
+function resolveCollapseRestoreViewport(
+  articleKey: string,
+  fallbackViewport: HTMLElement,
+) {
+  const articleElement = document.querySelector<HTMLElement>(
+    `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+  );
+  const articleViewport =
+    articleElement?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+    null;
+
+  if (articleViewport) {
+    return articleViewport;
+  }
+
+  const placeholderRow = document.querySelector<HTMLElement>(
+    `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"]`,
+  );
+  const placeholderViewport =
+    placeholderRow?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
+    null;
+
+  if (placeholderViewport) {
+    return placeholderViewport;
+  }
+
+  const liveFeedViewport = findFeedRestoreViewport();
+
+  if (liveFeedViewport) {
+    return liveFeedViewport;
+  }
+
+  return fallbackViewport.isConnected ? fallbackViewport : null;
 }

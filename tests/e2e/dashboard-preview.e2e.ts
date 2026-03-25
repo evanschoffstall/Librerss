@@ -1,8 +1,8 @@
 import {
     enterPreviewFromLogin,
-    expectPreviewDashboard,
     firstArticleCard,
     firstArticleTitle,
+    gotoPreviewDashboard,
     openDashboardSettings,
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
@@ -28,8 +28,7 @@ test.describe("dashboard preview mode", () => {
   test("supports safe local article interactions and filtering in preview", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
 
     const firstTitle = (await firstArticleTitle(page).textContent())?.trim();
     if (!firstTitle) {
@@ -61,8 +60,7 @@ test.describe("dashboard preview mode", () => {
   test("keeps the selected token and resets the viewport when switching preview sources", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
 
     const allButton = page.getByRole("button", { exact: true, name: "all" });
     const unreadButton = page.getByRole("button", {
@@ -127,8 +125,7 @@ test.describe("dashboard preview mode", () => {
   test("opens settings and shows demo safeguards in preview mode", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
 
     await openDashboardSettings(page);
     await expect(page.getByText("Not available in demo mode")).toHaveCount(2);

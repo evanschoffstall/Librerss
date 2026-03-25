@@ -12,6 +12,8 @@ import {
   logAndRespondError,
   requireAuthenticatedUser,
   requireMutableAuthenticatedUser,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
 } from "@/lib/server";
 import {
   createArticle,
@@ -32,7 +34,11 @@ interface ArticlesRouteDeps {
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
 }
 
-export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
+export async function GET(
+  request: NextRequest,
+  depsOrContext: ArticlesRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<ArticlesRouteDeps>(depsOrContext);
   const requireAuth =
     deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
@@ -51,7 +57,11 @@ export async function GET(request: NextRequest, deps: ArticlesRouteDeps = {}) {
   }
 }
 
-export async function POST(request: NextRequest, deps: ArticlesRouteDeps = {}) {
+export async function POST(
+  request: NextRequest,
+  depsOrContext: ArticlesRouteDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<ArticlesRouteDeps>(depsOrContext);
   const requireMutableAuth =
     deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
   const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;

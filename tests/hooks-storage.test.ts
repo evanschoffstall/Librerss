@@ -26,7 +26,7 @@ function createMockStorage(initialValue: null | string): Storage {
 }
 
 describe("hooks/useWebStorage", () => {
-  test("useWebStorage reads initial value from storage", () => {
+  test("useWebStorage restores persisted value after mount", async () => {
     const mockStorage = createMockStorage(JSON.stringify({ test: "value" }));
     const getStorage = () => mockStorage;
 
@@ -34,8 +34,16 @@ describe("hooks/useWebStorage", () => {
       useWebStorage(getStorage, "testKey", { test: "default" }),
     );
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(result.current[0]).toEqual({ test: "value" });
     expect(mockStorage.getItem).toHaveBeenCalledWith("testKey");
+    expect(mockStorage.setItem).not.toHaveBeenCalledWith(
+      "testKey",
+      JSON.stringify({ test: "default" }),
+    );
   });
 
   test("useWebStorage returns default when storage is empty", () => {
@@ -75,7 +83,7 @@ describe("hooks/useWebStorage", () => {
     expect(mockStorage.setItem).toHaveBeenCalledWith("n", JSON.stringify(2));
   });
 
-  test("useWebStorage rehydrates when key changes", () => {
+  test("useWebStorage rehydrates when key changes", async () => {
     const storageMap = new Map<string, string>([
       ["a", JSON.stringify("A")],
       ["b", JSON.stringify("B")],
@@ -96,9 +104,18 @@ describe("hooks/useWebStorage", () => {
       { initialProps: { keyName: "a" } },
     );
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(result.current[0]).toBe("A");
 
     rerender({ keyName: "b" });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(result.current[0]).toBe("B");
   });
 
@@ -127,19 +144,29 @@ describe("hooks/useWebStorage", () => {
 });
 
 describe("hooks/useLocalStorage", () => {
-  test("useLocalStorage delegates to useWebStorage with localStorage", () => {
+  test("useLocalStorage delegates to useWebStorage with localStorage", async () => {
     globalThis.localStorage = createMockStorage(JSON.stringify("test"));
 
     const { result } = renderHook(() => useLocalStorage("key", "default"));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(result.current[0]).toBe("test");
   });
 });
 
 describe("hooks/useSessionState", () => {
-  test("useSessionState delegates to useWebStorage with sessionStorage", () => {
+  test("useSessionState delegates to useWebStorage with sessionStorage", async () => {
     globalThis.sessionStorage = createMockStorage(JSON.stringify(42));
 
     const { result } = renderHook(() => useSessionState("sessionKey", 0));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     expect(result.current[0]).toBe(42);
   });
 });

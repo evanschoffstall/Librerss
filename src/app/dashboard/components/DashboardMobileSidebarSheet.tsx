@@ -34,7 +34,7 @@ export function DashboardMobileSidebarSheet({
     <Sheet onOpenChange={onOpenChange} open={isOpen}>
       <SheetContent
         className="
-          w-[min(22rem,88vw)] gap-0 p-0
+          flex h-full w-[min(22rem,88vw)] flex-col gap-0 overflow-hidden p-0
           lg:hidden
         "
         side="left"
@@ -47,8 +47,17 @@ export function DashboardMobileSidebarSheet({
           </SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4">
-          <div className="h-full rounded-xl bg-card/35 p-2">
-            <ScrollArea className="h-full">
+          <div className="
+            flex h-full min-h-0 flex-col rounded-xl bg-card/35 p-2
+          ">
+            <ScrollArea
+              className="
+                min-h-0 flex-1 overscroll-contain
+                [&_[data-radix-scroll-area-viewport]>div]:block!
+                [&_[data-radix-scroll-area-viewport]>div]:w-full!
+                [&_[data-radix-scroll-area-viewport]>div]:min-w-0!
+              "
+            >
               <DashboardSidebarContent {...sidebarContentProps} />
             </ScrollArea>
           </div>

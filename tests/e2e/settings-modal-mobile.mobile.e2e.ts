@@ -2,7 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 
 import {
   expectNotClipped,
-  expectPreviewDashboard,
+  gotoPreviewDashboard,
   openDashboardSettings,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -26,11 +26,10 @@ function settingsScrollViewport(dialog: Locator) {
 
 test.describe("settings modal mobile tray", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
   });
 
-  test("no element in the dialog overflows the scroll viewport horizontally", async ({
+  test("keeps the full settings dialog, including proxy controls, within the scroll viewport", async ({
     page,
   }) => {
     const dialog = await openSettingsAndWaitForProxy(page);
@@ -67,6 +66,56 @@ test.describe("settings modal mobile tray", () => {
     });
 
     expect(overflows, "Elements overflow the scroll viewport").toHaveLength(0);
+
+    const scrollMetrics = await dialog.evaluate((el) => {
+      const vp = el.querySelector("[data-radix-scroll-area-viewport]");
+      if (!vp) return null;
+      return {
+        clientHeight: vp.clientHeight,
+        scrollHeight: vp.scrollHeight,
+      };
+    });
+
+    expect(scrollMetrics).not.toBeNull();
+    expect(scrollMetrics!.scrollHeight).toBeGreaterThan(
+      scrollMetrics!.clientHeight,
+    );
+
+    await expectNotClipped(
+      dialog.getByRole("heading", { name: "Connection Routing" }),
+      settingsScrollViewport(dialog),
+      "Connection Routing heading",
+    );
+    await expectNotClipped(
+      dialog.getByPlaceholder(/proxy.*8080/),
+      settingsScrollViewport(dialog),
+      "Proxy URL input",
+    );
+    await expectNotClipped(
+      dialog.getByRole("button", { name: "Save" }),
+      settingsScrollViewport(dialog),
+      "Save button",
+    );
+    await expectNotClipped(
+      dialog.getByLabel("Username"),
+      settingsScrollViewport(dialog),
+      "Username input",
+    );
+    await expectNotClipped(
+      dialog.getByLabel(/^Password/),
+      settingsScrollViewport(dialog),
+      "Password input",
+    );
+    await expectNotClipped(
+      dialog.getByRole("switch", { name: "Allow insecure TLS" }),
+      settingsScrollViewport(dialog),
+      "Allow insecure TLS switch",
+    );
+    await expectNotClipped(
+      dialog.getByRole("button", { name: "Run Check" }),
+      settingsScrollViewport(dialog),
+      "Run Check button",
+    );
   });
 
   test("every display control fits within the scroll viewport bounds", async ({
@@ -134,75 +183,6 @@ test.describe("settings modal mobile tray", () => {
       dialog.getByRole("button", { name: /^Placeholder Feeds\s*3$/ }),
       settingsScrollViewport(dialog),
       "Placeholder Feeds accordion",
-    );
-  });
-
-  test("every proxy / connection routing control fits within the scroll viewport bounds", async ({
-    page,
-  }) => {
-    const dialog = await openSettingsAndWaitForProxy(page);
-
-    await expectNotClipped(
-      dialog.getByRole("heading", { name: "Connection Routing" }),
-      settingsScrollViewport(dialog),
-      "Connection Routing heading",
-    );
-    await expectNotClipped(
-      dialog.getByPlaceholder(/proxy.*8080/),
-      settingsScrollViewport(dialog),
-      "Proxy URL input",
-    );
-    await expectNotClipped(
-      dialog.getByRole("button", { name: "Save" }),
-      settingsScrollViewport(dialog),
-      "Save button",
-    );
-    await expectNotClipped(
-      dialog.getByLabel("Username"),
-      settingsScrollViewport(dialog),
-      "Username input",
-    );
-    await expectNotClipped(
-      dialog.getByLabel(/^Password/),
-      settingsScrollViewport(dialog),
-      "Password input",
-    );
-    await expectNotClipped(
-      dialog.getByRole("switch", { name: "Allow insecure TLS" }),
-      settingsScrollViewport(dialog),
-      "Allow insecure TLS switch",
-    );
-    await expectNotClipped(
-      dialog.getByRole("button", { name: "Run Check" }),
-      settingsScrollViewport(dialog),
-      "Run Check button",
-    );
-  });
-
-  test("scroll container allows full-range vertical scrolling to the last element", async ({
-    page,
-  }) => {
-    const dialog = await openSettingsAndWaitForProxy(page);
-
-    const scrollMetrics = await dialog.evaluate((el) => {
-      const vp = el.querySelector("[data-radix-scroll-area-viewport]");
-      if (!vp) return null;
-      return {
-        clientHeight: vp.clientHeight,
-        scrollHeight: vp.scrollHeight,
-      };
-    });
-
-    expect(scrollMetrics).not.toBeNull();
-    expect(scrollMetrics!.scrollHeight).toBeGreaterThan(
-      scrollMetrics!.clientHeight,
-    );
-
-    // The very last interactive element must be reachable
-    await expectNotClipped(
-      dialog.getByRole("button", { name: "Run Check" }),
-      settingsScrollViewport(dialog),
-      "Run Check (scroll bottom)",
     );
   });
 

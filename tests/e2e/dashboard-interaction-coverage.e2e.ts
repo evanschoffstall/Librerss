@@ -4,7 +4,8 @@ import {
     articleCard,
     articleCardByKey,
     expectArticleExpanded,
-    expectPreviewDashboard,
+  expectDashboardLogin,
+    gotoPreviewDashboard,
     hasLoadMoreSentinel,
     openDashboardSettings,
     readArticleKey,
@@ -17,6 +18,7 @@ import {
 import { expect, test } from "./test";
 
 type ArticleFrameAction = "button-read" | "swipe-read";
+const FOLLOWER_FRAME_SAMPLE_COUNT = process.env.CI ? 24 : 12;
 
 interface ArticleTopFrameSample {
   label: string;
@@ -52,7 +54,7 @@ async function clickArticleReadButtonAndCollectFrameSamples(
 async function collectArticleTopFrameSamples(
   page: Page,
   articleKeys: string[],
-  frameCount = 24,
+  frameCount = FOLLOWER_FRAME_SAMPLE_COUNT,
 ) {
   return (await page.evaluate(
     async ({ nextFrameCount, targetArticleKeys }) => {
@@ -378,8 +380,7 @@ test.describe("dashboard interaction coverage", () => {
   test("covers article actions, expanded text selection, and collapse flows", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const articleKey = await readArticleKey(articleCard(page, 0));
@@ -431,8 +432,12 @@ test.describe("dashboard interaction coverage", () => {
     ).toBeVisible();
 
     await page.getByRole("menuitem", { name: "Copy link" }).click();
-    await expect(page.getByRole("heading", { name: "Copy Link" })).toBeVisible();
-    const articleLinkInput = page.getByLabel("Article link");
+    const copyLinkDialog = page.getByRole("dialog", { name: "Copy Link" });
+
+    await expect(copyLinkDialog).toBeVisible();
+    const articleLinkInput = copyLinkDialog.getByRole("textbox", {
+      name: "Article link",
+    });
 
     await expect(articleLinkInput).toHaveValue(articleKey);
     await page.getByRole("button", { name: "Select" }).click();
@@ -496,8 +501,7 @@ test.describe("dashboard interaction coverage", () => {
   });
 
   test("covers preview-safe toolbar and filter controls", async ({ page }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
 
     const initialThemeIsDark = await page.evaluate(() => {
       return document.documentElement.classList.contains("dark");
@@ -539,14 +543,13 @@ test.describe("dashboard interaction coverage", () => {
     ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Reset app state" }).click();
-    await expectPreviewDashboard(page);
+    await expectDashboardLogin(page);
   });
 
   test("keeps mixed unread button-read and swipe-read removals moving sibling rows upward", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "unread" }).click();
 
     const firstArticleKey = await readArticleKey(articleCard(page, 0));
@@ -669,8 +672,7 @@ test.describe("dashboard interaction coverage", () => {
   test("keeps consecutive top unread button-read removals from flashing downward", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "unread" }).click();
 
     for (let removalIndex = 0; removalIndex < 3; removalIndex += 1) {
@@ -717,8 +719,7 @@ test.describe("dashboard interaction coverage", () => {
   test("keeps alternating top unread swipe and button removals moving rows upward without a downward flash", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "unread" }).click();
 
     const firstArticleKey = await readArticleKey(articleCard(page, 0));
@@ -810,8 +811,7 @@ test.describe("dashboard interaction coverage", () => {
     // the React inline style prop directly (bypassing Framer Motion's RAF
     // scheduler) so the browser first paint always sees the final collapsed
     // values.
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "unread" }).click();
 
     // Track articles below the top one so we can verify they never move DOWN.
@@ -862,8 +862,7 @@ test.describe("dashboard interaction coverage", () => {
   test("supports swipe actions and loads more feed pages in preview", async ({
     page,
   }) => {
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const firstArticleKey = await readArticleKey(articleCard(page, 0));

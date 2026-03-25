@@ -101,7 +101,7 @@ export function createNextJsErrorMonitor(page: Page): NextJsErrorMonitor {
 
 /** Opens the unauthenticated dashboard and enters preview mode through the UI. */
 export async function enterPreviewFromLogin(page: Page) {
-  await page.goto("/dashboard");
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
   await expect(
     page.getByText("Access your saved feeds and reading preferences."),
@@ -213,9 +213,29 @@ export function firstArticleTitle(page: Page): Locator {
   return firstArticleCard(page).getByRole("heading").first();
 }
 
+/** Opens the preview dashboard without waiting for the full document load event. */
+export async function gotoPreviewDashboard(
+  page: Page,
+  path = "/dashboard?explore=1",
+) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await expectPreviewDashboard(page);
+}
+
 /** Returns whether the feed list is still rendering the load-more sentinel. */
 export async function hasLoadMoreSentinel(page: Page) {
   return (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0;
+}
+
+/** Opens the mobile feeds sidebar and waits for the tray content to render. */
+export async function openDashboardFeedsSidebar(page: Page) {
+  const trayDialog = page.getByRole("dialog", { name: "Feeds" });
+  if (await trayDialog.isVisible().catch(() => false)) {
+    return;
+  }
+
+  await clickVisibleControl(page.getByRole("button", { name: "Open feeds" }));
+  await expect(trayDialog).toBeVisible({ timeout: 15_000 });
 }
 
 /** Opens dashboard settings and waits for the modal content to render. */
@@ -230,10 +250,12 @@ export async function openDashboardSettings(page: Page) {
   });
 
   if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
-    await mobileActionsMenuButton.click();
-    await page.getByRole("menuitem", { name: "Settings" }).click();
+    await clickVisibleControl(mobileActionsMenuButton);
+    await clickVisibleControl(page.getByRole("menuitem", { name: "Settings" }));
   } else {
-    await page.getByRole("button", { name: "Open dashboard settings" }).click();
+    await clickVisibleControl(
+      page.getByRole("button", { name: "Open dashboard settings" }),
+    );
   }
 
   await expect(settingsHeading).toBeVisible({ timeout: 15_000 });
@@ -299,6 +321,30 @@ export async function readPreviewPersistence(page: Page) {
 /** Reads the current number of rendered article cards in the active feed. */
 export async function readRenderedArticleCount(page: Page) {
   return await page.locator("article[data-article-key]").count();
+}
+
+/** Reads the active mobile feeds tray viewport metrics and confirms the tray owns scrolling. */
+export async function readSidebarTrayViewportMetrics(page: Page) {
+  const trayDialog = page.getByRole("dialog", { name: "Feeds" });
+  await expect(trayDialog).toBeVisible();
+
+  return await trayDialog.evaluate((dialog) => {
+    const viewport = dialog.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    if (!viewport) {
+      throw new Error("Expected the mobile feeds tray to render a Radix viewport.");
+    }
+
+    return {
+      clientHeight: viewport.clientHeight,
+      dialogScrollTop: dialog.scrollTop,
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+      windowScrollY: window.scrollY,
+    };
+  });
 }
 
 /** Scrolls the active feed viewport to its current bottom edge. */
@@ -449,6 +495,25 @@ export async function waitForPreviewDashboardHydration(page: Page) {
       return await page.locator('[data-article-hydration-state="loading"]').count();
     })
     .toBe(0);
+}
+
+/** Clicks a visible control and falls back to a DOM click when toasts intercept the pointer. */
+async function clickVisibleControl(locator: Locator) {
+  await expect(locator).toBeVisible();
+
+  try {
+    await locator.click();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("intercepts pointer events")
+    ) {
+      await locator.click({ force: true, timeout: 1_000 });
+      return;
+    }
+
+    throw error;
+  }
 }
 
 function isKnownNonRuntimeConsoleError(message: string) {

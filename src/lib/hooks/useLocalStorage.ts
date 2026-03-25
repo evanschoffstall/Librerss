@@ -7,7 +7,8 @@ import { useWebStorage } from "./useWebStorage";
 const getLocalStorage = () => localStorage;
 
 /**
- * Syncs state with localStorage. Safe for SSR — reads initial value lazily.
+ * Syncs state with localStorage while keeping the first client render aligned
+ * with server-rendered HTML.
  *
  * @param key - localStorage key
  * @param defaultValue - Default value when key is absent

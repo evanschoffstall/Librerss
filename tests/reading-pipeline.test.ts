@@ -3,8 +3,10 @@
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
+import * as zlib from "zlib";
 
 import { getHostname, POST } from "@/app/api/articles/extract/route";
+import { CONFIG } from "@/lib/config";
 import {
     clearArticleExtractCacheForTests,
     fetchHtml,
@@ -25,6 +27,7 @@ import {
     stripCommentEngagementBoilerplate,
     toParagraphHtml,
 } from "@/lib/sanitize";
+  import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 
 const mockReq = () =>
   new NextRequest("http://localhost/api/articles/extract", {
@@ -32,6 +35,27 @@ const mockReq = () =>
     headers: { "content-type": "application/json" },
     method: "POST",
   });
+
+async function compressWithZstd(input: string): Promise<Buffer> {
+  const zstdCompress = (zlib as Record<string, unknown>).zstdCompress as
+    | typeof zlib.brotliCompress
+    | undefined;
+
+  if (!zstdCompress) {
+    throw new Error("zstd compression is unavailable in this runtime");
+  }
+
+  return new Promise<Buffer>((resolve, reject) => {
+    zstdCompress(Buffer.from(input, "utf8"), (error, result) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+}
 
 const SPECIAL_CASE_BRAND = String.fromCharCode(
   68,
@@ -57,6 +81,21 @@ beforeEach(() => {
 afterEach(() => {
   mock.restore();
   clearArticleExtractCacheForTests();
+});
+
+describe("decodePossiblyCompressedText", () => {
+  test("rejects compressed latin1 payloads that expand beyond the configured limit", async () => {
+    const oversizedHtml = "x".repeat(CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES + 1);
+    const compressedHtml = zlib
+      .gzipSync(Buffer.from(oversizedHtml, "utf8"))
+      .toString("latin1");
+
+    await expect(
+      decodePossiblyCompressedText(compressedHtml, {
+        maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+      }),
+    ).rejects.toThrow("Upstream response too large");
+  });
 });
 
 describe("article extract cleanup", () => {
@@ -367,6 +406,24 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Second paragraph.");
     expect(cleaned.toLowerCase()).not.toContain("public display name");
     expect(cleaned.toLowerCase()).not.toContain("please logout");
+  });
+
+  test("cleanSanitizedHtml removes a leading linked author bio fragment before article paragraphs", () => {
+    const input =
+      '<a href="https://example.com/authors/jane-doe">Jane Doe</a>' +
+      "Jane Doe has written the publication's weekly column since 2020. " +
+      "An award-winning journalist covering labor and politics. " +
+      "Email: jane@example.com" +
+      "<p>Lead paragraph.</p>" +
+      "<p>Second paragraph.</p>";
+
+    const cleaned = cleanSanitizedHtml(input, "https://example.com/article");
+
+    expect(cleaned).toContain("Lead paragraph.");
+    expect(cleaned).toContain("Second paragraph.");
+    expect(cleaned).not.toContain("jane@example.com");
+    expect(cleaned).not.toContain("has written the publication's weekly column");
+    expect(cleaned).not.toContain("authors/jane-doe");
   });
 
   test("sanitizeRawContent removes known placeholder image URLs without dimensions", () => {
@@ -1314,6 +1371,37 @@ describe("article extract cleanup", () => {
     expect(response.status).toBe(200);
     const payload: { content: string } = await response.json();
     expect(payload.content).toContain("Real article content");
+  });
+
+  test("POST decodes zstd-compressed html returned from fetchHtml before extraction", async () => {
+    const zstdCompress = (zlib as Record<string, unknown>).zstdCompress;
+    if (!zstdCompress) {
+      expect(true).toBe(true);
+      return;
+    }
+
+    const html = "<!DOCTYPE html><html><body><article><p>Jacobin route fallback content.</p></article></body></html>";
+    const compressedHtml = await compressWithZstd(html);
+
+    let capturedHtml = "";
+    const response = await POST(mockReq(), {
+      cleanSanitizedHtmlFn: (c) => c,
+      extractFromHtmlFn: async (receivedHtml) => {
+        capturedHtml = receivedHtml;
+        return { content: "<p>Jacobin route fallback content.</p>", title: "T" };
+      },
+      fetchHtmlFn: async () => compressedHtml.toString("latin1"),
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: (c) => c,
+      shouldUseExtractCacheFn: () => false,
+      warnFn: mock(() => {}),
+    });
+
+    expect(capturedHtml).toContain("Jacobin route fallback content");
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as { content?: string };
+    expect(payload.content).toContain("Jacobin route fallback content");
   });
 
   test("POST fires warn log when extractor returns no content", async () => {

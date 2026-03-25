@@ -14,7 +14,12 @@ import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { getDb, isUniqueConstraintError } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { logAndRespondError, requireMutableRequest } from "@/lib/server";
+import {
+  logAndRespondError,
+  requireMutableRequest,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
+} from "@/lib/server";
 import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
 
 interface SignupPayload {
@@ -35,7 +40,11 @@ interface SignupRouteDeps {
   setSessionCookieFn?: typeof setSessionCookie;
 }
 
-export async function POST(request: NextRequest, deps: SignupRouteDeps = {}) {
+export async function POST(
+  request: NextRequest,
+  depsOrContext: RouteHandlerContext | SignupRouteDeps = {},
+) {
+  const deps = resolveRouteHandlerDeps<SignupRouteDeps>(depsOrContext);
   const appLogger = deps.logger ?? logger;
   const requireRequest = deps.requireMutableRequestFn ?? requireMutableRequest;
   const runtimeFlags = deps.runtimeFlags ?? RUNTIME_FLAGS;

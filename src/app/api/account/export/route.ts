@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/http";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { logger } from "@/lib/logger";
-import { requireMutableAuthenticatedUser } from "@/lib/server";
+import {
+  requireMutableAuthenticatedUser,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
+} from "@/lib/server";
 import { exportAccountData, ServiceError } from "@/lib/server/services";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +23,9 @@ interface AccountExportRouteDeps {
 
 export async function GET(
   request: NextRequest,
-  deps: AccountExportRouteDeps = {},
+  depsOrContext: AccountExportRouteDeps | RouteHandlerContext = {},
 ) {
+  const deps = resolveRouteHandlerDeps<AccountExportRouteDeps>(depsOrContext);
   const requireAuth = deps.requireAuthFn ?? requireMutableAuthenticatedUser;
   const authResult = await requireAuth(request);
   if (authResult instanceof Response) return authResult;

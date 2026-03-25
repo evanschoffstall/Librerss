@@ -21,6 +21,7 @@ import {
 } from "@/app/dashboard/services/feed-batch-outcome";
 import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-batch-resolver";
 import { loadFeedSourceTree } from "@/app/dashboard/services/feed-source-tree";
+import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/services/viewport-read";
 
 // ─── Article Content Services ─────────────────────────────────────────────────
 
@@ -92,6 +93,104 @@ describe("dashboard-view-model search filtering", () => {
     ]);
     expect(filterArticlesBySearchTerm(articles, "DELTA")).toEqual([
       articles[1],
+    ]);
+  });
+});
+
+describe("viewport-read services", () => {
+  test("returns only unread articles that are fully contained in the viewport", () => {
+    const viewport = document.createElement("div");
+    const articles = [
+      {
+        content: "A",
+        feedId: 1,
+        id: 1,
+        isRead: false,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/a",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "A",
+      },
+      {
+        content: "B",
+        feedId: 1,
+        id: 2,
+        isRead: false,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/b",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "B",
+      },
+      {
+        content: "C",
+        feedId: 1,
+        id: 3,
+        isRead: true,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/c",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "C",
+      },
+    ];
+
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 400,
+      left: 0,
+      right: 800,
+      toJSON: () => ({}),
+      top: 100,
+      width: 800,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+
+    const fullyVisibleArticle = document.createElement("article");
+    fullyVisibleArticle.dataset.articleKey = "https://example.com/a";
+    fullyVisibleArticle.getBoundingClientRect = mock(() => ({
+      bottom: 240,
+      height: 120,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 120,
+      width: 780,
+      x: 0,
+      y: 120,
+    })) as typeof fullyVisibleArticle.getBoundingClientRect;
+
+    const clippedArticle = document.createElement("article");
+    clippedArticle.dataset.articleKey = "https://example.com/b";
+    clippedArticle.getBoundingClientRect = mock(() => ({
+      bottom: 520,
+      height: 140,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 380,
+      width: 780,
+      x: 0,
+      y: 380,
+    })) as typeof clippedArticle.getBoundingClientRect;
+
+    const readArticle = document.createElement("article");
+    readArticle.dataset.articleKey = "https://example.com/c";
+    readArticle.getBoundingClientRect = mock(() => ({
+      bottom: 340,
+      height: 120,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 220,
+      width: 780,
+      x: 0,
+      y: 220,
+    })) as typeof readArticle.getBoundingClientRect;
+
+    viewport.append(fullyVisibleArticle, clippedArticle, readArticle);
+
+    expect(collectFullyVisibleUnreadArticles(articles, viewport)).toEqual([
+      articles[0],
     ]);
   });
 });

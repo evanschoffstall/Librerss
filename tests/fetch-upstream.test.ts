@@ -2,7 +2,9 @@ import type { AxiosError, AxiosResponse } from "axios";
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { CookieJar } from "tough-cookie";
+import * as zlib from "zlib";
 
+import { CONFIG } from "@/lib/config";
 import {
     EXTRACT_403_RETRIES,
     fetchHtml,
@@ -12,7 +14,7 @@ import { GotScrapingError } from "@/lib/fetch/response";
 
 // Type-cast helpers for injectable fetch dependencies
 const asAxiosGet = (
-  fn: (url: string, config?: unknown) => Promise<{ data: string }>,
+  fn: (url: string, config?: unknown) => Promise<Partial<AxiosResponse>>,
 ) => fn as unknown as typeof import("axios").default.get;
 const asIsAxiosError = (fn: (error: unknown) => boolean) =>
   fn as unknown as typeof import("axios").default.isAxiosError;
@@ -24,6 +26,27 @@ beforeEach(() => {
 afterEach(() => {
   mock.restore();
 });
+
+async function compressWithZstd(input: string): Promise<Buffer> {
+  const zstdCompress = (zlib as Record<string, unknown>).zstdCompress as
+    | typeof zlib.brotliCompress
+    | undefined;
+
+  if (!zstdCompress) {
+    throw new Error("zstd compression is unavailable in this runtime");
+  }
+
+  return new Promise<Buffer>((resolve, reject) => {
+    zstdCompress(Buffer.from(input, "utf8"), (error, result) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+}
 
 // Helper to create axios error
 function createAxiosError(
@@ -84,6 +107,59 @@ describe("fetchHtml", () => {
 
       expect(result).toBe(TEST_HTML);
       expect(mockAxiosGet).toHaveBeenCalled();
+    });
+
+    test("decompresses content-encoded responses from injected axios", async () => {
+      const compressedHtml = zlib.gzipSync(Buffer.from(TEST_HTML, "utf8"));
+      const mockAxiosGet = mock(async () => ({
+        data: compressedHtml,
+        headers: { "content-encoding": "gzip" },
+        status: 200,
+      }));
+
+      const result = await fetchHtml(TEST_URL, {
+        axiosGetFn: asAxiosGet(mockAxiosGet),
+      });
+
+      expect(result).toBe(TEST_HTML);
+    });
+
+    test("decompresses zstd-encoded responses from injected axios", async () => {
+      const zstdCompress = (zlib as Record<string, unknown>).zstdCompress;
+      if (!zstdCompress) {
+        expect(true).toBe(true);
+        return;
+      }
+
+      const html = "<!DOCTYPE html><html><body>Jacobin zstd direct fetch</body></html>";
+      const compressedHtml = await compressWithZstd(html);
+      const mockAxiosGet = mock(async () => ({
+        data: compressedHtml,
+        headers: { "content-encoding": "zstd" },
+        status: 200,
+      }));
+
+      const result = await fetchHtml(TEST_URL, {
+        axiosGetFn: asAxiosGet(mockAxiosGet),
+      });
+
+      expect(result).toBe(html);
+    });
+
+    test("rejects compressed responses that expand beyond the configured limit", async () => {
+      const oversizedHtml = "x".repeat(CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES + 1);
+      const compressedHtml = zlib.gzipSync(Buffer.from(oversizedHtml, "utf8"));
+      const mockAxiosGet = mock(async () => ({
+        data: compressedHtml,
+        headers: { "content-encoding": "gzip" },
+        status: 200,
+      }));
+
+      await expect(
+        fetchHtml(TEST_URL, {
+          axiosGetFn: asAxiosGet(mockAxiosGet),
+        }),
+      ).rejects.toThrow("Upstream response too large");
     });
 
     test("injects custom isAllowedFeedUrl function", async () => {

@@ -300,7 +300,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("falls back to the plain feed surface while an article is expanded", async () => {
+  test("keeps the feed virtualized while an article is expanded", async () => {
     const firstArticle = buildFeedListArticle();
     const secondArticle = buildFeedListArticle({
       id: 2,
@@ -334,15 +334,15 @@ describe("FeedList", () => {
       expect(getByText(firstArticle.title)).toBeTruthy();
       expect(getByText(secondArticle.title)).toBeTruthy();
       expect(
-        container.querySelector("[data-feed-surface-mode='plain']"),
+        container.querySelector("[data-feed-surface-mode='virtualized']"),
       ).toBeTruthy();
-      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-        null,
-      );
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
     });
   });
 
-  test("keeps the plain feed surface briefly after collapsing an expanded article", async () => {
+  test("keeps the feed virtualized after collapsing an expanded article", async () => {
     const article = buildFeedListArticle();
     const sibling = buildFeedListArticle({
       id: 2,
@@ -374,9 +374,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText(article.title)).toBeTruthy();
-      expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-        null,
-      );
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
     });
 
     rerender(
@@ -404,10 +404,14 @@ describe("FeedList", () => {
       </ThemeProvider>,
     );
 
-    expect(container.querySelector("[data-feed-surface-mode='plain']")).toBeTruthy();
-    expect(container.querySelector("[data-feed-virtualizer='true']")).toBe(
-      null,
-    );
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-feed-surface-mode='virtualized']"),
+      ).toBeTruthy();
+      expect(
+        container.querySelector("[data-feed-virtualizer='true']"),
+      ).toBeTruthy();
+    });
   });
 
   test("resets the shared feed viewport when the active source changes", async () => {
@@ -473,6 +477,186 @@ describe("FeedList", () => {
             filteredFeed={[secondArticle]}
             hydratedArticleLinks={{}}
             hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    expect(scrollTop).toBe(0);
+  });
+
+  test("does not reset a replacement viewport while collapse scroll restore is active", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/replacement-viewport-second",
+      title: "Replacement viewport second article",
+    });
+    let firstViewportScrollTop = 180;
+    let replacementViewportScrollTop = 320;
+
+    const { rerender } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return firstViewportScrollTop;
+            },
+            set(nextValue: number) {
+              firstViewportScrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isCollapseScrollRestoreActive={false}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div
+          data-radix-scroll-area-viewport=""
+          ref={(viewport) => {
+            if (!viewport) {
+              return;
+            }
+
+            Object.defineProperty(viewport, "scrollTop", {
+              configurable: true,
+              get() {
+                return replacementViewportScrollTop;
+              },
+              set(nextValue: number) {
+                replacementViewportScrollTop = nextValue;
+              },
+            });
+          }}
+        >
+          <FeedList
+            articleFilter="unread"
+            articlesPerPage={12}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:unread"
+            filteredFeed={[firstArticle, secondArticle]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isCollapseScrollRestoreActive={true}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    expect(replacementViewportScrollTop).toBe(320);
+  });
+
+  test("still resets the viewport when the feed view changes during active collapse restore", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/reset-during-restore-second",
+      title: "Reset during restore second article",
+    });
+    let scrollTop = 240;
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isCollapseScrollRestoreActive={false}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+    });
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      get() {
+        return scrollTop;
+      },
+      set(nextValue: number) {
+        scrollTop = nextValue;
+      },
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="read"
+            articlesPerPage={12}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:read"
+            filteredFeed={[secondArticle]}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isCollapseScrollRestoreActive={true}
             isInitialLoading={false}
             isRefreshing={false}
             onExpandedSwipeRead={() => {}}

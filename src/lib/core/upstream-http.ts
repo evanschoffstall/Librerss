@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { CONFIG } from "@/lib/config";
+import { decodeTextBody } from "@/lib/utils/content-encoding";
 import { stripUrlFragment } from "@/lib/utils/url";
 
 interface FetchTextWithValidatedRedirectsDeps {
@@ -46,7 +47,7 @@ export async function fetchTextWithValidatedRedirects(
         maxContentLength:
           options.maxContentLengthBytes ?? CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
         maxRedirects: 0,
-        responseType: "text",
+        responseType: "arraybuffer",
         timeout: options.timeoutMs ?? CONFIG.FEED_REQUEST_TIMEOUT_MS,
         validateStatus: (status) => status >= 200 && status < 400,
       });
@@ -71,9 +72,14 @@ export async function fetchTextWithValidatedRedirects(
         continue;
       }
 
-      return typeof response.data === "string"
-        ? response.data
-        : String(response.data ?? "");
+      return await decodeTextBody(
+        toBuffer(response.data),
+        getSingleHeaderValue(response.headers, "content-encoding"),
+        {
+          maxOutputBytes:
+            options.maxContentLengthBytes ?? CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+        },
+      );
     } catch (error) {
       options.onAxiosError?.(error, isAxiosError);
       throw error;
@@ -93,4 +99,36 @@ function getHeaderValue(
   return typeof candidate === "string" || Array.isArray(candidate)
     ? candidate
     : undefined;
+}
+
+function getSingleHeaderValue(
+  headers: unknown,
+  name: string,
+): string | undefined {
+  const headerValue = getHeaderValue(headers, name);
+  return Array.isArray(headerValue) ? headerValue[0] : headerValue;
+}
+
+function toBuffer(data: unknown): Buffer {
+  if (Buffer.isBuffer(data)) {
+    return data;
+  }
+
+  if (data instanceof ArrayBuffer) {
+    return Buffer.from(data);
+  }
+
+  if (ArrayBuffer.isView(data)) {
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  }
+
+  if (typeof data === "string") {
+    return Buffer.from(data, "utf8");
+  }
+
+  if (typeof data === "object" && data !== null) {
+    return Buffer.from(JSON.stringify(data), "utf8");
+  }
+
+  return Buffer.from(data === null || data === undefined ? "" : `${data as boolean | number}`, "utf8");
 }

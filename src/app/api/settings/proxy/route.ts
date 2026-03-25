@@ -17,6 +17,8 @@ import {
   probeProxy,
   type ProxyStatus,
   requireMutableAuthenticatedUser,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
 } from "@/lib/server";
 import {
   ensureProxyUrlHasExplicitPort,
@@ -40,8 +42,11 @@ export interface ProxyRouteDeps {
  * Returns the saved proxy configuration for the authenticated user and probes
  * the current endpoint with any stored credentials applied.
  */
-export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
-  const result = await resolveAuth(request, deps);
+export async function GET(
+  request: NextRequest,
+  depsOrContext: ProxyRouteDeps | RouteHandlerContext = {},
+) {
+  const result = await resolveAuthorizedProxyRequest(request, depsOrContext);
   if (result instanceof Response) return result;
 
   const db = getDb();
@@ -107,8 +112,11 @@ export async function GET(request: NextRequest, deps: ProxyRouteDeps = {}) {
 /**
  * Validates and stores proxy settings for the authenticated user.
  */
-export async function PUT(request: NextRequest, deps: ProxyRouteDeps = {}) {
-  const result = await resolveAuth(request, deps);
+export async function PUT(
+  request: NextRequest,
+  depsOrContext: ProxyRouteDeps | RouteHandlerContext = {},
+) {
+  const result = await resolveAuthorizedProxyRequest(request, depsOrContext);
   if (result instanceof Response) return result;
 
   const body = await parseJsonBodyOrResponse<{
@@ -354,6 +362,14 @@ async function resolveAuth(
     dnsCheck: deps.dnsCheckFn ?? resolvesToBlockedAddress,
     probe: deps.probeFn ?? probeProxy,
   };
+}
+
+async function resolveAuthorizedProxyRequest(
+  request: NextRequest,
+  depsOrContext: ProxyRouteDeps | RouteHandlerContext,
+) {
+  const deps = resolveRouteHandlerDeps<ProxyRouteDeps>(depsOrContext);
+  return resolveAuth(request, deps);
 }
 
 function unconfiguredResponse(error?: string): Response {

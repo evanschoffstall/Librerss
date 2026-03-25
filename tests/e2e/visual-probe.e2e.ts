@@ -6,15 +6,18 @@ import {
   articleCard,
   articleCardByKey,
   expectArticleExpanded,
-  expectPreviewDashboard,
   firstArticleCard,
+  gotoPreviewDashboard,
   readArticleKey,
   swipeArticle,
   toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
 
-const AUDIT_FRAME_TIMES_MS = [0, 100, 250, 500] as const;
+const AUDIT_FRAME_TIMES_MS = process.env.CI
+  ? ([0, 100, 250, 500] as const)
+  : ([0, 100, 250] as const);
+const SHOULD_CAPTURE_ALL_AUDIT_FRAMES = Boolean(process.env.CI);
 
 interface AuditClip {
   height: number;
@@ -81,7 +84,12 @@ async function captureAuditTimeline(
       await page.waitForTimeout(waitTime);
     }
 
-    await attachAuditScreenshot(page, clip, testInfo, `${name}-${frameTime}ms`);
+    if (
+      SHOULD_CAPTURE_ALL_AUDIT_FRAMES ||
+      frameTime === AUDIT_FRAME_TIMES_MS.at(-1)
+    ) {
+      await attachAuditScreenshot(page, clip, testInfo, `${name}-${frameTime}ms`);
+    }
     metrics.push(await readMetrics(frameTime));
     previousFrameTime = frameTime;
   }
@@ -214,13 +222,12 @@ function topTokenBar(page: Page) {
 test.describe("dashboard visual audit", () => {
   test.describe.configure({ mode: "parallel" });
 
-  test("captures expand and collapse sequences every 200ms", async ({
+  test("captures expand and collapse audit frames", async ({
     page,
   }, testInfo) => {
     test.slow();
 
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
 
     const article = firstArticleCard(page);
     const articleKey = await readArticleKey(article);
@@ -242,13 +249,12 @@ test.describe("dashboard visual audit", () => {
     await expectArticleExpanded(article, false);
   });
 
-  test("captures unread button-read and swipe-read sequences every 200ms", async ({
+  test("captures unread button-read and swipe-read audit frames", async ({
     page,
   }, testInfo) => {
     test.slow();
 
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
     await expectUnreadFeed(page);
 
     const buttonReadArticle = firstArticleCard(page);
@@ -266,10 +272,6 @@ test.describe("dashboard visual audit", () => {
     );
     await expect(articleCardByKey(page, buttonReadKey)).toHaveCount(0);
 
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
-    await expectUnreadFeed(page);
-
     const swipeReadArticle = firstArticleCard(page);
     const swipeReadKey = await readArticleKey(swipeReadArticle);
     const swipeReadFollowerKey = await readArticleKey(articleCard(page, 1));
@@ -286,13 +288,12 @@ test.describe("dashboard visual audit", () => {
     await expect(articleCardByKey(page, swipeReadKey)).toHaveCount(0);
   });
 
-  test("captures swipe-star and refresh sequences every 200ms", async ({
+  test("captures swipe-star and refresh audit frames", async ({
     page,
   }, testInfo) => {
     test.slow();
 
-    await page.goto("/dashboard?explore=1");
-    await expectPreviewDashboard(page);
+    await gotoPreviewDashboard(page);
 
     const starArticle = articleCard(page, 1);
     const starArticleKey = await readArticleKey(starArticle);

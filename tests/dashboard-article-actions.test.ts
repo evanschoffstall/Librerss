@@ -3,8 +3,10 @@
  * Tests for src/app/dashboard/hooks/useArticleActions.ts
  */
 
+import type { SetStateAction } from "react";
+
 import { act, renderHook, waitFor } from "@testing-library/react";
-import {
+  import {
     afterAll,
     afterEach,
     beforeAll,
@@ -478,6 +480,57 @@ describe("useArticleActions - State Management", () => {
         mode: "collapse",
       },
     });
+  });
+
+  test("handleMarkArticlesRead batches unread-filter removals through the same collapse path", async () => {
+    const firstArticle = createMockArticle({
+      id: 120,
+      isRead: false,
+      link: "https://example.com/batch-removal-1",
+    });
+    const secondArticle = createMockArticle({
+      id: 121,
+      isRead: false,
+      link: "https://example.com/batch-removal-2",
+    });
+    let feedState = [firstArticle, secondArticle];
+    const setFeed = mock((updater: SetStateAction<Article[]>) => {
+      feedState =
+        typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "unread",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.handleMarkArticlesRead([firstArticle, secondArticle]);
+    });
+
+    expect(feedState).toEqual([
+      { ...firstArticle, isRead: true },
+      { ...secondArticle, isRead: true },
+    ]);
+    expect(result.current.collapsingArticles).toEqual({
+      [firstArticle.link]: {
+        article: firstArticle,
+        index: 0,
+        mode: "collapse",
+      },
+      [secondArticle.link]: {
+        article: secondArticle,
+        index: 1,
+        mode: "collapse",
+      },
+    });
+    expect(setFeed).toHaveBeenCalledTimes(1);
   });
 
   test("handleSwipeRead updates unread-filter articles without staging a swipe-removal row", async () => {
@@ -1207,10 +1260,25 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 0,
+      height: 0,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
     Object.defineProperty(viewport, "scrollTop", {
       configurable: true,
       value: 320,
       writable: true,
+    });
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
     });
 
     const article = createMockArticle({
@@ -1219,6 +1287,17 @@ describe("useArticleActions - Article Hydration Integration", () => {
     });
     const articleElement = document.createElement("div");
     articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: 0,
+      height: 0,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 140,
+      width: 0,
+      x: 0,
+      y: 140,
+    })) as typeof articleElement.getBoundingClientRect;
     articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
@@ -1259,6 +1338,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     expect(result.current.isCollapseScrollRestoreActive).toBe(true);
     expect(viewport.scrollTop).toBe(320);
+    expect(viewport.style.overflowAnchor).toBe("none");
 
     document.body.removeChild(viewport);
     Object.defineProperty(performance, "now", {
@@ -1267,6 +1347,650 @@ describe("useArticleActions - Article Hydration Integration", () => {
     });
     window.requestAnimationFrame = nativeRequestAnimationFrame;
     window.cancelAnimationFrame = nativeCancelAnimationFrame;
+  });
+
+  test("collapse scroll restore ignores stale pre-expand positions when the article header is offscreen", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+    const now = 0;
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => now,
+    });
+
+    const rafCallbacks: FrameRequestCallback[] = [];
+    window.requestAnimationFrame = mock((callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 0,
+      height: 0,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 204,
+      link: "https://example.com/live-collapse-anchor",
+    });
+    let articleTop = 140;
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: 0,
+      height: 0,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: articleTop,
+      width: 0,
+      x: 0,
+      y: articleTop,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "all",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    viewport.scrollTop = 900;
+    articleTop = -520;
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    expect(result.current.isCollapseScrollRestoreActive).toBe(false);
+    expect(viewport.scrollTop).toBe(900);
+    expect(rafCallbacks).toHaveLength(0);
+
+    document.body.removeChild(viewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+  });
+
+  test("collapse scroll restore returns to the pre-expand position while the expanded article is still in view", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+    const now = 0;
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => now,
+    });
+
+    window.requestAnimationFrame = mock(() => 1) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 400,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 205,
+      link: "https://example.com/restore-scroll-while-intersecting",
+    });
+    let articleTop = 140;
+    let articleHeight = 120;
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: articleTop + articleHeight,
+      height: articleHeight,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: articleTop,
+      width: 0,
+      x: 0,
+      y: articleTop,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "all",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    viewport.scrollTop = 440;
+    articleTop = 20;
+    articleHeight = 520;
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
+    expect(viewport.scrollTop).toBe(320);
+
+    document.body.removeChild(viewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+  });
+
+  test("collapse scroll restore keeps the pre-expand position after unread collapse removes the article row", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+    const now = 0;
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => now,
+    });
+
+    const rafCallbacks: FrameRequestCallback[] = [];
+    window.requestAnimationFrame = mock((callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 400,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 206,
+      isRead: false,
+      link: "https://example.com/unread-restore-after-removal",
+    });
+    let articleTop = 140;
+    const articleHeight = 520;
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: articleTop + articleHeight,
+      height: articleHeight,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: articleTop,
+      width: 0,
+      x: 0,
+      y: articleTop,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "unread",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    viewport.scrollTop = 440;
+    articleTop = 20;
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
+    expect(viewport.scrollTop).toBe(320);
+
+    viewport.scrollTop = 1080;
+    articleElement.remove();
+
+    await runWithAct(() => {
+      rafCallbacks[0]?.(0);
+    });
+
+    expect(viewport.scrollTop).toBe(320);
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
+
+    document.body.removeChild(viewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+  });
+
+  test("collapse scroll restore follows the replacement feed viewport after unread row removal", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+    const now = 0;
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => now,
+    });
+
+    const rafCallbacks: FrameRequestCallback[] = [];
+    window.requestAnimationFrame = mock((callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 400,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 207,
+      isRead: false,
+      link: "https://example.com/unread-restore-viewport-swap",
+    });
+    let articleTop = 140;
+    const articleHeight = 520;
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: articleTop + articleHeight,
+      height: articleHeight,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: articleTop,
+      width: 0,
+      x: 0,
+      y: articleTop,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "unread",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    viewport.scrollTop = 440;
+    articleTop = 20;
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
+    expect(viewport.scrollTop).toBe(320);
+
+    const replacementViewport = document.createElement("div");
+    replacementViewport.setAttribute("data-radix-scroll-area-viewport", "");
+    replacementViewport.getBoundingClientRect = viewport.getBoundingClientRect;
+    Object.defineProperty(replacementViewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(replacementViewport, "scrollTop", {
+      configurable: true,
+      value: 1080,
+      writable: true,
+    });
+
+    const replacementFeed = document.createElement("div");
+    replacementFeed.setAttribute("data-feed-virtualizer", "true");
+    replacementViewport.appendChild(replacementFeed);
+    document.body.appendChild(replacementViewport);
+
+    document.body.removeChild(viewport);
+
+    await runWithAct(() => {
+      rafCallbacks[0]?.(0);
+    });
+
+    expect(replacementViewport.scrollTop).toBe(320);
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
+
+    document.body.removeChild(replacementViewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+  });
+
+  test("collapse scroll restore reapplies before the next animation frame when layout observers fire", async () => {
+    const nativePerformanceNow = performance.now;
+    const nativeRequestAnimationFrame = window.requestAnimationFrame;
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame;
+    const nativeResizeObserver = global.ResizeObserver;
+    const now = 0;
+
+    class ResizeObserverMock {
+      static instances: ResizeObserverMock[] = [];
+
+      private readonly callback: ResizeObserverCallback;
+      private readonly observedElements = new Set<Element>();
+
+      public constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+        ResizeObserverMock.instances.push(this);
+      }
+
+      public disconnect() {
+        this.observedElements.clear();
+      }
+
+      public observe(target: Element) {
+        this.observedElements.add(target);
+      }
+
+      public trigger() {
+        const entries = Array.from(this.observedElements, (target) => ({
+          target,
+        })) as ResizeObserverEntry[];
+        this.callback(entries, this as unknown as ResizeObserver);
+      }
+    }
+
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: () => now,
+    });
+
+    const rafCallbacks: FrameRequestCallback[] = [];
+    window.requestAnimationFrame = mock((callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    Object.defineProperty(global, "ResizeObserver", {
+      configurable: true,
+      value: ResizeObserverMock as unknown as typeof ResizeObserver,
+    });
+
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 400,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 100,
+      width: 0,
+      x: 0,
+      y: 100,
+    })) as typeof viewport.getBoundingClientRect;
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 320,
+      writable: true,
+    });
+
+    const article = createMockArticle({
+      id: 208,
+      isRead: false,
+      link: "https://example.com/unread-restore-observer-sync",
+    });
+    let articleTop = 140;
+    const articleHeight = 520;
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: articleTop + articleHeight,
+      height: articleHeight,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: articleTop,
+      width: 0,
+      x: 0,
+      y: articleTop,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(viewport);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: unknown) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : (updater as null | string);
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "unread",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    viewport.scrollTop = 440;
+    articleTop = 20;
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    viewport.scrollTop = 1080;
+
+    await runWithAct(() => {
+      ResizeObserverMock.instances[0]?.trigger();
+    });
+
+    expect(viewport.scrollTop).toBe(320);
+    expect(rafCallbacks.length).toBeGreaterThan(0);
+
+    document.body.removeChild(viewport);
+    Object.defineProperty(performance, "now", {
+      configurable: true,
+      value: nativePerformanceNow,
+    });
+    window.requestAnimationFrame = nativeRequestAnimationFrame;
+    window.cancelAnimationFrame = nativeCancelAnimationFrame;
+    Object.defineProperty(global, "ResizeObserver", {
+      configurable: true,
+      value: nativeResizeObserver,
+    });
   });
 
   test("placeholder-data mode skips persisted starred-status writes", async () => {

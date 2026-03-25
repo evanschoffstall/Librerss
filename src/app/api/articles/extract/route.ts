@@ -37,8 +37,11 @@ import {
 } from "@/lib/sanitize";
 import {
   requireMutableAuthenticatedUser,
+  resolveRouteHandlerDeps,
+  type RouteHandlerContext,
 } from "@/lib/server";
 import { resolveUserProxy, ServiceError } from "@/lib/server/services";
+import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
 
@@ -75,24 +78,28 @@ interface ExtractRequestBody {
   useProxy?: boolean;
 }
 
-export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
+export async function POST(
+  request: NextRequest,
+  depsOrContext: ExtractPostDeps | RouteHandlerContext = {},
+) {
+  const deps = resolveRouteHandlerDeps<ExtractPostDeps>(depsOrContext);
   // SECURITY: Require authentication — unauthenticated callers must not be
   // able to trigger arbitrary outbound HTTP fetches from the server.
   // Exception: placeholder snapshot URLs are served from local files only
   // (no outbound fetch), so they bypass auth to support preview/explore mode.
   const requireAuth =
-    deps?.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
+    deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
   const parseArticleUrl =
-    deps?.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
-  const fetchArticleHtml = deps?.fetchHtmlFn ?? fetchHtml;
-  const extractArticle = deps?.extractFromHtmlFn ?? distillArticle;
-  const sanitizeContent = deps?.sanitizeRawContentFn ?? sanitizeRawContent;
-  const cleanContent = deps?.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
-  const toMessage = deps?.toErrorMessageFn ?? toErrorMessage;
-  const isAxiosError = deps?.isAxiosErrorFn ?? axios.isAxiosError;
-  const warn = deps?.warnFn ?? logger.warn.bind(logger);
-  const errorLog = deps?.errorFn ?? logger.error.bind(logger);
-  const shouldUseCache = deps?.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
+    deps.parseAndValidateArticleUrlFn ?? parseAndValidateArticleUrl;
+  const fetchArticleHtml = deps.fetchHtmlFn ?? fetchHtml;
+  const extractArticle = deps.extractFromHtmlFn ?? distillArticle;
+  const sanitizeContent = deps.sanitizeRawContentFn ?? sanitizeRawContent;
+  const cleanContent = deps.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
+  const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
+  const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
+  const warn = deps.warnFn ?? logger.warn.bind(logger);
+  const errorLog = deps.errorFn ?? logger.error.bind(logger);
+  const shouldUseCache = deps.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
   const verboseLoggingEnabled = isVerboseLoggingEnabled();
   const context = createExtractRequestContext(request);
 
@@ -169,13 +176,16 @@ export async function POST(request: NextRequest, deps?: ExtractPostDeps) {
       );
     }
 
-    const html =
+    const rawHtml =
       localSnapshot?.html ??
       (await fetchArticleHtml(articleUrl, undefined, {
         allowInsecureTls,
         proxyUrl: resolvedProxyUrl,
         useProxy,
       }));
+    const html = await decodePossiblyCompressedText(rawHtml, {
+      maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+    });
     const safeUrl = redactUrlForLogs(articleUrl);
 
     const extractableHtml = preCleanHtml(html);

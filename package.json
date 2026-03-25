@@ -62,6 +62,7 @@
     "defuddle": "^0.13.0",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
+    "fzstd": "^0.1.1",
     "koffi": "^2.15.2",
     "lexical": "^0.41.0",
     "linkedom": "^0.18.12",

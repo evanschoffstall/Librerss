@@ -20,7 +20,6 @@ interface UseFeedListSurfaceStateOptions {
 export function useFeedListSurfaceState({
   articleFilter,
   articlesPerPage,
-  expandedArticleKey,
   feedViewKey,
   filteredFeedLength,
   isCollapseScrollRestoreActive,
@@ -31,13 +30,11 @@ export function useFeedListSurfaceState({
   const [visibleArticleCount, setVisibleArticleCount] = useState(articlesPerPage);
   const [viewportResolutionState, setViewportResolutionState] =
     useState<FeedViewportResolutionState>("pending");
-  const [isVirtualizationResumeDeferred, setIsVirtualizationResumeDeferred] =
-    useState(false);
   const hasUserScrolledRef = useRef(false);
   const hasAutoFilledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const previousFeedViewKeyRef = useRef(feedViewKey);
   const viewportHostRef = useRef<HTMLDivElement | null>(null);
-  const previousExpandedArticleKeyRef = useRef<null | string>(expandedArticleKey);
 
   const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
     viewportHostRef.current = node;
@@ -53,32 +50,28 @@ export function useFeedListSurfaceState({
     hasUserScrolledRef.current = false;
     hasAutoFilledRef.current = false;
     setVisibleArticleCount(articlesPerPage);
-    setIsVirtualizationResumeDeferred(false);
   }, [articleFilter, articlesPerPage, feedViewKey, searchTerm]);
 
   useLayoutEffect(() => {
-    if (!scrollViewport || scrollViewport.scrollTop === 0) {
+    if (!scrollViewport) {
+      return;
+    }
+
+    const didFeedViewChange = previousFeedViewKeyRef.current !== feedViewKey;
+    previousFeedViewKeyRef.current = feedViewKey;
+    const isViewportReplacementDuringRestore =
+      !didFeedViewChange && isCollapseScrollRestoreActive;
+
+    if (isViewportReplacementDuringRestore || scrollViewport.scrollTop === 0) {
+      return;
+    }
+
+    if (!didFeedViewChange) {
       return;
     }
 
     scrollViewport.scrollTop = 0;
-  }, [feedViewKey, scrollViewport]);
-
-  useEffect(() => {
-    const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
-    previousExpandedArticleKeyRef.current = expandedArticleKey;
-
-    if (expandedArticleKey !== null) {
-      setIsVirtualizationResumeDeferred(false);
-      return;
-    }
-
-    if (previousExpandedArticleKey === null) {
-      return;
-    }
-
-    setIsVirtualizationResumeDeferred(true);
-  }, [expandedArticleKey]);
+  }, [feedViewKey, isCollapseScrollRestoreActive, scrollViewport]);
 
   const expandVisibleWindow = useCallback(() => {
     setVisibleArticleCount((currentCount) => {
@@ -139,45 +132,6 @@ export function useFeedListSurfaceState({
       cancelAnimationFrame(autoFillFrameId);
     };
   }, [expandVisibleWindow, filteredFeedLength, isInitialLoading, scrollViewport, visibleArticleCount]);
-
-  useEffect(() => {
-    if (
-      !isVirtualizationResumeDeferred ||
-      !scrollViewport ||
-      isCollapseScrollRestoreActive
-    ) {
-      return;
-    }
-
-    let rafId = 0;
-    const resumeVirtualization = () => {
-      // Defer by one animation frame so the DOM switch doesn't happen
-      // during the same frame as the user's scroll event, avoiding a
-      // visible layout jolt when Virtuoso re-mounts.
-      if (rafId !== 0) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        setIsVirtualizationResumeDeferred(false);
-      });
-    };
-
-    scrollViewport.addEventListener("scroll", resumeVirtualization, {
-      passive: true,
-    });
-    scrollViewport.addEventListener("touchmove", resumeVirtualization, {
-      passive: true,
-    });
-    scrollViewport.addEventListener("wheel", resumeVirtualization, {
-      passive: true,
-    });
-
-    return () => {
-      if (rafId !== 0) cancelAnimationFrame(rafId);
-      scrollViewport.removeEventListener("scroll", resumeVirtualization);
-      scrollViewport.removeEventListener("touchmove", resumeVirtualization);
-      scrollViewport.removeEventListener("wheel", resumeVirtualization);
-    };
-  }, [isCollapseScrollRestoreActive, isVirtualizationResumeDeferred, scrollViewport]);
 
   useEffect(() => {
     if (!scrollViewport) {
@@ -259,15 +213,9 @@ export function useFeedListSurfaceState({
   const hasMoreArticles = visibleArticleCount < filteredFeedLength;
   const shouldShowViewportResolutionSkeleton =
     !isInitialLoading && filteredFeedLength > 0 && viewportResolutionState === "pending";
-  const isExpandedCollapseHandoffPending =
-    expandedArticleKey === null && previousExpandedArticleKeyRef.current !== null;
   const shouldUseVirtualizedFeed =
     !isInitialLoading &&
-    scrollViewport !== null &&
-    expandedArticleKey === null &&
-    !isCollapseScrollRestoreActive &&
-    !isVirtualizationResumeDeferred &&
-    !isExpandedCollapseHandoffPending;
+    scrollViewport !== null;
   const showEmptyState = !isInitialLoading && filteredFeedLength === 0;
 
   const feedSurfaceMode: FeedSurfaceMode =
