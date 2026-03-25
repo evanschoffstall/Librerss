@@ -140,7 +140,15 @@ export function useDashboardEvents({
   });
 
   const handleRefresh = useEffectEvent(() => {
-    onRefresh();
+    void (async () => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+
+      try {
+        await onRefresh();
+      } finally {
+        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+      }
+    })();
   });
 
   const handleOpenSettings = useEffectEvent(() => {

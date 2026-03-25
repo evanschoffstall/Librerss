@@ -2,41 +2,37 @@
 
 import {
   Check,
-    CheckCheck,
-    EllipsisVertical,
-    LogOut,
-    Menu,
-    Moon,
-    RefreshCw,
-    RotateCcw,
-    Search,
-    Settings2,
-    Sun
+  CheckCheck,
+  EllipsisVertical,
+  LogOut,
+  Menu,
+  Moon,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Settings2,
+  Sun,
 } from "lucide-react";
 
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useDashboardTopHeaderState } from "../hooks/useDashboardTopHeaderState";
+import {
+  DashboardTopHeaderActionButton,
+  DashboardTopHeaderActionIcon,
+} from "./DashboardTopHeaderActionButton";
 import { MotionSpinner } from "./MotionSpinner";
-
-
 
 const toolbarBtnClass =
   "cursor-pointer transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
-
-interface ViewportReadButtonProps {
-  className?: string;
-  isMarkingViewportRead: boolean;
-  onClick: () => void;
-}
 
 /**
  * Top dashboard toolbar for search, quick actions, theme controls, and logout.
@@ -56,6 +52,7 @@ export function DashboardTopHeaderBar() {
     isDevelopmentMode,
     isMarkingAllRead,
     isMarkingViewportRead,
+    isRefreshing,
     isResetting,
     isSearchPending,
     isSigningOut,
@@ -64,6 +61,8 @@ export function DashboardTopHeaderBar() {
     themeToggleLabel,
     title,
   } = useDashboardTopHeaderState();
+  const isToolbarActionPending =
+    isRefreshing || isMarkingAllRead || isMarkingViewportRead;
 
   return (
     <div
@@ -134,25 +133,25 @@ export function DashboardTopHeaderBar() {
         </div>
 
         <DropdownMenu>
-          <button
-            aria-label="Refresh selected feed"
+          <DashboardTopHeaderActionButton
+            ariaLabel="Refresh selected feed"
             className={`
-              ${toolbarBtnClass}
               shrink-0
               md:hidden
             `}
+            icon={RefreshCw}
+            isPending={isToolbarActionPending}
             onClick={handleRefresh}
-            type="button"
-          >
-            <RefreshCw className="size-4" />
-          </button>
+          />
 
-          <ViewportReadButton
+          <DashboardTopHeaderActionButton
+            ariaLabel="Mark fully visible articles as read"
             className="
               shrink-0
               md:hidden
             "
-            isMarkingViewportRead={isMarkingViewportRead}
+            icon={Check}
+            isPending={isToolbarActionPending}
             onClick={handleMarkViewportRead}
           />
 
@@ -174,7 +173,10 @@ export function DashboardTopHeaderBar() {
               disabled={isMarkingAllRead}
               onSelect={handleMarkAllRead}
             >
-              <CheckCheck className="size-4" />
+              <DashboardTopHeaderActionIcon
+                icon={CheckCheck}
+                isPending={isMarkingAllRead}
+              />
               Mark all read
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={handleOpenSettings}>
@@ -217,36 +219,27 @@ export function DashboardTopHeaderBar() {
             md:flex
           "
         >
-          <button
-            aria-label="Refresh selected feed"
-            className={toolbarBtnClass}
+          <DashboardTopHeaderActionButton
+            ariaLabel="Refresh selected feed"
+            className=""
+            icon={RefreshCw}
+            isPending={isToolbarActionPending}
             onClick={handleRefresh}
-            type="button"
-          >
-            <RefreshCw className="size-4" />
-          </button>
+          />
 
-          <ViewportReadButton
-            isMarkingViewportRead={isMarkingViewportRead}
+          <DashboardTopHeaderActionButton
+            ariaLabel="Mark fully visible articles as read"
+            icon={Check}
+            isPending={isToolbarActionPending}
             onClick={handleMarkViewportRead}
           />
 
-          <button
-            aria-label="Mark all read"
-            className={`
-              ${toolbarBtnClass}
-              disabled:cursor-not-allowed disabled:opacity-70
-            `}
-            disabled={isMarkingAllRead}
+          <DashboardTopHeaderActionButton
+            ariaLabel="Mark all read"
+            icon={CheckCheck}
+            isPending={isToolbarActionPending}
             onClick={handleMarkAllRead}
-            type="button"
-          >
-            {isMarkingAllRead ? (
-              <MotionSpinner iconClassName="size-4" />
-            ) : (
-              <CheckCheck className="size-4" />
-            )}
-          </button>
+          />
 
           <button
             aria-label="Open dashboard settings"
@@ -306,32 +299,5 @@ export function DashboardTopHeaderBar() {
         </div>
       </div>
     </div>
-  );
-}
-
-function ViewportReadButton({
-  className,
-  isMarkingViewportRead,
-  onClick,
-}: ViewportReadButtonProps) {
-  return (
-    <button
-      aria-busy={isMarkingViewportRead}
-      aria-label="Mark fully visible articles as read"
-      className={`
-        ${toolbarBtnClass}
-        disabled:cursor-not-allowed disabled:opacity-70
-        ${className ?? ""}
-      `}
-      disabled={isMarkingViewportRead}
-      onClick={onClick}
-      type="button"
-    >
-      {isMarkingViewportRead ? (
-        <Skeleton aria-hidden="true" className="size-4 rounded-sm" />
-      ) : (
-        <Check className="size-4" />
-      )}
-    </button>
   );
 }

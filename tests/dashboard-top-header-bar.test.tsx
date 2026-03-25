@@ -99,6 +99,8 @@ describe("DashboardTopHeaderBar", () => {
     const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
     const { getAllByLabelText } = render(<DashboardTopHeaderBar />);
     const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+    const refreshButtons = getAllByLabelText("Refresh selected feed");
+    const markAllReadButton = getByLabelTextOrThrow("Mark all read");
 
     await act(async () => {
       window.dispatchEvent(
@@ -110,6 +112,64 @@ describe("DashboardTopHeaderBar", () => {
     for (const button of viewportButtons) {
       expect(button.querySelector(".animate-pulse")).toBeTruthy();
     }
+    for (const button of refreshButtons) {
+      expect(button.querySelector(".animate-pulse")).toBeTruthy();
+    }
+    expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
+  });
+
+  test("shows skeletons in all toolbar actions while refresh is processing", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
+
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
+    const { getAllByLabelText, getByLabelText } = render(<DashboardTopHeaderBar />);
+    const refreshButtons = getAllByLabelText("Refresh selected feed");
+    const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+    const markAllReadButton = getByLabelText("Mark all read");
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+      await Promise.resolve();
+    });
+
+    for (const button of refreshButtons) {
+      expect(button.querySelector(".animate-pulse")).toBeTruthy();
+    }
+    for (const button of viewportButtons) {
+      expect(button.querySelector(".animate-pulse")).toBeTruthy();
+    }
+    expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
+  });
+
+  test("shows skeletons in all toolbar actions while mark-all-read is processing", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockHeaderDependencies();
+
+    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
+    const { getAllByLabelText, getByLabelText } = render(<DashboardTopHeaderBar />);
+    const refreshButtons = getAllByLabelText("Refresh selected feed");
+    const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+    const markAllReadButton = getByLabelText("Mark all read");
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
+      );
+      await Promise.resolve();
+    });
+
+    for (const button of refreshButtons) {
+      expect(button.querySelector(".animate-pulse")).toBeTruthy();
+    }
+    for (const button of viewportButtons) {
+      expect(button.querySelector(".animate-pulse")).toBeTruthy();
+    }
+    expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
   });
 
   test("reset clears client state and navigates to a clean dashboard URL without logging out", async () => {
@@ -180,6 +240,15 @@ describe("DashboardTopHeaderBar", () => {
     }
   });
 });
+
+function getByLabelTextOrThrow(label: string) {
+  const button = document.querySelector(`[aria-label="${label}"]`);
+  if (!(button instanceof HTMLElement)) {
+    throw new Error(`Expected element with aria-label ${label}.`);
+  }
+
+  return button;
+}
 
 /** Installs module mocks for header-bar dependencies before importing the subject. */
 function mockHeaderDependencies() {
