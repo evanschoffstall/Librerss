@@ -4,16 +4,15 @@ import * as React from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
+import * as realDashboardTopHeaderBar from "@/app/dashboard/components/DashboardTopHeaderBar";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import * as realUiSkeleton from "@/components/ui/skeleton";
 import { AuthService } from "@/lib";
 
 
 async function loadDashboardTopHeaderBar() {
   return import(
-    new URL(
-      `../src/app/dashboard/components/DashboardTopHeaderBar.tsx?test=${Date.now()}-${Math.random()}`,
-      import.meta.url,
-    ).href
+    `@/app/dashboard/components/DashboardTopHeaderBar?test=${Date.now()}-${Math.random()}`
   );
 }
 
@@ -252,6 +251,11 @@ function getByLabelTextOrThrow(label: string) {
 
 /** Installs module mocks for header-bar dependencies before importing the subject. */
 function mockHeaderDependencies() {
+  mock.module(
+    "@/app/dashboard/components/DashboardTopHeaderBar",
+    () => realDashboardTopHeaderBar,
+  );
+  mock.module("@/components/ui/skeleton", () => realUiSkeleton);
   mock.module("next-themes", () => ({
     ThemeProvider: MockThemeProvider,
     useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),

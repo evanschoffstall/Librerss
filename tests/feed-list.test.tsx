@@ -813,4 +813,117 @@ describe("FeedList", () => {
 
     expect(scrollTop).toBe(0);
   });
+
+  test("resets visible article count and scroll position when refreshEpoch increments", async () => {
+    let testContainer: HTMLElement | null = null;
+    let scrollTop = 0;
+    const articles = Array.from({ length: 10 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/refresh-epoch-${index + 1}`,
+        title: `Refresh epoch article ${index + 1}`,
+      }),
+    );
+
+    const viewportRef = (viewport: HTMLDivElement | null) => {
+      if (!viewport) {
+        return;
+      }
+
+      Object.defineProperty(viewport, "clientHeight", {
+        configurable: true,
+        get() {
+          return 600;
+        },
+      });
+      Object.defineProperty(viewport, "scrollHeight", {
+        configurable: true,
+        get() {
+          const renderedRows =
+            testContainer?.querySelectorAll("[data-scroll-restore-key]")
+              .length ?? 0;
+
+          return renderedRows >= 8 ? 1200 : 400;
+        },
+      });
+      Object.defineProperty(viewport, "scrollTop", {
+        configurable: true,
+        get() {
+          return scrollTop;
+        },
+        set(nextValue: number) {
+          scrollTop = nextValue;
+        },
+      });
+    };
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="" ref={viewportRef}>
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          refreshEpoch={0}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    // Auto-fill expands all 10 articles (same pattern as existing viewport-fill test)
+    await waitFor(() => {
+      expect(getByText("Refresh epoch article 10")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(10);
+    });
+
+    // Simulate the user having scrolled
+    scrollTop = 400;
+
+    // Re-render with incremented refreshEpoch (same feedViewKey, same filter)
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="" ref={viewportRef}>
+          <FeedList
+            articleFilter="all"
+            articlesPerPage={4}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:all"
+            filteredFeed={articles}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            refreshEpoch={1}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    // Scroll position should be reset to top
+    expect(scrollTop).toBe(0);
+    // Visible count resets to articlesPerPage (4), then re-autofills until scrollable (8)
+    await waitFor(() => {
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+    });
+  });
 });
