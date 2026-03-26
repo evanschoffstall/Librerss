@@ -1186,6 +1186,7 @@ describe("dashboard controller state services", () => {
         expandedArticleKey: null,
         feedViewKey: "all-feeds:all",
         filteredFeed: [],
+        hasConfiguredFeeds: true,
         hydratedArticleLinks: {},
         hydratingArticleLinks: {},
         isCollapseScrollRestoreActive: false,

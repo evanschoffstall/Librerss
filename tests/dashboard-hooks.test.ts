@@ -31,7 +31,6 @@ import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
 import {
-    shouldShowNoFeedSourcesToast,
     useFeedLoader
 } from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
@@ -116,12 +115,6 @@ describe("useFeedRefresh", () => {
 });
 
 describe("useFeedLoader", () => {
-  test("suppresses the empty-source toast in placeholder mode", () => {
-    expect(shouldShowNoFeedSourcesToast(false, true)).toBe(false);
-    expect(shouldShowNoFeedSourcesToast(false, false)).toBe(true);
-    expect(shouldShowNoFeedSourcesToast(true, false)).toBe(false);
-  });
-
   test("reuses a prefetched batch query without clearing the feed", async () => {
     const categoriesRef = { current: [] as CategoryTreeNode[] };
     const prefetchedFeedUrl = "https://example.com/prefetched.xml";
