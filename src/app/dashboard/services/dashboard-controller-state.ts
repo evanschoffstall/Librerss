@@ -23,6 +23,7 @@ export interface DashboardFeedListState {
   expandedArticleKey: null | string;
   feedViewKey: string;
   filteredFeed: Article[];
+  hasConfiguredFeeds: boolean;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive: boolean;
@@ -34,6 +35,7 @@ export interface DashboardFeedListState {
   onArticleToggle: (article: Article) => void;
   onArticleToggleRead: (article: Article) => void;
   onArticleToggleStarred: (article: Article) => void;
+  refreshEpoch: number;
   searchTerm: string;
   showFavicons: boolean;
   updatingArticleState: Record<string, boolean>;

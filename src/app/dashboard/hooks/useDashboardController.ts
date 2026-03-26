@@ -12,6 +12,7 @@ import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
 
 import { type BackgroundMode, INITIAL_CATEGORIES } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
+import { getAllFeedNodes } from "../services/category-tree";
 import {
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
@@ -368,9 +369,16 @@ export function useDashboardController({
     setIsMobileSidebarOpen,
     setSelectedCategory,
   });
+
+  /** Cancels stale foreground requests and clears cached query errors after a long tab suspension. */
+  const handleStaleTabResume = useCallback(() => {
+    cancelPendingRequest();
+  }, [cancelPendingRequest]);
+
   useDashboardIntervals({
     autoRefreshFeedList,
     autoRefreshIntervalMinutes,
+    onStaleTabResume: handleStaleTabResume,
     setRelativeRefreshTick,
   });
 
@@ -455,6 +463,7 @@ export function useDashboardController({
           expandedArticleKey,
           feedViewKey: articleCallbacks.feedViewKey,
           filteredFeed,
+          hasConfiguredFeeds: getAllFeedNodes(categories).length > 0,
           hydratedArticleLinks,
           hydratingArticleLinks,
           isCollapseScrollRestoreActive,
@@ -466,6 +475,7 @@ export function useDashboardController({
           onArticleToggle: articleCallbacks.onArticleToggle,
           onArticleToggleRead: articleCallbacks.onArticleToggleRead,
           onArticleToggleStarred: articleCallbacks.onArticleToggleStarred,
+          refreshEpoch: loadingEpoch,
           searchTerm,
           showFavicons,
           updatingArticleState,
@@ -514,6 +524,7 @@ export function useDashboardController({
       articlesPerPage,
       autoRefreshIntervalMinutes,
       backgroundMode,
+      categories,
       categoryTree,
       collapsingArticles,
       displayCategories,
@@ -525,6 +536,7 @@ export function useDashboardController({
       isCollapseScrollRestoreActive,
       isFeedListInitialLoading,
       isFeedListRefreshing,
+      loadingEpoch,
       isMobileSidebarOpen,
       isSidebarVisible,
       lastRefreshLabel,

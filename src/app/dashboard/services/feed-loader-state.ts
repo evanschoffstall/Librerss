@@ -74,10 +74,3 @@ export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
 
   return DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS;
 }
-
-export function shouldShowNoFeedSourcesToast(
-  hasConfiguredFeeds: boolean,
-  usePlaceholderData: boolean,
-): boolean {
-  return !hasConfiguredFeeds && !usePlaceholderData;
-}
