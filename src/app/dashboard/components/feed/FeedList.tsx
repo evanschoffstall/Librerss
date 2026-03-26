@@ -37,6 +37,7 @@ export const FeedList = memo(function FeedList({
   expandedArticleKey,
   feedViewKey,
   filteredFeed,
+  hasConfiguredFeeds,
   hydratedArticleLinks,
   hydratingArticleLinks,
   isCollapseScrollRestoreActive = false,
@@ -48,6 +49,7 @@ export const FeedList = memo(function FeedList({
   onToggle,
   onToggleRead,
   onToggleStarred,
+  refreshEpoch = 0,
   searchTerm,
   showFavicons,
   updatingArticleState,
@@ -76,6 +78,7 @@ export const FeedList = memo(function FeedList({
     filteredFeedLength: filteredFeed.length,
     isCollapseScrollRestoreActive,
     isInitialLoading,
+    refreshEpoch,
     searchTerm,
   });
 
@@ -173,6 +176,7 @@ export const FeedList = memo(function FeedList({
           >
             <FeedEmptyState
               articleFilter={articleFilter}
+              hasConfiguredFeeds={hasConfiguredFeeds}
               hasSearchTerm={hasSearchTerm}
               trimmedSearchTerm={trimmedSearchTerm}
             />

@@ -16,6 +16,7 @@ export interface FeedListProps {
   expandedArticleKey: null | string;
   feedViewKey: string;
   filteredFeed: Article[];
+  hasConfiguredFeeds?: boolean;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive?: boolean;
@@ -27,6 +28,7 @@ export interface FeedListProps {
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
+  refreshEpoch?: number;
   searchTerm: string;
   showFavicons: boolean;
   updatingArticleState: Record<string, boolean>;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ComponentPropsWithRef, forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 const FEED_LOAD_MORE_THRESHOLD_PX = 504;
 const FEED_MIN_SCROLLABLE_OVERFLOW_PX = 1;
@@ -14,6 +14,7 @@ interface UseFeedListSurfaceStateOptions {
   filteredFeedLength: number;
   isCollapseScrollRestoreActive: boolean;
   isInitialLoading: boolean;
+  refreshEpoch: number;
   searchTerm: string;
 }
 
@@ -24,6 +25,7 @@ export function useFeedListSurfaceState({
   filteredFeedLength,
   isCollapseScrollRestoreActive,
   isInitialLoading,
+  refreshEpoch,
   searchTerm,
 }: UseFeedListSurfaceStateOptions) {
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(null);
@@ -33,6 +35,7 @@ export function useFeedListSurfaceState({
   const hasUserScrolledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const previousFeedViewKeyRef = useRef(feedViewKey);
+  const previousRefreshEpochRef = useRef(refreshEpoch);
   const viewportHostRef = useRef<HTMLDivElement | null>(null);
 
   const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
@@ -48,7 +51,7 @@ export function useFeedListSurfaceState({
   useEffect(() => {
     hasUserScrolledRef.current = false;
     setVisibleArticleCount(articlesPerPage);
-  }, [articleFilter, articlesPerPage, feedViewKey, searchTerm]);
+  }, [articleFilter, articlesPerPage, feedViewKey, refreshEpoch, searchTerm]);
 
   useLayoutEffect(() => {
     if (!scrollViewport) {
@@ -56,20 +59,22 @@ export function useFeedListSurfaceState({
     }
 
     const didFeedViewChange = previousFeedViewKeyRef.current !== feedViewKey;
+    const didRefreshEpochChange = previousRefreshEpochRef.current !== refreshEpoch;
     previousFeedViewKeyRef.current = feedViewKey;
+    previousRefreshEpochRef.current = refreshEpoch;
     const isViewportReplacementDuringRestore =
-      !didFeedViewChange && isCollapseScrollRestoreActive;
+      !didFeedViewChange && !didRefreshEpochChange && isCollapseScrollRestoreActive;
 
     if (isViewportReplacementDuringRestore || scrollViewport.scrollTop === 0) {
       return;
     }
 
-    if (!didFeedViewChange) {
+    if (!didFeedViewChange && !didRefreshEpochChange) {
       return;
     }
 
     scrollViewport.scrollTop = 0;
-  }, [feedViewKey, isCollapseScrollRestoreActive, scrollViewport]);
+  }, [feedViewKey, isCollapseScrollRestoreActive, refreshEpoch, scrollViewport]);
 
   const expandVisibleWindow = useCallback(() => {
     setVisibleArticleCount((currentCount) => {
@@ -237,6 +242,11 @@ export function useFeedListSurfaceState({
             ref={loadMoreSentinelRef}
           />
         ) : null,
+      Item: forwardRef<HTMLDivElement, ComponentPropsWithRef<"div">>(
+        function VirtuosoItem(props, ref) {
+          return <div {...props} ref={ref} style={{ ...props.style, minHeight: 1 }} />;
+        },
+      ),
     }),
     [hasMoreArticles],
   );
