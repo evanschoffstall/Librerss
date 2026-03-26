@@ -720,20 +720,17 @@ describe("Feed Repository - Delete Operations", () => {
             })),
             select: mock(() => ({
               from: mock(() => ({
-                leftJoin: mock(() => ({
-                  where: mock(() => ({
-                    for: mock(() => ({
-                      limit: mock(() =>
-                        Promise.resolve([
-                          {
-                            feedId: 1,
-                            id: 1,
-                            name: "Feed",
-                            url: "https://example.com/feed",
-                          },
-                        ]),
-                      ),
-                    })),
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([
+                        {
+                          id: 1,
+                          name: "Feed",
+                          url: "https://example.com/feed",
+                        },
+                      ]),
+                    ),
                   })),
                 })),
               })),
@@ -757,11 +754,9 @@ describe("Feed Repository - Delete Operations", () => {
           const mockTx = {
             select: mock(() => ({
               from: mock(() => ({
-                leftJoin: mock(() => ({
-                  where: mock(() => ({
-                    for: mock(() => ({
-                      limit: mock(() => Promise.resolve([])),
-                    })),
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() => Promise.resolve([])),
                   })),
                 })),
               })),
@@ -797,20 +792,17 @@ describe("Feed Repository - Delete Operations", () => {
             })),
             select: mock(() => ({
               from: mock(() => ({
-                leftJoin: mock(() => ({
-                  where: mock(() => ({
-                    for: mock(() => ({
-                      limit: mock(() =>
-                        Promise.resolve([
-                          {
-                            feedId: 1,
-                            id: 1,
-                            name: "Feed",
-                            url: "https://example.com/feed",
-                          },
-                        ]),
-                      ),
-                    })),
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([
+                        {
+                          id: 1,
+                          name: "Feed",
+                          url: "https://example.com/feed",
+                        },
+                      ]),
+                    ),
                   })),
                 })),
               })),
@@ -827,28 +819,18 @@ describe("Feed Repository - Delete Operations", () => {
   });
 
   test("deleteFeedSourceForUser handles feeds without categories", async () => {
+    mock.module("@/lib/db/feed-records", () => ({
+      ensureFeedRecordByUrl: mock(async () => ({
+        id: 1,
+        url: "https://example.com/feed",
+      })),
+      findFeedIdByUrl: mock(async () => null),
+      removeUserFeedCategory: mock(async () => {}),
+      replaceUserFeedCategory: mock(async () => {}),
+    }));
+
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
-        select: mock(() => ({
-          from: mock(() => ({
-            where: mock(() => ({
-              limit: mock((n: number) => {
-                if (n === 1) {
-                  // First select - source exists
-                  return Promise.resolve([
-                    {
-                      id: 1,
-                      name: "Feed",
-                      url: "https://example.com/feed",
-                    },
-                  ]);
-                }
-                // Second select - no feed record
-                return Promise.resolve([]);
-              }),
-            })),
-          })),
-        })),
         transaction: mock(async (callback: any) => {
           const mockTx = {
             delete: mock(() => ({
@@ -866,20 +848,17 @@ describe("Feed Repository - Delete Operations", () => {
             })),
             select: mock(() => ({
               from: mock(() => ({
-                leftJoin: mock(() => ({
-                  where: mock(() => ({
-                    for: mock(() => ({
-                      limit: mock(() =>
-                        Promise.resolve([
-                          {
-                            feedId: null,
-                            id: 1,
-                            name: "Feed",
-                            url: "https://example.com/feed",
-                          },
-                        ]),
-                      ),
-                    })),
+                where: mock(() => ({
+                  for: mock(() => ({
+                    limit: mock(() =>
+                      Promise.resolve([
+                        {
+                          id: 1,
+                          name: "Feed",
+                          url: "https://example.com/feed",
+                        },
+                      ]),
+                    ),
                   })),
                 })),
               })),

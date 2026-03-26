@@ -56,12 +56,11 @@ export async function deleteFeedSourceForUser(
   const db = getDb();
 
   const deletedSources = await db.transaction(async (tx) => {
-    // Single query: lock feedSource row and fetch its feedId via LEFT JOIN,
-    // eliminating a separate SELECT feeds round-trip.
+    // Lock only the owned feed-source row. PostgreSQL rejects FOR UPDATE on
+    // the nullable side of an outer join, so resolve the feed id separately.
     const sourceRows = await tx
-      .select({ ...feedSourceFields, feedId: feeds.id })
+      .select(feedSourceFields)
       .from(feedSources)
-      .leftJoin(feeds, eq(feeds.url, feedSources.url))
       .where(and(eq(feedSources.id, sourceId), eq(feedSources.userId, userId)))
       .for("update")
       .limit(1);
@@ -69,14 +68,15 @@ export async function deleteFeedSourceForUser(
     if (sourceRows.length === 0) return [];
 
     const sourceToDelete = sourceRows[0];
+    const feedId = await findFeedIdByUrl(tx, sourceToDelete.url);
 
-    if (sourceToDelete.feedId !== null) {
+    if (feedId !== null) {
       await tx
         .delete(feedCategories)
         .where(
           and(
             eq(feedCategories.userId, userId),
-            eq(feedCategories.feedId, sourceToDelete.feedId),
+            eq(feedCategories.feedId, feedId),
           ),
         );
     }
