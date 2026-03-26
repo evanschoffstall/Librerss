@@ -64,7 +64,6 @@ export function useDashboardEvents({
 
       if (usePlaceholderData) {
         onMarkAllReadLocally?.();
-        toast.success("Marked all as read.");
         window.dispatchEvent(
           new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
         );
@@ -91,7 +90,6 @@ export function useDashboardEvents({
             ArticleService.markAllRead(stream),
           ),
         );
-        toast.success("Marked all as read.");
         await onRefresh();
       } catch (error) {
         console.error("Mark all read error:", error);

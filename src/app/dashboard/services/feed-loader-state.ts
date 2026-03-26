@@ -51,8 +51,8 @@ export function notifyFeedFailures(
   }
 
   const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
-  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
-    description: "Showing cached articles. Check back after the next refresh.",
+  toast.warning(`Some feeds failed to update`, {
+    description: failureLabel,
   });
 }
 

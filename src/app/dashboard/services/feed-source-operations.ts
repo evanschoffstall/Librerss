@@ -68,7 +68,6 @@ export async function addFeedSourceAndRefresh({
       });
     }
 
-    toast.success("Feed source added.");
     return true;
   } catch (err) {
     console.error("Add feed source error:", err);
@@ -173,8 +172,6 @@ export async function removeFeedSourceAndRefresh({
     } else if (nextSelection.type === "category") {
       await fetchCategoryFeeds(nextSelection.categoryNode);
     }
-
-    toast.success("Feed source removed.");
   } catch (err) {
     console.error("Remove feed source error:", err);
     toast.error("Unable to remove feed source.");
@@ -298,7 +295,6 @@ export async function setFeedSourceEnabledAndRefresh({
       });
     }
 
-    toast.success(enabled ? "Feed enabled." : "Feed disabled.");
     return true;
   } catch (err) {
     console.error("Toggle feed source enabled error:", err);
@@ -329,21 +325,6 @@ export async function updateFeedSettingsAndRefresh({
   try {
     await FeedService.updateFeedSettings(sourceId, settings);
     await loadFeedSources();
-
-    if (typeof settings.extractionDisabled === "boolean") {
-      toast.success(
-        settings.extractionDisabled
-          ? "Readable article mode disabled."
-          : "Readable article mode enabled.",
-      );
-    }
-    if (typeof settings.proxyEnabled === "boolean") {
-      toast.success(
-        settings.proxyEnabled
-          ? "Connection routing enabled."
-          : "Connection routing disabled.",
-      );
-    }
     return true;
   } catch (err) {
     console.error("Update feed settings error:", err);
