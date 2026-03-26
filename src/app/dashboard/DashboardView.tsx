@@ -8,7 +8,7 @@ import {
 } from "./components/DashboardScaffold";
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
-import { SettingsModal } from "./components/settings/SettingsModal";
+import { SettingsPanel } from "./components/settings/SettingsPanel";
 import {
   type DashboardControllerProps,
   useDashboardController,
@@ -87,7 +87,7 @@ export const DashboardView = ({
       />
 
       {settings.showSettingsModal && (
-        <SettingsModal
+        <SettingsPanel
           articlesPerPage={settings.articlesPerPage}
           autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}
