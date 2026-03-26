@@ -12,12 +12,14 @@ export const settingsDragHandleCls =
   "shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing";
 
 export const SettingsIconButton = ({
+  ariaLabel,
   children,
   className,
   disabled,
   onClick,
   tip,
 }: {
+  ariaLabel?: string;
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
@@ -27,6 +29,7 @@ export const SettingsIconButton = ({
   <Tooltip>
     <TooltipTrigger asChild>
       <Button
+        aria-label={ariaLabel ?? tip}
         className={`
           size-7
           ${className ?? ""}

@@ -1,8 +1,9 @@
-import { Download, Plus, Rss } from "lucide-react";
+import { Download, Plus, Rss, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { type CategoryTreeNode, generateOpml } from "@/lib";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 import type { SettingsModalState } from "../../hooks/useSettingsModalState";
 
@@ -27,6 +28,8 @@ export function SettingsFeedManagementSection({
   pendingCategoryRemovalLabel,
   state,
 }: SettingsFeedManagementSectionProps) {
+  const isMobile = useIsMobile();
+
   return (
     <SettingsPreviewSection isPreviewMode={isPreviewMode}>
       <section className="settings-card">
@@ -51,7 +54,8 @@ export function SettingsFeedManagementSection({
               type="file"
             />
             <Button
-              className="h-8"
+              aria-label="Export OPML"
+              className={isMobile ? "size-8" : "h-8"}
               onClick={() => {
                 const xml = generateOpml(categories);
                 const blob = new Blob([xml], { type: "text/xml" });
@@ -65,11 +69,12 @@ export function SettingsFeedManagementSection({
               type="button"
               variant="outline"
             >
-              <Download className="mr-1.5 size-3.5" />
-              Export OPML
+              <Download className={isMobile ? "size-4" : "mr-1.5 size-3.5"} />
+              {!isMobile ? "Export OPML" : null}
             </Button>
             <Button
-              className="h-8"
+              aria-label="Import OPML"
+              className={isMobile ? "size-8" : "h-8"}
               disabled={state.isImportingOpml}
               onClick={() => state.opmlInputRef.current?.click()}
               size="sm"
@@ -77,11 +82,14 @@ export function SettingsFeedManagementSection({
               variant="outline"
             >
               {state.isImportingOpml ? (
-                <MotionSpinner className="mr-1.5" iconClassName="size-3.5" />
+                <MotionSpinner
+                  className={isMobile ? undefined : "mr-1.5"}
+                  iconClassName={isMobile ? "size-4" : "size-3.5"}
+                />
               ) : (
-                <Plus className="mr-1.5 size-3.5" />
+                <Upload className={isMobile ? "size-4" : "mr-1.5 size-3.5"} />
               )}
-              Import OPML
+              {!isMobile ? "Import OPML" : null}
             </Button>
           </div>
         </div>

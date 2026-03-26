@@ -1,9 +1,11 @@
 import {
+  Ellipsis,
   Eye,
   EyeOff,
   FileSearch,
   FileX,
   GripVertical,
+  Pencil,
   Shield,
   ShieldOff,
   Trash2,
@@ -11,8 +13,16 @@ import {
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { type CategoryTreeNode } from "@/lib";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 import { MotionSpinner } from "../MotionSpinner";
 import {
@@ -92,6 +102,7 @@ export function SettingsFeedRow({
   togglingFeedKey,
   updatingSettingsKey,
 }: SettingsFeedRowProps) {
+  const isMobile = useIsMobile();
   const isEnabled = feedNode.data?.enabled !== false;
   const isExtractionDisabled = feedNode.data?.extractionDisabled === true;
   const isProxyEnabled = feedNode.data?.proxyEnabled === true;
@@ -112,6 +123,10 @@ export function SettingsFeedRow({
     "extraction" | "proxy" | null
   >(null);
 
+  const startEditingFeed = () => {
+    onStartEditing(feedNode.key, feedNode.label, feedNode.data?.url ?? "");
+  };
+
   useEffect(() => {
     if (!isUpdatingSettings) setPendingSetting(null);
   }, [isUpdatingSettings]);
@@ -127,7 +142,7 @@ export function SettingsFeedRow({
   return (
     <div
       className={`
-        relative flex items-center gap-2 rounded-md border px-3 py-2
+        group relative flex items-center gap-2 rounded-md border px-3 py-2
         ${animTransitionColorsClass}
         ${isDeleting ? `border-destructive/30 opacity-50` : ""}
       `}
@@ -236,22 +251,13 @@ export function SettingsFeedRow({
         >
           <p
             className={`
-              cursor-pointer truncate text-sm
+              truncate text-sm
               ${
                 selectedCategory === feedNode.key
                   ? `font-medium text-foreground`
                   : `text-foreground/80`
               }
             `}
-            onDoubleClick={(event) => {
-              event.stopPropagation();
-              onStartEditing(
-                feedNode.key,
-                feedNode.label,
-                feedNode.data?.url ?? "",
-              );
-            }}
-            title="Double-click to rename"
           >
             {feedNode.label}
           </p>
@@ -261,15 +267,7 @@ export function SettingsFeedRow({
                 cursor-text truncate text-xs text-muted-foreground/70
                 select-text
               "
-              onDoubleClick={(event) => {
-                event.stopPropagation();
-                onStartEditing(
-                  feedNode.key,
-                  feedNode.label,
-                  feedNode.data?.url ?? "",
-                );
-              }}
-              title="Click and drag to select URL • Double-click to edit"
+              title="Click and drag to select URL"
             >
               {feedNode.data.url}
             </p>
@@ -277,79 +275,180 @@ export function SettingsFeedRow({
         </div>
       )}
 
-      <div className="flex shrink-0 items-center gap-1">
-        <SettingsIconButton
-          className={isExtractionDisabled ? "text-muted-foreground/50" : ""}
-          disabled={settingsBusy}
-          onClick={() => {
-            setPendingSetting("extraction");
-            onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled);
-          }}
-          tip={
-            isExtractionDisabled ? "Enable extraction" : "Disable extraction"
-          }
-        >
-          {isUpdatingSettings && pendingSetting === "extraction" ? (
-            <MotionSpinner iconClassName="size-3.5" />
-          ) : isExtractionDisabled ? (
-            <FileX className="size-3.5" />
-          ) : (
-            <FileSearch className="size-3.5" />
-          )}
-        </SettingsIconButton>
-        <SettingsIconButton
-          className={
-            isProxyEnabled ? "text-primary/80" : "text-muted-foreground/50"
-          }
-          disabled={settingsBusy}
-          onClick={() => {
-            setPendingSetting("proxy");
-            onToggleProxyEnabled(feedNode.key, !isProxyEnabled);
-          }}
-          tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
-        >
-          {isUpdatingSettings && pendingSetting === "proxy" ? (
-            <MotionSpinner iconClassName="size-3.5" />
-          ) : isProxyEnabled ? (
-            <Shield className="size-3.5" />
-          ) : (
-            <ShieldOff className="size-3.5" />
-          )}
-        </SettingsIconButton>
-        <SettingsIconButton
-          disabled={isTogglingEnabled || isDeleting || isDragging}
-          onClick={() => {
-            onToggleEnabled(feedNode.key, !isEnabled);
-          }}
-          tip={isEnabled ? "Disable feed" : "Enable feed"}
-        >
-          {isTogglingEnabled ? (
-            <MotionSpinner iconClassName="size-3.5" />
-          ) : isEnabled ? (
-            <Eye className="size-3.5" />
-          ) : (
-            <EyeOff className="size-3.5" />
-          )}
-        </SettingsIconButton>
-        <div className="mx-0.5 h-4 w-px bg-border/40" />
-        <SettingsIconButton
-          className="
-            text-muted-foreground
-            hover:text-destructive
-          "
-          disabled={isDeleting || isDragging || isTogglingEnabled}
-          onClick={() => {
-            onRemove(feedNode.key);
-          }}
-          tip="Remove feed"
-        >
-          {isDeleting ? (
-            <MotionSpinner iconClassName="size-3.5" />
-          ) : (
-            <Trash2 className="size-3.5" />
-          )}
-        </SettingsIconButton>
-      </div>
+      {isMobile ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Open actions for ${feedNode.label}`}
+              className="size-7 shrink-0"
+              disabled={isDragging}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Ellipsis className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={8}>
+            <DropdownMenuItem disabled={settingsBusy} onSelect={startEditingFeed}>
+              <Pencil className="size-4" />
+              Edit feed
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={isTogglingEnabled || isDeleting}
+              onSelect={() => {
+                onToggleEnabled(feedNode.key, !isEnabled);
+              }}
+            >
+              {isTogglingEnabled ? (
+                <MotionSpinner iconClassName="size-3.5" />
+              ) : isEnabled ? (
+                <EyeOff className="size-4" />
+              ) : (
+                <Eye className="size-4" />
+              )}
+              {isEnabled ? "Disable feed" : "Enable feed"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={settingsBusy}
+              onSelect={() => {
+                setPendingSetting("extraction");
+                onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled);
+              }}
+            >
+              {isUpdatingSettings && pendingSetting === "extraction" ? (
+                <MotionSpinner iconClassName="size-3.5" />
+              ) : isExtractionDisabled ? (
+                <FileSearch className="size-4" />
+              ) : (
+                <FileX className="size-4" />
+              )}
+              {isExtractionDisabled ? "Enable extraction" : "Disable extraction"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={settingsBusy}
+              onSelect={() => {
+                setPendingSetting("proxy");
+                onToggleProxyEnabled(feedNode.key, !isProxyEnabled);
+              }}
+            >
+              {isUpdatingSettings && pendingSetting === "proxy" ? (
+                <MotionSpinner iconClassName="size-3.5" />
+              ) : isProxyEnabled ? (
+                <ShieldOff className="size-4" />
+              ) : (
+                <Shield className="size-4" />
+              )}
+              {isProxyEnabled ? "Disable proxy" : "Enable proxy"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="
+                text-destructive
+                focus:text-destructive
+              "
+              disabled={isDeleting || isTogglingEnabled}
+              onSelect={() => {
+                onRemove(feedNode.key);
+              }}
+            >
+              {isDeleting ? (
+                <MotionSpinner iconClassName="size-3.5" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              Remove feed
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <div className="flex shrink-0 items-center gap-1">
+          <SettingsIconButton
+            ariaLabel={`Edit ${feedNode.label}`}
+            className="
+              opacity-0 transition-opacity duration-150
+              group-focus-within:opacity-100
+              group-hover:opacity-100
+            "
+            disabled={settingsBusy || isDragging}
+            onClick={startEditingFeed}
+            tip="Edit feed"
+          >
+            <Pencil className="size-3.5" />
+          </SettingsIconButton>
+          <SettingsIconButton
+            className={isExtractionDisabled ? "text-muted-foreground/50" : ""}
+            disabled={settingsBusy}
+            onClick={() => {
+              setPendingSetting("extraction");
+              onToggleExtractionDisabled(feedNode.key, !isExtractionDisabled);
+            }}
+            tip={
+              isExtractionDisabled ? "Enable extraction" : "Disable extraction"
+            }
+          >
+            {isUpdatingSettings && pendingSetting === "extraction" ? (
+              <MotionSpinner iconClassName="size-3.5" />
+            ) : isExtractionDisabled ? (
+              <FileX className="size-3.5" />
+            ) : (
+              <FileSearch className="size-3.5" />
+            )}
+          </SettingsIconButton>
+          <SettingsIconButton
+            className={
+              isProxyEnabled ? "text-primary/80" : "text-muted-foreground/50"
+            }
+            disabled={settingsBusy}
+            onClick={() => {
+              setPendingSetting("proxy");
+              onToggleProxyEnabled(feedNode.key, !isProxyEnabled);
+            }}
+            tip={isProxyEnabled ? "Disable proxy" : "Enable proxy"}
+          >
+            {isUpdatingSettings && pendingSetting === "proxy" ? (
+              <MotionSpinner iconClassName="size-3.5" />
+            ) : isProxyEnabled ? (
+              <Shield className="size-3.5" />
+            ) : (
+              <ShieldOff className="size-3.5" />
+            )}
+          </SettingsIconButton>
+          <SettingsIconButton
+            disabled={isTogglingEnabled || isDeleting || isDragging}
+            onClick={() => {
+              onToggleEnabled(feedNode.key, !isEnabled);
+            }}
+            tip={isEnabled ? "Disable feed" : "Enable feed"}
+          >
+            {isTogglingEnabled ? (
+              <MotionSpinner iconClassName="size-3.5" />
+            ) : isEnabled ? (
+              <Eye className="size-3.5" />
+            ) : (
+              <EyeOff className="size-3.5" />
+            )}
+          </SettingsIconButton>
+          <div className="mx-0.5 h-4 w-px bg-border/40" />
+          <SettingsIconButton
+            className="
+              text-muted-foreground
+              hover:text-destructive
+            "
+            disabled={isDeleting || isDragging || isTogglingEnabled}
+            onClick={() => {
+              onRemove(feedNode.key);
+            }}
+            tip="Remove feed"
+          >
+            {isDeleting ? (
+              <MotionSpinner iconClassName="size-3.5" />
+            ) : (
+              <Trash2 className="size-3.5" />
+            )}
+          </SettingsIconButton>
+        </div>
+      )}
     </div>
   );
 }
