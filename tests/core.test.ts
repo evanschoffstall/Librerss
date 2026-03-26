@@ -993,13 +993,12 @@ describe("feed-batch-pipeline", () => {
     expect(missingRowsResult).toBeUndefined();
   });
 
-  test("queryTopArticlesPerFeed applies a global batch article limit", async () => {
-    const { ARTICLE_CONTENT_PREVIEW_LENGTH } =
-      await import("@/lib/core/article-preview");
+  test("queryTopArticlesPerFeed uses fair per-feed budget instead of global CTE limit", async () => {
     const { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } =
       await import("@/lib/core/article-preview");
     const { CONFIG } = await import("@/lib/config");
-    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+    const { computePerFeedBudget, queryTopArticlesPerFeed } =
+      await importFeedBatchHelpers();
 
     const execute = mock(async (_query: unknown) => []);
     const db = { execute };
@@ -1020,18 +1019,21 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).toContain("LEFT(");
     expect(serializedQuery).toContain("regexp_replace");
     expect(serializedQuery).toContain("LIMIT ");
-    expect(serializedQuery).not.toContain(
-      String(ARTICLE_CONTENT_PREVIEW_LENGTH),
-    );
     expect(serializedQuery).toContain(
       String(ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH),
     );
-    expect(serializedQuery).toContain(String(CONFIG.MAX_ARTICLES_PER_FEED));
-    expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
     expect(serializedQuery).toContain("starred_candidates");
     expect(serializedQuery).toContain("is_starred");
     expect(serializedQuery).toContain("selected_feed_ids");
     expect(serializedQuery).toContain("UNION");
+
+    // The LATERAL uses the computed per-feed budget, not the raw config values
+    const expectedBudget = computePerFeedBudget(2);
+    expect(serializedQuery).toContain(String(expectedBudget));
+
+    // The global CTE-level LIMIT was removed — the per-feed LATERAL controls
+    // total output so every feed gets fair representation.
+    expect(expectedBudget).toBeLessThanOrEqual(CONFIG.MAX_ARTICLES_PER_FEED);
   });
 
   test("executeParallelRefreshes surfaces persisted errors when refresh is skipped", async () => {
