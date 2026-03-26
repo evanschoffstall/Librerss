@@ -9,10 +9,17 @@ import { Toaster } from "sonner";
 import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import {
-  mobileToastViewportOffset,
-  toastViewportOffset,
-} from "./toast-viewport-offset";
+const toastViewportOffset = {
+  bottom: 16,
+  left: 16,
+  right: 16,
+};
+
+const mobileToastViewportOffset = {
+  bottom: 16,
+  left: 16,
+  right: 16,
+};
 
 /**
  * Provides the app-wide theme context along with shared floating UI such as
@@ -108,7 +115,7 @@ function ThemedToaster() {
         return;
       }
 
-      const closeButton = toastElement.querySelector<HTMLElement>(
+      const closeButton = toastElement.querySelector<HTMLButtonElement>(
         "[data-close-button]",
       );
       closeButton?.click();
@@ -122,16 +129,23 @@ function ThemedToaster() {
 
   return (
     <Toaster
-      duration={4000}
+      closeButton
+      duration={3000}
       mobileOffset={mobileToastViewportOffset}
       offset={toastViewportOffset}
-      position="top-center"
+      position="bottom-right"
       richColors
       theme={resolvedTheme === "dark" ? "dark" : "light"}
       toastOptions={{
+        classNames: {
+          closeButton: "!bg-background !border-border/50",
+          description: "!text-muted-foreground",
+          toast:
+            "!rounded-xl !border-border/50 !bg-background/95 !shadow-lg !backdrop-blur-sm",
+        },
         style: {
-          justifyContent: "center",
-          textAlign: "center",
+          justifyContent: "flex-start",
+          textAlign: "left",
         },
       }}
     />
