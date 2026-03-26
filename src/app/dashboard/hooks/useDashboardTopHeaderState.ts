@@ -11,6 +11,10 @@ import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
 
+/**
+ * Owns the top-header's local UI state and bridges dashboard window events into
+ * reactive search, refresh, and action-button loading indicators.
+ */
 export function useDashboardTopHeaderState() {
   const { resolvedTheme, setTheme } = useTheme();
   const isDevelopmentMode = process.env.NODE_ENV === "development";
@@ -24,6 +28,7 @@ export function useDashboardTopHeaderState() {
     DASHBOARD_PREVIEW_STORAGE_KEY,
     false,
   );
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [isMarkingViewportRead, setIsMarkingViewportRead] = useState(false);
 
@@ -52,6 +57,12 @@ export function useDashboardTopHeaderState() {
     const handleEnterPreview = () => {
       setIsPreviewMode(true);
     };
+    const handleRefreshStart = () => {
+      setIsRefreshing(true);
+    };
+    const handleRefreshEnd = () => {
+      setIsRefreshing(false);
+    };
     const handleMarkAllReadStart = () => {
       setIsMarkingAllRead(true);
     };
@@ -78,6 +89,8 @@ export function useDashboardTopHeaderState() {
       handleSearchPending as EventListener,
     );
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
+    window.addEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
+    window.addEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
     window.addEventListener(
       DASHBOARD_EVENTS.MARK_ALL_READ_START,
       handleMarkAllReadStart,
@@ -112,6 +125,8 @@ export function useDashboardTopHeaderState() {
         DASHBOARD_EVENTS.ENTER_PREVIEW,
         handleEnterPreview,
       );
+      window.removeEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
+      window.removeEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
       window.removeEventListener(
         DASHBOARD_EVENTS.MARK_ALL_READ_START,
         handleMarkAllReadStart,
@@ -143,6 +158,10 @@ export function useDashboardTopHeaderState() {
   };
 
   const handleRefresh = () => {
+    if (isRefreshing) {
+      return;
+    }
+
     dispatchDashboardEvent(DASHBOARD_EVENTS.REFRESH);
   };
 
@@ -217,6 +236,7 @@ export function useDashboardTopHeaderState() {
     isDevelopmentMode,
     isMarkingAllRead,
     isMarkingViewportRead,
+    isRefreshing,
     isResetting,
     isSearchPending,
     isSigningOut,
@@ -227,6 +247,7 @@ export function useDashboardTopHeaderState() {
   };
 }
 
+/** Dispatches a dashboard-scoped custom event with an optional detail payload. */
 function dispatchDashboardEvent(eventName: string, detail?: Record<string, unknown>) {
   window.dispatchEvent(new CustomEvent(eventName, detail ? { detail } : undefined));
 }

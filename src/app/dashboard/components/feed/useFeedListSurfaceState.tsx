@@ -31,7 +31,6 @@ export function useFeedListSurfaceState({
   const [viewportResolutionState, setViewportResolutionState] =
     useState<FeedViewportResolutionState>("pending");
   const hasUserScrolledRef = useRef(false);
-  const hasAutoFilledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const previousFeedViewKeyRef = useRef(feedViewKey);
   const viewportHostRef = useRef<HTMLDivElement | null>(null);
@@ -48,7 +47,6 @@ export function useFeedListSurfaceState({
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
-    hasAutoFilledRef.current = false;
     setVisibleArticleCount(articlesPerPage);
   }, [articleFilter, articlesPerPage, feedViewKey, searchTerm]);
 
@@ -103,7 +101,6 @@ export function useFeedListSurfaceState({
 
   useEffect(() => {
     if (
-      hasAutoFilledRef.current ||
       !scrollViewport ||
       isInitialLoading ||
       visibleArticleCount >= filteredFeedLength
@@ -112,10 +109,6 @@ export function useFeedListSurfaceState({
     }
 
     const autoFillFrameId = requestAnimationFrame(() => {
-      if (hasAutoFilledRef.current) {
-        return;
-      }
-
       const scrollableOverflowPx =
         scrollViewport.scrollHeight - scrollViewport.clientHeight;
 
@@ -123,7 +116,6 @@ export function useFeedListSurfaceState({
         Number.isFinite(scrollableOverflowPx) &&
         scrollableOverflowPx <= FEED_MIN_SCROLLABLE_OVERFLOW_PX
       ) {
-        hasAutoFilledRef.current = true;
         expandVisibleWindow();
       }
     });

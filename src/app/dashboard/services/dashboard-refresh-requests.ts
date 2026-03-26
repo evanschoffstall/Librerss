@@ -13,7 +13,7 @@ interface DashboardRefreshContext extends FeedSelectionFetchers {
 }
 
 /** Performs the interval-driven refresh for the current dashboard selection. */
-export function autoRefreshDashboardSelection({
+export async function autoRefreshDashboardSelection({
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
@@ -23,7 +23,7 @@ export function autoRefreshDashboardSelection({
   selectedFeedUrl,
 }: DashboardRefreshContext) {
   onBeforeRefresh?.();
-  refreshCurrentSelection({
+  await refreshCurrentSelection({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -85,7 +85,7 @@ export function prefetchDashboardFeed(
 }
 
 /** Performs the explicit user-initiated refresh for the current dashboard selection. */
-export function refreshDashboardSelection({
+export async function refreshDashboardSelection({
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
@@ -95,7 +95,7 @@ export function refreshDashboardSelection({
   selectedFeedUrl,
 }: DashboardRefreshContext) {
   onBeforeRefresh?.();
-  refreshCurrentSelection({
+  await refreshCurrentSelection({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,

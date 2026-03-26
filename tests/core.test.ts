@@ -1028,6 +1028,10 @@ describe("feed-batch-pipeline", () => {
     );
     expect(serializedQuery).toContain(String(CONFIG.MAX_ARTICLES_PER_FEED));
     expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
+    expect(serializedQuery).toContain("starred_candidates");
+    expect(serializedQuery).toContain("is_starred");
+    expect(serializedQuery).toContain("selected_feed_ids");
+    expect(serializedQuery).toContain("UNION");
   });
 
   test("executeParallelRefreshes surfaces persisted errors when refresh is skipped", async () => {

@@ -19,6 +19,8 @@ export const DASHBOARD_EVENTS = {
   OPEN_FEEDS_SIDEBAR: "dashboard:open-feeds-sidebar",
   OPEN_SETTINGS: "dashboard:open-settings",
   REFRESH: "dashboard:refresh",
+  REFRESH_END: "dashboard:refresh-end",
+  REFRESH_START: "dashboard:refresh-start",
   SEARCH_CHANGE: "dashboard:search-change",
   SEARCH_PENDING: "dashboard:search-pending",
   SEARCH_SYNC: "dashboard:search-sync",

@@ -19,7 +19,7 @@ interface UseDashboardEventsOptions {
   onMarkViewportRead: () => Promise<void>;
   onOpenFeedsSidebar: () => void;
   onOpenSettings: () => void;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
   onSearchChange: (term: string) => void;
   selectedCategory: string;
   selectedCategoryNode: CategoryTreeNode | undefined;
@@ -92,7 +92,7 @@ export function useDashboardEvents({
           ),
         );
         toast.success("Marked all as read.");
-        onRefresh();
+        await onRefresh();
       } catch (error) {
         console.error("Mark all read error:", error);
         toast.error("Unable to mark all as read right now.");
@@ -140,7 +140,15 @@ export function useDashboardEvents({
   });
 
   const handleRefresh = useEffectEvent(() => {
-    onRefresh();
+    void (async () => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+
+      try {
+        await onRefresh();
+      } finally {
+        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+      }
+    })();
   });
 
   const handleOpenSettings = useEffectEvent(() => {

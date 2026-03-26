@@ -123,9 +123,9 @@ export async function initializeDashboardSelection(
 }
 
 /** Refreshes whatever feed or category surface is currently selected. */
-export function refreshCurrentSelection(
+export async function refreshCurrentSelection(
   options: RefreshCurrentSelectionOptions,
-): void {
+): Promise<void> {
   const {
     fallbackFeedUrl = DEFAULT_FEED_URL,
     fetchAllFeeds,
@@ -148,19 +148,19 @@ export function refreshCurrentSelection(
   };
 
   if (selectedCategory === ALL_FEEDS_NODE_KEY) {
-    void fetchAllFeeds(undefined, fetchOptions);
+    await fetchAllFeeds(undefined, fetchOptions);
     return;
   }
 
   if (selectedFeedUrl) {
-    void fetchFeed(selectedFeedUrl, fetchOptions);
+    await fetchFeed(selectedFeedUrl, fetchOptions);
     return;
   }
 
   if (selectedCategoryNode) {
-    void fetchCategoryFeeds(selectedCategoryNode, fetchOptions);
+    await fetchCategoryFeeds(selectedCategoryNode, fetchOptions);
     return;
   }
 
-  void fetchFeed(fallbackFeedUrl, fetchOptions);
+  await fetchFeed(fallbackFeedUrl, fetchOptions);
 }

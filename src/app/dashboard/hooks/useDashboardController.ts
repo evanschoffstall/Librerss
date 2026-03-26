@@ -397,9 +397,7 @@ export function useDashboardController({
     onOpenSettings: useCallback(() => {
       setShowSettingsModal(true);
     }, [setShowSettingsModal]),
-    onRefresh: () => {
-      handleRefreshSelection();
-    },
+    onRefresh: handleRefreshSelection,
     onSearchChange: setSearchTerm,
     selectedCategory,
     selectedCategoryNode,

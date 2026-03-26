@@ -68,8 +68,8 @@ export function useDashboardHandlers({
   setSelectedCategory,
 }: UseDashboardHandlersOptions) {
   /** Performs a user-initiated refresh of the current selection. */
-  const handleRefreshSelection = useCallback(() => {
-    refreshDashboardSelection({
+  const handleRefreshSelection = useCallback(async () => {
+    await refreshDashboardSelection({
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
@@ -89,8 +89,8 @@ export function useDashboardHandlers({
   ]);
 
   /** Performs a background or interval-driven refresh of the current selection. */
-  const handleAutoRefreshSelection = useCallback(() => {
-    autoRefreshDashboardSelection({
+  const handleAutoRefreshSelection = useCallback(async () => {
+    await autoRefreshDashboardSelection({
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
