@@ -151,11 +151,11 @@ const PATH_TOKENS: Record<string, string> = (() => {
 })();
 
 interface CliArguments {
+  command: "keys" | "run-suite" | "summary";
   directStep?: StepConfig;
   directStepArgs: string[];
   invalidSuiteFlags: string[];
   keyFilter: null | Set<string>;
-  summaryOnly: boolean;
 }
 
 interface Command {
@@ -1253,6 +1253,26 @@ const HANDLERS: Record<string, StepRunner> = {
 /** Splits CLI arguments into global flags, step filters, and direct step execution. */
 export function parseCliArguments(argv: string[]): CliArguments {
   const command = argv[2];
+  if (command === "summary") {
+    return {
+      command: "summary",
+      directStep: undefined,
+      directStepArgs: [],
+      invalidSuiteFlags: [],
+      keyFilter: null,
+    };
+  }
+
+  if (command === "keys") {
+    return {
+      command: "keys",
+      directStep: undefined,
+      directStepArgs: [],
+      invalidSuiteFlags: [],
+      keyFilter: null,
+    };
+  }
+
   const directStep =
     command && !command.startsWith("--")
       ? CFG.steps.find((step) => step.key === command && step.enabled !== false)
@@ -1260,32 +1280,29 @@ export function parseCliArguments(argv: string[]): CliArguments {
 
   if (directStep) {
     return {
+      command: "run-suite",
       directStep,
       directStepArgs: argv.slice(3),
       invalidSuiteFlags: [],
       keyFilter: null,
-      summaryOnly: false,
     };
   }
 
-  const globalFlags = new Set(["summary"]);
   const runnableSuiteStepKeys = getRunnableSuiteStepKeys();
-  const summaryOnly = argv.slice(2).includes("--summary");
   const suiteFlags = argv
     .slice(2)
     .filter((argument) => argument.startsWith("--"))
     .map((argument) => argument.slice(2));
-  const suiteStepKeys = suiteFlags.filter((flag) => !globalFlags.has(flag));
-  const invalidSuiteFlags = suiteStepKeys.filter(
+  const invalidSuiteFlags = suiteFlags.filter(
     (flag) => !runnableSuiteStepKeys.has(flag),
   );
 
   return {
+    command: "run-suite",
     directStep: undefined,
     directStepArgs: [],
     invalidSuiteFlags,
-    keyFilter: suiteStepKeys.length > 0 ? new Set(suiteStepKeys) : null,
-    summaryOnly,
+    keyFilter: suiteFlags.length > 0 ? new Set(suiteFlags) : null,
   };
 }
 
@@ -1530,6 +1547,12 @@ export function runStepWithinDeadline(
   return runStep(step, timeoutMs, extraArgs);
 }
 
+function getConfiguredStepKeys(): string[] {
+  return CFG.steps
+    .filter((step) => step.enabled !== false)
+    .map((step) => step.key);
+}
+
 function getStepTimeoutMs(step: StepConfig, deadlineMs: number): number {
   const remainingTimeoutMs = getRemainingTimeoutMs(deadlineMs);
   if (remainingTimeoutMs <= 0) {
@@ -1551,6 +1574,11 @@ async function main() {
       output.endsWith("\n") ? output : `${output.replace(/\s+$/g, "")}\n`,
     );
 
+  if (cliArguments.command === "keys") {
+    writeOut(getConfiguredStepKeys().join(", "));
+    process.exit(0);
+  }
+
   if (cliArguments.invalidSuiteFlags.length > 0) {
     writeOut(
       `unknown suite flag(s): ${cliArguments.invalidSuiteFlags.join(", ")}`,
@@ -1569,7 +1597,7 @@ async function main() {
   }
 
   await runCheckSuite(cliArguments.keyFilter, {
-    summaryOnly: cliArguments.summaryOnly,
+    summaryOnly: cliArguments.command === "summary",
   });
 }
 
