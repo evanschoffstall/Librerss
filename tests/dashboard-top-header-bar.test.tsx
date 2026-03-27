@@ -217,6 +217,7 @@ describe("DashboardTopHeaderBar", () => {
     document.body.append(container);
 
     const header = container.querySelector<HTMLDivElement>(
+      "div.pointer-events-auto.fixed.inset-x-0.bottom-0.z-50," +
       "div.pointer-events-auto.fixed.inset-x-0.top-0.z-50",
     );
     if (!header) {

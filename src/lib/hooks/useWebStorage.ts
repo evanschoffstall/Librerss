@@ -19,7 +19,18 @@ import {
  * SSR-safe: `getStorage()` is only called when `window` is defined, and the
  * first write after rehydration is skipped so stored values are never
  * overwritten by the default before they are restored.
+ *
+ * Same-window sync: when one hook instance writes a value, all other instances
+ * sharing the same storage key update immediately via a custom DOM event.
  */
+
+const STORAGE_SYNC_EVENT = "librerss:storage-sync";
+
+interface StorageSyncDetail {
+  key: string;
+  value: string;
+}
+
 export function useWebStorage<T>(
   getStorage: () => Storage,
   key: string,
@@ -27,6 +38,7 @@ export function useWebStorage<T>(
 ): [T, Dispatch<SetStateAction<T>>] {
   const [value, setValue] = useState<T>(defaultValue);
   const shouldSkipNextWriteRef = useRef(true);
+  const isEmittingRef = useRef(false);
 
   // Rehydrate after mount and when the storage key changes so the first client
   // render always matches the server HTML.
@@ -51,12 +63,47 @@ export function useWebStorage<T>(
     }
 
     try {
-      getStorage().setItem(key, JSON.stringify(value));
+      const serialized = JSON.stringify(value);
+      getStorage().setItem(key, serialized);
+      isEmittingRef.current = true;
+      window.dispatchEvent(
+        new CustomEvent<StorageSyncDetail>(STORAGE_SYNC_EVENT, {
+          detail: { key, value: serialized },
+        }),
+      );
+      isEmittingRef.current = false;
     } catch {
       // Storage quota exceeded or security policy — fail silently.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, value]);
+
+  // Same-window sync: when another hook instance writes to the same key,
+  // update this instance so all consumers stay consistent.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleSync = (event: Event) => {
+      if (isEmittingRef.current) return;
+      const { key: syncKey, value: syncValue } = (
+        event as CustomEvent<StorageSyncDetail>
+      ).detail;
+      if (syncKey !== key) return;
+
+      shouldSkipNextWriteRef.current = true;
+      try {
+        setValue(JSON.parse(syncValue) as T);
+      } catch {
+        setValue(defaultValue);
+      }
+    };
+
+    window.addEventListener(STORAGE_SYNC_EVENT, handleSync);
+    return () => {
+      window.removeEventListener(STORAGE_SYNC_EVENT, handleSync);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   const setStoredValue: Dispatch<SetStateAction<T>> = useCallback(
     (nextValue) => {

@@ -11,9 +11,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
-import type { BackgroundMode } from "../../constants";
-
+import {
+  type BackgroundMode,
+  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+} from "../../constants";
 import {
   MANUAL_REFRESH_INTERVAL_MINUTES,
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
@@ -47,6 +50,10 @@ export function SettingsDisplaySection({
   onShowFaviconsChange,
   showFavicons,
 }: SettingsDisplaySectionProps) {
+  const [mobileToolbarBottom, setMobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
   const [autoRefreshDraft, setAutoRefreshDraft] = useState(
     String(autoRefreshIntervalMinutes),
   );
@@ -118,6 +125,19 @@ export function SettingsDisplaySection({
             checked={showFavicons}
             id="show-favicons"
             onCheckedChange={onShowFaviconsChange}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="mobile-toolbar-bottom">Mobile bottom toolbar</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Move the header bar and filter bar to the bottom on mobile.
+            </p>
+          </div>
+          <Switch
+            checked={mobileToolbarBottom}
+            id="mobile-toolbar-bottom"
+            onCheckedChange={setMobileToolbarBottom}
           />
         </div>
         <div className="row-between">

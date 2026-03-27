@@ -23,7 +23,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
+import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "../constants";
 import { useDashboardTopHeaderState } from "../hooks/useDashboardTopHeaderState";
 import {
   DashboardTopHeaderActionButton,
@@ -61,17 +63,28 @@ export function DashboardTopHeaderBar() {
     themeToggleLabel,
     title,
   } = useDashboardTopHeaderState();
+  const [mobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
   const isToolbarActionPending =
     isRefreshing || isMarkingAllRead || isMarkingViewportRead;
 
   return (
     <div
-      className="
-        pointer-events-auto fixed inset-x-0 bottom-0 z-50 border-t
-        border-border/50 bg-background/80 pb-[env(safe-area-inset-bottom)]
-        backdrop-blur-md
-        lg:top-0 lg:bottom-auto lg:border-t-0 lg:border-b lg:pb-0
-      "
+      className={
+        mobileToolbarBottom
+          ? `
+            pointer-events-auto fixed inset-x-0 bottom-0 z-50 border-t
+            border-border/50 bg-background/80 pb-[env(safe-area-inset-bottom)]
+            backdrop-blur-md
+            lg:top-0 lg:bottom-auto lg:border-t-0 lg:border-b lg:pb-0
+          `
+          : `
+            pointer-events-auto fixed inset-x-0 top-0 z-50 border-b
+            border-border/50 bg-background/80 backdrop-blur-md
+          `
+      }
       suppressHydrationWarning
     >
       <div

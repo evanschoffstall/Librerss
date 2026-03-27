@@ -6,6 +6,8 @@ interface DashboardFeedViewportProps {
 
 interface DashboardScaffoldProps {
   feed: React.ReactNode;
+  /** When true (default), positions the token bar below the feed on mobile. */
+  mobileToolbarBottom?: boolean;
   sidebar: React.ReactNode;
   topBar: React.ReactNode;
 }
@@ -49,24 +51,40 @@ export function DashboardFeedViewport({
  */
 export function DashboardScaffold({
   feed,
+  mobileToolbarBottom = true,
   sidebar,
   topBar,
 }: DashboardScaffoldProps) {
   return (
     <div
-      className="
-        mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
-        pt-[env(safe-area-inset-top)]
-        pb-[calc(env(safe-area-inset-bottom)+3.8rem)]
-        md:px-6
-        lg:pt-[calc(env(safe-area-inset-top)+3.8rem)]
-        lg:pb-[env(safe-area-inset-bottom)]
-      "
+      className={
+        mobileToolbarBottom
+          ? `
+            mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
+            pt-[env(safe-area-inset-top)]
+            pb-[calc(env(safe-area-inset-bottom)+3.8rem)]
+            md:px-6
+            lg:pt-[calc(env(safe-area-inset-top)+3.8rem)]
+            lg:pb-[env(safe-area-inset-bottom)]
+          `
+          : `
+            mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
+            pt-[calc(env(safe-area-inset-top)+3.8rem)]
+            pb-[env(safe-area-inset-bottom)]
+            md:px-6
+          `
+      }
     >
-      <div className="
-        order-1 shrink-0
-        lg:order-0
-      ">
+      <div
+        className={
+          mobileToolbarBottom
+            ? `
+              order-1 shrink-0
+              lg:order-0
+            `
+            : "shrink-0"
+        }
+      >
         {topBar}
       </div>
 

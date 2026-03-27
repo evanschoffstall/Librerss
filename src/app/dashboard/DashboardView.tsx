@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+
 import { DashboardDesktopSidebar } from "./components/DashboardDesktopSidebar";
 import { DashboardMobileSidebarSheet } from "./components/DashboardMobileSidebarSheet";
 import {
@@ -9,6 +11,7 @@ import {
 import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
+import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "./constants";
 import {
   type DashboardControllerProps,
   useDashboardController,
@@ -24,6 +27,10 @@ export const DashboardView = ({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardViewProps) => {
+  const [mobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
   const { feedList, settings, sidebar, topBar } = useDashboardController({
     backgroundMode,
     distillStrategy,
@@ -69,6 +76,7 @@ export const DashboardView = ({
             />
           </DashboardFeedViewport>
         }
+        mobileToolbarBottom={mobileToolbarBottom}
         sidebar={
           <DashboardDesktopSidebar
             isSidebarVisible={sidebar.isSidebarVisible}
