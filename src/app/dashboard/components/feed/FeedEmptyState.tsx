@@ -73,7 +73,7 @@ export function FeedEmptyState({
           </div>
         ) : (
           <p className="max-w-[16rem] text-sm/relaxed text-muted-foreground">
-            {description ?? "Check back later or pull for fresh articles."}
+            {description ?? "Try back later or refresh."}
           </p>
         )}
       </div>
@@ -98,7 +98,11 @@ function resolveEmptyStateContent(
     };
   }
   if (articleFilter === "starred") {
-    return { heading: "You're up to date", icon: Sparkles };
+    return {
+      description: "Articles you star will show up here.",
+      heading: "No starred articles yet",
+      icon: Sparkles,
+    };
   }
   return { heading: "You're up to date", icon: CheckCheck };
 }

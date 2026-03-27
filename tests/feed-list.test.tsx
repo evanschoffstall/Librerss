@@ -191,8 +191,34 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(container.querySelector('[data-feed-empty-state="true"]')).toBeTruthy();
       expect(getByText("You're up to date")).toBeTruthy();
-      expect(getByText("Check back later or pull for fresh articles.")).toBeTruthy();
+      expect(getByText("Try back later or refresh.")).toBeTruthy();
     });
+  });
+
+  test("shows starred-specific empty-state copy when no starred articles exist", () => {
+    const { getByText } = renderFeedList(
+      <FeedList
+        articleFilter="starred"
+        articlesPerPage={12}
+        expandedArticleKey={null}
+        feedViewKey="system-all-feeds:starred"
+        filteredFeed={[]}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    expect(getByText("No starred articles yet")).toBeTruthy();
+    expect(getByText("Articles you star will show up here.")).toBeTruthy();
   });
 
   test("renders the list through virtuoso once the dashboard viewport is available", async () => {
