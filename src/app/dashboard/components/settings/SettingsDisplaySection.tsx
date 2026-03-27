@@ -16,6 +16,7 @@ import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 import {
   type BackgroundMode,
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
 } from "../../constants";
 import {
   MANUAL_REFRESH_INTERVAL_MINUTES,
@@ -52,6 +53,10 @@ export function SettingsDisplaySection({
 }: SettingsDisplaySectionProps) {
   const [mobileToolbarBottom, setMobileToolbarBottom] = useLocalStorage(
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
+  const [mobileToolbarMirror, setMobileToolbarMirror] = useLocalStorage(
+    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
     true,
   );
   const [autoRefreshDraft, setAutoRefreshDraft] = useState(
@@ -138,6 +143,22 @@ export function SettingsDisplaySection({
             checked={mobileToolbarBottom}
             id="mobile-toolbar-bottom"
             onCheckedChange={setMobileToolbarBottom}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="mobile-toolbar-mirror">
+              Mobile mirrored toolbar
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Reverse the toolbar element order on mobile so actions are on the
+              leading edge.
+            </p>
+          </div>
+          <Switch
+            checked={mobileToolbarMirror}
+            id="mobile-toolbar-mirror"
+            onCheckedChange={setMobileToolbarMirror}
           />
         </div>
         <div className="row-between">

@@ -25,7 +25,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
-import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "../constants";
+import {
+  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+} from "../constants";
 import { useDashboardTopHeaderState } from "../hooks/useDashboardTopHeaderState";
 import {
   DashboardTopHeaderActionButton,
@@ -67,6 +70,10 @@ export function DashboardTopHeaderBar() {
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
     true,
   );
+  const [mobileToolbarMirror] = useLocalStorage(
+    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+    true,
+  );
   const isToolbarActionPending =
     isRefreshing || isMarkingAllRead || isMarkingViewportRead;
 
@@ -88,12 +95,14 @@ export function DashboardTopHeaderBar() {
       suppressHydrationWarning
     >
       <div
-        className="
+        className={`
           mx-auto flex h-14 max-w-6xl items-center gap-4 px-4
           pr-[max(1rem,env(safe-area-inset-right))]
           pl-[max(1rem,env(safe-area-inset-left))]
           md:px-6
-        "
+          ${mobileToolbarMirror ? "flex-row-reverse lg:flex-row" : ""}
+        `}
+        suppressHydrationWarning
       >
         <button
           aria-label="Open feeds"
@@ -183,7 +192,11 @@ export function DashboardTopHeaderBar() {
               <EllipsisVertical className="size-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8}>
+          <DropdownMenuContent
+            align={mobileToolbarMirror ? "start" : "end"}
+            sideOffset={8}
+            suppressHydrationWarning
+          >
             <DropdownMenuItem
               disabled={isMarkingAllRead}
               onSelect={handleMarkAllRead}
