@@ -1198,6 +1198,7 @@ describe("dashboard controller state services", () => {
         onArticleToggle: mock(() => {}),
         onArticleToggleRead: mock(() => {}),
         onArticleToggleStarred: mock(() => {}),
+        refreshEpoch: 0,
         searchTerm: "",
         showFavicons: false,
         updatingArticleState: {},

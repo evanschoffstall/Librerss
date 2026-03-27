@@ -34,6 +34,7 @@ export function useFeedListSurfaceState({
     useState<FeedViewportResolutionState>("pending");
   const hasUserScrolledRef = useRef(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const hasResolvedInitialViewportRef = useRef(false);
   const previousFeedViewKeyRef = useRef(feedViewKey);
   const previousRefreshEpochRef = useRef(refreshEpoch);
   const viewportHostRef = useRef<HTMLDivElement | null>(null);
@@ -58,18 +59,29 @@ export function useFeedListSurfaceState({
       return;
     }
 
+    const isInitialViewportResolution = !hasResolvedInitialViewportRef.current;
     const didFeedViewChange = previousFeedViewKeyRef.current !== feedViewKey;
     const didRefreshEpochChange = previousRefreshEpochRef.current !== refreshEpoch;
+    hasResolvedInitialViewportRef.current = true;
     previousFeedViewKeyRef.current = feedViewKey;
     previousRefreshEpochRef.current = refreshEpoch;
     const isViewportReplacementDuringRestore =
       !didFeedViewChange && !didRefreshEpochChange && isCollapseScrollRestoreActive;
+    const shouldResetInitialViewportScroll =
+      isInitialViewportResolution && !isCollapseScrollRestoreActive;
 
-    if (isViewportReplacementDuringRestore || scrollViewport.scrollTop === 0) {
+    if (
+      isViewportReplacementDuringRestore ||
+      (scrollViewport.scrollTop === 0 && !shouldResetInitialViewportScroll)
+    ) {
       return;
     }
 
-    if (!didFeedViewChange && !didRefreshEpochChange) {
+    if (
+      !didFeedViewChange &&
+      !didRefreshEpochChange &&
+      !shouldResetInitialViewportScroll
+    ) {
       return;
     }
 

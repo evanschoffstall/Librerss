@@ -840,6 +840,63 @@ describe("FeedList", () => {
     expect(scrollTop).toBe(0);
   });
 
+  test("resets a restored viewport scroll position on first mount", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/initial-viewport-second",
+      title: "Initial viewport second article",
+    });
+    let restoredScrollTop = 320;
+
+    const { getByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return restoredScrollTop;
+            },
+            set(nextValue: number) {
+              restoredScrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isCollapseScrollRestoreActive={false}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+    });
+
+    expect(restoredScrollTop).toBe(0);
+  });
+
   test("resets visible article count and scroll position when refreshEpoch increments", async () => {
     let testContainer: HTMLElement | null = null;
     let scrollTop = 0;
