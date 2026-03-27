@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { Globe, Monitor, Rss, Settings2, Shield, X } from "lucide-react";
+import { useEffect } from "react";
 
 import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
 import { SETTINGS_PANEL_TAB_STORAGE_KEY } from "@/app/dashboard/constants";
@@ -224,9 +224,9 @@ export function SettingsPanel({
             <ScrollArea
               className="
                 flex min-h-0 flex-1 flex-col px-4 pb-6
-                [&_[data-radix-scroll-area-viewport]]:overscroll-contain
-                [&_[data-radix-scroll-area-viewport]]:touch-pan-y
-                [&_[data-radix-scroll-area-viewport]]:[-webkit-overflow-scrolling:touch]
+                **:data-radix-scroll-area-viewport:touch-pan-y
+                **:data-radix-scroll-area-viewport:overscroll-contain
+                **:data-radix-scroll-area-viewport:[-webkit-overflow-scrolling:touch]
                 [&_[data-radix-scroll-area-viewport]>div]:block!
                 [&_[data-radix-scroll-area-viewport]>div]:w-full!
                 [&_[data-radix-scroll-area-viewport]>div]:min-w-0!

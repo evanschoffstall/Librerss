@@ -1,4 +1,4 @@
-import { Download, Plus, Rss, Upload } from "lucide-react";
+import { Download, Rss, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
