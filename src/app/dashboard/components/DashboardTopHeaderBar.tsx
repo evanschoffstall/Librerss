@@ -67,8 +67,10 @@ export function DashboardTopHeaderBar() {
   return (
     <div
       className="
-        pointer-events-auto fixed inset-x-0 top-0 z-50 border-b border-border/50
-        bg-background/80 backdrop-blur-md
+        pointer-events-auto fixed inset-x-0 bottom-0 z-50 border-t
+        border-border/50 bg-background/80 pb-[env(safe-area-inset-bottom)]
+        backdrop-blur-md
+        lg:top-0 lg:bottom-auto lg:border-t-0 lg:border-b lg:pb-0
       "
       suppressHydrationWarning
     >

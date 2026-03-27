@@ -56,12 +56,19 @@ export function DashboardScaffold({
     <div
       className="
         mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
-        pt-[calc(env(safe-area-inset-top)+3.8rem)]
-        pb-[env(safe-area-inset-bottom)]
+        pt-[env(safe-area-inset-top)]
+        pb-[calc(env(safe-area-inset-bottom)+3.8rem)]
         md:px-6
+        lg:pt-[calc(env(safe-area-inset-top)+3.8rem)]
+        lg:pb-[env(safe-area-inset-bottom)]
       "
     >
-      {topBar}
+      <div className="
+        order-1 shrink-0
+        lg:order-0
+      ">
+        {topBar}
+      </div>
 
       <div
         className="
