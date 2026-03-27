@@ -11,11 +11,8 @@ import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
 
-/**
- * Owns the top-header's local UI state and bridges dashboard window events into
- * reactive search, refresh, and action-button loading indicators.
- */
-export function useDashboardTopHeaderState() {
+/** Bridges dashboard window events into the persistent toolbar state and actions. */
+export function useDashboardToolbarState() {
   const { resolvedTheme, setTheme } = useTheme();
   const isDevelopmentMode = process.env.NODE_ENV === "development";
   const [isSearchPending, setIsSearchPending] = useState(false);
@@ -248,6 +245,11 @@ export function useDashboardTopHeaderState() {
 }
 
 /** Dispatches a dashboard-scoped custom event with an optional detail payload. */
-function dispatchDashboardEvent(eventName: string, detail?: Record<string, unknown>) {
-  window.dispatchEvent(new CustomEvent(eventName, detail ? { detail } : undefined));
+function dispatchDashboardEvent(
+  eventName: string,
+  detail?: Record<string, unknown>,
+) {
+  window.dispatchEvent(
+    new CustomEvent(eventName, detail ? { detail } : undefined),
+  );
 }

@@ -4,7 +4,7 @@ import * as realNextThemes from "next-themes";
 import * as React from "react";
 import * as realSonner from "sonner";
 
-import * as realDashboardTopHeaderBar from "@/app/dashboard/components/DashboardTopHeaderBar";
+import * as realDashboardToolbar from "@/app/dashboard/components/DashboardToolbar";
 import * as realUiSkeleton from "@/components/ui/skeleton";
 
 interface MockToasterProps {
@@ -81,8 +81,8 @@ describe("AppThemeProvider", () => {
         );
       },
     }));
-    mock.module("@/app/dashboard/components/DashboardTopHeaderBar", () => ({
-      DashboardTopHeaderBar: () => <div data-testid="mock-dashboard-header" />,
+    mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
+      DashboardToolbar: () => <div data-testid="mock-dashboard-header" />,
     }));
     mock.module("@/components/ui/skeleton", () => ({
       Skeleton: ({ className }: { className?: string }) => (
@@ -99,13 +99,13 @@ describe("AppThemeProvider", () => {
     mock.module("next-themes", () => realNextThemes);
     mock.module("sonner", () => realSonner);
     mock.module(
-      "@/app/dashboard/components/DashboardTopHeaderBar",
-      () => realDashboardTopHeaderBar,
+      "@/app/dashboard/components/DashboardToolbar",
+      () => realDashboardToolbar,
     );
     mock.module("@/components/ui/skeleton", () => realUiSkeleton);
   });
 
-  test("mounts Sonner below the fixed dashboard header", async () => {
+  test("mounts Sonner below the fixed dashboard toolbar", async () => {
     const { AppThemeProvider } = await import("@/components/AppThemeProvider");
 
     const view = render(

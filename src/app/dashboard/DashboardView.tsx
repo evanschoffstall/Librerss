@@ -3,12 +3,12 @@
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
 import { DashboardDesktopSidebar } from "./components/DashboardDesktopSidebar";
+import { DashboardFilterBar } from "./components/DashboardFilterBar";
 import { DashboardMobileSidebarSheet } from "./components/DashboardMobileSidebarSheet";
 import {
   DashboardFeedViewport,
   DashboardScaffold,
 } from "./components/DashboardScaffold";
-import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "./constants";
@@ -31,7 +31,7 @@ export const DashboardView = ({
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
     true,
   );
-  const { feedList, settings, sidebar, topBar } = useDashboardController({
+  const { feedList, filterBar, settings, sidebar } = useDashboardController({
     backgroundMode,
     distillStrategy,
     onBackgroundModeChange,
@@ -76,20 +76,20 @@ export const DashboardView = ({
             />
           </DashboardFeedViewport>
         }
+        filterBar={
+          <DashboardFilterBar
+            articleFilter={filterBar.articleFilter}
+            lastRefreshLabel={filterBar.lastRefreshLabel}
+            loading={filterBar.loading}
+            onArticleFilterChange={filterBar.setArticleFilter}
+          />
+        }
         mobileToolbarBottom={mobileToolbarBottom}
         sidebar={
           <DashboardDesktopSidebar
             isSidebarVisible={sidebar.isSidebarVisible}
             sidebarContentProps={sidebar.sidebarContentProps}
             sidebarScrollRef={sidebar.sidebarScrollRef}
-          />
-        }
-        topBar={
-          <DashboardTopTokenBar
-            articleFilter={topBar.articleFilter}
-            lastRefreshLabel={topBar.lastRefreshLabel}
-            loading={topBar.loading}
-            onArticleFilterChange={topBar.setArticleFilter}
           />
         }
       />

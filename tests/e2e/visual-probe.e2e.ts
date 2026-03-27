@@ -111,6 +111,10 @@ function feedViewport(page: Page) {
     .first();
 }
 
+function filterBar(page: Page) {
+  return page.locator("[data-dashboard-width-link='feed']").first();
+}
+
 async function readArticleMotionMetrics(
   page: Page,
   targetArticleKey: string,
@@ -215,10 +219,6 @@ async function readAuditClipForLocator(locator: Locator): Promise<AuditClip> {
   };
 }
 
-function topTokenBar(page: Page) {
-  return page.locator("[data-dashboard-width-link='feed']").first();
-}
-
 test.describe("dashboard visual audit", () => {
   test.describe.configure({ mode: "parallel" });
 
@@ -312,7 +312,7 @@ test.describe("dashboard visual audit", () => {
       starArticle.getByRole("button", { name: "Remove star" }),
     ).toBeVisible();
 
-    const tokenBar = topTokenBar(page);
+    const tokenBar = filterBar(page);
     const tokenBarClip = await readAuditClipForLocator(tokenBar);
 
     await attachAuditScreenshot(page, tokenBarClip, testInfo, "refresh-before");

@@ -2,7 +2,7 @@ import { type LucideIcon } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface DashboardTopHeaderActionButtonProps {
+interface DashboardToolbarActionButtonProps {
   ariaLabel: string;
   className?: string;
   icon: LucideIcon;
@@ -10,21 +10,19 @@ interface DashboardTopHeaderActionButtonProps {
   onClick: () => void;
 }
 
-interface DashboardTopHeaderActionIconProps {
+interface DashboardToolbarActionIconProps {
   icon: LucideIcon;
   isPending: boolean;
 }
 
-/**
- * Canonical action button for the dashboard top-header icon bar.
- */
-export function DashboardTopHeaderActionButton({
+/** Renders a canonical icon button for dashboard toolbar actions. */
+export function DashboardToolbarActionButton({
   ariaLabel,
   className,
   icon,
   isPending,
   onClick,
-}: DashboardTopHeaderActionButtonProps) {
+}: DashboardToolbarActionButtonProps) {
   return (
     <button
       aria-busy={isPending}
@@ -41,24 +39,22 @@ export function DashboardTopHeaderActionButton({
       onClick={onClick}
       type="button"
     >
-      <DashboardTopHeaderActionIcon icon={icon} isPending={isPending} />
+      <DashboardToolbarActionIcon icon={icon} isPending={isPending} />
     </button>
   );
 }
 
-/**
- * Shared toolbar icon that swaps to a shadcn skeleton while its action is active.
- */
-export function DashboardTopHeaderActionIcon({
+/** Swaps a toolbar icon for a skeleton while its action is active. */
+export function DashboardToolbarActionIcon({
   icon: Icon,
   isPending,
-}: DashboardTopHeaderActionIconProps) {
+}: DashboardToolbarActionIconProps) {
   if (isPending) {
     return (
       <Skeleton
         aria-hidden="true"
         className="size-4 rounded-sm"
-        data-dashboard-top-header-action-skeleton="true"
+        data-dashboard-toolbar-action-skeleton="true"
       />
     );
   }

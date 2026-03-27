@@ -29,20 +29,18 @@ import {
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
   MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
 } from "../constants";
-import { useDashboardTopHeaderState } from "../hooks/useDashboardTopHeaderState";
+import { useDashboardToolbarState } from "../hooks/useDashboardToolbarState";
 import {
-  DashboardTopHeaderActionButton,
-  DashboardTopHeaderActionIcon,
-} from "./DashboardTopHeaderActionButton";
+  DashboardToolbarActionButton,
+  DashboardToolbarActionIcon,
+} from "./DashboardToolbarActionButton";
 import { MotionSpinner } from "./MotionSpinner";
 
-const toolbarBtnClass =
-  "cursor-pointer transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground";
+const toolbarButtonClassName =
+  "cursor-pointer text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/**
- * Top dashboard toolbar for search, quick actions, theme controls, and logout.
- */
-export function DashboardTopHeaderBar() {
+/** Renders the persistent dashboard toolbar with search, feed actions, and settings controls. */
+export function DashboardToolbar() {
   const {
     handleMarkAllRead,
     handleMarkViewportRead,
@@ -65,7 +63,7 @@ export function DashboardTopHeaderBar() {
     search,
     themeToggleLabel,
     title,
-  } = useDashboardTopHeaderState();
+  } = useDashboardToolbarState();
   const [mobileToolbarBottom] = useLocalStorage(
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
     true,
@@ -100,14 +98,17 @@ export function DashboardTopHeaderBar() {
           pr-[max(1rem,env(safe-area-inset-right))]
           pl-[max(1rem,env(safe-area-inset-left))]
           md:px-6
-          ${mobileToolbarMirror ? "flex-row-reverse lg:flex-row" : ""}
+          ${mobileToolbarMirror ? `
+            flex-row-reverse
+            lg:flex-row
+          ` : ""}
         `}
         suppressHydrationWarning
       >
         <button
           aria-label="Open feeds"
           className={`
-            ${toolbarBtnClass}
+            ${toolbarButtonClassName}
             lg:hidden
           `}
           onClick={handleOpenFeedsSidebar}
@@ -148,8 +149,8 @@ export function DashboardTopHeaderBar() {
               focus-visible:bg-background
               ${isSearchPending ? "bg-muted/45" : "bg-muted/30"}
             `}
-            onChange={(e) => {
-              handleSearchChange(e.target.value);
+            onChange={(event) => {
+              handleSearchChange(event.target.value);
             }}
             placeholder="Search..."
             value={search}
@@ -157,7 +158,7 @@ export function DashboardTopHeaderBar() {
         </div>
 
         <DropdownMenu>
-          <DashboardTopHeaderActionButton
+          <DashboardToolbarActionButton
             ariaLabel="Refresh selected feed"
             className={`
               shrink-0
@@ -168,7 +169,7 @@ export function DashboardTopHeaderBar() {
             onClick={handleRefresh}
           />
 
-          <DashboardTopHeaderActionButton
+          <DashboardToolbarActionButton
             ariaLabel="Mark fully visible articles as read"
             className="
               shrink-0
@@ -183,7 +184,7 @@ export function DashboardTopHeaderBar() {
             <button
               aria-label="Open actions menu"
               className={`
-                ${toolbarBtnClass}
+                ${toolbarButtonClassName}
                 shrink-0
                 md:hidden
               `}
@@ -201,7 +202,7 @@ export function DashboardTopHeaderBar() {
               disabled={isMarkingAllRead}
               onSelect={handleMarkAllRead}
             >
-              <DashboardTopHeaderActionIcon
+              <DashboardToolbarActionIcon
                 icon={CheckCheck}
                 isPending={isMarkingAllRead}
               />
@@ -212,9 +213,7 @@ export function DashboardTopHeaderBar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={handleToggleTheme}
-            >
+            <DropdownMenuItem onSelect={handleToggleTheme}>
               {mounted && isDark ? (
                 <Sun className="size-4" />
               ) : (
@@ -247,22 +246,21 @@ export function DashboardTopHeaderBar() {
             md:flex
           "
         >
-          <DashboardTopHeaderActionButton
+          <DashboardToolbarActionButton
             ariaLabel="Refresh selected feed"
-            className=""
             icon={RefreshCw}
             isPending={isToolbarActionPending}
             onClick={handleRefresh}
           />
 
-          <DashboardTopHeaderActionButton
+          <DashboardToolbarActionButton
             ariaLabel="Mark fully visible articles as read"
             icon={Check}
             isPending={isToolbarActionPending}
             onClick={handleMarkViewportRead}
           />
 
-          <DashboardTopHeaderActionButton
+          <DashboardToolbarActionButton
             ariaLabel="Mark all read"
             icon={CheckCheck}
             isPending={isToolbarActionPending}
@@ -271,7 +269,7 @@ export function DashboardTopHeaderBar() {
 
           <button
             aria-label="Open dashboard settings"
-            className={toolbarBtnClass}
+            className={toolbarButtonClassName}
             onClick={handleOpenSettings}
             type="button"
           >
@@ -281,7 +279,7 @@ export function DashboardTopHeaderBar() {
           <button
             aria-label="Sign out"
             className={`
-              ${toolbarBtnClass}
+              ${toolbarButtonClassName}
               disabled:cursor-not-allowed disabled:opacity-60
             `}
             disabled={isResetting || isSigningOut}
@@ -295,7 +293,7 @@ export function DashboardTopHeaderBar() {
             <button
               aria-label="Reset app state"
               className={`
-                ${toolbarBtnClass}
+                ${toolbarButtonClassName}
                 disabled:cursor-not-allowed disabled:opacity-60
               `}
               disabled={isResetting}
@@ -311,7 +309,7 @@ export function DashboardTopHeaderBar() {
           {mounted ? (
             <button
               aria-label={themeToggleLabel}
-              className={toolbarBtnClass}
+              className={toolbarButtonClassName}
               onClick={handleToggleTheme}
               type="button"
             >

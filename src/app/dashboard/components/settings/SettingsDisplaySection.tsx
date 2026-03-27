@@ -136,7 +136,7 @@ export function SettingsDisplaySection({
           <div>
             <Label htmlFor="mobile-toolbar-bottom">Mobile bottom toolbar</Label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Move the header bar and filter bar to the bottom on mobile.
+              Move the toolbar and filter bar to the bottom on mobile.
             </p>
           </div>
           <Switch

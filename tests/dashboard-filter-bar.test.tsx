@@ -1,14 +1,14 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
+import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
 import { DashboardFeedViewport } from "@/app/dashboard/components/DashboardScaffold";
-import { DashboardTopTokenBar } from "@/app/dashboard/components/DashboardTopTokenBar";
 
-describe("DashboardTopTokenBar", () => {
+describe("DashboardFilterBar", () => {
   test("shares the feed-width CSS contract with the article viewport", () => {
     const { container } = render(
       <>
-        <DashboardTopTokenBar
+        <DashboardFilterBar
           articleFilter="unread"
           lastRefreshLabel="just now"
           loading={false}
@@ -29,7 +29,7 @@ describe("DashboardTopTokenBar", () => {
 
   test("shows the Motion spinner while the refresh label is skeletoning", () => {
     const { container, getByLabelText, queryByText, rerender } = render(
-      <DashboardTopTokenBar
+      <DashboardFilterBar
         articleFilter="unread"
         lastRefreshLabel="just now"
         loading
@@ -46,7 +46,7 @@ describe("DashboardTopTokenBar", () => {
     expect(queryByText("just now")).toBeNull();
 
     rerender(
-      <DashboardTopTokenBar
+      <DashboardFilterBar
         articleFilter="unread"
         lastRefreshLabel="just now"
         loading={false}

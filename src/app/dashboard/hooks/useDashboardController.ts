@@ -480,6 +480,12 @@ export function useDashboardController({
           showFavicons,
           updatingArticleState,
         },
+        filterBar: {
+          articleFilter,
+          lastRefreshLabel,
+          loading,
+          setArticleFilter,
+        },
         settings: {
           articlesPerPage,
           autoRefreshIntervalMinutes,
@@ -504,12 +510,6 @@ export function useDashboardController({
           setIsMobileSidebarOpen,
           sidebarContentProps,
           sidebarScrollRef,
-        },
-        topBar: {
-          articleFilter,
-          lastRefreshLabel,
-          loading,
-          setArticleFilter,
         },
       }),
     [

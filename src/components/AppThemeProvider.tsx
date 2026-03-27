@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
-import { DashboardTopHeaderBar } from "@/app/dashboard/components/DashboardTopHeaderBar";
+import { DashboardToolbar } from "@/app/dashboard/components/DashboardToolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const toastViewportOffset = {
@@ -153,7 +153,7 @@ function ThemedToaster() {
 }
 
 /**
- * Renders either the full dashboard top bar or a standalone theme toggle,
+ * Renders either the full dashboard toolbar or a standalone theme toggle,
  * depending on the current route.
  */
 function ThemeModeToggle() {
@@ -172,7 +172,7 @@ function ThemeModeToggle() {
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardTopHeaderBar />;
+    return <DashboardToolbar />;
   }
 
   return (

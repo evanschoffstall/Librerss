@@ -1203,6 +1203,12 @@ describe("dashboard controller state services", () => {
         showFavicons: false,
         updatingArticleState: {},
       },
+      filterBar: {
+        articleFilter: "all",
+        lastRefreshLabel: "Updated just now",
+        loading: false,
+        setArticleFilter: mock(() => {}),
+      },
       settings: {
         articlesPerPage: 6,
         autoRefreshIntervalMinutes: 30,
@@ -1228,12 +1234,6 @@ describe("dashboard controller state services", () => {
         sidebarContentProps,
         sidebarScrollRef: mock(() => {}),
       },
-      topBar: {
-        articleFilter: "all",
-        lastRefreshLabel: "Updated just now",
-        loading: false,
-        setArticleFilter: mock(() => {}),
-      },
     });
 
     expect(controllerState.feedList.feedViewKey).toBe("all-feeds:all");
@@ -1241,7 +1241,7 @@ describe("dashboard controller state services", () => {
     expect(controllerState.sidebar.sidebarContentProps).toEqual(
       sidebarContentProps,
     );
-    expect(controllerState.topBar.lastRefreshLabel).toBe(
+    expect(controllerState.filterBar.lastRefreshLabel).toBe(
       "Updated just now",
     );
   });

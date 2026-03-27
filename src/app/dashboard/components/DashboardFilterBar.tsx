@@ -12,22 +12,22 @@ import {
 } from "../services/article-filters";
 import { MotionSpinner } from "./MotionSpinner";
 
-const TOP_BAR_FILTER_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
+const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
 
-/** Presentation props for the dashboard token bar controls and refresh status. */
-interface DashboardTopTokenBarProps {
+/** Presentation props for the dashboard filter bar controls and refresh status. */
+interface DashboardFilterBarProps {
   articleFilter: ArticleFilter;
   lastRefreshLabel: string;
   loading: boolean;
   onArticleFilterChange: (value: ArticleFilter) => void;
 }
 
-/** Top-bar loading skeleton aligned with the dashboard filter strip. */
-export function DashboardTopBarSkeleton() {
+/** Loading skeleton aligned with the dashboard filter strip. */
+export function DashboardFilterBarSkeleton() {
   return (
     <div
       className="sticky top-0 z-40 shrink-0 py-1"
-      data-dashboard-top-bar-skeleton="true"
+      data-dashboard-filter-bar-skeleton="true"
     >
       <div className="flex items-center gap-0">
         <div
@@ -47,7 +47,7 @@ export function DashboardTopBarSkeleton() {
               mx-auto w-full max-w-3xl px-2
               lg:max-w-none lg:px-4
             "
-            data-dashboard-top-bar-skeleton-surface="true"
+            data-dashboard-filter-bar-surface="true"
           >
             <div
               className="
@@ -56,10 +56,10 @@ export function DashboardTopBarSkeleton() {
               "
             >
               <div className="flex min-h-8 items-center gap-2">
-                {TOP_BAR_FILTER_SKELETON_WIDTHS.map((widthClassName) => (
+                {FILTER_BAR_SKELETON_WIDTHS.map((widthClassName) => (
                   <Skeleton
                     className={cn("h-5 rounded-full", widthClassName)}
-                    data-dashboard-top-bar-filter-skeleton="true"
+                    data-dashboard-filter-bar-chip-skeleton="true"
                     key={widthClassName}
                   />
                 ))}
@@ -88,12 +88,13 @@ export function DashboardTopBarSkeleton() {
   );
 }
 
-export const DashboardTopTokenBar = memo(function DashboardTopTokenBar({
+/** Renders the quick article filter strip and refresh status indicator. */
+export const DashboardFilterBar = memo(function DashboardFilterBar({
   articleFilter,
   lastRefreshLabel,
   loading,
   onArticleFilterChange,
-}: DashboardTopTokenBarProps) {
+}: DashboardFilterBarProps) {
   return (
     <div className="sticky top-0 z-40 shrink-0 py-1">
       <div className="flex items-center gap-0">

@@ -4,15 +4,14 @@ import * as React from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 
-import * as realDashboardTopHeaderBar from "@/app/dashboard/components/DashboardTopHeaderBar";
+import * as realDashboardToolbar from "@/app/dashboard/components/DashboardToolbar";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import * as realUiSkeleton from "@/components/ui/skeleton";
 import { AuthService } from "@/lib";
 
-
-async function loadDashboardTopHeaderBar() {
+async function loadDashboardToolbar() {
   return import(
-    `@/app/dashboard/components/DashboardTopHeaderBar?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
   );
 }
 
@@ -20,7 +19,7 @@ function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-describe("DashboardTopHeaderBar", () => {
+describe("DashboardToolbar", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalLocationAssign = window.location.assign;
   const originalLocationReload = window.location.reload;
@@ -55,10 +54,10 @@ describe("DashboardTopHeaderBar", () => {
     setNodeEnv("development");
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { getAllByText, getByLabelText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getAllByText, getByLabelText } = render(<DashboardToolbar />);
 
     expect(getAllByText("Reset")).toHaveLength(1);
     expect(getByLabelText("Reset app state")).toBeTruthy();
@@ -68,23 +67,23 @@ describe("DashboardTopHeaderBar", () => {
     setNodeEnv("test");
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { queryByLabelText, queryByText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { queryByLabelText, queryByText } = render(<DashboardToolbar />);
 
     expect(queryByText("Reset")).toBeNull();
     expect(queryByLabelText("Reset app state")).toBeNull();
   });
 
-  test("renders the viewport read action in the persistent header button bar", async () => {
+  test("renders the viewport read action in the persistent toolbar button bar", async () => {
     setNodeEnv("test");
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { getAllByLabelText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getAllByLabelText } = render(<DashboardToolbar />);
 
     expect(getAllByLabelText("Mark fully visible articles as read")).toHaveLength(2);
   });
@@ -93,10 +92,10 @@ describe("DashboardTopHeaderBar", () => {
     setNodeEnv("test");
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { getAllByLabelText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getAllByLabelText } = render(<DashboardToolbar />);
     const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
     const refreshButtons = getAllByLabelText("Refresh selected feed");
     const markAllReadButton = getByLabelTextOrThrow("Mark all read");
@@ -121,10 +120,10 @@ describe("DashboardTopHeaderBar", () => {
     setNodeEnv("test");
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { getAllByLabelText, getByLabelText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getAllByLabelText, getByLabelText } = render(<DashboardToolbar />);
     const refreshButtons = getAllByLabelText("Refresh selected feed");
     const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
     const markAllReadButton = getByLabelText("Mark all read");
@@ -147,10 +146,10 @@ describe("DashboardTopHeaderBar", () => {
     setNodeEnv("test");
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { getAllByLabelText, getByLabelText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getAllByLabelText, getByLabelText } = render(<DashboardToolbar />);
     const refreshButtons = getAllByLabelText("Refresh selected feed");
     const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
     const markAllReadButton = getByLabelText("Mark all read");
@@ -180,15 +179,15 @@ describe("DashboardTopHeaderBar", () => {
     window.localStorage.setItem("librerss:test", "value");
     window.sessionStorage.setItem("librerss:test", "value");
     document.cookie = "librerss_dashboard_preview=1; Path=/";
-    mockHeaderDependencies();
+    mockToolbarDependencies();
     Object.defineProperty(window.location, "assign", {
       configurable: true,
       value: assign,
       writable: true,
     });
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
-    const { getByLabelText } = render(<DashboardTopHeaderBar />);
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getByLabelText } = render(<DashboardToolbar />);
 
     fireEvent.click(getByLabelText("Reset app state"));
 
@@ -209,19 +208,19 @@ describe("DashboardTopHeaderBar", () => {
     const consoleError = mock(() => {});
 
     AuthService.logout = mock(async () => {});
-    mockHeaderDependencies();
+    mockToolbarDependencies();
 
-    const { DashboardTopHeaderBar } = await loadDashboardTopHeaderBar();
+    const { DashboardToolbar } = await loadDashboardToolbar();
     const container = document.createElement("div");
-    container.innerHTML = renderToString(<DashboardTopHeaderBar />);
+    container.innerHTML = renderToString(<DashboardToolbar />);
     document.body.append(container);
 
     const header = container.querySelector<HTMLDivElement>(
       "div.pointer-events-auto.fixed.inset-x-0.bottom-0.z-50," +
-      "div.pointer-events-auto.fixed.inset-x-0.top-0.z-50",
+        "div.pointer-events-auto.fixed.inset-x-0.top-0.z-50",
     );
     if (!header) {
-      throw new Error("Expected server-rendered dashboard header.");
+      throw new Error("Expected server-rendered dashboard toolbar.");
     }
 
     header.setAttribute("aria-hidden", "true");
@@ -230,7 +229,7 @@ describe("DashboardTopHeaderBar", () => {
 
     try {
       await act(async () => {
-        hydrateRoot(container, <DashboardTopHeaderBar />);
+        hydrateRoot(container, <DashboardToolbar />);
         await Promise.resolve();
       });
 
@@ -250,12 +249,9 @@ function getByLabelTextOrThrow(label: string) {
   return button;
 }
 
-/** Installs module mocks for header-bar dependencies before importing the subject. */
-function mockHeaderDependencies() {
-  mock.module(
-    "@/app/dashboard/components/DashboardTopHeaderBar",
-    () => realDashboardTopHeaderBar,
-  );
+/** Installs module mocks for toolbar dependencies before importing the subject. */
+function mockToolbarDependencies() {
+  mock.module("@/app/dashboard/components/DashboardToolbar", () => realDashboardToolbar);
   mock.module("@/components/ui/skeleton", () => realUiSkeleton);
   mock.module("next-themes", () => ({
     ThemeProvider: MockThemeProvider,

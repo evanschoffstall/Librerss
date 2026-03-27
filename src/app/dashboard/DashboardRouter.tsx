@@ -14,27 +14,23 @@ import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 import type { BackgroundMode } from "./constants";
 
 import {
-    ParticlesBackground,
-    ParticlesBackgroundLight,
-    StarsBackground,
-    StarsBackgroundLight
+  ParticlesBackground,
+  ParticlesBackgroundLight,
+  StarsBackground,
+  StarsBackgroundLight,
 } from "./components/Background";
+import { DashboardFilterBarSkeleton } from "./components/DashboardFilterBar";
 import {
-    DashboardFeedViewport,
-    DashboardScaffold
+  DashboardFeedViewport,
+  DashboardScaffold,
 } from "./components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
-import { DashboardTopBarSkeleton } from "./components/DashboardTopTokenBar";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { LoginView } from "./components/login/LoginView";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
 import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
-
-
-
-
 
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;
@@ -195,12 +191,12 @@ export function DashboardRouter({
                   <FeedListSkeleton />
                 </DashboardFeedViewport>
               }
+              filterBar={<DashboardFilterBarSkeleton />}
               sidebar={
                 <ScrollArea className="h-full">
                   <DashboardSidebarSkeleton />
                 </ScrollArea>
               }
-              topBar={<DashboardTopBarSkeleton />}
             />
           </div>
         </motion.main>

@@ -6,10 +6,10 @@ interface DashboardFeedViewportProps {
 
 interface DashboardScaffoldProps {
   feed: React.ReactNode;
-  /** When true (default), positions the token bar below the feed on mobile. */
+  filterBar: React.ReactNode;
+  /** When true (default), positions the filter bar below the feed on mobile. */
   mobileToolbarBottom?: boolean;
   sidebar: React.ReactNode;
-  topBar: React.ReactNode;
 }
 
 /**
@@ -44,16 +44,16 @@ export function DashboardFeedViewport({
 }
 
 /**
- * Shared dashboard scaffold for the token bar, sidebar rail, and feed surface.
+ * Shared dashboard scaffold for the filter bar, sidebar rail, and feed surface.
  *
  * Both the route shell and the hydrated dashboard render through this scaffold
  * so width, spacing, and desktop column sizing stay locked together.
  */
 export function DashboardScaffold({
   feed,
+  filterBar,
   mobileToolbarBottom = true,
   sidebar,
-  topBar,
 }: DashboardScaffoldProps) {
   return (
     <div
@@ -85,7 +85,7 @@ export function DashboardScaffold({
             : "shrink-0"
         }
       >
-        {topBar}
+        {filterBar}
       </div>
 
       <div
