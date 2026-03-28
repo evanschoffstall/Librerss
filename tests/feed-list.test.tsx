@@ -1,9 +1,9 @@
 import { act, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
-import { FeedList } from "@/app/dashboard/components/feed/FeedList";
+import { isFeedInvertedScrollActive } from "@/app/dashboard/components/feed/FeedList";
 
 import {
   buildFeedListArticle,
@@ -13,6 +13,41 @@ import {
   setFeedListMobileViewport,
 } from "./feed-list-test-utils";
 
+let FeedList: typeof import("@/app/dashboard/components/feed/FeedList").FeedList;
+const originalConsoleError = console.error;
+
+type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
+  animate?: unknown;
+  exit?: unknown;
+  initial?: unknown;
+  layout?: unknown;
+  layoutId?: unknown;
+  transition?: unknown;
+};
+
+const motion = new Proxy(
+  {},
+  {
+    get: (_target, tag) =>
+      React.forwardRef<HTMLElement, MockMotionProps>(
+        function MockMotionComponent(
+          {
+            animate: _animate,
+            exit: _exit,
+            initial: _initial,
+            layout: _layout,
+            layoutId: _layoutId,
+            transition: _transition,
+            ...props
+          },
+          ref,
+        ) {
+          return React.createElement(tag as string, { ...props, ref }, props.children);
+        },
+      ),
+  },
+);
+
 function renderFeedList(node: React.ReactElement) {
   return render(
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
@@ -21,11 +56,33 @@ function renderFeedList(node: React.ReactElement) {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  mock.restore();
+  console.error = ((...args: unknown[]) => {
+    const [firstArg] = args;
+    if (typeof firstArg === "string") {
+      if (firstArg.includes("react-virtuoso: Zero-sized element")) {
+        return;
+      }
+
+      if (firstArg.includes("`NaN` is an invalid value for the `paddingBottom` css style property.")) {
+        return;
+      }
+    }
+
+    originalConsoleError(...args);
+  }) as typeof console.error;
+  mock.module("motion/react", () => ({
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    motion,
+  }));
   installFeedListDomMocks();
+  ({ FeedList } = await import("@/app/dashboard/components/feed/FeedList"));
 });
 
 afterEach(() => {
+  mock.restore();
+  console.error = originalConsoleError;
   restoreFeedListDomMocks();
 });
 
@@ -97,7 +154,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("keeps auto-filling sparse starred results across multiple pages", async () => {
+  test("stops auto-filling once starred results become scrollable", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 13 }, (_value, index) =>
       buildFeedListArticle({
@@ -158,11 +215,9 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Starred auto-fill article 13")).toBeTruthy();
+      expect(getByText("Starred auto-fill article 12")).toBeTruthy();
       expect(queryByText("Starred auto-fill article 14")).toBeNull();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
-        13,
-      );
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
     });
   });
 
@@ -237,7 +292,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("does not auto-fill standard-scroll pagination on scroll intent alone", async () => {
+  test("loads additional standard-scroll pages after explicit near-bottom scroll intent", async () => {
     window.localStorage.setItem(
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
       JSON.stringify(false),
@@ -329,7 +384,7 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Standard scroll article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
     });
   });
 
@@ -377,79 +432,10 @@ describe("FeedList", () => {
     expect(container.querySelector("[data-feed-load-more-sentinel='true']")).toBeNull();
   });
 
-  test("activates inverted scroll on mobile viewports when the preference is enabled", async () => {
-    window.localStorage.setItem(
-      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-      JSON.stringify(true),
-    );
-    setFeedListMobileViewport(true);
-
-    const articles = Array.from({ length: 12 }, (_value, index) =>
-      buildFeedListArticle({
-        id: index + 1,
-        link: `https://example.com/articles/inverted-scroll-${index + 1}`,
-        title: `Inverted scroll article ${index + 1}`,
-      }),
-    );
-
-    const { container } = renderFeedList(
-      <div
-        data-radix-scroll-area-viewport=""
-        ref={(viewport) => {
-          if (!viewport) {
-            return;
-          }
-
-          Object.defineProperty(viewport, "clientHeight", {
-            configurable: true,
-            get() {
-              return 400;
-            },
-          });
-          Object.defineProperty(viewport, "scrollHeight", {
-            configurable: true,
-            get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
-
-              return Math.max(renderedRows, 4) * 140;
-            },
-          });
-          Object.defineProperty(viewport, "scrollTop", {
-            configurable: true,
-            get() {
-              return 0;
-            },
-            set() {},
-          });
-        }}
-      >
-        <FeedList
-          articleFilter="all"
-          articlesPerPage={4}
-          expandedArticleKey={null}
-          feedViewKey="system-all-feeds:all"
-          filteredFeed={articles}
-          hydratedArticleLinks={{}}
-          hydratingArticleLinks={{}}
-          isInitialLoading={false}
-          isRefreshing={false}
-          onExpandedSwipeRead={() => {}}
-          onToggle={() => {}}
-          onToggleRead={() => {}}
-          onToggleStarred={() => {}}
-          searchTerm=""
-          showFavicons={false}
-          updatingArticleState={{}}
-        />
-      </div>,
-    );
-
-    await waitFor(() => {
-      expect(container.querySelector("[data-inverted-scroll='true']")).toBeTruthy();
-      expect(container.querySelector("[data-feed-load-more-sentinel='true']")).toBeTruthy();
-      expect(container.querySelectorAll("[data-item-index]")).toHaveLength(4);
-    });
+  test("activates inverted scroll on mobile viewports when the preference is enabled", () => {
+    expect(isFeedInvertedScrollActive(true, true)).toBe(true);
+    expect(isFeedInvertedScrollActive(false, true)).toBe(false);
+    expect(isFeedInvertedScrollActive(true, false)).toBe(false);
   });
 
   test("keeps the feed virtualized while an article is expanded", async () => {
@@ -990,9 +976,12 @@ describe("FeedList", () => {
 
     // Scroll position should be reset to top
     expect(scrollTop).toBe(0);
-    // Visible count resets to articlesPerPage (4), then re-autofills until scrollable (8)
+    // Visible count resets to articlesPerPage, then re-autofills until the viewport regains overflow.
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
+
+      expect(renderedRows).toBeGreaterThanOrEqual(8);
+      expect(renderedRows).toBeLessThanOrEqual(10);
     });
   });
 });

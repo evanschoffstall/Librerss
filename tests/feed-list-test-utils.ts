@@ -7,9 +7,49 @@ const originalResizeObserver = globalThis.ResizeObserver;
 let isFeedListMobileViewport = false;
 
 export class FeedListResizeObserverMock {
+  private readonly callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
   disconnect() {}
 
-  observe() {}
+  observe(target: Element) {
+    const height =
+      target instanceof HTMLElement
+        ? target.clientHeight || target.scrollHeight || target.getBoundingClientRect().height || 96
+        : 96;
+    const width =
+      target instanceof HTMLElement
+        ? target.clientWidth || target.scrollWidth || target.getBoundingClientRect().width || 320
+        : 320;
+
+    queueMicrotask(() => {
+      this.callback(
+        [
+          {
+            borderBoxSize: [] as ResizeObserverSize[],
+            contentBoxSize: [] as ResizeObserverSize[],
+            contentRect: {
+              bottom: height,
+              height,
+              left: 0,
+              right: width,
+              toJSON: () => ({}),
+              top: 0,
+              width,
+              x: 0,
+              y: 0,
+            },
+            devicePixelContentBoxSize: [] as ResizeObserverSize[],
+            target,
+          } as ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      );
+    });
+  }
 
   unobserve() {}
 }
