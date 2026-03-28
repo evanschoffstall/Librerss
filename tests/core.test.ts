@@ -1567,24 +1567,30 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
 
     // Fill per-user cache to capacity
     for (let i = 0; i < MAX_ENTRIES; i++) {
-      setCachedBatch(userId, [`https://feed-${i}.example.com/`], makeResult(i));
+      setCachedBatch(
+        userId,
+        [`https://feed-${i}.example.com/`],
+        "all",
+        makeResult(i),
+      );
     }
 
     // Verify first entry exists
     expect(
-      getCachedBatch(userId, ["https://feed-0.example.com/"]),
+      getCachedBatch(userId, ["https://feed-0.example.com/"], "all"),
     ).not.toBeNull();
 
     // Adding one more should evict the oldest
     setCachedBatch(
       userId,
       ["https://feed-overflow.example.com/"],
+      "all",
       makeResult(MAX_ENTRIES),
     );
 
     // Overflow entry is present; oldest may have been evicted
     expect(
-      getCachedBatch(userId, ["https://feed-overflow.example.com/"]),
+      getCachedBatch(userId, ["https://feed-overflow.example.com/"], "all"),
     ).not.toBeNull();
 
     invalidateUserCache(userId); // cleanup
@@ -1834,9 +1840,9 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
       // Use a high userId to avoid colliding with other tests
       const userId = 999998;
       const urls = ["https://stale-cache-test.example.com/feed"];
-      setCachedBatch(userId, urls, mockResult);
+      setCachedBatch(userId, urls, "all", mockResult);
       // With TTL=0, the entry should immediately be stale → evicted → null
-      const cached = getCachedBatch(userId, urls);
+      const cached = getCachedBatch(userId, urls, "all");
       expect(cached).toBeNull();
     } finally {
       if (savedTtl !== undefined) process.env.FEED_CACHE_TTL_MINUTES = savedTtl;

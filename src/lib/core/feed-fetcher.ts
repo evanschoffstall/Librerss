@@ -6,17 +6,18 @@
  *   2. One SELECT to load all Feed records + lastFetched timestamps.
  *   3. If any Feed records are missing: one INSERT + one SELECT to resolve them.
  *   4. All stale upstream HTTP refreshes run in parallel (Promise.allSettled).
- *   5. One window-function SELECT to retrieve top-N articles per feed.
+ *   5. One SELECT to retrieve the current global article page for the URL set.
  *
  * In-memory cache (feed-cache.ts) short-circuits the entire pipeline when:
  *   - All feeds are within TTL (nothing to refresh)
  *   - No force-refresh was requested
- *   - A cached result exists for the same user + URL set
+ *   - A cached result exists for the same user + URL set + article filter
  * In that case: zero DB queries.
  */
 
 import { and, desc, eq, sql } from "drizzle-orm";
 
+import type { ArticleFilter } from "@/lib/core/article-filters";
 import type { getDb } from "@/lib/db/db";
 
 import { CONFIG } from "@/lib/config";
@@ -183,11 +184,13 @@ export async function fetchAndCacheFeedArticlesBatch(
   userId: number,
   feedUrls: string[],
   {
+    articleFilter = "all",
     forceRefresh = false,
     knownLastFetchedAtByUrl,
     requestSource = "unspecified",
     skipRefresh = false,
   }: {
+    articleFilter?: ArticleFilter;
     forceRefresh?: boolean;
     knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
     requestSource?: string;
@@ -197,6 +200,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   if (feedUrls.length === 0) return buildEmptyBatchResult();
 
   feedFetcherDependencies.diagInfo("Batch feed fetch started", {
+    articleFilter,
     forceRefresh,
     requestedUrlCount: feedUrls.length,
     requestSource,
@@ -232,7 +236,11 @@ export async function fetchAndCacheFeedArticlesBatch(
   // Non-force requests: serve from memory if a cached result exists.
   // Force requests: serve from memory only when every feed is still within
   // the force-refresh cooldown — going to DB would produce the same result.
-  const cached = feedFetcherDependencies.getCachedBatch(userId, feedUrls);
+  const cached = feedFetcherDependencies.getCachedBatch(
+    userId,
+    feedUrls,
+    articleFilter,
+  );
   if (cached) {
     const allWithinCooldown =
       forceRefresh &&
@@ -254,6 +262,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       feedFetcherDependencies.diagInfo(
         "Batch feed fetch served from memory cache",
         {
+          articleFilter,
           feedCount: cachedCount,
           forceRefreshCooldownHit: allWithinCooldown,
           requestSource,
@@ -291,6 +300,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
     allowedUrlCount: allowedUrls.length,
+    articleFilter,
     missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
     plan: feedFetcherDependencies.buildRefreshPlan(
       feedByUrl,
@@ -318,6 +328,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   if (!skipRefresh) {
     if (refreshedCount > 0) {
       feedFetcherDependencies.diagInfo("Batch feed upstream refresh executed", {
+        articleFilter,
         failedFeedCount: upstreamErrors.size,
         failedUrls: [...upstreamErrors.keys()],
         refreshedFeedCount: refreshedCount,
@@ -329,6 +340,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         "Batch feed refresh skipped: all feeds fresh",
         {
           allowedUrlCount: allowedUrls.length,
+          articleFilter,
           requestSource,
           userId,
         },
@@ -397,6 +409,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     db,
     userId,
     changedFeedIds,
+    articleFilter,
   );
   const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
     rows,
@@ -405,6 +418,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   );
 
   feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
+    articleFilter,
     articlesByUrl: [...articleMap.entries()].map(([url, items]) => ({
       articleCount: items.length,
       newestReturnedPublicationDate:
@@ -431,7 +445,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     allowedUrls,
   );
   if (cacheArticleMap.size === allowedUrls.length) {
-    feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
+    feedFetcherDependencies.setCachedBatch(userId, allowedUrls, articleFilter, {
       articles: cacheArticleMap,
       errors: upstreamErrors,
       lastFetchedByUrl,
