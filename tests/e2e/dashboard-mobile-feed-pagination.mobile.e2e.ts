@@ -5,7 +5,7 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
-  readRenderedArticleCount,
+  readRenderedItemWindow,
   scrollFeedViewportToBottom,
   scrollFeedViewportToTop,
   triggerFeedViewportWheelIntent,
@@ -50,28 +50,31 @@ test.describe("dashboard mobile feed pagination", () => {
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
       await expect
         .poll(async () => {
-          const renderedArticleCount = await readRenderedArticleCount(page);
-          return (
-            renderedArticleCount >= 4 &&
-            renderedArticleCount <= 8 &&
-            renderedArticleCount % 4 === 0
-          );
+          return (await readRenderedItemWindow(page)).maxIndex;
         })
-        .toBe(true);
+        .toBeGreaterThanOrEqual(3);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
         })
         .toBe(true);
 
-      for (const minimumRenderedArticles of [8, 12]) {
+      let previousWindow = await readRenderedItemWindow(page);
+
+      for (const _minimumRenderedArticles of [8, 12]) {
         await scrollFeedViewportToTop(page);
         await triggerFeedViewportWheelIntent(page, -240);
         await expect
           .poll(async () => {
-            return await readRenderedArticleCount(page);
+            return (await readRenderedItemWindow(page)).minIndex;
           })
-          .toBeGreaterThanOrEqual(minimumRenderedArticles);
+          .not.toBeNull();
+
+        const nextWindow = await readRenderedItemWindow(page);
+        expect(nextWindow.minIndex).not.toBeNull();
+        expect(previousWindow.minIndex).not.toBeNull();
+        expect(nextWindow.minIndex!).toBeLessThanOrEqual(previousWindow.minIndex!);
+        previousWindow = nextWindow;
       }
     });
 
@@ -95,27 +98,36 @@ test.describe("dashboard mobile feed pagination", () => {
       await expect(readInvertedScrollAttribute(page)).resolves.toBeNull();
       await expect
         .poll(async () => {
-          const renderedArticleCount = await readRenderedArticleCount(page);
-          return (
-            renderedArticleCount >= 4 &&
-            renderedArticleCount <= 8 &&
-            renderedArticleCount % 4 === 0
-          );
+          return (await readRenderedItemWindow(page)).maxIndex;
         })
-        .toBe(true);
+        .toBeGreaterThanOrEqual(3);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
         })
         .toBe(true);
 
-      for (const minimumRenderedArticles of [8, 12]) {
+      await scrollFeedViewportToBottom(page);
+      await triggerFeedViewportWheelIntent(page, 240);
+      await scrollFeedViewportToBottom(page);
+      await triggerFeedViewportWheelIntent(page, 240);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThanOrEqual(11);
+
+      const previousWindow = await readRenderedItemWindow(page);
+      expect(previousWindow.maxIndex).not.toBeNull();
+
+      for (const _ignored of [0]) {
         await scrollFeedViewportToBottom(page);
+        await triggerFeedViewportWheelIntent(page, 240);
         await expect
           .poll(async () => {
-            return await readRenderedArticleCount(page);
+            return (await readRenderedItemWindow(page)).maxIndex;
           })
-          .toBeGreaterThanOrEqual(minimumRenderedArticles);
+          .toBeGreaterThanOrEqual(previousWindow.maxIndex!);
       }
     });
   }

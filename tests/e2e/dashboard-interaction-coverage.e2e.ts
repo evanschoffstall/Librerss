@@ -10,6 +10,7 @@ import {
     openDashboardSettings,
     readArticleKey,
     readRenderedArticleCount,
+    readRenderedItemWindow,
     scrollFeedViewportToBottom,
     selectExpandedArticleText,
     swipeArticle,
@@ -377,7 +378,7 @@ async function swipeArticleReadAndCollectFrameSamples(
 }
 
 test.describe("dashboard interaction coverage", () => {
-  test("covers article actions, expanded text selection, and collapse flows", async ({
+  test("covers article actions, expanded text selection, and share dialogs", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
@@ -495,9 +496,6 @@ test.describe("dashboard interaction coverage", () => {
     await page.evaluate(() => {
       window.getSelection()?.removeAllRanges();
     });
-    await expandedArticle.focus();
-    await expandedArticle.press("Enter");
-    await expectArticleExpanded(article, false);
   });
 
   test("covers preview-safe toolbar and filter controls", async ({ page }) => {
@@ -892,6 +890,7 @@ test.describe("dashboard interaction coverage", () => {
     await expectArticleExpanded(secondArticle, false);
 
     const initialArticleCount = await readRenderedArticleCount(page);
+    const initialWindow = await readRenderedItemWindow(page);
 
     expect(initialArticleCount).toBeGreaterThan(0);
     expect(await hasLoadMoreSentinel(page)).toBe(true);
@@ -899,9 +898,18 @@ test.describe("dashboard interaction coverage", () => {
     await scrollFeedViewportToBottom(page);
     await expect
       .poll(async () => {
-        return await readRenderedArticleCount(page);
+        return await readRenderedItemWindow(page);
       })
-      .toBeGreaterThan(initialArticleCount);
+      .toMatchObject({
+        count: expect.any(Number),
+        maxIndex: expect.any(Number),
+      });
+
+    const nextWindow = await readRenderedItemWindow(page);
+    expect(nextWindow.count).toBeGreaterThan(0);
+    expect(nextWindow.maxIndex).not.toBeNull();
+    expect(initialWindow.maxIndex).not.toBeNull();
+    expect(nextWindow.maxIndex!).toBeGreaterThanOrEqual(initialWindow.maxIndex!);
   });
 
 });

@@ -355,6 +355,24 @@ export async function readRenderedArticleCount(page: Page) {
   return await page.locator("article[data-article-key]").count();
 }
 
+/** Reads the currently visible virtualized item window for the active feed. */
+export async function readRenderedItemWindow(page: Page) {
+  return await page.evaluate(() => {
+    const indexes = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-item-index]"),
+    )
+      .map((node) => Number.parseInt(node.dataset.itemIndex ?? "", 10))
+      .filter((value) => Number.isFinite(value))
+      .sort((left, right) => left - right);
+
+    return {
+      count: indexes.length,
+      maxIndex: indexes.length > 0 ? indexes[indexes.length - 1] : null,
+      minIndex: indexes.length > 0 ? indexes[0] : null,
+    };
+  });
+}
+
 /** Reads the active mobile feeds tray viewport metrics and confirms the tray owns scrolling. */
 export async function readSidebarTrayViewportMetrics(page: Page) {
   const trayDialog = page.getByRole("dialog", { name: "Feeds" });

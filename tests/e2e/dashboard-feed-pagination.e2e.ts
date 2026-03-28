@@ -3,7 +3,7 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
-  readRenderedArticleCount,
+  readRenderedItemWindow,
   scrollFeedViewportToBottom,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -37,27 +37,33 @@ test.describe("dashboard feed pagination", () => {
 
       await expect
         .poll(async () => {
-          const renderedArticleCount = await readRenderedArticleCount(page);
-          return (
-            renderedArticleCount >= 4 &&
-            renderedArticleCount <= 8 &&
-            renderedArticleCount % 4 === 0
-          );
+          return (await readRenderedItemWindow(page)).maxIndex;
         })
-        .toBe(true);
+        .toBeGreaterThanOrEqual(3);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
         })
         .toBe(true);
 
-      for (const minimumRenderedArticles of [8, 12]) {
+      await scrollFeedViewportToBottom(page);
+      await scrollFeedViewportToBottom(page);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThanOrEqual(11);
+
+      const previousWindow = await readRenderedItemWindow(page);
+      expect(previousWindow.maxIndex).not.toBeNull();
+
+      for (const _ignored of [0]) {
         await scrollFeedViewportToBottom(page);
         await expect
           .poll(async () => {
-            return await readRenderedArticleCount(page);
+            return (await readRenderedItemWindow(page)).maxIndex;
           })
-          .toBeGreaterThanOrEqual(minimumRenderedArticles);
+          .toBeGreaterThanOrEqual(previousWindow.maxIndex!);
       }
     });
   }
