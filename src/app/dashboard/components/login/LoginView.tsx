@@ -1,12 +1,9 @@
 "use client";
-
-import type { KeyboardEvent } from "react";
-
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useState } from "react";
+import { KeyboardEvent, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
