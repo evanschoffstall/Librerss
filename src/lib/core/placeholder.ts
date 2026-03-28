@@ -388,12 +388,14 @@ const PLACEHOLDER_SOURCE_DEFINITIONS: PlaceholderSourceDefinition[] = [
 export const PLACEHOLDER_FEED_SOURCES: FeedSource[] =
   PLACEHOLDER_SOURCE_DEFINITIONS.map((definition) => definition.source);
 
-const PLACEHOLDER_SNAPSHOT_PATH_BY_URL = Object.assign(
-  {},
-  ...PLACEHOLDER_SOURCE_DEFINITIONS.map(({ basePath, seeds }) =>
-    buildPlaceholderSnapshotPathByUrl(basePath, seeds),
-  ),
-);
+const PLACEHOLDER_SNAPSHOT_PATH_BY_URL: Record<string, string> =
+  PLACEHOLDER_SOURCE_DEFINITIONS.reduce<Record<string, string>>(
+    (snapshotPathsByUrl, { basePath, seeds }) => ({
+      ...snapshotPathsByUrl,
+      ...buildPlaceholderSnapshotPathByUrl(basePath, seeds),
+    }),
+    {},
+  );
 
 const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = Object.fromEntries(
   PLACEHOLDER_SOURCE_DEFINITIONS.map(({ seeds, source }) => [
