@@ -22,6 +22,8 @@ import {
 import { importOpmlFeedsAndRefresh } from "@/app/dashboard/services/opml-import";
 import { type Article, type CategoryTreeNode, DEFAULT_CATEGORY_LABEL, FeedService } from "@/lib";
 
+type FeedSourceResponse = Awaited<ReturnType<typeof FeedService.createFeedSource>>;
+
 const originalCreateFeedSource = FeedService.createFeedSource;
 const originalDeleteFeedSource = FeedService.deleteFeedSource;
 const originalRenameFeedSource = FeedService.renameFeedSource;
@@ -81,14 +83,37 @@ function makeFeedNode(options: {
   };
 }
 
+function makeFeedSourceResponse(
+  overrides: Partial<FeedSourceResponse> = {},
+): FeedSourceResponse {
+  return {
+    category: DEFAULT_CATEGORY_LABEL,
+    enabled: true,
+    id: 1,
+    name: "Feed 1",
+    url: "https://example.com/feed-1.xml",
+    ...overrides,
+  };
+}
+
 describe("dashboard category operations", () => {
   beforeEach(() => {
     mock.restore();
-    FeedService.createFeedSource = mock(async () => ({})) as typeof FeedService.createFeedSource;
-    FeedService.deleteFeedSource = mock(async () => ({})) as typeof FeedService.deleteFeedSource;
-    FeedService.renameFeedSource = mock(async () => ({})) as typeof FeedService.renameFeedSource;
-    FeedService.setFeedSourceEnabled = mock(async () => ({})) as typeof FeedService.setFeedSourceEnabled;
-    FeedService.updateFeedSettings = mock(async () => ({})) as typeof FeedService.updateFeedSettings;
+    FeedService.createFeedSource = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.createFeedSource;
+    FeedService.deleteFeedSource = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.deleteFeedSource;
+    FeedService.renameFeedSource = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.renameFeedSource;
+    FeedService.setFeedSourceEnabled = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.setFeedSourceEnabled;
+    FeedService.updateFeedSettings = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.updateFeedSettings;
     toast.error = mock(() => "") as typeof toast.error;
     toast.success = mock(() => "") as typeof toast.success;
     console.error = (() => {}) as typeof console.error;
@@ -448,11 +473,21 @@ describe("dashboard category operations", () => {
 describe("dashboard OPML and feed-source operations", () => {
   beforeEach(() => {
     mock.restore();
-    FeedService.createFeedSource = mock(async () => ({})) as typeof FeedService.createFeedSource;
-    FeedService.deleteFeedSource = mock(async () => ({})) as typeof FeedService.deleteFeedSource;
-    FeedService.renameFeedSource = mock(async () => ({})) as typeof FeedService.renameFeedSource;
-    FeedService.setFeedSourceEnabled = mock(async () => ({})) as typeof FeedService.setFeedSourceEnabled;
-    FeedService.updateFeedSettings = mock(async () => ({})) as typeof FeedService.updateFeedSettings;
+    FeedService.createFeedSource = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.createFeedSource;
+    FeedService.deleteFeedSource = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.deleteFeedSource;
+    FeedService.renameFeedSource = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.renameFeedSource;
+    FeedService.setFeedSourceEnabled = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.setFeedSourceEnabled;
+    FeedService.updateFeedSettings = mock(async () =>
+      makeFeedSourceResponse(),
+    ) as typeof FeedService.updateFeedSettings;
     toast.error = mock(() => "") as typeof toast.error;
     toast.success = mock(() => "") as typeof toast.success;
     console.error = (() => {}) as typeof console.error;
@@ -466,7 +501,15 @@ describe("dashboard OPML and feed-source operations", () => {
     FeedService.createFeedSource = mock(async () => {
       createIndex += 1;
       if (createIndex === 2) throw new Error("duplicate");
-      return {};
+      return makeFeedSourceResponse({
+        category: createIndex === 3 ? "Tech" : "News",
+        id: createIndex,
+        name: createIndex === 3 ? "Tech Feed" : "Morning News",
+        url:
+          createIndex === 3
+            ? "https://example.com/tech.xml"
+            : "https://example.com/news.xml",
+      });
     }) as typeof FeedService.createFeedSource;
 
     await importOpmlFeedsAndRefresh({
