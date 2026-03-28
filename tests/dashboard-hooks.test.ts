@@ -950,6 +950,38 @@ describe("useArticleHydration", () => {
     });
   });
 
+  test("hydrateArticleContent keeps placeholder snapshot URLs on the extract path", async () => {
+    const article = createMockArticle({
+      feedUrl: "https://www.usgs.gov/news/news-releases",
+      link: "https://www.usgs.gov/news/national-news-release/value-us-mineral-production-rose-last-year-driven-precious-metals-prices",
+    });
+    let feedState = [article];
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleHydration({
+        getFeedSettings: () => ({ extractionDisabled: true }),
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    await waitFor(() => {
+      expect(ArticleService.getStoredArticleContent).not.toHaveBeenCalled();
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
+        article.link,
+        expect.objectContaining({ useProxy: undefined }),
+      );
+      expect(feedState[0]?.content).toContain("Extracted");
+      expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
+    });
+  });
+
   test("hydrateArticleContent skips reloading when full stored content is already present", async () => {
     const article = createMockArticle({ hasFullContent: true });
     const setFeed = mock(() => {});
