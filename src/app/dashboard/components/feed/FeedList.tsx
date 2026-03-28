@@ -41,6 +41,13 @@ const FEED_VIEWPORT_INCREASE_INVERTED_INTERACTION = { bottom: 10_000, top: 10_00
  */
 const INVERTED_FIRST_INDEX_BASE = 100_000;
 
+export function isFeedInvertedScrollActive(
+  isMobile: boolean,
+  mobileInvertedScroll: boolean,
+) {
+  return isMobile && mobileInvertedScroll;
+}
+
 export const FeedList = memo(function FeedList({
   articleFilter,
   articlesPerPage,
@@ -71,7 +78,10 @@ export const FeedList = memo(function FeedList({
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
     true,
   );
-  const isActiveInvertedScroll = isMobile && mobileInvertedScroll;
+  const isActiveInvertedScroll = isFeedInvertedScrollActive(
+    isMobile,
+    mobileInvertedScroll,
+  );
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
   const preExpandViewportSnapshotGetter =

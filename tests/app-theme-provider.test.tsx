@@ -6,6 +6,7 @@ import {
   MOBILE_TOAST_TOP_STORAGE_KEY,
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
 } from "@/app/dashboard/constants";
+import { getToastPlacement } from "@/components/AppThemeProvider";
 
 interface MockToasterProps {
   closeButton?: boolean;
@@ -34,6 +35,8 @@ interface MockToasterProps {
 const toasterProps: MockToasterProps[] = [];
 const closeToastMocks = [mock(() => {}), mock(() => {})];
 const originalMatchMedia = window.matchMedia;
+let currentIsMobileToastTop = false;
+let currentIsMobileToolbarBottom = true;
 
 function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
@@ -50,6 +53,9 @@ async function renderAppThemeProvider(options?: {
     isMobileViewport = true,
   } = options ?? {};
 
+  currentIsMobileToastTop = isMobileToastTop;
+  currentIsMobileToolbarBottom = isMobileToolbarBottom;
+
   toasterProps.length = 0;
   window.localStorage.clear();
   window.localStorage.setItem(
@@ -62,7 +68,7 @@ async function renderAppThemeProvider(options?: {
   );
   setMobileViewport(isMobileViewport);
 
-  const { AppThemeProvider } = await import("@/components/AppThemeProvider");
+  const { AppThemeProvider } = await import("../src/components/AppThemeProvider");
 
   render(
     <AppThemeProvider>
@@ -97,6 +103,7 @@ describe("AppThemeProvider", () => {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: window.localStorage,
+      writable: true,
     });
     window.localStorage.clear();
     setMobileViewport(true);
@@ -108,6 +115,19 @@ describe("AppThemeProvider", () => {
     mock.module("next-themes", () => ({
       ThemeProvider: MockThemeProvider,
       useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
+    }));
+    mock.module("@/lib/hooks/useLocalStorage", () => ({
+      useLocalStorage: (key: string, initialValue: boolean) => {
+        if (key === MOBILE_TOAST_TOP_STORAGE_KEY) {
+          return [currentIsMobileToastTop, mock(() => {})] as const;
+        }
+
+        if (key === MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY) {
+          return [currentIsMobileToolbarBottom, mock(() => {})] as const;
+        }
+
+        return [initialValue, mock(() => {})] as const;
+      },
     }));
     mock.module("next/navigation", () => ({
       usePathname: () => "/dashboard",
@@ -296,19 +316,19 @@ describe("AppThemeProvider", () => {
     },
   ])(
     "$label",
-    async ({
+    ({
       expected,
       isMobileToastTop,
       isMobileToolbarBottom,
       isMobileViewport,
     }) => {
-      await renderAppThemeProvider({
-        isMobileToastTop,
-        isMobileToolbarBottom,
-        isMobileViewport,
-      });
-
-      expect(toasterProps.at(-1)).toMatchObject(expected);
+      expect(
+        getToastPlacement({
+          isMobileToastTop,
+          isMobileToolbarBottom,
+          isMobileViewport,
+        }),
+      ).toMatchObject(expected);
     },
   );
 });

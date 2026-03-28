@@ -49,7 +49,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
  * and toolbar settings so top toasts only reserve space when a toolbar is
  * actually pinned to the top edge.
  */
-function getToastPlacement({
+export function getToastPlacement({
   isMobileToastTop,
   isMobileToolbarBottom,
   isMobileViewport,

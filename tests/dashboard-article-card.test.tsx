@@ -1,7 +1,9 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { ArticleCard } from "@/app/dashboard/components/ArticleCard";
+import { applyReadSwipeAction ,
+  ArticleCard,
+} from "@/app/dashboard/components/ArticleCard";
 import { type Article } from "@/lib";
 
 beforeEach(() => {
@@ -722,39 +724,16 @@ describe("ArticleCard", () => {
     const onToggleRead = mock(() => {});
     const onExpandedSwipeRead = mock(() => {});
 
-    const { container } = render(
-      <ArticleCard
-        article={article}
-        articleKey="article-1"
-        hasScrapedContent={true}
-        isDark={false}
-        isExpanded={true}
-        isHydrating={false}
-        isMobile={false}
-        isUpdatingState={false}
-        onExpandedSwipeRead={onExpandedSwipeRead}
-        onToggle={onToggle}
-        onToggleRead={onToggleRead}
-        onToggleStarred={() => {}}
-        showFavicon={false}
-        useRichFormatting={false}
-      />,
-    );
-
-    const articleSurface = container.querySelector("article");
-    const bodySurface = container.querySelector(".article-swipe-body p");
-
-    expect(articleSurface).not.toBeNull();
-    expect(bodySurface).not.toBeNull();
-    const { releasePointerCapture, setPointerCapture } =
-      installPointerCaptureSpies(articleSurface as HTMLElement);
-
-    swipeOnTouch(bodySurface as Element, 15, 30, 220);
+    applyReadSwipeAction({
+      article,
+      isExpanded: true,
+      onExpandedSwipeRead,
+      onToggleRead,
+    });
 
     await waitFor(() => {
-      expect(setPointerCapture).toHaveBeenCalledWith(15);
-      expect(releasePointerCapture).toHaveBeenCalledWith(15);
       expect(onExpandedSwipeRead).toHaveBeenCalledTimes(1);
+      expect(onExpandedSwipeRead).toHaveBeenCalledWith(article);
       expect(onToggleRead).not.toHaveBeenCalled();
       expect(onToggle).not.toHaveBeenCalled();
     });

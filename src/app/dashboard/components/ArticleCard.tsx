@@ -52,6 +52,32 @@ interface ArticleCardProps {
   useRichFormatting: boolean;
 }
 
+export function applyReadSwipeAction({
+  article,
+  isExpanded,
+  onExpandedSwipeRead,
+  onSwipeRead,
+  onToggleRead,
+}: {
+  article: Article;
+  isExpanded: boolean;
+  onExpandedSwipeRead: (article: Article) => void;
+  onSwipeRead?: ((article: Article) => void) | undefined;
+  onToggleRead: (article: Article) => void;
+}) {
+  if (isExpanded) {
+    onExpandedSwipeRead(article);
+    return;
+  }
+
+  if (onSwipeRead) {
+    onSwipeRead(article);
+    return;
+  }
+
+  onToggleRead(article);
+}
+
 const iconBtnCls =
   "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -289,15 +315,13 @@ export const ArticleCard = memo(function ArticleCard({
 
   const commitReadSwipe = useCallback(() => {
     afterSwipeRef.current = Date.now();
-    if (isExpanded) {
-      onExpandedSwipeRead(article);
-      return;
-    }
-    if (onSwipeRead) {
-      onSwipeRead(article);
-      return;
-    }
-    onToggleRead(article);
+    applyReadSwipeAction({
+      article,
+      isExpanded,
+      onExpandedSwipeRead,
+      onSwipeRead,
+      onToggleRead,
+    });
   }, [article, isExpanded, onExpandedSwipeRead, onSwipeRead, onToggleRead]);
   const commitStarSwipe = useCallback(() => {
     afterSwipeRef.current = Date.now();
