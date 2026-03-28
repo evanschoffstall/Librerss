@@ -227,6 +227,7 @@ describe("api/feeds/batch route", () => {
 
       expect(response.status).toBe(200);
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
+        articleFilter: "all",
         forceRefresh: false,
         requestedUrlCount: 0,
         requestSource: "dashboard",
@@ -394,6 +395,7 @@ describe("api/feeds/batch route", () => {
       expect(response.status).toBe(207);
       expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
+        articleFilter: "all",
         forceRefresh: false,
         requestedUrlCount: 2,
         requestSource: "unspecified",
@@ -466,6 +468,7 @@ describe("api/feeds/batch route", () => {
       expect(response.status).toBe(200);
       expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
       expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
+        articleFilter: "all",
         forceRefresh: true,
         knownLastFetchedAtByUrl: new Map([
           [normalizedUrl, new Date(knownLastFetchedAt)],
@@ -474,6 +477,7 @@ describe("api/feeds/batch route", () => {
         skipRefresh: false,
       });
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
+        articleFilter: "all",
         forceRefresh: true,
         requestedUrlCount: 1,
         requestSource: "coverage-test",
@@ -485,6 +489,7 @@ describe("api/feeds/batch route", () => {
         "Batch [1 feed]: client=force resolved=upstream | 1 refreshed, 0 cached, all throttled",
       );
       expect(info).toHaveBeenNthCalledWith(3, "Feed batch request completed", {
+        articleFilter: "all",
         forceRefresh: true,
         invalidUrlCount: 0,
         missingCount: 0,
@@ -509,6 +514,55 @@ describe("api/feeds/batch route", () => {
         process.env.LOG_LEVEL = previousLogLevel;
       }
     }
+  });
+
+  test("rejects invalid articleFilter payloads before calling the batch fetcher", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleFilter: "broken",
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: "articleFilter must be one of all, unread, read, or starred",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("forwards articleFilter to the batch fetcher", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleFilter: "unread",
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(200);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
+      articleFilter: "unread",
+      forceRefresh: false,
+      knownLastFetchedAtByUrl: new Map(),
+      requestSource: "unspecified",
+      skipRefresh: false,
+    });
   });
 
   test("uses the error responder when the batch fetch throws", async () => {

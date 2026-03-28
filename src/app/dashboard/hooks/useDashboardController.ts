@@ -19,6 +19,7 @@ import {
 } from "../services/dashboard-controller-state";
 import { shouldResetExpandedArticle } from "../services/dashboard-selection-state";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
+import { refreshCurrentSelection } from "../services/selection";
 import { collectFullyVisibleUnreadArticles } from "../services/viewport-read";
 import { useArticleActions } from "./useArticleActions";
 import { useDashboardArticleCallbacks } from "./useDashboardArticleCallbacks";
@@ -121,6 +122,7 @@ export function useDashboardController({
    * protection.
    */
   const feedLoader = useFeedLoader({
+    articleFilter,
     categoriesRef,
     feedRef,
     onFeedBatchLoaded: setLastRefreshedAt,
@@ -333,6 +335,7 @@ export function useDashboardController({
 
   const previousSelectedCategoryRef = useRef(selectedCategory);
   const previousArticleFilterRef = useRef(articleFilter);
+  const appliedBatchArticleFilterRef = useRef(articleFilter);
 
   useEffect(() => {
     if (
@@ -349,6 +352,40 @@ export function useDashboardController({
     previousSelectedCategoryRef.current = selectedCategory;
     previousArticleFilterRef.current = articleFilter;
   }, [articleFilter, selectedCategory, setExpandedArticleKey]);
+
+  useEffect(() => {
+    if (!hasInitializedDashboardRef.current) {
+      appliedBatchArticleFilterRef.current = articleFilter;
+      return;
+    }
+
+    if (appliedBatchArticleFilterRef.current === articleFilter) {
+      return;
+    }
+
+    appliedBatchArticleFilterRef.current = articleFilter;
+
+    void refreshCurrentSelection({
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      keepExistingFeed: false,
+      requestSource: "article-filter-change",
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
+      skipRefresh: true,
+    });
+  }, [
+    articleFilter,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+  ]);
 
   const {
     autoRefreshFeedList,

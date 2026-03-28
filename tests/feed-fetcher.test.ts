@@ -402,7 +402,12 @@ describe("Feed Fetcher - Batch Operations", () => {
       },
     );
 
-    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [2]);
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
+      mockDb,
+      1,
+      [2],
+      "all",
+    );
   });
 
   test("fetchAndCacheFeedArticlesBatch handles feeds without records", async () => {

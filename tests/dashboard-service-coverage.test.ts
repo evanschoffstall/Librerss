@@ -547,11 +547,13 @@ describe("dashboard query-key services", () => {
       "dashboard",
       "feed-batch",
       "signature",
+      "all",
       "refresh",
       "https://example.com/a.xml@2024-01-01T00:00:00.000Z|https://example.com/z.xml@2024-03-03T12:00:00.000Z",
     ]);
     expect(
       getFeedBatchQueryKey("signature", {
+        articleFilter: "starred",
         knownLastFetchedAtByUrl: new Map(),
         skipRefresh: true,
       }),
@@ -559,6 +561,7 @@ describe("dashboard query-key services", () => {
       "dashboard",
       "feed-batch",
       "signature",
+      "starred",
       "skip-refresh",
       "",
     ]);

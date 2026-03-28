@@ -14,11 +14,15 @@ const DASHBOARD_FEED_BATCH_QUERY_KEY = ["dashboard", "feed-batch"] as const;
  */
 export function getFeedBatchQueryKey(
   requestSignature: string,
-  options?: Pick<FeedFetchOptions, "knownLastFetchedAtByUrl" | "skipRefresh">,
+  options?: Pick<
+    FeedFetchOptions,
+    "articleFilter" | "knownLastFetchedAtByUrl" | "skipRefresh"
+  >,
 ) {
   return [
     ...DASHBOARD_FEED_BATCH_QUERY_KEY,
     requestSignature,
+    options?.articleFilter ?? "all",
     options?.skipRefresh === true ? "skip-refresh" : "refresh",
     serializeKnownLastFetchedAt(options?.knownLastFetchedAtByUrl),
   ] as const;

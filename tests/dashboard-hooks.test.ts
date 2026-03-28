@@ -190,6 +190,7 @@ describe("useFeedLoader", () => {
       const { result } = renderHook(
         () =>
           useFeedLoader({
+            articleFilter: "all",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -357,6 +358,7 @@ describe("useFeedLoader", () => {
       const { result } = renderHook(
         () =>
           useFeedLoader({
+            articleFilter: "all",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),

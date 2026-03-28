@@ -1,3 +1,4 @@
+import type { ArticleFilter } from "@/lib/core/article-filters";
 import type { Article, FeedSource } from "@/lib/core/types";
 
 import { normalizeDistinctUrlList } from "@/lib/utils/url";
@@ -80,12 +81,14 @@ export const FeedService = {
   async getFeedsBatch(
     urls: string[],
     {
+      articleFilter = "all",
       forceRefresh = false,
       knownLastFetchedAtByUrl,
       requestSource,
       signal,
       skipRefresh = false,
     }: {
+      articleFilter?: ArticleFilter;
       forceRefresh?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: string;
@@ -106,6 +109,7 @@ export const FeedService = {
         getApiClient().post(
           `${feedServiceBaseUrl}/feeds/batch`,
           {
+            articleFilter,
             forceRefresh,
             ...(serializedKnownLastFetchedAtByUrl
               ? { knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl }

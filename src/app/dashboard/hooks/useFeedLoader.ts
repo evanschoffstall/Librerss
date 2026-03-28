@@ -5,6 +5,7 @@ import { type RefObject, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { Article, CategoryTreeNode } from "@/lib";
+import type { ArticleFilter } from "@/lib/core/article-filters";
 
 import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
@@ -64,6 +65,7 @@ type BeginFeedRequestResult =
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
 interface UseFeedLoaderOptions {
+  articleFilter: ArticleFilter;
   categoriesRef: RefObject<CategoryTreeNode[]>;
   feedRef: RefObject<Article[]>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
@@ -75,6 +77,7 @@ interface UseFeedLoaderOptions {
 }
 
 export function useFeedLoader({
+  articleFilter,
   categoriesRef,
   feedRef,
   onFeedBatchLoaded,
@@ -92,6 +95,12 @@ export function useFeedLoader({
   const loadingRef = useRef(false);
   const [loading, setLocalLoading] = useState(false);
   const [loadingEpoch, setLoadingEpoch] = useState(0);
+
+  const buildRequestSignature = useCallback(
+    (normalizedSources: FeedBatchSource[]) =>
+      `${articleFilter}::${buildBatchRequestSignature(normalizedSources)}`,
+    [articleFilter],
+  );
 
   /** Mirrors loader activity into both local hook state and the shared controller state. */
   const syncLoading = useCallback(
@@ -230,13 +239,16 @@ export function useFeedLoader({
         resolveFeedBatchResults(
           normalizedSources,
           usePlaceholderData,
-          options,
+          {
+            ...options,
+            articleFilter,
+          },
           signal,
         ),
       queryKey,
       staleTime: resolveFeedBatchStaleTime(options),
     }),
-    [usePlaceholderData],
+    [articleFilter, usePlaceholderData],
   );
 
   const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
@@ -292,22 +304,24 @@ export function useFeedLoader({
         normalizedSources,
         options?.keepExistingFeed === true,
       );
-      const queryKey = getFeedBatchQueryKey(
-        buildBatchRequestSignature(normalizedSources),
-        {
-          knownLastFetchedAtByUrl,
-          skipRefresh: options?.skipRefresh,
-        },
-      );
+      const requestSignature = buildRequestSignature(normalizedSources);
+      const queryKey = getFeedBatchQueryKey(requestSignature, {
+        articleFilter,
+        knownLastFetchedAtByUrl,
+        skipRefresh: options?.skipRefresh,
+      });
 
       await queryClient.prefetchQuery(
         buildFeedBatchQueryOptions(normalizedSources, queryKey, {
           ...options,
+          articleFilter,
           knownLastFetchedAtByUrl,
         }),
       );
     },
     [
+      articleFilter,
+      buildRequestSignature,
       buildFeedBatchQueryOptions,
       getKnownLastFetchedAtByUrl,
       queryClient,
@@ -334,12 +348,13 @@ export function useFeedLoader({
       }
 
       const normalizedSources = normalizeFeedBatchSources(sources);
-      const requestSignature = buildBatchRequestSignature(normalizedSources);
+      const requestSignature = buildRequestSignature(normalizedSources);
       const knownLastFetchedAtByUrl = getKnownLastFetchedAtByUrl(
         normalizedSources,
         options?.keepExistingFeed === true,
       );
       const queryKey = getFeedBatchQueryKey(requestSignature, {
+        articleFilter,
         knownLastFetchedAtByUrl,
         skipRefresh: options?.skipRefresh,
       });
@@ -363,6 +378,7 @@ export function useFeedLoader({
       const { requestId } = requestState;
 
       logRefreshDiagnostics("refresh:start", {
+        articleFilter,
         forceRefresh: options?.forceRefresh === true,
         requestId,
         requestSource: options?.requestSource ?? "unspecified",
@@ -391,6 +407,7 @@ export function useFeedLoader({
           queryKey,
           {
             ...options,
+            articleFilter,
             knownLastFetchedAtByUrl,
           },
           isBackground,
@@ -481,6 +498,8 @@ export function useFeedLoader({
       }
     },
     [
+      articleFilter,
+      buildRequestSignature,
       usePlaceholderData,
       setFeed,
       feedRef,

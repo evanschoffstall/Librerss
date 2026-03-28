@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
+import {
+  type ArticleFilter,
+  isArticleFilter,
+} from "@/lib/core/article-filters";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
@@ -22,6 +26,7 @@ export interface BatchRouteDeps {
 }
 
 interface BatchRequestBody {
+  articleFilter?: unknown;
   forceRefresh?: unknown;
   knownLastFetchedAtByUrl?: unknown;
   requestSource?: unknown;
@@ -68,6 +73,11 @@ export async function POST(
     const knownLastFetchedAtByUrl = knownLastFetchedAtByUrlOrResponse;
     const skipRefresh = body.skipRefresh === true;
     const forceRefresh = body.forceRefresh === true;
+    const articleFilterOrResponse = parseArticleFilter(body.articleFilter);
+    if (articleFilterOrResponse instanceof Response) {
+      return articleFilterOrResponse;
+    }
+    const articleFilter = articleFilterOrResponse;
     const requestSource =
       typeof body.requestSource === "string"
         ? body.requestSource
@@ -75,6 +85,7 @@ export async function POST(
 
     if (diagnosticsEnabled) {
       logger.info("Feed batch request received", {
+        articleFilter,
         forceRefresh,
         requestedUrlCount: urls.length,
         requestSource,
@@ -144,6 +155,7 @@ export async function POST(
       user.userId,
       normalizedUrls,
       {
+        articleFilter,
         forceRefresh,
         knownLastFetchedAtByUrl,
         requestSource,
@@ -216,6 +228,7 @@ export async function POST(
 
     if (diagnosticsEnabled) {
       logger.info("Feed batch request completed", {
+        articleFilter,
         forceRefresh,
         invalidUrlCount,
         missingCount: results.filter((item) => !item.ok).length,
@@ -264,6 +277,23 @@ function normalizeBatchRequestUrls(urls: string[]): BatchUrlDescriptor[] {
   }
 
   return descriptors;
+}
+
+function parseArticleFilter(value: unknown): ArticleFilter | Response {
+  if (value === undefined) {
+    return "all";
+  }
+
+  if (!isArticleFilter(value)) {
+    return NextResponse.json(
+      {
+        error: "articleFilter must be one of all, unread, read, or starred",
+      },
+      { status: 400 },
+    );
+  }
+
+  return value;
 }
 
 function parseKnownLastFetchedAtByUrl(

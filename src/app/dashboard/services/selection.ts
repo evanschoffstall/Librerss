@@ -20,6 +20,7 @@ export interface FeedFetchOptions {
  * fetch layer while preserving the existing analytics and diagnostics semantics.
  */
 export type FeedRequestSource =
+  | "article-filter-change"
   | "auto-refresh"
   | "dashboard-initial-cache"
   | "feed-added"
