@@ -10,7 +10,7 @@ import {
   DashboardScaffold,
 } from "./components/DashboardScaffold";
 import { FeedList } from "./components/feed/FeedList";
-import { SettingsPanel } from "./components/settings/SettingsPanel";
+import { SettingsModal } from "./components/settings/SettingsModal";
 import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "./constants";
 import {
   type DashboardControllerProps,
@@ -95,7 +95,7 @@ export const DashboardView = ({
       />
 
       {settings.showSettingsModal && (
-        <SettingsPanel
+        <SettingsModal
           articlesPerPage={settings.articlesPerPage}
           autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}

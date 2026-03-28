@@ -3,28 +3,10 @@ import { useEffect } from "react";
 
 import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
 import { SETTINGS_PANEL_TAB_STORAGE_KEY } from "@/app/dashboard/constants";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
-import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import {
   SettingsDisplaySection,
   type SettingsDisplaySectionProps,
@@ -32,10 +14,24 @@ import {
 import { SettingsFeedManagementSection } from "./SettingsFeedManagementSection";
 import { SettingsPreviewSection } from "./SettingsPreviewSection";
 import { SettingsProxySection } from "./SettingsProxySection";
-
-const TITLE = "Settings";
-const DESCRIPTION =
-  "Manage categories, feeds, ordering, and runtime behavior.";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  ScrollArea,
+  SETTINGS_SURFACE_DESCRIPTION,
+  SETTINGS_SURFACE_TITLE,
+  useIsMobile,
+  useSettingsModalState,
+} from "./SettingsSurface";
 
 const DEFAULT_TAB = "display";
 
@@ -181,10 +177,10 @@ export function SettingsPanel({
           <DrawerHeader className="relative shrink-0 pb-0">
             <DrawerTitle className="flex items-center gap-2 text-left">
               <Settings2 className="size-4 shrink-0 text-muted-foreground" />
-              {TITLE}
+              {SETTINGS_SURFACE_TITLE}
             </DrawerTitle>
             <DrawerDescription className="sr-only">
-              {DESCRIPTION}
+              {SETTINGS_SURFACE_DESCRIPTION}
             </DrawerDescription>
             <DrawerClose
               className="
@@ -256,10 +252,10 @@ export function SettingsPanel({
             <DialogHeader className="pb-3">
               <DialogTitle className="flex items-center gap-2">
                 <Settings2 className="size-4 shrink-0 text-muted-foreground" />
-                {TITLE}
+                {SETTINGS_SURFACE_TITLE}
               </DialogTitle>
               <DialogDescription className="sr-only">
-                {DESCRIPTION}
+                {SETTINGS_SURFACE_DESCRIPTION}
               </DialogDescription>
             </DialogHeader>
 

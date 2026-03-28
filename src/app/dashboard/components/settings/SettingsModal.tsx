@@ -1,154 +1,61 @@
 import { Settings2, X } from "lucide-react";
 
-import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
+import { type SettingsPanelProps } from "./SettingsPanel";
+import { SettingsSections } from "./SettingsSections";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Drawer,
   DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-} from "@/components/ui/drawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
-
-import {
-  type SettingsModalState,
+  ScrollArea,
+  SETTINGS_SURFACE_DESCRIPTION,
+  SETTINGS_SURFACE_TITLE,
+  useIsMobile,
   useSettingsModalState,
-} from "../../hooks/useSettingsModalState";
-import {
-  SettingsDisplaySection,
-  type SettingsDisplaySectionProps,
-} from "./SettingsDisplaySection";
-import { SettingsFeedManagementSection } from "./SettingsFeedManagementSection";
-import { SettingsPreviewSection } from "./SettingsPreviewSection";
-import { SettingsProxySection } from "./SettingsProxySection";
+} from "./SettingsSurface";
 
-const TITLE = "Reader Settings";
-const DESCRIPTION = "Manage categories, feeds, ordering, and runtime behavior.";
+export type SettingsModalProps = SettingsPanelProps;
 
-interface SettingsModalProps extends SettingsDisplaySectionProps {
-  categories: CategoryTreeNode[];
-  isPreviewMode?: boolean;
-  onAddCategory: (name: string) => boolean;
-  onAddFeed: (name: string, url: string, category: string) => Promise<boolean>;
-  onClose: () => void;
-  onDropCategory: (label: string, targetIndex: number) => Promise<void>;
-  onDropFeed: (
-    key: string,
-    targetCategory: string,
-    targetIndex: number,
-  ) => Promise<void>;
-  onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
-  onRemoveCategory: (label: string) => Promise<boolean>;
-  onRemoveFeed: (key: string) => Promise<void>;
-  onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
-  onRenameFeed: (key: string, name: string, url: string) => Promise<boolean>;
-  onSetFeedEnabled: (key: string, enabled: boolean) => Promise<boolean>;
-  onUpdateFeedSettings: (
-    key: string,
-    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
-  ) => Promise<boolean>;
-  pendingCategoryRemovalLabel: null | string;
-  selectedCategory: string;
-}
-
-/** Shared body rendered inside both the Dialog and the Drawer. */
-function SettingsBody({
-  articlesPerPage,
-  autoRefreshIntervalMinutes,
-  backgroundMode,
-  categories,
-  distillStrategy,
-  isPreviewMode = false,
-  onAccountDeleted,
-  onArticlesPerPageChange,
-  onAutoRefreshIntervalMinutesChange,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  onRemoveCategory,
-  onShowFaviconsChange,
-  pendingCategoryRemovalLabel,
-  showFavicons,
-  state,
-}: SettingsDisplaySectionProps & {
-  categories: CategoryTreeNode[];
-  isPreviewMode?: boolean;
-  onAccountDeleted: () => void;
-  onRemoveCategory: (label: string) => Promise<boolean>;
-  pendingCategoryRemovalLabel: null | string;
-  state: SettingsModalState;
-}) {
-  return (
-    <div className="space-y-4 py-1 pr-3">
-      <SettingsDisplaySection
-        articlesPerPage={articlesPerPage}
-        autoRefreshIntervalMinutes={autoRefreshIntervalMinutes}
-        backgroundMode={backgroundMode}
-        distillStrategy={distillStrategy}
-        onArticlesPerPageChange={onArticlesPerPageChange}
-        onAutoRefreshIntervalMinutesChange={onAutoRefreshIntervalMinutesChange}
-        onBackgroundModeChange={onBackgroundModeChange}
-        onDistillStrategyChange={onDistillStrategyChange}
-        onShowFaviconsChange={onShowFaviconsChange}
-        showFavicons={showFavicons}
-      />
-
-      <SettingsFeedManagementSection
-        categories={categories}
-        isPreviewMode={isPreviewMode}
-        onRemoveCategory={onRemoveCategory}
-        pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
-        state={state}
-      />
-
-      <SettingsPreviewSection isPreviewMode={isPreviewMode}>
-        <SettingsProxySection />
-      </SettingsPreviewSection>
-
-      {!isPreviewMode && (
-        <SettingsAccountSection onAccountDeleted={onAccountDeleted} />
-      )}
-    </div>
-  );
-}
-
-export const SettingsModal = ({
-  articlesPerPage,
-  autoRefreshIntervalMinutes,
-  backgroundMode,
-  categories,
-  distillStrategy,
-  isPreviewMode = false,
-  onAddCategory,
-  onAddFeed,
-  onArticlesPerPageChange,
-  onAutoRefreshIntervalMinutesChange,
-  onBackgroundModeChange,
-  onClose,
-  onDistillStrategyChange,
-  onDropCategory,
-  onDropFeed,
-  onImportOpml,
-  onRemoveCategory,
-  onRemoveFeed,
-  onRenameCategory,
-  onRenameFeed,
-  onSetFeedEnabled,
-  onShowFaviconsChange,
-  onUpdateFeedSettings,
-  pendingCategoryRemovalLabel,
-  selectedCategory,
-  showFavicons,
-}: SettingsModalProps) => {
+/**
+ * Restores the original scrollable settings modal surface used by the live
+ * dashboard while reusing the shared settings section composition.
+ */
+export function SettingsModal(props: SettingsModalProps) {
+  const {
+    articlesPerPage,
+    autoRefreshIntervalMinutes,
+    backgroundMode,
+    categories,
+    distillStrategy,
+    isPreviewMode = false,
+    onAddCategory,
+    onAddFeed,
+    onArticlesPerPageChange,
+    onAutoRefreshIntervalMinutesChange,
+    onBackgroundModeChange,
+    onClose,
+    onDistillStrategyChange,
+    onDropCategory,
+    onDropFeed,
+    onImportOpml,
+    onRemoveCategory,
+    onRemoveFeed,
+    onRenameCategory,
+    onRenameFeed,
+    onSetFeedEnabled,
+    onShowFaviconsChange,
+    onUpdateFeedSettings,
+    pendingCategoryRemovalLabel,
+    selectedCategory,
+    showFavicons,
+  } = props;
   const isMobile = useIsMobile();
   const state = useSettingsModalState({
     categories,
@@ -165,7 +72,7 @@ export const SettingsModal = ({
     selectedCategory,
   });
 
-  const bodyProps = {
+  const sectionsProps = {
     articlesPerPage,
     autoRefreshIntervalMinutes,
     backgroundMode,
@@ -188,7 +95,10 @@ export const SettingsModal = ({
   } as const;
 
   const handleModalOpenChange = (open: boolean) => {
-    if (open) return;
+    if (open) {
+      return;
+    }
+
     onClose();
   };
 
@@ -199,9 +109,9 @@ export const SettingsModal = ({
           <DrawerHeader className="relative">
             <DrawerTitle className="flex items-center gap-2 text-left">
               <Settings2 className="size-4 shrink-0 text-muted-foreground" />
-              {TITLE}
+              {SETTINGS_SURFACE_TITLE}
             </DrawerTitle>
-            <DrawerDescription>{DESCRIPTION}</DrawerDescription>
+            <DrawerDescription>{SETTINGS_SURFACE_DESCRIPTION}</DrawerDescription>
             <DrawerClose
               className="
                 absolute top-4 right-4 cursor-pointer rounded-sm opacity-70
@@ -217,7 +127,7 @@ export const SettingsModal = ({
             flex min-h-0 flex-1 flex-col px-4 pb-6
             [&>[data-radix-scroll-area-viewport]>div]:block!
           ">
-            <SettingsBody {...bodyProps} />
+            <SettingsSections {...sectionsProps} />
           </ScrollArea>
         </DrawerContent>
       </Drawer>
@@ -234,15 +144,15 @@ export const SettingsModal = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="size-4 shrink-0 text-muted-foreground" />
-            {TITLE}
+            {SETTINGS_SURFACE_TITLE}
           </DialogTitle>
-          <DialogDescription>{DESCRIPTION}</DialogDescription>
+          <DialogDescription>{SETTINGS_SURFACE_DESCRIPTION}</DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="min-h-0 flex-1">
-          <SettingsBody {...bodyProps} />
+          <SettingsSections {...sectionsProps} />
         </ScrollArea>
       </DialogContent>
     </Dialog>
   );
-};
+}
