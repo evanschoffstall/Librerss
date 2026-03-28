@@ -1,17 +1,82 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { useDebugState } from "../src/lib/hooks/useDebugState";
-import { useLocalStorage } from "../src/lib/hooks/useLocalStorage";
-import { useSessionState } from "../src/lib/hooks/useSessionState";
-import { useWebStorage } from "../src/lib/hooks/useWebStorage";
+import { useDebugState } from "@/lib/hooks/useDebugState";
+import { useWebStorage } from "@/lib/hooks/useWebStorage";
 
 const originalLocalStorage = globalThis.localStorage;
 const originalSessionStorage = globalThis.sessionStorage;
+const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage",
+);
+const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
+const originalGlobalSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "sessionStorage",
+);
+const originalWindowSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "sessionStorage",
+);
 
 afterEach(() => {
-  globalThis.localStorage = originalLocalStorage;
-  globalThis.sessionStorage = originalSessionStorage;
+  mock.restore();
+
+  if (originalGlobalLocalStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "localStorage",
+      originalGlobalLocalStorageDescriptor,
+    );
+  } else {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: originalLocalStorage,
+      writable: true,
+    });
+  }
+
+  if (originalWindowLocalStorageDescriptor) {
+    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+  } else {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: originalLocalStorage,
+      writable: true,
+    });
+  }
+
+  if (originalGlobalSessionStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "sessionStorage",
+      originalGlobalSessionStorageDescriptor,
+    );
+  } else {
+    Object.defineProperty(globalThis, "sessionStorage", {
+      configurable: true,
+      value: originalSessionStorage,
+      writable: true,
+    });
+  }
+
+  if (originalWindowSessionStorageDescriptor) {
+    Object.defineProperty(
+      window,
+      "sessionStorage",
+      originalWindowSessionStorageDescriptor,
+    );
+  } else {
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: originalSessionStorage,
+      writable: true,
+    });
+  }
 });
 
 function createMockStorage(initialValue: null | string): Storage {
@@ -149,34 +214,41 @@ describe("hooks/useLocalStorage", () => {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: mockStorage,
+      writable: true,
     });
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: mockStorage,
+      writable: true,
     });
 
-    const { result } = renderHook(() => useLocalStorage("key", "default"));
+    const { useLocalStorage: useLocalStorageHook } = await import(
+      "@/lib/hooks/useLocalStorage"
+    );
+    const { result } = renderHook(() => useLocalStorageHook("key", "default"));
 
-    await act(async () => {
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current[0]).toBe("test");
     });
-
-    expect(result.current[0]).toBe("test");
   });
 });
 
 describe("hooks/useSessionState", () => {
   test("useSessionState delegates to useWebStorage with sessionStorage", async () => {
+    mock.restore();
     const mockStorage = createMockStorage(JSON.stringify(42));
     Object.defineProperty(globalThis, "sessionStorage", {
       configurable: true,
       value: mockStorage,
+      writable: true,
     });
     Object.defineProperty(window, "sessionStorage", {
       configurable: true,
       value: mockStorage,
+      writable: true,
     });
 
+    const { useSessionState } = await import("@/lib/hooks/useSessionState");
     const { result } = renderHook(() => useSessionState("sessionKey", 0));
 
     await act(async () => {

@@ -253,6 +253,7 @@ function renderFeedRow() {
 
 afterEach(() => {
   mockedIsMobile = false;
+  mock.restore();
 });
 
 describe("SettingsFeedRow", () => {

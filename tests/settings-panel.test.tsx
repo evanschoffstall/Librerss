@@ -116,10 +116,6 @@ mock.module("@/components/ui/tabs", () => {
   return { Tabs, TabsContent, TabsList, TabsTrigger };
 });
 
-mock.module("@/lib/hooks/useIsMobile", () => ({
-  useIsMobile: () => false,
-}));
-
 mock.module("@/app/dashboard/components/settings/SettingsDisplaySection", () => ({
   SettingsDisplaySection: () => <div data-testid="display-section">Display Settings Content</div>,
 }));
@@ -142,13 +138,6 @@ mock.module("@/app/dashboard/components/settings/SettingsPreviewSection", () => 
 
 mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
   useSettingsModalState: () => ({}),
-}));
-
-mock.module("@/lib/hooks/useLocalStorage", () => ({
-  useLocalStorage: (_key: string, initialValue: string) => {
-    const [value, setValue] = useState(initialValue);
-    return [value, setValue] as const;
-  },
 }));
 
  

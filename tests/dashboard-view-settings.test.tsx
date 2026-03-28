@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
 import { type CategoryTreeNode } from "@/lib";
@@ -82,57 +82,52 @@ const dashboardControllerState = {
   },
 };
 
-mock.module("@/lib/hooks/useLocalStorage", () => ({
-  useLocalStorage: <T,>(_key: string, initialValue: T) => [initialValue] as const,
-}));
-
-mock.module("@/app/dashboard/hooks/useDashboardController", () => ({
-  useDashboardController: () => dashboardControllerState,
-}));
-
-mock.module("@/app/dashboard/components/DashboardMobileSidebarSheet", () => ({
-  DashboardMobileSidebarSheet: () => <div data-testid="mobile-sidebar-sheet" />,
-}));
-
-mock.module("@/app/dashboard/components/DashboardDesktopSidebar", () => ({
-  DashboardDesktopSidebar: () => <div data-testid="desktop-sidebar" />,
-}));
-
-mock.module("@/app/dashboard/components/DashboardFilterBar", () => ({
-  DashboardFilterBar: () => <div data-testid="filter-bar" />,
-}));
-
-mock.module("@/app/dashboard/components/DashboardScaffold", () => ({
-  DashboardFeedViewport: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="feed-viewport">{children}</div>
-  ),
-  DashboardScaffold: ({
-    feed,
-    filterBar,
-    sidebar,
-  }: {
-    feed: React.ReactNode;
-    filterBar: React.ReactNode;
-    sidebar: React.ReactNode;
-  }) => (
-    <div data-testid="dashboard-scaffold">
-      {feed}
-      {filterBar}
-      {sidebar}
-    </div>
-  ),
-}));
-
-mock.module("@/app/dashboard/components/feed/FeedList", () => ({
-  FeedList: () => <div data-testid="feed-list" />,
-}));
-
-mock.module("@/app/dashboard/components/settings/SettingsPanel", () => ({
-  SettingsPanel: () => <div data-testid="settings-panel" />,
-}));
+afterEach(() => {
+  mock.restore();
+});
 
 describe("DashboardView settings wiring", () => {
   test("renders the tabbed settings panel when settings are open", async () => {
+    mock.restore();
+    mock.module("@/app/dashboard/hooks/useDashboardController", () => ({
+      useDashboardController: () => dashboardControllerState,
+    }));
+    mock.module("@/app/dashboard/components/DashboardMobileSidebarSheet", () => ({
+      DashboardMobileSidebarSheet: () => <div data-testid="mobile-sidebar-sheet" />,
+    }));
+    mock.module("@/app/dashboard/components/DashboardDesktopSidebar", () => ({
+      DashboardDesktopSidebar: () => <div data-testid="desktop-sidebar" />,
+    }));
+    mock.module("@/app/dashboard/components/DashboardFilterBar", () => ({
+      DashboardFilterBar: () => <div data-testid="filter-bar" />,
+    }));
+    mock.module("@/app/dashboard/components/DashboardScaffold", () => ({
+      DashboardFeedViewport: ({ children }: { children: React.ReactNode }) => (
+        <div data-testid="feed-viewport">{children}</div>
+      ),
+      DashboardScaffold: ({
+        feed,
+        filterBar,
+        sidebar,
+      }: {
+        feed: React.ReactNode;
+        filterBar: React.ReactNode;
+        sidebar: React.ReactNode;
+      }) => (
+        <div data-testid="dashboard-scaffold">
+          {feed}
+          {filterBar}
+          {sidebar}
+        </div>
+      ),
+    }));
+    mock.module("@/app/dashboard/components/feed/FeedList", () => ({
+      FeedList: () => <div data-testid="feed-list" />,
+    }));
+    mock.module("@/app/dashboard/components/settings/SettingsPanel", () => ({
+      SettingsPanel: () => <div data-testid="settings-panel" />,
+    }));
+
     const { DashboardView } = await import("@/app/dashboard/DashboardView");
     const { getByTestId } = render(
       <DashboardView
