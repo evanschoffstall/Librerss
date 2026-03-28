@@ -102,27 +102,19 @@ describe("DashboardView settings wiring", () => {
       DashboardFilterBar: () => <div data-testid="filter-bar" />,
     }));
     mock.module("@/app/dashboard/components/DashboardScaffold", () => ({
-      DashboardFeedViewport: ({ children }: { children: React.ReactNode }) => (
-        <div data-testid="feed-viewport">{children}</div>
-      ),
+      DashboardFeedViewport: () => <div data-testid="feed-viewport" />,
       DashboardScaffold: ({
-        feed,
         filterBar,
         sidebar,
       }: {
-        feed: React.ReactNode;
         filterBar: React.ReactNode;
         sidebar: React.ReactNode;
       }) => (
         <div data-testid="dashboard-scaffold">
-          {feed}
           {filterBar}
           {sidebar}
         </div>
       ),
-    }));
-    mock.module("@/app/dashboard/components/feed/FeedList", () => ({
-      FeedList: () => <div data-testid="feed-list" />,
     }));
     mock.module("@/app/dashboard/components/settings/SettingsPanel", () => ({
       SettingsPanel: () => <div data-testid="settings-panel" />,

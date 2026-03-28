@@ -132,10 +132,6 @@ mock.module("@/app/dashboard/components/settings/SettingsAccountSection", () => 
   SettingsAccountSection: () => <div data-testid="account-section">Account Settings Content</div>,
 }));
 
-mock.module("@/app/dashboard/components/settings/SettingsPreviewSection", () => ({
-  SettingsPreviewSection: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
 mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
   useSettingsModalState: () => ({}),
 }));
