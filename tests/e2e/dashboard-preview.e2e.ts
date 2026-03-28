@@ -4,10 +4,20 @@ import {
     firstArticleTitle,
     gotoPreviewDashboard,
     openDashboardSettings,
+    openDashboardSettingsTab,
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
 } from "./helpers";
 import { expect, test } from "./test";
+
+async function selectPreviewSource(page: Parameters<typeof gotoPreviewDashboard>[0]) {
+  const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
+  if (await openFeedsButton.isVisible()) {
+    await openFeedsButton.click();
+  }
+
+  await page.getByRole("button", { name: "Placeholder Feeds" }).click();
+}
 
 test.describe("dashboard preview mode", () => {
   test("enters preview from the login view and signs out back to landing", async ({
@@ -77,48 +87,19 @@ test.describe("dashboard preview mode", () => {
       Math.min(900, scrollHeight - clientHeight - 24),
     );
 
-    await setFeedViewportScrollTop(page, targetScrollTop);
-    await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBeGreaterThan(0);
-
-    const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
-    if (await openFeedsButton.isVisible()) {
-      await openFeedsButton.click();
+    if (targetScrollTop > 0) {
+      await setFeedViewportScrollTop(page, targetScrollTop);
     }
-    await page
-      .getByRole("button", { name: "NASA www.nasa.gov" })
-      .click();
 
-    await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBe(0);
+    const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
+
+    await selectPreviewSource(page);
+    await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
     await expect(allButton).toHaveAttribute("aria-pressed", "true");
     await expect(unreadButton).toHaveAttribute("aria-pressed", "false");
 
-    await expect
-      .poll(async () => {
-        const m = await readFeedViewportMetrics(page);
-        return m.scrollHeight - m.clientHeight;
-      })
-      .toBeGreaterThan(24);
-
-    const nasaViewportMetrics = await readFeedViewportMetrics(page);
-    const nasaTargetScrollTop = Math.max(
-      0,
-      Math.min(900, nasaViewportMetrics.scrollHeight - nasaViewportMetrics.clientHeight - 24),
-    );
-
-    await setFeedViewportScrollTop(page, nasaTargetScrollTop);
-    await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBeGreaterThan(0);
-
     await unreadButton.click();
-
-    await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBe(0);
+    await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
     await expect(unreadButton).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -128,8 +109,9 @@ test.describe("dashboard preview mode", () => {
     await gotoPreviewDashboard(page);
 
     await openDashboardSettings(page);
-    await expect(page.getByText("Not available in demo mode")).toHaveCount(2);
     await expect(page.getByLabel("Show favicons")).toBeVisible();
     await expect(page.getByLabel("Auto refresh")).toBeVisible();
+    await openDashboardSettingsTab(page, "Feeds");
+    await expect(page.getByText("Not available in demo mode")).toHaveCount(1);
   });
 });

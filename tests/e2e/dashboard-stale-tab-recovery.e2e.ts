@@ -1,6 +1,6 @@
 import {
-  enterPreviewFromLogin,
   expectPreviewDashboard,
+  gotoPreviewDashboard,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -11,7 +11,7 @@ import { expect, test } from "./test";
 test("dashboard dismisses stale toasts and recovers after long tab suspension", async ({
   page,
 }) => {
-  await enterPreviewFromLogin(page);
+  await gotoPreviewDashboard(page);
   await expectPreviewDashboard(page);
 
   // Inject a visible toast so we can verify it gets dismissed on resume.
@@ -91,7 +91,7 @@ test("dashboard dismisses stale toasts and recovers after long tab suspension", 
  * NOT dismissed — only long suspensions trigger the cleanup.
  */
 test("short tab switch does not dismiss toasts", async ({ page }) => {
-  await enterPreviewFromLogin(page);
+  await gotoPreviewDashboard(page);
   await expectPreviewDashboard(page);
 
   // Simulate a brief tab switch (below stale threshold).

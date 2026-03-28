@@ -3,6 +3,7 @@ import {
     expectPreviewDashboard,
   gotoPreviewDashboard,
     openDashboardSettings,
+    openDashboardSettingsTab,
     readClientStateSentinel,
     readPreviewPersistence,
     seedClientStateSentinel,
@@ -18,7 +19,7 @@ test.describe("dashboard preview safety", () => {
     const previewPersistence = await readPreviewPersistence(page);
 
     expect(previewPersistence.previewCookieValue).toBe("1");
-    expect(previewPersistence.previewStorageValue).toBe("true");
+    expect(previewPersistence.previewStorageValue).toBeNull();
   });
 
   test("keeps preview mode active across direct dashboard navigation and reload", async ({
@@ -34,7 +35,7 @@ test.describe("dashboard preview safety", () => {
     const previewPersistence = await readPreviewPersistence(page);
 
     expect(previewPersistence.previewCookieValue).toBe("1");
-    expect(previewPersistence.previewStorageValue).toBe("true");
+    expect(previewPersistence.previewStorageValue).toBeNull();
   });
 
   test("signing out from preview clears persisted preview state and origin storage", async ({
@@ -74,7 +75,7 @@ test.describe("dashboard preview safety", () => {
     const storageSentinel = await readClientStateSentinel(page);
 
     expect(previewPersistence.previewCookieValue).toBe("1");
-    expect(previewPersistence.previewStorageValue).toBe("true");
+    expect(previewPersistence.previewStorageValue).toBeNull();
     expect(storageSentinel.localStorageValue).toBeNull();
     expect(storageSentinel.sessionStorageValue).toBeNull();
   });
@@ -84,6 +85,7 @@ test.describe("dashboard preview safety", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await openDashboardSettings(page);
+    await openDashboardSettingsTab(page, "Display");
 
     await expect(page.getByText("Privacy and Account")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Export Data" })).toHaveCount(0);
@@ -91,7 +93,9 @@ test.describe("dashboard preview safety", () => {
     await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Terms of Use" })).toHaveCount(0);
     await expect(page.getByRole("switch", { name: "Show favicons" })).toBeVisible();
-    await expect(page.getByText("Not available in demo mode")).toHaveCount(2);
+
+    await openDashboardSettingsTab(page, "Feeds");
+    await expect(page.getByText("Not available in demo mode")).toHaveCount(1);
   });
 
   test("preview display preferences persist locally across reloads", async ({

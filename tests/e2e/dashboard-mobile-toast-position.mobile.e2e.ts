@@ -1,6 +1,10 @@
 import type { Locator, Page } from "@playwright/test";
 
-import { gotoPreviewDashboard, openDashboardSettings } from "./helpers";
+import {
+  gotoPreviewDashboard,
+  openDashboardSettings,
+  openDashboardSettingsTab,
+} from "./helpers";
 import { expect, test } from "./test";
 
 const MOBILE_TOAST_TOP_STORAGE_KEY = "librerss:mobileToastTop";
@@ -121,6 +125,7 @@ async function setMobileToastPreferences(
 
 /** Opens the Add Feed form and submits an invalid URL to trigger a real app toast. */
 async function triggerInvalidFeedToast(page: Page) {
+  await openDashboardSettingsTab(page, "Feeds");
   await page.getByRole("button", { name: "Add feed" }).first().click();
 
   await page.getByPlaceholder("Feed name").fill("Toast position probe");

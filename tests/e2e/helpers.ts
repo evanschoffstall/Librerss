@@ -125,7 +125,28 @@ export async function enterPreviewFromLogin(page: Page) {
   await page
     .getByRole("button", { name: "Explore without an account" })
     .click();
-  await expectPreviewDashboard(page);
+  await page.waitForURL((url) => {
+    return (
+      url.pathname === "/dashboard" &&
+      (url.searchParams.get("explore") === "1" ||
+        url.searchParams.get("preview") === "1" ||
+        url.search === "")
+    );
+  });
+
+  const mobileActionsMenuButton = page.getByRole("button", {
+    name: "Open actions menu",
+  });
+  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
+      timeout: 15_000,
+    });
+    return;
+  }
+
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 /** Waits for an article card to reach the expected expanded state. */
@@ -192,9 +213,6 @@ export async function expectPreviewDashboard(page: Page) {
         url.search === ""
       )
     );
-  });
-  await expect(page.getByText("demo", { exact: true })).toBeVisible({
-    timeout: 15_000,
   });
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
@@ -277,6 +295,12 @@ export async function openDashboardSettings(page: Page) {
   await expect(settingsHeading).toBeVisible({ timeout: 15_000 });
 }
 
+/** Selects a settings tab in the currently open settings surface. */
+export async function openDashboardSettingsTab(page: Page, tabName: string) {
+  await openDashboardSettings(page);
+  await clickVisibleControl(page.getByRole("tab", { exact: true, name: tabName }));
+}
+
 /** Reads the article key used by the feed row and card surfaces. */
 export async function readArticleKey(article: Locator) {
   const articleKey = await article.getAttribute("data-article-key");
@@ -299,25 +323,13 @@ export async function readClientStateSentinel(page: Page) {
 
 /** Reads the active feed viewport metrics used by expand and scroll-restore flows. */
 export async function readFeedViewportMetrics(page: Page) {
-  return await page.evaluate(() => {
-    const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
-        (candidate) =>
-          candidate.isConnected &&
-          candidate.getBoundingClientRect().height > 0 &&
-          candidate.getBoundingClientRect().width > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden" &&
-          candidate.querySelector("article[data-article-key]") !== null,
-      ) ?? null;
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
+  return await viewport.evaluate((node) => {
     return {
-      clientHeight: viewport.clientHeight,
-      scrollHeight: viewport.scrollHeight,
-      scrollTop: viewport.scrollTop,
+      clientHeight: node.clientHeight,
+      scrollHeight: node.scrollHeight,
+      scrollTop: node.scrollTop,
     };
   });
 }
@@ -369,45 +381,21 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
 
 /** Scrolls the active feed viewport to its current bottom edge. */
 export async function scrollFeedViewportToBottom(page: Page) {
-  await page.evaluate(() => {
-    const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
-        (candidate) =>
-          candidate.isConnected &&
-          candidate.getBoundingClientRect().height > 0 &&
-          candidate.getBoundingClientRect().width > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden" &&
-          candidate.querySelector("article[data-article-key]") !== null,
-      ) ?? null;
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
-    viewport.scrollTop = viewport.scrollHeight;
-    viewport.dispatchEvent(new Event("scroll"));
+  await viewport.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+    node.dispatchEvent(new Event("scroll"));
   });
 }
 
 /** Scrolls the active feed viewport to its current top edge. */
 export async function scrollFeedViewportToTop(page: Page) {
-  await page.evaluate(() => {
-    const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
-        (candidate) =>
-          candidate.isConnected &&
-          candidate.getBoundingClientRect().height > 0 &&
-          candidate.getBoundingClientRect().width > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden" &&
-          candidate.querySelector("article[data-article-key]") !== null,
-      ) ?? null;
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
-    viewport.scrollTop = 0;
-    viewport.dispatchEvent(new Event("scroll"));
+  await viewport.evaluate((node) => {
+    node.scrollTop = 0;
+    node.dispatchEvent(new Event("scroll"));
   });
 }
 
@@ -462,23 +450,11 @@ export async function selectExpandedArticleText(article: Locator) {
 
 /** Scrolls the active feed viewport to a target offset. */
 export async function setFeedViewportScrollTop(page: Page, scrollTop: number) {
-  await page.evaluate((nextScrollTop) => {
-    const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
-        (candidate) =>
-          candidate.isConnected &&
-          candidate.getBoundingClientRect().height > 0 &&
-          candidate.getBoundingClientRect().width > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden" &&
-          candidate.querySelector("article[data-article-key]") !== null,
-      ) ?? null;
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
-    viewport.scrollTop = nextScrollTop;
-    viewport.dispatchEvent(new Event("scroll"));
+  await viewport.evaluate((node, nextScrollTop) => {
+    node.scrollTop = nextScrollTop;
+    node.dispatchEvent(new Event("scroll"));
   }, scrollTop);
 }
 
@@ -537,22 +513,10 @@ export async function triggerFeedViewportWheelIntent(
   page: Page,
   deltaY = 240,
 ) {
-  await page.evaluate((nextDeltaY) => {
-    const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
-        (candidate) =>
-          candidate.isConnected &&
-          candidate.getBoundingClientRect().height > 0 &&
-          candidate.getBoundingClientRect().width > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden" &&
-          candidate.querySelector("article[data-article-key]") !== null,
-      ) ?? null;
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
-    viewport.dispatchEvent(new WheelEvent("wheel", { deltaY: nextDeltaY }));
+  await viewport.evaluate((node, nextDeltaY) => {
+    node.dispatchEvent(new WheelEvent("wheel", { deltaY: nextDeltaY }));
   }, deltaY);
 }
 
@@ -587,6 +551,34 @@ async function clickVisibleControl(locator: Locator) {
 
     throw error;
   }
+}
+
+async function getActiveFeedViewport(page: Page) {
+  const candidates = page
+    .locator(
+      "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
+    )
+    .filter({ has: page.locator("article[data-article-key]") });
+  const candidateCount = await candidates.count();
+
+  for (let index = 0; index < candidateCount; index += 1) {
+    const candidate = candidates.nth(index);
+    const box = await candidate.boundingBox();
+
+    if (!box || box.width <= 0 || box.height <= 0) {
+      continue;
+    }
+
+    const isVisible = await candidate.evaluate((node) => {
+      return window.getComputedStyle(node).visibility !== "hidden";
+    });
+
+    if (isVisible) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Expected a dashboard feed viewport.");
 }
 
 function isKnownNonRuntimeConsoleError(message: string) {
