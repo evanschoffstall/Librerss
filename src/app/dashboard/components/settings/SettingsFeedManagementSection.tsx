@@ -2,8 +2,7 @@ import { Download, Rss, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { type CategoryTreeNode, generateOpml } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { type CategoryTreeNode, generateOpml, useIsMobile } from "@/lib";
 
 import type { SettingsModalState } from "../../hooks/useSettingsModalState";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { useLocalStorage } from "@/lib";
 
 import { DashboardDesktopSidebar } from "./components/DashboardDesktopSidebar";
 import { DashboardFilterBar } from "./components/DashboardFilterBar";

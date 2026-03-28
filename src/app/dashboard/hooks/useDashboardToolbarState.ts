@@ -4,9 +4,8 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { AuthService } from "@/lib";
+import { AuthService, useLocalStorage } from "@/lib";
 import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";

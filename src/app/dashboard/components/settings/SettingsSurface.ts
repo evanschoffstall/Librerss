@@ -16,7 +16,7 @@ export {
 } from "@/components/ui/drawer";
 export { ScrollArea } from "@/components/ui/scroll-area";
 
-export { useIsMobile } from "@/lib/hooks/useIsMobile";
+export { useIsMobile } from "@/lib";
 
 export const SETTINGS_SURFACE_TITLE = "Reader Settings";
 export const SETTINGS_SURFACE_DESCRIPTION =

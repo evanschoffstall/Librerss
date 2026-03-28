@@ -21,8 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { type CategoryTreeNode } from "@/lib";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { type CategoryTreeNode, useIsMobile } from "@/lib";
 
 import { MotionSpinner } from "../MotionSpinner";
 import {

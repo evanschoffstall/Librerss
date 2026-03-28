@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { useLocalStorage } from "@/lib";
 
 import {
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,

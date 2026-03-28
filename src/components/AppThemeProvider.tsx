@@ -13,8 +13,7 @@ import {
   MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
 } from "@/app/dashboard/constants";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useIsMobile } from "@/lib/hooks/useIsMobile";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { useIsMobile, useLocalStorage } from "@/lib";
 
 const dashboardToolbarAwareTopToastOffset = { left: 16, right: 16, top: 63 };
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };

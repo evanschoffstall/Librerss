@@ -4,14 +4,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
-import type { AuthSession, AuthUser } from "@/lib/core/types";
-
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService } from "@/lib";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
-
-import type { BackgroundMode } from "./constants";
+import { AuthService, AuthSession, AuthUser, useLocalStorage } from "@/lib";
 
 import {
   ParticlesBackground,
@@ -27,7 +22,7 @@ import {
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { LoginView } from "./components/login/LoginView";
-import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
+import { BackgroundMode, DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
 import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";

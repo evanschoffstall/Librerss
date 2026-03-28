@@ -11,9 +11,7 @@ import { logger } from "@/lib/logger";
 import {
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
-  type RouteHandlerContext,
-} from "@/lib/server";
-import { resolveUserProxy, ServiceError } from "@/lib/server/services";
+  resolveUserProxy, type RouteHandlerContext, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
-import {
-  getCategoryOrder,
-  saveCategoryOrder,
-  ServiceError,
-} from "@/lib/server/services";
+import { getCategoryOrder, logAndRespondError, requireAuthenticatedUser, saveCategoryOrder, ServiceError } from "@/lib/server";
 
 export async function GET(request: NextRequest) {
   try {

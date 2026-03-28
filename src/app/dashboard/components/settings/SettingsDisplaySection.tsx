@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { useLocalStorage } from "@/lib";
 
 import {
   type BackgroundMode,

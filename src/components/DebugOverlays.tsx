@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import "./components.css";
-import { useDebugState } from "@/lib/hooks/useDebugState";
+import { useDebugState } from "@/lib";
 
 export const DebugBorder = () => {
   const { debug, isClient, toggleDebug } = useDebugState();

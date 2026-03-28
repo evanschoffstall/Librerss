@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import type { AuthSession } from "@/lib/core/types";
+import type { AuthSession } from "@/lib";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {

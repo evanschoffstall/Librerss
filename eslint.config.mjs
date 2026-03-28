@@ -34,8 +34,33 @@ const nonSourceProjectFiles = [
   ...scriptFiles,
   ...rootConfigFiles,
 ];
+const barrelImportFiles = [
+  "src/app/**/*.ts",
+  "src/app/**/*.tsx",
+  "src/components/**/*.ts",
+  "src/components/**/*.tsx",
+  "src/proxy.ts",
+];
 const projectFiles = [...sourceFiles, ...nonSourceProjectFiles];
 const apiAndLibraryFiles = ["src/lib/**", "src/app/api/**"];
+const barrelOnlyImportPatterns = [
+  {
+    group: ["./lib/server/*"],
+    message: 'Use the public "@/lib/server" barrel instead.',
+  },
+  {
+    group: ["@/lib/core/types"],
+    message: 'Use the public "@/lib" barrel instead.',
+  },
+  {
+    group: ["@/lib/hooks/*"],
+    message: 'Use the public "@/lib" barrel instead.',
+  },
+  {
+    group: ["@/lib/server/*"],
+    message: 'Use the public "@/lib/server" barrel instead.',
+  },
+];
 const typeScriptFlatConfigs = pluginTypeScriptEslintRaw.flatConfigs;
 const typeCheckedParserOptions = {
   projectService: true,
@@ -248,6 +273,17 @@ export default [
   {
     files: sourceFiles,
     rules: sourceTypeScriptRules,
+  },
+  {
+    files: barrelImportFiles,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: barrelOnlyImportPatterns,
+        },
+      ],
+    },
   },
   {
     ...perfectionist.configs["recommended-natural"],

@@ -8,10 +8,19 @@ export {
   FeedService,
 } from "./api/services";
 // Core: types, constants, utilities, hooks
-export type { Article, AuthUser, CategoryTreeNode } from "./core/types";
+export type {
+  Article,
+  AuthSession,
+  AuthUser,
+  CategoryTreeNode,
+  FeedSource,
+} from "./core/types";
+export { useDebugState } from "./hooks/useDebugState";
+export { useIsMobile } from "./hooks/useIsMobile";
 export { useLocalStorage } from "./hooks/useLocalStorage";
 
 export { useSessionState } from "./hooks/useSessionState";
+export { useViewportRestore } from "./hooks/useViewportRestore";
 
 // Shared utilities
 export {

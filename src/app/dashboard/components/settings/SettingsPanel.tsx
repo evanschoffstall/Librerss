@@ -4,8 +4,7 @@ import { useEffect } from "react";
 import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
 import { SETTINGS_PANEL_TAB_STORAGE_KEY } from "@/app/dashboard/constants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type CategoryTreeNode, type OpmlFeedImportEntry } from "@/lib";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { type CategoryTreeNode, type OpmlFeedImportEntry, useLocalStorage } from "@/lib";
 
 import {
   SettingsDisplaySection,

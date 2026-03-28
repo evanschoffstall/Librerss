@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/http";
 import { logger } from "@/lib/logger";
-import { requireAuthenticatedUser } from "@/lib/server";
-import { getProxyStatus, ServiceError } from "@/lib/server/services";
+import { getProxyStatus, requireAuthenticatedUser, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 

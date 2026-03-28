@@ -170,9 +170,6 @@ describe("AppThemeProvider", () => {
     mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
       DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
     }));
-    mock.module("@/components/ui/skeleton", () => ({
-      Skeleton: () => <div data-testid="mock-skeleton" />,
-    }));
   });
 
   afterEach(() => {

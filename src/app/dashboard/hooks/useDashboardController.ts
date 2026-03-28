@@ -8,7 +8,7 @@ import {
   useRef,
 } from "react";
 
-import { useViewportRestore } from "@/lib/hooks/useViewportRestore";
+import { useViewportRestore } from "@/lib";
 
 import { type BackgroundMode, INITIAL_CATEGORIES } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";

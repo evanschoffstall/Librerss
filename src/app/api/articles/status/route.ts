@@ -8,9 +8,7 @@ import {
   logAndRespondError,
   requireMutableUserAndJsonBody,
   resolveRouteHandlerDeps,
-  type RouteHandlerContext,
-} from "@/lib/server";
-import { ServiceError, updateArticleStatus } from "@/lib/server/services";
+  type RouteHandlerContext, ServiceError, updateArticleStatus } from "@/lib/server";
 import { isSafePositiveItemId } from "@/lib/utils/validation";
 
 export const dynamic = "force-dynamic";

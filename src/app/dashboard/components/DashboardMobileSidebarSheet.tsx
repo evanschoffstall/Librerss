@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
+import { useLocalStorage } from "@/lib";
 
 import { MOBILE_TOOLBAR_MIRROR_STORAGE_KEY } from "../constants";
 import { DashboardSidebarContent } from "./DashboardSidebarContent";
