@@ -198,6 +198,7 @@ const koffiRuntimeTracingGlob = resolvePackageTracingGlob("koffi/package.json");
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: resolveAllowedDevOrigins(),
+  devIndicators: false,
   distDir: process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim() || ".next",
   env: {
     LIBRERSS_BUILD_CONFIG: JSON.stringify(buildTimeServerConfig),
