@@ -156,6 +156,8 @@ interface CliArguments {
   command: "keys" | "run-suite" | "summary";
   directStep?: StepConfig;
   directStepArgs: string[];
+  excludedKeys: Set<string>;
+  invalidSuiteExclusions: string[];
   invalidSuiteFlags: string[];
   keyFilter: null | Set<string>;
 }
@@ -261,6 +263,8 @@ function getBunxCommandTarget(args: string[]): null | string {
   const target = args.find((arg) => !arg.startsWith("-"));
   return target && target.length > 0 ? target : null;
 }
+
+const SUITE_EXCLUSION_PREFIX = "---no=";
 
 /** Returns the enabled non-pre-run step keys that can be selected from the CLI. */
 function getRunnableSuiteStepKeys(): Set<string> {
@@ -1255,42 +1259,46 @@ const HANDLERS: Record<string, StepRunner> = {
 /** Splits CLI arguments into global flags, step filters, and direct step execution. */
 export function parseCliArguments(argv: string[]): CliArguments {
   const command = argv[2];
-  if (command === "summary") {
-    return {
-      command: "summary",
-      directStep: undefined,
-      directStepArgs: [],
-      invalidSuiteFlags: [],
-      keyFilter: null,
-    };
-  }
-
   if (command === "keys") {
     return {
       command: "keys",
       directStep: undefined,
       directStepArgs: [],
+      excludedKeys: new Set<string>(),
+      invalidSuiteExclusions: [],
       invalidSuiteFlags: [],
       keyFilter: null,
     };
   }
 
+  const isSummaryCommand = command === "summary";
+  const suiteCommand: CliArguments["command"] = isSummaryCommand
+    ? "summary"
+    : "run-suite";
+  const suiteArgStartIndex = isSummaryCommand ? 3 : 2;
+  const suiteCommandCandidate = argv[suiteArgStartIndex];
+
   const directStep =
-    command && !command.startsWith("--")
-      ? CFG.steps.find((step) => step.key === command && step.enabled !== false)
+    !isSummaryCommand && suiteCommandCandidate && !suiteCommandCandidate.startsWith("--")
+      ? CFG.steps.find(
+          (step) =>
+            step.key === suiteCommandCandidate && step.enabled !== false,
+        )
       : undefined;
 
   if (directStep) {
     return {
-      command: "run-suite",
+      command: suiteCommand,
       directStep,
-      directStepArgs: argv.slice(3),
+      directStepArgs: argv.slice(suiteArgStartIndex + 1),
+      excludedKeys: new Set<string>(),
+      invalidSuiteExclusions: [],
       invalidSuiteFlags: [],
       keyFilter: null,
     };
   }
 
-  const suiteArguments = argv.slice(2);
+  const suiteArguments = argv.slice(suiteArgStartIndex);
   const passthroughSeparatorIndex = suiteArguments.indexOf("--");
   const suiteSelectionArguments =
     passthroughSeparatorIndex >= 0
@@ -1301,17 +1309,32 @@ export function parseCliArguments(argv: string[]): CliArguments {
       ? suiteArguments.slice(passthroughSeparatorIndex + 1)
       : [];
   const runnableSuiteStepKeys = getRunnableSuiteStepKeys();
+  const { exclusions, invalidExclusions } = parseSuiteExclusions(
+    suiteSelectionArguments,
+  );
   const suiteFlags = suiteSelectionArguments
-    .filter((argument) => argument.startsWith("--"))
+    .filter(
+      (argument) =>
+        argument.startsWith("--") && !argument.startsWith(SUITE_EXCLUSION_PREFIX),
+    )
     .map((argument) => argument.slice(2));
   const suiteStepArgs = suiteSelectionArguments.filter(
-    (argument) => !argument.startsWith("--"),
+    (argument) =>
+      !argument.startsWith("--") && !argument.startsWith(SUITE_EXCLUSION_PREFIX),
   );
   const invalidSuiteFlags = suiteFlags.filter(
     (flag) => !runnableSuiteStepKeys.has(flag),
   );
+  const invalidSuiteExclusions = [
+    ...invalidExclusions,
+    ...exclusions.filter((flag) => !runnableSuiteStepKeys.has(flag)),
+  ];
 
-  if (invalidSuiteFlags.length === 0 && suiteFlags.length === 1) {
+  if (
+    invalidSuiteFlags.length === 0 &&
+    invalidSuiteExclusions.length === 0 &&
+    suiteFlags.length === 1
+  ) {
     const selectedStep = CFG.steps.find(
       (step) => step.key === suiteFlags[0] && step.enabled !== false,
     );
@@ -1319,9 +1342,11 @@ export function parseCliArguments(argv: string[]): CliArguments {
 
     if (selectedStep?.allowSuiteFlagArgs && directStepArgs.length > 0) {
       return {
-        command: "run-suite",
+        command: suiteCommand,
         directStep: selectedStep,
         directStepArgs,
+        excludedKeys: new Set<string>(),
+        invalidSuiteExclusions: [],
         invalidSuiteFlags: [],
         keyFilter: null,
       };
@@ -1329,9 +1354,11 @@ export function parseCliArguments(argv: string[]): CliArguments {
   }
 
   return {
-    command: "run-suite",
+    command: suiteCommand,
     directStep: undefined,
     directStepArgs: [],
+    excludedKeys: new Set<string>(exclusions),
+    invalidSuiteExclusions,
     invalidSuiteFlags,
     keyFilter: suiteFlags.length > 0 ? new Set(suiteFlags) : null,
   };
@@ -1340,10 +1367,11 @@ export function parseCliArguments(argv: string[]): CliArguments {
 /** Runs the configured quality suite with optional step filtering and summary mode. */
 export async function runCheckSuite(
   keyFilter?: null | Set<string>,
-  options: { summaryOnly?: boolean } = {},
+  options: { excludedKeys?: ReadonlySet<string>; summaryOnly?: boolean } = {},
 ) {
   const startedAtMs = Date.now();
   const deadlineMs = startedAtMs + SUITE_TIMEOUT_MS;
+  const excludedKeys = options.excludedKeys ?? new Set<string>();
   const summaryOnly = options.summaryOnly === true;
   if (!summaryOnly) {
     process.stdout.write(paint("⏳ Please wait ... ", ANSI.bold, ANSI.cyan));
@@ -1351,10 +1379,15 @@ export async function runCheckSuite(
 
   const preRunSteps = keyFilter
     ? []
-    : CFG.steps.filter((s) => s.preRun && s.enabled !== false);
+    : CFG.steps.filter(
+        (s) => s.preRun && s.enabled !== false && !excludedKeys.has(s.key),
+      );
   const mainSteps = CFG.steps.filter(
     (s) =>
-      !s.preRun && s.enabled !== false && (!keyFilter || keyFilter.has(s.key)),
+      !s.preRun &&
+      s.enabled !== false &&
+      !excludedKeys.has(s.key) &&
+      (!keyFilter || keyFilter.has(s.key)),
   );
 
   const preRunResults = await runStepBatch(preRunSteps, deadlineMs);
@@ -1617,6 +1650,13 @@ async function main() {
     process.exit(1);
   }
 
+  if (cliArguments.invalidSuiteExclusions.length > 0) {
+    writeOut(
+      `unknown suite exclusion(s): ${cliArguments.invalidSuiteExclusions.join(", ")}`,
+    );
+    process.exit(1);
+  }
+
   if (cliArguments.directStep) {
     const result = await runStepWithinDeadline(
       cliArguments.directStep,
@@ -1628,8 +1668,32 @@ async function main() {
   }
 
   await runCheckSuite(cliArguments.keyFilter, {
+    excludedKeys: cliArguments.excludedKeys,
     summaryOnly: cliArguments.command === "summary",
   });
+}
+
+/** Extracts configured step exclusions from suite CLI arguments. */
+function parseSuiteExclusions(suiteArguments: string[]): {
+  exclusions: string[];
+  invalidExclusions: string[];
+} {
+  const exclusions: string[] = [];
+  const invalidExclusions: string[] = [];
+
+  for (const argument of suiteArguments) {
+    if (!argument.startsWith(SUITE_EXCLUSION_PREFIX)) continue;
+
+    const excludedKey = argument.slice(SUITE_EXCLUSION_PREFIX.length);
+    if (excludedKey.length === 0) {
+      invalidExclusions.push(argument);
+      continue;
+    }
+
+    exclusions.push(excludedKey);
+  }
+
+  return { exclusions, invalidExclusions };
 }
 
 function runStep(
