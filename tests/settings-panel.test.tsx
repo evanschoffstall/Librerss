@@ -43,14 +43,23 @@ mock.module("@/components/ui/tabs", () => {
     children,
     className,
     defaultValue,
+    onValueChange,
+    value,
   }: {
     children: React.ReactNode;
     className?: string;
     defaultValue?: string;
+    onValueChange?: (value: string) => void;
+    value?: string;
   }) {
-    const [activeTab, setActiveTab] = useState(defaultValue ?? "");
+    const [internalActiveTab, setInternalActiveTab] = useState(defaultValue ?? "");
+    const activeTab = value ?? internalActiveTab;
+    const handleTabChange = (nextValue: string) => {
+      setInternalActiveTab(nextValue);
+      onValueChange?.(nextValue);
+    };
     return (
-      <TabsCtx.Provider value={{ activeTab, setActiveTab }}>
+      <TabsCtx.Provider value={{ activeTab, setActiveTab: handleTabChange }}>
         <div className={className} data-testid="tabs-root">
           {children}
         </div>
@@ -133,6 +142,13 @@ mock.module("@/app/dashboard/components/settings/SettingsPreviewSection", () => 
 
 mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
   useSettingsModalState: () => ({}),
+}));
+
+mock.module("@/lib/hooks/useLocalStorage", () => ({
+  useLocalStorage: (_key: string, initialValue: string) => {
+    const [value, setValue] = useState(initialValue);
+    return [value, setValue] as const;
+  },
 }));
 
  

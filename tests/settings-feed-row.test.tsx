@@ -4,6 +4,8 @@ import {
   cloneElement,
   createContext,
   isValidElement,
+  type MouseEventHandler,
+  type ReactElement,
   type ReactNode,
   useContext,
   useState,
@@ -120,7 +122,11 @@ mock.module("@/components/ui/dropdown-menu", () => {
     const { isOpen, setIsOpen } = useContext(DropdownMenuContext);
 
     if (asChild && isValidElement(children)) {
-      return cloneElement(children, {
+      const triggerChild = children as ReactElement<{
+        onClick?: MouseEventHandler;
+      }>;
+
+      return cloneElement(triggerChild, {
         onClick: () => {
           setIsOpen(!isOpen);
         },
