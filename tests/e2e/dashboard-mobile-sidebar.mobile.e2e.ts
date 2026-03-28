@@ -9,6 +9,7 @@ import {
 import { expect, test } from "./test";
 
 const INJECTED_TRAY_ROW_COUNT = 24;
+const MOBILE_TOOLBAR_MIRROR_STORAGE_KEY = "librerss:mobileToolbarMirror";
 const SIDEBAR_SCROLL_WHEEL_DELTA_Y = 720;
 
 /** Appends enough rows into the live tray content to force a real Radix viewport scroll range. */
@@ -62,6 +63,19 @@ function mobileFeedsTrayViewport(page: Page): Locator {
   return mobileFeedsTrayDialog(page).locator("[data-radix-scroll-area-viewport]");
 }
 
+/** Seeds the mirrored-toolbar preference before the dashboard reads it. */
+async function setMobileToolbarMirrorPreference(page: Page, enabled: boolean) {
+  await page.addInitScript(
+    ({ isEnabled, storageKey }: { isEnabled: boolean; storageKey: string }) => {
+      window.localStorage.setItem(storageKey, JSON.stringify(isEnabled));
+    },
+    {
+      isEnabled: enabled,
+      storageKey: MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+    },
+  );
+}
+
 /** Wheels inside the mobile feeds tray viewport so the tray itself owns the scroll. */
 async function wheelMobileFeedsTray(page: Page, deltaY: number) {
   const viewport = mobileFeedsTrayViewport(page);
@@ -79,6 +93,29 @@ async function wheelMobileFeedsTray(page: Page, deltaY: number) {
 test.describe("dashboard mobile feeds tray", () => {
   test.beforeEach(async ({ page }) => {
     await gotoPreviewDashboard(page);
+  });
+
+  test("opens from the right edge when the mirrored mobile toolbar preference is enabled", async ({
+    page,
+  }) => {
+    await setMobileToolbarMirrorPreference(page, true);
+    await gotoPreviewDashboard(page);
+    await openDashboardFeedsSidebar(page);
+
+    const trayDialog = mobileFeedsTrayDialog(page);
+    await expect(trayDialog).toBeVisible();
+
+    const trayMetrics = await trayDialog.evaluate((dialog) => {
+      const rect = dialog.getBoundingClientRect();
+
+      return {
+        distanceFromLeft: Math.round(rect.left),
+        distanceFromRight: Math.round(window.innerWidth - rect.right),
+      };
+    });
+
+    expect(trayMetrics.distanceFromRight).toBeLessThanOrEqual(4);
+    expect(trayMetrics.distanceFromLeft).toBeGreaterThan(24);
   });
 
   test("scrolls from top to bottom inside the Radix viewport without falling back to the page or tray shell", async ({

@@ -7,7 +7,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
+import { MOBILE_TOOLBAR_MIRROR_STORAGE_KEY } from "../constants";
 import { DashboardSidebarContent } from "./DashboardSidebarContent";
 
 export interface DashboardMobileSidebarSheetProps {
@@ -30,6 +32,11 @@ export function DashboardMobileSidebarSheet({
   onOpenChange,
   sidebarContentProps,
 }: DashboardMobileSidebarSheetProps) {
+  const [mobileToolbarMirror] = useLocalStorage(
+    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+    true,
+  );
+
   return (
     <Sheet onOpenChange={onOpenChange} open={isOpen}>
       <SheetContent
@@ -37,7 +44,7 @@ export function DashboardMobileSidebarSheet({
           flex h-full w-[min(22rem,88vw)] flex-col gap-0 overflow-hidden p-0
           lg:hidden
         "
-        side="left"
+        side={mobileToolbarMirror ? "right" : "left"}
       >
         <SheetHeader className="space-y-0 px-4 pt-5 pb-2 text-left">
           <SheetTitle className="
