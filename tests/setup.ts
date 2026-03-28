@@ -10,6 +10,8 @@ import { Window } from "happy-dom";
 import * as realNextThemesModule from "next-themes";
 import * as realNextNavigationModule from "next/navigation";
 
+import * as realFeedListModule from "@/app/dashboard/components/feed/FeedList";
+import * as realDashboardViewModule from "@/app/dashboard/DashboardView";
 import * as realApiHttpModule from "@/lib/api/http";
 import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realConfigModule from "@/lib/config";
@@ -29,6 +31,7 @@ import * as realUrlModule from "@/lib/utils/url";
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
 const window = new Window();
 const document = window.document;
+const originalConsoleError = console.error;
 
 interface InspectableElement {
   className?: string;
@@ -78,7 +81,23 @@ global.CustomEvent = window.CustomEvent as any;
 global.EventTarget = window.EventTarget as any;
 global.HTMLElement = window.HTMLElement as any;
 global.Node = window.Node as any;
+global.getComputedStyle = window.getComputedStyle.bind(window) as any;
 global.window.SyntaxError = global.window.SyntaxError ?? SyntaxError;
+
+console.error = ((...args: unknown[]) => {
+  const [firstArg] = args;
+  if (typeof firstArg === "string") {
+    if (firstArg.includes("react-virtuoso: Zero-sized element")) {
+      return;
+    }
+
+    if (firstArg.includes("`NaN` is an invalid value for the `paddingBottom` css style property.")) {
+      return;
+    }
+  }
+
+  originalConsoleError(...args);
+}) as typeof console.error;
 
 defineCompactInspector(window.Window.prototype, function summarizeWindow() {
   return "[Window]";
@@ -114,14 +133,15 @@ if (typeof global.TransitionEvent !== "function") {
   global.TransitionEvent = TransitionEventPolyfill as any;
 }
 
-if (typeof global.requestAnimationFrame !== "function") {
-  global.requestAnimationFrame = ((callback: FrameRequestCallback) =>
-    setTimeout(() => callback(Date.now()), 16)) as any;
-}
+const requestAnimationFramePolyfill = ((callback: FrameRequestCallback) =>
+  setTimeout(() => callback(Date.now()), 16)) as unknown as typeof global.requestAnimationFrame;
+const cancelAnimationFramePolyfill = ((id: number) =>
+  clearTimeout(id)) as unknown as typeof global.cancelAnimationFrame;
 
-if (typeof global.cancelAnimationFrame !== "function") {
-  global.cancelAnimationFrame = ((id: number) => clearTimeout(id)) as any;
-}
+global.requestAnimationFrame = requestAnimationFramePolyfill as any;
+global.cancelAnimationFrame = cancelAnimationFramePolyfill as any;
+window.requestAnimationFrame = requestAnimationFramePolyfill as any;
+window.cancelAnimationFrame = cancelAnimationFramePolyfill as any;
 
 // Set test environment variables
 if (!process.env.DATABASE_URL) {
@@ -140,29 +160,38 @@ if (!process.env.AUTH_SECRET) {
 afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
-  mock.restore();
-  mock.module("@/lib/api/http", () => realApiHttpModule);
-  mock.module("@/lib/db/db", () => realDbModule);
-  mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
-  mock.module("@/lib/auth/session", () => realAuthSessionModule);
-  mock.module("@/lib/config", () => realConfigModule);
-  mock.module(
-    "@/lib/core/feed-batch-pipeline",
-    () => realFeedBatchHelpersModule,
-  );
-  mock.module("@/lib/fetch", () => realFetchModule);
-  mock.module("@/lib/hooks/useIsMobile", () => realUseIsMobileModule);
-  mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
-  mock.module("@/lib/hooks/useSessionState", () => realUseSessionStateModule);
-  mock.module("@/lib/hooks/useWebStorage", () => realUseWebStorageModule);
-  mock.module("@/lib/logger", () => realLoggerModule);
-  mock.module("@/lib/server", () => realServerModule);
-  mock.module("@/lib/server/services", () => realServerServicesModule);
-  mock.module("@/lib/utils/url", () => realUrlModule);
-  mock.module("next/navigation", () => realNextNavigationModule);
-  mock.module("next-themes", () => realNextThemesModule);
+
+  const restoreBaseMocks = () => {
+    mock.restore();
+    mock.module("@/lib/api/http", () => realApiHttpModule);
+    mock.module("@/app/dashboard/DashboardView", () => realDashboardViewModule);
+    mock.module("@/app/dashboard/components/feed/FeedList", () => realFeedListModule);
+    mock.module("@/lib/db/db", () => realDbModule);
+    mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
+    mock.module("@/lib/auth/session", () => realAuthSessionModule);
+    mock.module("@/lib/config", () => realConfigModule);
+    mock.module(
+      "@/lib/core/feed-batch-pipeline",
+      () => realFeedBatchHelpersModule,
+    );
+    mock.module("@/lib/fetch", () => realFetchModule);
+    mock.module("@/lib/hooks/useIsMobile", () => realUseIsMobileModule);
+    mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
+    mock.module("@/lib/hooks/useSessionState", () => realUseSessionStateModule);
+    mock.module("@/lib/hooks/useWebStorage", () => realUseWebStorageModule);
+    mock.module("@/lib/logger", () => realLoggerModule);
+    mock.module("@/lib/server", () => realServerModule);
+    mock.module("@/lib/server/services", () => realServerServicesModule);
+    mock.module("@/lib/utils/url", () => realUrlModule);
+    mock.module("next/navigation", () => realNextNavigationModule);
+    mock.module("next-themes", () => realNextThemesModule);
+  };
+
+  restoreBaseMocks();
+  queueMicrotask(restoreBaseMocks);
 });
 
 afterAll(() => {
   mock.restore();
+  console.error = originalConsoleError;
 });
