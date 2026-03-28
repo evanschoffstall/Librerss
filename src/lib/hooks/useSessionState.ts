@@ -4,7 +4,7 @@ import { type Dispatch, type SetStateAction } from "react";
 
 import { useWebStorage } from "./useWebStorage";
 
-const getSessionStorage = () => sessionStorage;
+const getSessionStorage = () => globalThis.sessionStorage;
 
 /**
  * Like useState, but persists value to sessionStorage so it survives HMR

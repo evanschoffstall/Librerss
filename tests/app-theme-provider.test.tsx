@@ -1,11 +1,6 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import * as realNextThemes from "next-themes";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
-import * as realSonner from "sonner";
-
-import * as realDashboardToolbar from "@/app/dashboard/components/DashboardToolbar";
-import * as realUiSkeleton from "@/components/ui/skeleton";
 
 interface MockToasterProps {
   closeButton?: boolean;
@@ -13,11 +8,13 @@ interface MockToasterProps {
     bottom?: number;
     left?: number;
     right?: number;
+    top?: number;
   };
   offset?: {
     bottom?: number;
     left?: number;
     right?: number;
+    top?: number;
   };
   position?: string;
   toastOptions?: {
@@ -39,6 +36,11 @@ function MockThemeProvider({ children }: { children: React.ReactNode }) {
 describe("AppThemeProvider", () => {
   beforeEach(() => {
     toasterProps.length = 0;
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: window.localStorage,
+    });
+    window.localStorage.clear();
     for (const closeToastMock of closeToastMocks) {
       closeToastMock.mockClear();
     }
@@ -52,7 +54,15 @@ describe("AppThemeProvider", () => {
       usePathname: () => "/dashboard",
       useSearchParams: () => new URLSearchParams("view=dashboard"),
     }));
+    mock.module("@/lib/hooks/useIsMobile", () => ({
+      useIsMobile: () => true,
+    }));
     mock.module("sonner", () => ({
+      toast: Object.assign(() => {}, {
+        error: () => {},
+        info: () => {},
+        success: () => {},
+      }),
       Toaster: (props: MockToasterProps) => {
         toasterProps.push(props);
         return (
@@ -82,30 +92,14 @@ describe("AppThemeProvider", () => {
       },
     }));
     mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
-      DashboardToolbar: () => <div data-testid="mock-dashboard-header" />,
+      DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
     }));
     mock.module("@/components/ui/skeleton", () => ({
-      Skeleton: ({ className }: { className?: string }) => (
-        <div
-          className={`animate-pulse rounded-md bg-muted ${className ?? ""}`}
-          data-testid="mock-skeleton"
-        />
-      ),
+      Skeleton: () => <div data-testid="mock-skeleton" />,
     }));
   });
 
-  afterEach(() => {
-    mock.restore();
-    mock.module("next-themes", () => realNextThemes);
-    mock.module("sonner", () => realSonner);
-    mock.module(
-      "@/app/dashboard/components/DashboardToolbar",
-      () => realDashboardToolbar,
-    );
-    mock.module("@/components/ui/skeleton", () => realUiSkeleton);
-  });
-
-  test("mounts Sonner below the fixed dashboard toolbar", async () => {
+  test("mounts Sonner below the fixed dashboard header", async () => {
     const { AppThemeProvider } = await import("@/components/AppThemeProvider");
 
     const view = render(
@@ -163,5 +157,36 @@ describe("AppThemeProvider", () => {
 
     expect(closeToastMocks[0]).toHaveBeenCalledTimes(1);
     expect(closeToastMocks[1]).not.toHaveBeenCalled();
+  });
+
+  test("uses top offset on mobile when mobile-toast-top preference is enabled", async () => {
+    window.localStorage.setItem(
+      "librerss:mobileToastTop",
+      JSON.stringify(true),
+    );
+
+    const { AppThemeProvider } = await import("@/components/AppThemeProvider");
+
+    render(
+      <AppThemeProvider>
+        <div>content</div>
+      </AppThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(toasterProps.at(-1)).toMatchObject({
+        mobileOffset: {
+          left: 16,
+          right: 16,
+          top: 63,
+        },
+        offset: {
+          left: 16,
+          right: 16,
+          top: 63,
+        },
+        position: "top-right",
+      });
+    });
   });
 });

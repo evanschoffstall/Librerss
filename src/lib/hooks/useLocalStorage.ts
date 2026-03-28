@@ -4,7 +4,7 @@ import { type Dispatch, type SetStateAction } from "react";
 
 import { useWebStorage } from "./useWebStorage";
 
-const getLocalStorage = () => localStorage;
+const getLocalStorage = () => globalThis.localStorage;
 
 /**
  * Syncs state with localStorage while keeping the first client render aligned
