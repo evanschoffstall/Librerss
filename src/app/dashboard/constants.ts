@@ -5,6 +5,9 @@ export { DASHBOARD_PREVIEW_STORAGE_KEY } from "./preview-mode";
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 export const ALL_FEEDS_LABEL = "All Feeds";
 export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
+export const MOBILE_INVERTED_SCROLL_STORAGE_KEY =
+  "librerss:mobileInvertedScroll";
+export const MOBILE_TOAST_TOP_STORAGE_KEY = "librerss:mobileToastTop";
 export const MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY = "librerss:mobileToolbarBottom";
 export const MOBILE_TOOLBAR_MIRROR_STORAGE_KEY = "librerss:mobileToolbarMirror";
 export const SETTINGS_PANEL_TAB_STORAGE_KEY = "librerss:settings-panel-tab";

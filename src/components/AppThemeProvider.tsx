@@ -3,23 +3,17 @@
 import { Moon, Sun } from "lucide-react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type ReactNode, Suspense, useEffect, useState } from "react";
+import { type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
+import { MOBILE_TOAST_TOP_STORAGE_KEY } from "@/app/dashboard/constants";
 import { DashboardToolbar } from "@/app/dashboard/components/DashboardToolbar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
-const toastViewportOffset = {
-  bottom: 16,
-  left: 16,
-  right: 16,
-};
-
-const mobileToastViewportOffset = {
-  bottom: 16,
-  left: 16,
-  right: 16,
-};
+const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
+const topToastOffset = { left: 16, right: 16, top: 63 };
 
 /**
  * Provides the app-wide theme context along with shared floating UI such as
@@ -71,6 +65,10 @@ function NextDevToolsThemeBridge() {
 
     syncPortalTheme();
 
+    if (typeof MutationObserver === "undefined") {
+      return;
+    }
+
     const observer = new MutationObserver(() => {
       syncPortalTheme();
     });
@@ -92,6 +90,23 @@ function NextDevToolsThemeBridge() {
  */
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
+  const isMobileViewport = useIsMobile();
+  const [isMobileToastTop] = useLocalStorage(MOBILE_TOAST_TOP_STORAGE_KEY, false);
+
+  const { mobileOffset, offset, position } = useMemo(() => {
+    if (isMobileToastTop && isMobileViewport) {
+      return {
+        mobileOffset: topToastOffset,
+        offset: topToastOffset,
+        position: "top-right" as const,
+      };
+    }
+    return {
+      mobileOffset: bottomToastOffset,
+      offset: bottomToastOffset,
+      position: "bottom-right" as const,
+    };
+  }, [isMobileToastTop, isMobileViewport]);
 
   useEffect(() => {
     const handleToastClickToDismiss = (event: MouseEvent) => {
@@ -131,9 +146,9 @@ function ThemedToaster() {
     <Toaster
       closeButton
       duration={3000}
-      mobileOffset={mobileToastViewportOffset}
-      offset={toastViewportOffset}
-      position="bottom-right"
+      mobileOffset={mobileOffset}
+      offset={offset}
+      position={position}
       richColors
       theme={resolvedTheme === "dark" ? "dark" : "light"}
       toastOptions={{
