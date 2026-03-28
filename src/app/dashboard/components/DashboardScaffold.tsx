@@ -1,5 +1,13 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+/** Shared dashboard width contract for the feed-linked token bar and list. */
+export const DASHBOARD_FEED_WIDTH_CLASS_NAME =
+  "mx-auto w-full max-w-3xl lg:max-w-none";
+
+/** Shared inner surface spacing for feed-linked dashboard content areas. */
+export const DASHBOARD_FEED_SURFACE_CLASS_NAME =
+  `${DASHBOARD_FEED_WIDTH_CLASS_NAME} min-w-0 px-2 lg:px-4`;
+
 interface DashboardFeedViewportProps {
   children: React.ReactNode;
 }
@@ -31,10 +39,10 @@ export function DashboardFeedViewport({
       "
     >
       <div
-        className="
-          mx-auto w-full max-w-3xl min-w-0 px-2 py-1
-          lg:max-w-none lg:px-4
-        "
+        className={`
+          ${DASHBOARD_FEED_SURFACE_CLASS_NAME}
+          py-1
+        `}
         data-dashboard-width-link="feed"
       >
         {children}

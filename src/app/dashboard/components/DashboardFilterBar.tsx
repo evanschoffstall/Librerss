@@ -10,6 +10,7 @@ import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
 } from "../services/article-filters";
+import { DASHBOARD_FEED_SURFACE_CLASS_NAME } from "./DashboardScaffold";
 import { MotionSpinner } from "./MotionSpinner";
 
 const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
@@ -43,10 +44,7 @@ export function DashboardFilterBarSkeleton() {
           "
         >
           <div
-            className="
-              mx-auto w-full max-w-3xl px-2
-              lg:max-w-none lg:px-4
-            "
+            className={DASHBOARD_FEED_SURFACE_CLASS_NAME}
             data-dashboard-filter-bar-surface="true"
           >
             <div
@@ -111,10 +109,7 @@ export const DashboardFilterBar = memo(function DashboardFilterBar({
           "
         >
           <div
-            className="
-              mx-auto w-full max-w-3xl px-2
-              lg:max-w-none lg:px-4
-            "
+            className={DASHBOARD_FEED_SURFACE_CLASS_NAME}
             data-dashboard-width-link="feed"
           >
             <div

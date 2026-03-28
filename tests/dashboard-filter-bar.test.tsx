@@ -2,7 +2,10 @@ import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
-import { DashboardFeedViewport } from "@/app/dashboard/components/DashboardScaffold";
+import {
+  DASHBOARD_FEED_SURFACE_CLASS_NAME,
+  DashboardFeedViewport,
+} from "@/app/dashboard/components/DashboardScaffold";
 
 describe("DashboardFilterBar", () => {
   test("shares the feed-width CSS contract with the article viewport", () => {
@@ -25,6 +28,15 @@ describe("DashboardFilterBar", () => {
     );
 
     expect(linkedWidthSurfaces).toHaveLength(2);
+
+    for (const surface of linkedWidthSurfaces) {
+      expect(surface.getAttribute("class") ?? "").toContain(
+        DASHBOARD_FEED_SURFACE_CLASS_NAME,
+      );
+      expect(surface.getAttribute("class") ?? "").not.toContain(
+        "lg:max-w-none",
+      );
+    }
   });
 
   test("shows the Motion spinner while the refresh label is skeletoning", () => {

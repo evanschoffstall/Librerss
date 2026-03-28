@@ -107,5 +107,11 @@ describe("DashboardShellSkeleton", () => {
     expect(sidebarSkeleton?.style.transform ?? "").not.toContain(
       "translateY",
     );
+    expect(feedListSkeleton?.className ?? "").toContain("max-w-3xl");
+    expect(feedListSkeleton?.className ?? "").toContain("lg:max-w-none");
+    expect(filterBarSkeletonSurface?.className ?? "").toContain("max-w-3xl");
+    expect(filterBarSkeletonSurface?.className ?? "").toContain(
+      "lg:max-w-none",
+    );
   });
 });
