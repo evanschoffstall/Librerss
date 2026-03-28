@@ -646,7 +646,7 @@ describe("article extract cleanup", () => {
     const response = await POST(
       new NextRequest("http://localhost/api/articles/extract", {
         body: JSON.stringify({
-          url: "https://science.nasa.gov/photojournal/jpl-3d-printed-part-springs-forward/",
+          url: "https://www.usgs.gov/news/state-news-release/media-alert-low-level-airplane-and-helicopter-flights-scan-geology-over",
         }),
         headers: { "content-type": "application/json" },
         method: "POST",

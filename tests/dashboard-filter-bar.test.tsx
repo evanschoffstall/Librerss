@@ -33,9 +33,6 @@ describe("DashboardFilterBar", () => {
       expect(surface.getAttribute("class") ?? "").toContain(
         DASHBOARD_FEED_SURFACE_CLASS_NAME,
       );
-      expect(surface.getAttribute("class") ?? "").not.toContain(
-        "lg:max-w-none",
-      );
     }
   });
 

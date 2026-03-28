@@ -7,6 +7,8 @@ import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, mock } from "bun:test";
 // Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
 import { Window } from "happy-dom";
+import * as realNextThemesModule from "next-themes";
+import * as realNextNavigationModule from "next/navigation";
 
 import * as realApiHttpModule from "@/lib/api/http";
 import * as realAuthSessionModule from "@/lib/auth/session";
@@ -15,6 +17,10 @@ import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
 import * as realFetchModule from "@/lib/fetch";
+import * as realUseIsMobileModule from "@/lib/hooks/useIsMobile";
+import * as realUseLocalStorageModule from "@/lib/hooks/useLocalStorage";
+import * as realUseSessionStateModule from "@/lib/hooks/useSessionState";
+import * as realUseWebStorageModule from "@/lib/hooks/useWebStorage";
 import * as realLoggerModule from "@/lib/logger";
 import * as realServerModule from "@/lib/server";
 import * as realServerServicesModule from "@/lib/server/services";
@@ -145,10 +151,16 @@ afterEach(() => {
     () => realFeedBatchHelpersModule,
   );
   mock.module("@/lib/fetch", () => realFetchModule);
+  mock.module("@/lib/hooks/useIsMobile", () => realUseIsMobileModule);
+  mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
+  mock.module("@/lib/hooks/useSessionState", () => realUseSessionStateModule);
+  mock.module("@/lib/hooks/useWebStorage", () => realUseWebStorageModule);
   mock.module("@/lib/logger", () => realLoggerModule);
   mock.module("@/lib/server", () => realServerModule);
   mock.module("@/lib/server/services", () => realServerServicesModule);
   mock.module("@/lib/utils/url", () => realUrlModule);
+  mock.module("next/navigation", () => realNextNavigationModule);
+  mock.module("next-themes", () => realNextThemesModule);
 });
 
 afterAll(() => {

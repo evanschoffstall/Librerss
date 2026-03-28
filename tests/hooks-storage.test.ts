@@ -1,10 +1,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { useDebugState } from "@/lib/hooks/useDebugState";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
-import { useSessionState } from "@/lib/hooks/useSessionState";
-import { useWebStorage } from "@/lib/hooks/useWebStorage";
+import { useDebugState } from "../src/lib/hooks/useDebugState";
+import { useLocalStorage } from "../src/lib/hooks/useLocalStorage";
+import { useSessionState } from "../src/lib/hooks/useSessionState";
+import { useWebStorage } from "../src/lib/hooks/useWebStorage";
 
 const originalLocalStorage = globalThis.localStorage;
 const originalSessionStorage = globalThis.sessionStorage;
@@ -145,7 +145,15 @@ describe("hooks/useWebStorage", () => {
 
 describe("hooks/useLocalStorage", () => {
   test("useLocalStorage delegates to useWebStorage with localStorage", async () => {
-    globalThis.localStorage = createMockStorage(JSON.stringify("test"));
+    const mockStorage = createMockStorage(JSON.stringify("test"));
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: mockStorage,
+    });
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: mockStorage,
+    });
 
     const { result } = renderHook(() => useLocalStorage("key", "default"));
 
@@ -159,7 +167,15 @@ describe("hooks/useLocalStorage", () => {
 
 describe("hooks/useSessionState", () => {
   test("useSessionState delegates to useWebStorage with sessionStorage", async () => {
-    globalThis.sessionStorage = createMockStorage(JSON.stringify(42));
+    const mockStorage = createMockStorage(JSON.stringify(42));
+    Object.defineProperty(globalThis, "sessionStorage", {
+      configurable: true,
+      value: mockStorage,
+    });
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: mockStorage,
+    });
 
     const { result } = renderHook(() => useSessionState("sessionKey", 0));
 
