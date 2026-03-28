@@ -198,7 +198,6 @@ const koffiRuntimeTracingGlob = resolvePackageTracingGlob("koffi/package.json");
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: resolveAllowedDevOrigins(),
-  devIndicators: false,
   distDir: process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim() || ".next",
   env: {
     LIBRERSS_BUILD_CONFIG: JSON.stringify(buildTimeServerConfig),
@@ -254,7 +253,7 @@ const nextConfig: NextConfig = {
     // header-generator loads its bayesian network definitions from zip files at
     // runtime via __dirname.  Next.js standalone file tracing does not discover
     // these data files automatically, so they must be explicitly included so the
-    // module can initialise correctly in production.
+    // module can initialize correctly in production.
     "/api/**": [
       "./node_modules/header-generator/data_files/**",
       "./node_modules/generative-bayesian-network/**",
