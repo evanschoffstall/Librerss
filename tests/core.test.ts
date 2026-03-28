@@ -1060,20 +1060,19 @@ describe("feed-batch-pipeline", () => {
       1,
       [11],
     );
-    expect(missingRowsResult).toBeUndefined();
+    expect(missingRowsResult).toEqual([]);
   });
 
-  test("queryTopArticlesPerFeed uses fair per-feed budget instead of global CTE limit", async () => {
+  test("queryTopArticlesPerFeed applies the requested filter before the global page limit", async () => {
     const { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } =
       await import("@/lib/core/article-preview");
     const { CONFIG } = await import("@/lib/config");
-    const { computePerFeedBudget, queryTopArticlesPerFeed } =
-      await importFeedBatchHelpers();
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
 
     const execute = mock(async (_query: unknown) => []);
     const db = { execute };
 
-    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11]);
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11], "unread");
 
     expect(execute).toHaveBeenCalledTimes(1);
 
@@ -1092,18 +1091,10 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).toContain(
       String(ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH),
     );
-    expect(serializedQuery).toContain("starred_candidates");
-    expect(serializedQuery).toContain("is_starred");
     expect(serializedQuery).toContain("selected_feed_ids");
-    expect(serializedQuery).toContain("UNION");
-
-    // The LATERAL uses the computed per-feed budget, not the raw config values
-    const expectedBudget = computePerFeedBudget(2);
-    expect(serializedQuery).toContain(String(expectedBudget));
-
-    // The global CTE-level LIMIT was removed — the per-feed LATERAL controls
-    // total output so every feed gets fair representation.
-    expect(expectedBudget).toBeLessThanOrEqual(CONFIG.MAX_ARTICLES_PER_FEED);
+    expect(serializedQuery).toContain("COALESCE(status.is_read, false) = false");
+    expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
+    expect(serializedQuery).not.toContain("starred_candidates");
   });
 
   test("executeParallelRefreshes surfaces persisted errors when refresh is skipped", async () => {

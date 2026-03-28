@@ -2,8 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import type { FeedRecord } from "../src/lib/core/feed-refresh";
 
-import { CONFIG } from "../src/lib/config";
-
 const loadPipelineModule = () => import("../src/lib/core/feed-batch-pipeline");
 
 test("buildRefreshPlan returns per-feed refresh decisions", async () => {
@@ -401,55 +399,3 @@ describe("mapRowsToArticleMap", () => {
   });
 });
 
-// ─── computePerFeedBudget ────────────────────────────────────────────────────
-
-describe("computePerFeedBudget", () => {
-  test("returns MAX_ARTICLES_PER_FEED for a single feed", async () => {
-    const { computePerFeedBudget } = await loadPipelineModule();
-
-    const budget = computePerFeedBudget(1);
-
-    expect(budget).toBe(CONFIG.MAX_ARTICLES_PER_FEED);
-  });
-
-  test("guarantees minimum allocation when many feeds divide below floor", async () => {
-    const { computePerFeedBudget } = await loadPipelineModule();
-
-    // With 500 / 100 feeds = 5, but floor is 20
-    const budget = computePerFeedBudget(100);
-
-    expect(budget).toBeGreaterThanOrEqual(20);
-  });
-
-  test("scales proportionally for moderate feed counts", async () => {
-    const { computePerFeedBudget } = await loadPipelineModule();
-
-    const budget = computePerFeedBudget(5);
-
-    expect(budget).toBe(
-      Math.min(
-        CONFIG.MAX_ARTICLES_PER_FEED,
-        Math.ceil(CONFIG.MAX_ALL_ARTICLES_LIMIT / 5),
-      ),
-    );
-  });
-
-  test("never exceeds MAX_ARTICLES_PER_FEED", async () => {
-    const { computePerFeedBudget } = await loadPipelineModule();
-
-    for (const feedCount of [1, 2, 3, 5, 10, 50]) {
-      expect(computePerFeedBudget(feedCount)).toBeLessThanOrEqual(
-        CONFIG.MAX_ARTICLES_PER_FEED,
-      );
-    }
-  });
-
-  test("every feed gets at least 20 articles regardless of feed count", async () => {
-    const { computePerFeedBudget } = await loadPipelineModule();
-
-    // Even with many feeds the per-feed budget must not drop below 20
-    for (const feedCount of [50, 100, 200]) {
-      expect(computePerFeedBudget(feedCount)).toBeGreaterThanOrEqual(20);
-    }
-  });
-});
