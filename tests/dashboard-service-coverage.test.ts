@@ -73,9 +73,15 @@ import {
   refreshCurrentSelection,
 } from "@/app/dashboard/services/selection";
 import {
+  clearCompatibilityResultsCache,
   formatElapsed,
+  hasConfiguredProxyStatus,
   isCompatibilityResultsCache,
+  normalizeCompatibilityResults,
   previewText,
+  readCompatibilityResultsCache,
+  toProxySettingsSnapshot,
+  writeCompatibilityResultsCache,
 } from "@/app/dashboard/services/settings-proxy";
 import {
   type Article,
@@ -1034,6 +1040,82 @@ describe("settings proxy services", () => {
     ).toBe(true);
     expect(isCompatibilityResultsCache(null)).toBe(false);
     expect(isCompatibilityResultsCache({ checkedAt: Date.now() })).toBe(false);
+    expect(
+      isCompatibilityResultsCache({
+        checkedAt: Date.now(),
+        results: [{ compatibilitySignalDetected: true, success: true }],
+      }),
+    ).toBe(false);
+
+    const storage = window.localStorage;
+    writeCompatibilityResultsCache(storage, {
+      checkedAt: 12,
+      results: normalizeCompatibilityResults([
+        {
+          compatibilitySignalDetected: true,
+          statusCode: 200,
+          success: true,
+          vendor: "Example CDN",
+        },
+      ]),
+    });
+    expect(readCompatibilityResultsCache(storage)).toEqual({
+      checkedAt: 12,
+      results: [
+        {
+          compatibilitySignalDetected: true,
+          statusCode: 200,
+          success: true,
+          vendor: "Example CDN",
+        },
+      ],
+    });
+
+    clearCompatibilityResultsCache(storage);
+    expect(readCompatibilityResultsCache(storage)).toBeNull();
+  });
+
+  test("normalizes persisted proxy settings into hook-friendly state", () => {
+    expect(
+      toProxySettingsSnapshot({
+        allowInsecureTls: true,
+        error: "Proxy responded slowly",
+        hasProxyPassword: true,
+        proxyUrl: "https://proxy.example.test",
+        proxyUsername: "alice",
+        status: "reachable",
+      }),
+    ).toEqual({
+      allowInsecureTls: true,
+      error: "Proxy responded slowly",
+      hasProxyPassword: true,
+      proxyStatus: "reachable",
+      proxyUrl: "https://proxy.example.test",
+      proxyUsername: "alice",
+    });
+
+    expect(
+      toProxySettingsSnapshot({
+        allowInsecureTls: false,
+        hasProxyPassword: false,
+        proxyUrl: null,
+        proxyUsername: null,
+        status: "unreachable",
+      }),
+    ).toEqual({
+      allowInsecureTls: false,
+      error: null,
+      hasProxyPassword: false,
+      proxyStatus: "none",
+      proxyUrl: "",
+      proxyUsername: "",
+    });
+
+    expect(hasConfiguredProxyStatus("checking")).toBe(true);
+    expect(hasConfiguredProxyStatus("reachable")).toBe(true);
+    expect(hasConfiguredProxyStatus("unreachable")).toBe(true);
+    expect(hasConfiguredProxyStatus("none")).toBe(false);
+    expect(hasConfiguredProxyStatus("loading")).toBe(false);
   });
 });
 

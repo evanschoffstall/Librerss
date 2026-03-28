@@ -1,15 +1,26 @@
 "use client";
 
-import { type RefObject, useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { ArticleService } from "@/lib";
 
 import {
-  COMPATIBILITY_RESULTS_CACHE_KEY,
+  clearCompatibilityResultsCache,
   type CompatibilityResult,
-  type CompatibilityResultsCache,
-  isCompatibilityResultsCache,
+  hasConfiguredProxyStatus,
+  normalizeCompatibilityResults,
+  type ProxySettingsSnapshot,
   type ProxyUIStatus,
+  readCompatibilityResultsCache,
+  toProxySettingsSnapshot,
+  writeCompatibilityResultsCache,
 } from "../services/settings-proxy";
 
 interface UseSettingsProxyStateResult {
@@ -32,26 +43,27 @@ interface UseSettingsProxyStateResult {
   proxyUsername: string;
   resultsRef: RefObject<HTMLDivElement | null>;
   saving: boolean;
-  setAllowInsecureTls: React.Dispatch<React.SetStateAction<boolean>>;
-  setError: React.Dispatch<React.SetStateAction<null | string>>;
-  setProxyPassword: React.Dispatch<React.SetStateAction<string>>;
-  setProxyUrl: React.Dispatch<React.SetStateAction<string>>;
-  setProxyUsername: React.Dispatch<React.SetStateAction<string>>;
+  setAllowInsecureTls: Dispatch<SetStateAction<boolean>>;
+  setError: Dispatch<SetStateAction<null | string>>;
+  setProxyPassword: Dispatch<SetStateAction<string>>;
+  setProxyUrl: Dispatch<SetStateAction<string>>;
+  setProxyUsername: Dispatch<SetStateAction<string>>;
   syncAllowInsecureTls: (checked: boolean) => Promise<void>;
 }
 
+/**
+ * Owns dashboard proxy settings state and rejects stale async completions when
+ * newer user intent supersedes an older load, save, clear, or check request.
+ */
 export function useSettingsProxyState(): UseSettingsProxyStateResult {
   const [proxyUrl, setProxyUrl] = useState("");
   const [proxyStatus, setProxyStatus] = useState<ProxyUIStatus>("loading");
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<null | string>(null);
   const [allowInsecureTls, setAllowInsecureTls] = useState(false);
   const [proxyUsername, setProxyUsername] = useState("");
   const [proxyPassword, setProxyPassword] = useState("");
   const [hasProxyPassword, setHasProxyPassword] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isRunningCompatibilityCheck, setIsRunningCompatibilityCheck] =
-    useState(false);
   const [compatibilityResults, setCompatibilityResults] =
     useState<CompatibilityResult[] | null>(null);
   const [compatibilityError, setCompatibilityError] =
@@ -61,39 +73,81 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
   const [nowTs, setNowTs] = useState(() => Date.now());
   const resultsRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollToResultsRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const latestProxyRequestIdRef = useRef(0);
+  const latestCompatibilityRequestIdRef = useRef(0);
+  const [activeProxyMutationRequestId, setActiveProxyMutationRequestId] =
+    useState<null | number>(null);
+  const [activeCompatibilityRequestId, setActiveCompatibilityRequestId] =
+    useState<null | number>(null);
+
+  const saving = activeProxyMutationRequestId !== null;
+  const isRunningCompatibilityCheck = activeCompatibilityRequestId !== null;
+
+  const applyProxySettings = (snapshot: ProxySettingsSnapshot) => {
+    applyProxySettingsSnapshot(
+      snapshot,
+      setAllowInsecureTls,
+      setError,
+      setHasProxyPassword,
+      setProxyStatus,
+      setProxyUrl,
+      setProxyUsername,
+    );
+  };
+
+  const startProxyRequest = () => {
+    const requestId = latestProxyRequestIdRef.current + 1;
+    latestProxyRequestIdRef.current = requestId;
+    return requestId;
+  };
+
+  const isCurrentProxyRequest = (requestId: number) =>
+    isMountedRef.current && latestProxyRequestIdRef.current === requestId;
+
+  const startCompatibilityRequest = () => {
+    const requestId = latestCompatibilityRequestIdRef.current + 1;
+    latestCompatibilityRequestIdRef.current = requestId;
+    return requestId;
+  };
+
+  const isCurrentCompatibilityRequest = (requestId: number) =>
+    isMountedRef.current && latestCompatibilityRequestIdRef.current === requestId;
 
   useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      latestProxyRequestIdRef.current += 1;
+      latestCompatibilityRequestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    const requestId = startProxyRequest();
+
     ArticleService.getProxySettings()
       .then((result) => {
-        setProxyUrl(result.proxyUrl ?? "");
-        setAllowInsecureTls(result.allowInsecureTls);
-        setProxyUsername(result.proxyUsername ?? "");
-        setHasProxyPassword(result.hasProxyPassword);
-        setProxyStatus(result.proxyUrl === null ? "none" : result.status);
-        if (result.error) setError(result.error);
+        if (!isCurrentProxyRequest(requestId)) {
+          return;
+        }
+
+        applyProxySettings(toProxySettingsSnapshot(result));
       })
       .catch(() => {
+        if (!isCurrentProxyRequest(requestId)) {
+          return;
+        }
+
         setProxyStatus("none");
       });
   }, []);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(COMPATIBILITY_RESULTS_CACHE_KEY);
-      if (!raw) return;
-      const parsed: unknown = JSON.parse(raw);
-      if (!isCompatibilityResultsCache(parsed)) return;
-      if (
-        typeof parsed.checkedAt !== "number" ||
-        !Array.isArray(parsed.results)
-      ) {
-        return;
-      }
-      setCompatibilityResults(parsed.results);
-      setCompatibilityCheckedAt(parsed.checkedAt);
-    } catch {
-      // ignore malformed cache
-    }
+    const cachedResults = readCompatibilityResultsCache(window.localStorage);
+    if (!cachedResults) return;
+
+    setCompatibilityResults(cachedResults.results);
+    setCompatibilityCheckedAt(cachedResults.checkedAt);
   }, []);
 
   useEffect(() => {
@@ -116,10 +170,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     });
   }, [compatibilityResults]);
 
-  const hasProxy =
-    proxyStatus === "reachable" ||
-    proxyStatus === "unreachable" ||
-    proxyStatus === "checking";
+  const hasProxy = hasConfiguredProxyStatus(proxyStatus);
 
   const clearCompatibilityResults = () => {
     setCompatibilityResults(null);
@@ -127,7 +178,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     setCompatibilityError(null);
     shouldAutoScrollToResultsRef.current = false;
     try {
-      window.localStorage.removeItem(COMPATIBILITY_RESULTS_CACHE_KEY);
+      clearCompatibilityResultsCache(window.localStorage);
     } catch {
       // ignore storage errors
     }
@@ -135,94 +186,147 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
 
   const handleSave = async () => {
     const trimmed = proxyUrl.trim();
+    const trimmedUsername = proxyUsername.trim() || null;
+    const nextProxyPassword = proxyPassword || null;
+
     if (!trimmed) return;
+
+    const requestId = startProxyRequest();
+
     clearCompatibilityResults();
-    setSaving(true);
+    setActiveProxyMutationRequestId(requestId);
     setError(null);
     setProxyStatus("checking");
+
     try {
       const result = await ArticleService.saveProxyUrl(trimmed, {
         allowInsecureTls,
-        proxyPassword: proxyPassword || null,
-        proxyUsername: proxyUsername.trim() || null,
+        proxyPassword: nextProxyPassword,
+        proxyUsername: trimmedUsername,
       });
-      setProxyUrl(result.proxyUrl ?? "");
-      setProxyUsername(result.proxyUsername ?? "");
-      setHasProxyPassword(result.hasProxyPassword);
-      if (proxyPassword) setProxyPassword("");
-      if (result.error) {
-        setError(result.error);
-        setProxyStatus("unreachable");
-      } else if (!result.proxyUrl) {
-        setProxyStatus("none");
-      } else {
-        setProxyStatus(result.status);
+
+      if (!isCurrentProxyRequest(requestId)) {
+        return;
+      }
+
+      applyProxySettings(toProxySettingsSnapshot(result));
+      if (nextProxyPassword) {
+        setProxyPassword("");
       }
     } catch (err) {
+      if (!isCurrentProxyRequest(requestId)) {
+        return;
+      }
+
       setError(err instanceof Error ? err.message : "Failed to save proxy URL");
       setProxyStatus("unreachable");
     } finally {
-      setSaving(false);
+      if (isCurrentProxyRequest(requestId)) {
+        setActiveProxyMutationRequestId(null);
+      }
     }
   };
 
   const handleClear = async () => {
+    const requestId = startProxyRequest();
+
     clearCompatibilityResults();
-    setSaving(true);
+    setActiveProxyMutationRequestId(requestId);
     setError(null);
+
     try {
-      await ArticleService.saveProxyUrl(null, {
+      const result = await ArticleService.saveProxyUrl(null, {
         proxyPassword: null,
         proxyUsername: null,
       });
-      setProxyUrl("");
-      setProxyUsername("");
+
+      if (!isCurrentProxyRequest(requestId)) {
+        return;
+      }
+
+      applyProxySettings(toProxySettingsSnapshot(result));
       setProxyPassword("");
-      setHasProxyPassword(false);
-      setProxyStatus("none");
     } catch (err) {
+      if (!isCurrentProxyRequest(requestId)) {
+        return;
+      }
+
       setError(err instanceof Error ? err.message : "Failed to clear proxy URL");
     } finally {
-      setSaving(false);
+      if (isCurrentProxyRequest(requestId)) {
+        setActiveProxyMutationRequestId(null);
+      }
     }
   };
 
   const handleRunCompatibilityCheck = async () => {
-    setIsRunningCompatibilityCheck(true);
+    const requestId = startCompatibilityRequest();
+
+    setActiveCompatibilityRequestId(requestId);
     setCompatibilityError(null);
     setError(null);
+
     try {
       const response = await ArticleService.runProxyCompatibilityCheck({
         useProxy: hasProxy,
       });
+
+      if (!isCurrentCompatibilityRequest(requestId)) {
+        return;
+      }
+
+      const results = normalizeCompatibilityResults(response.results);
       shouldAutoScrollToResultsRef.current = true;
-      setCompatibilityResults(response.results);
+      setCompatibilityResults(results);
       const checkedAt = Date.now();
       setCompatibilityCheckedAt(checkedAt);
-      window.localStorage.setItem(
-        COMPATIBILITY_RESULTS_CACHE_KEY,
-        JSON.stringify({
-          checkedAt,
-          results: response.results,
-        } satisfies CompatibilityResultsCache),
-      );
+      writeCompatibilityResultsCache(window.localStorage, {
+        checkedAt,
+        results,
+      });
     } catch (err) {
+      if (!isCurrentCompatibilityRequest(requestId)) {
+        return;
+      }
+
       setCompatibilityError(err instanceof Error ? err.message : "Check failed");
     } finally {
-      setIsRunningCompatibilityCheck(false);
+      if (isCurrentCompatibilityRequest(requestId)) {
+        setActiveCompatibilityRequestId(null);
+      }
     }
   };
 
   const syncAllowInsecureTls = async (checked: boolean) => {
     const currentUrl = proxyUrl.trim();
+
     if (!currentUrl) return;
+
+    const requestId = startProxyRequest();
+
+    setActiveProxyMutationRequestId(requestId);
     setAllowInsecureTls(checked);
+
     try {
-      await ArticleService.saveProxyUrl(currentUrl, {
+      const result = await ArticleService.saveProxyUrl(currentUrl, {
         allowInsecureTls: checked,
       });
+
+      if (!isCurrentProxyRequest(requestId)) {
+        return;
+      }
+
+      applyProxySettings(toProxySettingsSnapshot(result));
     } catch {
+      if (!isCurrentProxyRequest(requestId)) {
+        return;
+      }
+
       setAllowInsecureTls(!checked);
+    } finally {
+      if (isCurrentProxyRequest(requestId)) {
+        setActiveProxyMutationRequestId(null);
+      }
     }
   };
 
@@ -253,4 +357,22 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     setProxyUsername,
     syncAllowInsecureTls,
   };
+}
+
+/** Applies one normalized proxy snapshot onto the hook's writable state. */
+function applyProxySettingsSnapshot(
+  snapshot: ProxySettingsSnapshot,
+  setAllowInsecureTls: Dispatch<SetStateAction<boolean>>,
+  setError: Dispatch<SetStateAction<null | string>>,
+  setHasProxyPassword: Dispatch<SetStateAction<boolean>>,
+  setProxyStatus: Dispatch<SetStateAction<ProxyUIStatus>>,
+  setProxyUrl: Dispatch<SetStateAction<string>>,
+  setProxyUsername: Dispatch<SetStateAction<string>>,
+) {
+  setProxyUrl(snapshot.proxyUrl);
+  setAllowInsecureTls(snapshot.allowInsecureTls);
+  setProxyUsername(snapshot.proxyUsername);
+  setHasProxyPassword(snapshot.hasProxyPassword);
+  setProxyStatus(snapshot.proxyStatus);
+  setError(snapshot.error);
 }

@@ -15,9 +15,14 @@ import {
 } from "@/app/dashboard/preview-mode";
 import { dedupeAndSortArticles, getArticleKey } from "@/app/dashboard/services/article-collection";
 import {
+  clearCompatibilityResultsCache,
+  COMPATIBILITY_RESULTS_CACHE_KEY,
   formatElapsed,
   isCompatibilityResultsCache,
+  normalizeCompatibilityResults,
   previewText,
+  readCompatibilityResultsCache,
+  writeCompatibilityResultsCache,
 } from "@/app/dashboard/services/settings-proxy";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib";
 
@@ -47,9 +52,48 @@ describe("dashboard settings small coverage", () => {
     expect(
       isCompatibilityResultsCache({ checkedAt: Date.now(), results: [] }),
     ).toBe(true);
+    expect(
+      isCompatibilityResultsCache({
+        checkedAt: Date.now(),
+        results: [{ success: true, vendor: "ok" }],
+      }),
+    ).toBe(false);
     expect(isCompatibilityResultsCache(null)).toBe(false);
     expect(previewText("short text", 20)).toBe("short text");
     expect(previewText("x".repeat(12), 5)).toBe("xxxxx...");
+
+    const storage = window.localStorage;
+    writeCompatibilityResultsCache(storage, {
+      checkedAt: 123,
+      results: normalizeCompatibilityResults([
+        {
+          compatibilitySignalDetected: true,
+          error: "warn",
+          statusCode: 204,
+          success: true,
+          vendor: "Cache Vendor",
+        },
+      ]),
+    });
+
+    expect(readCompatibilityResultsCache(storage)).toEqual({
+      checkedAt: 123,
+      results: [
+        {
+          compatibilitySignalDetected: true,
+          error: "warn",
+          statusCode: 204,
+          success: true,
+          vendor: "Cache Vendor",
+        },
+      ],
+    });
+
+    storage.setItem(COMPATIBILITY_RESULTS_CACHE_KEY, "{bad json");
+    expect(readCompatibilityResultsCache(storage)).toBeNull();
+
+    clearCompatibilityResultsCache(storage);
+    expect(storage.getItem(COMPATIBILITY_RESULTS_CACHE_KEY)).toBeNull();
   });
 
   test("resolves preview mode and persists the preview cookie", () => {

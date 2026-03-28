@@ -5,42 +5,87 @@ import { useSettingsProxyState } from "@/app/dashboard/hooks/useSettingsProxySta
 import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/services/settings-proxy";
 import { ArticleService } from "@/lib";
 
+type ProxyCompatibilityResponse = Awaited<
+  ReturnType<typeof ArticleService.runProxyCompatibilityCheck>
+>;
+type ProxySettingsResponse = Awaited<ReturnType<typeof ArticleService.getProxySettings>>;
+
 const originalGetProxySettings = ArticleService.getProxySettings;
 const originalRunProxyCompatibilityCheck =
   ArticleService.runProxyCompatibilityCheck;
 const originalSaveProxyUrl = ArticleService.saveProxyUrl;
 const originalConsoleError = console.error;
 
+function createDeferred<Value>() {
+  let reject!: (reason?: unknown) => void;
+  let resolve!: (value: PromiseLike<Value> | Value) => void;
+
+  const promise = new Promise<Value>((nextResolve, nextReject) => {
+    reject = nextReject;
+    resolve = nextResolve;
+  });
+
+  return { promise, reject, resolve };
+}
+
+function makeCompatibilityResponse(
+  overrides: Partial<ProxyCompatibilityResponse["results"][number]> = {},
+): ProxyCompatibilityResponse {
+  return {
+    results: [
+      {
+        compatibilitySignalDetected: true,
+        site: "Example",
+        statusCode: 200,
+        success: true,
+        url: "https://example.com",
+        vendor: "Example CDN",
+        ...overrides,
+      },
+    ],
+  };
+}
+
+function makeProxySettings(
+  overrides: Partial<ProxySettingsResponse> = {},
+): ProxySettingsResponse {
+  const proxyUrl = overrides.proxyUrl ?? null;
+
+  return {
+    allowInsecureTls: false,
+    configured: proxyUrl !== null,
+    error: undefined,
+    hasProxyPassword: false,
+    proxyUrl,
+    proxyUsername: null,
+    status: "unreachable",
+    ...overrides,
+  };
+}
+
 describe("useSettingsProxyState", () => {
   beforeEach(() => {
     mock.restore();
     window.localStorage.clear();
-    ArticleService.getProxySettings = mock(async () => ({
-      allowInsecureTls: false,
-      error: null,
-      hasProxyPassword: false,
-      proxyUrl: null,
-      proxyUsername: null,
-      status: "none",
-    })) as typeof ArticleService.getProxySettings;
-    ArticleService.saveProxyUrl = mock(async (proxyUrl: null | string) => ({
-      allowInsecureTls: false,
-      error: null,
-      hasProxyPassword: proxyUrl !== null,
-      proxyUrl,
-      proxyUsername: null,
-      status: proxyUrl ? "reachable" : "none",
-    })) as typeof ArticleService.saveProxyUrl;
-    ArticleService.runProxyCompatibilityCheck = mock(async () => ({
-      results: [
-        {
-          compatibilitySignalDetected: true,
-          statusCode: 200,
-          success: true,
-          vendor: "Example CDN",
-        },
-      ],
-    })) as typeof ArticleService.runProxyCompatibilityCheck;
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings(),
+    ) as typeof ArticleService.getProxySettings;
+    ArticleService.saveProxyUrl = mock(async (proxyUrl: null | string, options) =>
+      makeProxySettings({
+        allowInsecureTls: options?.allowInsecureTls ?? false,
+        configured: proxyUrl !== null,
+        hasProxyPassword:
+          options?.proxyPassword === undefined
+            ? proxyUrl !== null
+            : options.proxyPassword !== null,
+        proxyUrl,
+        proxyUsername: options?.proxyUsername ?? null,
+        status: proxyUrl ? "reachable" : "unreachable",
+      }),
+    ) as typeof ArticleService.saveProxyUrl;
+    ArticleService.runProxyCompatibilityCheck = mock(async () =>
+      makeCompatibilityResponse(),
+    ) as typeof ArticleService.runProxyCompatibilityCheck;
     console.error = (() => {}) as typeof console.error;
   });
 
@@ -71,14 +116,17 @@ describe("useSettingsProxyState", () => {
         ],
       }),
     );
-    ArticleService.getProxySettings = mock(async () => ({
-      allowInsecureTls: true,
-      error: "Proxy responded slowly",
-      hasProxyPassword: true,
-      proxyUrl: "https://proxy.example.test",
-      proxyUsername: "alice",
-      status: "reachable",
-    })) as typeof ArticleService.getProxySettings;
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        allowInsecureTls: true,
+        configured: true,
+        error: "Proxy responded slowly",
+        hasProxyPassword: true,
+        proxyUrl: "https://proxy.example.test",
+        proxyUsername: "alice",
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
 
     const { result } = renderHook(() => useSettingsProxyState());
 
@@ -122,19 +170,60 @@ describe("useSettingsProxyState", () => {
     expect(result.current.compatibilityCheckedAt).toBeNull();
   });
 
+  test("ignores a stale initial settings load after a newer save succeeds", async () => {
+    const initialLoad = createDeferred<ProxySettingsResponse>();
+
+    ArticleService.getProxySettings = mock(
+      async () => initialLoad.promise,
+    ) as typeof ArticleService.getProxySettings;
+
+    const { result } = renderHook(() => useSettingsProxyState());
+
+    await act(async () => {
+      result.current.setProxyUrl("https://fresh-proxy.example.test");
+      result.current.setProxyUsername("new-user");
+    });
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.proxyUrl).toBe("https://fresh-proxy.example.test");
+    expect(result.current.proxyUsername).toBe("new-user");
+    expect(result.current.proxyStatus).toBe("reachable");
+
+    await act(async () => {
+      initialLoad.resolve(
+        makeProxySettings({
+          configured: true,
+          proxyUrl: "https://stale-proxy.example.test",
+          proxyUsername: "stale-user",
+          status: "reachable",
+        }),
+      );
+      await initialLoad.promise;
+    });
+
+    expect(result.current.proxyUrl).toBe("https://fresh-proxy.example.test");
+    expect(result.current.proxyUsername).toBe("new-user");
+    expect(result.current.proxyStatus).toBe("reachable");
+  });
+
   test("saves a trimmed proxy URL, clears cached compatibility results, and resets the password field", async () => {
     window.localStorage.setItem(
       COMPATIBILITY_RESULTS_CACHE_KEY,
       JSON.stringify({ checkedAt: 1, results: [{ compatibilitySignalDetected: false, success: true, vendor: "Old" }] }),
     );
-    ArticleService.saveProxyUrl = mock(async (proxyUrl, options) => ({
-      allowInsecureTls: options?.allowInsecureTls ?? false,
-      error: null,
-      hasProxyPassword: true,
-      proxyUrl,
-      proxyUsername: options?.proxyUsername ?? null,
-      status: "reachable",
-    })) as typeof ArticleService.saveProxyUrl;
+    ArticleService.saveProxyUrl = mock(async (proxyUrl, options) =>
+      makeProxySettings({
+        allowInsecureTls: options?.allowInsecureTls ?? false,
+        configured: proxyUrl !== null,
+        hasProxyPassword: true,
+        proxyUrl,
+        proxyUsername: options?.proxyUsername ?? null,
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.saveProxyUrl;
 
     const { result } = renderHook(() => useSettingsProxyState());
 
@@ -173,14 +262,15 @@ describe("useSettingsProxyState", () => {
   });
 
   test("clears saved proxy settings and exposes clear errors without losing the current value", async () => {
-    ArticleService.getProxySettings = mock(async () => ({
-      allowInsecureTls: false,
-      error: null,
-      hasProxyPassword: true,
-      proxyUrl: "https://proxy.example.test",
-      proxyUsername: "carol",
-      status: "reachable",
-    })) as typeof ArticleService.getProxySettings;
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        configured: true,
+        hasProxyPassword: true,
+        proxyUrl: "https://proxy.example.test",
+        proxyUsername: "carol",
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
 
     const { rerender, result } = renderHook(() => useSettingsProxyState());
 
@@ -201,14 +291,15 @@ describe("useSettingsProxyState", () => {
     expect(result.current.hasProxyPassword).toBe(false);
     expect(result.current.proxyStatus).toBe("none");
 
-    ArticleService.getProxySettings = mock(async () => ({
-      allowInsecureTls: false,
-      error: null,
-      hasProxyPassword: false,
-      proxyUrl: "https://proxy.example.test",
-      proxyUsername: "carol",
-      status: "reachable",
-    })) as typeof ArticleService.getProxySettings;
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        configured: true,
+        hasProxyPassword: false,
+        proxyUrl: "https://proxy.example.test",
+        proxyUsername: "carol",
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
     ArticleService.saveProxyUrl = mock(async () => {
       throw new Error("Failed to clear proxy URL");
     }) as typeof ArticleService.saveProxyUrl;
@@ -275,15 +366,80 @@ describe("useSettingsProxyState", () => {
     expect(result.current.isRunningCompatibilityCheck).toBe(false);
   });
 
+  test("keeps the newest compatibility results when checks finish out of order", async () => {
+    const firstCheck = createDeferred<ProxyCompatibilityResponse>();
+    const secondCheck = createDeferred<ProxyCompatibilityResponse>();
+    let invocationCount = 0;
+
+    ArticleService.runProxyCompatibilityCheck = mock(async () => {
+      invocationCount += 1;
+      return invocationCount === 1 ? firstCheck.promise : secondCheck.promise;
+    }) as typeof ArticleService.runProxyCompatibilityCheck;
+
+    const { result } = renderHook(() => useSettingsProxyState());
+
+    await waitFor(() => {
+      expect(result.current.proxyStatus).toBe("none");
+    });
+
+    let firstRequest!: Promise<void>;
+    let secondRequest!: Promise<void>;
+
+    act(() => {
+      firstRequest = result.current.handleRunCompatibilityCheck();
+      secondRequest = result.current.handleRunCompatibilityCheck();
+    });
+
+    await act(async () => {
+      secondCheck.resolve(
+        makeCompatibilityResponse({
+          statusCode: 202,
+          vendor: "Second CDN",
+        }),
+      );
+      await secondRequest;
+    });
+
+    expect(result.current.compatibilityResults).toEqual([
+      {
+        compatibilitySignalDetected: true,
+        statusCode: 202,
+        success: true,
+        vendor: "Second CDN",
+      },
+    ]);
+
+    await act(async () => {
+      firstCheck.resolve(
+        makeCompatibilityResponse({
+          statusCode: 409,
+          vendor: "First CDN",
+        }),
+      );
+      await firstRequest;
+    });
+
+    expect(result.current.compatibilityResults).toEqual([
+      {
+        compatibilitySignalDetected: true,
+        statusCode: 202,
+        success: true,
+        vendor: "Second CDN",
+      },
+    ]);
+    expect(result.current.isRunningCompatibilityCheck).toBe(false);
+  });
+
   test("persists insecure TLS updates for saved proxies and rolls back failed saves", async () => {
-    ArticleService.getProxySettings = mock(async () => ({
-      allowInsecureTls: false,
-      error: null,
-      hasProxyPassword: false,
-      proxyUrl: "https://proxy.example.test",
-      proxyUsername: null,
-      status: "reachable",
-    })) as typeof ArticleService.getProxySettings;
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        configured: true,
+        hasProxyPassword: false,
+        proxyUrl: "https://proxy.example.test",
+        proxyUsername: null,
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
 
     const { result } = renderHook(() => useSettingsProxyState());
 
