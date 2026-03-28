@@ -163,6 +163,7 @@ export const ArticleCard = memo(function ArticleCard({
   const pressStartPos = useRef<null | { x: number; y: number }>(null);
   const pressPointerIdRef = useRef<null | number>(null);
   const pressMovedRef = useRef(false);
+  const ignoreNextClickRef = useRef(false);
   const afterSwipeRef = useRef(0);
   const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
@@ -439,6 +440,12 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const toggleExpanded = (e: React.MouseEvent) => {
+    if (ignoreNextClickRef.current) {
+      ignoreNextClickRef.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (isInteractiveControlTarget(e.target)) {
       pressPointerIdRef.current = null;
       pressStartPos.current = null;
@@ -494,6 +501,7 @@ export const ArticleCard = memo(function ArticleCard({
       return;
     }
     if (event.key !== "Enter" && event.key !== " ") return;
+    ignoreNextClickRef.current = true;
     event.preventDefault();
     if (!isExpanded) {
       onPrepareExpand?.(article);
