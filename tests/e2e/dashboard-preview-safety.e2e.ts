@@ -61,20 +61,20 @@ test.describe("dashboard preview safety", () => {
     await expectDashboardLogin(page);
   });
 
-  test("reset app state clears local browser storage without persisting preview mode", async ({
+  test("reset app state clears local browser storage and reloads the active preview URL", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page, "/dashboard?preview=1");
     await seedClientStateSentinel(page, "reset-me");
 
     await page.getByRole("button", { name: "Reset app state" }).click();
-    await expectDashboardLogin(page);
+    await expectPreviewDashboard(page);
 
     const previewPersistence = await readPreviewPersistence(page);
     const storageSentinel = await readClientStateSentinel(page);
 
-    expect(previewPersistence.previewCookieValue).toBeNull();
-    expect(previewPersistence.previewStorageValue).toBeNull();
+    expect(previewPersistence.previewCookieValue).toBe("1");
+    expect(previewPersistence.previewStorageValue).toBe("true");
     expect(storageSentinel.localStorageValue).toBeNull();
     expect(storageSentinel.sessionStorageValue).toBeNull();
   });

@@ -2,6 +2,7 @@ import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
+import { DASHBOARD_PREVIEW_STORAGE_KEY } from "@/app/dashboard/constants";
 import { AuthService } from "@/lib";
 
 
@@ -58,6 +59,14 @@ describe("dashboard preview mode", () => {
       throw new Error("preview mode should not fetch session");
     });
     AuthService.getSession = getSession;
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: window.localStorage,
+    });
+    window.localStorage.setItem(
+      DASHBOARD_PREVIEW_STORAGE_KEY,
+      JSON.stringify(true),
+    );
 
     mock.module("next-themes", () => ({
       ThemeProvider: MockThemeProvider,

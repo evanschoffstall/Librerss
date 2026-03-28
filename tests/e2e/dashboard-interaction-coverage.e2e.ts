@@ -4,7 +4,7 @@ import {
     articleCard,
     articleCardByKey,
     expectArticleExpanded,
-  expectDashboardLogin,
+  expectPreviewDashboard,
     gotoPreviewDashboard,
     hasLoadMoreSentinel,
     openDashboardSettings,
@@ -543,7 +543,7 @@ test.describe("dashboard interaction coverage", () => {
     ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Reset app state" }).click();
-    await expectDashboardLogin(page);
+    await expectPreviewDashboard(page);
   });
 
   test("keeps mixed unread button-read and swipe-read removals moving sibling rows upward", async ({

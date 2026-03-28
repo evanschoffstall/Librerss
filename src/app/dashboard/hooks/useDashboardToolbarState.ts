@@ -188,7 +188,7 @@ export function useDashboardToolbarState() {
     setIsResetting(true);
     try {
       await clearClientOriginState();
-      window.location.assign("/dashboard");
+      window.location.reload();
     } catch {
       toast.error("Unable to reset app state.");
       setIsResetting(false);
