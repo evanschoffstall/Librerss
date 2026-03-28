@@ -1,15 +1,14 @@
 import type { Article } from "@/lib";
 
+import {
+  ARTICLE_FILTERS,
+  type ArticleFilter,
+} from "@/lib/core/article-filters";
+
 import { getArticleKey } from "./article-collection";
 
-export const ARTICLE_FILTER_OPTIONS = [
-  "all",
-  "unread",
-  "read",
-  "starred",
-] as const;
-
-export type ArticleFilter = (typeof ARTICLE_FILTER_OPTIONS)[number];
+export const ARTICLE_FILTER_OPTIONS = ARTICLE_FILTERS;
+export type { ArticleFilter };
 
 export function filterArticlesByState(
   articles: Article[],

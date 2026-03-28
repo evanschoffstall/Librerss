@@ -1,9 +1,11 @@
 import type { CategoryTreeNode } from "@/lib";
+import type { ArticleFilter } from "@/lib/core/article-filters";
 
 import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL } from "../constants";
 import { findFeedNodeByKey } from "./category-tree";
 
 export interface FeedFetchOptions {
+  articleFilter?: ArticleFilter;
   forceRefresh?: boolean;
   keepExistingFeed?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
