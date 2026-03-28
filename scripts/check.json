@@ -275,6 +275,7 @@
       "key": "junit",
       "enabled": true,
       "label": "junit",
+      "allowSuiteFlagArgs": true,
       "serialGroup": "coverage-tests",
       "tokens": {
         "lineCoverageThreshold": 85,

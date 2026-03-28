@@ -34,6 +34,8 @@ interface OutputFilter {
 }
 
 interface StepConfig {
+  /** Allows `bun check --step ...args` to run the selected step directly. */
+  allowSuiteFlagArgs?: boolean;
   args?: string[];
   cmd?: string;
   config?: InlineTypeScriptConfig | LintConfig | Record<string, unknown>;
@@ -1288,14 +1290,43 @@ export function parseCliArguments(argv: string[]): CliArguments {
     };
   }
 
+  const suiteArguments = argv.slice(2);
+  const passthroughSeparatorIndex = suiteArguments.indexOf("--");
+  const suiteSelectionArguments =
+    passthroughSeparatorIndex >= 0
+      ? suiteArguments.slice(0, passthroughSeparatorIndex)
+      : suiteArguments;
+  const explicitSuiteStepArgs =
+    passthroughSeparatorIndex >= 0
+      ? suiteArguments.slice(passthroughSeparatorIndex + 1)
+      : [];
   const runnableSuiteStepKeys = getRunnableSuiteStepKeys();
-  const suiteFlags = argv
-    .slice(2)
+  const suiteFlags = suiteSelectionArguments
     .filter((argument) => argument.startsWith("--"))
     .map((argument) => argument.slice(2));
+  const suiteStepArgs = suiteSelectionArguments.filter(
+    (argument) => !argument.startsWith("--"),
+  );
   const invalidSuiteFlags = suiteFlags.filter(
     (flag) => !runnableSuiteStepKeys.has(flag),
   );
+
+  if (invalidSuiteFlags.length === 0 && suiteFlags.length === 1) {
+    const selectedStep = CFG.steps.find(
+      (step) => step.key === suiteFlags[0] && step.enabled !== false,
+    );
+    const directStepArgs = [...suiteStepArgs, ...explicitSuiteStepArgs];
+
+    if (selectedStep?.allowSuiteFlagArgs && directStepArgs.length > 0) {
+      return {
+        command: "run-suite",
+        directStep: selectedStep,
+        directStepArgs,
+        invalidSuiteFlags: [],
+        keyFilter: null,
+      };
+    }
+  }
 
   return {
     command: "run-suite",
