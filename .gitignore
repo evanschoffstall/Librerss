@@ -8,13 +8,7 @@
 !/.yarn/versions
 /node_modules/
 .pnp.js
-bun.lock
-bun.lockb
 npm-shrinkwrap.json
-package-lock.json
-pnpm-lock.json
-pnpm-lock.yaml
-yarn.lock
 
 # local environment
 .env.development.local
