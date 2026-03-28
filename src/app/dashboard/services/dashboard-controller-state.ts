@@ -3,7 +3,10 @@ import type React from "react";
 import { type Article, type CategoryTreeNode } from "@/lib";
 
 import { type BackgroundMode } from "../constants";
-import { type CollapsingArticles } from "../hooks/useArticleCollapseState";
+import {
+  type ArticleViewportSnapshot,
+  type CollapsingArticles,
+} from "../hooks/useArticleCollapseState";
 import { type ArticleFilter } from "./article-filters";
 
 export interface DashboardControllerState<
@@ -23,6 +26,7 @@ export interface DashboardFeedListState {
   expandedArticleKey: null | string;
   feedViewKey: string;
   filteredFeed: Article[];
+  getPreExpandViewportSnapshot?: (articleKey: string) => ArticleViewportSnapshot | null;
   hasConfiguredFeeds: boolean;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;

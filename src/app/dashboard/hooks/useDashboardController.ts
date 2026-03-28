@@ -183,6 +183,7 @@ export function useDashboardController({
   const {
     capturePreExpandSnapshot,
     collapsingArticles,
+    getPreExpandViewportSnapshot,
     handleArticleToggle,
     handleExpandedSwipeRead,
     handleMarkArticlesRead,
@@ -463,6 +464,7 @@ export function useDashboardController({
           expandedArticleKey,
           feedViewKey: articleCallbacks.feedViewKey,
           filteredFeed,
+          getPreExpandViewportSnapshot,
           hasConfiguredFeeds: getAllFeedNodes(categories).length > 0,
           hydratedArticleLinks,
           hydratingArticleLinks,
@@ -531,6 +533,7 @@ export function useDashboardController({
       distillStrategy,
       expandedArticleKey,
       filteredFeed,
+      getPreExpandViewportSnapshot,
       hydratedArticleLinks,
       hydratingArticleLinks,
       isCollapseScrollRestoreActive,

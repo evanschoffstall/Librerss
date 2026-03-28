@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Article } from "@/lib";
 
+import { DASHBOARD_EVENTS } from "../constants";
 import { getArticleKey } from "../services/article-collection";
 import { escapeArticleKey } from "./useArticleHydration";
 
@@ -12,12 +13,21 @@ import { escapeArticleKey } from "./useArticleHydration";
  */
 export const ARTICLE_REMOVAL_ANIMATION_MS = 180;
 export const ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS = 130;
-const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 1200;
+export const ARTICLE_SCROLL_RESTORE_BUFFER_MS = 1200;
 
 export type ArticleRemovalAnimationMode =
   | "collapse"
   | "de-expanding"
   | "swipe-read";
+
+export interface ArticleViewportSnapshot {
+  articleBottomOffsetTop: number;
+  articleHeaderViewportOffsetTop: number;
+  articleKey: string;
+  articleViewportOffsetTop: number;
+  viewport: HTMLElement;
+  viewportScrollTop: number;
+}
 
 export type CollapsingArticles = Partial<Record<string, CollapsingArticleState>>;
 
@@ -25,14 +35,6 @@ export interface CollapsingArticleState {
   article: Article;
   index: number;
   mode: ArticleRemovalAnimationMode;
-}
-
-interface ArticleViewportSnapshot {
-  articleBottomOffsetTop: number;
-  articleKey: string;
-  articleViewportOffsetTop: number;
-  viewport: HTMLElement;
-  viewportScrollTop: number;
 }
 
 interface CollapseRestoreLayoutObserverOptions {
@@ -89,6 +91,12 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     articleViewportSnapshotRef.current = null;
   }, []);
 
+  const getPreExpandViewportSnapshot = useCallback((articleKey: string) => {
+    return articleViewportSnapshotRef.current?.articleKey === articleKey
+      ? articleViewportSnapshotRef.current
+      : null;
+  }, []);
+
   const cancelCollapseScrollRestore = useCallback(() => {
     collapseScrollRestoreCleanupRef.current?.();
     collapseScrollRestoreCleanupRef.current = null;
@@ -110,6 +118,11 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     return {
       articleBottomOffsetTop: getViewportOffsetTop(articleElement, viewport) +
         articleElement.getBoundingClientRect().height,
+      articleHeaderViewportOffsetTop: getViewportOffsetTop(
+        articleElement.querySelector<HTMLElement>("[data-article-swipe-zone='header']") ??
+          articleElement,
+        viewport,
+      ),
       articleKey,
       articleViewportOffsetTop: getViewportOffsetTop(articleElement, viewport),
       viewport,
@@ -119,7 +132,14 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
 
   const capturePreExpandSnapshot = useCallback((article: Article) => {
     const articleKey = getArticleKey(article);
-    articleViewportSnapshotRef.current = captureArticleViewportSnapshot(articleKey);
+    const snapshot = captureArticleViewportSnapshot(articleKey);
+
+    articleViewportSnapshotRef.current = snapshot;
+    snapshot?.viewport.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_PREPARED, {
+        detail: { articleKey },
+      }),
+    );
   }, [captureArticleViewportSnapshot]);
 
   const restoreCollapseScrollPosition = useCallback(
@@ -315,6 +335,7 @@ export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions
     capturePreExpandSnapshot,
     clearRemovalAnimation,
     collapsingArticles,
+    getPreExpandViewportSnapshot,
     isCollapseScrollRestoreActive,
     restoreCollapseScrollPosition,
     startRemovalAnimation,

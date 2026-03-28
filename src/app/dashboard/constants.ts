@@ -14,7 +14,10 @@ export const SETTINGS_PANEL_TAB_STORAGE_KEY = "librerss:settings-panel-tab";
 
 /** Canonical event names for the dashboard window event bus. */
 export const DASHBOARD_EVENTS = {
+  ARTICLE_COLLAPSE_SETTLED: "dashboard:article-collapse-settled",
+  ARTICLE_EXPAND_PREPARED: "dashboard:article-expand-prepared",
   ARTICLE_EXPAND_SETTLED: "dashboard:article-expand-settled",
+  ARTICLE_READ_TOGGLE_START: "dashboard:article-read-toggle-start",
   ENTER_PREVIEW: "dashboard:enter-preview",
   MARK_ALL_READ: "dashboard:mark-all-read",
   MARK_ALL_READ_END: "dashboard:mark-all-read-end",

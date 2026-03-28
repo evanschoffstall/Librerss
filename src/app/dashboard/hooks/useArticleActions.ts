@@ -75,6 +75,7 @@ export function useArticleActions({
     capturePreExpandSnapshot,
     clearRemovalAnimation,
     collapsingArticles,
+    getPreExpandViewportSnapshot,
     isCollapseScrollRestoreActive,
     restoreCollapseScrollPosition,
     startRemovalAnimation,
@@ -347,6 +348,7 @@ export function useArticleActions({
   return {
     capturePreExpandSnapshot,
     collapsingArticles,
+    getPreExpandViewportSnapshot,
     handleArticleToggle,
     handleExpandedSwipeRead,
     handleMarkArticlesRead,
