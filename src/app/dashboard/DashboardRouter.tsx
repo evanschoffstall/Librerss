@@ -58,7 +58,7 @@ export function DashboardRouter({
   );
   const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
     DASHBOARD_PREVIEW_STORAGE_KEY,
-    false,
+    initialPreviewMode,
   );
   const { resolvedTheme } = useTheme();
   const [backgroundMode, setBackgroundMode] = useLocalStorage<BackgroundMode>(

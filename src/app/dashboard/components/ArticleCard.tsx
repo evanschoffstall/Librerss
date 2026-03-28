@@ -186,7 +186,21 @@ export const ArticleCard = memo(function ArticleCard({
       articleRef.current
     ) {
       articleRef.current.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
+        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED, {
+          bubbles: true,
+        }),
+      );
+    }
+
+    if (
+      phase === "collapsed" &&
+      previousPhaseRef.current === "collapsing" &&
+      articleRef.current
+    ) {
+      articleRef.current.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_COLLAPSE_SETTLED, {
+          bubbles: true,
+        }),
       );
     }
 

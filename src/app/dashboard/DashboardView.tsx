@@ -10,7 +10,7 @@ import {
   DashboardScaffold,
 } from "./components/DashboardScaffold";
 import { FeedList } from "./components/feed/FeedList";
-import { SettingsModal } from "./components/settings/SettingsModal";
+import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "./constants";
 import {
   type DashboardControllerProps,
@@ -57,6 +57,7 @@ export const DashboardView = ({
               expandedArticleKey={feedList.expandedArticleKey}
               feedViewKey={feedList.feedViewKey}
               filteredFeed={feedList.filteredFeed}
+              getPreExpandViewportSnapshot={feedList.getPreExpandViewportSnapshot}
               hasConfiguredFeeds={feedList.hasConfiguredFeeds}
               hydratedArticleLinks={feedList.hydratedArticleLinks}
               hydratingArticleLinks={feedList.hydratingArticleLinks}
@@ -95,7 +96,7 @@ export const DashboardView = ({
       />
 
       {settings.showSettingsModal && (
-        <SettingsModal
+        <SettingsPanel
           articlesPerPage={settings.articlesPerPage}
           autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}

@@ -1,6 +1,10 @@
 import { type Article } from "@/lib";
 
-import { type ArticleRemovalAnimationMode, type CollapsingArticles } from "../../hooks/useArticleCollapseState";
+import {
+  type ArticleRemovalAnimationMode,
+  type ArticleViewportSnapshot,
+  type CollapsingArticles,
+} from "../../hooks/useArticleCollapseState";
 import { type ArticleFilter } from "../../services/article-filters";
 import { ArticleCard } from "../ArticleCard";
 
@@ -17,6 +21,7 @@ export interface FeedListProps {
   expandedArticleKey: null | string;
   feedViewKey: string;
   filteredFeed: Article[];
+  getPreExpandViewportSnapshot?: (articleKey: string) => ArticleViewportSnapshot | null;
   hasConfiguredFeeds?: boolean;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
@@ -38,6 +43,7 @@ export interface FeedListProps {
 export interface FeedListRowProps {
   articleKey: string;
   children: React.ReactNode;
+  hasTrailingGap: boolean;
   removalAnimationMode: ArticleRemovalAnimationMode | null;
 }
 

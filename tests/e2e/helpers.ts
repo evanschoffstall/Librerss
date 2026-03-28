@@ -526,7 +526,6 @@ export async function swipeArticle(
 
 /** Toggles an article by clicking its title region instead of nested action buttons. */
 export async function toggleArticle(article: Locator) {
-  await article.scrollIntoViewIfNeeded();
   await article
     .locator("[data-article-swipe-zone='header']")
     .first()

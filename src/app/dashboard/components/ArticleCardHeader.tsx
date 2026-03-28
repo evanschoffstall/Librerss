@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type Article, formatRelativeDate } from "@/lib";
 
+import { DASHBOARD_EVENTS } from "../constants";
+import { getArticleKey } from "../services/article-collection";
 import { getArticleSourceLabel } from "../services/article-content";
 import { setCachedFaviconIndex } from "../services/favicons";
 
@@ -182,13 +184,21 @@ export function ArticleCardHeader({
           >
             <button
               aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
-              {...articleActionControlProps}
               className={iconBtnCls}
               disabled={isUpdatingState}
               onClick={(event) => {
                 event.stopPropagation();
                 onToggleRead(article);
               }}
+              onPointerDown={(event) => {
+                articleActionControlProps.onPointerDown(event);
+                window.dispatchEvent(
+                  new CustomEvent(DASHBOARD_EVENTS.ARTICLE_READ_TOGGLE_START, {
+                    detail: { articleKey: getArticleKey(article) },
+                  }),
+                );
+              }}
+              onPointerUp={articleActionControlProps.onPointerUp}
               type="button"
             >
               <AnimatePresence initial={false} mode="popLayout">

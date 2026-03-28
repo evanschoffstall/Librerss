@@ -1,9 +1,10 @@
 import { type Article } from "@/lib";
 
-const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+export const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
 
 const originalMatchMedia = window.matchMedia;
 const originalResizeObserver = globalThis.ResizeObserver;
+let isFeedListMobileViewport = false;
 
 export class FeedListResizeObserverMock {
   disconnect() {}
@@ -34,6 +35,7 @@ export function buildFeedListArticle(overrides?: Partial<Article>): Article {
 
 /** Installs the DOM shims FeedList relies on in Bun's happy-dom environment. */
 export function installFeedListDomMocks() {
+  isFeedListMobileViewport = false;
   window.localStorage.setItem(
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
     JSON.stringify(false),
@@ -45,7 +47,7 @@ export function installFeedListDomMocks() {
       addEventListener: () => {},
       addListener: () => {},
       dispatchEvent: () => false,
-      matches: false,
+      matches: isFeedListMobileViewport && query.includes("max-width"),
       media: query,
       onchange: null,
       removeEventListener: () => {},
@@ -62,6 +64,7 @@ export function installFeedListDomMocks() {
 
 /** Restores global DOM shims after a feed-list test completes. */
 export function restoreFeedListDomMocks() {
+  isFeedListMobileViewport = false;
   window.localStorage.removeItem(MOBILE_INVERTED_SCROLL_STORAGE_KEY);
 
   Object.defineProperty(window, "matchMedia", {
@@ -74,4 +77,9 @@ export function restoreFeedListDomMocks() {
     value: originalResizeObserver,
     writable: true,
   });
+}
+
+/** Sets the viewport mode FeedList should observe from the matchMedia mock. */
+export function setFeedListMobileViewport(isMobileViewport: boolean) {
+  isFeedListMobileViewport = isMobileViewport;
 }
