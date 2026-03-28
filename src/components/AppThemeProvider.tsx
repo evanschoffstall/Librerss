@@ -6,14 +6,19 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
-import { MOBILE_TOAST_TOP_STORAGE_KEY } from "@/app/dashboard/constants";
 import { DashboardToolbar } from "@/app/dashboard/components/DashboardToolbar";
+import {
+  MOBILE_TOAST_TOP_STORAGE_KEY,
+  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+} from "@/app/dashboard/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
+const dashboardToolbarAwareTopToastOffset = { left: 16, right: 16, top: 63 };
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
-const topToastOffset = { left: 16, right: 16, top: 63 };
+const trueTopToastOffset = { left: 16, right: 16, top: 16 };
 
 /**
  * Provides the app-wide theme context along with shared floating UI such as
@@ -40,11 +45,50 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 }
 
 /**
+ * Resolves the global toast anchor and offset from the current mobile toast
+ * and toolbar settings so top toasts only reserve space when a toolbar is
+ * actually pinned to the top edge.
+ */
+function getToastPlacement({
+  isMobileToastTop,
+  isMobileToolbarBottom,
+  isMobileViewport,
+}: {
+  isMobileToastTop: boolean;
+  isMobileToolbarBottom: boolean;
+  isMobileViewport: boolean;
+}) {
+  if (isMobileToastTop && isMobileViewport) {
+    const topOffset = isMobileToolbarBottom
+      ? trueTopToastOffset
+      : dashboardToolbarAwareTopToastOffset;
+
+    return {
+      mobileOffset: topOffset,
+      offset: topOffset,
+      position: "top-right" as const,
+    };
+  }
+
+  return {
+    mobileOffset: bottomToastOffset,
+    offset: bottomToastOffset,
+    position: "bottom-right" as const,
+  };
+}
+
+/**
  * Mirrors the resolved app theme onto the Next.js dev-tools portal host so the
  * shadow-DOM error overlay follows the active light or dark mode in development.
  */
 function NextDevToolsThemeBridge() {
   const { resolvedTheme } = useTheme();
+  const pathname = usePathname();
+  const isMobileViewport = useIsMobile();
+  const [isMobileToolbarMirrored] = useLocalStorage(
+    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+    true,
+  );
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") {
@@ -52,6 +96,8 @@ function NextDevToolsThemeBridge() {
     }
 
     const activeTheme = resolvedTheme === "light" ? "light" : "dark";
+    const shouldUseTopRightDevToolsBadge =
+      pathname === "/dashboard" && isMobileViewport && isMobileToolbarMirrored;
 
     const syncPortalTheme = () => {
       for (const portal of document.querySelectorAll<HTMLElement>(
@@ -60,6 +106,26 @@ function NextDevToolsThemeBridge() {
         portal.classList.remove("dark", "light");
         portal.classList.add(activeTheme);
         portal.style.colorScheme = activeTheme;
+
+        const devToolsIndicator = portal.shadowRoot?.querySelector<HTMLElement>(
+          "#devtools-indicator",
+        );
+        if (!devToolsIndicator) {
+          continue;
+        }
+
+        if (shouldUseTopRightDevToolsBadge) {
+          devToolsIndicator.style.top = "20px";
+          devToolsIndicator.style.right = "20px";
+          devToolsIndicator.style.bottom = "auto";
+          devToolsIndicator.style.left = "auto";
+          continue;
+        }
+
+        devToolsIndicator.style.bottom = "20px";
+        devToolsIndicator.style.left = "20px";
+        devToolsIndicator.style.top = "auto";
+        devToolsIndicator.style.right = "auto";
       }
     };
 
@@ -80,7 +146,7 @@ function NextDevToolsThemeBridge() {
     return () => {
       observer.disconnect();
     };
-  }, [resolvedTheme]);
+  }, [isMobileToolbarMirrored, isMobileViewport, pathname, resolvedTheme]);
 
   return null;
 }
@@ -92,21 +158,18 @@ function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   const isMobileViewport = useIsMobile();
   const [isMobileToastTop] = useLocalStorage(MOBILE_TOAST_TOP_STORAGE_KEY, false);
+  const [isMobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
 
   const { mobileOffset, offset, position } = useMemo(() => {
-    if (isMobileToastTop && isMobileViewport) {
-      return {
-        mobileOffset: topToastOffset,
-        offset: topToastOffset,
-        position: "top-right" as const,
-      };
-    }
-    return {
-      mobileOffset: bottomToastOffset,
-      offset: bottomToastOffset,
-      position: "bottom-right" as const,
-    };
-  }, [isMobileToastTop, isMobileViewport]);
+    return getToastPlacement({
+      isMobileToastTop,
+      isMobileToolbarBottom,
+      isMobileViewport,
+    });
+  }, [isMobileToastTop, isMobileToolbarBottom, isMobileViewport]);
 
   useEffect(() => {
     const handleToastClickToDismiss = (event: MouseEvent) => {
