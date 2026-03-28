@@ -81,6 +81,7 @@ import {
   type CategoryTreeNode,
   DEFAULT_CATEGORY_LABEL,
 } from "@/lib";
+import { PLACEHOLDER_FEED_SOURCES } from "@/lib/core/placeholder";
 
 /** Builds a minimal article fixture for dashboard service tests. */
 function makeArticle(overrides: Partial<Article> = {}): Article {
@@ -247,10 +248,17 @@ describe("dashboard category tree services", () => {
 
     const placeholderCategories = buildDefaultCategories(true);
     expect(placeholderCategories).toHaveLength(1);
-    expect(placeholderCategories[0]?.children?.length).toBeGreaterThan(0);
-    expect(placeholderCategories[0]?.children?.[0]?.data?.url).toContain(
-      "http",
+    expect(placeholderCategories[0]?.children?.length).toBe(
+      PLACEHOLDER_FEED_SOURCES.length,
     );
+    expect(placeholderCategories[0]?.children?.[0]?.data).toEqual({
+      category: PLACEHOLDER_FEED_SOURCES[0]?.category,
+      enabled: true,
+      extractionDisabled: true,
+      proxyEnabled: false,
+      sourceId: PLACEHOLDER_FEED_SOURCES[0]?.id,
+      url: PLACEHOLDER_FEED_SOURCES[0]?.url,
+    });
   });
 
   test("collects and deduplicates known category labels case-insensitively", () => {

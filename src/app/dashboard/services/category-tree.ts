@@ -86,7 +86,14 @@ export const buildDefaultCategories = (
   return [
     {
       children: PLACEHOLDER_FEED_SOURCES.map((source, index) => ({
-        data: { category: source.category, url: source.url },
+        data: {
+          category: source.category,
+          enabled: source.enabled !== false,
+          extractionDisabled: source.extractionDisabled === true,
+          proxyEnabled: source.proxyEnabled === true,
+          sourceId: source.id,
+          url: source.url,
+        },
         key: `${toCategoryKey(PLACEHOLDER_CATEGORY)}-dev-${index}`,
         label: source.name,
       })),

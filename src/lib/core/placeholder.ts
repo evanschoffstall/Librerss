@@ -4,39 +4,25 @@ import type { Article, FeedSource } from "./types";
 
 export const PLACEHOLDER_CATEGORY = "Placeholder Feeds";
 
-export const PLACEHOLDER_FEED_SOURCES: FeedSource[] = [
-  {
-    category: PLACEHOLDER_CATEGORY,
-    id: 1,
-    name: "Live Science",
-    url: "https://www.livescience.com/feeds/all",
-  },
-  {
-    category: PLACEHOLDER_CATEGORY,
-    id: 2,
-    name: "Psychology Today",
-    url: "https://www.psychologytoday.com/us/news",
-  },
-  {
-    category: PLACEHOLDER_CATEGORY,
-    id: 3,
-    name: "NASA",
-    url: "https://www.nasa.gov/rss/dyn/breaking_news.rss",
-  },
-];
-
 interface PlaceholderSeed {
   content: string;
   slug: string;
   title: string;
   url: string;
 }
+
 type PlaceholderSeedTuple = readonly [
   title: string,
   slug: string,
   url: string,
   content: string,
 ];
+
+interface PlaceholderSourceDefinition {
+  basePath: string;
+  seeds: PlaceholderSeed[];
+  source: FeedSource;
+}
 
 const createPlaceholderSeeds = (
   entries: readonly PlaceholderSeedTuple[],
@@ -50,7 +36,6 @@ const createPlaceholderSeeds = (
 
 const createPlaceholderArticles = (
   feedId: number,
-  _basePath: string,
   seeds: PlaceholderSeed[],
 ): Article[] => {
   const MINUTE = 60 * 1000;
@@ -79,137 +64,343 @@ const buildPlaceholderSnapshotPathByUrl = (
     ]),
   );
 
-const WORLD_SEEDS = createPlaceholderSeeds([
-  [
-    "Humans and Neanderthals interbred — but it was mostly male Neanderthals and female humans, study finds",
-    "neanderthals-interbred",
-    "https://www.livescience.com/archaeology/neanderthals/humans-and-neanderthals-interbred-but-it-was-mostly-male-neanderthals-and-female-humans-who-coupled-up-study-finds",
-    "Humans and Neanderthals interbred — but it was mostly male Neanderthals and female humans, study finds.",
-  ],
-  [
-    "'Revolutionary': Vera C. Rubin Observatory found 800,000 objects of interest in a single night",
-    "rubin-observatory-800k",
-    "https://www.livescience.com/space/astronomy/rubin-observatory-alerts-scientists-to-800-000-new-asteroids-exploding-stars-and-other-cosmic-phenomena-in-just-one-night",
-    "A sample of five solar systems objects that changed in brightness or position during Rubin's nightly observations.",
-  ],
-  [
-    "Giant 'spiderwebs' on Mars contain tiny egg-like structures that scientists can't quite explain",
-    "mars-spiderwebs",
-    "https://www.livescience.com/space/mars/giant-spiderwebs-on-mars-contain-tiny-egg-like-structures-that-scientists-cant-quite-explain-nasa-rover-reveals",
-    "One of the new photos, captured on Sept. 26, 2025, shows hundreds of tiny egg-like nodules on the surface of one of the boxwork ridges.",
-  ],
-  [
-    "Fresh look at Apollo moon rocks solves decades-old mystery about the moon's magnetic field",
-    "apollo-moon-rocks-magnetic-field",
-    "https://www.livescience.com/space/the-moon/fresh-look-at-apollo-moon-rocks-solves-decades-old-mystery-about-the-moons-magnetic-field",
-    "An Apollo 12 astronaut collects lunar samples while his fellow crew member takes a photo.",
-  ],
-  [
-    "Chinese astronauts describe moment a crack was discovered on Shenzhou-20 spacecraft",
-    "shenzhou-20-crack",
-    "https://www.livescience.com/space/space-exploration/chinese-astronauts-describe-moment-a-crack-was-discovered-on-shenzhou-20-spacecraft",
-    "Chinese astronauts describe moment a crack was discovered on Shenzhou-20 spacecraft.",
-  ],
-  [
-    "Scientists find ancient black hole breaking the cosmic 'speed limit,' challenging multiple theories",
-    "cosmic-speed-limit-black-hole",
-    "https://www.livescience.com/space/black-holes/rule-breaking-black-hole-found-growing-at-13-times-the-cosmic-speed-limit-challenging-theories",
-    "An artist's rendition of a black hole, along with its swirling accretion disk, bright corona and jet.",
-  ],
-]);
+const PLACEHOLDER_SOURCE_DEFINITIONS: PlaceholderSourceDefinition[] = [
+  {
+    basePath: "usgs",
+    seeds: createPlaceholderSeeds([
+      [
+        "Media Alert: Low-level airplane and helicopter flights to scan geology over southern, central New Mexico",
+        "new-mexico-geology-scan",
+        "https://www.usgs.gov/news/state-news-release/media-alert-low-level-airplane-and-helicopter-flights-scan-geology-over",
+        "RESTON, Va. — The U.S. Geological Survey plans low-level flights by airplane and helicopter over southern and central New Mexico to image geology using airborne geophysical technology.",
+      ],
+      [
+        "Value of U.S. mineral production rose last year, driven by precious metals prices",
+        "mineral-production-rose",
+        "https://www.usgs.gov/news/national-news-release/value-us-mineral-production-rose-last-year-driven-precious-metals-prices",
+        "The USGS releases Mineral Commodity Summaries 2026, the first and most authoritative source for mineral production, trade and consumption data.",
+      ],
+      [
+        "Low-level helicopter flights to image geology over Wyoming and Colorado",
+        "wyoming-colorado-helicopter-survey",
+        "https://www.usgs.gov/news/state-news-release/low-level-helicopter-flights-image-geology-over-wyoming-and-colorado-0",
+        "RESTON, Va. — Low-level helicopter flights are planned over areas of Wyoming and northern Colorado to image geology using airborne geophysical technology for up to one month.",
+      ],
+      [
+        "USGS releases assessment of undiscovered oil and gas resources in Woodford and Barnett shales",
+        "woodford-barnett-assessment",
+        "https://www.usgs.gov/news/national-news-release/usgs-releases-assessment-undiscovered-oil-and-gas-resources-woodford-and",
+        "RESTON, Va. — The U.S. Geological Survey released its assessment of undiscovered gas and oil in the Woodford and Barnett shales in the Permian Basin.",
+      ],
+      [
+        "Media Alert: Low-level flights to image geology and aquifers over parts of New Mexico and Texas",
+        "new-mexico-texas-aquifers",
+        "https://www.usgs.gov/news/state-news-release/media-alert-low-level-flights-image-geology-and-aquifers-over-parts-new",
+        "RESTON, Va. — Low-level helicopter flights are planned over parts of eastern New Mexico and western Texas to image geology and aquifers using airborne geophysical technology.",
+      ],
+      [
+        "USGS releases assessment of undiscovered gas resources in Gulf Coast’s Haynesville Formation",
+        "haynesville-gas-assessment",
+        "https://www.usgs.gov/news/national-news-release/usgs-releases-assessment-undiscovered-gas-resources-gulf-coasts",
+        "RESTON, Va. — The U.S. Geological Survey released its assessment of potential for undiscovered gas and oil in the Haynesville Formation underlying the onshore Gulf of America and adjoining state waters.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 1,
+      name: "USGS News Releases",
+      url: "https://www.usgs.gov/news/news-releases",
+    },
+  },
+  {
+    basePath: "noaa",
+    seeds: createPlaceholderSeeds([
+      [
+        "NOAA deploys new generation of AI-driven global weather models",
+        "noaa-deploys-new-generation-of-ai-driven-global-weather-models",
+        "https://www.noaa.gov/news-release/noaa-deploys-new-generation-of-ai-driven-global-weather-models",
+        "NOAA has launched a groundbreaking new suite of operational AI-driven global weather prediction models, marking a significant advancement in forecast speed, efficiency, and accuracy.",
+      ],
+      [
+        "Explainer: Understanding hurricane hazards",
+        "explainer-understanding-hurricane-hazards",
+        "https://www.noaa.gov/explainers/explainer-understanding-hurricane-hazards",
+        "NOAA explains the major hazards hurricanes bring, from storm surge and inland flooding to wind, tornadoes, and dangerous surf.",
+      ],
+      [
+        "Celebrating seals and sea lions the week of March 11",
+        "seal-sea-lion-week-ext",
+        "https://www.fisheries.noaa.gov/feature-story/seal-and-sea-lion-week",
+        "Join us for a week-long celebration of seals and other pinnipeds and get the scoop on NOAA's seal conservation efforts.",
+      ],
+      [
+        "Colossal coral in the Mariana Islands is largest of its kind",
+        "video-colossal-coral-found-in-mariana-islands-is-largest-of-its-kind-ext",
+        "https://oceanservice.noaa.gov/news/mar26/colossal-coral-mariana-islands.html",
+        "Researchers measure 14,500-square-foot coral structure in an underwater volcano.",
+      ],
+      [
+        "Marsh Madness",
+        "marsh-madness-ext",
+        "https://www.fisheries.noaa.gov/feature-story/marsh-madness",
+        "While players duel it out on the court, we're keeping score of all the ways marsh habitat plays an important role in the protection and restoration work we do for communities, fish, and wildlife.",
+      ],
+      [
+        "Weird and Wonderful: 10 Years of Northeast Bottom Longline Survey Video Footage",
+        "gallery-10-years-of-weird-wonderful-photos-from-fisheries-longline-survey-ext",
+        "https://www.fisheries.noaa.gov/science-blog/weird-and-wonderful-10-years-northeast-bottom-longline-survey-video-footage",
+        "Field scientist Hannah Ciarametaro explains how and why the Cooperative Research team collects video footage of the ocean floor during the Gulf of Maine Bottom Longline Survey.",
+      ],
+      [
+        "On This Day: 2011 Tohoku Earthquake and Tsunami",
+        "on-day-japans-deadly-2011-tohoku-earthquake-and-tsunami",
+        "https://www.ncei.noaa.gov/news/day-2011-japan-earthquake-and-tsunami",
+        "On March 11, 2011, a magnitude 9.1 earthquake struck off the northeast coast of Honshu, Japan, generating a deadly tsunami.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 2,
+      name: "NOAA News and Features",
+      url: "https://www.noaa.gov/news-and-features",
+    },
+  },
+  {
+    basePath: "fda",
+    seeds: createPlaceholderSeeds([
+      [
+        "FDA Approves First Gene Therapy for Severe Leukocyte Adhesion Deficiency Type I",
+        "fda-approves-first-gene-therapy-severe-leukocyte-adhesion-deficiency-type-i",
+        "https://www.fda.gov/news-events/press-announcements/fda-approves-first-gene-therapy-severe-leukocyte-adhesion-deficiency-type-i",
+        "The U.S. Food and Drug Administration today approved Kresladi (marnetegragene autotemcel), the first gene therapy for the treatment of severe Leukocyte Adhesion Deficiency Type I (LAD-I).",
+      ],
+      [
+        "FDA Takes Further Steps to Streamline Biosimilar Development and Make Medicines More Affordable",
+        "fda-takes-further-steps-streamline-biosimilar-development-and-make-medicines-more-affordable",
+        "https://www.fda.gov/news-events/press-announcements/fda-takes-further-steps-streamline-biosimilar-development-and-make-medicines-more-affordable",
+        "The U.S. Food and Drug Administration today announced another major step in its initiative to streamline the development of biosimilar medicines, which are like \"generic\" versions of biologic drugs.",
+      ],
+      [
+        "FDA Launches New Adverse Event Look-Up Tool",
+        "fda-launches-new-adverse-event-look-tool",
+        "https://www.fda.gov/news-events/press-announcements/fda-launches-new-adverse-event-look-tool",
+        "FDA launched a new unified platform for analyzing adverse event reports through the FDA Adverse Event Monitoring System (AEMS).",
+      ],
+      [
+        "FDA Approves First Treatment for Patients with Cerebral Folate Transport Deficiency",
+        "fda-approves-first-treatment-patients-cerebral-folate-transport-deficiency",
+        "https://www.fda.gov/news-events/press-announcements/fda-approves-first-treatment-patients-cerebral-folate-transport-deficiency",
+        "The U.S. Food and Drug Administration today approved expanded use of Wellcovorin for the treatment of cerebral folate deficiency in adult and pediatric patients with a confirmed FOLR1 variant.",
+      ],
+      [
+        "FDA Approves Fourth Product Under National Priority Voucher Program, Higher Dose Semaglutide",
+        "fda-approves-fourth-product-under-national-priority-voucher-program-higher-dose-semaglutide",
+        "https://www.fda.gov/news-events/press-announcements/fda-approves-fourth-product-under-national-priority-voucher-program-higher-dose-semaglutide",
+        "The U.S. Food and Drug Administration today approved a new higher dose of Wegovy (semaglutide) injection for weight loss and long-term maintenance of weight loss for certain adult patients.",
+      ],
+      [
+        "FDA Releases Draft Guidance on Alternatives to Animal Testing in Drug Development",
+        "fda-releases-draft-guidance-alternatives-animal-testing-drug-development",
+        "https://www.fda.gov/news-events/press-announcements/fda-releases-draft-guidance-alternatives-animal-testing-drug-development",
+        "The U.S. Food and Drug Administration today issued draft guidance intended to help drug developers validate new approach methodologies to be used instead of animal testing in drug development.",
+      ],
+      [
+        "FDA to Address Unused Opioids in American Homes",
+        "fda-address-unused-opioids-american-homes",
+        "https://www.fda.gov/news-events/press-announcements/fda-address-unused-opioids-american-homes",
+        "The U.S. Food and Drug Administration today issued a request for information seeking public comment on potential new standards for in-home opioid disposal products.",
+      ],
+      [
+        "FDA Approves Drug to Treat Neurologic Manifestations of Hunter Syndrome",
+        "fda-approves-drug-treat-neurologic-manifestations-hunter-syndrome",
+        "https://www.fda.gov/news-events/press-announcements/fda-approves-drug-treat-neurologic-manifestations-hunter-syndrome",
+        "The U.S. Food and Drug Administration approved Avlayah (tividenofusp alfa-eknm) to treat certain individuals with Hunter syndrome (MPS II).",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 3,
+      name: "FDA Press Announcements",
+      url: "https://www.fda.gov/news-events/press-announcements",
+    },
+  },
+  {
+    basePath: "nist",
+    seeds: createPlaceholderSeeds([
+      [
+        "NIST Helps Fingerprint Examiners With New Data and Software Release",
+        "nist-helps-fingerprint-examiners-new-data-and-software-release",
+        "https://www.nist.gov/news-events/news/2026/03/nist-helps-fingerprint-examiners-new-data-and-software-release",
+        "The new tools are an annotated collection of 10,000 fingerprints and a software program that can sort fingerprints according to their quality.",
+      ],
+      [
+        "Announcing the \"AI Agent Standards Initiative\" for Interoperable and Secure Innovation",
+        "announcing-ai-agent-standards-initiative-interoperable-and-secure",
+        "https://www.nist.gov/news-events/news/2026/02/announcing-ai-agent-standards-initiative-interoperable-and-secure",
+        "The Initiative will ensure that the next generation of AI is widely adopted with confidence, can function securely on behalf of its users, and can interoperate smoothly across the digital ecosystem.",
+      ],
+      [
+        "NIST Releases New Forensic Genetic Reference Material to Help Crime Laboratories Analyze Challenging Cases",
+        "forensic-genetic-reference-material",
+        "https://www.nist.gov/news-events/news/2026/02/nist-releases-new-forensic-genetic-reference-material-help-crime",
+        "The reference material is the first to include mixtures of high-quality and degraded DNA from different individuals.",
+      ],
+      [
+        "NIST Allocates Over $3 Million to Small Businesses Advancing AI, Biotechnology, Semiconductors, Quantum and More",
+        "allocates-3-million-small-businesses",
+        "https://www.nist.gov/news-events/news/2026/02/nist-allocates-over-3-million-small-businesses-advancing-ai-biotechnology",
+        "NIST is allocating funding to eight small businesses in seven states under the Small Business Innovation Research program.",
+      ],
+      [
+        "Space: The Final Frontier for Standards",
+        "space-final-frontier-standards",
+        "https://www.nist.gov/news-events/news/2026/02/space-final-frontier-standards",
+        "Seven NIST reference materials, including house dust and freeze-dried human liver tissue, have been flown to the International Space Station.",
+      ],
+      [
+        "CAISI Issues Request for Information About Securing AI Agent Systems",
+        "caisi-ai-agent-systems-rfi",
+        "https://www.nist.gov/news-events/news/2026/01/caisi-issues-request-information-about-securing-ai-agent-systems",
+        "The Center for AI Standards and Innovation at the U.S. Department of Commerce's National Institute of Standards and Technology is seeking information about securing AI agent systems.",
+      ],
+      [
+        "NIST Submits Annual Report to Congress Summarizing FY 2025 Progress on National Construction Safety Team Investigations",
+        "nist-submits-annual-report-congress-summarizing-fy-2025-progress-national",
+        "https://www.nist.gov/news-events/news/2026/03/nist-submits-annual-report-congress-summarizing-fy-2025-progress-national",
+        "The report includes an overview of work completed on the Champlain Towers South investigation.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 4,
+      name: "NIST News",
+      url: "https://www.nist.gov/news-events/news",
+    },
+  },
+  {
+    basePath: "dwr",
+    seeds: createPlaceholderSeeds([
+      [
+        "Local Agencies Across California Continue Advancements Toward Groundwater Sustainability",
+        "groundwater-sustainability-advancements",
+        "https://water.ca.gov/News/News-Releases/2026/Mar-2026/Local-Agencies-Across-California-Continue-Advancements-Toward-Groundwater-Sustainability",
+        "The Department of Water Resources has released the final version of California's Groundwater: Bulletin 118 - Update 2025, the state's most comprehensive report of groundwater monitoring, conditions, and management.",
+      ],
+      [
+        "February Storms Provide a Much-Needed Boost but Statewide Snowpack Remains Below Average",
+        "february-storms-snowpack-boost",
+        "https://water.ca.gov/News/News-Releases/2026/Feb-2026/February-Storms-Provide-a-Much-Needed-Boost-but-Statewide-Snowpack-Remains-Below-Average",
+        "With one month of the season left, critical Northern California watersheds are well below average after DWR's third snow survey of the season at Phillips Station.",
+      ],
+      [
+        "Governor Newsom launches most ambitious water plan in California history",
+        "california-water-plan-launch",
+        "https://water.ca.gov/News/News-Releases/2026/Feb-2026/Governor-Newsom-launches-most-ambitious-water-plan-in-California-history",
+        "For the first time in state history, California has a statewide water supply target of 9 million acre-feet by 2040.",
+      ],
+      [
+        "Dry January Cuts into Early-Season Snowpack Gains",
+        "dry-january-snowpack-gains",
+        "https://water.ca.gov/News/News-Releases/2026/Jan-2026/Dry-January-Cuts-into-Early-Season-Snowpack-Gains",
+        "DWR's second snow survey of the season found statewide snowpack at 59 percent of average for this date after a dry January.",
+      ],
+      [
+        "December Storms Improved Flexibility Allow DWR to Increase State Water Project Allocation",
+        "state-water-project-allocation",
+        "https://water.ca.gov/News/News-Releases/2026/Jan-2026/December-Storms-Improved-Flexibility-Allow-DWR-to-Increase-State-Water-Project-Allocation",
+        "DWR announced an increase to the State Water Project allocation for 2026 after December storms improved flexibility and supply conditions.",
+      ],
+      [
+        "DWR Finalizes Best Management Practices to Help Address Subsidence and Protect California’s Water Infrastructure",
+        "subsidence-best-practices",
+        "https://water.ca.gov/News/News-Releases/2026/Jan-2026/Best-Management-Practices-to-Help-Address-Subsidence",
+        "California's continued partnership with locals will serve as the key to safeguarding groundwater-reliant communities and infrastructure from land sinking.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 5,
+      name: "California DWR News",
+      url: "https://water.ca.gov/News/News-Releases",
+    },
+  },
+  {
+    basePath: "caloes",
+    seeds: createPlaceholderSeeds([
+      [
+        "Smart Giving: Helpful Ways to Support Disaster Survivors | Cal OES News",
+        "smart-giving-helpful-ways-to-support-disaster-survivors",
+        "https://www.news.caloes.ca.gov/smart-giving-helpful-ways-to-support-disaster-survivors/",
+        "Cal OES outlines practical ways people can support disaster survivors through responsible giving after emergencies.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 6,
+      name: "Cal OES News",
+      url: "https://www.news.caloes.ca.gov/",
+    },
+  },
+  {
+    basePath: "earthquake",
+    seeds: createPlaceholderSeeds([
+      [
+        "How It Works – California Earthquake Early Warning",
+        "how-it-works",
+        "https://www.earthquake.ca.gov/how-it-works/",
+        "California Earthquake Early Warning explains how alerts are detected, delivered, and used to give people seconds of warning before shaking arrives.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 7,
+      name: "California Earthquake Early Warning",
+      url: "https://www.earthquake.ca.gov/",
+    },
+  },
+  {
+    basePath: "cgs",
+    seeds: createPlaceholderSeeds([
+      [
+        "Publication Announcements",
+        "releases",
+        "https://www.conservation.ca.gov/cgs/publications/releases",
+        "Release announcements of maps, reports and other publications of the California Geological Survey.",
+      ],
+    ]),
+    source: {
+      category: PLACEHOLDER_CATEGORY,
+      extractionDisabled: true,
+      id: 8,
+      name: "California Geological Survey Publications",
+      url: "https://www.conservation.ca.gov/cgs/publications/releases",
+    },
+  },
+];
 
-const TECHNOLOGY_SEEDS = createPlaceholderSeeds([
-  [
-    "The Most Dangerous Books in Society",
-    "most-dangerous-books",
-    "https://www.psychologytoday.com/us/blog/curious/202602/the-most-dangerous-books-in-society",
-    "We talk about a lot of strange things in my Psychology 417: Science of Well-Being class.",
-  ],
-  [
-    "For the Love of Boredom",
-    "for-the-love-of-boredom",
-    "https://www.psychologytoday.com/us/blog/modern-boredom/202602/for-the-love-of-boredom",
-    "Everybody knows the story of Phineas Gage, the railroad worker who survived an iron bar shooting through his skull.",
-  ],
-  [
-    "2 Ways to Stop Shutting Down During Conflicts",
-    "stop-shutting-down-during-conflicts",
-    "https://www.psychologytoday.com/us/blog/social-instincts/202602/2-ways-to-stop-shutting-down-during-conflicts",
-    "Shutting down during conflict is often misunderstood as weakness, but it is usually a stress response.",
-  ],
-  [
-    "How Kindness and Compassion Make Hard Goals Doable",
-    "kindness-compassion-hard-goals",
-    "https://www.psychologytoday.com/us/blog/from-striving-to-thriving/202602/how-kindness-and-compassion-make-hard-goals-doable",
-    "A coaching challenge to do 100 push-ups in eight weeks became a lesson in motivation and support.",
-  ],
-  [
-    "Perfectionists Don't Ever Believe You're Trying Your Best",
-    "perfectionists-trying-your-best",
-    "https://www.psychologytoday.com/us/blog/perfectionism/202602/perfectionists-dont-ever-believe-youre-trying-your-best",
-    "Some people believe others are trying their best, while others insist you should always try your best.",
-  ],
-  [
-    "Why Trying Too Hard Keeps You Stuck: The Art of Letting Go",
-    "trying-too-hard-letting-go",
-    "https://www.psychologytoday.com/us/blog/buddhist-psychology-east-meets-west/202602/why-trying-too-hard-keeps-you-stuck-the-art-of",
-    "Many of us struggle to let go of relationship pain or career disappointments, and that struggle can linger for years.",
-  ],
-]);
+export const PLACEHOLDER_FEED_SOURCES: FeedSource[] =
+  PLACEHOLDER_SOURCE_DEFINITIONS.map((definition) => definition.source);
 
-const SCIENCE_SEEDS = createPlaceholderSeeds([
-  [
-    "JPL 3D-Printed Part Springs Forward",
-    "jpl-3d-printed-part",
-    "https://science.nasa.gov/photojournal/jpl-3d-printed-part-springs-forward/",
-    "With a simple motion, a jack-in-the-box-like spring designed at NASA’s Jet Propulsion Laboratory showed the potential of additive manufacturing, also known as 3D printing, to cut costs and complexity for futuristic space antennas.",
-  ],
-  [
-    "Landsat 9: More Than Just A Picture",
-    "landsat-9-more-than-just-a-picture",
-    "https://science.nasa.gov/missions/landsat/landsat-9-more-than-just-a-picture/",
-    "For over 50 years, the Landsat program has provided the longest continuous satellite record of Earth's land surface from space.",
-  ],
-  [
-    "NASA's ESCAPADE Ready to Study Space Weather from Earth to Mars",
-    "escapade-space-weather-earth-mars",
-    "https://science.nasa.gov/science-research/heliophysics/nasas-escapade-ready-to-study-space-weather-from-earth-to-mars/",
-    "Once warm and watery, Mars is now cold and dry beneath a thin atmosphere.",
-  ],
-  [
-    "Inside Project Hail Mary",
-    "inside-project-hail-mary",
-    "https://www.nasa.gov/image-article/inside-project-hail-mary/",
-    "NASA astronaut Kjell Lindgren joined the Project Hail Mary event at JPL with cast and filmmakers to discuss human spaceflight.",
-  ],
-  [
-    "NASA Invites Media to Discuss Next Steps for Artemis Campaign",
-    "artemis-next-steps",
-    "https://www.nasa.gov/news-release/nasa-invites-media-to-discuss-next-steps-for-artemis-campaign/",
-    "After rollback of the Artemis II SLS rocket and Orion spacecraft, NASA scheduled a media briefing from Kennedy Space Center.",
-  ],
-  [
-    "Dry-Season Floods Drench Northern Colombia",
-    "dry-season-floods-colombia",
-    "https://science.nasa.gov/earth/earth-observatory/dry-season-floods-drench-northern-colombia/",
-    "Villages and farmland were swamped after unusually heavy early-February rains pushed the Sinú River over its banks.",
-  ],
-]);
+const PLACEHOLDER_SNAPSHOT_PATH_BY_URL = Object.assign(
+  {},
+  ...PLACEHOLDER_SOURCE_DEFINITIONS.map(({ basePath, seeds }) =>
+    buildPlaceholderSnapshotPathByUrl(basePath, seeds),
+  ),
+);
 
-const PLACEHOLDER_SNAPSHOT_PATH_BY_URL = {
-  ...buildPlaceholderSnapshotPathByUrl("livescience", WORLD_SEEDS),
-  ...buildPlaceholderSnapshotPathByUrl("psychologytoday", TECHNOLOGY_SEEDS),
-  ...buildPlaceholderSnapshotPathByUrl("nasa", SCIENCE_SEEDS),
-};
-
-const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = {
-  [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[0].url)]:
-    createPlaceholderArticles(1, "livescience", WORLD_SEEDS),
-  [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[1].url)]:
-    createPlaceholderArticles(2, "psychologytoday", TECHNOLOGY_SEEDS),
-  [normalizeFeedUrl(PLACEHOLDER_FEED_SOURCES[2].url)]:
-    createPlaceholderArticles(3, "nasa", SCIENCE_SEEDS),
-};
+const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> = Object.fromEntries(
+  PLACEHOLDER_SOURCE_DEFINITIONS.map(({ seeds, source }) => [
+    normalizeFeedUrl(source.url),
+    createPlaceholderArticles(source.id, seeds),
+  ]),
+);
 
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
   PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ?? [];
