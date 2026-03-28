@@ -1,14 +1,17 @@
 "use client";
 
+import { useLocalStorage } from "@/lib";
+
 import { DashboardDesktopSidebar } from "./components/DashboardDesktopSidebar";
+import { DashboardFilterBar } from "./components/DashboardFilterBar";
 import { DashboardMobileSidebarSheet } from "./components/DashboardMobileSidebarSheet";
 import {
   DashboardFeedViewport,
   DashboardScaffold,
 } from "./components/DashboardScaffold";
-import { DashboardTopTokenBar } from "./components/DashboardTopTokenBar";
 import { FeedList } from "./components/feed/FeedList";
-import { SettingsModal } from "./components/settings/SettingsModal";
+import { SettingsPanel } from "./components/settings/SettingsPanel";
+import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "./constants";
 import {
   type DashboardControllerProps,
   useDashboardController,
@@ -24,7 +27,11 @@ export const DashboardView = ({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardViewProps) => {
-  const { feedList, settings, sidebar, topBar } = useDashboardController({
+  const [mobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
+  const { feedList, filterBar, settings, sidebar } = useDashboardController({
     backgroundMode,
     distillStrategy,
     onBackgroundModeChange,
@@ -50,6 +57,8 @@ export const DashboardView = ({
               expandedArticleKey={feedList.expandedArticleKey}
               feedViewKey={feedList.feedViewKey}
               filteredFeed={feedList.filteredFeed}
+              getPreExpandViewportSnapshot={feedList.getPreExpandViewportSnapshot}
+              hasConfiguredFeeds={feedList.hasConfiguredFeeds}
               hydratedArticleLinks={feedList.hydratedArticleLinks}
               hydratingArticleLinks={feedList.hydratingArticleLinks}
               isCollapseScrollRestoreActive={feedList.isCollapseScrollRestoreActive}
@@ -61,12 +70,22 @@ export const DashboardView = ({
               onToggle={feedList.onArticleToggle}
               onToggleRead={feedList.onArticleToggleRead}
               onToggleStarred={feedList.onArticleToggleStarred}
+              refreshEpoch={feedList.refreshEpoch}
               searchTerm={feedList.searchTerm}
               showFavicons={feedList.showFavicons}
               updatingArticleState={feedList.updatingArticleState}
             />
           </DashboardFeedViewport>
         }
+        filterBar={
+          <DashboardFilterBar
+            articleFilter={filterBar.articleFilter}
+            lastRefreshLabel={filterBar.lastRefreshLabel}
+            loading={filterBar.loading}
+            onArticleFilterChange={filterBar.setArticleFilter}
+          />
+        }
+        mobileToolbarBottom={mobileToolbarBottom}
         sidebar={
           <DashboardDesktopSidebar
             isSidebarVisible={sidebar.isSidebarVisible}
@@ -74,18 +93,10 @@ export const DashboardView = ({
             sidebarScrollRef={sidebar.sidebarScrollRef}
           />
         }
-        topBar={
-          <DashboardTopTokenBar
-            articleFilter={topBar.articleFilter}
-            lastRefreshLabel={topBar.lastRefreshLabel}
-            loading={topBar.loading}
-            onArticleFilterChange={topBar.setArticleFilter}
-          />
-        }
       />
 
       {settings.showSettingsModal && (
-        <SettingsModal
+        <SettingsPanel
           articlesPerPage={settings.articlesPerPage}
           autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
           backgroundMode={settings.backgroundMode}

@@ -11,9 +11,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useLocalStorage } from "@/lib";
 
-import type { BackgroundMode } from "../../constants";
-
+import {
+  type BackgroundMode,
+  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+  MOBILE_TOAST_TOP_STORAGE_KEY,
+  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+} from "../../constants";
 import {
   MANUAL_REFRESH_INTERVAL_MINUTES,
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
@@ -47,6 +53,22 @@ export function SettingsDisplaySection({
   onShowFaviconsChange,
   showFavicons,
 }: SettingsDisplaySectionProps) {
+  const [mobileInvertedScroll, setMobileInvertedScroll] = useLocalStorage(
+    MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+    true,
+  );
+  const [mobileToastTop, setMobileToastTop] = useLocalStorage(
+    MOBILE_TOAST_TOP_STORAGE_KEY,
+    false,
+  );
+  const [mobileToolbarBottom, setMobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
+  const [mobileToolbarMirror, setMobileToolbarMirror] = useLocalStorage(
+    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+    true,
+  );
   const [autoRefreshDraft, setAutoRefreshDraft] = useState(
     String(autoRefreshIntervalMinutes),
   );
@@ -118,6 +140,65 @@ export function SettingsDisplaySection({
             checked={showFavicons}
             id="show-favicons"
             onCheckedChange={onShowFaviconsChange}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="mobile-toolbar-bottom">Mobile bottom toolbar</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Move the toolbar and filter bar to the bottom on mobile.
+            </p>
+          </div>
+          <Switch
+            checked={mobileToolbarBottom}
+            id="mobile-toolbar-bottom"
+            onCheckedChange={setMobileToolbarBottom}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="mobile-toolbar-mirror">
+              Mobile mirrored toolbar
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Reverse the toolbar element order on mobile so actions are on the
+              leading edge.
+            </p>
+          </div>
+          <Switch
+            checked={mobileToolbarMirror}
+            id="mobile-toolbar-mirror"
+            onCheckedChange={setMobileToolbarMirror}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="mobile-inverted-scroll">
+              Mobile inverted scroll
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Flip the feed so newest articles anchor at the bottom and older
+              content loads as you scroll up.
+            </p>
+          </div>
+          <Switch
+            checked={mobileInvertedScroll}
+            id="mobile-inverted-scroll"
+            onCheckedChange={setMobileInvertedScroll}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="mobile-toast-top">Mobile top toasts</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Show notification toasts at the top of the screen on mobile
+              instead of the bottom.
+            </p>
+          </div>
+          <Switch
+            checked={mobileToastTop}
+            id="mobile-toast-top"
+            onCheckedChange={setMobileToastTop}
           />
         </div>
         <div className="row-between">

@@ -1,7 +1,6 @@
-import type { Article } from "@/lib";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
 
-import { FeedService } from "@/lib";
+import { Article, FeedService } from "@/lib";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 
 import type { FeedBatchSource } from "./feed-batch";

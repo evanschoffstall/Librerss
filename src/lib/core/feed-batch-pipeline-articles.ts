@@ -72,12 +72,37 @@ export function mapRowsToArticleMap(
   return articlesByUrl;
 }
 
+/**
+ * Minimum articles guaranteed per feed in multi-feed batch queries.
+ *
+ * Prevents high-volume feeds from crowding out less prolific feeds when the
+ * global article budget is divided across many feeds.
+ */
+const MINIMUM_ARTICLES_PER_FEED_BATCH = 20;
+
+/**
+ * Computes a fair per-feed article budget that guarantees every feed
+ * contributes at least {@link MINIMUM_ARTICLES_PER_FEED_BATCH} articles
+ * while staying close to the configured global article limit.
+ */
+export function computePerFeedBudget(feedCount: number): number {
+  return Math.min(
+    CONFIG.MAX_ARTICLES_PER_FEED,
+    Math.max(
+      Math.ceil(CONFIG.MAX_ALL_ARTICLES_LIMIT / feedCount),
+      MINIMUM_ARTICLES_PER_FEED_BATCH,
+    ),
+  );
+}
+
 /** Queries the preview article rows for the requested feed IDs. */
 export async function queryTopArticlesPerFeed(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedIds: number[],
 ): Promise<RankedRow[]> {
+  const perFeedBudget = computePerFeedBudget(feedIds.length);
+
   const queryResult = await db.execute<RankedRow>(sql`
     WITH selected_feed_ids AS (
       SELECT *
@@ -114,10 +139,8 @@ export async function queryTopArticlesPerFeed(
         FROM "Article" sub
         WHERE sub.feed_id = fid.id
         ORDER BY sub.publication_date DESC
-        LIMIT ${CONFIG.MAX_ARTICLES_PER_FEED}
+        LIMIT ${perFeedBudget}
       ) a
-      ORDER BY a.publication_date DESC
-      LIMIT ${CONFIG.MAX_ALL_ARTICLES_LIMIT}
     ),
     starred_candidates AS (
       SELECT sub.id,

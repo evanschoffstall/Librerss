@@ -4,37 +4,28 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
-import type { AuthSession, AuthUser } from "@/lib/core/types";
-
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService } from "@/lib";
-import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
-
-import type { BackgroundMode } from "./constants";
+import { AuthService, AuthSession, AuthUser, useLocalStorage } from "@/lib";
 
 import {
-    ParticlesBackground,
-    ParticlesBackgroundLight,
-    StarsBackground,
-    StarsBackgroundLight
+  ParticlesBackground,
+  ParticlesBackgroundLight,
+  StarsBackground,
+  StarsBackgroundLight,
 } from "./components/Background";
+import { DashboardFilterBarSkeleton } from "./components/DashboardFilterBar";
 import {
-    DashboardFeedViewport,
-    DashboardScaffold
+  DashboardFeedViewport,
+  DashboardScaffold,
 } from "./components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
-import { DashboardTopBarSkeleton } from "./components/DashboardTopTokenBar";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { LoginView } from "./components/login/LoginView";
-import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
+import { BackgroundMode, DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
 import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
-
-
-
-
 
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;
@@ -62,7 +53,7 @@ export function DashboardRouter({
   );
   const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
     DASHBOARD_PREVIEW_STORAGE_KEY,
-    false,
+    initialPreviewMode,
   );
   const { resolvedTheme } = useTheme();
   const [backgroundMode, setBackgroundMode] = useLocalStorage<BackgroundMode>(
@@ -195,12 +186,12 @@ export function DashboardRouter({
                   <FeedListSkeleton />
                 </DashboardFeedViewport>
               }
+              filterBar={<DashboardFilterBarSkeleton />}
               sidebar={
                 <ScrollArea className="h-full">
                   <DashboardSidebarSkeleton />
                 </ScrollArea>
               }
-              topBar={<DashboardTopBarSkeleton />}
             />
           </div>
         </motion.main>

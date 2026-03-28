@@ -15,8 +15,6 @@ export {
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
   EXTRACT_403_RETRIES,
-  EXTRACT_FINGERPRINT_POOL,
-  PROXY_FINGERPRINT_POOL,
 } from "./constants";
 export { readPlaceholderSnapshotHtml } from "./snapshot";
 export { fetchHtml } from "./upstream";

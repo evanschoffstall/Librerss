@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import type { AuthSession } from "@/lib/core/types";
+import type { AuthSession } from "@/lib";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -10,12 +10,12 @@ import {
 } from "@/lib/auth/session";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 
+import { DashboardFilterBarSkeleton } from "./components/DashboardFilterBar";
 import {
   DashboardFeedViewport,
   DashboardScaffold,
 } from "./components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
-import { DashboardTopBarSkeleton } from "./components/DashboardTopTokenBar";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { LoginViewSkeleton } from "./components/login/LoginViewSkeleton";
 import { DashboardRouter } from "./DashboardRouter";
@@ -107,12 +107,12 @@ function DashboardShellFallback() {
               <FeedListSkeleton />
             </DashboardFeedViewport>
           }
+          filterBar={<DashboardFilterBarSkeleton />}
           sidebar={
             <ScrollArea className="h-full">
               <DashboardSidebarSkeleton />
             </ScrollArea>
           }
-          topBar={<DashboardTopBarSkeleton />}
         />
       </div>
     </main>

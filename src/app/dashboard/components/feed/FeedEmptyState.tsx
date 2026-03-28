@@ -1,21 +1,22 @@
-import { CheckCheck, SearchX, Sparkles } from "lucide-react";
+import { CheckCheck, Rss, SearchX, Sparkles } from "lucide-react";
 
 import { type ArticleFilter } from "../../services/article-filters";
 
-export function FeedEmptyState({
-  articleFilter,
-  hasSearchTerm,
-  trimmedSearchTerm,
-}: {
+interface FeedEmptyStateProps {
   articleFilter: ArticleFilter;
+  hasConfiguredFeeds?: boolean;
   hasSearchTerm: boolean;
   trimmedSearchTerm: string;
-}) {
-  const EmptyStateIcon = hasSearchTerm
-    ? SearchX
-    : articleFilter === "starred"
-      ? Sparkles
-      : CheckCheck;
+}
+
+export function FeedEmptyState({
+  articleFilter,
+  hasConfiguredFeeds = true,
+  hasSearchTerm,
+  trimmedSearchTerm,
+}: FeedEmptyStateProps) {
+  const { description, heading, icon: EmptyStateIcon } =
+    resolveEmptyStateContent(hasSearchTerm, hasConfiguredFeeds, articleFilter);
 
   return (
     <div
@@ -50,7 +51,7 @@ export function FeedEmptyState({
       </div>
       <div className="relative space-y-2">
         <h3 className="text-xl font-semibold tracking-tight text-foreground">
-          {hasSearchTerm ? "No results" : "You're up to date"}
+          {heading}
         </h3>
         {hasSearchTerm ? (
           <div
@@ -72,10 +73,36 @@ export function FeedEmptyState({
           </div>
         ) : (
           <p className="max-w-[16rem] text-sm/relaxed text-muted-foreground">
-            Check back later or pull for fresh articles.
+            {description ?? "Try back later or refresh."}
           </p>
         )}
       </div>
     </div>
   );
+}
+
+/** Resolves the icon, heading, and description for the current empty-state reason. */
+function resolveEmptyStateContent(
+  hasSearchTerm: boolean,
+  hasConfiguredFeeds: boolean,
+  articleFilter: ArticleFilter,
+) {
+  if (hasSearchTerm) {
+    return { heading: "No results", icon: SearchX };
+  }
+  if (!hasConfiguredFeeds) {
+    return {
+      description: "Add your feeds in Settings to start reading.",
+      heading: "No feed sources yet",
+      icon: Rss,
+    };
+  }
+  if (articleFilter === "starred") {
+    return {
+      description: "Articles you star will show up here.",
+      heading: "No starred articles yet",
+      icon: Sparkles,
+    };
+  }
+  return { heading: "You're up to date", icon: CheckCheck };
 }

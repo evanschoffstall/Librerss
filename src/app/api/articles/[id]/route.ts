@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError, parsePositiveInt } from "@/lib/api/http";
-import { logAndRespondError, requireAuthenticatedUser } from "@/lib/server";
-import { getArticleById, ServiceError } from "@/lib/server/services";
+import { getArticleById, logAndRespondError, requireAuthenticatedUser, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 

@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type Article, ArticleService, isValidUrl } from "@/lib";
+import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 
 export interface FeedExtractionSettings {
   extractionDisabled?: boolean;
@@ -68,7 +69,9 @@ export function useArticleHydration({
       const feedUrl =
         typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
       const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
-      const shouldLoadStoredContent = settings?.extractionDisabled === true;
+      const placeholderSnapshotPath = getPlaceholderSnapshotPathByArticleUrl(link);
+      const shouldLoadStoredContent =
+        settings?.extractionDisabled === true && placeholderSnapshotPath === null;
 
       const inFlightCount = articleHydrationInFlightRef.current.get(link) ?? 0;
 

@@ -52,6 +52,7 @@ import {
 import {
   isFreshFeedBatchQuery,
   resolveFeedBatchStaleTime,
+  shouldNotifyFeedFailureToast,
 } from "@/app/dashboard/services/feed-loader-state";
 import {
   normalizeFeedSourceInput,
@@ -72,15 +73,22 @@ import {
   refreshCurrentSelection,
 } from "@/app/dashboard/services/selection";
 import {
+  clearCompatibilityResultsCache,
   formatElapsed,
+  hasConfiguredProxyStatus,
   isCompatibilityResultsCache,
+  normalizeCompatibilityResults,
   previewText,
+  readCompatibilityResultsCache,
+  toProxySettingsSnapshot,
+  writeCompatibilityResultsCache,
 } from "@/app/dashboard/services/settings-proxy";
 import {
   type Article,
   type CategoryTreeNode,
   DEFAULT_CATEGORY_LABEL,
 } from "@/lib";
+import { PLACEHOLDER_FEED_SOURCES } from "@/lib/core/placeholder";
 
 /** Builds a minimal article fixture for dashboard service tests. */
 function makeArticle(overrides: Partial<Article> = {}): Article {
@@ -247,10 +255,17 @@ describe("dashboard category tree services", () => {
 
     const placeholderCategories = buildDefaultCategories(true);
     expect(placeholderCategories).toHaveLength(1);
-    expect(placeholderCategories[0]?.children?.length).toBeGreaterThan(0);
-    expect(placeholderCategories[0]?.children?.[0]?.data?.url).toContain(
-      "http",
+    expect(placeholderCategories[0]?.children?.length).toBe(
+      PLACEHOLDER_FEED_SOURCES.length,
     );
+    expect(placeholderCategories[0]?.children?.[0]?.data).toEqual({
+      category: PLACEHOLDER_FEED_SOURCES[0]?.category,
+      enabled: true,
+      extractionDisabled: true,
+      proxyEnabled: false,
+      sourceId: PLACEHOLDER_FEED_SOURCES[0]?.id,
+      url: PLACEHOLDER_FEED_SOURCES[0]?.url,
+    });
   });
 
   test("collects and deduplicates known category labels case-insensitively", () => {
@@ -508,6 +523,12 @@ describe("feed loader state services", () => {
 
     expect(isFreshFeedBatchQuery(queryClient, queryKey, 5_000)).toBe(true);
     expect(isFreshFeedBatchQuery(queryClient, queryKey, 0)).toBe(false);
+  });
+
+  test("suppresses feed failure toasts for skip-refresh cache reads", () => {
+    expect(shouldNotifyFeedFailureToast()).toBe(true);
+    expect(shouldNotifyFeedFailureToast(undefined, true)).toBe(false);
+    expect(shouldNotifyFeedFailureToast({ skipRefresh: true })).toBe(false);
   });
 });
 
@@ -1019,6 +1040,82 @@ describe("settings proxy services", () => {
     ).toBe(true);
     expect(isCompatibilityResultsCache(null)).toBe(false);
     expect(isCompatibilityResultsCache({ checkedAt: Date.now() })).toBe(false);
+    expect(
+      isCompatibilityResultsCache({
+        checkedAt: Date.now(),
+        results: [{ compatibilitySignalDetected: true, success: true }],
+      }),
+    ).toBe(false);
+
+    const storage = window.localStorage;
+    writeCompatibilityResultsCache(storage, {
+      checkedAt: 12,
+      results: normalizeCompatibilityResults([
+        {
+          compatibilitySignalDetected: true,
+          statusCode: 200,
+          success: true,
+          vendor: "Example CDN",
+        },
+      ]),
+    });
+    expect(readCompatibilityResultsCache(storage)).toEqual({
+      checkedAt: 12,
+      results: [
+        {
+          compatibilitySignalDetected: true,
+          statusCode: 200,
+          success: true,
+          vendor: "Example CDN",
+        },
+      ],
+    });
+
+    clearCompatibilityResultsCache(storage);
+    expect(readCompatibilityResultsCache(storage)).toBeNull();
+  });
+
+  test("normalizes persisted proxy settings into hook-friendly state", () => {
+    expect(
+      toProxySettingsSnapshot({
+        allowInsecureTls: true,
+        error: "Proxy responded slowly",
+        hasProxyPassword: true,
+        proxyUrl: "https://proxy.example.test",
+        proxyUsername: "alice",
+        status: "reachable",
+      }),
+    ).toEqual({
+      allowInsecureTls: true,
+      error: "Proxy responded slowly",
+      hasProxyPassword: true,
+      proxyStatus: "reachable",
+      proxyUrl: "https://proxy.example.test",
+      proxyUsername: "alice",
+    });
+
+    expect(
+      toProxySettingsSnapshot({
+        allowInsecureTls: false,
+        hasProxyPassword: false,
+        proxyUrl: null,
+        proxyUsername: null,
+        status: "unreachable",
+      }),
+    ).toEqual({
+      allowInsecureTls: false,
+      error: null,
+      hasProxyPassword: false,
+      proxyStatus: "none",
+      proxyUrl: "",
+      proxyUsername: "",
+    });
+
+    expect(hasConfiguredProxyStatus("checking")).toBe(true);
+    expect(hasConfiguredProxyStatus("reachable")).toBe(true);
+    expect(hasConfiguredProxyStatus("unreachable")).toBe(true);
+    expect(hasConfiguredProxyStatus("none")).toBe(false);
+    expect(hasConfiguredProxyStatus("loading")).toBe(false);
   });
 });
 
@@ -1186,6 +1283,7 @@ describe("dashboard controller state services", () => {
         expandedArticleKey: null,
         feedViewKey: "all-feeds:all",
         filteredFeed: [],
+        hasConfiguredFeeds: true,
         hydratedArticleLinks: {},
         hydratingArticleLinks: {},
         isCollapseScrollRestoreActive: false,
@@ -1197,9 +1295,16 @@ describe("dashboard controller state services", () => {
         onArticleToggle: mock(() => {}),
         onArticleToggleRead: mock(() => {}),
         onArticleToggleStarred: mock(() => {}),
+        refreshEpoch: 0,
         searchTerm: "",
         showFavicons: false,
         updatingArticleState: {},
+      },
+      filterBar: {
+        articleFilter: "all",
+        lastRefreshLabel: "Updated just now",
+        loading: false,
+        setArticleFilter: mock(() => {}),
       },
       settings: {
         articlesPerPage: 6,
@@ -1226,12 +1331,6 @@ describe("dashboard controller state services", () => {
         sidebarContentProps,
         sidebarScrollRef: mock(() => {}),
       },
-      topBar: {
-        articleFilter: "all",
-        lastRefreshLabel: "Updated just now",
-        loading: false,
-        setArticleFilter: mock(() => {}),
-      },
     });
 
     expect(controllerState.feedList.feedViewKey).toBe("all-feeds:all");
@@ -1239,7 +1338,7 @@ describe("dashboard controller state services", () => {
     expect(controllerState.sidebar.sidebarContentProps).toEqual(
       sidebarContentProps,
     );
-    expect(controllerState.topBar.lastRefreshLabel).toBe(
+    expect(controllerState.filterBar.lastRefreshLabel).toBe(
       "Updated just now",
     );
   });

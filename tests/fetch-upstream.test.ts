@@ -1,15 +1,11 @@
 import type { AxiosError, AxiosResponse } from "axios";
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { CookieJar } from "tough-cookie";
 import * as zlib from "zlib";
 
 import { CONFIG } from "@/lib/config";
-import {
-    EXTRACT_403_RETRIES,
-    fetchHtml,
-    PROXY_FINGERPRINT_POOL,
-} from "@/lib/extract";
+import { EXTRACT_403_RETRIES, fetchHtml } from "@/lib/extract";
+import { CHROME } from "@/lib/fetch";
 import { GotScrapingError } from "@/lib/fetch/response";
 
 // Type-cast helpers for injectable fetch dependencies
@@ -177,7 +173,7 @@ describe("fetchHtml", () => {
       expect(mockIsAllowed).toHaveBeenCalledWith(TEST_URL);
     });
 
-    test("uses default user agent from fingerprint pool when no axiosGetFn", async () => {
+    test("uses default user agent from httpCloak pool when no axiosGetFn", async () => {
       const mockAxiosGet = mock(async () => ({
         data: TEST_HTML,
         status: 200,
@@ -187,7 +183,7 @@ describe("fetchHtml", () => {
         axiosGetFn: mockAxiosGet as any,
       });
 
-      // When axiosGetFn is injected, should use first fingerprint
+      // When axiosGetFn is injected, should use first httpCloak
       expect(mockAxiosGet).toHaveBeenCalled();
     });
   });
@@ -208,7 +204,7 @@ describe("fetchHtml", () => {
       ).rejects.toThrow("Blocked URL");
     });
 
-    test("throws on network error without retry when injected", async () => {
+    test("retries once through the plain axios fallback when injected axios fails", async () => {
       const mockAxiosGet = mock(async () => {
         throw new Error("Network error");
       });
@@ -219,8 +215,7 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow("Network error");
 
-      // Should only be called once (no retry with injected function)
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
 
     test("throws on 404 error", async () => {
@@ -235,10 +230,10 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
 
-    test("throws on 500 error without retry", async () => {
+    test("throws on 500 after the plain axios fallback also fails", async () => {
       const mockAxiosGet = mock(async () => {
         const error = createAxiosError(500);
         throw error;
@@ -252,12 +247,12 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("403 retry logic with injected axios", () => {
-    test("throws on 403 immediately with injected axios (no retry)", async () => {
+    test("falls through to the plain axios stage for injected 403 responses", async () => {
       const mockAxiosGet = mock(async () => {
         const error = createAxiosError(403);
         throw error;
@@ -271,11 +266,10 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow();
 
-      // No retries with injected function
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
 
-    test("throws after 403 when injected (no retry)", async () => {
+    test("throws after both injected axios stages return 403", async () => {
       const mockAxiosGet = mock(async () => {
         const error = createAxiosError(403);
         throw error;
@@ -289,12 +283,12 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("429 rate limit handling", () => {
-    test("throws on 429 error when injected", async () => {
+    test("throws on 429 after the plain axios fallback also rate limits", async () => {
       const mockAxiosGet = mock(async () => {
         const error = createAxiosError(429);
         throw error;
@@ -308,7 +302,7 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -329,7 +323,7 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow("DataDome");
 
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
 
     test("detects DataDome with mixed case header and lowercase value", async () => {
@@ -411,7 +405,7 @@ describe("fetchHtml", () => {
         }),
       ).rejects.toThrow("PerimeterX");
 
-      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
     });
 
     test("detects PerimeterX from px_captcha in response body", async () => {
@@ -503,9 +497,9 @@ describe("fetchHtml", () => {
     });
   });
 
-  describe("proxy mode with fingerprint fetch", () => {
-    test("uses proxy fingerprint fetch when useProxy is true", async () => {
-      const mockFingerprintFetch = mock(async () => ({
+  describe("proxy mode with httpCloak fetch", () => {
+    test("uses proxy httpCloak fetch when useProxy is true", async () => {
+      const mockHttpCloakFetch = mock(async () => ({
         html: TEST_HTML,
         requestHeaders: { "User-Agent": "test-ua" },
       }));
@@ -513,7 +507,7 @@ describe("fetchHtml", () => {
       const result = await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -522,15 +516,13 @@ describe("fetchHtml", () => {
       );
 
       expect(result).toBe(TEST_HTML);
-      expect(mockFingerprintFetch).toHaveBeenCalled();
+      expect(mockHttpCloakFetch).toHaveBeenCalled();
     });
 
-    test("passes proxy configuration to fingerprint fetch", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+    test("passes proxy configuration to httpCloak fetch", async () => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         expect(options?.proxyUrl).toBe("http://proxy.example.com:8080");
-        expect(options?.browserVersion).toBe(
-          PROXY_FINGERPRINT_POOL[0].chromeVersion,
-        );
+        expect(options?.secChUa).toBe(CHROME.secChUa);
         return {
           html: TEST_HTML,
           requestHeaders: { "User-Agent": "test-ua" },
@@ -540,7 +532,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -548,11 +540,11 @@ describe("fetchHtml", () => {
         },
       );
 
-      expect(mockFingerprintFetch).toHaveBeenCalled();
+      expect(mockHttpCloakFetch).toHaveBeenCalled();
     });
 
     test("uses SOCKS proxy mode when protocol is socks5://", async () => {
-      const mockFingerprintFetch = mock(async () => ({
+      const mockHttpCloakFetch = mock(async () => ({
         html: TEST_HTML,
         requestHeaders: { "User-Agent": "test-ua" },
       }));
@@ -560,7 +552,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "socks5://proxy.example.com:1080",
@@ -568,11 +560,11 @@ describe("fetchHtml", () => {
         },
       );
 
-      expect(mockFingerprintFetch).toHaveBeenCalled();
+      expect(mockHttpCloakFetch).toHaveBeenCalled();
     });
 
     test("uses SOCKS proxy mode when protocol is socks4://", async () => {
-      const mockFingerprintFetch = mock(async () => ({
+      const mockHttpCloakFetch = mock(async () => ({
         html: TEST_HTML,
         requestHeaders: { "User-Agent": "test-ua" },
       }));
@@ -580,7 +572,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "socks4://proxy.example.com:1080",
@@ -588,11 +580,11 @@ describe("fetchHtml", () => {
         },
       );
 
-      expect(mockFingerprintFetch).toHaveBeenCalled();
+      expect(mockHttpCloakFetch).toHaveBeenCalled();
     });
 
-    test("passes allowInsecureTls option to fingerprint fetch", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+    test("passes allowInsecureTls option to httpCloak fetch", async () => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         expect(options?.allowInsecureTls).toBe(true);
         return {
           html: TEST_HTML,
@@ -603,7 +595,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           allowInsecureTls: true,
@@ -613,9 +605,10 @@ describe("fetchHtml", () => {
       );
     });
 
-    test("sets cookie jar in proxy mode", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
-        expect(options?.cookieJar).toBeInstanceOf(CookieJar);
+    test("passes default browser headers in proxy mode", async () => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
+        expect(options?.accept).toBe(CHROME.accept);
+        expect(options?.secChUa).toBe(CHROME.secChUa);
         return {
           html: TEST_HTML,
           requestHeaders: { "User-Agent": "test-ua" },
@@ -625,7 +618,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -635,7 +628,7 @@ describe("fetchHtml", () => {
     });
 
     test("builds DDG referer in proxy mode", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         expect(options?.referer).toMatch(/duckduckgo\.com/);
         return {
           html: TEST_HTML,
@@ -646,7 +639,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -659,7 +652,7 @@ describe("fetchHtml", () => {
   describe("proxy mode retry logic", () => {
     test("retries on 403 in proxy mode up to configured limit", async () => {
       let attemptCount = 0;
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptCount++;
         if (attemptCount <= EXTRACT_403_RETRIES) {
           throw new GotScrapingError(
@@ -684,7 +677,7 @@ describe("fetchHtml", () => {
         TEST_URL,
         {
           delayFn: async () => {}, // No-op delay for tests
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -698,7 +691,7 @@ describe("fetchHtml", () => {
 
     test("retries on 429 in proxy mode", async () => {
       let attemptCount = 0;
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptCount++;
         if (attemptCount === 1) {
           throw new GotScrapingError(
@@ -723,7 +716,7 @@ describe("fetchHtml", () => {
         TEST_URL,
         {
           delayFn: async () => {}, // No-op delay for tests
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -737,7 +730,7 @@ describe("fetchHtml", () => {
 
     test("does not retry on 404 in proxy mode", async () => {
       let attemptCount = 0;
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptCount++;
         throw new GotScrapingError(
           404,
@@ -756,7 +749,7 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -770,7 +763,7 @@ describe("fetchHtml", () => {
 
     test("does not retry on 500 in proxy mode", async () => {
       let attemptCount = 0;
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptCount++;
         throw new GotScrapingError(
           500,
@@ -789,7 +782,7 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -803,7 +796,7 @@ describe("fetchHtml", () => {
 
     test("stops retry immediately on PerimeterX detection in proxy mode", async () => {
       let attemptCount = 0;
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptCount++;
         throw new GotScrapingError(
           403,
@@ -822,7 +815,7 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -837,7 +830,7 @@ describe("fetchHtml", () => {
 
     test("stops retry immediately on DataDome detection in proxy mode", async () => {
       let attemptCount = 0;
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptCount++;
         throw new GotScrapingError(
           403,
@@ -856,7 +849,7 @@ describe("fetchHtml", () => {
         fetchHtml(
           TEST_URL,
           {
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -869,11 +862,11 @@ describe("fetchHtml", () => {
       expect(attemptCount).toBe(1);
     });
 
-    test("rotates fingerprints across retry attempts in proxy mode", async () => {
-      const usedFingerprints: number[] = [];
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
-        usedFingerprints.push(options?.browserVersion ?? 0);
-        if (usedFingerprints.length < 3) {
+    test("reuses the same httpCloak browser profile across retry attempts in proxy mode", async () => {
+      const usedSecChUas: string[] = [];
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
+        usedSecChUas.push(options?.secChUa ?? "");
+        if (usedSecChUas.length < 3) {
           throw new GotScrapingError(
             403,
             "blocked",
@@ -896,7 +889,7 @@ describe("fetchHtml", () => {
         TEST_URL,
         {
           delayFn: async () => {}, // No-op delay for tests
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -904,11 +897,10 @@ describe("fetchHtml", () => {
         },
       );
 
-      // Should use different fingerprints
-      expect(usedFingerprints).toEqual([
-        PROXY_FINGERPRINT_POOL[0].chromeVersion,
-        PROXY_FINGERPRINT_POOL[1 % PROXY_FINGERPRINT_POOL.length].chromeVersion,
-        PROXY_FINGERPRINT_POOL[2 % PROXY_FINGERPRINT_POOL.length].chromeVersion,
+      expect(usedSecChUas).toEqual([
+        CHROME.secChUa,
+        CHROME.secChUa,
+        CHROME.secChUa,
       ]);
     });
 
@@ -919,7 +911,7 @@ describe("fetchHtml", () => {
       const mockDelay = mock(async (ms: number) => {
         delays.push(ms);
       });
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         attemptTimes.push(Date.now());
         attemptCount++;
         if (attemptCount === 1) {
@@ -945,7 +937,7 @@ describe("fetchHtml", () => {
         TEST_URL,
         {
           delayFn: mockDelay,
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -960,7 +952,7 @@ describe("fetchHtml", () => {
     });
 
     test("throws last error after all proxy retries exhausted", async () => {
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         throw new GotScrapingError(
           403,
           "blocked",
@@ -979,7 +971,7 @@ describe("fetchHtml", () => {
           TEST_URL,
           {
             delayFn: async () => {}, // No-op delay for tests
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -988,7 +980,7 @@ describe("fetchHtml", () => {
         ),
       ).rejects.toThrow();
 
-      expect(mockFingerprintFetch).toHaveBeenCalledTimes(
+      expect(mockHttpCloakFetch).toHaveBeenCalledTimes(
         1 + EXTRACT_403_RETRIES,
       );
     });
@@ -1041,7 +1033,7 @@ describe("fetchHtml", () => {
 
   describe("buildDdgReferer functionality", () => {
     test("generates referer from URL slug", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         const referer = options?.referer ?? "";
         expect(referer).toContain("duckduckgo.com");
         expect(referer).toContain("q=");
@@ -1054,7 +1046,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         "https://example.com/news/great-article-title",
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1064,7 +1056,7 @@ describe("fetchHtml", () => {
     });
 
     test("handles URL with file extension in slug", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         const referer = options?.referer ?? "";
         expect(referer).toContain("duckduckgo.com");
         // Should strip .html extension
@@ -1078,7 +1070,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         "https://example.com/article.html",
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1088,7 +1080,7 @@ describe("fetchHtml", () => {
     });
 
     test("handles URL with hyphens and underscores", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         const referer = options?.referer ?? "";
         expect(referer).toContain("duckduckgo.com");
         // Hyphens/underscores should be converted to spaces
@@ -1101,7 +1093,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         "https://example.com/my-great_article",
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1111,7 +1103,7 @@ describe("fetchHtml", () => {
     });
 
     test("uses default query on invalid URL", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         const referer = options?.referer ?? "";
         expect(referer).toContain("duckduckgo.com");
         expect(referer).toContain("news+right+now");
@@ -1126,7 +1118,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         "https://example.com/",
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1136,7 +1128,7 @@ describe("fetchHtml", () => {
     });
 
     test("encodes spaces as + in referer URL", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
         const referer = options?.referer ?? "";
         // Spaces in query should be encoded as +, not %20
         expect(referer).toMatch(/\+/);
@@ -1149,7 +1141,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         "https://example.com/article-with-many-words",
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1214,7 +1206,7 @@ describe("fetchHtml", () => {
     });
 
     test("handles GotScrapingError with missing responseBody", async () => {
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         throw new GotScrapingError(
           403,
           "",
@@ -1233,7 +1225,7 @@ describe("fetchHtml", () => {
           TEST_URL,
           {
             delayFn: async () => {}, // No-op delay for tests
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -1244,7 +1236,7 @@ describe("fetchHtml", () => {
     });
 
     test("handles GotScrapingError with redirect hop info", async () => {
-      const mockFingerprintFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         throw new GotScrapingError(
           403,
           "blocked",
@@ -1263,7 +1255,7 @@ describe("fetchHtml", () => {
           TEST_URL,
           {
             delayFn: async () => {}, // No-op delay for tests
-            fingerprintFetchFn: mockFingerprintFetch,
+            httpCloakFetchFn: mockHttpCloakFetch,
           },
           {
             proxyUrl: "http://proxy.example.com:8080",
@@ -1317,7 +1309,7 @@ describe("fetchHtml", () => {
   });
 
   describe("request headers configuration", () => {
-    test("sets correct User-Agent from fingerprint pool", async () => {
+    test("sets correct User-Agent from httpCloak pool", async () => {
       const mockAxiosGet = mock(async () => ({
         data: TEST_HTML,
         status: 200,
@@ -1327,7 +1319,7 @@ describe("fetchHtml", () => {
         axiosGetFn: mockAxiosGet as any,
       });
 
-      // With injected axios, uses first fingerprint
+      // With injected axios, uses first httpCloak
       expect(mockAxiosGet).toHaveBeenCalled();
     });
 
@@ -1400,35 +1392,101 @@ describe("fetchHtml", () => {
     });
   });
 
-  describe("TLS fingerprint fallback for DataDome/PerimeterX", () => {
-    test("skips TLS fallback when axiosGetFn is injected", async () => {
-      const mockAxiosGet = mock(async () => {
-        const error = createAxiosError(403, "blocked", {
-          "x-datadome": "protected",
-        });
-        throw error;
-      });
-      // Use the isAxiosError type predicate defined at the top
-      const mockFingerprintFetch = mock(async () => ({
+  describe("TLS httpCloak fallback for DataDome/PerimeterX", () => {
+    test("prefers explicit httpCloak fetching before injected axios fallbacks", async () => {
+      const mockAxiosGet = mock(async () => ({
+        data: "<html><body>axios fallback</body></html>",
+        status: 200,
+      }));
+      const mockHttpCloakFetch = mock(async () => ({
         html: TEST_HTML,
         requestHeaders: {},
       }));
 
-      await expect(
-        fetchHtml(TEST_URL, {
-          axiosGetFn: mockAxiosGet as any,
-          fingerprintFetchFn: mockFingerprintFetch,
-          isAxiosErrorFn: isAxiosError,
-        }),
-      ).rejects.toThrow("DataDome");
+      const result = await fetchHtml(TEST_URL, {
+        axiosGetFn: asAxiosGet(mockAxiosGet),
+        httpCloakFetchFn: mockHttpCloakFetch,
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: isAxiosError,
+      });
 
-      // Fingerprint fetch should NOT be called with injected axios
-      expect(mockFingerprintFetch).not.toHaveBeenCalled();
+      expect(result).toBe(TEST_HTML);
+      expect(mockHttpCloakFetch).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).not.toHaveBeenCalled();
     });
 
-    test("sets proper cookie jar for DataDome fallback", async () => {
-      const mockFingerprintFetch = mock(async (_url, _validator, options) => {
-        expect(options?.cookieJar).toBeInstanceOf(CookieJar);
+    test("falls back from httpCloak to browser-profile axios before plain axios", async () => {
+      const capturedHeaders: Record<string, string>[] = [];
+      const mockAxiosGet = mock(async (_url: string, config?: unknown) => {
+        capturedHeaders.push(
+          ((config as undefined | { headers?: Record<string, string> })?.headers ??
+            {}) as Record<string, string>,
+        );
+        return {
+          data: TEST_HTML,
+          status: 200,
+        };
+      });
+      const mockHttpCloakFetch = mock(async () => {
+        throw new Error("httpCloak failed");
+      });
+
+      const result = await fetchHtml(TEST_URL, {
+        axiosGetFn: asAxiosGet(mockAxiosGet),
+        httpCloakFetchFn: mockHttpCloakFetch,
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: isAxiosError,
+      });
+
+      expect(result).toBe(TEST_HTML);
+      expect(mockHttpCloakFetch).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
+      expect(capturedHeaders[0]?.["sec-ch-ua"]).toBeTruthy();
+      expect(capturedHeaders[0]?.Referer).toContain("duckduckgo.com");
+    });
+
+    test("falls back to plain axios after browser-profile axios fails", async () => {
+      const capturedHeaders: Record<string, string>[] = [];
+      let axiosCallCount = 0;
+      const mockAxiosGet = mock(async (_url: string, config?: unknown) => {
+        capturedHeaders.push(
+          ((config as undefined | { headers?: Record<string, string> })?.headers ??
+            {}) as Record<string, string>,
+        );
+        axiosCallCount += 1;
+        if (axiosCallCount === 1) {
+          throw createAxiosError(500, "browser-profile failed");
+        }
+
+        return {
+          data: TEST_HTML,
+          status: 200,
+        };
+      });
+      const mockHttpCloakFetch = mock(async () => {
+        throw new Error("httpCloak failed");
+      });
+
+      const result = await fetchHtml(TEST_URL, {
+        axiosGetFn: asAxiosGet(mockAxiosGet),
+        httpCloakFetchFn: mockHttpCloakFetch,
+        isAllowedFeedUrlFn: async () => true,
+        isAxiosErrorFn: isAxiosError,
+      });
+
+      expect(result).toBe(TEST_HTML);
+      expect(mockHttpCloakFetch).toHaveBeenCalledTimes(1);
+      expect(mockAxiosGet).toHaveBeenCalledTimes(2);
+      expect(capturedHeaders[0]?.["sec-ch-ua"]).toBeTruthy();
+      expect(capturedHeaders[0]?.Referer).toContain("duckduckgo.com");
+      expect(capturedHeaders[1]?.["sec-ch-ua"]).toBeUndefined();
+      expect(capturedHeaders[1]?.Referer).toBeUndefined();
+    });
+
+    test("passes browser-style headers through the DataDome fallback path", async () => {
+      const mockHttpCloakFetch = mock(async (_url, _validator, options) => {
+        expect(options?.accept).toBe(CHROME.accept);
+        expect(options?.secChUa).toBe(CHROME.secChUa);
         return {
           html: TEST_HTML,
           requestHeaders: { "User-Agent": "test-ua" },
@@ -1438,7 +1496,7 @@ describe("fetchHtml", () => {
       await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1446,7 +1504,7 @@ describe("fetchHtml", () => {
         },
       );
 
-      expect(mockFingerprintFetch).toHaveBeenCalled();
+      expect(mockHttpCloakFetch).toHaveBeenCalled();
     });
   });
 
@@ -1524,7 +1582,7 @@ describe("fetchHtml", () => {
     });
 
     test("handles undefined deps parameter", async () => {
-      const mockFingerprintFetch = mock(async () => ({
+      const mockHttpCloakFetch = mock(async () => ({
         html: TEST_HTML,
         requestHeaders: {},
       }));
@@ -1534,7 +1592,7 @@ describe("fetchHtml", () => {
       const result = await fetchHtml(
         TEST_URL,
         {
-          fingerprintFetchFn: mockFingerprintFetch,
+          httpCloakFetchFn: mockHttpCloakFetch,
         },
         {
           proxyUrl: "http://proxy.example.com:8080",
@@ -1610,49 +1668,58 @@ describe("fetchHtml", () => {
   });
 });
 
-// ── lib/extract/upstream – TLS fingerprint fallback (compatibility signals) ─
+// ── lib/extract/upstream – TLS httpCloak fallback (compatibility signals) ─
 
-describe("lib/extract/upstream – proxy path with fingerprintFetchFn", () => {
+describe("lib/extract/upstream – proxy path with httpCloakFetchFn", () => {
   // The direct-path TLS fallback (sourceCompatibilitySignal.detected && !injectedGet) cannot
   // be tested with injected deps because injecting axiosGetFn sets `injectedGet`
   // which bypasses the fallback. Instead, we test the PROXY path which always
-  // uses fingerprintFetchFn directly.
-  test("proxy path calls fingerprintFetchFn and returns html", async () => {
+  // uses httpCloakFetchFn directly.
+  test("proxy path calls httpCloakFetchFn and returns html", async () => {
     const { fetchHtml } = await import("@/lib/extract");
 
-    let fingerprintCalled = false;
-    const mockFingerprintFetch = async () => {
-      fingerprintCalled = true;
+    let httpCloakCalled = false;
+    const mockHttpCloakFetch = async () => {
+      httpCloakCalled = true;
       return {
-        html: "<html><body>Proxy fingerprint content</body></html>",
+        html: "<html><body>Proxy httpCloak content</body></html>",
         requestHeaders: { "User-Agent": "test-ua" },
       };
     };
 
     const result = await fetchHtml(
       "https://example.com/proxy-extract",
-      { fingerprintFetchFn: mockFingerprintFetch as any },
+      { httpCloakFetchFn: mockHttpCloakFetch as any },
       { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
     );
 
-    expect(fingerprintCalled).toBe(true);
-    expect(result).toContain("Proxy fingerprint content");
+    expect(httpCloakCalled).toBe(true);
+    expect(result).toContain("Proxy httpCloak content");
   });
 
-  test("proxy path propagates fingerprintFetchFn errors", async () => {
+  test("proxy path falls back to injected axios after httpCloak failure", async () => {
     const { fetchHtml } = await import("@/lib/extract");
 
-    const mockFingerprintFetch = async () => {
-      throw new Error("Fingerprint fetch failed");
+    const mockHttpCloakFetch = async () => {
+      throw new Error("HTTPCloak fetch failed");
     };
 
-    await expect(
-      fetchHtml(
-        "https://example.com/proxy-extract-fail",
-        { fingerprintFetchFn: mockFingerprintFetch as any },
-        { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
-      ),
-    ).rejects.toThrow("Fingerprint fetch failed");
+    const mockAxiosGet = asAxiosGet(async () => ({
+      data: "<html><body>proxy fallback</body></html>",
+      status: 200,
+    }));
+
+    const result = await fetchHtml(
+      "https://example.com/proxy-extract-fail",
+      {
+        axiosGetFn: mockAxiosGet,
+        httpCloakFetchFn: mockHttpCloakFetch as any,
+        isAllowedFeedUrlFn: async () => true,
+      },
+      { proxyUrl: "http://proxy.example.com:8080", useProxy: true },
+    );
+
+    expect(result).toContain("proxy fallback");
   });
 });
 
@@ -1687,12 +1754,12 @@ describe("lib/extract/upstream – fetchHtml injectable paths", () => {
     expect(html).toBe("<html><body>hello</body></html>");
   });
 
-  test("proxy path: returns html from injected fingerprintFetchFn", async () => {
+  test("proxy path: returns html from injected httpCloakFetchFn", async () => {
     const { fetchHtml } = await import("@/lib/extract/upstream");
     const html = await fetchHtml(
       "https://example.com/proxied",
       {
-        fingerprintFetchFn: async (_url, _isAllowed, _opts) => ({
+        httpCloakFetchFn: async (_url, _isAllowed, _opts) => ({
           html: "<html><body>proxy</body></html>",
           requestHeaders: {},
         }),
@@ -1758,16 +1825,16 @@ describe("fetchHtml direct path – error branches", () => {
   });
 });
 
-// ── lib/extract/upstream.ts – proxy path with fingerprint ────────────────────
+// ── lib/extract/upstream.ts – proxy path with httpCloak ────────────────────
 
-describe("fetchHtml proxy path – fingerprint fetch", () => {
-  test("returns html from fingerprint fetch on proxy path", async () => {
+describe("fetchHtml proxy path – httpCloak fetch", () => {
+  test("returns html from httpCloak fetch on proxy path", async () => {
     const { fetchHtml } = await import("@/lib/extract/upstream");
     const html = await fetchHtml(
       "https://example.com/proxied",
       {
         delayFn: async () => {},
-        fingerprintFetchFn: async () => ({
+        httpCloakFetchFn: async () => ({
           html: "<html><body>proxied</body></html>",
           requestHeaders: { "User-Agent": "test" },
         }),
@@ -1786,7 +1853,7 @@ describe("fetchHtml proxy path – fingerprint fetch", () => {
         "https://example.com/proxied",
         {
           delayFn: async () => {},
-          fingerprintFetchFn: async () => {
+          httpCloakFetchFn: async () => {
             throw new GotScrapingError(
               403,
               "Access Denied",
@@ -1810,7 +1877,7 @@ describe("fetchHtml proxy path – fingerprint fetch", () => {
 // ── lib/extract/upstream – proxy path error flow ──────────────────────────────
 
 describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
-  test("re-throws when fingerprintFetchFn throws on proxy path", async () => {
+  test("falls back to injected axios when proxy httpCloak fetch throws", async () => {
     const { fetchHtml } = await import("@/lib/extract/upstream");
     const proxyErr = Object.assign(new Error("proxy connection refused"), {
       proxyMode: "socks" as const,
@@ -1821,21 +1888,27 @@ describe("lib/extract/upstream – fetchHtml proxy path error handling", () => {
       statusCode: 500,
     });
 
-    await expect(
-      fetchHtml(
-        "https://example.com/article",
-        {
-          fingerprintFetchFn: async () => {
-            throw proxyErr;
-          },
-          isAllowedFeedUrlFn: async () => true,
+    const mockAxiosGet = asAxiosGet(async () => ({
+      data: "<html><body>proxy axios recovery</body></html>",
+      status: 200,
+    }));
+
+    const html = await fetchHtml(
+      "https://example.com/article",
+      {
+        axiosGetFn: mockAxiosGet,
+        httpCloakFetchFn: async () => {
+          throw proxyErr;
         },
-        {
-          proxyUrl: "socks5://proxy.example.com:1080",
-          useProxy: true,
-        },
-      ),
-    ).rejects.toThrow("proxy connection refused");
+        isAllowedFeedUrlFn: async () => true,
+      },
+      {
+        proxyUrl: "socks5://proxy.example.com:1080",
+        useProxy: true,
+      },
+    );
+
+    expect(html).toContain("proxy axios recovery");
   });
 
   test("re-throws when axiosGetFn throws a compatibility-signaled error (non-retryable)", async () => {

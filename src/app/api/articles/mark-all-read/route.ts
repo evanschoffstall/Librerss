@@ -3,9 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { asTrimmedString, jsonError } from "@/lib/api/http";
 import {
   logAndRespondError,
-  requireMutableUserAndJsonBody,
-} from "@/lib/server";
-import { markStreamRead, ServiceError } from "@/lib/server/services";
+  markStreamRead, requireMutableUserAndJsonBody, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 

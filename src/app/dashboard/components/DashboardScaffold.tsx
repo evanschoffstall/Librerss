@@ -1,13 +1,23 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+/** Shared dashboard width contract for the feed-linked token bar and list. */
+export const DASHBOARD_FEED_WIDTH_CLASS_NAME =
+  "mx-auto w-full max-w-3xl lg:max-w-none";
+
+/** Shared inner surface spacing for feed-linked dashboard content areas. */
+export const DASHBOARD_FEED_SURFACE_CLASS_NAME =
+  `${DASHBOARD_FEED_WIDTH_CLASS_NAME} min-w-0 px-2 lg:px-4`;
+
 interface DashboardFeedViewportProps {
   children: React.ReactNode;
 }
 
 interface DashboardScaffoldProps {
   feed: React.ReactNode;
+  filterBar: React.ReactNode;
+  /** When true (default), positions the filter bar below the feed on mobile. */
+  mobileToolbarBottom?: boolean;
   sidebar: React.ReactNode;
-  topBar: React.ReactNode;
 }
 
 /**
@@ -29,10 +39,10 @@ export function DashboardFeedViewport({
       "
     >
       <div
-        className="
-          mx-auto w-full max-w-3xl min-w-0 px-2 py-1
-          lg:max-w-none lg:px-4
-        "
+        className={`
+          ${DASHBOARD_FEED_SURFACE_CLASS_NAME}
+          py-1
+        `}
         data-dashboard-width-link="feed"
       >
         {children}
@@ -42,26 +52,49 @@ export function DashboardFeedViewport({
 }
 
 /**
- * Shared dashboard scaffold for the token bar, sidebar rail, and feed surface.
+ * Shared dashboard scaffold for the filter bar, sidebar rail, and feed surface.
  *
  * Both the route shell and the hydrated dashboard render through this scaffold
  * so width, spacing, and desktop column sizing stay locked together.
  */
 export function DashboardScaffold({
   feed,
+  filterBar,
+  mobileToolbarBottom = true,
   sidebar,
-  topBar,
 }: DashboardScaffoldProps) {
   return (
     <div
-      className="
-        mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
-        pt-[calc(env(safe-area-inset-top)+3.8rem)]
-        pb-[env(safe-area-inset-bottom)]
-        md:px-6
-      "
+      className={
+        mobileToolbarBottom
+          ? `
+            mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
+            pt-[env(safe-area-inset-top)]
+            pb-[calc(env(safe-area-inset-bottom)+3.8rem)]
+            md:px-6
+            lg:pt-[calc(env(safe-area-inset-top)+3.8rem)]
+            lg:pb-[env(safe-area-inset-bottom)]
+          `
+          : `
+            mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
+            pt-[calc(env(safe-area-inset-top)+3.8rem)]
+            pb-[env(safe-area-inset-bottom)]
+            md:px-6
+          `
+      }
     >
-      {topBar}
+      <div
+        className={
+          mobileToolbarBottom
+            ? `
+              order-1 shrink-0
+              lg:order-0
+            `
+            : "shrink-0"
+        }
+      >
+        {filterBar}
+      </div>
 
       <div
         className="

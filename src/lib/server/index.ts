@@ -10,24 +10,34 @@ export {
     logAndRespondError,
     requireAuthenticatedUser,
     requireMutableAuthenticatedUser,
-    requireMutableRequest, requireMutableUserAndJsonBody
+    requireMutableRequest,
+    requireMutableUserAndJsonBody,
 } from "./guards";
 export {
     detectProxyProtocol,
-    MAX_PROXY_CREDENTIAL_LENGTH, MAX_PROXY_URL_LENGTH, normalizeProxyUrl,
+    MAX_PROXY_CREDENTIAL_LENGTH,
+    MAX_PROXY_URL_LENGTH,
+    normalizeProxyUrl,
     probeProxy,
-    type ProxyStatus
+    type ProxyStatus,
 } from "./proxy";
 export {
     encryptStoredProxyPassword,
     materializeStoredProxyPassword,
     type ResolvedStoredProxyPassword,
-    resolveStoredProxyPassword
+    resolveStoredProxyPassword,
 } from "./proxy-credentials";
+export { RateLimiter, rateLimiter } from "./rate-limit";
+export {
+    blockedRequestPolicies,
+    type BlockedRequestPolicy,
+    createBlockedRequestResponse,
+    matchBlockedRequestPolicy,
+} from "./request-blocks";
 export {
     isRouteHandlerContext,
     resolveRouteHandlerDeps,
-    type RouteHandlerContext
+    type RouteHandlerContext,
 } from "./route-context";
 export * from "./services";
 

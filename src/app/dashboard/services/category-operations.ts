@@ -47,7 +47,6 @@ export function addCategoryLabel({
   }
 
   setCustomCategoryLabels((current) => [...current, normalized]);
-  toast.success("Category added.");
   return true;
 }
 
@@ -110,7 +109,6 @@ export async function removeCategoryAndRefresh({
       setOrderedCategoryLabels,
       label,
     );
-    toast.success("Category removed.");
     return true;
   }
 
@@ -157,7 +155,6 @@ export async function removeCategoryAndRefresh({
     });
 
     setPendingCategoryRemovalLabel(null);
-    toast.success(`Category removed. Feeds moved to "${targetCategory}".`);
     return true;
   } catch (err) {
     console.error("Remove category error:", err);

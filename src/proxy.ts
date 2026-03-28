@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { rateLimiter } from "./lib/server/rate-limit";
-import {
-  createBlockedRequestResponse,
-  matchBlockedRequestPolicy,
-} from "./lib/server/request-blocks";
+import { createBlockedRequestResponse, matchBlockedRequestPolicy, rateLimiter } from "@/lib/server";
 
 /**
  * Next.js proxy for request interception, rate limiting, and security

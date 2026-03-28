@@ -1,8 +1,11 @@
 import type { Dirent } from "node:fs";
 
-import MCR from "monocart-coverage-reports";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
+
+if (typeof globalThis.gc !== "function") {
+  globalThis.gc = async () => undefined;
+}
 
 /** Aggregates raw Playwright coverage artifacts into the reports consumed by repo checks. */
 
@@ -12,7 +15,7 @@ const PLAYWRIGHT_COVERAGE_REPORT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_REPORT_DIR ?? "coverage/playwright";
 
 type CoverageSummary = Record<string, unknown>;
-type RawCoverageData = MCR.V8CoverageEntry[] | Record<string, unknown>;
+type RawCoverageData = Record<string, unknown> | V8CoverageEntry[];
 const PROJECT_SOURCE_DIRECTORY_PATH = `${process.cwd().replaceAll("\\", "/")}/src/`;
 const SUMMARY_METRIC_KEYS = [
   "lines",
@@ -29,7 +32,18 @@ interface CoverageMetric {
   total: number;
 }
 type CoverageMetricKey = (typeof SUMMARY_METRIC_KEYS)[number];
+
 type CoverageSummaryEntry = Partial<Record<CoverageMetricKey, CoverageMetric>>;
+
+interface MonocartCoverageReport {
+  add: (coverageData: RawCoverageData) => Promise<void>;
+  cleanCache: () => Promise<void>;
+  generate: () => Promise<unknown>;
+}
+type MonocartCoverageReportFactory = (options: Record<string, unknown>) => MonocartCoverageReport;
+interface V8CoverageEntry {
+  url: string;
+}
 
 /** Rejects bundle-only output so the coverage check cannot silently regress back to generated assets. */
 async function assertSourceMappedCoverage(
@@ -75,7 +89,7 @@ function isTrackedProjectSourceFile(
 }
 
 /** Checks the minimal V8 entry shape Monocart expects from Playwright raw coverage dumps. */
-function isV8CoverageEntry(value: unknown): value is MCR.V8CoverageEntry {
+function isV8CoverageEntry(value: unknown): value is V8CoverageEntry {
   return isRecord(value) && typeof value.url === "string";
 }
 
@@ -100,6 +114,10 @@ async function listFilesRecursively(directoryPath: string): Promise<string[]> {
 
 /** Creates the Playwright-to-source coverage reports used by the repo checks. */
 async function main(): Promise<void> {
+  const monocartModule = (await import("monocart-coverage-reports")) as unknown as {
+    default: MonocartCoverageReportFactory;
+  };
+  const MCR = monocartModule.default;
   const rawCoverageDirectoryPath = join(
     process.cwd(),
     PLAYWRIGHT_COVERAGE_OUTPUT_DIR,

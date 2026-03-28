@@ -36,6 +36,7 @@ export const FeedArticleRow = memo(function FeedArticleRow({
   isDark,
   isExpanded,
   isHydrating,
+  isLastRow,
   isMobile,
   isUpdatingState,
   onExpandedSwipeRead,
@@ -51,6 +52,7 @@ export const FeedArticleRow = memo(function FeedArticleRow({
   return (
     <FeedListRow
       articleKey={articleKey}
+      hasTrailingGap={!isLastRow}
       removalAnimationMode={removalAnimationMode}
     >
       <ArticleCard

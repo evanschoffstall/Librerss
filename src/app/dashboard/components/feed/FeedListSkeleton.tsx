@@ -3,6 +3,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+import { DASHBOARD_FEED_WIDTH_CLASS_NAME } from "../DashboardScaffold";
+
 interface FeedArticleSkeletonDescriptor {
   bodyWidth: string;
   metaSourceWidth: string;
@@ -27,10 +29,10 @@ const FEED_ARTICLE_SKELETONS: FeedArticleSkeletonDescriptor[] = [
 export function FeedListSkeleton() {
   return (
     <div
-      className="
-        relative mx-auto grid w-full max-w-3xl grid-cols-1 gap-1.5
-        lg:max-w-none
-      "
+      className={cn(
+        "relative grid grid-cols-1 gap-1.5",
+        DASHBOARD_FEED_WIDTH_CLASS_NAME,
+      )}
       data-dashboard-feed-list-skeleton="true"
     >
       {FEED_ARTICLE_SKELETONS.map((descriptor, index) => (

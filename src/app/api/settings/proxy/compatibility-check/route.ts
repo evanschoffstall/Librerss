@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseJsonBodyOrResponse } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
-  fetchHtmlWithFingerprint,
+  fetchHtmlWithHttpCloak,
   GotScrapingError,
   pickDiagnosticHeaders,
 } from "@/lib/fetch";
@@ -11,9 +11,7 @@ import { logger } from "@/lib/logger";
 import {
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
-  type RouteHandlerContext,
-} from "@/lib/server";
-import { resolveUserProxy, ServiceError } from "@/lib/server/services";
+  resolveUserProxy, type RouteHandlerContext, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,7 +41,7 @@ const COMPATIBILITY_CHECK_SITES = [
 ] as const;
 
 interface CompatibilityCheckDeps {
-  fetchHtmlWithFingerprintFn?: typeof fetchHtmlWithFingerprint;
+  fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
   gotScrapingErrorClass?: typeof GotScrapingError;
   loggerInstance?: typeof logger;
   parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
@@ -86,8 +84,8 @@ export async function POST(
   const requireMutableAuthenticatedUserFn =
     deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
   const resolveUserProxyFn = deps.resolveUserProxyFn ?? resolveUserProxy;
-  const fetchHtmlWithFingerprintFn =
-    deps.fetchHtmlWithFingerprintFn ?? fetchHtmlWithFingerprint;
+  const fetchHtmlWithHttpCloakFn =
+    deps.fetchHtmlWithHttpCloakFn ?? fetchHtmlWithHttpCloak;
   const pickDiagnosticHeadersFn =
     deps.pickDiagnosticHeadersFn ?? pickDiagnosticHeaders;
   const loggerInstance = deps.loggerInstance ?? logger;
@@ -163,7 +161,7 @@ export async function POST(
       };
 
       try {
-        const { html, requestHeaders } = await fetchHtmlWithFingerprintFn(
+        const { html, requestHeaders } = await fetchHtmlWithHttpCloakFn(
           site.url,
           () => Promise.resolve(true),
           {

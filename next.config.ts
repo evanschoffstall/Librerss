@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import {
+  arch,
   type NetworkInterfaceInfo,
   networkInterfaces,
+  platform,
 } from "node:os";
-import { dirname, relative, sep } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 
 const ANY_IPV4_HOST_PATTERN = "*.*.*.*";
 const workspaceRequire = createRequire(import.meta.url);
@@ -32,6 +35,29 @@ export function getHostnameFromValue(value: string | undefined) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolves the HTTPCloak native package name for the current build platform so
+ * Next can externalize and trace the matching binary package.
+ */
+export function getHttpCloakPlatformPackageSpecifier(
+  getPlatform: typeof platform = platform,
+  getArchitecture: typeof arch = arch,
+) {
+  const platformName = getPlatform();
+  const architectureName = getArchitecture();
+
+  const normalizedPlatform =
+    platformName === "darwin" || platformName === "win32"
+      ? platformName
+      : "linux";
+  const normalizedArchitecture =
+    architectureName === "x64" || architectureName === "arm64"
+      ? architectureName
+      : architectureName;
+
+  return `@httpcloak/${normalizedPlatform}-${normalizedArchitecture}`;
 }
 
 /**
@@ -105,12 +131,45 @@ function buildContentSecurityPolicy() {
 }
 
 /**
+ * Walks upward from a resolved module entry until the owning package.json is
+ * found, avoiding unsupported package.json export subpaths.
+ */
+function findPackageRootDirectory(entryPath: string) {
+  let currentDirectory = dirname(entryPath);
+  const filesystemRoot = resolve(currentDirectory, sep);
+
+  while (true) {
+    if (existsSync(resolve(currentDirectory, "package.json"))) {
+      return currentDirectory;
+    }
+
+    if (currentDirectory === filesystemRoot) {
+      throw new Error(`Unable to locate package root for ${entryPath}`);
+    }
+
+    currentDirectory = dirname(currentDirectory);
+  }
+}
+
+/**
+ * Resolves a package tracing glob only when the optional package exists in the
+ * current install.
+ */
+function resolveOptionalPackageTracingGlob(packageSpecifier: string) {
+  try {
+    return resolvePackageTracingGlob(packageSpecifier);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Resolves a package directory glob relative to the repository root so
  * Next.js file tracing includes native/runtime assets from external packages.
  */
-function resolvePackageTracingGlob(packageJsonSpecifier: string) {
-  const packageDirectory = dirname(
-    workspaceRequire.resolve(packageJsonSpecifier),
+function resolvePackageTracingGlob(packageSpecifier: string) {
+  const packageDirectory = findPackageRootDirectory(
+    workspaceRequire.resolve(packageSpecifier),
   );
   const relativeDirectory = relative(import.meta.dirname, packageDirectory)
     .split(sep)
@@ -194,7 +253,24 @@ const buildTimeServerConfig = Object.fromEntries(
     .filter((key) => process.env[key] !== undefined)
     .map((key) => [key, process.env[key] as string]),
 );
-const koffiRuntimeTracingGlob = resolvePackageTracingGlob("koffi/package.json");
+const httpCloakPlatformPackageSpecifier =
+  getHttpCloakPlatformPackageSpecifier();
+const httpCloakRuntimeTracingGlob = resolvePackageTracingGlob("httpcloak");
+const httpCloakPlatformTracingGlob = resolveOptionalPackageTracingGlob(
+  httpCloakPlatformPackageSpecifier,
+);
+const koffiRuntimeTracingGlob = resolvePackageTracingGlob("koffi");
+const serverExternalPackages = [
+  "got-scraping",
+  "header-generator",
+  "generative-bayesian-network",
+  "httpcloak",
+  httpCloakPlatformPackageSpecifier,
+  "node-tls-client",
+  "koffi",
+  "piscina",
+  "tlsclientwrapper",
+];
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: resolveAllowedDevOrigins(),
@@ -253,22 +329,16 @@ const nextConfig: NextConfig = {
     // header-generator loads its bayesian network definitions from zip files at
     // runtime via __dirname.  Next.js standalone file tracing does not discover
     // these data files automatically, so they must be explicitly included so the
-    // module can initialise correctly in production.
+    // module can initialize correctly in production.
     "/api/**": [
       "./node_modules/header-generator/data_files/**",
       "./node_modules/generative-bayesian-network/**",
+      httpCloakRuntimeTracingGlob,
+      ...(httpCloakPlatformTracingGlob ? [httpCloakPlatformTracingGlob] : []),
       koffiRuntimeTracingGlob,
     ],
   },
-  serverExternalPackages: [
-    "got-scraping",
-    "header-generator",
-    "generative-bayesian-network",
-    "node-tls-client",
-    "koffi",
-    "piscina",
-    "tlsclientwrapper",
-  ],
+  serverExternalPackages,
   typescript: {
     tsconfigPath:
       process.env.NEXT_TYPESCRIPT_CONFIG_PATH?.trim() || "tsconfig.json",

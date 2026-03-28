@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { rmSync } from "node:fs";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
@@ -20,8 +20,6 @@ const PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH = join(
   "scripts",
   "generate-playwright-coverage.ts",
 );
-const PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY =
-  ".cache/playwright-runtime";
 const PLAYWRIGHT_PORT_START = Number.parseInt(
   process.env.PLAYWRIGHT_PORT_START ?? String(DEFAULT_PLAYWRIGHT_PORT),
   10,
@@ -113,32 +111,6 @@ function createOutputMirror(child: ChildProcess) {
   };
 }
 
-/** Transpiles the TypeScript coverage generator to a temporary Node-executable module. */
-async function createPlaywrightCoverageGeneratorRuntimeFile(runId: string) {
-  const runtimeDirectoryPath = join(
-    process.cwd(),
-    PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY,
-  );
-  const coverageGeneratorRuntimePath = join(
-    PLAYWRIGHT_COVERAGE_GENERATOR_RUNTIME_DIRECTORY,
-    `generate-playwright-coverage.${runId}.mjs`,
-  );
-  const coverageGeneratorSource = await readFile(
-    PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH,
-    "utf8",
-  );
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
-
-  await mkdir(runtimeDirectoryPath, { recursive: true });
-  await writeFile(
-    join(process.cwd(), coverageGeneratorRuntimePath),
-    transpiler.transformSync(coverageGeneratorSource),
-    "utf8",
-  );
-
-  return coverageGeneratorRuntimePath;
-}
-
 /** Creates a filesystem-safe run identifier for per-run Playwright artifacts. */
 function createPlaywrightRunId() {
   return `${Date.now()}-${process.pid}`;
@@ -169,7 +141,6 @@ function createStartupError(message: string, recentOutput: string) {
 /** Generates the aggregated Playwright coverage reports after a coverage run. */
 async function generatePlaywrightCoverageReport(
   rawCoverageOutputDir: string,
-  coverageGeneratorRuntimePath: string,
 ) {
   try {
     await access(join(process.cwd(), rawCoverageOutputDir));
@@ -178,8 +149,8 @@ async function generatePlaywrightCoverageReport(
   }
 
   const generatorProcess = spawn(
-    "node",
-    [join(process.cwd(), coverageGeneratorRuntimePath)],
+    Bun.which("bun") ?? "bun",
+    [PLAYWRIGHT_COVERAGE_GENERATOR_SOURCE_PATH],
     {
       cwd: process.cwd(),
       env: {
@@ -225,9 +196,6 @@ function isPortUnavailableOutput(output: string) {
 async function main() {
   const forwardedArguments = process.argv.slice(2);
   const runId = createPlaywrightRunId();
-  const coverageGeneratorRuntimePath = PLAYWRIGHT_COVERAGE_ENABLED
-    ? await createPlaywrightCoverageGeneratorRuntimeFile(runId)
-    : null;
   const rawCoverageOutputDir = PLAYWRIGHT_COVERAGE_ENABLED
     ? `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${runId}`
     : PLAYWRIGHT_COVERAGE_OUTPUT_DIR;
@@ -243,7 +211,6 @@ async function main() {
     distDir,
     tsconfigPath,
     ...(PLAYWRIGHT_COVERAGE_ENABLED ? [rawCoverageOutputDir] : []),
-    ...(coverageGeneratorRuntimePath ? [coverageGeneratorRuntimePath] : []),
   ];
 
   const cleanup = async () => {
@@ -375,10 +342,7 @@ async function main() {
     }
 
     const coverageExitCode = PLAYWRIGHT_COVERAGE_ENABLED
-      ? await generatePlaywrightCoverageReport(
-          rawCoverageOutputDir,
-          coverageGeneratorRuntimePath ?? "",
-        )
+      ? await generatePlaywrightCoverageReport(rawCoverageOutputDir)
       : 0;
     const exitCode =
       code === 0

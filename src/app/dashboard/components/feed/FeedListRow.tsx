@@ -11,6 +11,7 @@ const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
 export const FeedListRow = memo(function FeedListRow({
   articleKey,
   children,
+  hasTrailingGap,
   removalAnimationMode,
 }: FeedListRowProps) {
   const outerRef = useRef<HTMLDivElement | null>(null);
@@ -115,7 +116,9 @@ export const FeedListRow = memo(function FeedListRow({
         contain: "layout style",
         marginBottom: isReleaseCollapsing
           ? -FEED_ROW_COLLAPSE_OFFSET_PX
-          : FEED_ROW_GAP_PX,
+          : hasTrailingGap
+            ? FEED_ROW_GAP_PX
+            : 0,
         opacity: rowOpacity,
         transition: isCollapsing
           ? `margin-bottom ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), opacity ${Math.round(transitionMs * 0.65)}ms ease-out ${Math.round(transitionMs * 0.1)}ms`

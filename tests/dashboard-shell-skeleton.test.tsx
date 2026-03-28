@@ -1,12 +1,12 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
+import { DashboardFilterBarSkeleton } from "@/app/dashboard/components/DashboardFilterBar";
 import {
   DashboardFeedViewport,
   DashboardScaffold,
 } from "@/app/dashboard/components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "@/app/dashboard/components/DashboardSidebarContent";
-import { DashboardTopBarSkeleton } from "@/app/dashboard/components/DashboardTopTokenBar";
 import { FeedListSkeleton } from "@/app/dashboard/components/feed/FeedListSkeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -32,12 +32,12 @@ function DashboardShellSkeleton() {
               <FeedListSkeleton />
             </DashboardFeedViewport>
           }
+          filterBar={<DashboardFilterBarSkeleton />}
           sidebar={
             <ScrollArea className="h-full">
               <DashboardSidebarSkeleton />
             </ScrollArea>
           }
-          topBar={<DashboardTopBarSkeleton />}
         />
       </div>
     </main>
@@ -54,11 +54,11 @@ describe("DashboardShellSkeleton", () => {
     expect(container.querySelector(".max-w-6xl")).toBeTruthy();
     expect(container.querySelectorAll('[class*="bg-card/35"]')).toHaveLength(1);
     expect(
-      container.querySelector('[data-dashboard-top-bar-skeleton="true"]'),
+      container.querySelector('[data-dashboard-filter-bar-skeleton="true"]'),
     ).toBeTruthy();
     expect(
       container.querySelectorAll(
-        '[data-dashboard-top-bar-filter-skeleton="true"]',
+        '[data-dashboard-filter-bar-chip-skeleton="true"]',
       ),
     ).toHaveLength(4);
     expect(
@@ -90,8 +90,8 @@ describe("DashboardShellSkeleton", () => {
     const firstArticleSkeleton = container.querySelector<HTMLElement>(
       '[data-dashboard-feed-list-skeleton-item="true"]',
     );
-    const topBarSkeletonSurface = container.querySelector<HTMLElement>(
-      '[data-dashboard-top-bar-skeleton-surface="true"]',
+    const filterBarSkeletonSurface = container.querySelector<HTMLElement>(
+      '[data-dashboard-filter-bar-surface="true"]',
     );
     const sidebarSkeleton = container.querySelector<HTMLElement>(
       '[data-dashboard-sidebar-skeleton="true"]',
@@ -101,11 +101,17 @@ describe("DashboardShellSkeleton", () => {
     expect(firstArticleSkeleton?.style.transform ?? "").not.toContain(
       "translateY",
     );
-    expect(topBarSkeletonSurface?.style.transform ?? "").not.toContain(
+    expect(filterBarSkeletonSurface?.style.transform ?? "").not.toContain(
       "translateY",
     );
     expect(sidebarSkeleton?.style.transform ?? "").not.toContain(
       "translateY",
+    );
+    expect(feedListSkeleton?.className ?? "").toContain("max-w-3xl");
+    expect(feedListSkeleton?.className ?? "").toContain("lg:max-w-none");
+    expect(filterBarSkeletonSurface?.className ?? "").toContain("max-w-3xl");
+    expect(filterBarSkeletonSurface?.className ?? "").toContain(
+      "lg:max-w-none",
     );
   });
 });

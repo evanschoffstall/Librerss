@@ -9,7 +9,7 @@
 import axios from "axios";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { extractionAxios } from "@/lib/fetch/fingerprint";
+import { upstreamAxios } from "@/lib/fetch/httpcloak-client";
 import { buildProxyConfig, SOCKS_PROTOCOLS } from "@/lib/fetch/proxy";
 
 beforeEach(() => {
@@ -462,7 +462,7 @@ describe("fetch/axios-client – buildAxiosGet", () => {
   test("returns injectedGet directly when provided", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
     const injected = mock(async () => ({ data: "<html/>" })) as any;
-    const result = buildAxiosGet(injected, undefined, false, undefined);
+    const result = buildAxiosGet(injected, undefined, false);
     expect(result).toBe(injected);
   });
 
@@ -472,7 +472,7 @@ describe("fetch/axios-client – buildAxiosGet", () => {
     const proxyConfig = buildProxyConfig(
       "socks5://proxy.example.com:1080",
     ) as any;
-    const fn = buildAxiosGet(undefined, proxyConfig, false, undefined);
+    const fn = buildAxiosGet(undefined, proxyConfig, false);
     expect(typeof fn).toBe("function");
   });
 
@@ -482,13 +482,13 @@ describe("fetch/axios-client – buildAxiosGet", () => {
     const proxyConfig = buildProxyConfig(
       "http://proxy.example.com:8080",
     ) as any;
-    const fn = buildAxiosGet(undefined, proxyConfig, false, undefined);
+    const fn = buildAxiosGet(undefined, proxyConfig, false);
     expect(typeof fn).toBe("function");
   });
 
   test("returns a function when no proxy and insecureTls=true", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const fn = buildAxiosGet(undefined, undefined, true, undefined);
+    const fn = buildAxiosGet(undefined, undefined, true);
     expect(typeof fn).toBe("function");
   });
 });
@@ -499,7 +499,7 @@ describe("fetch/axios-client – buildAxiosGet branches", () => {
   test("returns injectedGet when provided (bypass path)", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
     const injectedGet = async () => ({ data: "test" }) as any;
-    const result = buildAxiosGet(injectedGet, undefined, false, undefined);
+    const result = buildAxiosGet(injectedGet, undefined, false);
     expect(result).toBe(injectedGet);
   });
 
@@ -516,7 +516,6 @@ describe("fetch/axios-client – buildAxiosGet branches", () => {
       undefined,
       proxyConfig as any,
       false,
-      undefined,
     );
     expect(typeof result).toBe("function");
     // Verify the returned function is a closure (not the injected fn)
@@ -537,20 +536,19 @@ describe("fetch/axios-client – buildAxiosGet branches", () => {
       undefined,
       proxyConfig as any,
       false,
-      undefined,
     );
     expect(typeof result).toBe("function");
   });
 
   test("returns HTTP get with insecure TLS when allowInsecureTls=true and no proxy", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const result = buildAxiosGet(undefined, undefined, true, undefined);
+    const result = buildAxiosGet(undefined, undefined, true);
     expect(typeof result).toBe("function");
   });
 
   test("returns plain get when no proxy and insecureTls=false", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const result = buildAxiosGet(undefined, undefined, false, undefined);
+    const result = buildAxiosGet(undefined, undefined, false);
     expect(typeof result).toBe("function");
   });
 
@@ -564,7 +562,6 @@ describe("fetch/axios-client – buildAxiosGet branches", () => {
       undefined,
       proxyConfig as any,
       true,
-      undefined,
     );
     expect(typeof result).toBe("function");
   });
@@ -605,7 +602,7 @@ describe("buildAxiosGet – proxy mode branches", () => {
   test("returns injectedGet when provided", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
     const injected = mock(async () => ({ data: "ok" })) as any;
-    const result = buildAxiosGet(injected, undefined, false, undefined);
+    const result = buildAxiosGet(injected, undefined, false);
     expect(result).toBe(injected);
   });
 
@@ -616,7 +613,7 @@ describe("buildAxiosGet – proxy mode branches", () => {
       httpsAgent: {},
       mode: "socks" as const,
     } as any;
-    const fn = buildAxiosGet(undefined, proxyConfig, false, undefined);
+    const fn = buildAxiosGet(undefined, proxyConfig, false);
     expect(typeof fn).toBe("function");
     expect(fn).not.toBe(undefined);
   });
@@ -627,19 +624,19 @@ describe("buildAxiosGet – proxy mode branches", () => {
       mode: "http" as const,
       proxy: { host: "proxy", port: 8080 },
     };
-    const fn = buildAxiosGet(undefined, proxyConfig as any, false, undefined);
+    const fn = buildAxiosGet(undefined, proxyConfig as any, false);
     expect(typeof fn).toBe("function");
   });
 
   test("returns default wrapper with no proxy", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const fn = buildAxiosGet(undefined, undefined, false, undefined);
+    const fn = buildAxiosGet(undefined, undefined, false);
     expect(typeof fn).toBe("function");
   });
 
   test("returns wrapper with insecure TLS agent", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const fn = buildAxiosGet(undefined, undefined, true, undefined);
+    const fn = buildAxiosGet(undefined, undefined, true);
     expect(typeof fn).toBe("function");
   });
 
@@ -663,7 +660,6 @@ describe("buildAxiosGet – proxy mode branches", () => {
         undefined,
         proxyConfig as never,
         false,
-        undefined,
       );
 
       await fn("https://example.com", { headers: { accept: "text/html" } });
@@ -679,24 +675,23 @@ describe("buildAxiosGet – proxy mode branches", () => {
     }
   });
 
-  test("http wrapper forwards through extractionAxios with proxy, jar, and insecure TLS agent", async () => {
+  test("http wrapper forwards through upstreamAxios with proxy and insecure TLS agent", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const originalExtractionGet = extractionAxios.get;
+    const originalExtractionGet = upstreamAxios.get;
     const extractionGetMock = mock(
       async (_url: string, _config?: Record<string, unknown>) => ({
         data: "ok",
       }),
     );
-    extractionAxios.get =
-      extractionGetMock as unknown as typeof extractionAxios.get;
+    upstreamAxios.get =
+      extractionGetMock as unknown as typeof upstreamAxios.get;
 
     try {
-      const jar = { tag: "jar" };
       const proxyConfig = {
         mode: "http" as const,
         proxy: { host: "proxy.example.com", port: 8080, protocol: "http" },
       };
-      const fn = buildAxiosGet(undefined, proxyConfig, true, jar as never);
+      const fn = buildAxiosGet(undefined, proxyConfig, true);
 
       await fn("https://example.com", { timeout: 1000 });
 
@@ -705,33 +700,30 @@ describe("buildAxiosGet – proxy mode branches", () => {
       expect(firstCall).toBeDefined();
       const call = firstCall?.[1];
       expect(call?.timeout).toBe(1000);
-      expect(call?.jar).toBe(jar);
       expect(call?.proxy).toEqual(proxyConfig.proxy);
       expect(call?.httpsAgent).toBeDefined();
     } finally {
-      extractionAxios.get = originalExtractionGet;
+      upstreamAxios.get = originalExtractionGet;
     }
   });
 
-  test("default wrapper forwards through extractionAxios without proxy configuration", async () => {
+  test("default wrapper forwards through upstreamAxios without proxy configuration", async () => {
     const { buildAxiosGet } = await import("@/lib/fetch/axios-client");
-    const originalExtractionGet = extractionAxios.get;
+    const originalExtractionGet = upstreamAxios.get;
     const extractionGetMock = mock(async () => ({ data: "ok" }));
-    extractionAxios.get =
-      extractionGetMock as unknown as typeof extractionAxios.get;
+    upstreamAxios.get =
+      extractionGetMock as unknown as typeof upstreamAxios.get;
 
     try {
-      const jar = { tag: "jar" };
-      const fn = buildAxiosGet(undefined, undefined, false, jar as never);
+      const fn = buildAxiosGet(undefined, undefined, false);
 
       await fn("https://example.com", { timeout: 500 });
 
       expect(extractionGetMock).toHaveBeenCalledWith("https://example.com", {
-        jar,
         timeout: 500,
       });
     } finally {
-      extractionAxios.get = originalExtractionGet;
+      upstreamAxios.get = originalExtractionGet;
     }
   });
 });

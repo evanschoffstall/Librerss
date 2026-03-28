@@ -1,12 +1,6 @@
 import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
-import type { DistilledArticle, DistillStrategy } from "@/lib/distill";
-import type {
-  ExtractRequestContext,
-  ExtractResponsePayload,
-} from "@/lib/extract";
-
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -15,18 +9,17 @@ import {
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
-import { DISTILL_STRATEGIES, distillArticle } from "@/lib/distill";
+import { DISTILL_STRATEGIES, distillArticle, DistilledArticle, DistillStrategy } from "@/lib/distill";
 import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
   ARTICLE_UPSTREAM_REQUEST_ERROR_MESSAGE,
+  ExtractRequestContext,
+  ExtractResponsePayload,
   fetchHtml,
   getCachedExtractPayload,
   isExtractCacheEnabled,
-  parseAndValidateArticleUrl,
-  readPlaceholderSnapshotHtml,
-  setCachedExtractPayload,
-} from "@/lib/extract";
+  parseAndValidateArticleUrl, readPlaceholderSnapshotHtml, setCachedExtractPayload } from "@/lib/extract";
 import { logger } from "@/lib/logger";
 import {
   buildMetadataImageFallbackHtml,
@@ -38,9 +31,7 @@ import {
 import {
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
-  type RouteHandlerContext,
-} from "@/lib/server";
-import { resolveUserProxy, ServiceError } from "@/lib/server/services";
+  resolveUserProxy, type RouteHandlerContext, ServiceError } from "@/lib/server";
 import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";

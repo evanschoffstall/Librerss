@@ -4,11 +4,9 @@ import { jsonError } from "@/lib/api/http";
 import { RUNTIME_FLAGS } from "@/lib/core/runtime";
 import { logger } from "@/lib/logger";
 import {
+  exportAccountData,
   requireMutableAuthenticatedUser,
-  resolveRouteHandlerDeps,
-  type RouteHandlerContext,
-} from "@/lib/server";
-import { exportAccountData, ServiceError } from "@/lib/server/services";
+  resolveRouteHandlerDeps, type RouteHandlerContext, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 

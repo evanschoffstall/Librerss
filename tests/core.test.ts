@@ -4,6 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as zlib from "zlib";
 
 beforeEach(() => {
   mock.restore();
@@ -372,6 +373,75 @@ describe("feed-http", () => {
     });
 
     expect(result).toBe("12345");
+  });
+
+  test("fetchFeedXml uses httpcloak first when provided", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: "<rss>cloak</rss>",
+      headers: {},
+      statusCode: 200,
+    }));
+    const axiosGetFn = mock(async () => ({
+      data: "<rss>axios</rss>",
+      status: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      axiosGetFn: axiosGetFn as any,
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss>cloak</rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
+    expect(axiosGetFn).not.toHaveBeenCalled();
+  });
+
+  test("fetchFeedXml falls back to axios when httpcloak returns a non-2xx response", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: "blocked",
+      headers: { server: "edge" },
+      statusCode: 503,
+    }));
+    const axiosGetFn = mock(async () => ({
+      data: "<rss>axios</rss>",
+      headers: {},
+      status: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      axiosGetFn: axiosGetFn as any,
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss>axios</rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
+    expect(axiosGetFn).toHaveBeenCalledTimes(1);
+  });
+
+  test("fetchFeedXml decodes compressed httpcloak feed responses", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: zlib.gzipSync(Buffer.from("<rss><channel /></rss>", "utf8")),
+      headers: {
+        "content-encoding": "gzip",
+      },
+      statusCode: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss><channel /></rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
   });
 
   test("fetchFeedXml maps DataDome 403 errors to a descriptive message", async () => {
@@ -993,13 +1063,12 @@ describe("feed-batch-pipeline", () => {
     expect(missingRowsResult).toBeUndefined();
   });
 
-  test("queryTopArticlesPerFeed applies a global batch article limit", async () => {
-    const { ARTICLE_CONTENT_PREVIEW_LENGTH } =
-      await import("@/lib/core/article-preview");
+  test("queryTopArticlesPerFeed uses fair per-feed budget instead of global CTE limit", async () => {
     const { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } =
       await import("@/lib/core/article-preview");
     const { CONFIG } = await import("@/lib/config");
-    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+    const { computePerFeedBudget, queryTopArticlesPerFeed } =
+      await importFeedBatchHelpers();
 
     const execute = mock(async (_query: unknown) => []);
     const db = { execute };
@@ -1020,18 +1089,21 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).toContain("LEFT(");
     expect(serializedQuery).toContain("regexp_replace");
     expect(serializedQuery).toContain("LIMIT ");
-    expect(serializedQuery).not.toContain(
-      String(ARTICLE_CONTENT_PREVIEW_LENGTH),
-    );
     expect(serializedQuery).toContain(
       String(ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH),
     );
-    expect(serializedQuery).toContain(String(CONFIG.MAX_ARTICLES_PER_FEED));
-    expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
     expect(serializedQuery).toContain("starred_candidates");
     expect(serializedQuery).toContain("is_starred");
     expect(serializedQuery).toContain("selected_feed_ids");
     expect(serializedQuery).toContain("UNION");
+
+    // The LATERAL uses the computed per-feed budget, not the raw config values
+    const expectedBudget = computePerFeedBudget(2);
+    expect(serializedQuery).toContain(String(expectedBudget));
+
+    // The global CTE-level LIMIT was removed — the per-feed LATERAL controls
+    // total output so every feed gets fair representation.
+    expect(expectedBudget).toBeLessThanOrEqual(CONFIG.MAX_ARTICLES_PER_FEED);
   });
 
   test("executeParallelRefreshes surfaces persisted errors when refresh is skipped", async () => {

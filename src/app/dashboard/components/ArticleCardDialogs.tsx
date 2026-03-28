@@ -74,7 +74,7 @@ export function ArticleCardDialogs({
 
   return (
     <>
-      {isDevelopment ? (
+      {isDevelopment && isRawHtmlOpen ? (
         isMobile ? (
           <Drawer onOpenChange={onRawHtmlOpenChange} open={isRawHtmlOpen}>
             <DrawerContent
@@ -188,7 +188,8 @@ export function ArticleCardDialogs({
         )
       ) : null}
 
-      {isMobile ? (
+      {isCopyLinkOpen ? (
+        isMobile ? (
         <Drawer onOpenChange={onCopyLinkOpenChange} open={isCopyLinkOpen}>
           <DrawerContent
             className="max-h-[45dvh]"
@@ -208,7 +209,7 @@ export function ArticleCardDialogs({
             </div>
           </DrawerContent>
         </Drawer>
-      ) : (
+        ) : (
         <Dialog onOpenChange={onCopyLinkOpenChange} open={isCopyLinkOpen}>
           <DialogContent
             className="max-w-md"
@@ -228,7 +229,8 @@ export function ArticleCardDialogs({
             </div>
           </DialogContent>
         </Dialog>
-      )}
+        )
+      ) : null}
     </>
   );
 }

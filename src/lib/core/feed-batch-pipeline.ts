@@ -12,7 +12,7 @@ import { feeds, feedSources } from "@/lib/db/schema";
 
 import { type FeedRecord } from "./feed-refresh";
 
-export { mapRowsToArticleMap, queryTopArticlesPerFeed } from "./feed-batch-pipeline-articles";
+export { computePerFeedBudget, mapRowsToArticleMap, queryTopArticlesPerFeed } from "./feed-batch-pipeline-articles";
 export { buildRefreshPlan, executeParallelRefreshes } from "./feed-batch-pipeline-refresh";
 export type { ArticleRow, RankedRow } from "./feed-batch-pipeline.types";
 

@@ -8,31 +8,20 @@ export type SourceCompatibilitySignal =
     }
   | { detected: false };
 
-export function detectSourceCompatibilitySignal(
-  error: unknown,
-  isAxiosError: typeof axios.isAxiosError,
+/**
+ * Detect whether an upstream response looks like a bot-management challenge
+ * and whether retrying the same profile has a reasonable chance of success.
+ */
+export function detectResponseCompatibilitySignal(
+  responseStatus: number | undefined,
+  headers: Record<string, unknown> | undefined,
+  responseBody: string,
 ): { retryable: boolean; signal: SourceCompatibilitySignal } {
-  if (!isAxiosError(error)) {
-    return { retryable: false, signal: { detected: false } };
-  }
-
-  const resp = (
-    error as {
-      response?: {
-        data?: unknown;
-        headers?: Record<string, unknown>;
-        status?: number;
-      };
-    }
-  ).response;
-  const responseStatus = resp?.status;
   if (responseStatus !== 403 && responseStatus !== 429) {
     return { retryable: false, signal: { detected: false } };
   }
 
-  const headers = resp?.headers;
   const challengeCookies = getChallengeCookies(headers);
-  const responseBody = typeof resp?.data === "string" ? resp.data : "";
   const responseBodyLower = responseBody.toLowerCase();
   const responseHeaderKeys = Object.keys(headers ?? {}).map((header) =>
     header.toLowerCase(),
@@ -92,6 +81,30 @@ export function detectSourceCompatibilitySignal(
   }
 
   return { retryable: true, signal: { detected: false } };
+}
+
+export function detectSourceCompatibilitySignal(
+  error: unknown,
+  isAxiosError: typeof axios.isAxiosError,
+): { retryable: boolean; signal: SourceCompatibilitySignal } {
+  if (!isAxiosError(error)) {
+    return { retryable: false, signal: { detected: false } };
+  }
+
+  const resp = (
+    error as {
+      response?: {
+        data?: unknown;
+        headers?: Record<string, unknown>;
+        status?: number;
+      };
+    }
+  ).response;
+  return detectResponseCompatibilitySignal(
+    resp?.status,
+    resp?.headers,
+    typeof resp?.data === "string" ? resp.data : "",
+  );
 }
 
 function getChallengeCookies(headers: Record<string, unknown> | undefined) {

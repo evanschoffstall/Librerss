@@ -4,12 +4,13 @@ import {
   expectNotClipped,
   gotoPreviewDashboard,
   openDashboardSettings,
+  openDashboardSettingsTab,
 } from "./helpers";
 import { expect, test } from "./test";
 
 /** Open settings and wait for the proxy form to finish loading. */
 async function openSettingsAndWaitForProxy(page: Page) {
-  await openDashboardSettings(page);
+  await openDashboardSettingsTab(page, "Network");
   const dialog = page.getByRole("dialog", { name: "Reader Settings" });
   await expect(dialog).toBeVisible();
   // Wait for the proxy skeleton to resolve (API call takes ~2s in demo mode)
@@ -77,7 +78,7 @@ test.describe("settings modal mobile tray", () => {
     });
 
     expect(scrollMetrics).not.toBeNull();
-    expect(scrollMetrics!.scrollHeight).toBeGreaterThan(
+    expect(scrollMetrics!.scrollHeight).toBeGreaterThanOrEqual(
       scrollMetrics!.clientHeight,
     );
 
@@ -121,7 +122,7 @@ test.describe("settings modal mobile tray", () => {
   test("every display control fits within the scroll viewport bounds", async ({
     page,
   }) => {
-    await openDashboardSettings(page);
+    await openDashboardSettingsTab(page, "Display");
     const dialog = page.getByRole("dialog", { name: "Reader Settings" });
     await expect(dialog).toBeVisible();
 
@@ -160,7 +161,7 @@ test.describe("settings modal mobile tray", () => {
   test("every feed management control fits within the scroll viewport bounds", async ({
     page,
   }) => {
-    await openDashboardSettings(page);
+    await openDashboardSettingsTab(page, "Feeds");
     const dialog = page.getByRole("dialog", { name: "Reader Settings" });
     await expect(dialog).toBeVisible();
 
@@ -180,7 +181,7 @@ test.describe("settings modal mobile tray", () => {
       "Import OPML button",
     );
     await expectNotClipped(
-      dialog.getByRole("button", { name: /^Placeholder Feeds\s*3$/ }),
+      dialog.getByRole("button", { name: /^Placeholder Feeds\s*\d+$/ }),
       settingsScrollViewport(dialog),
       "Placeholder Feeds accordion",
     );

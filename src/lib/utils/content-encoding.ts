@@ -9,7 +9,7 @@ interface DecodeTextBodyOptions {
 
 /**
  * Decodes HTML-like text that may still contain compressed bytes serialized as
- * latin1 text, such as TLS fingerprint client responses.
+ * latin1 text, such as upstream transport responses.
  */
 export async function decodePossiblyCompressedText(
   rawText: string,

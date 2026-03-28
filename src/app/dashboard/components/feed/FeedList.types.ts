@@ -1,11 +1,16 @@
 import { type Article } from "@/lib";
 
-import { type ArticleRemovalAnimationMode, type CollapsingArticles } from "../../hooks/useArticleCollapseState";
+import {
+  type ArticleRemovalAnimationMode,
+  type ArticleViewportSnapshot,
+  type CollapsingArticles,
+} from "../../hooks/useArticleCollapseState";
 import { type ArticleFilter } from "../../services/article-filters";
 import { ArticleCard } from "../ArticleCard";
 
 export interface FeedArticleRowProps
   extends Omit<FeedArticleCardProps, "showFavicon"> {
+  isLastRow: boolean;
   showFavicons: boolean;
 }
 
@@ -16,6 +21,8 @@ export interface FeedListProps {
   expandedArticleKey: null | string;
   feedViewKey: string;
   filteredFeed: Article[];
+  getPreExpandViewportSnapshot?: (articleKey: string) => ArticleViewportSnapshot | null;
+  hasConfiguredFeeds?: boolean;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive?: boolean;
@@ -27,6 +34,7 @@ export interface FeedListProps {
   onToggle: (article: Article) => void;
   onToggleRead: (article: Article) => void;
   onToggleStarred: (article: Article) => void;
+  refreshEpoch?: number;
   searchTerm: string;
   showFavicons: boolean;
   updatingArticleState: Record<string, boolean>;
@@ -35,6 +43,7 @@ export interface FeedListProps {
 export interface FeedListRowProps {
   articleKey: string;
   children: React.ReactNode;
+  hasTrailingGap: boolean;
   removalAnimationMode: ArticleRemovalAnimationMode | null;
 }
 

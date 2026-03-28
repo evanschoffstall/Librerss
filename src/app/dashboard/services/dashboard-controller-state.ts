@@ -3,7 +3,10 @@ import type React from "react";
 import { type Article, type CategoryTreeNode } from "@/lib";
 
 import { type BackgroundMode } from "../constants";
-import { type CollapsingArticles } from "../hooks/useArticleCollapseState";
+import {
+  type ArticleViewportSnapshot,
+  type CollapsingArticles,
+} from "../hooks/useArticleCollapseState";
 import { type ArticleFilter } from "./article-filters";
 
 export interface DashboardControllerState<
@@ -11,9 +14,9 @@ export interface DashboardControllerState<
   SidebarScrollRef,
 > {
   feedList: DashboardFeedListState;
+  filterBar: DashboardFilterBarState;
   settings: DashboardSettingsState<CategoryTreeController>;
   sidebar: DashboardSidebarState<SidebarScrollRef>;
-  topBar: DashboardTopBarState;
 }
 
 export interface DashboardFeedListState {
@@ -23,6 +26,8 @@ export interface DashboardFeedListState {
   expandedArticleKey: null | string;
   feedViewKey: string;
   filteredFeed: Article[];
+  getPreExpandViewportSnapshot?: (articleKey: string) => ArticleViewportSnapshot | null;
+  hasConfiguredFeeds: boolean;
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive: boolean;
@@ -34,9 +39,17 @@ export interface DashboardFeedListState {
   onArticleToggle: (article: Article) => void;
   onArticleToggleRead: (article: Article) => void;
   onArticleToggleStarred: (article: Article) => void;
+  refreshEpoch: number;
   searchTerm: string;
   showFavicons: boolean;
   updatingArticleState: Record<string, boolean>;
+}
+
+export interface DashboardFilterBarState {
+  articleFilter: ArticleFilter;
+  lastRefreshLabel: string;
+  loading: boolean;
+  setArticleFilter: (value: ArticleFilter) => void;
 }
 
 export interface DashboardSettingsState<CategoryTreeController> {
@@ -78,31 +91,24 @@ export interface DashboardSidebarState<SidebarScrollRef> {
   sidebarScrollRef: SidebarScrollRef;
 }
 
-export interface DashboardTopBarState {
-  articleFilter: ArticleFilter;
-  lastRefreshLabel: string;
-  loading: boolean;
-  setArticleFilter: (value: ArticleFilter) => void;
-}
-
 /** Builds the grouped controller contract consumed by the dashboard view. */
 export function buildDashboardControllerState<
   CategoryTreeController,
   SidebarScrollRef,
 >({
   feedList,
+  filterBar,
   settings,
   sidebar,
-  topBar,
 }: DashboardControllerState<
   CategoryTreeController,
   SidebarScrollRef
 >): DashboardControllerState<CategoryTreeController, SidebarScrollRef> {
   return {
     feedList,
+    filterBar,
     settings,
     sidebar,
-    topBar,
   };
 }
 

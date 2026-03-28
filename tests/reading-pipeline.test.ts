@@ -12,8 +12,8 @@ import {
     fetchHtml,
     parseAndValidateArticleUrl,
 } from "@/lib/extract";
-import { generateBrowserHeaders } from "@/lib/fetch/cookies";
-import { fetchHtmlWithFingerprint } from "@/lib/fetch/fingerprint";
+import { createBrowserHeaders } from "@/lib/fetch/browser-headers";
+import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
 import { decompressBody, GotScrapingError } from "@/lib/fetch/response";
 import { parseSocksProxy } from "@/lib/fetch/socks";
 import {
@@ -27,7 +27,7 @@ import {
     stripCommentEngagementBoilerplate,
     toParagraphHtml,
 } from "@/lib/sanitize";
-  import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
+import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 
 const mockReq = () =>
   new NextRequest("http://localhost/api/articles/extract", {
@@ -646,7 +646,7 @@ describe("article extract cleanup", () => {
     const response = await POST(
       new NextRequest("http://localhost/api/articles/extract", {
         body: JSON.stringify({
-          url: "https://science.nasa.gov/photojournal/jpl-3d-printed-part-springs-forward/",
+          url: "https://www.usgs.gov/news/state-news-release/media-alert-low-level-airplane-and-helicopter-flights-scan-geology-over",
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -898,7 +898,7 @@ describe("article extract cleanup", () => {
     ).rejects.toThrow("reCAPTCHA");
   });
 
-  test("fetchHtmlWithFingerprint validates redirects against SSRF policy", async () => {
+  test("fetchHtmlWithHttpCloak validates redirects against SSRF policy", async () => {
     let callCount = 0;
     const mockRequest = async (url: URL) => {
       callCount++;
@@ -920,7 +920,7 @@ describe("article extract cleanup", () => {
     };
 
     await expect(
-      fetchHtmlWithFingerprint(
+      fetchHtmlWithHttpCloak(
         "https://example.com/article",
         async (candidateUrl) => !candidateUrl.includes("127.0.0.1"),
         undefined,
@@ -931,9 +931,9 @@ describe("article extract cleanup", () => {
     expect(callCount).toBe(1);
   });
 
-  test("fetchHtml in proxy mode uses single fingerprint-fetch attempt", async () => {
+  test("fetchHtml in proxy mode uses single httpCloak-fetch attempt", async () => {
     let callCount = 0;
-    const mockFpFetch = mock(async () => {
+    const mockHttpCloakFetch = mock(async () => {
       callCount++;
       return {
         html: "<html>proxied once</html>",
@@ -944,7 +944,7 @@ describe("article extract cleanup", () => {
     const html = await fetchHtml(
       "https://example.com/article",
       {
-        fingerprintFetchFn: mockFpFetch as any,
+        httpCloakFetchFn: mockHttpCloakFetch as any,
         isAllowedFeedUrlFn: async () => true,
       },
       { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
@@ -955,14 +955,14 @@ describe("article extract cleanup", () => {
   });
 
   // ─── Proxy SOCKS tunnel architecture ──────────────────────────────────────
-  // The custom fingerprint-fetch implementation tunnels ALL traffic (ALPN probe,
+  // The custom httpCloak-fetch implementation tunnels ALL traffic (ALPN probe,
   // TLS handshake, HTTP request) through the SOCKS proxy. IP leaks are impossible
   // by design — no direct connections are made to the target.
 
   describe("proxy SOCKS tunnel architecture", () => {
     test("sets Sec-Fetch-Site cross-site when referer is provided", async () => {
       let capturedHeaders: Record<string, string> | undefined;
-      const mockFpFetch = mock(
+      const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
           capturedHeaders = {
             referer: opts?.referer ?? "",
@@ -978,7 +978,7 @@ describe("article extract cleanup", () => {
       await fetchHtml(
         "https://example.com/some-article-title",
         {
-          fingerprintFetchFn: mockFpFetch as any,
+          httpCloakFetchFn: mockHttpCloakFetch as any,
           isAllowedFeedUrlFn: async () => true,
         },
         { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
@@ -991,7 +991,7 @@ describe("article extract cleanup", () => {
 
   // ─── Proxy loop compatibility-signal abort ────────────────────────────────
   // When PerimeterX or DataDome block the proxy egress IP, the block is at IP
-  // reputation level — UA/fingerprint rotation cannot bypass it.  The proxy
+  // reputation level — UA/httpCloak rotation cannot bypass it.  The proxy
   // loop must abort immediately on the first detected attempt rather than
   // burning all retry slots and delaying the caller by ~3 seconds.
 
@@ -999,7 +999,7 @@ describe("article extract cleanup", () => {
     const pxBody =
       '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /></head></html>';
 
-    // Helper: creates a fingerprintFetchFn that throws GotScrapingError with
+    // Helper: creates a httpCloakFetchFn that throws GotScrapingError with
     // the given statusCode, body, and headers on every call.
     function makeFpFetchError(
       statusCode: number,
@@ -1032,7 +1032,7 @@ describe("article extract cleanup", () => {
           "https://example.com/article",
           {
             delayFn: async () => {},
-            fingerprintFetchFn: fn as any,
+            httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
@@ -1052,7 +1052,7 @@ describe("article extract cleanup", () => {
           "https://example.com/article",
           {
             delayFn: async () => {},
-            fingerprintFetchFn: fn as any,
+            httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
@@ -1072,7 +1072,7 @@ describe("article extract cleanup", () => {
           "https://example.com/article",
           {
             delayFn: async () => {},
-            fingerprintFetchFn: fn as any,
+            httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
@@ -1087,14 +1087,22 @@ describe("article extract cleanup", () => {
         403,
         "<html>generic 403</html>",
       );
+      const mockAxiosGet = mock(async () => {
+        const error: any = new Error("Request failed with status code 403");
+        error.isAxiosError = true;
+        error.response = { data: "blocked", headers: {}, status: 403 };
+        throw error;
+      });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
           {
+            axiosGetFn: mockAxiosGet as any,
             delayFn: async () => {},
-            fingerprintFetchFn: fn as any,
+            httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
+            isAxiosErrorFn: ((error: any) => error?.isAxiosError === true) as any,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
@@ -1106,14 +1114,22 @@ describe("article extract cleanup", () => {
 
     test("retries all 3 attempts on 429 rate-limit (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(429, "");
+      const mockAxiosGet = mock(async () => {
+        const error: any = new Error("Request failed with status code 429");
+        error.isAxiosError = true;
+        error.response = { data: "rate limited", headers: {}, status: 429 };
+        throw error;
+      });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
           {
+            axiosGetFn: mockAxiosGet as any,
             delayFn: async () => {},
-            fingerprintFetchFn: fn as any,
+            httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
+            isAxiosErrorFn: ((error: any) => error?.isAxiosError === true) as any,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
@@ -1122,9 +1138,9 @@ describe("article extract cleanup", () => {
       expect(getCount()).toBe(3);
     });
 
-    test("succeeds on first attempt and makes exactly 1 fingerprint-fetch call", async () => {
+    test("succeeds on first attempt and makes exactly 1 httpCloak-fetch call", async () => {
       let callCount = 0;
-      const mockFpFetch = mock(async () => {
+      const mockHttpCloakFetch = mock(async () => {
         callCount++;
         return {
           html: "<html>success</html>",
@@ -1136,7 +1152,7 @@ describe("article extract cleanup", () => {
         "https://example.com/article",
         {
           delayFn: async () => {},
-          fingerprintFetchFn: mockFpFetch as any,
+          httpCloakFetchFn: mockHttpCloakFetch as any,
           isAllowedFeedUrlFn: async () => true,
         },
         { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
@@ -1146,9 +1162,9 @@ describe("article extract cleanup", () => {
       expect(callCount).toBe(1);
     });
 
-    test("rotates fingerprint pool on each proxy retry", async () => {
+    test("rotates httpCloak pool on each proxy retry", async () => {
       const capturedSecChUas: string[] = [];
-      const mockFpFetch = mock(
+      const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
           if (opts?.secChUa) capturedSecChUas.push(opts.secChUa);
           throw new GotScrapingError(
@@ -1156,7 +1172,7 @@ describe("article extract cleanup", () => {
             "<html>blocked</html>",
             "socks",
             null,
-            opts?.browserVersion ?? 131,
+            131,
             false,
             0,
             {},
@@ -1164,27 +1180,35 @@ describe("article extract cleanup", () => {
           );
         },
       );
+      const mockAxiosGet = mock(async () => {
+        const error: any = new Error("Request failed with status code 403");
+        error.isAxiosError = true;
+        error.response = { data: "blocked", headers: {}, status: 403 };
+        throw error;
+      });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
           {
+            axiosGetFn: mockAxiosGet as any,
             delayFn: async () => {},
-            fingerprintFetchFn: mockFpFetch as any,
+            httpCloakFetchFn: mockHttpCloakFetch as any,
             isAllowedFeedUrlFn: async () => true,
+            isAxiosErrorFn: ((error: any) => error?.isAxiosError === true) as any,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
-      // All 3 attempts must have run, using the fingerprint pool (currently has 1 entry)
+      // All 3 attempts must have run, using the httpCloak pool (currently has 1 entry)
       expect(capturedSecChUas.length).toBe(3);
-      // Since pool has 1 entry, all attempts use the same fingerprint
+      // Since pool has 1 entry, all attempts use the same httpCloak
       expect(new Set(capturedSecChUas).size).toBe(1);
     });
   });
 
-  // ─── Fingerprint-fetch pure function tests ────────────────────────────────
+  // ─── HTTPCloak-fetch pure function tests ────────────────────────────────
 
   describe("parseSocksProxy", () => {
     test("parses socks5 URL with credentials", () => {
@@ -1256,9 +1280,9 @@ describe("article extract cleanup", () => {
     });
   });
 
-  describe("generateBrowserHeaders", () => {
+  describe("createBrowserHeaders", () => {
     test("produces headers with expected keys", () => {
-      const headers = generateBrowserHeaders("1");
+      const headers = createBrowserHeaders();
       expect(headers["Accept-Language"]).toBe("en-US,en;q=0.9");
       expect(headers["Accept-Encoding"]).toBe("gzip, deflate, br, zstd");
       expect(headers["priority"]).toBe("u=0, i");
@@ -1266,12 +1290,12 @@ describe("article extract cleanup", () => {
     });
 
     test("includes accept override", () => {
-      const headers = generateBrowserHeaders("1", { accept: "text/html" });
+      const headers = createBrowserHeaders({ accept: "text/html" });
       expect(headers["Accept"]).toBe("text/html");
     });
 
     test("sets cross-site fetch mode when referer provided", () => {
-      const headers = generateBrowserHeaders("1", {
+      const headers = createBrowserHeaders({
         referer: "https://duckduckgo.com",
       });
       expect(headers["Referer"]).toBe("https://duckduckgo.com");
@@ -1279,14 +1303,14 @@ describe("article extract cleanup", () => {
     });
 
     test("strips h2 pseudo-headers", () => {
-      const headers = generateBrowserHeaders("2");
+      const headers = createBrowserHeaders();
       for (const key of Object.keys(headers)) {
         expect(key.startsWith(":")).toBe(false);
       }
     });
   });
 
-  describe("fetchHtmlWithFingerprint edge cases", () => {
+  describe("fetchHtmlWithHttpCloak edge cases", () => {
     test("throws on redirect without Location header", async () => {
       const mockRequest = async () => ({
         body: "",
@@ -1295,7 +1319,7 @@ describe("article extract cleanup", () => {
       });
 
       await expect(
-        fetchHtmlWithFingerprint(
+        fetchHtmlWithHttpCloak(
           "https://example.com/article",
           async () => true,
           undefined,
@@ -1319,7 +1343,7 @@ describe("article extract cleanup", () => {
       };
 
       await expect(
-        fetchHtmlWithFingerprint(
+        fetchHtmlWithHttpCloak(
           "https://example.com/start",
           async () => true,
           undefined,
@@ -1328,27 +1352,24 @@ describe("article extract cleanup", () => {
       ).rejects.toThrow("Too many redirects");
     });
 
-    test("stores response cookies in jar", async () => {
-      const { CookieJar: Jar } = await import("tough-cookie");
-      const jar = new Jar();
+    test("returns decoded HTML for successful responses", async () => {
       const mockRequest = async () => ({
         body: "<html>ok</html>",
-        headers: { "set-cookie": "sid=abc; Path=/" } as Record<
+        headers: {} as Record<
           string,
           string | string[] | undefined
         >,
         statusCode: 200,
       });
 
-      await fetchHtmlWithFingerprint(
+      const result = await fetchHtmlWithHttpCloak(
         "https://example.com/article",
         async () => true,
-        { cookieJar: jar },
+        undefined,
         { requestFn: mockRequest },
       );
 
-      const cookies = jar.getCookieStringSync("https://example.com/");
-      expect(cookies).toContain("sid=abc");
+      expect(result.html).toBe("<html>ok</html>");
     });
   });
 

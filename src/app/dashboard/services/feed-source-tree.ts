@@ -1,7 +1,4 @@
-import type { CategoryTreeNode } from "@/lib";
-import type { FeedSource } from "@/lib/core/types";
-
-import { FeedService } from "@/lib";
+import { CategoryTreeNode, FeedService, FeedSource } from "@/lib";
 
 import {
   buildCategoriesFromSources,

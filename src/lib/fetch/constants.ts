@@ -28,4 +28,3 @@ export const CHROME = {
 } as const;
 
 export const CHROME_HEADERS_BASE = CHROME.headers;
-export const TLS_CLIENT_CHROME_VER = CHROME.version;

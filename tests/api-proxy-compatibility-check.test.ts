@@ -5,7 +5,7 @@ const routeModulePath =
   "@/app/api/settings/proxy/compatibility-check/route?api-proxy-compatibility-check-test-isolated";
 const importRouteModule = () => import(routeModulePath);
 
-const fetchHtmlWithFingerprintMock = mock(
+const fetchHtmlWithHttpCloakMock = mock(
   async (
     url: string,
     _isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -51,7 +51,7 @@ class TestServiceError extends Error {
 }
 
 const routeDeps = {
-  fetchHtmlWithFingerprintFn: fetchHtmlWithFingerprintMock,
+  fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakMock,
   gotScrapingErrorClass: TestGotScrapingError,
   loggerInstance: {
     error: loggerErrorMock,
@@ -72,7 +72,7 @@ const routeDeps = {
 
 beforeEach(() => {
   mock.restore();
-  fetchHtmlWithFingerprintMock.mockClear();
+  fetchHtmlWithHttpCloakMock.mockClear();
   loggerErrorMock.mockClear();
   loggerInfoMock.mockClear();
   parseJsonBodyOrResponseMock.mockClear();
@@ -122,7 +122,122 @@ describe("proxy compatibility check route", () => {
 
     expect(body.results).toHaveLength(4);
     expect(body.results.every((result) => result.success)).toBe(true);
-    expect(fetchHtmlWithFingerprintMock).toHaveBeenCalledTimes(4);
+    expect(fetchHtmlWithHttpCloakMock).toHaveBeenCalledTimes(4);
     expect(resolveUserProxyMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("detects vendor challenge markers in successful sample bodies", async () => {
+    const { POST } = await importRouteModule();
+
+    fetchHtmlWithHttpCloakMock.mockImplementation(async (url) => {
+      if (url.includes("pennlive")) {
+        return {
+          html: "<html><body>geo.captcha-delivery.datadome.co</body></html>",
+          requestHeaders: { "user-agent": "test-agent" },
+        };
+      }
+
+      if (url.includes("abc27")) {
+        return {
+          html: "<html><body>px-captcha perimeterx challenge</body></html>",
+          requestHeaders: { "user-agent": "test-agent" },
+        };
+      }
+
+      if (url.includes("cloudflare")) {
+        return {
+          html: "<html><body>/cdn-cgi/challenge-platform</body></html>",
+          requestHeaders: { "user-agent": "test-agent" },
+        };
+      }
+
+      return {
+        html: '<html><body><div class="g-recaptcha">I\'m not a robot</div></body></html>',
+        requestHeaders: { "user-agent": "test-agent" },
+      };
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/settings/proxy/compatibility-check", {
+        body: JSON.stringify({ useProxy: true }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      routeDeps,
+    );
+
+    const body = (await response.json()) as {
+      results: {
+        compatibilitySignalDetected: boolean;
+        site: string;
+        success: boolean;
+        vendor: string;
+      }[];
+    };
+
+    expect(body.results).toHaveLength(4);
+    expect(body.results.every((result) => result.success)).toBe(true);
+    expect(
+      body.results.every((result) => result.compatibilitySignalDetected),
+    ).toBe(true);
+  });
+
+  test("classifies upstream challenge errors from response bodies", async () => {
+    const { POST } = await importRouteModule();
+
+    fetchHtmlWithHttpCloakMock.mockImplementation(async (url) => {
+      if (url.includes("cloudflare")) {
+        throw new TestGotScrapingError(
+          403,
+          "<html><body>cf-browser-verification</body></html>",
+          "proxy",
+          { "user-agent": "test-agent" },
+          { server: "cloudflare" },
+        );
+      }
+
+      return {
+        html: `<html><body>${url}</body></html>`,
+        requestHeaders: { "user-agent": "test-agent" },
+      };
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/settings/proxy/compatibility-check", {
+        body: JSON.stringify({ useProxy: true }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      routeDeps,
+    );
+
+    const body = (await response.json()) as {
+      results: {
+        compatibilitySignalDetected: boolean;
+        error?: string;
+        site: string;
+        statusCode?: number;
+        success: boolean;
+        vendor: string;
+      }[];
+    };
+
+    const cloudflareResult = body.results.find(
+      (result) => result.vendor === "Cloudflare",
+    );
+
+    expect(cloudflareResult).toMatchObject({
+      compatibilitySignalDetected: true,
+      error: "HTTP 403",
+      site: "Cloudflare sample",
+      statusCode: 403,
+      success: false,
+      vendor: "Cloudflare",
+    });
+    expect(loggerErrorMock).toHaveBeenCalledTimes(1);
   });
 });

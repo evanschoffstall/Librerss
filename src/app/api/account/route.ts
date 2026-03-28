@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsonError } from "@/lib/api/http";
 import { clearSessionCookie } from "@/lib/auth/session";
 import {
-  logAndRespondError,
-  requireMutableAuthenticatedUser,
-} from "@/lib/server";
-import { deleteAccount, ServiceError } from "@/lib/server/services";
+  deleteAccount,
+  logAndRespondError, requireMutableAuthenticatedUser, ServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 

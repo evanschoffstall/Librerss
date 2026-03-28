@@ -51,8 +51,8 @@ export function notifyFeedFailures(
   }
 
   const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
-  toast.warning(`Some feeds failed to update: ${failureLabel}`, {
-    description: "Showing cached articles. Check back after the next refresh.",
+  toast.warning(`Some feeds failed to update`, {
+    description: failureLabel,
   });
 }
 
@@ -75,9 +75,14 @@ export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
   return DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS;
 }
 
-export function shouldShowNoFeedSourcesToast(
-  hasConfiguredFeeds: boolean,
-  usePlaceholderData: boolean,
-): boolean {
-  return !hasConfiguredFeeds && !usePlaceholderData;
+/**
+ * Skip-refresh requests intentionally reuse cached feed state, so foreground
+ * failure toasts should stay silent even if cached metadata still includes
+ * upstream errors from an earlier refresh.
+ */
+export function shouldNotifyFeedFailureToast(
+  options?: FeedFetchOptions,
+  isBackground = false,
+) {
+  return !isBackground && options?.skipRefresh !== true;
 }

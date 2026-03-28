@@ -31,7 +31,6 @@ import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
 import {
-    shouldShowNoFeedSourcesToast,
     useFeedLoader
 } from "@/app/dashboard/hooks/useFeedLoader";
 import { canRefreshFeed } from "@/app/dashboard/hooks/useFeedRefresh";
@@ -116,12 +115,6 @@ describe("useFeedRefresh", () => {
 });
 
 describe("useFeedLoader", () => {
-  test("suppresses the empty-source toast in placeholder mode", () => {
-    expect(shouldShowNoFeedSourcesToast(false, true)).toBe(false);
-    expect(shouldShowNoFeedSourcesToast(false, false)).toBe(true);
-    expect(shouldShowNoFeedSourcesToast(true, false)).toBe(false);
-  });
-
   test("reuses a prefetched batch query without clearing the feed", async () => {
     const categoriesRef = { current: [] as CategoryTreeNode[] };
     const prefetchedFeedUrl = "https://example.com/prefetched.xml";
@@ -278,6 +271,120 @@ describe("useFeedLoader", () => {
     expect(outcome.sourceNamesByUrl.get("https://example.com/feed.xml")).toBe(
       "Space News",
     );
+  });
+
+  test("does not show a partial-failure toast for skip-refresh cache reads", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const successfulUrl = "https://example.com/success.xml";
+    const failedUrl = "https://example.com/failed.xml";
+    const categoryNode: CategoryTreeNode = {
+      children: [
+        {
+          data: {
+            category: "News",
+            enabled: true,
+            sourceId: 1,
+            url: successfulUrl,
+          },
+          key: "news-1",
+          label: "Success Feed",
+        },
+        {
+          data: {
+            category: "News",
+            enabled: true,
+            sourceId: 2,
+            url: failedUrl,
+          },
+          key: "news-2",
+          label: "Failed Feed",
+        },
+      ],
+      key: "cat-news",
+      label: "News",
+    };
+    const cachedArticle: Article = {
+      content: "Cached article body",
+      feedId: 1,
+      feedName: "Success Feed",
+      feedUrl: successfulUrl,
+      id: 101,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T12:04:00.000Z"),
+      link: "https://example.com/articles/cached",
+      publicationDate: new Date("2026-03-14T12:03:00.000Z"),
+      title: "Cached article",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async () => [
+      {
+        articles: [cachedArticle],
+        lastFetchedAt: new Date("2026-03-14T12:05:00.000Z"),
+        ok: true,
+        url: successfulUrl,
+      },
+      {
+        articles: [],
+        error: "Request failed with status code 403",
+        lastFetchedAt: new Date("2026-03-14T12:05:00.000Z"),
+        ok: true,
+        url: failedUrl,
+      },
+    ]) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.fetchCategoryFeeds(categoryNode, {
+          requestSource: "dashboard-initial-cache",
+          skipRefresh: true,
+        });
+      });
+
+      await waitFor(() => {
+        expect(FeedService.getFeedsBatch).toHaveBeenCalledTimes(1);
+      });
+
+      expect(feedState).toEqual([cachedArticle]);
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    } finally {
+      queryClient.clear();
+    }
   });
 });
 
@@ -501,6 +608,7 @@ function registerModuleMocks() {
       error: mock(() => {}),
       info: mock(() => {}),
       success: mock(() => {}),
+      warning: mock(() => {}),
     },
   }));
 }
@@ -954,6 +1062,38 @@ describe("useArticleHydration", () => {
       expect(feedState[0]?.content).toBe("<p>Stored article content</p>");
       expect(feedState[0]?.hasFullContent).toBe(true);
       expect(result.current.hydratedArticleLinks[article.link]).toBeUndefined();
+    });
+  });
+
+  test("hydrateArticleContent keeps placeholder snapshot URLs on the extract path", async () => {
+    const article = createMockArticle({
+      feedUrl: "https://www.usgs.gov/news/news-releases",
+      link: "https://www.usgs.gov/news/national-news-release/value-us-mineral-production-rose-last-year-driven-precious-metals-prices",
+    });
+    let feedState = [article];
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleHydration({
+        getFeedSettings: () => ({ extractionDisabled: true }),
+        setFeed,
+      }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    await waitFor(() => {
+      expect(ArticleService.getStoredArticleContent).not.toHaveBeenCalled();
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledWith(
+        article.link,
+        expect.objectContaining({ useProxy: undefined }),
+      );
+      expect(feedState[0]?.content).toContain("Extracted");
+      expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     });
   });
 

@@ -1,36 +1,49 @@
 import axios from "axios";
-import { CookieJar } from "tough-cookie";
 
 import { toBodySnippet } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import { fetchTextWithValidatedRedirects } from "@/lib/core/upstream-http";
 import {
-    buildAxiosGet,
-    buildDdgReferer,
-    buildProxyConfig,
-    detectSourceCompatibilitySignal,
-    fetchHtmlWithFingerprint,
-    GotScrapingError,
-    pickDiagnosticHeaders,
-    SOCKS_PROTOCOLS,
-    type SourceCompatibilitySignal,
+  buildAxiosGet,
+  buildDdgReferer,
+  buildProxyConfig,
+  CHROME,
+  detectResponseCompatibilitySignal,
+  detectSourceCompatibilitySignal,
+  fetchHtmlWithHttpCloak,
+  GotScrapingError,
+  pickDiagnosticHeaders,
+  SOCKS_PROTOCOLS,
 } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
 
 import {
-    ARTICLE_EXTRACT_SEC_CH_UA,
-    EXTRACT_403_RETRIES,
-    EXTRACT_FINGERPRINT_POOL,
-    PROXY_FINGERPRINT_POOL,
+  EXTRACT_403_RETRIES,
 } from "./constants";
+
+interface AxiosStageOptions {
+  allowInsecureTls: boolean;
+  attempts: number;
+  delayFn: (ms: number) => Promise<void>;
+  headersFactory: (attempt: number) => Record<string, string>;
+  injectedGet?: typeof axios.get;
+  isAllowedUrl: (candidateUrl: string) => Promise<boolean>;
+  isAxiosError: typeof axios.isAxiosError;
+  label: string;
+  proxyConfig?: ReturnType<typeof buildProxyConfig>;
+  proxyMode: ProxyMode;
+  redactProxyUrl: null | string;
+  timeoutMs: number;
+  url: string;
+}
 
 interface FetchHtmlDeps {
   axiosGetFn?: typeof axios.get;
   delayFn?: (ms: number) => Promise<void>;
-  fingerprintFetchFn?: typeof fetchHtmlWithFingerprint;
+  httpCloakFetchFn?: typeof fetchHtmlWithHttpCloak;
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
   isAxiosErrorFn?: typeof axios.isAxiosError;
 }
@@ -41,6 +54,64 @@ interface FetchHtmlOptions {
   useProxy?: boolean;
 }
 
+type FetchStageResult =
+  | { error: unknown; ok: false; preferredError?: Error }
+  | { html: string; ok: true };
+
+interface HttpCloakStageOptions {
+  allowInsecureTls: boolean;
+  attempts: number;
+  delayFn: (ms: number) => Promise<void>;
+  httpCloakFetchFn: typeof fetchHtmlWithHttpCloak;
+  isAllowedUrl: (candidateUrl: string) => Promise<boolean>;
+  label: string;
+  proxyMode: ProxyMode;
+  proxyUrl?: string;
+  redactProxyUrl: null | string;
+  referer: string;
+  url: string;
+}
+
+type ProxyMode = "direct" | "http" | "socks";
+
+interface StageLogContext {
+  [key: string]: unknown;
+  allowInsecureTls: boolean;
+  attempt: number;
+  attempts: number;
+  error?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  note?: string;
+  proxyAddress: null | string;
+  proxyMode: ProxyMode;
+  redirectHop?: number;
+  responseBodyLength?: number;
+  responseBodySnippet?: string;
+  responseHeaders?: ReturnType<typeof pickDiagnosticHeaders>;
+  statusCode?: number;
+  url: string;
+}
+
+type StageLogExtras = Omit<
+  StageLogContext,
+  "allowInsecureTls" | "attempt" | "attempts" | "proxyAddress" | "url"
+> & {
+  proxyMode?: ProxyMode;
+};
+
+interface StageOptionsBase {
+  allowInsecureTls: boolean;
+  attempts: number;
+  label: string;
+  proxyMode: ProxyMode;
+  redactProxyUrl: null | string;
+  url: string;
+}
+
+/**
+ * Fetch article HTML using a strongest-first transport pipeline: HTTPCloak
+ * first, browser-profile axios second, and plain axios last.
+ */
 export async function fetchHtml(
   url: string,
   deps?: FetchHtmlDeps,
@@ -52,309 +123,399 @@ export async function fetchHtml(
     deps?.delayFn ??
     ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const injectedGet = deps?.axiosGetFn;
+  const httpCloakFetchFn = deps?.httpCloakFetchFn ?? fetchHtmlWithHttpCloak;
   const allowInsecureTls = options?.allowInsecureTls === true;
   const useProxy = options?.useProxy === true;
   const configuredProxyUrl = options?.proxyUrl;
+  const timeoutMs = CONFIG.FEED_REQUEST_TIMEOUT_MS;
+  const referer = buildDdgReferer(url);
+  const proxyUrl = useProxy ? configuredProxyUrl : undefined;
+  const proxyConfig =
+    proxyUrl && !injectedGet
+      ? buildProxyConfig(proxyUrl, allowInsecureTls) || undefined
+      : undefined;
+  const proxyMode = resolveProxyMode(proxyUrl, proxyConfig?.mode);
+  const redactProxyUrl = proxyUrl ? redactUrlForLogs(proxyUrl) : null;
+  let preferredError: Error | undefined;
+  const hasInjectedHttpCloakFetch = deps?.httpCloakFetchFn !== undefined;
 
-  // ── Proxy path: alternate request profile from first attempt ──────────────
-  if (useProxy && configuredProxyUrl && !injectedGet) {
-    let lastError: unknown;
-    const attempts = 1 + EXTRACT_403_RETRIES;
-    const proxyReferer = buildDdgReferer(url);
-    const proxyMode = SOCKS_PROTOCOLS.has(new URL(configuredProxyUrl).protocol)
-      ? "socks"
-      : "http";
-    const fpFetch = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
+  const canRunHttpCloakStage = !injectedGet || hasInjectedHttpCloakFetch;
+  if (canRunHttpCloakStage) {
+    const httpCloakResult = await runHttpCloakStage({
+      allowInsecureTls,
+      attempts: 1 + EXTRACT_403_RETRIES,
+      delayFn: delay,
+      httpCloakFetchFn,
+      isAllowedUrl,
+      label: useProxy ? "HTTPCloak extraction" : "HTTPCloak-first extraction",
+      proxyMode,
+      proxyUrl,
+      redactProxyUrl,
+      referer,
+      url,
+    });
 
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      if (attempt > 0) {
-        const delayMs = 800 * attempt + Math.floor(Math.random() * 400);
-        await delay(delayMs);
-      }
-
-      const fp =
-        PROXY_FINGERPRINT_POOL[attempt % PROXY_FINGERPRINT_POOL.length];
-
-      try {
-        const { html, requestHeaders: sentHeaders } = await fpFetch(
-          url,
-          isAllowedUrl,
-          {
-            accept: fp.accept,
-            allowInsecureTls,
-            browserVersion: fp.chromeVersion,
-            cookieJar: new CookieJar(),
-            proxyUrl: configuredProxyUrl,
-            referer: proxyReferer,
-            secChUa: fp.secChUa,
-          },
-        );
-        logger.info(
-          `Proxy extraction attempt ${attempt + 1}/${attempts} succeeded`,
-          {
-            allowInsecureTls,
-            attempt: attempt + 1,
-            attempts,
-            headers: sentHeaders,
-            proxyAddress: redactUrlForLogs(configuredProxyUrl),
-            proxyMode,
-            responseBodyLength: html.length,
-            url,
-          },
-        );
-        return html;
-      } catch (err) {
-        lastError = err;
-        const gsErr = err instanceof GotScrapingError ? err : null;
-        const is403 = gsErr?.statusCode === 403;
-        const is429 = gsErr?.statusCode === 429;
-
-        const proxyPerimeterXDetected =
-          is403 &&
-          (/px[-_]captcha|perimeterx|\/_px\//i.test(gsErr.responseBody) ||
-            Object.keys(gsErr.responseHeaders).some((h) =>
-              h.toLowerCase().startsWith("x-px-"),
-            ));
-        const proxyDataDomeDetected =
-          is403 &&
-          (() => {
-            const dataDomeHeader = gsErr.responseHeaders["x-datadome"];
-            if (typeof dataDomeHeader === "string") {
-              return dataDomeHeader.toLowerCase() === "protected";
-            }
-            return Array.isArray(dataDomeHeader)
-              ? dataDomeHeader.some(
-                  (value) => value.toLowerCase() === "protected",
-                )
-              : false;
-          })();
-        const accessConstrained =
-          proxyPerimeterXDetected || proxyDataDomeDetected;
-        const accessConstraintProvider = proxyPerimeterXDetected
-          ? "PerimeterX"
-          : proxyDataDomeDetected
-            ? "DataDome"
-            : null;
-        const willRetry =
-          (is403 || is429) && !accessConstrained && attempt < attempts - 1;
-
-        logger.error(
-          `Proxy extraction attempt ${attempt + 1}/${attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
-          {
-            allowInsecureTls,
-            attempt: attempt + 1,
-            attempts,
-            headers: gsErr?.requestHeaders,
-            proxyAddress: redactUrlForLogs(configuredProxyUrl),
-            proxyMode: gsErr?.proxyMode ?? proxyMode,
-            url,
-            ...(gsErr && {
-              redirectHop: gsErr.redirectHop,
-              responseBodyLength: gsErr.responseBody.length,
-              responseBodySnippet: toBodySnippet(gsErr.responseBody),
-              responseHeaders: pickDiagnosticHeaders(gsErr.responseHeaders),
-              statusCode: gsErr.statusCode,
-            }),
-            error: err instanceof Error ? err.message : String(err),
-            ...(accessConstrained && {
-              note: `${accessConstraintProvider ?? "Unknown"} access constraint detected — this source may require a browser-capable client or a different network route`,
-            }),
-            ...(!willRetry &&
-              !accessConstrained &&
-              (is403 || is429) && {
-                note: "Source may be limiting this network route or require manual review",
-              }),
-          },
-        );
-
-        if (willRetry) continue;
-        throw err;
-      }
+    if (httpCloakResult.ok) {
+      return httpCloakResult.html;
     }
-    throw lastError;
+
+    if (isUrlValidationError(httpCloakResult.error)) {
+      throw httpCloakResult.error;
+    }
+
+    preferredError ??= httpCloakResult.preferredError;
   }
 
-  // ── Direct path: axios with alternate request profiles, then TLS fallback ─
-  const attempts = injectedGet ? 1 : 1 + EXTRACT_403_RETRIES;
-  let lastError: unknown;
-  const attemptState: {
-    gotRetryable: boolean;
-    sourceCompatibilitySignal: SourceCompatibilitySignal;
-  } = {
-    gotRetryable: false,
-    sourceCompatibilitySignal: { detected: false },
+  const browserLikeAxiosResult = await runAxiosStage({
+    allowInsecureTls,
+    attempts: injectedGet ? 1 : 1 + EXTRACT_403_RETRIES,
+    delayFn: delay,
+    headersFactory: () => createBrowserLikeAxiosHeaders(referer),
+    injectedGet,
+    isAllowedUrl,
+    isAxiosError,
+    label: "Browser-profile extraction",
+    proxyConfig,
+    proxyMode,
+    redactProxyUrl,
+    timeoutMs,
+    url,
+  });
+  if (browserLikeAxiosResult.ok) {
+    return browserLikeAxiosResult.html;
+  }
+  if (isUrlValidationError(browserLikeAxiosResult.error)) {
+    throw browserLikeAxiosResult.error;
+  }
+  preferredError ??= browserLikeAxiosResult.preferredError;
+
+  const plainAxiosResult = await runAxiosStage({
+    allowInsecureTls,
+    attempts: 1,
+    delayFn: delay,
+    headersFactory: () => createPlainAxiosHeaders(),
+    injectedGet,
+    isAllowedUrl,
+    isAxiosError,
+    label: "Plain axios extraction",
+    proxyConfig,
+    proxyMode,
+    redactProxyUrl,
+    timeoutMs,
+    url,
+  });
+  if (plainAxiosResult.ok) {
+    return plainAxiosResult.html;
+  }
+  if (isUrlValidationError(plainAxiosResult.error)) {
+    throw plainAxiosResult.error;
+  }
+  preferredError ??= plainAxiosResult.preferredError;
+
+  throw asError(preferredError ?? plainAxiosResult.error, "Upstream request failed");
+}
+
+function asError(error: unknown, fallbackMessage: string): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  if (typeof error === "string" && error.length > 0) {
+    return new Error(error);
+  }
+
+  return new Error(fallbackMessage);
+}
+
+function buildStageLogContext(
+  options: StageOptionsBase,
+  attempt: number,
+  extra: StageLogExtras,
+): StageLogContext {
+  const { proxyMode, ...rest } = extra;
+
+  return {
+    allowInsecureTls: options.allowInsecureTls,
+    attempt: attempt + 1,
+    attempts: options.attempts,
+    proxyAddress: options.redactProxyUrl,
+    proxyMode: proxyMode ?? options.proxyMode,
+    url: options.url,
+    ...rest,
   };
+}
 
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    if (attempt > 0) await delay(600 * attempt);
+function createBrowserLikeAxiosHeaders(
+  referer: string,
+): Record<string, string> {
+  return {
+    Accept: CHROME.accept,
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "max-age=0",
+    Priority: "u=0, i",
+    Referer: referer,
+    "sec-ch-ua": CHROME.secChUa,
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": CHROME.secChUaPlatform,
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": CHROME.userAgent,
+  };
+}
 
-    const fp =
-      EXTRACT_FINGERPRINT_POOL[attempt % EXTRACT_FINGERPRINT_POOL.length];
-    const ua = injectedGet ? EXTRACT_FINGERPRINT_POOL[0].ua : fp.ua;
-    const secChUa = injectedGet ? ARTICLE_EXTRACT_SEC_CH_UA : fp.secChUa;
-    const secChUaPlatform = injectedGet ? '"Windows"' : fp.secChUaPlatform;
-    const directReferer = injectedGet ? undefined : buildDdgReferer(url);
+function createCompatibilityError(provider: string, statusCode: number): Error {
+  return new Error(
+    `Upstream request received a source access response (${provider}) [HTTP ${statusCode}]`,
+  );
+}
 
-    const requestHeaders: Record<string, string> = {
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "max-age=0",
-      Priority: "u=0, i",
-      "sec-ch-ua": secChUa,
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": secChUaPlatform,
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": directReferer ? "cross-site" : "none",
-      "Sec-Fetch-User": "?1",
-      "Upgrade-Insecure-Requests": "1",
-      "User-Agent": ua,
-      ...(directReferer ? { Referer: directReferer } : undefined),
-    } as Record<string, string>;
+function createPlainAxiosHeaders(): Record<string, string> {
+  return {
+    Accept: CHROME.accept,
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-US,en;q=0.9",
+    "User-Agent": CHROME.userAgent,
+  };
+}
 
-    const jar = injectedGet ? undefined : new CookieJar();
-    const insecureTls = allowInsecureTls && !injectedGet;
-    const proxyUrl = useProxy && !injectedGet ? configuredProxyUrl : undefined;
-    const proxyConfig = proxyUrl
-      ? buildProxyConfig(proxyUrl, insecureTls)
-      : undefined;
-    const axiosProxyMode = proxyConfig ? proxyConfig.mode : "direct";
-    const axiosGet = buildAxiosGet(injectedGet, proxyConfig, insecureTls, jar);
+function finishStageSuccess(
+  options: StageOptionsBase,
+  attempt: number,
+  headers: Record<string, string | string[] | undefined> | undefined,
+  html: string,
+): FetchStageResult {
+  logStageSuccess(
+    options.label,
+    buildStageLogContext(options, attempt, {
+      headers,
+      responseBodyLength: html.length,
+    }),
+  );
+
+  return { html, ok: true };
+}
+
+function handleStageFailure(
+  options: StageOptionsBase,
+  attempt: number,
+  retryable: boolean,
+  error: unknown,
+  extra: Omit<StageLogExtras, "error">,
+): boolean {
+  const willRetry = retryable && attempt < options.attempts - 1;
+
+  logStageFailure(
+    options.label,
+    willRetry,
+    buildStageLogContext(options, attempt, {
+      error: toErrorMessage(error),
+      ...extra,
+    }),
+  );
+
+  return willRetry;
+}
+
+function isUrlValidationError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message === "Blocked URL" ||
+      error.message === "Blocked redirect target")
+  );
+}
+
+function logStageFailure(
+  label: string,
+  willRetry: boolean,
+  context: StageLogContext,
+): void {
+  logger.error(
+    `${label} attempt ${context.attempt}/${context.attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
+    context,
+  );
+}
+
+function logStageSuccess(label: string, context: StageLogContext): void {
+  logger.info(
+    `${label} attempt ${context.attempt}/${context.attempts} succeeded`,
+    context,
+  );
+}
+
+function resolveProxyMode(
+  proxyUrl: string | undefined,
+  resolvedProxyMode?: Exclude<ProxyMode, "direct">,
+): ProxyMode {
+  if (resolvedProxyMode) {
+    return resolvedProxyMode;
+  }
+
+  if (proxyUrl) {
+    return SOCKS_PROTOCOLS.has(new URL(proxyUrl).protocol) ? "socks" : "http";
+  }
+
+  return "direct";
+}
+
+/**
+ * Run an axios-backed stage with explicit redirect validation and optional
+ * explicit fallback handling between stronger and weaker request profiles.
+ */
+async function runAxiosStage(
+  options: AxiosStageOptions,
+): Promise<FetchStageResult> {
+  let lastError: unknown;
+  let preferredError: Error | undefined;
+
+  for (let attempt = 0; attempt < options.attempts; attempt += 1) {
+    if (attempt > 0) {
+      await options.delayFn(600 * attempt);
+    }
+
+    const requestHeaders = options.headersFactory(attempt);
+    const axiosGet = buildAxiosGet(
+      options.injectedGet,
+      options.proxyConfig,
+      options.allowInsecureTls && !options.injectedGet,
+    );
 
     let isFirstValidation = true;
+    const retryState = { current: false };
 
     try {
       const html = await fetchTextWithValidatedRedirects(
         {
           assertAllowedUrl: async (candidateUrl) => {
-            if (!(await isAllowedUrl(candidateUrl)))
+            if (!(await options.isAllowedUrl(candidateUrl))) {
               throw new Error(
                 isFirstValidation ? "Blocked URL" : "Blocked redirect target",
               );
+            }
+
             isFirstValidation = false;
           },
           headers: requestHeaders,
           maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
           maxRedirects: 5,
           onAxiosError: (error, isAxios) => {
-            if (!isAxios(error)) return;
-            const { retryable, signal } = detectSourceCompatibilitySignal(
-              error,
-              isAxiosError,
-            );
-            if (signal.detected) {
-              attemptState.sourceCompatibilitySignal = signal;
-              throw new Error(
-                `Upstream request received a source access response (${signal.provider}) [HTTP 403]`,
-              );
+            const compatibility = detectSourceCompatibilitySignal(error, isAxios);
+            retryState.current = compatibility.retryable;
+            if (!compatibility.signal.detected) {
+              return;
             }
-            if (retryable) attemptState.gotRetryable = true;
+
+            const compatibilityError =
+              preferredError ??
+              createCompatibilityError(compatibility.signal.provider, 403);
+            preferredError = compatibilityError;
+            throw compatibilityError;
           },
-          timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-          url,
+          timeoutMs: options.timeoutMs,
+          url: options.url,
         },
-        { axiosGetFn: axiosGet, isAxiosErrorFn: isAxiosError },
+        {
+          axiosGetFn: axiosGet,
+          isAxiosErrorFn: options.isAxiosError,
+        },
       );
-      if (!injectedGet)
-        logger.info(
-          `Direct extraction attempt ${attempt + 1}/${attempts} succeeded`,
-          {
-            allowInsecureTls: insecureTls,
-            attempt: attempt + 1,
-            attempts,
-            headers: requestHeaders,
-            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
-            proxyMode: axiosProxyMode,
-            responseBodyLength: html.length,
-            url,
-          },
-        );
-      return html;
-    } catch (err) {
-      lastError = err;
-      if (attemptState.sourceCompatibilitySignal.detected) break;
-      if (attemptState.gotRetryable && attempt < attempts - 1) continue;
-      if (!injectedGet)
-        logger.error(
-          `Direct extraction attempt ${attempt + 1}/${attempts} failed (final)`,
-          {
-            allowInsecureTls: insecureTls,
-            attempt: attempt + 1,
-            attempts,
-            error: toErrorMessage(err),
-            headers: requestHeaders,
-            proxyAddress: proxyUrl ? redactUrlForLogs(proxyUrl) : null,
-            proxyMode: axiosProxyMode,
-            url,
-          },
-        );
-      throw err;
+
+      return finishStageSuccess(options, attempt, requestHeaders, html);
+    } catch (error) {
+      lastError = error;
+
+      if (
+        handleStageFailure(options, attempt, retryState.current, error, {
+          headers: requestHeaders,
+        })
+      ) {
+        continue;
+      }
+
+      break;
     }
   }
 
-  // ── TLS fingerprint fallback for selected source access responses ──────────
-  if (attemptState.sourceCompatibilitySignal.detected && !injectedGet) {
-    const detectedProtection = attemptState.sourceCompatibilitySignal;
-    const { challengeCookies, provider } = detectedProtection;
-    const connectionMode = useProxy ? "proxy" : "direct";
-    const fallbackFp = PROXY_FINGERPRINT_POOL[0];
-    const fpFallback = deps?.fingerprintFetchFn ?? fetchHtmlWithFingerprint;
-    const logCtx = {
-      allowInsecureTls,
-      connectionMode,
-      provider,
-      proxyAddress:
-        useProxy && configuredProxyUrl
-          ? redactUrlForLogs(configuredProxyUrl)
-          : null,
-      url,
-    };
-    logger.info(
-      `Alternate TLS request profile started (${provider}, ${connectionMode})`,
-      logCtx,
-    );
+  return { error: lastError, ok: false, preferredError };
+}
+
+/**
+ * Execute the strongest transport first so the more compatible upstream client runs
+ * before cheaper but less compatible fallbacks.
+ */
+async function runHttpCloakStage(
+  options: HttpCloakStageOptions,
+): Promise<FetchStageResult> {
+  let lastError: unknown;
+  let preferredError: Error | undefined;
+  const getDelayMs = (attempt: number) =>
+    800 * attempt + Math.floor(Math.random() * 400);
+
+  for (let attempt = 0; attempt < options.attempts; attempt += 1) {
+    if (attempt !== 0) {
+      await options.delayFn(getDelayMs(attempt));
+    }
 
     try {
-      const fallbackJar = new CookieJar();
-      for (const raw of challengeCookies) {
-        try {
-          fallbackJar.setCookieSync(raw, url);
-        } catch {
-          /* malformed — skip */
-        }
+      const { html, requestHeaders } = await options.httpCloakFetchFn(
+        options.url,
+        options.isAllowedUrl,
+        {
+          accept: CHROME.accept,
+          allowInsecureTls: options.allowInsecureTls,
+          proxyUrl: options.proxyUrl,
+          referer: options.referer,
+          secChUa: CHROME.secChUa,
+        },
+      );
+
+      return finishStageSuccess(options, attempt, requestHeaders, html);
+    } catch (error) {
+      lastError = error;
+
+      const gotScrapingError = error instanceof GotScrapingError ? error : null;
+      const compatibility = gotScrapingError
+        ? detectResponseCompatibilitySignal(
+            gotScrapingError.statusCode,
+            gotScrapingError.responseHeaders as Record<string, unknown>,
+            gotScrapingError.responseBody,
+          )
+        : { retryable: false, signal: { detected: false } as const };
+
+      if (compatibility.signal.detected && gotScrapingError) {
+        preferredError ??= createCompatibilityError(
+          compatibility.signal.provider,
+          gotScrapingError.statusCode,
+        );
       }
-      const { html, requestHeaders: sentHeaders } = await fpFallback(
-        url,
-        isAllowedUrl,
-        {
-          accept: fallbackFp.accept,
-          allowInsecureTls,
-          cookieJar: fallbackJar,
-          proxyUrl: useProxy ? configuredProxyUrl : undefined,
-          referer: buildDdgReferer(url),
-        },
-      );
-      logger.info(
-        `Alternate TLS request profile succeeded (${provider}, ${html.length} bytes)`,
-        {
-          ...logCtx,
-          headers: sentHeaders,
-          responseBodyLength: html.length,
-        },
-      );
-      return html;
-    } catch (fallbackErr) {
-      const fallbackGsErr =
-        fallbackErr instanceof GotScrapingError ? fallbackErr : null;
-      logger.error(`Alternate TLS request profile failed (${provider})`, {
-        ...logCtx,
-        error: toErrorMessage(fallbackErr),
-        headers: fallbackGsErr?.requestHeaders,
-      });
+
+      if (
+        handleStageFailure(options, attempt, compatibility.retryable, error, {
+          headers: gotScrapingError?.requestHeaders,
+          note: compatibility.signal.detected
+            ? `${compatibility.signal.provider} access constraint detected during HTTPCloak stage`
+            : undefined,
+          proxyMode: gotScrapingError ? gotScrapingError.proxyMode : options.proxyMode,
+          redirectHop: gotScrapingError?.redirectHop,
+          responseBodyLength: gotScrapingError?.responseBody.length,
+          responseBodySnippet: gotScrapingError
+            ? toBodySnippet(gotScrapingError.responseBody)
+            : undefined,
+          responseHeaders: gotScrapingError
+            ? pickDiagnosticHeaders(gotScrapingError.responseHeaders)
+            : undefined,
+          statusCode: gotScrapingError?.statusCode,
+        })
+      ) {
+        continue;
+      }
+
+      break;
     }
   }
 
-  throw lastError;
+  return { error: lastError, ok: false, preferredError };
 }

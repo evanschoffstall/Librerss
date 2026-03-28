@@ -1,238 +1,92 @@
-import { render, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { act, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
-import { FeedList } from "@/app/dashboard/components/feed/FeedList";
+import { isFeedInvertedScrollActive } from "@/app/dashboard/components/feed/FeedList";
 
 import {
   buildFeedListArticle,
   installFeedListDomMocks,
+  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
   restoreFeedListDomMocks,
+  setFeedListMobileViewport,
 } from "./feed-list-test-utils";
 
-beforeEach(() => {
-  installFeedListDomMocks();
-});
+let FeedList: typeof import("@/app/dashboard/components/feed/FeedList").FeedList;
+const originalConsoleError = console.error;
 
-afterEach(() => {
-  restoreFeedListDomMocks();
-});
+type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
+  animate?: unknown;
+  exit?: unknown;
+  initial?: unknown;
+  layout?: unknown;
+  layoutId?: unknown;
+  transition?: unknown;
+};
 
-function renderFeedList(element: React.ReactNode) {
+const motion = new Proxy(
+  {},
+  {
+    get: (_target, tag) =>
+      React.forwardRef<HTMLElement, MockMotionProps>(
+        function MockMotionComponent(
+          {
+            animate: _animate,
+            exit: _exit,
+            initial: _initial,
+            layout: _layout,
+            layoutId: _layoutId,
+            transition: _transition,
+            ...props
+          },
+          ref,
+        ) {
+          return React.createElement(tag as string, { ...props, ref }, props.children);
+        },
+      ),
+  },
+);
+
+function renderFeedList(node: React.ReactElement) {
   return render(
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      {element}
+      {node}
     </ThemeProvider>,
   );
 }
 
+beforeEach(async () => {
+  mock.restore();
+  console.error = ((...args: unknown[]) => {
+    const [firstArg] = args;
+    if (typeof firstArg === "string") {
+      if (firstArg.includes("react-virtuoso: Zero-sized element")) {
+        return;
+      }
+
+      if (firstArg.includes("`NaN` is an invalid value for the `paddingBottom` css style property.")) {
+        return;
+      }
+    }
+
+    originalConsoleError(...args);
+  }) as typeof console.error;
+  mock.module("motion/react", () => ({
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    motion,
+  }));
+  installFeedListDomMocks();
+  ({ FeedList } = await import("@/app/dashboard/components/feed/FeedList"));
+});
+
+afterEach(() => {
+  mock.restore();
+  console.error = originalConsoleError;
+  restoreFeedListDomMocks();
+});
+
 describe("FeedList", () => {
-  test("shows a loading surface only during the initial fetch", () => {
-    const { container, queryByText } = renderFeedList(
-      <FeedList
-        articleFilter="all"
-        articlesPerPage={12}
-        expandedArticleKey={null}
-        feedViewKey="system-all-feeds:all"
-        filteredFeed={[]}
-        hydratedArticleLinks={{}}
-        hydratingArticleLinks={{}}
-        isInitialLoading={true}
-        isRefreshing={false}
-        onExpandedSwipeRead={() => {}}
-        onToggle={() => {}}
-        onToggleRead={() => {}}
-        onToggleStarred={() => {}}
-        searchTerm=""
-        showFavicons={false}
-        updatingArticleState={{}}
-      />, 
-    );
-
-    expect(
-      container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
-    ).toHaveLength(4);
-    expect(queryByText("No results")).toBeNull();
-  });
-
-  test("shows the search empty state when no articles match", () => {
-    const { container } = renderFeedList(
-      <FeedList
-        articleFilter="all"
-        articlesPerPage={12}
-        expandedArticleKey={null}
-        feedViewKey="system-all-feeds:all"
-        filteredFeed={[]}
-        hydratedArticleLinks={{}}
-        hydratingArticleLinks={{}}
-        isInitialLoading={false}
-        isRefreshing={false}
-        onExpandedSwipeRead={() => {}}
-        onToggle={() => {}}
-        onToggleRead={() => {}}
-        onToggleStarred={() => {}}
-        searchTerm="typescript"
-        showFavicons={false}
-        updatingArticleState={{}}
-      />,
-    );
-
-    const emptyState = container.querySelector('[data-feed-empty-state="true"]');
-    expect(emptyState).toBeTruthy();
-    const scoped = within(emptyState as HTMLElement);
-    const emptyStateFrame = container.querySelector<HTMLElement>(
-      '[data-feed-empty-state-frame="true"]',
-    );
-
-    expect(scoped.getByText("No results")).toBeTruthy();
-    expect(scoped.getByText("Nothing matched")).toBeTruthy();
-    expect(scoped.getByText("typescript")).toBeTruthy();
-    expect(scoped.getByText("Try a different term.")).toBeTruthy();
-    expect(emptyState?.className).toContain("max-w-2xl");
-    expect(emptyState?.className).toContain("min-h-72");
-    expect(emptyState?.className).not.toContain("border");
-    expect(emptyState?.className).not.toContain("shadow-");
-    expect(emptyState?.className).not.toContain("bg-card/70");
-    expect(emptyStateFrame?.className).toContain(
-      "min-h-[clamp(20rem,calc(100dvh-12rem),34rem)]",
-    );
-    expect(emptyStateFrame?.className).toContain("justify-center");
-  });
-
-  test("keeps visible cards mounted while a refresh is in flight", async () => {
-    const article = buildFeedListArticle();
-    const { getByText } = renderFeedList(
-      <FeedList
-        articleFilter="all"
-        articlesPerPage={12}
-        expandedArticleKey={null}
-        feedViewKey="system-all-feeds:all"
-        filteredFeed={[article]}
-        hydratedArticleLinks={{}}
-        hydratingArticleLinks={{}}
-        isInitialLoading={false}
-        isRefreshing={true}
-        onExpandedSwipeRead={() => {}}
-        onToggle={() => {}}
-        onToggleRead={() => {}}
-        onToggleStarred={() => {}}
-        searchTerm=""
-        showFavicons={false}
-        updatingArticleState={{}}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(getByText(article.title)).toBeTruthy();
-    });
-  });
-
-  test("falls back to the empty state after unread filtering removes the last row", async () => {
-    const article = buildFeedListArticle({
-      link: "https://example.com/articles/swipe-removal",
-      title: "Swipe removal article",
-    });
-    const { container, getByText, rerender } = renderFeedList(
-      <FeedList
-        articleFilter="all"
-        articlesPerPage={12}
-        expandedArticleKey={null}
-        feedViewKey="system-all-feeds:all"
-        filteredFeed={[article]}
-        hydratedArticleLinks={{}}
-        hydratingArticleLinks={{}}
-        isInitialLoading={false}
-        isRefreshing={false}
-        onExpandedSwipeRead={() => {}}
-        onToggle={() => {}}
-        onToggleRead={() => {}}
-        onToggleStarred={() => {}}
-        searchTerm=""
-        showFavicons={false}
-        updatingArticleState={{}}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(getByText(article.title)).toBeTruthy();
-    });
-
-    rerender(
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <FeedList
-        articleFilter="unread"
-          articlesPerPage={12}
-          collapsingArticles={{
-            [article.link]: {
-              article,
-              index: 0,
-              mode: "swipe-read",
-            },
-          }}
-          expandedArticleKey={null}
-          feedViewKey="system-all-feeds:unread"
-          filteredFeed={[]}
-          hydratedArticleLinks={{}}
-          hydratingArticleLinks={{}}
-          isInitialLoading={false}
-          isRefreshing={false}
-          onExpandedSwipeRead={() => {}}
-          onToggle={() => {}}
-          onToggleRead={() => {}}
-          onToggleStarred={() => {}}
-          searchTerm=""
-          showFavicons={false}
-          updatingArticleState={{}}
-        />
-      </ThemeProvider>,
-    );
-
-    await waitFor(() => {
-      expect(container.querySelector('[data-feed-empty-state="true"]')).toBeTruthy();
-      expect(getByText("You're up to date")).toBeTruthy();
-      expect(getByText("Check back later or pull for fresh articles.")).toBeTruthy();
-    });
-  });
-
-  test("renders the list through virtuoso once the dashboard viewport is available", async () => {
-    const firstArticle = buildFeedListArticle();
-    const secondArticle = buildFeedListArticle({
-      id: 2,
-      link: "https://example.com/articles/virtualized-second",
-      title: "Virtualized second article",
-    });
-    const { container, getByText } = renderFeedList(
-      <div data-radix-scroll-area-viewport="">
-        <FeedList
-        articleFilter="all"
-          articlesPerPage={12}
-          expandedArticleKey={null}
-          feedViewKey="system-all-feeds:all"
-          filteredFeed={[firstArticle, secondArticle]}
-          hydratedArticleLinks={{}}
-          hydratingArticleLinks={{}}
-          isInitialLoading={false}
-          isRefreshing={false}
-          onExpandedSwipeRead={() => {}}
-          onToggle={() => {}}
-          onToggleRead={() => {}}
-          onToggleStarred={() => {}}
-          searchTerm=""
-          showFavicons={false}
-          updatingArticleState={{}}
-        />
-      </div>,
-    );
-
-    await waitFor(() => {
-      expect(getByText(firstArticle.title)).toBeTruthy();
-      expect(
-        container.querySelector("[data-feed-virtualizer='true']"),
-      ).toBeTruthy();
-    });
-  });
-
   test("keeps auto-filling additional pages when the viewport still cannot scroll", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 10 }, (_value, index) =>
@@ -300,7 +154,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("keeps auto-filling sparse starred results across multiple pages", async () => {
+  test("stops auto-filling once starred results become scrollable", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 13 }, (_value, index) =>
       buildFeedListArticle({
@@ -361,11 +215,9 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Starred auto-fill article 13")).toBeTruthy();
+      expect(getByText("Starred auto-fill article 12")).toBeTruthy();
       expect(queryByText("Starred auto-fill article 14")).toBeNull();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
-        13,
-      );
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
     });
   });
 
@@ -438,6 +290,152 @@ describe("FeedList", () => {
         container.querySelector("[data-feed-load-more-sentinel='true']"),
       ).toBeNull();
     });
+  });
+
+  test("loads additional standard-scroll pages after explicit near-bottom scroll intent", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+
+    const articles = Array.from({ length: 12 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/standard-scroll-${index + 1}`,
+        title: `Standard scroll article ${index + 1}`,
+      }),
+    );
+    let scrollTop = 0;
+
+    const { container, getByText, queryByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 400;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                container.querySelectorAll("[data-scroll-restore-key]").length;
+
+              return Math.max(renderedRows, 4) * 140;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return scrollTop;
+            },
+            set(nextValue: number) {
+              scrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText("Standard scroll article 4")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(queryByText("Standard scroll article 12")).toBeNull();
+    });
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    await act(async () => {
+      scrollTop = 800;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await waitFor(() => {
+      expect(getByText("Standard scroll article 4")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+    });
+  });
+
+  test("keeps the mobile inverted-scroll preference inactive on desktop viewports", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    setFeedListMobileViewport(false);
+
+    const articles = Array.from({ length: 4 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/desktop-inverted-scroll-${index + 1}`,
+        title: `Desktop inverted scroll article ${index + 1}`,
+      }),
+    );
+
+    const { container, getByText } = renderFeedList(
+      <FeedList
+        articleFilter="all"
+        articlesPerPage={4}
+        expandedArticleKey={null}
+        feedViewKey="system-all-feeds:all"
+        filteredFeed={articles}
+        hydratedArticleLinks={{}}
+        hydratingArticleLinks={{}}
+        isInitialLoading={false}
+        isRefreshing={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        searchTerm=""
+        showFavicons={false}
+        updatingArticleState={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText("Desktop inverted scroll article 1")).toBeTruthy();
+    });
+
+    expect(container.querySelector("[data-inverted-scroll='true']")).toBeNull();
+    expect(container.querySelector("[data-feed-load-more-sentinel='true']")).toBeNull();
+  });
+
+  test("activates inverted scroll on mobile viewports when the preference is enabled", () => {
+    expect(isFeedInvertedScrollActive(true, true)).toBe(true);
+    expect(isFeedInvertedScrollActive(false, true)).toBe(false);
+    expect(isFeedInvertedScrollActive(true, false)).toBe(false);
   });
 
   test("keeps the feed virtualized while an article is expanded", async () => {
@@ -812,5 +810,178 @@ describe("FeedList", () => {
     );
 
     expect(scrollTop).toBe(0);
+  });
+
+  test("resets a restored viewport scroll position on first mount", async () => {
+    const firstArticle = buildFeedListArticle();
+    const secondArticle = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/articles/initial-viewport-second",
+      title: "Initial viewport second article",
+    });
+    let restoredScrollTop = 320;
+
+    const { getByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return restoredScrollTop;
+            },
+            set(nextValue: number) {
+              restoredScrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={[firstArticle, secondArticle]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isCollapseScrollRestoreActive={false}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(firstArticle.title)).toBeTruthy();
+    });
+
+    expect(restoredScrollTop).toBe(0);
+  });
+
+  test("resets visible article count and scroll position when refreshEpoch increments", async () => {
+    let testContainer: HTMLElement | null = null;
+    let scrollTop = 0;
+    const articles = Array.from({ length: 10 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/refresh-epoch-${index + 1}`,
+        title: `Refresh epoch article ${index + 1}`,
+      }),
+    );
+
+    const viewportRef = (viewport: HTMLDivElement | null) => {
+      if (!viewport) {
+        return;
+      }
+
+      Object.defineProperty(viewport, "clientHeight", {
+        configurable: true,
+        get() {
+          return 600;
+        },
+      });
+      Object.defineProperty(viewport, "scrollHeight", {
+        configurable: true,
+        get() {
+          const renderedRows =
+            testContainer?.querySelectorAll("[data-scroll-restore-key]")
+              .length ?? 0;
+
+          return renderedRows >= 8 ? 1200 : 400;
+        },
+      });
+      Object.defineProperty(viewport, "scrollTop", {
+        configurable: true,
+        get() {
+          return scrollTop;
+        },
+        set(nextValue: number) {
+          scrollTop = nextValue;
+        },
+      });
+    };
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div data-radix-scroll-area-viewport="" ref={viewportRef}>
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          refreshEpoch={0}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    // Auto-fill expands all 10 articles (same pattern as existing viewport-fill test)
+    await waitFor(() => {
+      expect(getByText("Refresh epoch article 10")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(10);
+    });
+
+    // Simulate the user having scrolled
+    scrollTop = 400;
+
+    // Re-render with incremented refreshEpoch (same feedViewKey, same filter)
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="" ref={viewportRef}>
+          <FeedList
+            articleFilter="all"
+            articlesPerPage={4}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:all"
+            filteredFeed={articles}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            refreshEpoch={1}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    // Scroll position should be reset to top
+    expect(scrollTop).toBe(0);
+    // Visible count resets to articlesPerPage, then re-autofills until the viewport regains overflow.
+    await waitFor(() => {
+      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
+
+      expect(renderedRows).toBeGreaterThanOrEqual(8);
+      expect(renderedRows).toBeLessThanOrEqual(10);
+    });
   });
 });

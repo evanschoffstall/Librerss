@@ -36,7 +36,7 @@ import {
   isFreshFeedBatchQuery,
   notifyFeedFailures,
   resolveFeedBatchStaleTime,
-  shouldShowNoFeedSourcesToast,
+  shouldNotifyFeedFailureToast,
 } from "../services/feed-loader-state";
 import { loadFeedSourceTree } from "../services/feed-source-tree";
 import {
@@ -73,8 +73,6 @@ interface UseFeedLoaderOptions {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   usePlaceholderData: boolean;
 }
-
-export { shouldShowNoFeedSourcesToast } from "../services/feed-loader-state";
 
 export function useFeedLoader({
   categoriesRef,
@@ -318,18 +316,10 @@ export function useFeedLoader({
   );
 
   const handleEmptyBatchResult = useCallback(() => {
-    const hasConfiguredFeeds =
-      getAllFeedNodes(categoriesRef.current).length > 0;
-    if (shouldShowNoFeedSourcesToast(hasConfiguredFeeds, usePlaceholderData)) {
-      toast.info("No feed sources yet.", {
-        description: "Add your feeds in Settings to start reading.",
-      });
-    } else if (!usePlaceholderData) {
-      toast.info("No items available for this selection right now.", {
-        description: "Try another feed or check back after the next refresh.",
-      });
-    }
-  }, [usePlaceholderData, categoriesRef]);
+    // Empty-state messaging is now rendered inline by FeedEmptyState
+    // based on the hasConfiguredFeeds prop, replacing the previous
+    // ephemeral toast.info() calls that disappeared after 4 seconds.
+  }, []);
 
   const fetchFeedBatch = useCallback(
     async (sources: FeedBatchSource[], options?: FeedFetchOptions) => {
@@ -452,7 +442,7 @@ export function useFeedLoader({
           }
         }
 
-        if (!isBackground) {
+        if (shouldNotifyFeedFailureToast(options, isBackground)) {
           notifyFeedFailures(
             failedFeeds,
             batchResults.length,
@@ -473,9 +463,11 @@ export function useFeedLoader({
           logRefreshDiagnostics("refresh:empty-after-map", {
             requestId,
           });
-          // Only show the generic "no items" toast when we haven't already
-          // surfaced a more specific upstream error toast above.
-          if (failedFeeds.length === 0) {
+          // Only show the generic "no items" toast for foreground requests
+          // that returned zero articles and zero failures. Background
+          // auto-refreshes must stay silent to avoid stale pop-ups after
+          // tab suspension.
+          if (!isBackground && failedFeeds.length === 0) {
             handleEmptyBatchResult();
           }
         }

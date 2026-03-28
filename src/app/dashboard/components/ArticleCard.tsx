@@ -52,6 +52,32 @@ interface ArticleCardProps {
   useRichFormatting: boolean;
 }
 
+export function applyReadSwipeAction({
+  article,
+  isExpanded,
+  onExpandedSwipeRead,
+  onSwipeRead,
+  onToggleRead,
+}: {
+  article: Article;
+  isExpanded: boolean;
+  onExpandedSwipeRead: (article: Article) => void;
+  onSwipeRead?: ((article: Article) => void) | undefined;
+  onToggleRead: (article: Article) => void;
+}) {
+  if (isExpanded) {
+    onExpandedSwipeRead(article);
+    return;
+  }
+
+  if (onSwipeRead) {
+    onSwipeRead(article);
+    return;
+  }
+
+  onToggleRead(article);
+}
+
 const iconBtnCls =
   "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -163,6 +189,7 @@ export const ArticleCard = memo(function ArticleCard({
   const pressStartPos = useRef<null | { x: number; y: number }>(null);
   const pressPointerIdRef = useRef<null | number>(null);
   const pressMovedRef = useRef(false);
+  const ignoreNextClickRef = useRef(false);
   const afterSwipeRef = useRef(0);
   const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
@@ -185,7 +212,21 @@ export const ArticleCard = memo(function ArticleCard({
       articleRef.current
     ) {
       articleRef.current.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED),
+        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED, {
+          bubbles: true,
+        }),
+      );
+    }
+
+    if (
+      phase === "collapsed" &&
+      previousPhaseRef.current === "collapsing" &&
+      articleRef.current
+    ) {
+      articleRef.current.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_COLLAPSE_SETTLED, {
+          bubbles: true,
+        }),
       );
     }
 
@@ -274,15 +315,13 @@ export const ArticleCard = memo(function ArticleCard({
 
   const commitReadSwipe = useCallback(() => {
     afterSwipeRef.current = Date.now();
-    if (isExpanded) {
-      onExpandedSwipeRead(article);
-      return;
-    }
-    if (onSwipeRead) {
-      onSwipeRead(article);
-      return;
-    }
-    onToggleRead(article);
+    applyReadSwipeAction({
+      article,
+      isExpanded,
+      onExpandedSwipeRead,
+      onSwipeRead,
+      onToggleRead,
+    });
   }, [article, isExpanded, onExpandedSwipeRead, onSwipeRead, onToggleRead]);
   const commitStarSwipe = useCallback(() => {
     afterSwipeRef.current = Date.now();
@@ -439,6 +478,12 @@ export const ArticleCard = memo(function ArticleCard({
   };
 
   const toggleExpanded = (e: React.MouseEvent) => {
+    if (ignoreNextClickRef.current) {
+      ignoreNextClickRef.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (isInteractiveControlTarget(e.target)) {
       pressPointerIdRef.current = null;
       pressStartPos.current = null;
@@ -494,6 +539,7 @@ export const ArticleCard = memo(function ArticleCard({
       return;
     }
     if (event.key !== "Enter" && event.key !== " ") return;
+    ignoreNextClickRef.current = true;
     event.preventDefault();
     if (!isExpanded) {
       onPrepareExpand?.(article);

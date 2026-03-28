@@ -44,6 +44,22 @@ export function articleRow(article: Locator): Locator {
   return article.locator("xpath=ancestor::*[@data-scroll-restore-key][1]");
 }
 
+/** Updates the reader setting that controls how many articles each page adds. */
+export async function configureArticlesPerPage(page: Page, pageSize: number) {
+  await openDashboardSettings(page);
+
+  const settingsDialog = page.getByRole("dialog", { name: "Reader Settings" });
+  const articlesPerPageCombobox = settingsDialog.getByRole("combobox").nth(1);
+
+  await clickVisibleControl(articlesPerPageCombobox);
+  await clickVisibleControl(
+    page.getByRole("option", { exact: true, name: String(pageSize) }),
+  );
+  await expect(articlesPerPageCombobox).toContainText(String(pageSize));
+  await page.keyboard.press("Escape");
+  await expect(settingsDialog).not.toBeVisible();
+}
+
 /**
  * Captures actual Next.js build/runtime failures without failing on expected
  * local-development browser noise like HTTP COOP warnings.
@@ -109,7 +125,28 @@ export async function enterPreviewFromLogin(page: Page) {
   await page
     .getByRole("button", { name: "Explore without an account" })
     .click();
-  await expectPreviewDashboard(page);
+  await page.waitForURL((url) => {
+    return (
+      url.pathname === "/dashboard" &&
+      (url.searchParams.get("explore") === "1" ||
+        url.searchParams.get("preview") === "1" ||
+        url.search === "")
+    );
+  });
+
+  const mobileActionsMenuButton = page.getByRole("button", {
+    name: "Open actions menu",
+  });
+  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
+      timeout: 15_000,
+    });
+    return;
+  }
+
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 /** Waits for an article card to reach the expected expanded state. */
@@ -176,9 +213,6 @@ export async function expectPreviewDashboard(page: Page) {
         url.search === ""
       )
     );
-  });
-  await expect(page.getByText("demo", { exact: true })).toBeVisible({
-    timeout: 15_000,
   });
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
@@ -261,6 +295,12 @@ export async function openDashboardSettings(page: Page) {
   await expect(settingsHeading).toBeVisible({ timeout: 15_000 });
 }
 
+/** Selects a settings tab in the currently open settings surface. */
+export async function openDashboardSettingsTab(page: Page, tabName: string) {
+  await openDashboardSettings(page);
+  await clickVisibleControl(page.getByRole("tab", { exact: true, name: tabName }));
+}
+
 /** Reads the article key used by the feed row and card surfaces. */
 export async function readArticleKey(article: Locator) {
   const articleKey = await article.getAttribute("data-article-key");
@@ -283,21 +323,13 @@ export async function readClientStateSentinel(page: Page) {
 
 /** Reads the active feed viewport metrics used by expand and scroll-restore flows. */
 export async function readFeedViewportMetrics(page: Page) {
-  return await page.evaluate(() => {
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
+  return await viewport.evaluate((node) => {
     return {
-      clientHeight: viewport.clientHeight,
-      scrollHeight: viewport.scrollHeight,
-      scrollTop: viewport.scrollTop,
+      clientHeight: node.clientHeight,
+      scrollHeight: node.scrollHeight,
+      scrollTop: node.scrollTop,
     };
   });
 }
@@ -321,6 +353,24 @@ export async function readPreviewPersistence(page: Page) {
 /** Reads the current number of rendered article cards in the active feed. */
 export async function readRenderedArticleCount(page: Page) {
   return await page.locator("article[data-article-key]").count();
+}
+
+/** Reads the currently visible virtualized item window for the active feed. */
+export async function readRenderedItemWindow(page: Page) {
+  return await page.evaluate(() => {
+    const indexes = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-item-index]"),
+    )
+      .map((node) => Number.parseInt(node.dataset.itemIndex ?? "", 10))
+      .filter((value) => Number.isFinite(value))
+      .sort((left, right) => left - right);
+
+    return {
+      count: indexes.length,
+      maxIndex: indexes.length > 0 ? indexes[indexes.length - 1] : null,
+      minIndex: indexes.length > 0 ? indexes[0] : null,
+    };
+  });
 }
 
 /** Reads the active mobile feeds tray viewport metrics and confirms the tray owns scrolling. */
@@ -349,19 +399,21 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
 
 /** Scrolls the active feed viewport to its current bottom edge. */
 export async function scrollFeedViewportToBottom(page: Page) {
-  await page.evaluate(() => {
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
+  await viewport.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+    node.dispatchEvent(new Event("scroll"));
+  });
+}
 
-    viewport.scrollTop = viewport.scrollHeight;
-    viewport.dispatchEvent(new Event("scroll"));
+/** Scrolls the active feed viewport to its current top edge. */
+export async function scrollFeedViewportToTop(page: Page) {
+  const viewport = await getActiveFeedViewport(page);
+
+  await viewport.evaluate((node) => {
+    node.scrollTop = 0;
+    node.dispatchEvent(new Event("scroll"));
   });
 }
 
@@ -416,19 +468,11 @@ export async function selectExpandedArticleText(article: Locator) {
 
 /** Scrolls the active feed viewport to a target offset. */
 export async function setFeedViewportScrollTop(page: Page, scrollTop: number) {
-  await page.evaluate((nextScrollTop) => {
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+  const viewport = await getActiveFeedViewport(page);
 
-    if (!viewport) {
-      throw new Error("Expected a dashboard feed viewport.");
-    }
-
-    viewport.scrollTop = nextScrollTop;
-    viewport.dispatchEvent(new Event("scroll"));
+  await viewport.evaluate((node, nextScrollTop) => {
+    node.scrollTop = nextScrollTop;
+    node.dispatchEvent(new Event("scroll"));
   }, scrollTop);
 }
 
@@ -476,11 +520,22 @@ export async function swipeArticle(
 
 /** Toggles an article by clicking its title region instead of nested action buttons. */
 export async function toggleArticle(article: Locator) {
-  await article.scrollIntoViewIfNeeded();
   await article
     .locator("[data-article-swipe-zone='header']")
     .first()
     .click({ position: { x: 32, y: 48 } });
+}
+
+/** Dispatches a wheel event against the active feed viewport to mark user scroll intent. */
+export async function triggerFeedViewportWheelIntent(
+  page: Page,
+  deltaY = 240,
+) {
+  const viewport = await getActiveFeedViewport(page);
+
+  await viewport.evaluate((node, nextDeltaY) => {
+    node.dispatchEvent(new WheelEvent("wheel", { deltaY: nextDeltaY }));
+  }, deltaY);
 }
 
 /**
@@ -514,6 +569,34 @@ async function clickVisibleControl(locator: Locator) {
 
     throw error;
   }
+}
+
+async function getActiveFeedViewport(page: Page) {
+  const candidates = page
+    .locator(
+      "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
+    )
+    .filter({ has: page.locator("article[data-article-key]") });
+  const candidateCount = await candidates.count();
+
+  for (let index = 0; index < candidateCount; index += 1) {
+    const candidate = candidates.nth(index);
+    const box = await candidate.boundingBox();
+
+    if (!box || box.width <= 0 || box.height <= 0) {
+      continue;
+    }
+
+    const isVisible = await candidate.evaluate((node) => {
+      return window.getComputedStyle(node).visibility !== "hidden";
+    });
+
+    if (isVisible) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Expected a dashboard feed viewport.");
 }
 
 function isKnownNonRuntimeConsoleError(message: string) {

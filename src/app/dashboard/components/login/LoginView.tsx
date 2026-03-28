@@ -1,12 +1,9 @@
 "use client";
-
-import type { KeyboardEvent } from "react";
-
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useState } from "react";
+import { KeyboardEvent, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +34,64 @@ const LOGIN_CARD_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
+interface LoginFieldErrors {
+  confirm?: string;
+  email?: string;
+  form?: string;
+  legal?: string;
+  password?: string;
+}
+
+/** Inline validation error shown beneath the relevant form field group. */
+function FieldError({ message }: { message: string | undefined }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1 text-xs text-destructive" role="alert">
+      {message}
+    </p>
+  );
+}
+
+function validateLoginFields(
+  mode: "login" | "signup",
+  allowSignup: boolean,
+  email: string,
+  password: string,
+  confirmPassword: string,
+  hasAcceptedLegalTerms: boolean,
+): LoginFieldErrors | null {
+  const errors: LoginFieldErrors = {};
+
+  if (mode === "signup" && !allowSignup) {
+    errors.form = "Signup is disabled by server configuration.";
+    return errors;
+  }
+
+  if (!email.trim()) {
+    errors.email = "Email is required.";
+  }
+  if (!password) {
+    errors.password = "Password is required.";
+  }
+
+  if (mode === "signup") {
+    if (password && password.length < 8) {
+      errors.password = "Password must be at least 8 characters.";
+    }
+    if (!hasAcceptedLegalTerms) {
+      errors.legal =
+        "Accept the privacy policy and terms before creating an account.";
+    }
+    if (password && confirmPassword && password !== confirmPassword) {
+      errors.confirm = "Passwords do not match.";
+    } else if (!confirmPassword && password) {
+      errors.confirm = "Confirm your password.";
+    }
+  }
+
+  return Object.keys(errors).length > 0 ? errors : null;
+}
+
 export const LoginView = ({
   allowSignup,
   onAuthenticated,
@@ -48,6 +103,15 @@ export const LoginView = ({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [hasAcceptedLegalTerms, setHasAcceptedLegalTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
+
+  const clearFieldError = (field: keyof LoginFieldErrors) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const { [field]: _, ...rest } = current;
+      return rest;
+    });
+  };
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Enter") {
@@ -56,35 +120,21 @@ export const LoginView = ({
   };
 
   const handleSubmit = async () => {
-    if (mode === "signup" && !allowSignup) {
-      toast.error("Signup is disabled by server configuration.");
+    const errors = validateLoginFields(
+      mode,
+      allowSignup,
+      email,
+      password,
+      confirmPassword,
+      hasAcceptedLegalTerms,
+    );
+
+    if (errors) {
+      setFieldErrors(errors);
       return;
     }
 
-    if (!email.trim() || !password) {
-      toast.error("Email and password are required.");
-      return;
-    }
-
-    if (mode === "signup") {
-      if (password.length < 8) {
-        toast.error("Password must be at least 8 characters.");
-        return;
-      }
-
-      if (!hasAcceptedLegalTerms) {
-        toast.error(
-          "Accept the current privacy policy and terms for this deployment before creating an account.",
-        );
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        toast.error("Passwords do not match.");
-        return;
-      }
-    }
-
+    setFieldErrors({});
     setIsSubmitting(true);
     try {
       const user =
@@ -100,7 +150,7 @@ export const LoginView = ({
         typeof error.response?.data.error === "string"
           ? error.response.data.error
           : "Authentication failed.";
-      toast.error(message);
+      setFieldErrors({ form: message });
     } finally {
       setIsSubmitting(false);
     }
@@ -159,6 +209,17 @@ export const LoginView = ({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {fieldErrors.form && (
+              <div
+                className="
+                  rounded-lg border border-destructive/30 bg-destructive/10 px-3
+                  py-2 text-xs text-destructive
+                "
+                role="alert"
+              >
+                {fieldErrors.form}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label
                 className="text-xs text-muted-foreground"
@@ -167,15 +228,19 @@ export const LoginView = ({
                 Email
               </Label>
               <Input
+                aria-invalid={Boolean(fieldErrors.email)}
+                className={fieldErrors.email ? "border-destructive" : ""}
                 id="auth-email"
                 onChange={(event) => {
                   setEmail(event.target.value);
+                  clearFieldError("email");
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="you@example.com"
                 type="email"
                 value={email}
               />
+              <FieldError message={fieldErrors.email} />
             </div>
             <div className="space-y-1.5">
               <Label
@@ -185,15 +250,19 @@ export const LoginView = ({
                 Password
               </Label>
               <Input
+                aria-invalid={Boolean(fieldErrors.password)}
+                className={fieldErrors.password ? "border-destructive" : ""}
                 id="auth-password"
                 onChange={(event) => {
                   setPassword(event.target.value);
+                  clearFieldError("password");
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="••••••••"
                 type="password"
                 value={password}
               />
+              <FieldError message={fieldErrors.password} />
             </div>
             {mode === "signup" && (
               <>
@@ -205,19 +274,26 @@ export const LoginView = ({
                     Confirm password
                   </Label>
                   <Input
+                    aria-invalid={Boolean(fieldErrors.confirm)}
+                    className={fieldErrors.confirm ? "border-destructive" : ""}
                     id="auth-confirm"
                     onChange={(event) => {
                       setConfirmPassword(event.target.value);
+                      clearFieldError("confirm");
                     }}
                     onKeyDown={handleKeyDown}
                     placeholder="••••••••"
                     type="password"
                     value={confirmPassword}
                   />
+                  <FieldError message={fieldErrors.confirm} />
                 </div>
-                <div className="
-                  rounded-xl border border-border/60 bg-muted/30 p-3
-                ">
+                <div className={`
+                  rounded-xl border bg-muted/30 p-3
+                  ${fieldErrors.legal ? "border-destructive/50" : `
+                    border-border/60
+                  `}
+                `}>
                   <div className="flex items-start gap-3">
                     <Checkbox
                       checked={hasAcceptedLegalTerms}
@@ -226,6 +302,7 @@ export const LoginView = ({
                         checked: "indeterminate" | boolean,
                       ) => {
                         setHasAcceptedLegalTerms(checked === true);
+                        if (checked === true) clearFieldError("legal");
                       }}
                     />
                     <Label
@@ -243,6 +320,7 @@ export const LoginView = ({
                       </span>
                     </Label>
                   </div>
+                  <FieldError message={fieldErrors.legal} />
                 </div>
               </>
             )}

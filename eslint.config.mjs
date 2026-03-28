@@ -2,7 +2,6 @@ import pluginJs from "@eslint/js";
 import pluginTypeScriptEslint from "@typescript-eslint/eslint-plugin";
 import pluginTypeScriptEslintRaw from "@typescript-eslint/eslint-plugin/use-at-your-own-risk/raw-plugin";
 import pluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
-import pluginBoundaries from "eslint-plugin-boundaries";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginImport from "eslint-plugin-import";
 import pluginNoOnlyTests from "eslint-plugin-no-only-tests";
@@ -35,8 +34,33 @@ const nonSourceProjectFiles = [
   ...scriptFiles,
   ...rootConfigFiles,
 ];
+const barrelImportFiles = [
+  "src/app/**/*.ts",
+  "src/app/**/*.tsx",
+  "src/components/**/*.ts",
+  "src/components/**/*.tsx",
+  "src/proxy.ts",
+];
 const projectFiles = [...sourceFiles, ...nonSourceProjectFiles];
 const apiAndLibraryFiles = ["src/lib/**", "src/app/api/**"];
+const barrelOnlyImportPatterns = [
+  {
+    group: ["./lib/server/*"],
+    message: 'Use the public "@/lib/server" barrel instead.',
+  },
+  {
+    group: ["@/lib/core/types"],
+    message: 'Use the public "@/lib" barrel instead.',
+  },
+  {
+    group: ["@/lib/hooks/*"],
+    message: 'Use the public "@/lib" barrel instead.',
+  },
+  {
+    group: ["@/lib/server/*"],
+    message: 'Use the public "@/lib/server" barrel instead.',
+  },
+];
 const typeScriptFlatConfigs = pluginTypeScriptEslintRaw.flatConfigs;
 const typeCheckedParserOptions = {
   projectService: true,
@@ -208,7 +232,6 @@ export default [
     plugins: {
       "@typescript-eslint": pluginTypeScriptEslint,
       "better-tailwindcss": pluginBetterTailwindcss,
-      boundaries: pluginBoundaries,
       "eslint-comments": pluginEslintComments,
       import: pluginImport,
       "no-only-tests": pluginNoOnlyTests,
@@ -250,6 +273,17 @@ export default [
   {
     files: sourceFiles,
     rules: sourceTypeScriptRules,
+  },
+  {
+    files: barrelImportFiles,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: barrelOnlyImportPatterns,
+        },
+      ],
+    },
   },
   {
     ...perfectionist.configs["recommended-natural"],

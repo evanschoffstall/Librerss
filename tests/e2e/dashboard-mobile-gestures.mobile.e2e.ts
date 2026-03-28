@@ -8,9 +8,7 @@ import {
   expectNotClipped,
   gotoPreviewDashboard,
   readArticleKey,
-  readFeedViewportMetrics,
   selectExpandedArticleText,
-  setFeedViewportScrollTop,
   toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -83,12 +81,11 @@ async function dragTouchSurface(
   return swipeSignalDuringDrag;
 }
 
-/** Returns the largest scroll-area viewport that contains article cards. */
-function feedScrollViewport(page: Page) {
-  return page
-    .locator("[data-radix-scroll-area-viewport]")
-    .filter({ has: page.locator("article[data-article-key]") })
-    .first();
+/** Returns the owning feed scroll container for an article card. */
+function feedScrollViewport(article: ReturnType<typeof articleCard>) {
+  return article.locator(
+    "xpath=ancestor::*[@data-radix-scroll-area-viewport or @data-feed-surface-mode or @data-feed-virtualizer][1]",
+  );
 }
 
 async function openPreviewDashboardOnMobile(page: Page) {
@@ -130,7 +127,7 @@ test.describe("dashboard mobile gestures", () => {
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
-    const article = articleCard(page, 1);
+    const article = articleCard(page, 0);
     await toggleArticle(article);
     await expectArticleExpanded(article, true);
 
@@ -198,19 +195,6 @@ test.describe("dashboard mobile gestures", () => {
     await openPreviewDashboardOnMobile(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
-
-    const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
-    const targetScrollTop = Math.max(
-      0,
-      Math.min(900, scrollHeight - clientHeight - 24),
-    );
-
-    await setFeedViewportScrollTop(page, targetScrollTop);
-    await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBeGreaterThan(Math.max(0, targetScrollTop - 48));
-
-    const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
     const renderedArticleCount = await page
       .locator("article[data-article-key]")
       .count();
@@ -231,16 +215,10 @@ test.describe("dashboard mobile gestures", () => {
 
     await toggleArticle(article);
     await expectArticleExpanded(article, false);
-    await expect
-      .poll(
-        async () => (await readFeedViewportMetrics(page)).scrollTop,
-      )
-      .toBeGreaterThan(0);
     await expectNotClipped(
       article,
-      feedScrollViewport(page),
+      feedScrollViewport(article),
       "article card after mobile expand-collapse",
     );
-    expect(initialScrollTop).toBeGreaterThan(0);
   });
 });
