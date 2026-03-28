@@ -6,7 +6,7 @@ export class GotScrapingError extends Error {
     readonly responseBody: string,
     readonly proxyMode: string,
     readonly proxyAddress: null | string,
-    readonly browserVersion: number,
+    readonly profileVersion: number,
     readonly allowInsecureTls: boolean,
     readonly redirectHop: number,
     readonly responseHeaders: Record<string, string | string[] | undefined>,

@@ -56,7 +56,6 @@
     "@tanstack/react-query": "^5.95.2",
     "@vercel/analytics": "^2.0.1",
     "axios": "^1.14.0",
-    "axios-cookiejar-support": "^6.0.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -64,7 +63,7 @@
     "drizzle-orm": "^0.45.2",
     "embla-carousel-react": "^8.6.0",
     "fzstd": "^0.1.1",
-    "koffi": "^2.15.2",
+    "httpcloak": "^1.6.1",
     "lexical": "^0.41.0",
     "linkedom": "^0.18.12",
     "lodash": "^4.17.23",
@@ -87,8 +86,6 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
-    "tlsclientwrapper": "^4.2.0",
-    "tough-cookie": "^6.0.1",
     "vaul": "^1.1.2"
   },
   "devDependencies": {

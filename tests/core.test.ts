@@ -4,6 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as zlib from "zlib";
 
 beforeEach(() => {
   mock.restore();
@@ -372,6 +373,75 @@ describe("feed-http", () => {
     });
 
     expect(result).toBe("12345");
+  });
+
+  test("fetchFeedXml uses httpcloak first when provided", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: "<rss>cloak</rss>",
+      headers: {},
+      statusCode: 200,
+    }));
+    const axiosGetFn = mock(async () => ({
+      data: "<rss>axios</rss>",
+      status: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      axiosGetFn: axiosGetFn as any,
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss>cloak</rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
+    expect(axiosGetFn).not.toHaveBeenCalled();
+  });
+
+  test("fetchFeedXml falls back to axios when httpcloak returns a non-2xx response", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: "blocked",
+      headers: { server: "edge" },
+      statusCode: 503,
+    }));
+    const axiosGetFn = mock(async () => ({
+      data: "<rss>axios</rss>",
+      headers: {},
+      status: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      axiosGetFn: axiosGetFn as any,
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss>axios</rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
+    expect(axiosGetFn).toHaveBeenCalledTimes(1);
+  });
+
+  test("fetchFeedXml decodes compressed httpcloak feed responses", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: zlib.gzipSync(Buffer.from("<rss><channel /></rss>", "utf8")),
+      headers: {
+        "content-encoding": "gzip",
+      },
+      statusCode: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss><channel /></rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
   });
 
   test("fetchFeedXml maps DataDome 403 errors to a descriptive message", async () => {
