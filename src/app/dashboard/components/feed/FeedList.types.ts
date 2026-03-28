@@ -6,6 +6,7 @@ import { ArticleCard } from "../ArticleCard";
 
 export interface FeedArticleRowProps
   extends Omit<FeedArticleCardProps, "showFavicon"> {
+  isLastRow: boolean;
   showFavicons: boolean;
 }
 

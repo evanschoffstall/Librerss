@@ -44,6 +44,22 @@ export function articleRow(article: Locator): Locator {
   return article.locator("xpath=ancestor::*[@data-scroll-restore-key][1]");
 }
 
+/** Updates the reader setting that controls how many articles each page adds. */
+export async function configureArticlesPerPage(page: Page, pageSize: number) {
+  await openDashboardSettings(page);
+
+  const settingsDialog = page.getByRole("dialog", { name: "Reader Settings" });
+  const articlesPerPageCombobox = settingsDialog.getByRole("combobox").nth(1);
+
+  await clickVisibleControl(articlesPerPageCombobox);
+  await clickVisibleControl(
+    page.getByRole("option", { exact: true, name: String(pageSize) }),
+  );
+  await expect(articlesPerPageCombobox).toContainText(String(pageSize));
+  await page.keyboard.press("Escape");
+  await expect(settingsDialog).not.toBeVisible();
+}
+
 /**
  * Captures actual Next.js build/runtime failures without failing on expected
  * local-development browser noise like HTTP COOP warnings.
@@ -284,11 +300,15 @@ export async function readClientStateSentinel(page: Page) {
 /** Reads the active feed viewport metrics used by expand and scroll-restore flows. */
 export async function readFeedViewportMetrics(page: Page) {
   return await page.evaluate(() => {
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+    const viewport =
+      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+        (candidate) =>
+          candidate.isConnected &&
+          candidate.getBoundingClientRect().height > 0 &&
+          candidate.getBoundingClientRect().width > 0 &&
+          window.getComputedStyle(candidate).visibility !== "hidden" &&
+          candidate.querySelector("article[data-article-key]") !== null,
+      ) ?? null;
 
     if (!viewport) {
       throw new Error("Expected a dashboard feed viewport.");
@@ -350,17 +370,43 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
 /** Scrolls the active feed viewport to its current bottom edge. */
 export async function scrollFeedViewportToBottom(page: Page) {
   await page.evaluate(() => {
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+    const viewport =
+      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+        (candidate) =>
+          candidate.isConnected &&
+          candidate.getBoundingClientRect().height > 0 &&
+          candidate.getBoundingClientRect().width > 0 &&
+          window.getComputedStyle(candidate).visibility !== "hidden" &&
+          candidate.querySelector("article[data-article-key]") !== null,
+      ) ?? null;
 
     if (!viewport) {
       throw new Error("Expected a dashboard feed viewport.");
     }
 
     viewport.scrollTop = viewport.scrollHeight;
+    viewport.dispatchEvent(new Event("scroll"));
+  });
+}
+
+/** Scrolls the active feed viewport to its current top edge. */
+export async function scrollFeedViewportToTop(page: Page) {
+  await page.evaluate(() => {
+    const viewport =
+      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+        (candidate) =>
+          candidate.isConnected &&
+          candidate.getBoundingClientRect().height > 0 &&
+          candidate.getBoundingClientRect().width > 0 &&
+          window.getComputedStyle(candidate).visibility !== "hidden" &&
+          candidate.querySelector("article[data-article-key]") !== null,
+      ) ?? null;
+
+    if (!viewport) {
+      throw new Error("Expected a dashboard feed viewport.");
+    }
+
+    viewport.scrollTop = 0;
     viewport.dispatchEvent(new Event("scroll"));
   });
 }
@@ -417,11 +463,15 @@ export async function selectExpandedArticleText(article: Locator) {
 /** Scrolls the active feed viewport to a target offset. */
 export async function setFeedViewportScrollTop(page: Page, scrollTop: number) {
   await page.evaluate((nextScrollTop) => {
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+    const viewport =
+      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+        (candidate) =>
+          candidate.isConnected &&
+          candidate.getBoundingClientRect().height > 0 &&
+          candidate.getBoundingClientRect().width > 0 &&
+          window.getComputedStyle(candidate).visibility !== "hidden" &&
+          candidate.querySelector("article[data-article-key]") !== null,
+      ) ?? null;
 
     if (!viewport) {
       throw new Error("Expected a dashboard feed viewport.");
@@ -481,6 +531,30 @@ export async function toggleArticle(article: Locator) {
     .locator("[data-article-swipe-zone='header']")
     .first()
     .click({ position: { x: 32, y: 48 } });
+}
+
+/** Dispatches a wheel event against the active feed viewport to mark user scroll intent. */
+export async function triggerFeedViewportWheelIntent(
+  page: Page,
+  deltaY = 240,
+) {
+  await page.evaluate((nextDeltaY) => {
+    const viewport =
+      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+        (candidate) =>
+          candidate.isConnected &&
+          candidate.getBoundingClientRect().height > 0 &&
+          candidate.getBoundingClientRect().width > 0 &&
+          window.getComputedStyle(candidate).visibility !== "hidden" &&
+          candidate.querySelector("article[data-article-key]") !== null,
+      ) ?? null;
+
+    if (!viewport) {
+      throw new Error("Expected a dashboard feed viewport.");
+    }
+
+    viewport.dispatchEvent(new WheelEvent("wheel", { deltaY: nextDeltaY }));
+  }, deltaY);
 }
 
 /**

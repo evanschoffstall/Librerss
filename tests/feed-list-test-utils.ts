@@ -1,5 +1,7 @@
 import { type Article } from "@/lib";
 
+const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+
 const originalMatchMedia = window.matchMedia;
 const originalResizeObserver = globalThis.ResizeObserver;
 
@@ -32,13 +34,18 @@ export function buildFeedListArticle(overrides?: Partial<Article>): Article {
 
 /** Installs the DOM shims FeedList relies on in Bun's happy-dom environment. */
 export function installFeedListDomMocks() {
+  window.localStorage.setItem(
+    MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+    JSON.stringify(false),
+  );
+
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: (query: string) => ({
       addEventListener: () => {},
       addListener: () => {},
       dispatchEvent: () => false,
-      matches: query.includes("639"),
+      matches: false,
       media: query,
       onchange: null,
       removeEventListener: () => {},
@@ -55,6 +62,8 @@ export function installFeedListDomMocks() {
 
 /** Restores global DOM shims after a feed-list test completes. */
 export function restoreFeedListDomMocks() {
+  window.localStorage.removeItem(MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: originalMatchMedia,

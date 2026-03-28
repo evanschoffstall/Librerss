@@ -11,12 +11,14 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { type Article } from "@/lib";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
+import { MOBILE_INVERTED_SCROLL_STORAGE_KEY } from "../../constants";
 import { type CollapsingArticles } from "../../hooks/useArticleCollapseState";
 import { getArticleKey } from "../../services/article-collection";
 import { FeedArticleRow } from "./FeedArticleRow";
@@ -29,6 +31,13 @@ const EMPTY_COLLAPSING_ARTICLES: Readonly<CollapsingArticles> = {};
 
 const FEED_DEFAULT_ITEM_HEIGHT_PX = 120;
 const FEED_VIEWPORT_INCREASE = { bottom: 1500, top: 600 };
+/** Swapped viewport overscan for inverted (bottom-to-top) scroll. */
+const FEED_VIEWPORT_INCREASE_INVERTED = { bottom: 600, top: 1500 };
+/**
+ * Large base index so Virtuoso can correctly handle prepend operations
+ * when inverted pagination adds older articles to the top of the reversed list.
+ */
+const INVERTED_FIRST_INDEX_BASE = 100_000;
 
 export const FeedList = memo(function FeedList({
   articleFilter,
@@ -55,16 +64,28 @@ export const FeedList = memo(function FeedList({
   updatingArticleState,
 }: FeedListProps) {
   const isMobile = useIsMobile();
+  const [mobileInvertedScroll] = useLocalStorage(
+    MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+    true,
+  );
+  const isActiveInvertedScroll = isMobile && mobileInvertedScroll;
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
   const {
     contentKey,
     feedSurfaceMode,
+    getInvertedFollowOutput,
+    getInvertedScrollIntoViewLocation,
     handleViewportHostRef,
     hasMoreArticles,
     hasSearchTerm,
+    invertedVirtuosoComponents,
+    isInvertedScroll,
     loadMoreSentinelRef,
+    maybeAutoFillViewport,
     scrollViewport,
+    shouldAutoAnchorInvertedScroll,
+    shouldLockInitialNormalScroll,
     shouldShowViewportResolutionSkeleton,
     shouldUseVirtualizedFeed,
     trimmedSearchTerm,
@@ -76,13 +97,33 @@ export const FeedList = memo(function FeedList({
     expandedArticleKey,
     feedViewKey,
     filteredFeedLength: filteredFeed.length,
+    invertedScrollAnchorIndex: INVERTED_FIRST_INDEX_BASE - 1,
     isCollapseScrollRestoreActive,
     isInitialLoading,
+    isInvertedScroll: isActiveInvertedScroll,
     refreshEpoch,
     searchTerm,
   });
 
   const visibleFeed = filteredFeed.slice(0, visibleArticleCount);
+
+  /**
+   * When inverted, reverse the feed so oldest articles sit at the top and
+   * newest articles sit at the bottom. Combined with scroll-to-bottom on
+   * mount, this gives the user newest-first with upward scroll for older.
+   */
+  const feedData = useMemo(
+    () => (isActiveInvertedScroll ? [...visibleFeed].reverse() : visibleFeed),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleFeed identity changes every slice
+    [isActiveInvertedScroll, visibleArticleCount, filteredFeed],
+  );
+
+  const invertedFirstItemIndex = isActiveInvertedScroll
+    ? INVERTED_FIRST_INDEX_BASE - feedData.length
+    : 0;
+  const lastFeedArticleKey = feedData.at(-1)
+    ? getArticleKey(feedData.at(-1)!)
+    : null;
 
   const renderFeedRow = useCallback(
     (article: Article) => {
@@ -100,6 +141,7 @@ export const FeedList = memo(function FeedList({
           isDark={isDark}
           isExpanded={expandedArticleKey === articleKey}
           isHydrating={isHydrating}
+          isLastRow={articleKey === lastFeedArticleKey}
           isMobile={isMobile}
           isUpdatingState={isUpdatingState}
           key={articleKey}
@@ -121,6 +163,7 @@ export const FeedList = memo(function FeedList({
       hydratedArticleLinks,
       hydratingArticleLinks,
       isDark,
+      lastFeedArticleKey,
       isMobile,
       onExpandedSwipeRead,
       onPrepareExpand,
@@ -148,6 +191,7 @@ export const FeedList = memo(function FeedList({
     <div
       className={listClassName}
       data-feed-surface-mode={feedSurfaceMode}
+      data-inverted-scroll={isInvertedScroll ? "true" : undefined}
       ref={isInitialLoading || showEmptyState ? undefined : handleViewportHostRef}
     >
       <AnimatePresence mode="wait">
@@ -192,27 +236,67 @@ export const FeedList = memo(function FeedList({
             {shouldUseVirtualizedFeed ? (
               <Virtuoso
                 className={listClassName}
-                components={virtuosoComponents}
+                components={isInvertedScroll ? invertedVirtuosoComponents : virtuosoComponents}
                 computeItemKey={(index, article: Article | undefined) =>
                   article
                     ? getArticleKey(article)
                     : `${feedViewKey}:pending-item:${index}`
                 }
                 customScrollParent={scrollViewport ?? undefined}
-                data={visibleFeed}
+                data={feedData}
                 data-feed-virtualizer="true"
                 defaultItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
-                increaseViewportBy={FEED_VIEWPORT_INCREASE}
-                initialItemCount={Math.min(visibleFeed.length, 20)}
+                increaseViewportBy={
+                  isInvertedScroll
+                    ? FEED_VIEWPORT_INCREASE_INVERTED
+                    : FEED_VIEWPORT_INCREASE
+                }
+                initialItemCount={Math.min(feedData.length, 20)}
                 itemContent={(_index, article: Article | undefined) =>
                   article ? renderFeedRow(article) : null
                 }
-                key={feedViewKey}
+                key={`${feedViewKey}:${isInvertedScroll ? "inv" : "std"}`}
+                totalListHeightChanged={() => {
+                  if (isInvertedScroll) {
+                    if (shouldAutoAnchorInvertedScroll()) {
+                      scrollViewport?.scrollTo({
+                        behavior: "auto",
+                        top: scrollViewport.scrollHeight,
+                      });
+                    }
+                  } else if (shouldLockInitialNormalScroll()) {
+                    scrollViewport?.scrollTo({
+                      behavior: "auto",
+                      top: 0,
+                    });
+                  }
+
+                  maybeAutoFillViewport();
+                }}
+                {...(isInvertedScroll
+                  ? {
+                      alignToBottom: true,
+                      firstItemIndex: invertedFirstItemIndex,
+                      followOutput: getInvertedFollowOutput,
+                      initialTopMostItemIndex: {
+                        align: "end" as const,
+                        index: INVERTED_FIRST_INDEX_BASE - 1,
+                      },
+                      scrollIntoViewOnChange: getInvertedScrollIntoViewLocation,
+                    }
+                  : {})}
               />
             ) : (
               <>
-                {visibleFeed.map(renderFeedRow)}
-                {hasMoreArticles ? (
+                {isInvertedScroll && hasMoreArticles ? (
+                  <div
+                    className="h-px w-full"
+                    data-feed-load-more-sentinel="true"
+                    ref={loadMoreSentinelRef}
+                  />
+                ) : null}
+                {feedData.map(renderFeedRow)}
+                {!isInvertedScroll && hasMoreArticles ? (
                   <div
                     className="h-px w-full"
                     data-feed-load-more-sentinel="true"

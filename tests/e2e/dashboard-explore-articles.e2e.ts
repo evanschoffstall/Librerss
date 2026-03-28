@@ -74,7 +74,6 @@ test.describe("dashboard explore article interactions", () => {
     const articleKey = await readArticleKey(articleCard(page, articleIndex));
     const article = articleCardByKey(page, articleKey);
 
-    await article.scrollIntoViewIfNeeded();
     await toggleArticle(article);
 
     await expectArticleExpanded(article, true);
