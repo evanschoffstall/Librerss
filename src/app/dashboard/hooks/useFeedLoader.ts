@@ -36,6 +36,7 @@ import {
   isFreshFeedBatchQuery,
   notifyFeedFailures,
   resolveFeedBatchStaleTime,
+  shouldNotifyFeedFailureToast,
 } from "../services/feed-loader-state";
 import { loadFeedSourceTree } from "../services/feed-source-tree";
 import {
@@ -441,7 +442,7 @@ export function useFeedLoader({
           }
         }
 
-        if (!isBackground) {
+        if (shouldNotifyFeedFailureToast(options, isBackground)) {
           notifyFeedFailures(
             failedFeeds,
             batchResults.length,

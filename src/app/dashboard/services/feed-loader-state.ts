@@ -74,3 +74,15 @@ export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
 
   return DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS;
 }
+
+/**
+ * Skip-refresh requests intentionally reuse cached feed state, so foreground
+ * failure toasts should stay silent even if cached metadata still includes
+ * upstream errors from an earlier refresh.
+ */
+export function shouldNotifyFeedFailureToast(
+  options?: FeedFetchOptions,
+  isBackground = false,
+) {
+  return !isBackground && options?.skipRefresh !== true;
+}

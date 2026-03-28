@@ -52,6 +52,7 @@ import {
 import {
   isFreshFeedBatchQuery,
   resolveFeedBatchStaleTime,
+  shouldNotifyFeedFailureToast,
 } from "@/app/dashboard/services/feed-loader-state";
 import {
   normalizeFeedSourceInput,
@@ -516,6 +517,12 @@ describe("feed loader state services", () => {
 
     expect(isFreshFeedBatchQuery(queryClient, queryKey, 5_000)).toBe(true);
     expect(isFreshFeedBatchQuery(queryClient, queryKey, 0)).toBe(false);
+  });
+
+  test("suppresses feed failure toasts for skip-refresh cache reads", () => {
+    expect(shouldNotifyFeedFailureToast()).toBe(true);
+    expect(shouldNotifyFeedFailureToast(undefined, true)).toBe(false);
+    expect(shouldNotifyFeedFailureToast({ skipRefresh: true })).toBe(false);
   });
 });
 

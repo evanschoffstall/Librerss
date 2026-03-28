@@ -272,6 +272,120 @@ describe("useFeedLoader", () => {
       "Space News",
     );
   });
+
+  test("does not show a partial-failure toast for skip-refresh cache reads", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const successfulUrl = "https://example.com/success.xml";
+    const failedUrl = "https://example.com/failed.xml";
+    const categoryNode: CategoryTreeNode = {
+      children: [
+        {
+          data: {
+            category: "News",
+            enabled: true,
+            sourceId: 1,
+            url: successfulUrl,
+          },
+          key: "news-1",
+          label: "Success Feed",
+        },
+        {
+          data: {
+            category: "News",
+            enabled: true,
+            sourceId: 2,
+            url: failedUrl,
+          },
+          key: "news-2",
+          label: "Failed Feed",
+        },
+      ],
+      key: "cat-news",
+      label: "News",
+    };
+    const cachedArticle: Article = {
+      content: "Cached article body",
+      feedId: 1,
+      feedName: "Success Feed",
+      feedUrl: successfulUrl,
+      id: 101,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T12:04:00.000Z"),
+      link: "https://example.com/articles/cached",
+      publicationDate: new Date("2026-03-14T12:03:00.000Z"),
+      title: "Cached article",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async () => [
+      {
+        articles: [cachedArticle],
+        lastFetchedAt: new Date("2026-03-14T12:05:00.000Z"),
+        ok: true,
+        url: successfulUrl,
+      },
+      {
+        articles: [],
+        error: "Request failed with status code 403",
+        lastFetchedAt: new Date("2026-03-14T12:05:00.000Z"),
+        ok: true,
+        url: failedUrl,
+      },
+    ]) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.fetchCategoryFeeds(categoryNode, {
+          requestSource: "dashboard-initial-cache",
+          skipRefresh: true,
+        });
+      });
+
+      await waitFor(() => {
+        expect(FeedService.getFeedsBatch).toHaveBeenCalledTimes(1);
+      });
+
+      expect(feedState).toEqual([cachedArticle]);
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    } finally {
+      queryClient.clear();
+    }
+  });
 });
 
 describe("useDashboardEvents", () => {
@@ -494,6 +608,7 @@ function registerModuleMocks() {
       error: mock(() => {}),
       info: mock(() => {}),
       success: mock(() => {}),
+      warning: mock(() => {}),
     },
   }));
 }
