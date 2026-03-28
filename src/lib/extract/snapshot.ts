@@ -81,7 +81,7 @@ function normalizeSrcsetValue(baseUrl: URL, value: string): string {
 function normalizeUrlAttributeValue(baseUrl: URL, value: string): string {
   const trimmedValue = value.trim();
   if (!trimmedValue) return value;
-  if (/^(?:[a-z][a-z\d+.-]*:|#|data:|blob:|mailto:|tel:|javascript:)/i.test(trimmedValue)) {
+  if (/^(?:[a-z][a-z\d+.-]*:|#)/i.test(trimmedValue)) {
     return value;
   }
 
