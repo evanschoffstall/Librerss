@@ -21,9 +21,8 @@ import { useFavicon } from "../hooks/useFavicon";
 import {
   SWIPE_COMMIT_SLIDE_MS,
   SWIPE_RELEASE_MS,
+  useSwipeGesture,
 } from "../hooks/useSwipeGesture";
-import { useSwipeToRead } from "../hooks/useSwipeToRead";
-import { useSwipeToStar } from "../hooks/useSwipeToStar";
 import {
   buildPreview,
   getRichContentClass,
@@ -331,7 +330,8 @@ export const ArticleCard = memo(function ArticleCard({
   const {
     containerRef: collapsedReadSwipeRef,
     swipeState: collapsedReadSwipeState,
-  } = useSwipeToRead(
+  } = useSwipeGesture(
+    "right",
     commitReadSwipe,
     isUpdatingState || visuallyExpanded,
     shouldIgnoreSwipeTarget,
@@ -340,7 +340,8 @@ export const ArticleCard = memo(function ArticleCard({
   const {
     containerRef: expandedReadSwipeRef,
     swipeState: expandedReadSwipeState,
-  } = useSwipeToRead(
+  } = useSwipeGesture(
+    "right",
     commitReadSwipe,
     isUpdatingState || !visuallyExpanded,
     shouldIgnoreSwipeTarget,
@@ -349,7 +350,8 @@ export const ArticleCard = memo(function ArticleCard({
   const {
     containerRef: collapsedStarSwipeRef,
     swipeState: collapsedStarSwipeState,
-  } = useSwipeToStar(
+  } = useSwipeGesture(
+    "left",
     commitStarSwipe,
     isUpdatingState || visuallyExpanded,
     shouldIgnoreSwipeTarget,
@@ -358,7 +360,8 @@ export const ArticleCard = memo(function ArticleCard({
   const {
     containerRef: expandedStarSwipeRef,
     swipeState: expandedStarSwipeState,
-  } = useSwipeToStar(
+  } = useSwipeGesture(
+    "left",
     commitStarSwipe,
     isUpdatingState || !visuallyExpanded,
     shouldIgnoreSwipeTarget,
