@@ -4,14 +4,14 @@ import { parseJsonBodyOrResponse } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
   fetchHtmlWithHttpCloak,
-  GotScrapingError,
+  HttpCloakUpstreamError,
   pickDiagnosticHeaders,
 } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import {
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
-  resolveUserProxy, type RouteHandlerContext, ServiceError } from "@/lib/server";
+  resolveUserProxy, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -42,7 +42,7 @@ const COMPATIBILITY_CHECK_SITES = [
 
 interface CompatibilityCheckDeps {
   fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
-  gotScrapingErrorClass?: typeof GotScrapingError;
+  httpCloakUpstreamErrorClass?: typeof HttpCloakUpstreamError;
   loggerInstance?: typeof logger;
   parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
   pickDiagnosticHeadersFn?: typeof pickDiagnosticHeaders;
@@ -52,7 +52,7 @@ interface CompatibilityCheckDeps {
   };
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
   resolveUserProxyFn?: typeof resolveUserProxy;
-  serviceErrorClass?: typeof ServiceError;
+  serviceErrorClass?: typeof ServerServiceError;
 }
 
 interface CompatibilityCheckRequest {
@@ -89,9 +89,10 @@ export async function POST(
   const pickDiagnosticHeadersFn =
     deps.pickDiagnosticHeadersFn ?? pickDiagnosticHeaders;
   const loggerInstance = deps.loggerInstance ?? logger;
-  const GotScrapingErrorClass =
-    deps.gotScrapingErrorClass ?? GotScrapingError;
-  const ServiceErrorClass = deps.serviceErrorClass ?? ServiceError;
+  const httpCloakUpstreamErrorClass =
+    deps.httpCloakUpstreamErrorClass ?? HttpCloakUpstreamError;
+  const serverServiceErrorClass =
+    deps.serviceErrorClass ?? ServerServiceError;
   const rateLimitConfig = deps.rateLimitConfig ?? {
     maxAttempts: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS,
     windowMs: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS,
@@ -122,7 +123,7 @@ export async function POST(
       allowInsecureTls = resolved.allowInsecureTls;
     } catch (error) {
       if (
-        error instanceof ServiceErrorClass &&
+        error instanceof serverServiceErrorClass &&
         error.reason === "proxy-password-unreadable"
       ) {
         return NextResponse.json(
@@ -195,7 +196,7 @@ export async function POST(
         result.success = false;
         result.compatibilitySignalDetected = true;
 
-        if (err instanceof GotScrapingErrorClass) {
+        if (err instanceof httpCloakUpstreamErrorClass) {
           result.statusCode = err.statusCode;
           result.error = `HTTP ${err.statusCode}`;
           result.compatibilitySignalDetected = hasCompatibilitySignal(

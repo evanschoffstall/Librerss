@@ -31,7 +31,7 @@ import {
 import {
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
-  resolveUserProxy, type RouteHandlerContext, ServiceError } from "@/lib/server";
+  resolveUserProxy, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
 import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs, tryGetUrlHostname } from "@/lib/utils/url";
@@ -141,7 +141,7 @@ export async function POST(
         resolvedProxyUrl = resolved.proxyUrl;
         allowInsecureTls = resolved.allowInsecureTls;
       } catch (error) {
-        if (error instanceof ServiceError && error.reason === "proxy-password-unreadable") {
+        if (error instanceof ServerServiceError && error.reason === "proxy-password-unreadable") {
           return jsonErrorWithReason(error.message, error.status, error.reason);
         }
         throw error;

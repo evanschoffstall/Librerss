@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { getCategoryOrder, logAndRespondError, requireAuthenticatedUser, saveCategoryOrder, ServiceError } from "@/lib/server";
+import { getCategoryOrder, logAndRespondError, requireAuthenticatedUser, saveCategoryOrder, ServerServiceError } from "@/lib/server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const labels = await getCategoryOrder(user.userId);
     return NextResponse.json({ orderedLabels: labels });
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Error reading category order", error);
   }
 }
@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest) {
     const saved = await saveCategoryOrder(user.userId, labels);
     return NextResponse.json({ orderedLabels: saved });
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Error saving category order", error);
   }
 }

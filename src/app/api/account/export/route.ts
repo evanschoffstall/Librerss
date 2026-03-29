@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import {
   exportAccountData,
   requireMutableAuthenticatedUser,
-  resolveRouteHandlerDeps, type RouteHandlerContext, ServiceError } from "@/lib/server";
+  resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,7 @@ export async function GET(
       status: 200,
     });
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

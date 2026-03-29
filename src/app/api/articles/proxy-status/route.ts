@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/http";
 import { logger } from "@/lib/logger";
-import { getProxyStatus, requireAuthenticatedUser, ServiceError } from "@/lib/server";
+import { getProxyStatus, requireAuthenticatedUser, ServerServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return NextResponse.json(
       { configured: false, proxyUrl: null, status: "unreachable" },
     );

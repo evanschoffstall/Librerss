@@ -32,7 +32,7 @@ import {
 } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
 import { logger } from "@/lib/logger";
-import { createFeed, deleteFeed, logAndRespondError, renameFeed, requireAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServiceError, setFeedEnabled, updateFeedSettings } from "@/lib/server";
+import { createFeed, deleteFeed, logAndRespondError, renameFeed, requireAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError, setFeedEnabled, updateFeedSettings } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
 import { redactUrlForLogs } from "@/lib/utils/url";
 
@@ -95,7 +95,7 @@ export async function DELETE(
     });
     return NextResponse.json(deletedSource);
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return respondError("Error deleting feed source", error);
   }
 }
@@ -227,7 +227,7 @@ export async function PATCH(
     );
     return NextResponse.json(updatedSource);
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return respondError("Error renaming feed source", error);
   }
 }
@@ -270,7 +270,7 @@ export async function POST(
       { status: result.isNew ? 201 : 200 },
     );
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return respondError("Error creating feed source", error);
   }
 }
