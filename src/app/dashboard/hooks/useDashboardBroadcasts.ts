@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { DASHBOARD_EVENTS } from "../constants";
-import { type UseDashboardBroadcastsOptions } from "./dashboard-effects.types";
+import { type UseDashboardBroadcastsOptions } from "./dashboard-effects.contracts";
 
 /** Emits dashboard title and search state changes to shell-level listeners. */
 export function useDashboardBroadcasts({

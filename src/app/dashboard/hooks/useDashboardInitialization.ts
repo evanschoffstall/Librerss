@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { initializeDashboardSelection } from "../services/selection";
-import { type UseDashboardInitializationOptions } from "./dashboard-effects.types";
+import { type UseDashboardInitializationOptions } from "./dashboard-effects.contracts";
 
 /** Runs the one-time dashboard boot sequence that resolves the initial selection. */
 export function useDashboardInitialization({

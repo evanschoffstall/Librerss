@@ -1,8 +1,6 @@
-"use client";
-
 import { type Dispatch, type RefObject, type SetStateAction } from "react";
 
-import type { CategoryTreeNode } from "@/lib";
+import { type CategoryTreeNode } from "@/lib";
 
 import { type FeedSelectionFetchers } from "../services/selection";
 
