@@ -206,6 +206,28 @@ describe("hooks/useWebStorage", () => {
 
     expect(result.current[0]).toBe("next");
   });
+
+  test("useWebStorage falls back to the default value for invalid sync payloads", async () => {
+    const mockStorage = createMockStorage(JSON.stringify("persisted"));
+    const getStorage = () => mockStorage;
+    const { result } = renderHook(() =>
+      useWebStorage(getStorage, "shared-key", "fallback"),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("librerss:storage-sync", {
+          detail: { key: "shared-key", value: "{invalid" },
+        }),
+      );
+    });
+
+    expect(result.current[0]).toBe("fallback");
+  });
 });
 
 describe("hooks/useLocalStorage", () => {

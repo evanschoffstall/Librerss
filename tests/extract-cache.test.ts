@@ -63,6 +63,31 @@ describe("extract/cache – isExtractCacheEnabled", () => {
       else delete process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
     }
   });
+
+  test("returns true outside development when the cache is enabled", async () => {
+    const prevCacheEnabled = process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+
+    try {
+      process.env.ARTICLE_EXTRACT_CACHE_ENABLED = "true";
+      mock.module("@/lib/config", async () => {
+        const actual = await import("@/lib/config");
+        return {
+          ...actual,
+          isDevelopment: () => false,
+        };
+      });
+      const { isExtractCacheEnabled } = await import(
+        `@/lib/extract/cache?production-cache=${Date.now()}`
+      );
+      expect(isExtractCacheEnabled()).toBe(true);
+    } finally {
+      if (prevCacheEnabled !== undefined) {
+        process.env.ARTICLE_EXTRACT_CACHE_ENABLED = prevCacheEnabled;
+      } else {
+        delete process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+      }
+    }
+  });
 });
 
 // ── extract/cache – setCachedExtractPayload capacity eviction ─────────────────

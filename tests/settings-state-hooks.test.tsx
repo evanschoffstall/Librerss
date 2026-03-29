@@ -244,6 +244,38 @@ describe("useSettingsDrag", () => {
     expect(result.current.feedDropTarget).toBeNull();
     expect(result.current.categoryDropIndex).toBeNull();
   });
+
+  test("clears feed and category drag state on drag end", async () => {
+    const { result } = renderHook(() =>
+      useSettingsDrag({
+        onDropCategory: mock(async () => {}),
+        onDropFeed: mock(async () => {}),
+      }),
+    );
+
+    const feedStartEvent = createButtonDragEvent();
+    const categoryStartEvent = createButtonDragEvent();
+
+    act(() => {
+      result.current.onFeedDragStart(feedStartEvent, "feed-1");
+      result.current.onCategoryDragStart(categoryStartEvent, "News");
+    });
+
+    await waitFor(() => {
+      expect(result.current.draggingFeedKey).toBe("feed-1");
+      expect(result.current.draggingCategoryLabel).toBe("News");
+    });
+
+    act(() => {
+      result.current.onFeedDragEnd();
+      result.current.onCategoryDragEnd();
+    });
+
+    expect(result.current.draggingFeedKey).toBeNull();
+    expect(result.current.draggingCategoryLabel).toBeNull();
+    expect(result.current.feedDropTarget).toBeNull();
+    expect(result.current.categoryDropIndex).toBeNull();
+  });
 });
 
 describe("useSettingsFeedEditorState", () => {
@@ -453,6 +485,33 @@ describe("useSettingsFeedEditorState", () => {
       expect(result.current.sharedFeedRowProps.editingFeedName).toBe("");
       expect(result.current.sharedFeedRowProps.editingFeedUrl).toBe("");
     });
+  });
+
+  test("cancels the add-feed draft and resets the inline fields", () => {
+    const { result } = renderHook(() =>
+      useSettingsFeedEditorState({
+        categories: [createCategory("News", "feed-1")],
+        onAddFeed: mock(async () => true),
+        onDropCategory: mock(async () => {}),
+        onDropFeed: mock(async () => {}),
+        onRemoveFeed: mock(async () => {}),
+        onRenameFeed: mock(async () => true),
+        onSetFeedEnabled: mock(async () => true),
+        onUpdateFeedSettings: mock(async () => true),
+        selectedCategory: "cat-news",
+      }),
+    );
+
+    act(() => {
+      result.current.onToggleAddFeed("News");
+      result.current.setNewFeedName("Example Feed");
+      result.current.setNewFeedUrl("https://example.com/feed.xml");
+      result.current.onCancelAddFeed();
+    });
+
+    expect(result.current.addingFeedInCategory).toBeNull();
+    expect(result.current.newFeedName).toBe("Example Feed");
+    expect(result.current.newFeedUrl).toBe("https://example.com/feed.xml");
   });
 });
 

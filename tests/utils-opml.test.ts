@@ -189,6 +189,21 @@ describe("opml – parseOpmlFeedImport", () => {
     expect(result[0].url).toContain("https://");
   });
 
+  test("skips feeds with invalid URLs", async () => {
+    const opml = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <body>
+    <outline text="Broken Feed" xmlUrl="not a url" />
+    <outline text="Working Feed" xmlUrl="https://example.com/feed" />
+  </body>
+</opml>`;
+
+    const result = parseOpmlFeedImport(opml);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Working Feed");
+  });
+
   test("normalizes feed URLs (strips trailing slashes)", async () => {
     const opml = `<?xml version="1.0" encoding="UTF-8"?>
 <opml version="2.0">

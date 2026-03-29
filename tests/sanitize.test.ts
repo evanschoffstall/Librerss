@@ -1100,6 +1100,11 @@ describe("lib/sanitize/patterns – isRelatedHeading empty/blank headings", () =
     const { isRelatedHeading } = await import("@/lib/sanitize/patterns");
     expect(isRelatedHeading("   \t\n   ")).toBe(false);
   });
+
+  test("returns true for also-of-interest headings", async () => {
+    const { isRelatedHeading } = await import("@/lib/sanitize/patterns");
+    expect(isRelatedHeading("Also of Interest: More Reads")).toBe(true);
+  });
 });
 
 describe("Image Sanitization", () => {
@@ -1180,6 +1185,15 @@ describe("Image Sanitization", () => {
 
     expect(result).toContain("srcset");
     expect(result).toContain("sizes");
+  });
+
+  test("should keep images whose srcset includes a sufficiently wide source", () => {
+    const input =
+      '<img src="https://example.com/photo.jpg" srcset="https://example.com/photo-small.jpg 100w, https://example.com/photo-large.jpg 640w">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).toContain("<img");
+    expect(result).toContain("srcset");
   });
 
   test("should allow width and height attributes", () => {
