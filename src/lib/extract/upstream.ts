@@ -3,7 +3,7 @@ import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import {
   detectResponseCompatibilitySignal,
   fetchHtmlWithHttpCloak,
-  GotScrapingError,
+  HttpCloakUpstreamError,
   pickDiagnosticHeaders,
   SOCKS_PROTOCOLS,
 } from "@/lib/fetch";
@@ -262,38 +262,41 @@ async function runHttpCloakStage(
     } catch (error) {
       lastError = error;
 
-      const gotScrapingError = error instanceof GotScrapingError ? error : null;
-      const compatibility = gotScrapingError
+      const httpCloakUpstreamError =
+        error instanceof HttpCloakUpstreamError ? error : null;
+      const compatibility = httpCloakUpstreamError
         ? detectResponseCompatibilitySignal(
-            gotScrapingError.statusCode,
-            gotScrapingError.responseHeaders as Record<string, unknown>,
-            gotScrapingError.responseBody,
+            httpCloakUpstreamError.statusCode,
+            httpCloakUpstreamError.responseHeaders as Record<string, unknown>,
+            httpCloakUpstreamError.responseBody,
           )
         : { retryable: false, signal: { detected: false } as const };
 
-      if (compatibility.signal.detected && gotScrapingError) {
+      if (compatibility.signal.detected && httpCloakUpstreamError) {
         preferredError ??= createCompatibilityError(
           compatibility.signal.provider,
-          gotScrapingError.statusCode,
+          httpCloakUpstreamError.statusCode,
         );
       }
 
       if (
         handleStageFailure(options, attempt, compatibility.retryable, error, {
-          headers: gotScrapingError?.requestHeaders,
+          headers: httpCloakUpstreamError?.requestHeaders,
           note: compatibility.signal.detected
             ? `${compatibility.signal.provider} access constraint detected during HTTPCloak stage`
             : undefined,
-          proxyMode: gotScrapingError ? gotScrapingError.proxyMode : options.proxyMode,
-          redirectHop: gotScrapingError?.redirectHop,
-          responseBodyLength: gotScrapingError?.responseBody.length,
-          responseBodySnippet: gotScrapingError
-            ? toBodySnippet(gotScrapingError.responseBody)
+          proxyMode: httpCloakUpstreamError
+            ? httpCloakUpstreamError.proxyMode
+            : options.proxyMode,
+          redirectHop: httpCloakUpstreamError?.redirectHop,
+          responseBodyLength: httpCloakUpstreamError?.responseBody.length,
+          responseBodySnippet: httpCloakUpstreamError
+            ? toBodySnippet(httpCloakUpstreamError.responseBody)
             : undefined,
-          responseHeaders: gotScrapingError
-            ? pickDiagnosticHeaders(gotScrapingError.responseHeaders)
+          responseHeaders: httpCloakUpstreamError
+            ? pickDiagnosticHeaders(httpCloakUpstreamError.responseHeaders)
             : undefined,
-          statusCode: gotScrapingError?.statusCode,
+          statusCode: httpCloakUpstreamError?.statusCode,
         })
       ) {
         continue;

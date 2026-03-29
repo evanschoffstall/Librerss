@@ -1,12 +1,15 @@
 import { decompressBody } from "@/lib/utils/content-encoding";
 
-export class GotScrapingError extends Error {
+/**
+ * Captures a non-success upstream response returned through the HTTPCloak
+ * transport together with the metadata needed for diagnostics.
+ */
+export class HttpCloakUpstreamError extends Error {
   constructor(
     readonly statusCode: number,
     readonly responseBody: string,
     readonly proxyMode: string,
     readonly proxyAddress: null | string,
-    readonly profileVersion: number,
     readonly allowInsecureTls: boolean,
     readonly redirectHop: number,
     readonly responseHeaders: Record<string, string | string[] | undefined>,
@@ -18,6 +21,10 @@ export class GotScrapingError extends Error {
 
 export { decompressBody };
 
+/**
+ * Retains only the upstream headers that are useful for compatibility and
+ * anti-bot diagnostics.
+ */
 export function pickDiagnosticHeaders(
   headers: Record<string, string | string[] | undefined>,
 ): Record<string, unknown> {

@@ -28,7 +28,7 @@ const resolveUserProxyMock = mock(async () => ({
   proxyUrl: "socks5://proxy.example:1080",
 }));
 
-class TestGotScrapingError extends Error {
+class TestHttpCloakUpstreamError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly responseBody: string,
@@ -52,7 +52,7 @@ class TestServiceError extends Error {
 
 const routeDeps = {
   fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakMock,
-  gotScrapingErrorClass: TestGotScrapingError,
+  httpCloakUpstreamErrorClass: TestHttpCloakUpstreamError,
   loggerInstance: {
     error: loggerErrorMock,
     info: loggerInfoMock,
@@ -189,7 +189,7 @@ describe("proxy compatibility check route", () => {
 
     fetchHtmlWithHttpCloakMock.mockImplementation(async (url) => {
       if (url.includes("cloudflare")) {
-        throw new TestGotScrapingError(
+        throw new TestHttpCloakUpstreamError(
           403,
           "<html><body>cf-browser-verification</body></html>",
           "proxy",

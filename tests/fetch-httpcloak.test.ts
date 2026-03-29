@@ -5,7 +5,7 @@ import {
   fetchHtmlWithHttpCloak,
   upstreamAxios,
 } from "@/lib/fetch/httpcloak-client";
-import { GotScrapingError } from "@/lib/fetch/response";
+import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 describe("fetch/httpcloak-client", () => {
   test("exports an axios fallback client", () => {
@@ -111,7 +111,7 @@ describe("fetch/httpcloak-client", () => {
     expect(requestFn).toHaveBeenCalledTimes(1);
   });
 
-  test("throws GotScrapingError with a decoded upstream body", async () => {
+  test("throws HttpCloakUpstreamError with a decoded upstream body", async () => {
     const responseBody = "<html><body>cf-browser-verification</body></html>";
     const requestFn = mock(async () => ({
       body: zlib.gzipSync(Buffer.from(responseBody, "utf8")).toString(
@@ -133,13 +133,13 @@ describe("fetch/httpcloak-client", () => {
       );
       expect.unreachable("Expected fetchHtmlWithHttpCloak to throw");
     } catch (error) {
-      expect(error).toBeInstanceOf(GotScrapingError);
+      expect(error).toBeInstanceOf(HttpCloakUpstreamError);
 
-      const gotScrapingError = error as GotScrapingError;
-      expect(gotScrapingError.statusCode).toBe(403);
-      expect(gotScrapingError.responseBody).toBe(responseBody);
-      expect(gotScrapingError.responseHeaders["cf-ray"]).toBe("abc123");
-      expect(gotScrapingError.requestHeaders).toEqual({});
+      const httpCloakUpstreamError = error as HttpCloakUpstreamError;
+      expect(httpCloakUpstreamError.statusCode).toBe(403);
+      expect(httpCloakUpstreamError.responseBody).toBe(responseBody);
+      expect(httpCloakUpstreamError.responseHeaders["cf-ray"]).toBe("abc123");
+      expect(httpCloakUpstreamError.requestHeaders).toEqual({});
     }
   });
 });

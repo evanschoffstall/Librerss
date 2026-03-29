@@ -13,7 +13,7 @@ import {
     parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
-import { decompressBody, GotScrapingError } from "@/lib/fetch/response";
+import { decompressBody, HttpCloakUpstreamError } from "@/lib/fetch/response";
 import { parseSocksProxy } from "@/lib/fetch/socks";
 import {
     buildMetadataImageFallbackHtml,
@@ -727,12 +727,11 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml raises DataDome-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw new GotScrapingError(
+      throw new HttpCloakUpstreamError(
         403,
         "blocked",
         "direct",
         null,
-        135,
         false,
         0,
         { "x-datadome": "protected" },
@@ -750,12 +749,11 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml raises PerimeterX-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw new GotScrapingError(
+      throw new HttpCloakUpstreamError(
         403,
         "<html>px-captcha challenge</html>",
         "direct",
         null,
-        135,
         false,
         0,
         { "x-px-vid": "some-vid" },
@@ -773,12 +771,11 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml raises Cloudflare-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw new GotScrapingError(
+      throw new HttpCloakUpstreamError(
         403,
         "<html><title>Attention Required! | Cloudflare</title></html>",
         "direct",
         null,
-        135,
         false,
         0,
         { "cf-mitigated": "challenge", "set-cookie": "__cf_bm=abc" },
@@ -894,7 +891,7 @@ describe("article extract cleanup", () => {
     const pxBody =
       '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /></head></html>';
 
-    // Helper: creates a httpCloakFetchFn that throws GotScrapingError with
+    // Helper: creates a httpCloakFetchFn that throws HttpCloakUpstreamError with
     // the given statusCode, body, and headers on every call.
     function makeFpFetchError(
       statusCode: number,
@@ -904,12 +901,11 @@ describe("article extract cleanup", () => {
       let callCount = 0;
       const fn = mock(async () => {
         callCount++;
-        throw new GotScrapingError(
+        throw new HttpCloakUpstreamError(
           statusCode,
           body,
           "socks",
           null,
-          131,
           false,
           0,
           headers,
@@ -1046,12 +1042,11 @@ describe("article extract cleanup", () => {
       const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
           capturedOptions.push(opts ? { ...opts } : {});
-          throw new GotScrapingError(
+          throw new HttpCloakUpstreamError(
             403,
             "<html>blocked</html>",
             "socks",
             null,
-            131,
             false,
             0,
             {},

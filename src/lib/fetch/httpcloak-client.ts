@@ -8,8 +8,7 @@ import {
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
 
-import { CHROME } from "./constants";
-import { GotScrapingError, pickDiagnosticHeaders } from "./response";
+import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "./response";
 
 export const upstreamAxios = axios.create();
 
@@ -68,12 +67,11 @@ export async function fetchHtmlWithHttpCloak(
   const decodedBody = await decodeResponseBody(response);
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new GotScrapingError(
+    throw new HttpCloakUpstreamError(
       response.statusCode,
       decodedBody,
       proxyMode,
       options?.proxyUrl ?? null,
-      CHROME.version,
       allowInsecureTls,
       response.redirectHop,
       response.headers,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { EXTRACT_403_RETRIES, fetchHtml } from "@/lib/extract";
-import { GotScrapingError } from "@/lib/fetch/response";
+import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 const TEST_URL = "https://example.com/article";
 const TEST_HTML = "<html><body>Test content</body></html>";
@@ -14,17 +14,16 @@ afterEach(() => {
   mock.restore();
 });
 
-function createScrapingError(
+function createHttpCloakUpstreamError(
   statusCode: number,
   responseBody = "blocked",
   responseHeaders: Record<string, string> = {},
-): GotScrapingError {
-  return new GotScrapingError(
+): HttpCloakUpstreamError {
+  return new HttpCloakUpstreamError(
     statusCode,
     responseBody,
     "direct",
     null,
-    135,
     false,
     0,
     responseHeaders,
@@ -136,7 +135,7 @@ describe("fetchHtml", () => {
       attemptCount += 1;
 
       if (attemptCount <= EXTRACT_403_RETRIES) {
-        throw createScrapingError(403, "blocked");
+        throw createHttpCloakUpstreamError(403, "blocked");
       }
 
       return {
@@ -161,7 +160,9 @@ describe("fetchHtml", () => {
       attemptCount += 1;
 
       if (attemptCount === 1) {
-        throw createScrapingError(429, "rate limited", { "retry-after": "5" });
+        throw createHttpCloakUpstreamError(429, "rate limited", {
+          "retry-after": "5",
+        });
       }
 
       return {
@@ -184,7 +185,9 @@ describe("fetchHtml", () => {
     let attemptCount = 0;
     const httpCloakFetchFn = mock(async () => {
       attemptCount += 1;
-      throw createScrapingError(403, "blocked", { "x-datadome": "protected" });
+      throw createHttpCloakUpstreamError(403, "blocked", {
+        "x-datadome": "protected",
+      });
     });
 
     await expect(
@@ -202,9 +205,13 @@ describe("fetchHtml", () => {
     let attemptCount = 0;
     const httpCloakFetchFn = mock(async () => {
       attemptCount += 1;
-      throw createScrapingError(403, "<html>px-captcha challenge</html>", {
+      throw createHttpCloakUpstreamError(
+        403,
+        "<html>px-captcha challenge</html>",
+        {
         "x-px-original-token": "token",
-      });
+        },
+      );
     });
 
     await expect(
@@ -220,7 +227,7 @@ describe("fetchHtml", () => {
 
   test("rethrows the last error after exhausting retries", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw createScrapingError(403, "blocked");
+      throw createHttpCloakUpstreamError(403, "blocked");
     });
 
     await expect(
