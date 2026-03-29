@@ -19,7 +19,7 @@ import {
 
 import { probeProxy } from "../proxy";
 import { materializeStoredProxyPassword } from "../proxy-credentials";
-import { ServiceError } from "./errors";
+import { ServerServiceError } from "./errors";
 
 export interface ProxyStatusResult {
   configured: boolean;
@@ -71,7 +71,7 @@ export async function getProxyStatus(
  * Resolves the fully-qualified proxy URL (with injected credentials) for a
  * user. Returns `undefined` proxy URL when the user has no proxy configured.
  *
- * Throws {@link ServiceError} when stored credentials cannot be materialized.
+ * Throws {@link ServerServiceError} when stored credentials cannot be materialized.
  */
 export async function resolveUserProxy(
   userId: number,
@@ -123,7 +123,7 @@ export async function resolveUserProxy(
       error: error instanceof Error ? error.message : String(error),
       userId,
     });
-    throw new ServiceError(
+    throw new ServerServiceError(
       "Saved proxy password could not be read. Update it in settings and try again.",
       500,
       "proxy-password-unreadable",

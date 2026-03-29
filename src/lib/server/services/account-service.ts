@@ -2,7 +2,7 @@
  * Server-side account operations shared across API surfaces.
  *
  * Transport-agnostic: accepts typed params, returns data or throws
- * {@link ServiceError}.
+ * {@link ServerServiceError}.
  */
 import { eq } from "drizzle-orm";
 
@@ -21,7 +21,7 @@ import {
 import { logger } from "@/lib/logger";
 import { getUrlCredentials } from "@/lib/utils/url";
 
-import { ServiceError } from "./errors";
+import { ServerServiceError } from "./errors";
 
 export interface AccountServiceDeps {
   getDbFn?: () => unknown;
@@ -29,7 +29,7 @@ export interface AccountServiceDeps {
 
 export async function deleteAccount(userId: number) {
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    throw new ServiceError(
+    throw new ServerServiceError(
       "Account deletion is unavailable in preview mode",
       503,
     );
@@ -42,7 +42,7 @@ export async function deleteAccount(userId: number) {
     .returning({ id: users.id });
 
   if (deletedUsers.length === 0) {
-    throw new ServiceError("Account not found", 404);
+    throw new ServerServiceError("Account not found", 404);
   }
 
   logger.warn("User deleted account", { userId });
@@ -53,7 +53,7 @@ export async function exportAccountData(
   deps: AccountServiceDeps = {},
 ) {
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    throw new ServiceError(
+    throw new ServerServiceError(
       "Data export is unavailable in preview mode",
       503,
     );
@@ -144,7 +144,7 @@ export async function exportAccountData(
   ]);
 
   const user = userRows.at(0);
-  if (!user) throw new ServiceError("Account not found", 404);
+  if (!user) throw new ServerServiceError("Account not found", 404);
 
   const embeddedProxyCredentials = user.proxyUrl
     ? getUrlCredentials(user.proxyUrl)

@@ -20,7 +20,7 @@ export {
  * GReader, etc.). Route handlers call service functions after handling
  * authentication and request parsing.
  */
-export { ServiceError } from "./errors";
+export { ServerServiceError } from "./errors";
 
 export {
   createFeed,

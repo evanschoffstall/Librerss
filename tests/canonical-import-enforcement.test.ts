@@ -22,7 +22,7 @@ describe("barrel import enforcement", () => {
   test("rejects deep server service imports in route handlers", async () => {
     const eslint = new ESLint({ cwd: process.cwd() });
     const [result] = await eslint.lintText(
-      'import { ServiceError } from "@/lib/server/services";\n\nvoid ServiceError;\n',
+      'import { ServerServiceError } from "@/lib/server/services";\n\nvoid ServerServiceError;\n',
       {
         filePath: "src/app/api/articles/[id]/route.ts",
       },
