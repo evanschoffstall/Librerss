@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { distillArticle } from "@/lib/distill";
-import { defuddleDistill } from "@/lib/distill/defuddle";
+import { distillWithDefuddle } from "@/lib/distill/defuddle";
 import { librerssDistill } from "@/lib/distill/librerss";
 import { readabilityDistill } from "@/lib/distill/readability";
 
@@ -763,7 +763,7 @@ describe("lib/distill/strategy wrappers", () => {
   });
 
   test("defuddleDistill patches missing DOM APIs and returns null below threshold", () => {
-    const article = defuddleDistill(
+    const article = distillWithDefuddle(
       articleHtml,
       "https://example.com/defuddle",
     );
@@ -772,7 +772,7 @@ describe("lib/distill/strategy wrappers", () => {
     expect(article?.source).toBe("https://example.com/defuddle");
     expect(article?.content).toContain("extractor on the happy path");
     expect(
-      defuddleDistill(
+      distillWithDefuddle(
         "<article><p>tiny</p></article>",
         "https://example.com/defuddle",
         {

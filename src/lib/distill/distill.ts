@@ -4,7 +4,7 @@ import type {
   DistillStrategy,
 } from "./types";
 
-import { defuddleDistill } from "./defuddle";
+import { distillWithDefuddle } from "./defuddle";
 import { librerssDistill } from "./librerss";
 import { readabilityDistill } from "./readability";
 
@@ -23,7 +23,7 @@ export async function distillArticle(
 ): Promise<DistilledArticle | null> {
   switch (strategy) {
     case "defuddle":
-      return Promise.resolve(defuddleDistill(html, url, options));
+      return Promise.resolve(distillWithDefuddle(html, url, options));
     case "librerss":
       return Promise.resolve(librerssDistill(html, url, options));
     case "readability":
