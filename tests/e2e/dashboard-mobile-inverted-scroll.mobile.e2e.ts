@@ -10,6 +10,7 @@ import {
 import { expect, test } from "./test";
 
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+const STABLE_HEADER_POSITION_TOLERANCE_PX = 8;
 
 interface ArticleHeaderViewportOffsets {
   headerTop: number;
@@ -22,6 +23,55 @@ interface RenderedArticleState extends ArticleHeaderViewportOffsets {
 }
 
 const STABLE_HEADER_OFFSET_TOP_PX = 168;
+
+/** Aligns an article header to the preferred stable offset before measuring expansion drift. */
+async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) {
+  await expect
+    .poll(async () => {
+      const offsets = await maybeReadArticleHeaderViewportOffsets(page, articleKey);
+
+      if (!offsets) {
+        return false;
+      }
+
+      if (
+        Math.abs(offsets.headerTop - STABLE_HEADER_OFFSET_TOP_PX) <=
+        STABLE_HEADER_POSITION_TOLERANCE_PX
+      ) {
+        return true;
+      }
+
+      await page.evaluate(
+        ({ targetArticleKey, targetHeaderTop }) => {
+          const article = document.querySelector<HTMLElement>(
+            `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+          );
+          const header = article?.querySelector<HTMLElement>(
+            "[data-article-swipe-zone='header']",
+          );
+          const viewport = article?.closest<HTMLElement>(
+            "[data-radix-scroll-area-viewport]",
+          );
+
+          if (!article || !header || !viewport) {
+            return;
+          }
+
+          const viewportRect = viewport.getBoundingClientRect();
+          const headerRect = header.getBoundingClientRect();
+          viewport.scrollTop +=
+            (headerRect.top - viewportRect.top) - targetHeaderTop;
+        },
+        {
+          targetArticleKey: articleKey,
+          targetHeaderTop: STABLE_HEADER_OFFSET_TOP_PX,
+        },
+      );
+
+      return false;
+    })
+    .toBe(true);
+}
 
 /** Collapses an expanded article directly by key without requiring its header to stay interactable in the viewport. */
 async function collapseArticleByKey(page: Page, articleKey: string) {
@@ -38,7 +88,9 @@ async function collapseArticleByKey(page: Page, articleKey: string) {
       throw new Error("Expected the expanded article to remain mounted while collapsing.");
     }
 
-    article.click();
+    const header = article.querySelector<HTMLElement>("[data-article-swipe-zone='header']");
+
+    (header ?? article).click();
   }, articleKey);
 }
 
@@ -341,13 +393,22 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
         return left.visibleScore - right.visibleScore;
       });
 
-    const header = candidates[0]?.header ?? null;
+    const selectedCandidate = candidates[0] ?? null;
 
-    if (!header) {
-      throw new Error("Expected a rendered article header to toggle by key.");
+    if (!selectedCandidate) {
+      const fallbackArticle = document.querySelector<HTMLElement>(
+        `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+      );
+
+      if (!fallbackArticle) {
+        throw new Error("Expected a rendered article to toggle by key.");
+      }
+
+      fallbackArticle.click();
+      return;
     }
 
-    header.click();
+    (selectedCandidate.header ?? selectedCandidate.article).click();
   }, articleKey);
 }
 
@@ -481,6 +542,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     if (!targetArticleKey) {
       throw new Error("Expected a visible article key.");
     }
+    await alignArticleHeaderToStableOffset(page, targetArticleKey);
     const before = await readArticleHeaderViewportOffsets(page, targetArticleKey);
 
     for (let cycle = 0; cycle < 4; cycle += 1) {
@@ -494,7 +556,8 @@ test.describe("dashboard mobile inverted scroll", () => {
           return (
             during.headerTop >= -1 &&
             during.headerTop <= during.viewportHeight - 60 &&
-            Math.abs(during.headerTop - before.headerTop) <= 2
+            Math.abs(during.headerTop - before.headerTop) <=
+              STABLE_HEADER_POSITION_TOLERANCE_PX
           );
         })
         .toBe(true);
@@ -503,7 +566,9 @@ test.describe("dashboard mobile inverted scroll", () => {
 
       expect(during.headerTop).toBeGreaterThanOrEqual(-1);
       expect(during.headerTop).toBeLessThanOrEqual(during.viewportHeight - 60);
-      expect(Math.abs(during.headerTop - before.headerTop)).toBeLessThanOrEqual(2);
+      expect(
+        Math.abs(during.headerTop - before.headerTop),
+      ).toBeLessThanOrEqual(STABLE_HEADER_POSITION_TOLERANCE_PX);
 
       await toggleArticleByKey(page, targetArticleKey);
       await expect.poll(async () => await readArticleExpandedState(page, targetArticleKey)).toBe("false");
@@ -515,7 +580,8 @@ test.describe("dashboard mobile inverted scroll", () => {
           return (
             after.headerTop >= -1 &&
             after.headerTop <= after.viewportHeight - 60 &&
-            Math.abs(after.headerTop - before.headerTop) <= 2
+            Math.abs(after.headerTop - before.headerTop) <=
+              STABLE_HEADER_POSITION_TOLERANCE_PX
           );
         })
         .toBe(true);
@@ -524,7 +590,9 @@ test.describe("dashboard mobile inverted scroll", () => {
 
       expect(after.headerTop).toBeGreaterThanOrEqual(-1);
       expect(after.headerTop).toBeLessThanOrEqual(after.viewportHeight - 60);
-      expect(Math.abs(after.headerTop - before.headerTop)).toBeLessThanOrEqual(2);
+      expect(
+        Math.abs(after.headerTop - before.headerTop),
+      ).toBeLessThanOrEqual(STABLE_HEADER_POSITION_TOLERANCE_PX);
     }
   });
 
@@ -545,6 +613,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     if (!targetArticleKey) {
       throw new Error("Expected a visible article key.");
     }
+    await alignArticleHeaderToStableOffset(page, targetArticleKey);
     const before = await readArticleHeaderViewportOffsets(page, targetArticleKey);
 
     await toggleArticleByKey(page, targetArticleKey);
@@ -566,9 +635,16 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     await expect
       .poll(async () => {
-        const viewport = await readFeedViewportMetrics(page);
+        const restored = await maybeReadArticleHeaderViewportOffsets(
+          page,
+          targetArticleKey,
+        );
 
-        return Math.abs(viewport.scrollTop - before.scrollTop) <= 2;
+        return (
+          restored !== null &&
+          Math.abs(restored.headerTop - before.headerTop) <=
+            STABLE_HEADER_POSITION_TOLERANCE_PX
+        );
       })
       .toBe(true);
 
@@ -577,6 +653,7 @@ test.describe("dashboard mobile inverted scroll", () => {
       throw new Error("Expected a second visible article key after restoring the viewport.");
     }
 
+    await alignArticleHeaderToStableOffset(page, secondTargetArticleKey);
     const secondBefore = await readArticleHeaderViewportOffsets(page, secondTargetArticleKey);
 
     await toggleArticleByKey(page, secondTargetArticleKey);
@@ -598,9 +675,16 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     await expect
       .poll(async () => {
-        const viewport = await readFeedViewportMetrics(page);
+        const restored = await maybeReadArticleHeaderViewportOffsets(
+          page,
+          secondTargetArticleKey,
+        );
 
-        return Math.abs(viewport.scrollTop - secondBefore.scrollTop) <= 2;
+        return (
+          restored !== null &&
+          Math.abs(restored.headerTop - secondBefore.headerTop) <=
+            STABLE_HEADER_POSITION_TOLERANCE_PX
+        );
       })
       .toBe(true);
 

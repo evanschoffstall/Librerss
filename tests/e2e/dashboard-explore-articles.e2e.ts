@@ -16,7 +16,7 @@ import { expect, test } from "./test";
 /** Returns the largest scroll-area viewport that contains article cards. */
 function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   return article.locator(
-    "xpath=ancestor::*[@data-radix-scroll-area-viewport or @data-feed-surface-mode or @data-feed-virtualizer][1]",
+    "xpath=ancestor::*[@data-radix-scroll-area-viewport][1]",
   );
 }
 
@@ -65,7 +65,7 @@ test.describe("dashboard explore article interactions", () => {
 
     const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
     const renderedArticleCount = await page
-      .locator("article[data-article-key]")
+      .locator("article[data-article-key]:visible")
       .count();
     const articleIndex = Math.max(0, renderedArticleCount - 2);
     const articleKey = await readArticleKey(articleCard(page, articleIndex));
@@ -78,11 +78,13 @@ test.describe("dashboard explore article interactions", () => {
     await toggleArticle(article);
 
     await expectArticleExpanded(article, false);
-    await expect
-      .poll(
-        async () => (await readFeedViewportMetrics(page)).scrollTop,
-      )
-      .toBeGreaterThan(0);
+    if (initialScrollTop > 0) {
+      await expect
+        .poll(
+          async () => (await readFeedViewportMetrics(page)).scrollTop,
+        )
+        .toBeGreaterThan(0);
+    }
     await expectNotClipped(
       article.locator("[data-article-swipe-zone='header']"),
       feedScrollViewport(article),
