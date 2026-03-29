@@ -98,6 +98,7 @@ export function useRevealSidebarOnMount(
     const frame = window.requestAnimationFrame(() => {
       setIsSidebarVisible(true);
     });
+
     return () => {
       window.cancelAnimationFrame(frame);
     };

@@ -11,7 +11,7 @@ const DASHBOARD_SIDEBAR_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
-export interface DashboardDesktopSidebarProps {
+interface DashboardDesktopSidebarProps {
   isSidebarVisible: boolean;
   sidebarContentProps: ComponentProps<typeof DashboardSidebarContent>;
   sidebarScrollRef: ComponentProps<typeof ScrollArea>["ref"];

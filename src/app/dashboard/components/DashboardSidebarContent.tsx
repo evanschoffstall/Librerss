@@ -13,7 +13,7 @@ const SIDEBAR_SECTION_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
-export interface DashboardSidebarContentProps {
+interface DashboardSidebarContentProps {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
   onCategoryClick: (categoryNode: CategoryTreeNode) => void;

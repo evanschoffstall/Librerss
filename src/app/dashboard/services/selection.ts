@@ -13,26 +13,6 @@ export interface FeedFetchOptions {
   skipRefresh?: boolean;
 }
 
-/**
- * Canonical request-source labels for dashboard-triggered feed fetches.
- *
- * Keeping these labels explicit prevents silent naming drift across the dashboard
- * fetch layer while preserving the existing analytics and diagnostics semantics.
- */
-export type FeedRequestSource =
-  | "article-filter-change"
-  | "auto-refresh"
-  | "dashboard-initial-cache"
-  | "feed-added"
-  | "feed-hidden-selection-fallback"
-  | "feed-reenabled"
-  | "manual-refresh"
-  | "opml-imported"
-  | "sidebar-category-prefetch"
-  | "sidebar-category-select"
-  | "sidebar-feed-prefetch"
-  | "sidebar-feed-select";
-
 /** Feed fetch callbacks used when resolving a selected dashboard surface. */
 export interface FeedSelectionFetchers {
   fetchAllFeeds: (
@@ -45,6 +25,26 @@ export interface FeedSelectionFetchers {
   ) => Promise<void>;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
 }
+
+/**
+ * Canonical request-source labels for dashboard-triggered feed fetches.
+ *
+ * Keeping these labels explicit prevents silent naming drift across the dashboard
+ * fetch layer while preserving the existing analytics and diagnostics semantics.
+ */
+type FeedRequestSource =
+  | "article-filter-change"
+  | "auto-refresh"
+  | "dashboard-initial-cache"
+  | "feed-added"
+  | "feed-hidden-selection-fallback"
+  | "feed-reenabled"
+  | "manual-refresh"
+  | "opml-imported"
+  | "sidebar-category-prefetch"
+  | "sidebar-category-select"
+  | "sidebar-feed-prefetch"
+  | "sidebar-feed-select";
 
 type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
   loadFeedSources: () => Promise<CategoryTreeNode[]>;

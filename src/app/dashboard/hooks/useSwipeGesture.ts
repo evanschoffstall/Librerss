@@ -31,7 +31,7 @@ export const SWIPE_COMMIT_SLIDE_MS = 180;
 export type SwipePhase = "committing" | "idle" | "releasing" | "swiping";
 
 /** Visual state for an in-progress swipe gesture. */
-export interface SwipeState {
+interface SwipeState {
   committed: boolean;
   offsetX: number;
   phase: SwipePhase;

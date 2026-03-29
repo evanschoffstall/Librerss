@@ -12,7 +12,7 @@ import { useLocalStorage } from "@/lib";
 import { MOBILE_TOOLBAR_MIRROR_STORAGE_KEY } from "../constants";
 import { DashboardSidebarContent } from "./DashboardSidebarContent";
 
-export interface DashboardMobileSidebarSheetProps {
+interface DashboardMobileSidebarSheetProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   sidebarContentProps: ComponentProps<typeof DashboardSidebarContent>;
