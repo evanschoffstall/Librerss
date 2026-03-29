@@ -567,6 +567,34 @@ describe("useCategoryOrderState", () => {
     expect(result.current.orderedCategoryLabels).toEqual([]);
   });
 
+  test("loads a saved category order when placeholder mode is disabled", async () => {
+    FeedService.getCategoryOrder = mock(async () => ["News", "Tech"]);
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: false }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.orderedCategoryLabels).toEqual(["News", "Tech"]);
+    });
+  });
+
+  test("ignores category order load errors", async () => {
+    FeedService.getCategoryOrder = mock(async () => {
+      throw new Error("load failed");
+    });
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: false }),
+    );
+
+    await runWithAct(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.orderedCategoryLabels).toEqual([]);
+  });
+
   test("debounces category order persistence", async () => {
     FeedService.getCategoryOrder = mock(async () => []);
     FeedService.saveCategoryOrder = mock(async () => {});
@@ -586,6 +614,30 @@ describe("useCategoryOrderState", () => {
     expect(FeedService.saveCategoryOrder).toHaveBeenCalledWith([
       "News",
       "Tech",
+    ]);
+  });
+
+  test("persists only the latest category order after successive updates", async () => {
+    FeedService.getCategoryOrder = mock(async () => []);
+    FeedService.saveCategoryOrder = mock(async () => {});
+
+    const { result } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: false }),
+    );
+
+    act(() => {
+      result.current.setOrderedCategoryLabels(["News"]);
+      result.current.setOrderedCategoryLabels(["Tech", "News"]);
+    });
+
+    await runWithAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+
+    expect(FeedService.saveCategoryOrder).toHaveBeenCalledTimes(1);
+    expect(FeedService.saveCategoryOrder).toHaveBeenCalledWith([
+      "Tech",
+      "News",
     ]);
   });
 });

@@ -34,14 +34,14 @@ export function DashboardFeedViewport({
       className="
         h-full
         [&_[data-radix-scroll-area-viewport]>div]:block!
-        [&_[data-radix-scroll-area-viewport]>div]:w-full!
+        [&_[data-radix-scroll-area-viewport]>div]:size-full!
         [&_[data-radix-scroll-area-viewport]>div]:min-w-0!
       "
     >
       <div
         className={`
           ${DASHBOARD_FEED_SURFACE_CLASS_NAME}
-          py-1
+          h-full py-1
         `}
         data-dashboard-width-link="feed"
       >

@@ -193,7 +193,9 @@ export const FeedList = memo(function FeedList({
     ],
   );
 
-  const listClassName = "w-full min-w-0";
+  const listFrameClassName = "flex h-full min-h-0 w-full min-w-0 flex-col";
+  const listSurfaceClassName = "flex min-h-0 w-full min-w-0 flex-col";
+  const listFillStyle = { height: "100%" } as const;
   const showEmptyState = !isInitialLoading && filteredFeed.length === 0;
   const skeletonExitTransition = {
     duration: 0.25,
@@ -203,13 +205,39 @@ export const FeedList = memo(function FeedList({
     duration: 0.35,
     ease: [0.16, 1, 0.3, 1] as const,
   };
+  const applyFeedFillLayout = useCallback((element: HTMLElement | null) => {
+    if (!element) {
+      return;
+    }
+
+    element.style.display = "flex";
+    element.style.flexDirection = "column";
+    element.style.height = "100%";
+    element.style.minHeight = "0";
+  }, []);
+
+  const handleFeedSurfaceRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      applyFeedFillLayout(node);
+      applyFeedFillLayout(node.parentElement);
+      applyFeedFillLayout(node.parentElement?.parentElement ?? null);
+    }
+
+    if (isInitialLoading || showEmptyState) {
+      handleViewportHostRef(null);
+      return;
+    }
+
+    handleViewportHostRef(node);
+  }, [applyFeedFillLayout, handleViewportHostRef, isInitialLoading, showEmptyState]);
 
   return (
     <div
-      className={listClassName}
+      className={listSurfaceClassName}
       data-feed-surface-mode={feedSurfaceMode}
       data-inverted-scroll={isInvertedScroll ? "true" : undefined}
-      ref={isInitialLoading || showEmptyState ? undefined : handleViewportHostRef}
+      ref={handleFeedSurfaceRef}
+      style={listFillStyle}
     >
       <AnimatePresence mode="wait">
         {isInitialLoading || shouldShowViewportResolutionSkeleton ? (
@@ -245,14 +273,15 @@ export const FeedList = memo(function FeedList({
         ) : (
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className={listClassName}
+            className={listFrameClassName}
             initial={{ opacity: 0, y: 6 }}
             key={contentKey}
+            style={listFillStyle}
             transition={contentEnterTransition}
           >
             {shouldUseVirtualizedFeed ? (
               <Virtuoso
-                className={listClassName}
+                className={listFrameClassName}
                 components={isInvertedScroll ? invertedVirtuosoComponents : virtuosoComponents}
                 computeItemKey={(index, article: Article | undefined) =>
                   article
@@ -275,6 +304,7 @@ export const FeedList = memo(function FeedList({
                   article ? renderFeedRow(article) : null
                 }
                 key={`${feedViewKey}:${isInvertedScroll ? "inv" : "std"}`}
+                style={listFillStyle}
                 totalListHeightChanged={() => {
                   if (isInvertedScroll) {
                     syncInvertedExpansionScrollLock();
