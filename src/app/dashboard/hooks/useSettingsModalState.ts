@@ -2,7 +2,9 @@
 
 import { type CategoryTreeNode } from "@/lib";
 
-import { type SettingsFeedStateOptions } from "./settings-feed-state.types";
+import {
+  type SettingsFeedStateOptions,
+} from "./settings-feed.contracts";
 import { useSettingsCategoryState } from "./useSettingsCategoryState";
 import { useSettingsFeedState } from "./useSettingsFeedState";
 

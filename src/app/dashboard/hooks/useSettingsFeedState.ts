@@ -1,6 +1,6 @@
 "use client";
 
-import { type SettingsFeedStateOptions } from "./settings-feed-state.types";
+import { type SettingsFeedStateOptions } from "./settings-feed.contracts";
 import { useSettingsFeedEditorState } from "./useSettingsFeedEditorState";
 import { useSettingsOpmlImportState } from "./useSettingsOpmlImportState";
 
