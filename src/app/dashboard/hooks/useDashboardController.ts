@@ -17,7 +17,6 @@ import {
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
 } from "../services/dashboard-controller-state";
-import { shouldResetExpandedArticle } from "../services/dashboard-selection-state";
 import { buildDashboardViewModel } from "../services/dashboard-view-model";
 import { refreshCurrentSelection } from "../services/selection";
 import { collectFullyVisibleUnreadArticles } from "../services/viewport-read";
@@ -339,12 +338,8 @@ export function useDashboardController({
 
   useEffect(() => {
     if (
-      shouldResetExpandedArticle({
-        articleFilter,
-        previousArticleFilter: previousArticleFilterRef.current,
-        previousSelectedCategory: previousSelectedCategoryRef.current,
-        selectedCategory,
-      })
+      previousSelectedCategoryRef.current !== selectedCategory ||
+      previousArticleFilterRef.current !== articleFilter
     ) {
       setExpandedArticleKey(null);
     }
