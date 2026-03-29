@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
@@ -66,5 +66,24 @@ describe("DashboardFilterBar", () => {
     const idleIcon = container.querySelector("span[aria-live='polite'] svg");
     expect(idleIcon).toBeTruthy();
     expect(idleIcon?.getAttribute("class")).toContain("lucide-refresh-cw");
+  });
+
+  test("invokes the filter change callback when a filter option is clicked", () => {
+    const onArticleFilterChange = (value: string) => {
+      calls.push(value);
+    };
+    const calls: string[] = [];
+    const { getByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={onArticleFilterChange}
+      />,
+    );
+
+    fireEvent.click(getByRole("button", { name: "starred" }));
+
+    expect(calls).toEqual(["starred"]);
   });
 });

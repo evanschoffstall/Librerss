@@ -360,6 +360,10 @@ export function useDashboardController({
 
     appliedBatchArticleFilterRef.current = articleFilter;
 
+    if (usePlaceholderData) {
+      return;
+    }
+
     void refreshCurrentSelection({
       fetchAllFeeds,
       fetchCategoryFeeds,
@@ -380,6 +384,7 @@ export function useDashboardController({
     selectedCategory,
     selectedCategoryNode,
     selectedFeedUrl,
+    usePlaceholderData,
   ]);
 
   const {

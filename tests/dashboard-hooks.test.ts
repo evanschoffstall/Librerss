@@ -564,6 +564,31 @@ describe("useCategoryOrderState", () => {
       "News",
     ]);
   });
+
+  test("cancels a pending category-order save when the hook unmounts", async () => {
+    FeedService.getCategoryOrder = mock(async () => []);
+    FeedService.saveCategoryOrder = mock(async () => {});
+
+    const { result, unmount } = renderHook(() =>
+      useCategoryOrderState({ usePlaceholderData: false }),
+    );
+
+    act(() => {
+      result.current.setOrderedCategoryLabels(["News", "Tech"]);
+    });
+
+    await runWithAct(async () => {
+      await Promise.resolve();
+    });
+
+    unmount();
+
+    await runWithAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+
+    expect(FeedService.saveCategoryOrder).not.toHaveBeenCalled();
+  });
 });
 
 // ─── useArticleActions ────────────────────────────────────────────────────────

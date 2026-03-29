@@ -9,6 +9,7 @@ import {
 import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
 import { useDashboardHandlers } from "@/app/dashboard/hooks/useDashboardHandlers";
 import { useDashboardState } from "@/app/dashboard/hooks/useDashboardState";
+import { AUTO_REFRESH_INTERVAL_STORAGE_KEY } from "@/app/dashboard/services/refresh-policy";
 import { ArticleService, type CategoryTreeNode } from "@/lib";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 
@@ -77,6 +78,20 @@ describe("useDashboardState", () => {
     expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(15);
     expect(result.current.categoriesRef.current).toEqual(result.current.categories);
     expect(result.current.feedRef.current).toEqual(result.current.feed);
+  });
+
+  test("writes back a normalized auto-refresh value when storage starts below the minimum", async () => {
+    window.localStorage.setItem(AUTO_REFRESH_INTERVAL_STORAGE_KEY, JSON.stringify(1));
+
+    const { result } = renderHook(() => useDashboardState());
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(AUTO_REFRESH_INTERVAL_STORAGE_KEY)).toBe(
+        JSON.stringify(result.current.autoRefreshIntervalMinutes),
+      );
+    });
+
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThan(1);
   });
 });
 
