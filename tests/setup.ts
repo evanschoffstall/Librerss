@@ -11,7 +11,32 @@ import * as realNextThemesModule from "next-themes";
 import * as realNextNavigationModule from "next/navigation";
 
 import * as realFeedListModule from "@/app/dashboard/components/feed/FeedList";
+import * as realSettingsAccountSectionModule from "@/app/dashboard/components/settings/SettingsAccountSection";
+import * as realSettingsDisplaySectionModule from "@/app/dashboard/components/settings/SettingsDisplaySection";
+import * as realSettingsFeedManagementSectionModule from "@/app/dashboard/components/settings/SettingsFeedManagementSection";
+import * as realSettingsPanelModule from "@/app/dashboard/components/settings/SettingsPanel";
+import * as realSettingsProxySectionModule from "@/app/dashboard/components/settings/SettingsProxySection";
 import * as realDashboardViewModule from "@/app/dashboard/DashboardView";
+import * as realUseCategoryCrudActionsModule from "@/app/dashboard/hooks/useCategoryCrudActions";
+import * as realUseCategoryOrderStateModule from "@/app/dashboard/hooks/useCategoryOrderState";
+import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/hooks/useDashboardCategoryTree";
+import * as realUseDashboardIntervalsModule from "@/app/dashboard/hooks/useDashboardIntervals";
+import * as realUseFeedSourceActionsModule from "@/app/dashboard/hooks/useFeedSourceActions";
+import * as realUseSettingsModalStateModule from "@/app/dashboard/hooks/useSettingsModalState";
+import * as realUseSettingsProxyStateModule from "@/app/dashboard/hooks/useSettingsProxyState";
+import * as realCategoryOperationsModule from "@/app/dashboard/services/category-operations";
+import * as realCategoryTreeModule from "@/app/dashboard/services/category-tree";
+import * as realFeedSourceOperationsModule from "@/app/dashboard/services/feed-source-operations";
+import * as realOpmlImportModule from "@/app/dashboard/services/opml-import";
+import * as realUiButtonModule from "@/components/ui/button";
+import * as realUiDialogModule from "@/components/ui/dialog";
+import * as realUiDrawerModule from "@/components/ui/drawer";
+import * as realUiDropdownMenuModule from "@/components/ui/dropdown-menu";
+import * as realUiInputModule from "@/components/ui/input";
+import * as realUiScrollAreaModule from "@/components/ui/scroll-area";
+import * as realUiSkeletonModule from "@/components/ui/skeleton";
+import * as realUiTabsModule from "@/components/ui/tabs";
+import * as realUiTooltipModule from "@/components/ui/tooltip";
 import * as realApiHttpModule from "@/lib/api/http";
 import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realConfigModule from "@/lib/config";
@@ -166,6 +191,70 @@ afterEach(() => {
     mock.module("@/lib/api/http", () => realApiHttpModule);
     mock.module("@/app/dashboard/DashboardView", () => realDashboardViewModule);
     mock.module("@/app/dashboard/components/feed/FeedList", () => realFeedListModule);
+    mock.module(
+      "@/app/dashboard/components/settings/SettingsAccountSection",
+      () => realSettingsAccountSectionModule,
+    );
+    mock.module(
+      "@/app/dashboard/components/settings/SettingsDisplaySection",
+      () => realSettingsDisplaySectionModule,
+    );
+    mock.module(
+      "@/app/dashboard/components/settings/SettingsFeedManagementSection",
+      () => realSettingsFeedManagementSectionModule,
+    );
+    mock.module(
+      "@/app/dashboard/components/settings/SettingsPanel",
+      () => realSettingsPanelModule,
+    );
+    mock.module(
+      "@/app/dashboard/components/settings/SettingsProxySection",
+      () => realSettingsProxySectionModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useSettingsModalState",
+      () => realUseSettingsModalStateModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useSettingsProxyState",
+      () => realUseSettingsProxyStateModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useCategoryCrudActions",
+      () => realUseCategoryCrudActionsModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useCategoryOrderState",
+      () => realUseCategoryOrderStateModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useDashboardCategoryTree",
+      () => realUseDashboardCategoryTreeModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useDashboardIntervals",
+      () => realUseDashboardIntervalsModule,
+    );
+    mock.module(
+      "@/app/dashboard/hooks/useFeedSourceActions",
+      () => realUseFeedSourceActionsModule,
+    );
+    mock.module(
+      "@/app/dashboard/services/category-operations",
+      () => realCategoryOperationsModule,
+    );
+    mock.module(
+      "@/app/dashboard/services/category-tree",
+      () => realCategoryTreeModule,
+    );
+    mock.module(
+      "@/app/dashboard/services/feed-source-operations",
+      () => realFeedSourceOperationsModule,
+    );
+    mock.module(
+      "@/app/dashboard/services/opml-import",
+      () => realOpmlImportModule,
+    );
     mock.module("@/lib/db/db", () => realDbModule);
     mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
     mock.module("@/lib/auth/session", () => realAuthSessionModule);
@@ -183,6 +272,18 @@ afterEach(() => {
     mock.module("@/lib/server", () => realServerModule);
     mock.module("@/lib/server/services", () => realServerServicesModule);
     mock.module("@/lib/utils/url", () => realUrlModule);
+    mock.module("@/components/ui/button", () => realUiButtonModule);
+    mock.module("@/components/ui/dialog", () => realUiDialogModule);
+    mock.module("@/components/ui/drawer", () => realUiDrawerModule);
+    mock.module(
+      "@/components/ui/dropdown-menu",
+      () => realUiDropdownMenuModule,
+    );
+    mock.module("@/components/ui/input", () => realUiInputModule);
+    mock.module("@/components/ui/scroll-area", () => realUiScrollAreaModule);
+    mock.module("@/components/ui/skeleton", () => realUiSkeletonModule);
+    mock.module("@/components/ui/tabs", () => realUiTabsModule);
+    mock.module("@/components/ui/tooltip", () => realUiTooltipModule);
     mock.module("next/navigation", () => realNextNavigationModule);
     mock.module("next-themes", () => realNextThemesModule);
   };

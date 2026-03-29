@@ -23,7 +23,8 @@ import {
   writeCompatibilityResultsCache,
 } from "../services/settings-proxy";
 
-interface UseSettingsProxyStateResult {
+/** Stable state contract consumed by the dashboard proxy settings surface. */
+export interface UseSettingsProxyStateResult {
   allowInsecureTls: boolean;
   compatibilityCheckedAt: null | number;
   compatibilityError: null | string;

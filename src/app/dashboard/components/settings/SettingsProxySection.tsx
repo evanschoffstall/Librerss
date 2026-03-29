@@ -21,39 +21,48 @@ import {
     TooltipTrigger
 } from "@/components/ui/tooltip";
 
-import { useSettingsProxyState } from "../../hooks/useSettingsProxyState";
+import {
+  useSettingsProxyState,
+  type UseSettingsProxyStateResult,
+} from "../../hooks/useSettingsProxyState";
 import { previewText } from "../../services/settings-proxy";
 import { MotionSpinner } from "../MotionSpinner";
 import { StatusBadge } from "./SettingsProxyBadges";
 import { SettingsProxyCompatibilityPanel } from "./SettingsProxyCompatibilityPanel";
 
 export function SettingsProxySection() {
-  const {
-    allowInsecureTls,
-    compatibilityCheckedAt,
-    compatibilityError,
-    compatibilityResults,
-    error,
-    handleClear,
-    handleRunCompatibilityCheck,
-    handleSave,
-    hasProxy,
-    hasProxyPassword,
-    inputRef,
-    isRunningCompatibilityCheck,
-    nowTs,
-    proxyPassword,
-    proxyStatus,
-    proxyUrl,
-    proxyUsername,
-    resultsRef,
-    saving,
-    setError,
-    setProxyPassword,
-    setProxyUrl,
-    setProxyUsername,
-    syncAllowInsecureTls,
-  } = useSettingsProxyState();
+  const proxyState = useSettingsProxyState();
+
+  return <SettingsProxySectionContent {...proxyState} />;
+}
+
+/** Renders the proxy settings surface from an already-owned proxy state model. */
+export function SettingsProxySectionContent({
+  allowInsecureTls,
+  compatibilityCheckedAt,
+  compatibilityError,
+  compatibilityResults,
+  error,
+  handleClear,
+  handleRunCompatibilityCheck,
+  handleSave,
+  hasProxy,
+  hasProxyPassword,
+  inputRef,
+  isRunningCompatibilityCheck,
+  nowTs,
+  proxyPassword,
+  proxyStatus,
+  proxyUrl,
+  proxyUsername,
+  resultsRef,
+  saving,
+  setError,
+  setProxyPassword,
+  setProxyUrl,
+  setProxyUsername,
+  syncAllowInsecureTls,
+}: UseSettingsProxyStateResult) {
 
   if (proxyStatus === "loading") return <ProxySkeleton />;
 
