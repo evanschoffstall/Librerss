@@ -84,6 +84,31 @@ describe("Auth API - Login", () => {
     expect(response.status).toBeGreaterThanOrEqual(400);
   });
 
+  test("POST /api/auth/login returns a logged error response when authentication throws", async () => {
+    mock.module("@/lib/auth/session", () => ({
+      authenticateCredentials: async () => {
+        throw new Error("login boom");
+      },
+      setSessionCookie: () => undefined,
+    }));
+
+    const { POST } = await import(
+      `@/app/api/auth/login/route?login-error=${Date.now()}`
+    );
+    const request = createMockRequest("https://example.com/api/auth/login", {
+      body: { email: "admin@admin.com", password: "admin" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Internal Server Error",
+    });
+  });
+
   test("POST /api/auth/login validates email format", async () => {
     const { POST } = await import("@/app/api/auth/login/route");
     const request = createMockRequest("https://example.com/api/auth/login", {
@@ -292,6 +317,25 @@ describe("Auth API - Session", () => {
     const response = await GET(request);
     expect(response.status).toBeLessThan(500);
   });
+
+  test("GET /api/auth/session returns a logged error response when session lookup throws", async () => {
+    mock.module("@/lib/auth/session", () => ({
+      getUserFromRequest: async () => {
+        throw new Error("session boom");
+      },
+    }));
+
+    const { GET } = await import(
+      `@/app/api/auth/session/route?session-error=${Date.now()}`
+    );
+    const request = createMockRequest("https://example.com/api/auth/session");
+    const response = await GET(request);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Internal Server Error",
+    });
+  });
 });
 
 // ── Coverage: success paths and previously-uncovered branches ─────────────────
@@ -345,29 +389,25 @@ describe("Auth API - Logout with session cookie", () => {
 
 describe("Auth API - Session authenticated path", () => {
   test("GET /api/auth/session returns authenticated user when session is valid", async () => {
-    // Activate placeholder mode by temporarily removing DATABASE_URL.
-    const prevDbUrl = process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL;
-    try {
-      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
-      const { GET } = await import("@/app/api/auth/session/route");
-      const request = createMockRequest(
-        "https://example.com/api/auth/session",
-        {
-          cookies: { librerss_session: PLACEHOLDER_ADMIN_USER.sessionToken },
-        },
-      );
-      const response = await GET(request);
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body.authenticated).toBe(true);
-      expect(body.user.email).toBe(PLACEHOLDER_ADMIN_USER.email);
-    } finally {
-      if (prevDbUrl === undefined) {
-        delete process.env.DATABASE_URL;
-      } else {
-        process.env.DATABASE_URL = prevDbUrl;
-      }
-    }
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+
+    mock.module("@/lib/auth/session", () => ({
+      getUserFromRequest: async () => ({
+        email: PLACEHOLDER_ADMIN_USER.email,
+        userId: PLACEHOLDER_ADMIN_USER.id,
+      }),
+    }));
+
+    const { GET } = await import(
+      `@/app/api/auth/session/route?session-authenticated=${Date.now()}`
+    );
+    const request = createMockRequest("https://example.com/api/auth/session", {
+      cookies: { librerss_session: PLACEHOLDER_ADMIN_USER.sessionToken },
+    });
+    const response = await GET(request);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.authenticated).toBe(true);
+    expect(body.user.email).toBe(PLACEHOLDER_ADMIN_USER.email);
   });
 });
