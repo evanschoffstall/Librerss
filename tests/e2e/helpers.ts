@@ -16,7 +16,6 @@ const NEXT_JS_CONSOLE_ERROR_PATTERN =
 const NEXT_JS_OVERLAY_ERROR_PATTERN =
   /(?:Build Error|Runtime Error|Unhandled Runtime Error)/iu;
 const PLAYWRIGHT_SENTINEL_STORAGE_KEY = "librerss:playwright-sentinel";
-
 export interface NextJsErrorMonitor {
   assertNoNextJsErrors: () => Promise<void>;
   dispose: () => void;

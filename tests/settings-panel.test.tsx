@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { createContext, useContext, useState } from "react";
 
@@ -120,9 +120,36 @@ mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
   useSettingsModalState: () => ({}),
 }));
 
- 
-const { SettingsPanel } = require("@/app/dashboard/components/settings/SettingsPanel") as typeof import("@/app/dashboard/components/settings/SettingsPanel");
- 
+mock.module("@/app/dashboard/hooks/useSettingsProxyState", () => ({
+  useSettingsProxyState: () => ({
+    allowInsecureTls: false,
+    compatibilityCheckedAt: null,
+    compatibilityError: null,
+    compatibilityResults: null,
+    error: null,
+    handleClear: async () => {},
+    handleRunCompatibilityCheck: async () => {},
+    handleSave: async () => {},
+    hasProxy: false,
+    hasProxyPassword: false,
+    inputRef: { current: null },
+    isRunningCompatibilityCheck: false,
+    nowTs: 0,
+    proxyPassword: "",
+    proxyStatus: "none",
+    proxyUrl: "",
+    proxyUsername: "",
+    resultsRef: { current: null },
+    saving: false,
+    setAllowInsecureTls: () => false,
+    setError: () => false,
+    setProxyPassword: () => false,
+    setProxyUrl: () => false,
+    setProxyUsername: () => false,
+    syncAllowInsecureTls: async () => {},
+  }),
+}));
+
 afterEach(() => {
   mock.restore();
 });
@@ -145,7 +172,11 @@ const TEST_CATEGORIES: CategoryTreeNode[] = [
   },
 ];
 
-function renderPanel(overrides: Partial<Parameters<typeof SettingsPanel>[0]> = {}) {
+async function renderPanel(overrides: Record<string, unknown> = {}) {
+  const { SettingsPanel } = await import(
+    `@/app/dashboard/components/settings/SettingsPanel?test=${Date.now()}-${Math.random()}`
+  );
+
   const defaultProps = {
     articlesPerPage: 12,
     autoRefreshIntervalMinutes: 30,
@@ -199,16 +230,16 @@ function renderPanel(overrides: Partial<Parameters<typeof SettingsPanel>[0]> = {
 }
 
 describe("SettingsPanel", () => {
-  test("renders the Display tab by default", () => {
-    const { getByRole } = renderPanel();
+  test("renders the Display tab by default", async () => {
+    const { getByRole } = await renderPanel();
 
     const displayTab = getByRole("tab", { name: /display/i });
     expect(displayTab).toBeDefined();
     expect(displayTab.getAttribute("data-state")).toBe("active");
   });
 
-  test("renders all four tabs when not in preview mode", () => {
-    const { getByRole } = renderPanel();
+  test("renders all four tabs when not in preview mode", async () => {
+    const { getByRole } = await renderPanel();
 
     expect(getByRole("tab", { name: /display/i })).toBeDefined();
     expect(getByRole("tab", { name: /feeds/i })).toBeDefined();
@@ -216,8 +247,8 @@ describe("SettingsPanel", () => {
     expect(getByRole("tab", { name: /account/i })).toBeDefined();
   });
 
-  test("hides Account tab in preview mode", () => {
-    const { queryByRole } = renderPanel({ isPreviewMode: true });
+  test("hides Account tab in preview mode", async () => {
+    const { queryByRole } = await renderPanel({ isPreviewMode: true });
 
     expect(queryByRole("tab", { name: /account/i })).toBeNull();
     expect(queryByRole("tab", { name: /display/i })).toBeDefined();
@@ -225,9 +256,20 @@ describe("SettingsPanel", () => {
     expect(queryByRole("tab", { name: /network/i })).toBeDefined();
   });
 
-  test("calls onClose when the dialog close button is clicked", () => {
+  test("keeps the Network tab mounted behind the preview overlay", async () => {
+    const { getByPlaceholderText, getByRole, getByText } = await renderPanel({
+      isPreviewMode: true,
+    });
+
+    fireEvent.click(getByRole("tab", { name: /network/i }));
+
+    expect(getByText(/not available in demo mode/i)).toBeDefined();
+    expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
+  });
+
+  test("calls onClose when the dialog close button is clicked", async () => {
     const onClose = mock(noop);
-    const { container } = renderPanel({ onClose });
+    const { container } = await renderPanel({ onClose });
 
     /*
      * The desktop Dialog uses Radix's built-in close, which our lightweight
@@ -237,8 +279,8 @@ describe("SettingsPanel", () => {
     expect(container.querySelector("[data-testid='dialog-root']")).toBeDefined();
   });
 
-  test("only one tab is active at a time", () => {
-    const { getAllByRole } = renderPanel();
+  test("only one tab is active at a time", async () => {
+    const { getAllByRole } = await renderPanel();
 
     const tabs = getAllByRole("tab");
     const activeTabs = tabs.filter(
@@ -248,8 +290,8 @@ describe("SettingsPanel", () => {
     expect(activeTabs[0].textContent).toContain("Display");
   });
 
-  test("tab panels have correct accessibility roles", () => {
-    const { getByRole } = renderPanel();
+  test("tab panels have correct accessibility roles", async () => {
+    const { getByRole } = await renderPanel();
 
     expect(getByRole("tablist")).toBeDefined();
     expect(getByRole("tabpanel")).toBeDefined();

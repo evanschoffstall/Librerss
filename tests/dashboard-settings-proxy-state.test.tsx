@@ -1,7 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { useSettingsProxyState } from "@/app/dashboard/hooks/useSettingsProxyState";
 import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/services/settings-proxy";
 import { ArticleService } from "@/lib";
 
@@ -26,6 +25,14 @@ function createDeferred<Value>() {
   });
 
   return { promise, reject, resolve };
+}
+
+async function loadUseSettingsProxyState() {
+  return (
+    await import(
+      `@/app/dashboard/hooks/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
+    )
+  ).useSettingsProxyState;
 }
 
 function makeCompatibilityResponse(
@@ -101,6 +108,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("loads proxy settings and restores a cached compatibility result set", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     const checkedAt = Date.now() - 15_000;
     window.localStorage.setItem(
       COMPATIBILITY_RESULTS_CACHE_KEY,
@@ -152,6 +160,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("falls back to no proxy when the initial settings request fails", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     ArticleService.getProxySettings = mock(async () => {
       throw new Error("boom");
     }) as typeof ArticleService.getProxySettings;
@@ -171,6 +180,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("ignores a stale initial settings load after a newer save succeeds", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     const initialLoad = createDeferred<ProxySettingsResponse>();
 
     ArticleService.getProxySettings = mock(
@@ -210,6 +220,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("saves a trimmed proxy URL, clears cached compatibility results, and resets the password field", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     window.localStorage.setItem(
       COMPATIBILITY_RESULTS_CACHE_KEY,
       JSON.stringify({ checkedAt: 1, results: [{ compatibilitySignalDetected: false, success: true, vendor: "Old" }] }),
@@ -262,6 +273,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("clears saved proxy settings and exposes clear errors without losing the current value", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     ArticleService.getProxySettings = mock(async () =>
       makeProxySettings({
         configured: true,
@@ -317,6 +329,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("runs compatibility checks, caches results, and reports errors", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     const { result } = renderHook(() => useSettingsProxyState());
 
     await waitFor(() => {
@@ -367,6 +380,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("keeps the newest compatibility results when checks finish out of order", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     const firstCheck = createDeferred<ProxyCompatibilityResponse>();
     const secondCheck = createDeferred<ProxyCompatibilityResponse>();
     let invocationCount = 0;
@@ -431,6 +445,7 @@ describe("useSettingsProxyState", () => {
   });
 
   test("persists insecure TLS updates for saved proxies and rolls back failed saves", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
     ArticleService.getProxySettings = mock(async () =>
       makeProxySettings({
         configured: true,
