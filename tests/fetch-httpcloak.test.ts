@@ -1,7 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as zlib from "zlib";
 
-import { createBrowserHeaders } from "@/lib/fetch/browser-headers";
 import {
   fetchHtmlWithHttpCloak,
   upstreamAxios,
@@ -14,20 +13,29 @@ describe("fetch/httpcloak-client", () => {
     expect(typeof upstreamAxios.get).toBe("function");
   });
 
-  test("builds browser-like headers with optional overrides", () => {
-    const defaultHeaders = createBrowserHeaders();
-    expect(defaultHeaders.Accept).toBeTruthy();
-    expect(defaultHeaders["Sec-Fetch-Site"]).toBe("none");
-
-    const overriddenHeaders = createBrowserHeaders({
-      accept: "text/html",
-      referer: "https://ref.example.com/article",
-      secChUa: '"Chromium";v="131"',
+  test("does not inject custom request headers into httpcloak", async () => {
+    let capturedHeaders: Record<string, string> | undefined;
+    const requestFn = mock(async (_url: URL, headers: Record<string, string>) => {
+      capturedHeaders = headers;
+      return {
+        body: "<html>ok</html>",
+        headers: {} as Record<string, string | string[] | undefined>,
+        statusCode: 200,
+      };
     });
-    expect(overriddenHeaders.Accept).toBe("text/html");
-    expect(overriddenHeaders.Referer).toBe("https://ref.example.com/article");
-    expect(overriddenHeaders["Sec-Ch-Ua"]).toBe('"Chromium";v="131"');
-    expect(overriddenHeaders["Sec-Fetch-Site"]).toBe("cross-site");
+
+    const result = await fetchHtmlWithHttpCloak(
+      "https://example.com/article",
+      async () => true,
+      {
+        allowInsecureTls: true,
+        proxyUrl: "socks5://proxy.example:1080",
+      },
+      { requestFn },
+    );
+
+    expect(result.html).toBe("<html>ok</html>");
+    expect(capturedHeaders).toEqual({});
   });
 
   test("rejects blocked redirect targets", async () => {
@@ -120,10 +128,7 @@ describe("fetch/httpcloak-client", () => {
       await fetchHtmlWithHttpCloak(
         "https://example.com/challenge",
         async () => true,
-        {
-          accept: "application/json",
-          referer: "https://duckduckgo.com/?q=challenge&ia=web",
-        },
+        undefined,
         { requestFn },
       );
       expect.unreachable("Expected fetchHtmlWithHttpCloak to throw");
@@ -134,10 +139,7 @@ describe("fetch/httpcloak-client", () => {
       expect(gotScrapingError.statusCode).toBe(403);
       expect(gotScrapingError.responseBody).toBe(responseBody);
       expect(gotScrapingError.responseHeaders["cf-ray"]).toBe("abc123");
-      expect(gotScrapingError.requestHeaders.Accept).toBe("application/json");
-      expect(gotScrapingError.requestHeaders.Referer).toContain(
-        "duckduckgo.com",
-      );
+      expect(gotScrapingError.requestHeaders).toEqual({});
     }
   });
 });

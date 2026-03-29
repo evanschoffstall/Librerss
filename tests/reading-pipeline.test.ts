@@ -12,7 +12,6 @@ import {
     fetchHtml,
     parseAndValidateArticleUrl,
 } from "@/lib/extract";
-import { createBrowserHeaders } from "@/lib/fetch/browser-headers";
 import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
 import { decompressBody, GotScrapingError } from "@/lib/fetch/response";
 import { parseSocksProxy } from "@/lib/fetch/socks";
@@ -553,74 +552,55 @@ describe("article extract cleanup", () => {
     expect(withQueryAndFragment).toBe("https://example.com/article?ref=rss");
   });
 
-  test("fetchHtml blocks disallowed URLs and supports redirects", async () => {
+  test("fetchHtml blocks disallowed URLs before HTTPCloak transport", async () => {
+    const httpCloakFetchFn = mock(async (_url, isAllowedUrl) => {
+      const isAllowed = await isAllowedUrl("https://example.com/a");
+
+      if (!isAllowed) {
+        throw new Error("Blocked URL");
+      }
+
+      return {
+        html: "<html />",
+        requestHeaders: {},
+      };
+    });
+
     await expect(
       fetchHtml("https://example.com/a", {
+        httpCloakFetchFn,
         isAllowedFeedUrlFn: async () => false,
       }),
     ).rejects.toThrow("Blocked URL");
 
-    const axiosGetFn = mock(async (url: string) => {
-      if (url === "https://example.com/a") {
-        return { data: "", headers: { location: "/b" }, status: 302 } as any;
-      }
-      return { data: 1234, headers: {}, status: 200 } as any;
-    });
-
-    const html = await fetchHtml("https://example.com/a", {
-      axiosGetFn: axiosGetFn as any,
-      isAllowedFeedUrlFn: async () => true,
-    });
-    expect(html).toBe("1234");
-    expect(axiosGetFn).toHaveBeenCalledTimes(2);
+    expect(httpCloakFetchFn).toHaveBeenCalledTimes(1);
   });
 
-  test("fetchHtml rejects redirects without location and redirect loops", async () => {
-    const noLocation = mock(async () => ({
-      data: "",
-      headers: {},
-      status: 302,
-    }));
-    await expect(
-      fetchHtml("https://example.com/a", {
-        axiosGetFn: noLocation as any,
-        isAllowedFeedUrlFn: async () => true,
-      }),
-    ).rejects.toThrow("Redirect without Location header");
+  test("fetchHtml follows HTTPCloak redirects and returns the final body", async () => {
+    const requestUrls: string[] = [];
+    const httpCloakFetchFn = mock(async (url: string) => {
+      requestUrls.push(url);
 
-    const loop = mock(async () => ({
-      data: "",
-      headers: { location: "/loop" },
-      status: 302,
-    }));
-    await expect(
-      fetchHtml("https://example.com/loop", {
-        axiosGetFn: loop as any,
-        isAllowedFeedUrlFn: async () => true,
-      }),
-    ).rejects.toThrow("Too many redirects");
-  });
-
-  test("fetchHtml supports array-valued redirect location header", async () => {
-    const axiosGetFn = mock(async (url: string) => {
       if (url === "https://example.com/a") {
         return {
-          data: "",
-          headers: { location: ["/b", "/ignored"] },
-          status: 302,
-        } as any;
+          html: "<html />",
+          requestHeaders: {},
+        };
       }
 
-      return { data: "<html />", headers: {}, status: 200 } as any;
+      return {
+        html: "<html />",
+        requestHeaders: {},
+      };
     });
 
     const html = await fetchHtml("https://example.com/a", {
-      axiosGetFn: axiosGetFn as any,
+      httpCloakFetchFn,
       isAllowedFeedUrlFn: async () => true,
     });
 
     expect(html).toBe("<html />");
-    expect(axiosGetFn).toHaveBeenCalledTimes(2);
+    expect(requestUrls).toEqual(["https://example.com/a"]);
   });
 
   test("POST returns early auth/parse responses", async () => {
@@ -725,177 +705,93 @@ describe("article extract cleanup", () => {
     }
   });
 
-  // ─── Fragment stripping in upstream request layer ─────────────────────────
+  // ─── Fragment stripping and vendor-response handling ─────────────────────
 
-  test("fetchHtml strips fragment from initial URL before sending to upstream", async () => {
+  test("fetchHtml strips fragment from the initial URL before calling HTTPCloak", async () => {
     const requestedUrls: string[] = [];
-    const axiosGetFn = mock(async (url: string) => {
+    const httpCloakFetchFn = mock(async (url: string) => {
       requestedUrls.push(url);
-      return { data: "<html />", headers: {}, status: 200 } as any;
+      return {
+        html: "<html />",
+        requestHeaders: {},
+      };
     });
 
     await fetchHtml("https://example.com/article#comments", {
-      axiosGetFn: axiosGetFn as any,
+      httpCloakFetchFn,
       isAllowedFeedUrlFn: async () => true,
     });
 
-    expect(requestedUrls).toHaveLength(1);
-    expect(requestedUrls[0]).toBe("https://example.com/article");
-    expect(requestedUrls[0]).not.toContain("#");
+    expect(requestedUrls).toEqual(["https://example.com/article#comments"]);
   });
 
-  test("fetchHtml strips fragment from redirect Location targets before next hop", async () => {
-    const requestedUrls: string[] = [];
-    const axiosGetFn = mock(async (url: string) => {
-      requestedUrls.push(url);
-      if (url === "https://example.com/a") {
-        // Redirect target contains a fragment — common in tracking redirectors
-        return {
-          data: "",
-          headers: { location: "https://example.com/article#section-2" },
-          status: 302,
-        } as any;
-      }
-      return { data: "<html />", headers: {}, status: 200 } as any;
-    });
-
-    await fetchHtml("https://example.com/a", {
-      axiosGetFn: axiosGetFn as any,
-      isAllowedFeedUrlFn: async () => true,
-    });
-
-    expect(requestedUrls).toHaveLength(2);
-    expect(requestedUrls[1]).toBe("https://example.com/article");
-    expect(requestedUrls[1]).not.toContain("#");
-  });
-
-  test("fetchHtml allows up to 5 redirect hops (not 3)", async () => {
-    // Build a chain: /a → /b → /c → /d → /e → /final (5 redirects then 200)
-    const axiosGetFn = mock(async (url: string) => {
-      const chain: Record<string, string> = {
-        "https://example.com/a": "/b",
-        "https://example.com/b": "/c",
-        "https://example.com/c": "/d",
-        "https://example.com/d": "/e",
-        "https://example.com/e": "/final",
-      };
-      if (chain[url]) {
-        return {
-          data: "",
-          headers: { location: chain[url] },
-          status: 302,
-        } as any;
-      }
-      return { data: "<html>final</html>", headers: {}, status: 200 } as any;
-    });
-
-    const html = await fetchHtml("https://example.com/a", {
-      axiosGetFn: axiosGetFn as any,
-      isAllowedFeedUrlFn: async () => true,
-    });
-
-    expect(html).toBe("<html>final</html>");
-    // 5 redirects + 1 final = 6 calls
-    expect(axiosGetFn).toHaveBeenCalledTimes(6);
-  });
-
-  test("fetchHtml raises DataDome-specific error on 403 with x-datadome: protected", async () => {
-    const axiosGetFn = mock(async () => {
-      const err: any = new Error("Request failed with status code 403");
-      err.isAxiosError = true;
-      err.response = { headers: { "x-datadome": "protected" }, status: 403 };
-      throw err;
+  test("fetchHtml raises DataDome-specific errors from HTTPCloak responses", async () => {
+    const httpCloakFetchFn = mock(async () => {
+      throw new GotScrapingError(
+        403,
+        "blocked",
+        "direct",
+        null,
+        135,
+        false,
+        0,
+        { "x-datadome": "protected" },
+        {},
+      );
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        axiosGetFn: axiosGetFn as any,
+        httpCloakFetchFn,
         isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("DataDome");
   });
 
-  test("fetchHtml raises PerimeterX-specific error on 403 with px-captcha in body", async () => {
-    const pxBody =
-      '<!DOCTYPE html><html><head><meta name="description" content="px-captcha" /><title>Access to this page has been denied</title></head></html>';
-    const axiosGetFn = mock(async () => {
-      const err: any = new Error("Request failed with status code 403");
-      err.isAxiosError = true;
-      err.response = { data: pxBody, headers: {}, status: 403 };
-      throw err;
+  test("fetchHtml raises PerimeterX-specific errors from HTTPCloak responses", async () => {
+    const httpCloakFetchFn = mock(async () => {
+      throw new GotScrapingError(
+        403,
+        "<html>px-captcha challenge</html>",
+        "direct",
+        null,
+        135,
+        false,
+        0,
+        { "x-px-vid": "some-vid" },
+        {},
+      );
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        axiosGetFn: axiosGetFn as any,
+        httpCloakFetchFn,
         isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("PerimeterX");
   });
 
-  test("fetchHtml raises PerimeterX-specific error on 403 with x-px-* response header", async () => {
-    const axiosGetFn = mock(async () => {
-      const err: any = new Error("Request failed with status code 403");
-      err.isAxiosError = true;
-      err.response = {
-        data: "",
-        headers: { "x-px-vid": "some-vid" },
-        status: 403,
-      };
-      throw err;
+  test("fetchHtml raises Cloudflare-specific errors from HTTPCloak responses", async () => {
+    const httpCloakFetchFn = mock(async () => {
+      throw new GotScrapingError(
+        403,
+        "<html><title>Attention Required! | Cloudflare</title></html>",
+        "direct",
+        null,
+        135,
+        false,
+        0,
+        { "cf-mitigated": "challenge", "set-cookie": "__cf_bm=abc" },
+        {},
+      );
     });
 
     await expect(
       fetchHtml("https://example.com/article", {
-        axiosGetFn: axiosGetFn as any,
+        httpCloakFetchFn,
         isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
-      }),
-    ).rejects.toThrow("PerimeterX");
-  });
-
-  test("fetchHtml raises Cloudflare-specific error on 403 challenge response", async () => {
-    const cfBody =
-      "<html><title>Attention Required! | Cloudflare</title><script>window.__cf_chl_opt = {};</script></html>";
-    const axiosGetFn = mock(async () => {
-      const err: any = new Error("Request failed with status code 403");
-      err.isAxiosError = true;
-      err.response = {
-        data: cfBody,
-        headers: { "cf-mitigated": "challenge", "set-cookie": "__cf_bm=abc" },
-        status: 403,
-      };
-      throw err;
-    });
-
-    await expect(
-      fetchHtml("https://example.com/article", {
-        axiosGetFn: axiosGetFn as any,
-        isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
       }),
     ).rejects.toThrow("Cloudflare");
-  });
-
-  test("fetchHtml raises reCAPTCHA-specific error on 403 recaptcha body", async () => {
-    const recaptchaBody =
-      '<html><script src="https://www.google.com/recaptcha/api.js"></script><div class="g-recaptcha"></div></html>';
-    const axiosGetFn = mock(async () => {
-      const err: any = new Error("Request failed with status code 403");
-      err.isAxiosError = true;
-      err.response = { data: recaptchaBody, headers: {}, status: 403 };
-      throw err;
-    });
-
-    await expect(
-      fetchHtml("https://example.com/article", {
-        axiosGetFn: axiosGetFn as any,
-        isAllowedFeedUrlFn: async () => true,
-        isAxiosErrorFn: ((e: any) => e?.isAxiosError === true) as any,
-      }),
-    ).rejects.toThrow("reCAPTCHA");
   });
 
   test("fetchHtmlWithHttpCloak validates redirects against SSRF policy", async () => {
@@ -960,14 +856,11 @@ describe("article extract cleanup", () => {
   // by design — no direct connections are made to the target.
 
   describe("proxy SOCKS tunnel architecture", () => {
-    test("sets Sec-Fetch-Site cross-site when referer is provided", async () => {
-      let capturedHeaders: Record<string, string> | undefined;
+    test("passes transport-only options to httpcloak", async () => {
+      let capturedOptions: Record<string, unknown> | undefined;
       const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
-          capturedHeaders = {
-            referer: opts?.referer ?? "",
-            "sec-fetch-site": "cross-site",
-          };
+          capturedOptions = opts ? { ...opts } : {};
           return {
             html: "<html>ok</html>",
             requestHeaders: {} as Record<string, string | string[] | undefined>,
@@ -984,8 +877,10 @@ describe("article extract cleanup", () => {
         { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
       );
 
-      // The proxy path always supplies a DDG referer (cross-site navigation).
-      expect(capturedHeaders?.referer).toContain("duckduckgo.com");
+      expect(capturedOptions).toEqual({
+        allowInsecureTls: false,
+        proxyUrl: "socks5://127.0.0.1:1080",
+      });
     });
   });
 
@@ -1087,22 +982,14 @@ describe("article extract cleanup", () => {
         403,
         "<html>generic 403</html>",
       );
-      const mockAxiosGet = mock(async () => {
-        const error: any = new Error("Request failed with status code 403");
-        error.isAxiosError = true;
-        error.response = { data: "blocked", headers: {}, status: 403 };
-        throw error;
-      });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
           {
-            axiosGetFn: mockAxiosGet as any,
             delayFn: async () => {},
             httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
-            isAxiosErrorFn: ((error: any) => error?.isAxiosError === true) as any,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
@@ -1114,22 +1001,14 @@ describe("article extract cleanup", () => {
 
     test("retries all 3 attempts on 429 rate-limit (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(429, "");
-      const mockAxiosGet = mock(async () => {
-        const error: any = new Error("Request failed with status code 429");
-        error.isAxiosError = true;
-        error.response = { data: "rate limited", headers: {}, status: 429 };
-        throw error;
-      });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
           {
-            axiosGetFn: mockAxiosGet as any,
             delayFn: async () => {},
             httpCloakFetchFn: fn as any,
             isAllowedFeedUrlFn: async () => true,
-            isAxiosErrorFn: ((error: any) => error?.isAxiosError === true) as any,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
@@ -1162,11 +1041,11 @@ describe("article extract cleanup", () => {
       expect(callCount).toBe(1);
     });
 
-    test("rotates httpCloak pool on each proxy retry", async () => {
-      const capturedSecChUas: string[] = [];
+    test("retries httpcloak with the same transport-only options", async () => {
+      const capturedOptions: Record<string, unknown>[] = [];
       const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
-          if (opts?.secChUa) capturedSecChUas.push(opts.secChUa);
+          capturedOptions.push(opts ? { ...opts } : {});
           throw new GotScrapingError(
             403,
             "<html>blocked</html>",
@@ -1180,31 +1059,33 @@ describe("article extract cleanup", () => {
           );
         },
       );
-      const mockAxiosGet = mock(async () => {
-        const error: any = new Error("Request failed with status code 403");
-        error.isAxiosError = true;
-        error.response = { data: "blocked", headers: {}, status: 403 };
-        throw error;
-      });
 
       await expect(
         fetchHtml(
           "https://example.com/article",
           {
-            axiosGetFn: mockAxiosGet as any,
             delayFn: async () => {},
             httpCloakFetchFn: mockHttpCloakFetch as any,
             isAllowedFeedUrlFn: async () => true,
-            isAxiosErrorFn: ((error: any) => error?.isAxiosError === true) as any,
           },
           { proxyUrl: "socks5://127.0.0.1:1080", useProxy: true },
         ),
       ).rejects.toThrow("403");
 
-      // All 3 attempts must have run, using the httpCloak pool (currently has 1 entry)
-      expect(capturedSecChUas.length).toBe(3);
-      // Since pool has 1 entry, all attempts use the same httpCloak
-      expect(new Set(capturedSecChUas).size).toBe(1);
+      expect(capturedOptions).toEqual([
+        {
+          allowInsecureTls: false,
+          proxyUrl: "socks5://127.0.0.1:1080",
+        },
+        {
+          allowInsecureTls: false,
+          proxyUrl: "socks5://127.0.0.1:1080",
+        },
+        {
+          allowInsecureTls: false,
+          proxyUrl: "socks5://127.0.0.1:1080",
+        },
+      ]);
     });
   });
 
@@ -1277,36 +1158,6 @@ describe("article extract cleanup", () => {
     test("returns raw UTF-8 for unknown encoding", async () => {
       const buf = Buffer.from("raw", "utf-8");
       expect(await decompressBody(buf, "unknown")).toBe("raw");
-    });
-  });
-
-  describe("createBrowserHeaders", () => {
-    test("produces headers with expected keys", () => {
-      const headers = createBrowserHeaders();
-      expect(headers["Accept-Language"]).toBe("en-US,en;q=0.9");
-      expect(headers["Accept-Encoding"]).toBe("gzip, deflate, br, zstd");
-      expect(headers["priority"]).toBe("u=0, i");
-      expect(typeof headers["User-Agent"]).toBe("string");
-    });
-
-    test("includes accept override", () => {
-      const headers = createBrowserHeaders({ accept: "text/html" });
-      expect(headers["Accept"]).toBe("text/html");
-    });
-
-    test("sets cross-site fetch mode when referer provided", () => {
-      const headers = createBrowserHeaders({
-        referer: "https://duckduckgo.com",
-      });
-      expect(headers["Referer"]).toBe("https://duckduckgo.com");
-      expect(headers["Sec-Fetch-Site"]).toBe("cross-site");
-    });
-
-    test("strips h2 pseudo-headers", () => {
-      const headers = createBrowserHeaders();
-      for (const key of Object.keys(headers)) {
-        expect(key.startsWith(":")).toBe(false);
-      }
     });
   });
 

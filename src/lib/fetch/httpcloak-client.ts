@@ -8,7 +8,6 @@ import {
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
 
-import { createBrowserHeaders } from "./browser-headers";
 import { CHROME } from "./constants";
 import { GotScrapingError, pickDiagnosticHeaders } from "./response";
 
@@ -19,13 +18,14 @@ interface HttpCloakFetchDeps {
 }
 
 interface HttpCloakFetchOptions {
-  accept?: string;
   allowInsecureTls?: boolean;
   proxyUrl?: string;
-  referer?: string;
-  secChUa?: string;
 }
 
+/**
+ * Fetch article HTML through HTTPCloak without layering on custom browser
+ * headers that would override the transport's own profile handling.
+ */
 export async function fetchHtmlWithHttpCloak(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -41,11 +41,7 @@ export async function fetchHtmlWithHttpCloak(
     {
       allowInsecureTls,
       browserPreset: "chrome-latest",
-      headers: createBrowserHeaders({
-        accept: options?.accept,
-        referer: options?.referer,
-        secChUa: options?.secChUa,
-      }),
+      headers: {},
       maxRedirects: 5,
       proxyUrl: options?.proxyUrl,
       timeoutMs: 25_000,

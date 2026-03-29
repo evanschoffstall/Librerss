@@ -301,28 +301,29 @@ describe("feed-parser", () => {
 // ─── Feed HTTP ────────────────────────────────────────────────────────────────
 
 describe("feed-http", () => {
-  test("fetchFeedXml validates URL, forwards request options, and follows validated redirects", async () => {
+  test("fetchFeedXml validates URL and follows validated redirects through HTTPCloak", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
 
     const assertPublicFeedUrlFn = mock(async () => {});
-    let requestOptions: any;
-    const axiosGetFn = mock(async (requestUrl: string, options: unknown) => {
-      requestOptions = options;
-
-      if (requestUrl === "https://example.com/feed.xml") {
+    const httpCloakRequestFn = mock(async (requestUrl: URL) => {
+      if (requestUrl.href === "https://example.com/feed.xml") {
         return {
-          data: "",
+          body: "",
           headers: { location: "/redirected.xml" },
-          status: 302,
+          statusCode: 302,
         };
       }
 
-      return { data: "<rss />", headers: {}, status: 200 };
+        return {
+          body: "<rss />",
+          headers: {},
+          statusCode: 200,
+        };
     });
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
       assertPublicFeedUrlFn,
-      axiosGetFn: axiosGetFn as any,
+      httpCloakRequestFn,
     });
 
     expect(result).toBe("<rss />");
@@ -332,10 +333,7 @@ describe("feed-http", () => {
     expect(assertPublicFeedUrlFn).toHaveBeenCalledWith(
       "https://example.com/redirected.xml",
     );
-    expect(requestOptions.timeout).toBeGreaterThan(0);
-    expect(requestOptions.maxRedirects).toBe(0);
-    expect(requestOptions.validateStatus(302)).toBe(true);
-    expect(requestOptions.validateStatus(400)).toBe(false);
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(2);
   });
 
   test("fetchFeedXml fails on redirects without location and redirect loops", async () => {
@@ -344,10 +342,10 @@ describe("feed-http", () => {
     await expect(
       fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
-        axiosGetFn: (async () => ({
-          data: "",
+        httpCloakRequestFn: (async () => ({
+          body: "",
           headers: {},
-          status: 302,
+          statusCode: 302,
         })) as any,
       }),
     ).rejects.toThrow("Redirect without Location header");
@@ -355,76 +353,31 @@ describe("feed-http", () => {
     await expect(
       fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
-        axiosGetFn: (async () => ({
-          data: "",
+        httpCloakRequestFn: (async () => ({
+          body: "",
           headers: { location: "/loop" },
-          status: 302,
+          statusCode: 302,
         })) as any,
       }),
     ).rejects.toThrow("Too many redirects");
   });
 
-  test("fetchFeedXml coerces non-string response data", async () => {
+  test("fetchFeedXml decodes plain text bodies from HTTPCloak", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
       assertPublicFeedUrlFn: async () => {},
-      axiosGetFn: (async () => ({ data: 12345 })) as any,
+      httpCloakRequestFn: (async () => ({
+        body: Buffer.from("12345", "utf8"),
+        headers: {},
+        statusCode: 200,
+      })) as any,
     });
 
     expect(result).toBe("12345");
   });
 
-  test("fetchFeedXml uses httpcloak first when provided", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
-
-    const httpCloakRequestFn = mock(async () => ({
-      body: "<rss>cloak</rss>",
-      headers: {},
-      statusCode: 200,
-    }));
-    const axiosGetFn = mock(async () => ({
-      data: "<rss>axios</rss>",
-      status: 200,
-    }));
-
-    const result = await fetchFeedXml("https://example.com/feed.xml", {
-      assertPublicFeedUrlFn: async () => {},
-      axiosGetFn: axiosGetFn as any,
-      httpCloakRequestFn,
-    });
-
-    expect(result).toBe("<rss>cloak</rss>");
-    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
-    expect(axiosGetFn).not.toHaveBeenCalled();
-  });
-
-  test("fetchFeedXml falls back to axios when httpcloak returns a non-2xx response", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
-
-    const httpCloakRequestFn = mock(async () => ({
-      body: "blocked",
-      headers: { server: "edge" },
-      statusCode: 503,
-    }));
-    const axiosGetFn = mock(async () => ({
-      data: "<rss>axios</rss>",
-      headers: {},
-      status: 200,
-    }));
-
-    const result = await fetchFeedXml("https://example.com/feed.xml", {
-      assertPublicFeedUrlFn: async () => {},
-      axiosGetFn: axiosGetFn as any,
-      httpCloakRequestFn,
-    });
-
-    expect(result).toBe("<rss>axios</rss>");
-    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
-    expect(axiosGetFn).toHaveBeenCalledTimes(1);
-  });
-
-  test("fetchFeedXml decodes compressed httpcloak feed responses", async () => {
+  test("fetchFeedXml decodes compressed HTTPCloak feed responses", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
 
     const httpCloakRequestFn = mock(async () => ({
@@ -444,46 +397,36 @@ describe("feed-http", () => {
     expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
   });
 
-  test("fetchFeedXml maps DataDome 403 errors to a descriptive message", async () => {
+  test("fetchFeedXml maps DataDome 403 responses to a descriptive message", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
 
-    const upstreamError = {
-      response: {
-        headers: { "x-datadome": "protected" },
-        status: 403,
-      },
-    };
+    const httpCloakRequestFn = mock(async () => ({
+      body: "blocked",
+      headers: { "x-datadome": "protected" },
+      statusCode: 403,
+    }));
 
     await expect(
       fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
-        axiosGetFn: (async () => {
-          throw upstreamError;
-        }) as any,
-        isAxiosErrorFn: (() => true) as any,
+        httpCloakRequestFn,
       }),
     ).rejects.toThrow("DataDome");
   });
 
-  test("fetchFeedXml rethrows non-DataDome axios errors", async () => {
+  test("fetchFeedXml throws non-DataDome upstream status errors directly", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
-
-    const upstreamError = {
-      response: {
-        headers: {},
-        status: 500,
-      },
-    };
 
     await expect(
       fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
-        axiosGetFn: (async () => {
-          throw upstreamError;
-        }) as any,
-        isAxiosErrorFn: (() => true) as any,
+        httpCloakRequestFn: (async () => ({
+          body: "server error",
+          headers: {},
+          statusCode: 500,
+        })) as any,
       }),
-    ).rejects.toBe(upstreamError);
+    ).rejects.toThrow("Upstream responded with status 500");
   });
 });
 
