@@ -28,7 +28,7 @@ import { categoryOrders } from "@/lib/db/schema";
 
 import { ServerServiceError } from "./errors";
 
-export interface FeedServiceDeps {
+interface FeedServiceDeps {
   createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
   deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
   getDbFn?: typeof getDb;

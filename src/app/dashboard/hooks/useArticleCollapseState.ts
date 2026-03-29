@@ -31,16 +31,16 @@ export interface ArticleViewportSnapshot {
 
 export type CollapsingArticles = Partial<Record<string, CollapsingArticleState>>;
 
-export interface CollapsingArticleState {
-  article: Article;
-  index: number;
-  mode: ArticleRemovalAnimationMode;
-}
-
 interface CollapseRestoreLayoutObserverOptions {
   articleKey: string;
   onLayoutChange: () => void;
   viewport: HTMLElement;
+}
+
+interface CollapsingArticleState {
+  article: Article;
+  index: number;
+  mode: ArticleRemovalAnimationMode;
 }
 
 interface UseArticleCollapseStateOptions {

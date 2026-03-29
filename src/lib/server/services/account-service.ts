@@ -23,7 +23,7 @@ import { getUrlCredentials } from "@/lib/utils/url";
 
 import { ServerServiceError } from "./errors";
 
-export interface AccountServiceDeps {
+interface AccountServiceDeps {
   getDbFn?: () => unknown;
 }
 

@@ -27,13 +27,6 @@ import {
 
 import { ServerServiceError } from "./errors";
 
-export interface ArticleServiceDeps {
-  getDbFn?: typeof getDb;
-  getUserOwnedArticleByIdFn?: typeof getUserOwnedArticleById;
-  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
-  upsertArticleStatusesFn?: typeof upsertArticleStatuses;
-}
-
 export interface CreateArticleParams {
   content: string;
   feedId: number;
@@ -46,6 +39,13 @@ export interface CreateArticleParams {
 export interface StatusUpdate {
   isRead?: boolean;
   isStarred?: boolean;
+}
+
+interface ArticleServiceDeps {
+  getDbFn?: typeof getDb;
+  getUserOwnedArticleByIdFn?: typeof getUserOwnedArticleById;
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  upsertArticleStatusesFn?: typeof upsertArticleStatuses;
 }
 
 export async function createArticle(

@@ -6,11 +6,6 @@ export interface CompatibilityResult {
   vendor: string;
 }
 
-export interface CompatibilityResultsCache {
-  checkedAt: number;
-  results: CompatibilityResult[];
-}
-
 export interface ProxySettingsSnapshot {
   allowInsecureTls: boolean;
   error: null | string;
@@ -26,6 +21,11 @@ export type ProxyUIStatus =
   | "none"
   | "reachable"
   | "unreachable";
+
+interface CompatibilityResultsCache {
+  checkedAt: number;
+  results: CompatibilityResult[];
+}
 
 interface PersistedProxySettings {
   allowInsecureTls: boolean;
