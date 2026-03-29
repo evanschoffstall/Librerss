@@ -187,6 +187,11 @@ export function useDashboardToolbarState() {
     setIsResetting(true);
     try {
       await clearClientOriginState();
+
+      if (isPreviewMode) {
+        setDashboardPreviewPersistence(true);
+      }
+
       window.location.reload();
     } catch {
       toast.error("Unable to reset app state.");
