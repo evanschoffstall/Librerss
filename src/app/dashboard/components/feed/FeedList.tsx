@@ -84,6 +84,8 @@ export const FeedList = memo(function FeedList({
   );
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
+  const [measuredTotalListHeight, setMeasuredTotalListHeight] =
+    useState<null | number>(null);
   const preExpandViewportSnapshotGetter =
     getPreExpandViewportSnapshot ?? EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT;
   const {
@@ -143,6 +145,13 @@ export const FeedList = memo(function FeedList({
   const invertedFirstItemIndex = isActiveInvertedScroll
     ? INVERTED_FIRST_INDEX_BASE - feedData.length
     : 0;
+  const virtualizedListHeight =
+    measuredTotalListHeight !== null
+      ? Math.max(
+          Math.ceil(measuredTotalListHeight),
+          scrollViewport?.clientHeight ?? 0,
+        )
+      : null;
   const lastFeedArticle = feedData.at(-1);
   const lastFeedArticleKey = lastFeedArticle
     ? getArticleKey(lastFeedArticle)
@@ -211,7 +220,7 @@ export const FeedList = memo(function FeedList({
     duration: 0.35,
     ease: [0.16, 1, 0.3, 1] as const,
   };
-  const applyFeedFillLayout = useCallback((element: HTMLElement | null) => {
+  const applyFeedSurfaceLayout = useCallback((element: HTMLElement | null) => {
     if (!element) {
       return;
     }
@@ -222,11 +231,28 @@ export const FeedList = memo(function FeedList({
     element.style.minHeight = "0";
   }, []);
 
+  const applyFeedAncestorLayout = useCallback((element: HTMLElement | null) => {
+    if (!element) {
+      return;
+    }
+
+    element.style.display = "flex";
+    element.style.flexDirection = "column";
+    element.style.height = "auto";
+    element.style.minHeight = "100%";
+  }, []);
+
   const handleFeedSurfaceRef = useCallback((node: HTMLDivElement | null) => {
     if (node) {
-      applyFeedFillLayout(node);
-      applyFeedFillLayout(node.parentElement);
-      applyFeedFillLayout(node.parentElement?.parentElement ?? null);
+      applyFeedSurfaceLayout(node);
+
+      if (isInvertedScroll) {
+        applyFeedAncestorLayout(node.parentElement);
+        applyFeedAncestorLayout(node.parentElement?.parentElement ?? null);
+      } else {
+        applyFeedSurfaceLayout(node.parentElement);
+        applyFeedSurfaceLayout(node.parentElement?.parentElement ?? null);
+      }
     }
 
     if (isInitialLoading || showEmptyState) {
@@ -235,11 +261,16 @@ export const FeedList = memo(function FeedList({
     }
 
     handleViewportHostRef(node);
-  }, [applyFeedFillLayout, handleViewportHostRef, isInitialLoading, showEmptyState]);
+  }, [applyFeedAncestorLayout, applyFeedSurfaceLayout, handleViewportHostRef, isInitialLoading, isInvertedScroll, showEmptyState]);
 
   return (
     <div
       className={listSurfaceClassName}
+      data-feed-total-list-height={
+        measuredTotalListHeight !== null
+          ? `${Math.round(measuredTotalListHeight)}`
+          : undefined
+      }
       data-feed-surface-mode={feedSurfaceMode}
       data-inverted-scroll={isInvertedScroll ? "true" : undefined}
       ref={handleFeedSurfaceRef}
@@ -305,13 +336,19 @@ export const FeedList = memo(function FeedList({
                       : FEED_VIEWPORT_INCREASE_INVERTED
                     : FEED_VIEWPORT_INCREASE
                 }
-                initialItemCount={Math.min(feedData.length, 20)}
+                initialItemCount={Math.min(feedData.length, visibleArticleCount)}
                 itemContent={(_index, article: Article | undefined) =>
                   article ? renderFeedRow(article) : null
                 }
                 key={`${feedViewKey}:${isInvertedScroll ? "inv" : "std"}`}
-                style={listFillStyle}
-                totalListHeightChanged={() => {
+                style={
+                  isInvertedScroll && virtualizedListHeight !== null
+                    ? { height: `${virtualizedListHeight}px` }
+                    : listFillStyle
+                }
+                totalListHeightChanged={(nextTotalListHeight) => {
+                  setMeasuredTotalListHeight(nextTotalListHeight);
+
                   if (isInvertedScroll) {
                     syncInvertedExpansionScrollLock();
 

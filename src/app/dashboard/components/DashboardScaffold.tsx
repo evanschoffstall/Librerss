@@ -1,4 +1,5 @@
-import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { DashboardFeedScrollArea } from "./DashboardFeedScrollArea";
 
 /** Shared dashboard width contract for the feed-linked token bar and list. */
 export const DASHBOARD_FEED_WIDTH_CLASS_NAME =
@@ -30,14 +31,7 @@ export function DashboardFeedViewport({
   children,
 }: DashboardFeedViewportProps) {
   return (
-    <ScrollArea
-      className="
-        h-full
-        [&_[data-radix-scroll-area-viewport]>div]:block!
-        [&_[data-radix-scroll-area-viewport]>div]:size-full!
-        [&_[data-radix-scroll-area-viewport]>div]:min-w-0!
-      "
-    >
+    <DashboardFeedScrollArea className="h-full">
       <div
         className={`
           ${DASHBOARD_FEED_SURFACE_CLASS_NAME}
@@ -47,7 +41,7 @@ export function DashboardFeedViewport({
       >
         {children}
       </div>
-    </ScrollArea>
+    </DashboardFeedScrollArea>
   );
 }
 
