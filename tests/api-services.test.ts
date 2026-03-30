@@ -232,6 +232,17 @@ describe("FeedService", () => {
     expect(callArgs[1].forceRefresh).toBe(true);
   });
 
+  test("getFeedsBatch handles forceResolveUpstream option", async () => {
+    mockAxiosInstance.post = mock(async () => ({ data: [] }));
+
+    await FeedService.getFeedsBatch(["https://example.com/feed"], {
+      forceResolveUpstream: true,
+    });
+
+    const callArgs = mockAxiosInstance.post.mock.calls[0];
+    expect(callArgs[1].forceResolveUpstream).toBe(true);
+  });
+
   test("getFeedsBatch handles requestSource tracking", async () => {
     mockAxiosInstance.post = mock(async () => ({ data: [] }));
 

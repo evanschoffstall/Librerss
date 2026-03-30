@@ -1490,6 +1490,54 @@ describe("feed-batch-pipeline", () => {
     expect(result).toHaveProperty("errors");
     expect(result).toHaveProperty("refreshedCount");
   });
+
+  test("executeParallelRefreshes refreshes every requested feed for upstream override", async () => {
+    const { executeParallelRefreshes } = await importFeedBatchHelpers();
+
+    const fresh = new Date();
+    const urls = [
+      "https://override-one.example.com/feed",
+      "https://override-two.example.com/feed",
+    ];
+    const feedByUrl = new Map(
+      urls.map((url, index) => [
+        url,
+        {
+          id: index + 30,
+          lastFetched: fresh,
+          lastFetchError: null,
+          url,
+        },
+      ]),
+    );
+
+    const db = {
+      insert: mock(() => ({
+        values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
+      })),
+      select: mock(() => ({
+        from: mock(() => ({
+          where: mock(() => ({ limit: mock(() => Promise.resolve([])) })),
+        })),
+      })),
+      update: mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
+      })),
+    };
+
+    const result = await executeParallelRefreshes(
+      db as unknown as any,
+      feedByUrl as any,
+      urls,
+      false,
+      false,
+      true,
+    );
+
+    expect(result.refreshedCount).toBe(urls.length);
+    expect(result.refreshedUrls).toEqual(new Set(urls));
+    expect(result.cooldownLimitedCount).toBe(0);
+  });
 });
 
 // ─── Mark Stream Read ─────────────────────────────────────────────────────────

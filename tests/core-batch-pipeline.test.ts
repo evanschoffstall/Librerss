@@ -156,6 +156,32 @@ test("buildRefreshPlan returns force-cooldown-use-cache for recently-fetched fee
   ]);
 });
 
+test("buildRefreshPlan returns refresh-upstream-override for the dev upstream override", async () => {
+  const { buildRefreshPlan } = await loadPipelineModule();
+  const recentFeed: FeedRecord = {
+    id: 1,
+    lastFetched: new Date(),
+    lastFetchError: null,
+    url: "https://recent.example/feed.xml",
+  };
+
+  const result = buildRefreshPlan(
+    new Map([[recentFeed.url, recentFeed]]),
+    [recentFeed.url],
+    false,
+    false,
+    true,
+  );
+
+  expect(result).toEqual([
+    {
+      decision: "refresh-upstream-override",
+      lastFetched: recentFeed.lastFetched,
+      url: recentFeed.url,
+    },
+  ]);
+});
+
 // ─── mapRowsToArticleMap ─────────────────────────────────────────────────────
 
 describe("mapRowsToArticleMap", () => {

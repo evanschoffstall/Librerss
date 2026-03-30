@@ -5,6 +5,7 @@
 import type { BatchFeedResponseItem } from "@/lib/api/http";
 
 import { type Article, type CategoryTreeNode } from "@/lib";
+import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
 
 import { dedupeAndSortArticles } from "./article-collection";
 
@@ -89,10 +90,10 @@ function enrichFeedArticles(
 // ── Feed-loader utilities ─────────────────────────────────────────────────────
 
 /** Safety timeout for a single batch feed-load cycle. */
-// Must exceed BATCH_REQUEST_TIMEOUT_MS (60 s) so the Axios-level timeout always
-// fires before this failsafe, and actual slow upstream refreshes don't trigger
-// a false "timed out" toast.
-export const FEED_LOADING_FAILSAFE_MS = 65_000;
+// Must exceed the largest allowed batch HTTP deadline so the request-owned
+// timeout fires before this UI failsafe, and legitimate 207 Multi-Status batch
+// responses are not converted into a client-only timeout error.
+export const FEED_LOADING_FAILSAFE_MS = BATCH_REQUEST_TIMEOUT_MS + 5_000;
 
 /**
  * Produces a stable string signature for a batch-sources array so callers can
