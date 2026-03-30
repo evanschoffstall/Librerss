@@ -116,6 +116,12 @@ export class RateLimiter {
     clearInterval(this.cleanupTimer);
   }
 
+  /** Clears stored buckets and cached env-derived state for test isolation. */
+  resetForTesting(): void {
+    this.store.clear();
+    this._trustedProxyCount = undefined;
+  }
+
   private cleanup(): void {
     const now = Date.now();
     // Snapshot entries to avoid mutation-during-iteration edge cases
@@ -298,3 +304,8 @@ function isValidIpv6Address(value: string): boolean {
 
 // Export singleton instance
 export const rateLimiter = new RateLimiter();
+
+/** Resets the shared in-memory limiter between tests that mutate request state. */
+export function resetRateLimiterForTesting(): void {
+  rateLimiter.resetForTesting();
+}
