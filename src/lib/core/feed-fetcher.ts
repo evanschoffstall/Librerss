@@ -11,7 +11,7 @@
  * In-memory cache (feed-cache.ts) short-circuits the entire pipeline when:
  *   - All feeds are within TTL (nothing to refresh)
  *   - No force-refresh was requested
- *   - A cached result exists for the same user + URL set + article filter
+ *   - A cached result exists for the same user + URL set + article filter + article window
  * In that case: zero DB queries.
  */
 
@@ -200,6 +200,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   feedUrls: string[],
   {
     articleFilter = "all",
+    articleLimit = CONFIG.MAX_ALL_ARTICLES_LIMIT,
     forceRefresh = false,
     forceResolveUpstream = false,
     knownLastFetchedAtByUrl,
@@ -208,6 +209,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     skipRefresh = false,
   }: {
     articleFilter?: ArticleFilter;
+    articleLimit?: number;
     forceRefresh?: boolean;
     forceResolveUpstream?: boolean;
     knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -222,6 +224,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   feedFetcherDependencies.diagInfo("Batch feed fetch started", {
     articleFilter,
+    articleLimit,
     forceRefresh: shouldForceRefresh,
     forceResolveUpstream,
     requestedUrlCount: feedUrls.length,
@@ -262,6 +265,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     userId,
     feedUrls,
     articleFilter,
+    articleLimit,
   );
   if (cached && !forceResolveUpstream) {
     const allWithinCooldown =
@@ -276,6 +280,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         feedUrls,
         cached.lastFetchedByUrl,
         knownLastFetchedAtByUrl,
+        articleLimit,
       );
       const articles = sliceArticleMapByUrls(
         cached.articles,
@@ -285,6 +290,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         "Batch feed fetch served from memory cache",
         {
           articleFilter,
+          articleLimit,
           feedCount: cachedCount,
           forceRefreshCooldownHit: allWithinCooldown,
           requestSource,
@@ -331,6 +337,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
     allowedUrlCount: allowedUrls.length,
     articleFilter,
+    articleLimit,
     missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
     plan: feedFetcherDependencies.buildRefreshPlan(
       feedByUrl,
@@ -362,6 +369,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     if (refreshedCount > 0) {
       feedFetcherDependencies.diagInfo("Batch feed upstream refresh executed", {
         articleFilter,
+        articleLimit,
         failedFeedCount: upstreamErrors.size,
         failedUrls: [...upstreamErrors.keys()],
         refreshedFeedCount: refreshedCount,
@@ -374,6 +382,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         {
           allowedUrlCount: allowedUrls.length,
           articleFilter,
+          articleLimit,
           requestSource,
           userId,
         },
@@ -417,6 +426,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     allowedUrls,
     lastFetchedByUrl,
     knownLastFetchedAtByUrl,
+    articleLimit,
   );
   const changedUrls = allowedUrls.filter((url) => !unchangedUrls.has(url));
 
@@ -443,6 +453,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     userId,
     changedFeedIds,
     articleFilter,
+    articleLimit,
   );
   const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
     rows,
@@ -452,6 +463,7 @@ export async function fetchAndCacheFeedArticlesBatch(
 
   feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
     articleFilter,
+    articleLimit,
     articlesByUrl: [...articleMap.entries()].map(([url, items]) => ({
       articleCount: items.length,
       newestReturnedPublicationDate:
@@ -478,11 +490,17 @@ export async function fetchAndCacheFeedArticlesBatch(
     allowedUrls,
   );
   if (cacheArticleMap.size === allowedUrls.length) {
-    feedFetcherDependencies.setCachedBatch(userId, allowedUrls, articleFilter, {
-      articles: cacheArticleMap,
-      errors: upstreamErrors,
-      lastFetchedByUrl,
-    });
+    feedFetcherDependencies.setCachedBatch(
+      userId,
+      allowedUrls,
+      articleFilter,
+      articleLimit,
+      {
+        articles: cacheArticleMap,
+        errors: upstreamErrors,
+        lastFetchedByUrl,
+      },
+    );
   }
 
   return {
@@ -569,8 +587,16 @@ function collectUnchangedUrls(
   urls: string[],
   lastFetchedByUrl: ReadonlyMap<string, Date>,
   knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined,
+  articleLimit?: number,
 ): Set<string> {
-  if (!knownLastFetchedAtByUrl || knownLastFetchedAtByUrl.size === 0) {
+  if (
+    !knownLastFetchedAtByUrl ||
+    knownLastFetchedAtByUrl.size === 0 ||
+    (
+      typeof articleLimit === "number" &&
+      articleLimit < CONFIG.MAX_ALL_ARTICLES_LIMIT
+    )
+  ) {
     return new Set();
   }
 

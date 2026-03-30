@@ -43,6 +43,7 @@ describe("dashboard utility coverage", () => {
       "feed-batch",
       "request-signature",
       "starred",
+      "all-articles",
       "skip-refresh",
       "https://example.com/a.xml@2024-01-01T00:00:00.000Z|https://example.com/b.xml@2024-01-02T00:00:00.000Z",
     ]);
@@ -52,6 +53,7 @@ describe("dashboard utility coverage", () => {
       "feed-batch",
       "request-signature",
       "all",
+      "all-articles",
       "refresh",
       "",
     ]);
