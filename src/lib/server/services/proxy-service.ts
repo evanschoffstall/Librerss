@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 /**
  * Server-side proxy operations shared across API surfaces.
  *
@@ -5,10 +6,11 @@
  * ready-to-use proxy URL with credentials for a given user. It is used by the
  * article extraction pipeline, compatibility checks, and proxy status routes.
  */
-import { eq } from "drizzle-orm";
+import net from "node:net";
 
 import { getDb } from "@/lib/db/db";
 import { users } from "@/lib/db/schema";
+import { fetchHtmlWithHttpCloak } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import {
   ensureProxyUrlHasExplicitPort,
@@ -21,6 +23,32 @@ import { probeProxy } from "../proxy";
 import { materializeStoredProxyPassword } from "../proxy-credentials";
 import { ServerServiceError } from "./errors";
 
+const PUBLIC_IP_PROVIDERS = [
+  {
+    responseFormat: "text",
+    url: "https://checkip.amazonaws.com/",
+  },
+  {
+    responseFormat: "text",
+    url: "https://icanhazip.com/",
+  },
+  {
+    responseFormat: "json",
+    url: "https://api.ipify.org?format=json",
+  },
+  {
+    responseFormat: "json",
+    url: "https://api64.ipify.org?format=json",
+  },
+] as const;
+
+export interface ProxyRoutingCheckResult {
+  directIp: null | string;
+  error: null | string;
+  proxyExitIp: null | string;
+  status: "error" | "proxy-only" | "same-egress" | "verified";
+}
+
 export interface ProxyStatusResult {
   configured: boolean;
   proxyUrl: null | string;
@@ -30,6 +58,64 @@ export interface ProxyStatusResult {
 export interface ResolvedUserProxy {
   allowInsecureTls: boolean;
   proxyUrl: string | undefined;
+}
+
+interface ProxyRoutingCheckDeps {
+  fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
+}
+
+type PublicIpProvider = (typeof PUBLIC_IP_PROVIDERS)[number];
+
+/**
+ * Compares the direct and proxied public egress IPs using the same HTTPCloak
+ * request path used by upstream fetches.
+ */
+export async function getProxyRoutingCheck(
+  options: {
+    allowInsecureTls: boolean;
+    proxyUrl: string;
+  },
+  deps?: ProxyRoutingCheckDeps,
+): Promise<ProxyRoutingCheckResult> {
+  const fetchPublicIp = deps?.fetchHtmlWithHttpCloakFn ?? fetchHtmlWithHttpCloak;
+
+  const [directResult, proxiedResult] = await Promise.allSettled([
+    readPublicIp(undefined, false, fetchPublicIp),
+    readPublicIp(
+      options.proxyUrl,
+      options.allowInsecureTls,
+      fetchPublicIp,
+    ),
+  ]);
+
+  const directIp = directResult.status === "fulfilled" ? directResult.value : null;
+  const proxyExitIp =
+    proxiedResult.status === "fulfilled" ? proxiedResult.value : null;
+
+  if (proxyExitIp === null) {
+    return {
+      directIp,
+      error: toSettledReason(proxiedResult),
+      proxyExitIp: null,
+      status: "error",
+    };
+  }
+
+  if (directIp === null) {
+    return {
+      directIp: null,
+      error: toSettledReason(directResult),
+      proxyExitIp,
+      status: "proxy-only",
+    };
+  }
+
+  return {
+    directIp,
+    error: null,
+    proxyExitIp,
+    status: directIp === proxyExitIp ? "same-egress" : "verified",
+  };
 }
 
 /**
@@ -142,4 +228,116 @@ export async function resolveUserProxy(
       : baseProxyUrl;
 
   return { allowInsecureTls: row.allowInsecureTls, proxyUrl };
+}
+
+function parsePlainTextPublicIpPayload(body: string): { ip: string } {
+  const trimmedBody = body.trim();
+
+  if (trimmedBody === "") {
+    throw new Error("Exit IP check returned an empty response body.");
+  }
+
+  return { ip: trimmedBody };
+}
+
+function parseProviderPublicIpPayload(
+  provider: PublicIpProvider,
+  body: string,
+): { ip: string } {
+  return provider.responseFormat === "json"
+    ? parsePublicIpPayload(body)
+    : parsePlainTextPublicIpPayload(body);
+}
+
+/**
+ * Parses and validates the fixed JSON payload returned by the public IP echo.
+ */
+function parsePublicIpPayload(body: string): { ip: string } {
+  let parsedBody: unknown;
+
+  try {
+    parsedBody = JSON.parse(body);
+  } catch {
+    throw new Error("Exit IP check returned malformed JSON.");
+  }
+
+  if (
+    typeof parsedBody !== "object" ||
+    parsedBody === null ||
+    !("ip" in parsedBody) ||
+    typeof parsedBody.ip !== "string" ||
+    parsedBody.ip.trim() === ""
+  ) {
+    throw new Error("Exit IP check returned an invalid JSON payload.");
+  }
+
+  return { ip: parsedBody.ip.trim() };
+}
+
+/**
+ * Fetches a public IP echo payload through HTTPCloak and validates the result.
+ */
+async function readPublicIp(
+  proxyUrl: string | undefined,
+  allowInsecureTls: boolean,
+  fetchPublicIp: typeof fetchHtmlWithHttpCloak,
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (const provider of PUBLIC_IP_PROVIDERS) {
+    try {
+      const { html } = await fetchPublicIp(
+        provider.url,
+        (candidateUrl) => Promise.resolve(validatePublicIpEndpoint(candidateUrl)),
+        {
+          allowInsecureTls,
+          ...(proxyUrl ? { proxyUrl } : {}),
+        },
+      );
+
+      const payload = parseProviderPublicIpPayload(provider, html);
+      if (net.isIP(payload.ip) === 0) {
+        throw new Error("Exit IP check returned an invalid IP address.");
+      }
+
+      return payload.ip;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error("Exit IP check failed.");
+    }
+  }
+
+  throw lastError ?? new Error("Exit IP check failed.");
+}
+
+function toSettledReason(
+  result: PromiseSettledResult<string>,
+): string {
+  if (result.status === "fulfilled") {
+    return "Exit IP check completed without an error.";
+  }
+
+  return result.reason instanceof Error
+    ? result.reason.message
+    : "Exit IP check failed.";
+}
+
+/**
+ * Restricts the egress proof request to the fixed public IP echo endpoint.
+ */
+function validatePublicIpEndpoint(candidateUrl: string): boolean {
+  const parsedUrl = new URL(candidateUrl);
+
+  return PUBLIC_IP_PROVIDERS.some((provider) => {
+    const providerUrl = new URL(provider.url);
+
+    return (
+      parsedUrl.protocol === "https:" &&
+      parsedUrl.origin === providerUrl.origin &&
+      parsedUrl.pathname === providerUrl.pathname &&
+      parsedUrl.search === providerUrl.search
+    );
+  });
 }

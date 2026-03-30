@@ -1,10 +1,16 @@
 import { Session, type SessionOptions } from "httpcloak";
+import dns from "node:dns/promises";
+import net from "node:net";
 
+import {
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/ssrf";
 import { stripUrlFragment } from "@/lib/utils/url";
 
 export type ValidatedHttpCloakRequestFn = (
   url: URL,
-  headers: Record<string, string>,
+  requestHeaders: Record<string, string>,
 ) => Promise<HttpCloakResponseLike>;
 
 export interface ValidatedHttpCloakResponse {
@@ -13,36 +19,126 @@ export interface ValidatedHttpCloakResponse {
   redirectHop: number;
   requestHeaders: Record<string, string>;
   statusCode: number;
+  text?: string;
 }
 
 interface HttpCloakResponseLike {
   body: Buffer | string;
   headers: Record<string, string | string[] | undefined>;
   statusCode: number;
+  text?: string;
 }
 
 interface HttpCloakSessionLike {
   close: () => void;
   get: (
     url: string,
-    options?: { headers?: Record<string, string>; timeout?: number },
+    options?: { timeout?: number },
   ) => Promise<HttpCloakResponseLike>;
 }
 
 interface RequestWithHttpCloakDeps {
   createSessionFn?: (options: SessionOptions) => HttpCloakSessionLike;
   requestFn?: ValidatedHttpCloakRequestFn;
+  resolveConnectToFn?: (
+    url: string,
+    proxyUrl: string | undefined,
+  ) => Promise<Record<string, string> | undefined>;
 }
 
 interface RequestWithHttpCloakOptions {
   allowInsecureTls?: boolean;
   browserPreset?: string;
-  headers: Record<string, string>;
   maxRedirects: number;
   proxyUrl?: string;
   timeoutMs: number;
   url: string;
   validateUrl: (url: string, isRedirectTarget: boolean) => Promise<void>;
+}
+
+/**
+ * Captures a non-success upstream response returned through the HTTPCloak
+ * transport together with the metadata needed for diagnostics.
+ */
+export class HttpCloakUpstreamError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly responseBody: string,
+    readonly proxyMode: string,
+    readonly proxyAddress: null | string,
+    readonly allowInsecureTls: boolean,
+    readonly redirectHop: number,
+    readonly responseHeaders: Record<string, string | string[] | undefined>,
+    readonly requestHeaders: Record<string, string>,
+    message = `Upstream responded with status ${statusCode}`,
+  ) {
+    super(message);
+    this.name = "HttpCloakUpstreamError";
+  }
+}
+
+/**
+ * Retains only the upstream headers that are useful for compatibility and
+ * anti-bot diagnostics.
+ */
+export function pickDiagnosticHeaders(
+  headers: Record<string, string | string[] | undefined>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const keep = new Set([
+    "cf-ray",
+    "content-type",
+    "retry-after",
+    "server",
+    "via",
+    "x-cache",
+    "x-datadome",
+  ]);
+
+  for (const [name, value] of Object.entries(headers)) {
+    const lower = name.toLowerCase();
+    if (keep.has(lower) || lower.startsWith("x-px-")) {
+      out[lower] = value;
+    }
+  }
+
+  const setCookie = headers["set-cookie"];
+  const setCookieCount = Array.isArray(setCookie)
+    ? setCookie.length
+    : setCookie
+      ? 1
+      : 0;
+  if (setCookieCount > 0) {
+    out["set-cookie-count"] = setCookieCount;
+  }
+
+  return out;
+}
+
+export function promoteHttpCloakProxyUrl(proxyUrl: string | undefined):
+  | string
+  | undefined {
+  if (!proxyUrl) {
+    return proxyUrl;
+  }
+
+  try {
+    const parsed = new URL(proxyUrl);
+
+    if (parsed.protocol === "socks:" || parsed.protocol === "socks5:") {
+      parsed.protocol = "socks5h:";
+      return parsed.toString();
+    }
+
+    if (parsed.protocol === "socks4:") {
+      parsed.protocol = "socks4a:";
+      return parsed.toString();
+    }
+  } catch {
+    return proxyUrl;
+  }
+
+  return proxyUrl;
 }
 
 export async function requestWithHttpCloakValidatedRedirects(
@@ -51,24 +147,31 @@ export async function requestWithHttpCloakValidatedRedirects(
 ): Promise<ValidatedHttpCloakResponse> {
   let currentUrl = stripUrlFragment(options.url);
   const timeoutSeconds = Math.max(1, Math.ceil(options.timeoutMs / 1000));
+  const proxyUrl = promoteHttpCloakProxyUrl(options.proxyUrl);
+  const connectTo = deps?.requestFn
+    ? undefined
+    : await (deps?.resolveConnectToFn ?? resolveHttpCloakConnectTo)(
+        currentUrl,
+        proxyUrl,
+      );
   const session = deps?.requestFn
     ? null
     : (deps?.createSessionFn ?? createSession)({
         allowRedirects: false,
+        ...(connectTo ? { connectTo } : {}),
         maxRedirects: 0,
         preset: options.browserPreset ?? "chrome-latest",
-        proxy: options.proxyUrl,
+        proxy: proxyUrl,
         retry: 0,
         timeout: timeoutSeconds,
-        tlsOnly: true,
         verify: !(options.allowInsecureTls ?? false),
       });
 
   try {
     for (let redirectHop = 0; redirectHop <= options.maxRedirects; redirectHop += 1) {
       await options.validateUrl(currentUrl, redirectHop > 0);
+      const requestHeaders: Record<string, string> = {};
 
-      const requestHeaders = { ...options.headers };
       if (!deps?.requestFn && !session) {
         throw new Error("HTTPCloak session unavailable");
       }
@@ -77,7 +180,6 @@ export async function requestWithHttpCloakValidatedRedirects(
         response = await deps.requestFn(new URL(currentUrl), requestHeaders);
       } else if (session) {
         response = await session.get(currentUrl, {
-          headers: requestHeaders,
           timeout: timeoutSeconds,
         });
       } else {
@@ -110,6 +212,7 @@ export async function requestWithHttpCloakValidatedRedirects(
         redirectHop,
         requestHeaders,
         statusCode: response.statusCode,
+        text: typeof response.text === "string" ? response.text : undefined,
       };
     }
   } finally {
@@ -119,9 +222,56 @@ export async function requestWithHttpCloakValidatedRedirects(
   throw new Error("Too many redirects");
 }
 
+export async function resolveHttpCloakConnectTo(
+  url: string,
+  proxyUrl: string | undefined,
+): Promise<Record<string, string> | undefined> {
+  const promotedProxyUrl = promoteHttpCloakProxyUrl(proxyUrl);
+  if (!promotedProxyUrl) {
+    return undefined;
+  }
+
+  let proxyProtocol: string;
+  let hostname: string;
+  try {
+    proxyProtocol = new URL(promotedProxyUrl).protocol;
+    hostname = new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+
+  if (!SOCKS_PROTOCOLS.has(proxyProtocol)) {
+    return undefined;
+  }
+
+  const normalizedHostname = normalizeHostname(hostname);
+  if (net.isIP(normalizedHostname) !== 0) {
+    return undefined;
+  }
+
+  try {
+    const { address } = await dns.lookup(normalizedHostname, { family: 4 });
+    if (isBlockedResolvedAddress(address)) {
+      return undefined;
+    }
+
+    return { [normalizedHostname]: address };
+  } catch {
+    return undefined;
+  }
+}
+
 function createSession(options: SessionOptions): HttpCloakSessionLike {
   return new Session(options);
 }
+
+const SOCKS_PROTOCOLS = new Set([
+  "socks4:",
+  "socks4a:",
+  "socks5:",
+  "socks5h:",
+  "socks:",
+]);
 
 function normalizeResponseHeaders(
   headers: Record<string, string | string[] | undefined>,
