@@ -1,7 +1,36 @@
 import axios from "axios";
 
+import {
+  clientFeedBatchConcurrency,
+  clientFeedBatchMaxUrls,
+  clientFeedRequestTimeoutMs,
+} from "@/lib/config";
+
 const REQUEST_TIMEOUT_MS = 15_000;
-export const BATCH_REQUEST_TIMEOUT_MS = 60_000;
+const BATCH_REQUEST_TIMEOUT_BUFFER_MS = 5_000;
+
+/**
+ * Computes the client-side batch deadline from the server's own batch shape so
+ * valid 207 Multi-Status responses are not preempted by an earlier client
+ * timeout.
+ */
+export function resolveBatchRequestTimeoutMs(urlCount: number): number {
+  const normalizedUrlCount = Math.max(
+    1,
+    Math.min(clientFeedBatchMaxUrls(), Math.trunc(urlCount)),
+  );
+  const normalizedConcurrency = Math.max(1, clientFeedBatchConcurrency());
+  const waveCount = Math.ceil(normalizedUrlCount / normalizedConcurrency);
+
+  return waveCount * clientFeedRequestTimeoutMs() + BATCH_REQUEST_TIMEOUT_BUFFER_MS;
+}
+
+/**
+ * Upper-bound batch timeout covering the largest allowed dashboard batch.
+ */
+export const BATCH_REQUEST_TIMEOUT_MS = resolveBatchRequestTimeoutMs(
+  clientFeedBatchMaxUrls(),
+);
 
 // No global timeout on the axios instance — individual calls use
 // withRequestDeadline() which provides a hard Promise.race-based deadline.

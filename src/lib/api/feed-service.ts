@@ -4,12 +4,12 @@ import type { Article, FeedSource } from "@/lib/core/types";
 import { normalizeDistinctUrlList } from "@/lib/utils/url";
 
 import {
-  BATCH_REQUEST_TIMEOUT_MS,
   type BatchFeedResponseItem,
   createLinkedAbortController,
   ensureArrayResponse,
   getApiClient,
   normalizeBatchItem,
+  resolveBatchRequestTimeoutMs,
   withRequestDeadline,
 } from "./http";
 
@@ -120,7 +120,7 @@ export const FeedService = {
           },
           { signal: controller.signal },
         ),
-        BATCH_REQUEST_TIMEOUT_MS,
+        resolveBatchRequestTimeoutMs(normalizedUrls.length),
         () => {
           controller.abort();
         },
