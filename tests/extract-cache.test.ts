@@ -1,7 +1,22 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-beforeEach(() => mock.restore());
-afterEach(() => mock.restore());
+const mutableProcessEnv = process.env as Record<string, string | undefined>;
+
+async function clearExtractCache(): Promise<void> {
+  const { clearArticleExtractCacheForTests } = await import(
+    "@/lib/extract/cache"
+  );
+
+  clearArticleExtractCacheForTests();
+}
+
+beforeEach(async () => {
+  await clearExtractCache();
+});
+
+afterEach(async () => {
+  await clearExtractCache();
+});
 
 // ── extract/cache – cache operations ─────────────────────────────────────────
 
@@ -66,16 +81,11 @@ describe("extract/cache – isExtractCacheEnabled", () => {
 
   test("returns true outside development when the cache is enabled", async () => {
     const prevCacheEnabled = process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+    const prevNodeEnv = process.env.NODE_ENV;
 
     try {
       process.env.ARTICLE_EXTRACT_CACHE_ENABLED = "true";
-      mock.module("@/lib/config", async () => {
-        const actual = await import("@/lib/config");
-        return {
-          ...actual,
-          isDevelopment: () => false,
-        };
-      });
+      mutableProcessEnv.NODE_ENV = "production";
       const { isExtractCacheEnabled } = await import(
         `@/lib/extract/cache?production-cache=${Date.now()}`
       );
@@ -85,6 +95,84 @@ describe("extract/cache – isExtractCacheEnabled", () => {
         process.env.ARTICLE_EXTRACT_CACHE_ENABLED = prevCacheEnabled;
       } else {
         delete process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+      }
+
+      if (prevNodeEnv !== undefined) {
+        mutableProcessEnv.NODE_ENV = prevNodeEnv;
+      } else {
+        delete mutableProcessEnv.NODE_ENV;
+      }
+    }
+  });
+
+  test("returns false in development when the dev cache flag is disabled", async () => {
+    const previousCacheEnabled = process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+    const previousDevEnabled = process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED;
+    const previousNodeEnv = process.env.NODE_ENV;
+
+    try {
+      process.env.ARTICLE_EXTRACT_CACHE_ENABLED = "true";
+      process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED = "false";
+      mutableProcessEnv.NODE_ENV = "development";
+
+      const { isExtractCacheEnabled } = await import(
+        `@/lib/extract/cache?dev-cache-disabled=${Date.now()}`
+      );
+
+      expect(isExtractCacheEnabled()).toBe(false);
+    } finally {
+      if (previousCacheEnabled !== undefined) {
+        process.env.ARTICLE_EXTRACT_CACHE_ENABLED = previousCacheEnabled;
+      } else {
+        delete process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+      }
+
+      if (previousDevEnabled !== undefined) {
+        process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED = previousDevEnabled;
+      } else {
+        delete process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED;
+      }
+
+      if (previousNodeEnv !== undefined) {
+        mutableProcessEnv.NODE_ENV = previousNodeEnv;
+      } else {
+        delete mutableProcessEnv.NODE_ENV;
+      }
+    }
+  });
+
+  test("defaults to enabled in development when the dev cache flag is unset", async () => {
+    const previousCacheEnabled = process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+    const previousDevEnabled = process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED;
+    const previousNodeEnv = process.env.NODE_ENV;
+
+    try {
+      process.env.ARTICLE_EXTRACT_CACHE_ENABLED = "true";
+      delete process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED;
+      mutableProcessEnv.NODE_ENV = "development";
+
+      const { isExtractCacheEnabled } = await import(
+        `@/lib/extract/cache?dev-cache-enabled=${Date.now()}`
+      );
+
+      expect(isExtractCacheEnabled()).toBe(true);
+    } finally {
+      if (previousCacheEnabled !== undefined) {
+        process.env.ARTICLE_EXTRACT_CACHE_ENABLED = previousCacheEnabled;
+      } else {
+        delete process.env.ARTICLE_EXTRACT_CACHE_ENABLED;
+      }
+
+      if (previousDevEnabled !== undefined) {
+        process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED = previousDevEnabled;
+      } else {
+        delete process.env.ARTICLE_EXTRACT_CACHE_DEV_ENABLED;
+      }
+
+      if (previousNodeEnv !== undefined) {
+        mutableProcessEnv.NODE_ENV = previousNodeEnv;
+      } else {
+        delete mutableProcessEnv.NODE_ENV;
       }
     }
   });
