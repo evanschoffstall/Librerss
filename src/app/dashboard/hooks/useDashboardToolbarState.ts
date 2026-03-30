@@ -161,6 +161,16 @@ export function useDashboardToolbarState() {
     dispatchDashboardEvent(DASHBOARD_EVENTS.REFRESH);
   };
 
+  const handleRefreshFromUpstream = () => {
+    if (isRefreshing) {
+      return;
+    }
+
+    dispatchDashboardEvent(DASHBOARD_EVENTS.REFRESH, {
+      forceResolveUpstream: true,
+    });
+  };
+
   const handleMarkAllRead = () => {
     dispatchDashboardEvent(DASHBOARD_EVENTS.MARK_ALL_READ);
   };
@@ -229,6 +239,7 @@ export function useDashboardToolbarState() {
     handleOpenFeedsSidebar,
     handleOpenSettings,
     handleRefresh,
+    handleRefreshFromUpstream,
     handleReset,
     handleSearchChange,
     handleSignOut,

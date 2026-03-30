@@ -13,6 +13,7 @@ interface FeedBatchResolverDependencies {
     options?: {
       articleFilter?: ArticleFilter;
       forceRefresh?: boolean;
+      forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: FeedFetchOptions["requestSource"];
       signal?: AbortSignal;
@@ -44,6 +45,9 @@ export async function resolveFeedBatchResults(
     normalizedSources.map((source) => source.url),
     {
       articleFilter: options?.articleFilter,
+      ...(options?.forceResolveUpstream === true
+        ? { forceResolveUpstream: true }
+        : {}),
       forceRefresh: options?.forceRefresh === true,
       knownLastFetchedAtByUrl: options?.knownLastFetchedAtByUrl,
       requestSource: options?.requestSource,

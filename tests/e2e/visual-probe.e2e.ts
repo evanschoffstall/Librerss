@@ -316,7 +316,9 @@ test.describe("dashboard visual audit", () => {
     const tokenBarClip = await readAuditClipForLocator(tokenBar);
 
     await attachAuditScreenshot(page, tokenBarClip, testInfo, "refresh-before");
-    await page.getByRole("button", { name: "Refresh selected feed" }).click();
+    await page
+      .locator('button[aria-label="Refresh selected feed"]:visible')
+      .click();
     await captureAuditTimeline(page, tokenBarClip, testInfo, "refresh", async (timeMs) => ({
       timeMs,
     }));

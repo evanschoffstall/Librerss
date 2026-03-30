@@ -3,13 +3,21 @@ import { type Dispatch, type SetStateAction } from "react";
 import { type CategoryTreeNode } from "@/lib";
 
 import { ALL_FEEDS_NODE_KEY } from "../constants";
-import { type FeedSelectionFetchers, refreshCurrentSelection } from "./selection";
+import {
+  type FeedFetchOptions,
+  type FeedSelectionFetchers,
+  refreshCurrentSelection,
+} from "./selection";
 
 interface DashboardRefreshContext extends FeedSelectionFetchers {
   onBeforeRefresh?: () => void;
   selectedCategory: string;
   selectedCategoryNode?: CategoryTreeNode;
   selectedFeedUrl?: string;
+}
+
+interface ManualDashboardRefreshContext extends DashboardRefreshContext {
+  forceResolveUpstream?: FeedFetchOptions["forceResolveUpstream"];
 }
 
 /** Performs the interval-driven refresh for the current dashboard selection. */
@@ -89,17 +97,19 @@ export async function refreshDashboardSelection({
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
+  forceResolveUpstream,
   onBeforeRefresh,
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
-}: DashboardRefreshContext) {
+}: ManualDashboardRefreshContext) {
   onBeforeRefresh?.();
   await refreshCurrentSelection({
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
     forceRefresh: true,
+    forceResolveUpstream,
     keepExistingFeed: true,
     requestSource: "manual-refresh",
     selectedCategory,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parseJsonObjectBodyOrResponse } from "@/lib/api/http";
+import {
+  jsonErrorWithReason,
+  parseJsonObjectBodyOrResponse,
+} from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import {
   type ArticleFilter,
@@ -13,7 +16,9 @@ import {
   logAndRespondError,
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
+  resolveUserProxy,
   type RouteHandlerContext,
+  ServerServiceError,
 } from "@/lib/server";
 import { parseDateOrNull } from "@/lib/utils/dates";
 import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
@@ -23,11 +28,13 @@ export interface BatchRouteDeps {
   getDbFn?: typeof getDb;
   logAndRespondErrorFn?: typeof logAndRespondError;
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  resolveUserProxyFn?: typeof resolveUserProxy;
 }
 
 interface BatchRequestBody {
   articleFilter?: unknown;
   forceRefresh?: unknown;
+  forceResolveUpstream?: unknown;
   knownLastFetchedAtByUrl?: unknown;
   requestSource?: unknown;
   skipRefresh?: unknown;
@@ -44,6 +51,7 @@ export async function POST(
   depsOrContext: BatchRouteDeps | RouteHandlerContext = {},
 ) {
   const deps = resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
+  const requestStartedAt = Date.now();
   try {
     const diagnosticsEnabled = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
     const requireMutableAuthenticatedUserForRoute =
@@ -73,6 +81,13 @@ export async function POST(
     const knownLastFetchedAtByUrl = knownLastFetchedAtByUrlOrResponse;
     const skipRefresh = body.skipRefresh === true;
     const forceRefresh = body.forceRefresh === true;
+    const forceResolveUpstreamOrResponse = parseForceResolveUpstream(
+      body.forceResolveUpstream,
+    );
+    if (forceResolveUpstreamOrResponse instanceof Response) {
+      return forceResolveUpstreamOrResponse;
+    }
+    const forceResolveUpstream = forceResolveUpstreamOrResponse;
     const articleFilterOrResponse = parseArticleFilter(body.articleFilter);
     if (articleFilterOrResponse instanceof Response) {
       return articleFilterOrResponse;
@@ -86,7 +101,8 @@ export async function POST(
     if (diagnosticsEnabled) {
       logger.info("Feed batch request received", {
         articleFilter,
-        forceRefresh,
+        forceRefresh: forceRefresh || forceResolveUpstream,
+        ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
         requestedUrlCount: urls.length,
         requestSource,
         skipRefresh,
@@ -94,7 +110,13 @@ export async function POST(
       });
     }
 
-    const intent = forceRefresh ? "force" : skipRefresh ? "skip" : "auto";
+    const intent = forceResolveUpstream
+      ? "dev-force"
+      : forceRefresh
+        ? "force"
+        : skipRefresh
+          ? "skip"
+          : "auto";
 
     if (urls.length === 0) {
       logger.info(`Batch [0 feeds]: client=${intent} | empty request`);
@@ -139,6 +161,7 @@ export async function POST(
     const db = (deps.getDbFn ?? getDb)();
     const fetchAndCacheFeedArticlesBatchForRoute =
       deps.fetchAndCacheFeedArticlesBatchFn ?? fetchAndCacheFeedArticlesBatch;
+    const resolveUserProxyForRoute = deps.resolveUserProxyFn ?? resolveUserProxy;
 
     // Single batch call: ~3 DB round-trips regardless of how many feeds.
     const {
@@ -156,9 +179,18 @@ export async function POST(
       normalizedUrls,
       {
         articleFilter,
+        ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
         forceRefresh,
         knownLastFetchedAtByUrl,
         requestSource,
+        resolveProxyTransport: async () => {
+          const resolvedProxy = await resolveUserProxyForRoute(user.userId);
+
+          return {
+            allowInsecureTls: resolvedProxy.allowInsecureTls,
+            proxyUrl: resolvedProxy.proxyUrl,
+          };
+        },
         skipRefresh,
       },
     );
@@ -207,8 +239,9 @@ export async function POST(
       cooldownLimitedCount > 0
         ? `, ${cooldownLimitedCount === n ? "all" : cooldownLimitedCount} throttled`
         : "";
+    const durationMs = Date.now() - requestStartedAt;
     logger.info(
-      `Batch [${n} feed${plural}]: client=${intent} resolved=${resolution} | ${refreshedCount} refreshed, ${cachedCount} cached${cooldownNote}`,
+      `Batch [${n} feed${plural}]: client=${intent} resolved=${resolution} | ${refreshedCount} refreshed, ${cachedCount} cached${cooldownNote} in ${durationMs}ms`,
     );
 
     if (hasUpstreamErrors) {
@@ -229,7 +262,8 @@ export async function POST(
     if (diagnosticsEnabled) {
       logger.info("Feed batch request completed", {
         articleFilter,
-        forceRefresh,
+        forceRefresh: forceRefresh || forceResolveUpstream,
+        ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
         invalidUrlCount,
         missingCount: results.filter((item) => !item.ok).length,
         normalizedUrlCount: normalizedUrls.length,
@@ -251,6 +285,13 @@ export async function POST(
       status: hasRequestErrors || hasUpstreamErrors ? 207 : 200,
     });
   } catch (error) {
+    if (
+      error instanceof ServerServiceError &&
+      error.reason === "proxy-password-unreadable"
+    ) {
+      return jsonErrorWithReason(error.message, error.status, error.reason);
+    }
+
     return (deps.logAndRespondErrorFn ?? logAndRespondError)(
       "Feed batch fetch error",
       error,
@@ -288,6 +329,23 @@ function parseArticleFilter(value: unknown): ArticleFilter | Response {
     return NextResponse.json(
       {
         error: "articleFilter must be one of all, unread, read, or starred",
+      },
+      { status: 400 },
+    );
+  }
+
+  return value;
+}
+
+function parseForceResolveUpstream(value: unknown): boolean | Response {
+  if (value === undefined) {
+    return false;
+  }
+
+  if (typeof value !== "boolean") {
+    return NextResponse.json(
+      {
+        error: "forceResolveUpstream must be a boolean",
       },
       { status: 400 },
     );

@@ -515,7 +515,9 @@ test.describe("dashboard interaction coverage", () => {
       })
       .toBe(!initialThemeIsDark);
 
-    await page.getByRole("button", { name: "Refresh selected feed" }).click();
+    await page
+      .locator('button[aria-label="Refresh selected feed"]:visible')
+      .click();
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
     const firstArticleTitle =

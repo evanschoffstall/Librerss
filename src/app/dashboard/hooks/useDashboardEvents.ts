@@ -14,12 +14,16 @@ import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 
 import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "../constants";
 
+interface DashboardRefreshEventDetail {
+  forceResolveUpstream?: boolean;
+}
+
 interface UseDashboardEventsOptions {
   onMarkAllReadLocally?: () => void;
   onMarkViewportRead: () => Promise<void>;
   onOpenFeedsSidebar: () => void;
   onOpenSettings: () => void;
-  onRefresh: () => Promise<void>;
+  onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>;
   onSearchChange: (term: string) => void;
   selectedCategory: string;
   selectedCategoryNode: CategoryTreeNode | undefined;
@@ -137,12 +141,18 @@ export function useDashboardEvents({
     });
   });
 
-  const handleRefresh = useEffectEvent(() => {
+  const handleRefresh = useEffectEvent((event: Event) => {
     void (async () => {
+      const detail = (event as CustomEvent<DashboardRefreshEventDetail | null>)
+        .detail;
+      const forceResolveUpstream =
+        detail !== null && detail.forceResolveUpstream === true;
       window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
 
       try {
-        await onRefresh();
+        await onRefresh({
+          forceResolveUpstream,
+        });
       } finally {
         window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
       }

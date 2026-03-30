@@ -57,10 +57,13 @@ describe("DashboardToolbar", () => {
     mockToolbarDependencies();
 
     const { DashboardToolbar } = await loadDashboardToolbar();
-    const { getAllByText, getByLabelText } = render(<DashboardToolbar />);
+    const { getAllByText, getByLabelText, getByText } = render(
+      <DashboardToolbar />,
+    );
 
     expect(getAllByText("Reset")).toHaveLength(1);
     expect(getByLabelText("Reset app state")).toBeTruthy();
+    expect(getByText("Upstream refresh")).toBeTruthy();
   });
 
   test("does not show Reset controls outside development mode", async () => {
@@ -74,6 +77,33 @@ describe("DashboardToolbar", () => {
 
     expect(queryByText("Reset")).toBeNull();
     expect(queryByLabelText("Reset app state")).toBeNull();
+    expect(queryByText("Upstream refresh")).toBeNull();
+  });
+
+  test("dispatches the upstream override refresh event from the actions menu", async () => {
+    setNodeEnv("development");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const detailEvents: (undefined | { forceResolveUpstream?: boolean })[] = [];
+    const handleRefresh = (event: Event) => {
+      detailEvents.push(
+        (event as CustomEvent<{ forceResolveUpstream?: boolean }>).detail,
+      );
+    };
+    window.addEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);
+
+    try {
+      const { DashboardToolbar } = await loadDashboardToolbar();
+      const { getByText } = render(<DashboardToolbar />);
+
+      fireEvent.click(getByText("Upstream refresh"));
+
+      expect(detailEvents).toEqual([{ forceResolveUpstream: true }]);
+    } finally {
+      window.removeEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);
+    }
   });
 
   test("renders the viewport read action in the persistent toolbar button bar", async () => {

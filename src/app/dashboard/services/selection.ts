@@ -7,6 +7,7 @@ import { findFeedNodeByKey } from "./category-tree";
 export interface FeedFetchOptions {
   articleFilter?: ArticleFilter;
   forceRefresh?: boolean;
+  forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource?: FeedRequestSource;
@@ -56,6 +57,7 @@ type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
 type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   fallbackFeedUrl?: string;
   forceRefresh?: boolean;
+  forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
   requestSource?: FeedRequestSource;
   selectedCategory: string;
@@ -135,6 +137,7 @@ export async function refreshCurrentSelection(
     fetchCategoryFeeds,
     fetchFeed,
     forceRefresh = false,
+    forceResolveUpstream,
     keepExistingFeed,
     requestSource,
     selectedCategory,
@@ -144,6 +147,7 @@ export async function refreshCurrentSelection(
   } = options;
 
   const fetchOptions: FeedFetchOptions = {
+    ...(forceResolveUpstream === true ? { forceResolveUpstream: true } : {}),
     forceRefresh,
     keepExistingFeed,
     requestSource,
