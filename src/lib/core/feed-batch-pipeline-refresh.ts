@@ -3,6 +3,8 @@ import type { getDb } from "@/lib/db/db";
 import { CONFIG } from "@/lib/config";
 import { logger } from "@/lib/logger";
 
+import type { FeedUpstreamTransport } from "./feed-http";
+
 import { type RefreshDecision } from "./feed-batch-pipeline.types";
 import {
   type FeedRecord,
@@ -18,6 +20,7 @@ export function buildRefreshPlan(
   allowedUrls: string[],
   skipRefresh: boolean,
   forceRefresh: boolean,
+  forceResolveUpstream = false,
 ): RefreshDecision[] {
   return allowedUrls.map((url) => {
     const feed = feedByUrl.get(url);
@@ -26,6 +29,14 @@ export function buildRefreshPlan(
     }
     if (skipRefresh) {
       return { decision: "skip-refresh-flag", url };
+    }
+
+    if (forceResolveUpstream) {
+      return {
+        decision: "refresh-upstream-override",
+        lastFetched: feed.lastFetched,
+        url,
+      };
     }
 
     const isStale = shouldRefreshFeed(feed.lastFetched);
@@ -62,6 +73,8 @@ export async function executeParallelRefreshes(
   allowedUrls: string[],
   skipRefresh: boolean,
   forceRefresh: boolean,
+  forceResolveUpstream = false,
+  proxyTransport?: FeedUpstreamTransport,
 ): Promise<{
   cooldownLimitedCount: number;
   errors: Map<string, string>;
@@ -73,11 +86,20 @@ export async function executeParallelRefreshes(
   let cooldownLimitedCount = 0;
 
   if (!skipRefresh) {
-    const canRefresh = (feed: FeedRecord): boolean =>
-      forceRefresh
-        ? shouldForceRefreshFeed(feed.lastFetched) ||
+    const canRefresh = (feed: FeedRecord): boolean => {
+      if (forceResolveUpstream) {
+        return true;
+      }
+
+      if (forceRefresh) {
+        return (
+          shouldForceRefreshFeed(feed.lastFetched) ||
           feed.lastFetchError !== null
-        : shouldRefreshFeed(feed.lastFetched);
+        );
+      }
+
+      return shouldRefreshFeed(feed.lastFetched);
+    };
 
     const staleFeeds = allowedUrls
       .map((url) => feedByUrl.get(url))
@@ -87,7 +109,7 @@ export async function executeParallelRefreshes(
       refreshedUrls.add(feed.url);
     }
 
-    if (forceRefresh) {
+    if (forceRefresh && !forceResolveUpstream) {
       cooldownLimitedCount = allowedUrls.filter((url) => {
         const feed = feedByUrl.get(url);
         return (
@@ -100,7 +122,11 @@ export async function executeParallelRefreshes(
 
     if (staleFeeds.length > 0) {
       const results = await settledWithConcurrency(
-        staleFeeds.map((feed) => () => refreshFeedFromUpstream(db, feed)),
+        staleFeeds.map((feed) => () =>
+          refreshFeedFromUpstream(db, feed, {
+            proxyTransport,
+          }),
+        ),
         CONFIG.FEED_BATCH_CONCURRENCY,
       );
 

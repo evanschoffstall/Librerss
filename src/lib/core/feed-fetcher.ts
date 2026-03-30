@@ -24,6 +24,8 @@ import { CONFIG } from "@/lib/config";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
 import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
 
+import type { FeedUpstreamTransport } from "./feed-http";
+
 import {
   type ArticleRow,
   buildRefreshPlan,
@@ -94,6 +96,12 @@ interface BatchFeedResult {
   unchangedUrls: Set<string>;
 }
 
+interface FeedFetchProxyOptions {
+  resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
+}
+
+// ─── Error types ──────────────────────────────────────────────────────────────
+
 /** Returned when the authenticated user doesn't own the requested feed source. */
 class FeedSourceNotFoundError extends Error {
   constructor(feedUrl: string) {
@@ -101,8 +109,6 @@ class FeedSourceNotFoundError extends Error {
     this.name = "FeedSourceNotFoundError";
   }
 }
-
-// ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Thrown when an upstream feed refresh fails so callers can return a proper error. */
 class UpstreamFeedError extends Error {
@@ -121,9 +127,10 @@ export async function fetchAndCacheFeedArticles(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedUrl: string,
+  options?: FeedFetchProxyOptions,
 ): Promise<ArticleRow[]> {
   const userSources = await db
-    .select({ id: feedSources.id })
+    .select({ id: feedSources.id, proxyEnabled: feedSources.proxyEnabled })
     .from(feedSources)
     .where(
       and(
@@ -135,6 +142,7 @@ export async function fetchAndCacheFeedArticles(
     .limit(1);
 
   if (userSources.length === 0) throw new FeedSourceNotFoundError(feedUrl);
+  const sourceProxyEnabled = userSources[0]?.proxyEnabled;
 
   const feed = (await feedFetcherDependencies.ensureFeedRecordByUrl(
     db,
@@ -142,9 +150,16 @@ export async function fetchAndCacheFeedArticles(
   )) as FeedRecord;
 
   if (feedFetcherDependencies.shouldRefreshFeed(feed.lastFetched)) {
+    const proxyTransport =
+      sourceProxyEnabled && options?.resolveProxyTransport
+        ? await options.resolveProxyTransport()
+        : undefined;
     const result = await feedFetcherDependencies.refreshFeedFromUpstream(
       db,
-      feed,
+      { ...feed, proxyEnabled: sourceProxyEnabled },
+      {
+        proxyTransport,
+      },
     );
     if (!result.ok) throw new UpstreamFeedError(feedUrl, result.error);
     feedFetcherDependencies.diagInfo("Single feed refreshed", { url: feedUrl });
@@ -186,22 +201,29 @@ export async function fetchAndCacheFeedArticlesBatch(
   {
     articleFilter = "all",
     forceRefresh = false,
+    forceResolveUpstream = false,
     knownLastFetchedAtByUrl,
     requestSource = "unspecified",
+    resolveProxyTransport,
     skipRefresh = false,
   }: {
     articleFilter?: ArticleFilter;
     forceRefresh?: boolean;
+    forceResolveUpstream?: boolean;
     knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
     requestSource?: string;
+    resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
     skipRefresh?: boolean;
   } = {},
 ): Promise<BatchFeedResult> {
   if (feedUrls.length === 0) return buildEmptyBatchResult();
 
+  let shouldForceRefresh = forceRefresh || forceResolveUpstream;
+
   feedFetcherDependencies.diagInfo("Batch feed fetch started", {
     articleFilter,
-    forceRefresh,
+    forceRefresh: shouldForceRefresh,
+    forceResolveUpstream,
     requestedUrlCount: feedUrls.length,
     requestSource,
     skipRefresh,
@@ -211,7 +233,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   // ── Per-user force-refresh cooldown (DB-backed, survives restarts) ───────
   // Atomically check + claim: UPDATE returns a row only when the cooldown has
   // elapsed, preventing concurrent requests from both passing the gate.
-  if (forceRefresh) {
+  if (shouldForceRefresh && !forceResolveUpstream) {
     const claimed = await db
       .update(users)
       .set({ lastForceRefreshedAt: new Date() })
@@ -228,7 +250,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         requestSource,
         userId,
       });
-      forceRefresh = false;
+      shouldForceRefresh = false;
     }
   }
 
@@ -241,14 +263,14 @@ export async function fetchAndCacheFeedArticlesBatch(
     feedUrls,
     articleFilter,
   );
-  if (cached) {
+  if (cached && !forceResolveUpstream) {
     const allWithinCooldown =
-      forceRefresh &&
+      shouldForceRefresh &&
       [...cached.lastFetchedByUrl.values()].every(
         (d) => !feedFetcherDependencies.shouldForceRefreshFeed(d),
       );
 
-    if (!forceRefresh || allWithinCooldown) {
+    if (!shouldForceRefresh || allWithinCooldown) {
       const cachedCount = feedUrls.length;
       const unchangedUrls = collectUnchangedUrls(
         feedUrls,
@@ -297,6 +319,14 @@ export async function fetchAndCacheFeedArticlesBatch(
   }
 
   const { allowedUrls, feedByUrl } = resolved;
+  const proxyTransport = await resolveRefreshProxyTransport(
+    allowedUrls,
+    feedByUrl,
+    skipRefresh,
+    shouldForceRefresh,
+    forceResolveUpstream,
+    resolveProxyTransport,
+  );
 
   feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
     allowedUrlCount: allowedUrls.length,
@@ -306,7 +336,8 @@ export async function fetchAndCacheFeedArticlesBatch(
       feedByUrl,
       allowedUrls,
       skipRefresh,
-      forceRefresh,
+      shouldForceRefresh,
+      forceResolveUpstream,
     ),
     requestSource,
     userId,
@@ -322,7 +353,9 @@ export async function fetchAndCacheFeedArticlesBatch(
     feedByUrl,
     allowedUrls,
     skipRefresh,
-    forceRefresh,
+    shouldForceRefresh,
+    forceResolveUpstream,
+    proxyTransport,
   );
 
   if (!skipRefresh) {
@@ -552,6 +585,37 @@ function collectUnchangedUrls(
       );
     }),
   );
+}
+
+async function resolveRefreshProxyTransport(
+  allowedUrls: string[],
+  feedByUrl: ReadonlyMap<string, FeedRecord>,
+  skipRefresh: boolean,
+  forceRefresh: boolean,
+  forceResolveUpstream: boolean,
+  resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>,
+): Promise<FeedUpstreamTransport | undefined> {
+  if (!resolveProxyTransport || skipRefresh) {
+    return undefined;
+  }
+
+  const requiresProxyTransport = allowedUrls.some((url) => {
+    const feed = feedByUrl.get(url);
+
+    if (feed?.proxyEnabled !== true) {
+      return false;
+    }
+
+    if (forceResolveUpstream) {
+      return true;
+    }
+
+    return forceRefresh
+      ? shouldForceRefreshFeed(feed.lastFetched) || feed.lastFetchError !== null
+      : shouldRefreshFeed(feed.lastFetched);
+  });
+
+  return requiresProxyTransport ? resolveProxyTransport() : undefined;
 }
 
 /** Returns only the requested URLs from a cached article map. */

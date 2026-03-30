@@ -13,8 +13,12 @@ import { CONFIG } from "@/lib/config";
 import { articles, feeds } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { toErrorMessage } from "@/lib/utils/errors";
+import { redactUrlForLogs } from "@/lib/utils/url";
 
-import { fetchFeedXml } from "./feed-http";
+import {
+  type FeedUpstreamTransport,
+  fetchFeedXml,
+} from "./feed-http";
 import {
   dedupePendingArticles,
   getPublicationDateRange,
@@ -45,6 +49,7 @@ export interface FeedRecord {
   id: number;
   lastFetched: Date;
   lastFetchError: null | string;
+  proxyEnabled?: boolean;
   url: string;
 }
 
@@ -54,12 +59,16 @@ export type UpstreamRefreshResult = { error: string; ok: false } | { ok: true };
 
 interface RefreshDeps {
   dedupePendingArticlesFn?: typeof dedupePendingArticles;
-  fetchFeedXmlFn?: (url: string) => Promise<string>;
+  fetchFeedXmlFn?: (
+    url: string,
+    transport?: FeedUpstreamTransport,
+  ) => Promise<string>;
   getPublicationDateRangeFn?: typeof getPublicationDateRange;
   nowFn?: () => Date;
   parseFeedXmlFn?: (
     xml: string,
   ) => Promise<{ items: (Parser.Item & { contentEncoded?: string })[] }>;
+  proxyTransport?: FeedUpstreamTransport;
   toErrorMessageFn?: typeof toErrorMessage;
   toPendingArticleFn?: typeof toPendingArticle;
 }
@@ -70,11 +79,19 @@ export async function refreshFeedFromUpstream(
   deps?: RefreshDeps,
 ): Promise<UpstreamRefreshResult> {
   const now = deps?.nowFn?.() ?? new Date();
+  const proxyTransport =
+    feed.proxyEnabled === true ? deps?.proxyTransport : undefined;
+  const connectionMode = proxyTransport?.proxyUrl ? "proxy" : "direct";
 
   try {
     diagInfo("Upstream refresh started", {
+      allowInsecureTls: proxyTransport?.allowInsecureTls ?? false,
+      connectionMode,
       feedId: feed.id,
       lastFetched: feed.lastFetched,
+      proxyEndpoint: proxyTransport?.proxyUrl
+        ? redactUrlForLogs(proxyTransport.proxyUrl)
+        : null,
       url: feed.url,
     });
 
@@ -85,7 +102,10 @@ export async function refreshFeedFromUpstream(
     const dedupe = deps?.dedupePendingArticlesFn ?? dedupePendingArticles;
     const getRange = deps?.getPublicationDateRangeFn ?? getPublicationDateRange;
 
-    const feedXml = await fetchXml(feed.url);
+    const feedXml = await fetchXml(
+      feed.url,
+      proxyTransport,
+    );
     const parsed = await parseFeedXml(feedXml);
     const parsedItems = Array.isArray(parsed.items) ? parsed.items : [];
 

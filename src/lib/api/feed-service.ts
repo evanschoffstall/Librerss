@@ -83,6 +83,7 @@ export const FeedService = {
     {
       articleFilter = "all",
       forceRefresh = false,
+      forceResolveUpstream = false,
       knownLastFetchedAtByUrl,
       requestSource,
       signal,
@@ -90,6 +91,7 @@ export const FeedService = {
     }: {
       articleFilter?: ArticleFilter;
       forceRefresh?: boolean;
+      forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: string;
       signal?: AbortSignal;
@@ -110,6 +112,7 @@ export const FeedService = {
           `${feedServiceBaseUrl}/feeds/batch`,
           {
             articleFilter,
+            ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
             forceRefresh,
             ...(serializedKnownLastFetchedAtByUrl
               ? { knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl }

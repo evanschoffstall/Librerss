@@ -5,6 +5,7 @@
 import { CONFIG } from "@/lib/config";
 import { decodeTextBody } from "@/lib/utils/content-encoding";
 import {
+  HttpCloakUpstreamError,
   requestWithHttpCloakValidatedRedirects,
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
@@ -12,6 +13,11 @@ import {
 import { assertPublicFeedUrl } from "./feed-url-validator";
 
 const MAX_FEED_REDIRECTS = 5;
+
+export interface FeedUpstreamTransport {
+  allowInsecureTls?: boolean;
+  proxyUrl?: string;
+}
 
 interface FeedHttpDeps {
   assertPublicFeedUrlFn?: (url: string) => Promise<void>;
@@ -25,14 +31,16 @@ interface FeedHttpDeps {
 export async function fetchFeedXml(
   url: string,
   deps?: FeedHttpDeps,
+  transport?: FeedUpstreamTransport,
 ): Promise<string> {
   const assertUrl = deps?.assertPublicFeedUrlFn ?? assertPublicFeedUrl;
 
   try {
     const response = await requestWithHttpCloakValidatedRedirects(
       {
-        headers: {},
+        allowInsecureTls: transport?.allowInsecureTls ?? false,
         maxRedirects: MAX_FEED_REDIRECTS,
+        proxyUrl: transport?.proxyUrl,
         timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
         url,
         validateUrl: async (candidateUrl) => {
@@ -42,15 +50,24 @@ export async function fetchFeedXml(
       { requestFn: deps?.httpCloakRequestFn },
     );
 
+    const decodedBody =
+      typeof response.text === "string"
+        ? response.text
+        : await decodeTextBody(
+            response.body,
+            getSingleHeaderValue(response.headers, "content-encoding"),
+            { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
+          );
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw createFeedStageError(response.statusCode, response.headers);
+      throw createFeedStageError(
+        response,
+        decodedBody,
+        transport,
+      );
     }
 
-    return await decodeTextBody(
-      response.body,
-      getSingleHeaderValue(response.headers, "content-encoding"),
-      { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
-    );
+    return decodedBody;
   } catch (error) {
     if (isUrlValidationError(error) || error instanceof Error) {
       throw error;
@@ -61,20 +78,39 @@ export async function fetchFeedXml(
 }
 
 function createFeedStageError(
-  statusCode: number,
-  headers?: Record<string, unknown>,
+  response: {
+    headers: Record<string, string | string[] | undefined>;
+    redirectHop: number;
+    requestHeaders: Record<string, string>;
+    statusCode: number;
+  },
+  responseBody: string,
+  transport?: FeedUpstreamTransport,
 ): Error {
-  const xDataDome = headers?.["x-datadome"];
+  const xDataDome = response.headers["x-datadome"];
   const dataDomeHeader =
-    typeof xDataDome === "string" ? xDataDome.toLowerCase() : "";
+    typeof xDataDome === "string"
+      ? xDataDome.toLowerCase()
+      : Array.isArray(xDataDome)
+        ? xDataDome.join(";").toLowerCase()
+        : "";
 
-  if (statusCode === 403 && dataDomeHeader === "protected") {
-    return new Error(
-      "Upstream request received a vendor access response (DataDome) [HTTP 403]",
-    );
-  }
+  const message =
+    response.statusCode === 403 && dataDomeHeader === "protected"
+      ? "Upstream request received a vendor access response (DataDome) [HTTP 403]"
+      : `Upstream responded with status ${response.statusCode}`;
 
-  return new Error(`Upstream responded with status ${statusCode}`);
+  return new HttpCloakUpstreamError(
+    response.statusCode,
+    responseBody,
+    transport?.proxyUrl ? "proxy" : "direct",
+    transport?.proxyUrl ?? null,
+    transport?.allowInsecureTls ?? false,
+    response.redirectHop,
+    response.headers,
+    response.requestHeaders,
+    message,
+  );
 }
 
 function getSingleHeaderValue(
