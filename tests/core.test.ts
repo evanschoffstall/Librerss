@@ -397,8 +397,30 @@ describe("feed-http", () => {
     expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
   });
 
+  test("fetchFeedXml prefers decoded HTTPCloak text when content-encoding is preserved", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: Buffer.from("<rss><channel><title>decoded</title></channel></rss>", "utf8"),
+      headers: {
+        "content-encoding": "gzip",
+      },
+      statusCode: 200,
+      text: "<rss><channel><title>decoded</title></channel></rss>",
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss><channel><title>decoded</title></channel></rss>");
+    expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
+  });
+
   test("fetchFeedXml maps DataDome 403 responses to a descriptive message", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { HttpCloakUpstreamError } = await import("@/lib/fetch/response");
 
     const httpCloakRequestFn = mock(async () => ({
       body: "blocked",
@@ -406,27 +428,50 @@ describe("feed-http", () => {
       statusCode: 403,
     }));
 
-    await expect(
-      fetchFeedXml("https://example.com/feed.xml", {
+    try {
+      await fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
         httpCloakRequestFn,
-      }),
-    ).rejects.toThrow("DataDome");
+      });
+      expect.unreachable("Expected fetchFeedXml to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpCloakUpstreamError);
+      const httpCloakUpstreamError = error as InstanceType<
+        typeof HttpCloakUpstreamError
+      >;
+      expect(httpCloakUpstreamError.message).toContain("DataDome");
+      expect(httpCloakUpstreamError.responseHeaders["x-datadome"]).toBe(
+        "protected",
+      );
+      expect(httpCloakUpstreamError.responseBody).toBe("blocked");
+    }
   });
 
   test("fetchFeedXml throws non-DataDome upstream status errors directly", async () => {
     const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { HttpCloakUpstreamError } = await import("@/lib/fetch/response");
 
-    await expect(
-      fetchFeedXml("https://example.com/feed.xml", {
+    try {
+      await fetchFeedXml("https://example.com/feed.xml", {
         assertPublicFeedUrlFn: async () => {},
         httpCloakRequestFn: (async () => ({
           body: "server error",
-          headers: {},
+          headers: { server: "origin" },
           statusCode: 500,
         })) as any,
-      }),
-    ).rejects.toThrow("Upstream responded with status 500");
+      });
+      expect.unreachable("Expected fetchFeedXml to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpCloakUpstreamError);
+      const httpCloakUpstreamError = error as InstanceType<
+        typeof HttpCloakUpstreamError
+      >;
+      expect(httpCloakUpstreamError.message).toBe(
+        "Upstream responded with status 500",
+      );
+      expect(httpCloakUpstreamError.responseBody).toBe("server error");
+      expect(httpCloakUpstreamError.responseHeaders.server).toBe("origin");
+    }
   });
 });
 
@@ -625,6 +670,95 @@ describe("feed-refresh", () => {
 
     expect(result).toEqual({ error: "normalized-error", ok: false });
     expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  test("refreshFeedFromUpstream passes proxy transport for proxy-enabled feeds", async () => {
+    const { refreshFeedFromUpstream } = await importFeedRefresh();
+
+    const values = mock(() => ({ onConflictDoUpdate: mock(async () => []) }));
+    const insert = mock(() => ({ values }));
+    const where = mock(async () => []);
+    const set = mock(() => ({ where }));
+    const update = mock(() => ({ set }));
+    const fetchFeedXmlFn = mock(async () => "<rss />");
+
+    const result = await refreshFeedFromUpstream(
+      { insert, update } as unknown as any,
+      {
+        id: 12,
+        lastFetched: new Date("2026-02-23T00:00:00.000Z"),
+        lastFetchError: null,
+        proxyEnabled: true,
+        url: "https://example.com/proxied.xml",
+      },
+      {
+        dedupePendingArticlesFn: (rows) => rows,
+        fetchFeedXmlFn,
+        getPublicationDateRangeFn: () => ({
+          newestPublicationDate: null,
+          oldestPublicationDate: null,
+        }),
+        parseFeedXmlFn: async () => ({ items: [] }),
+        proxyTransport: {
+          allowInsecureTls: true,
+          proxyUrl: "socks5://proxy.example:1080",
+        },
+      },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(fetchFeedXmlFn).toHaveBeenCalledWith(
+      "https://example.com/proxied.xml",
+      {
+        allowInsecureTls: true,
+        proxyUrl: "socks5://proxy.example:1080",
+      },
+    );
+  });
+
+  test("refreshFeedFromUpstream logs proxied refresh details even when feed diagnostics are disabled", async () => {
+    const { logger } = await import("@/lib/logger");
+    const { refreshFeedFromUpstream } = await importFeedRefresh();
+    const originalInfo = logger.info;
+    const info = mock(() => undefined);
+
+    logger.info = info;
+
+    try {
+      const values = mock(() => ({ onConflictDoUpdate: mock(async () => []) }));
+      const insert = mock(() => ({ values }));
+      const where = mock(async () => []);
+      const set = mock(() => ({ where }));
+      const update = mock(() => ({ set }));
+
+      const result = await refreshFeedFromUpstream(
+        { insert, update } as unknown as any,
+        {
+          id: 13,
+          lastFetched: new Date("2026-02-23T00:00:00.000Z"),
+          lastFetchError: null,
+          proxyEnabled: true,
+          url: "https://example.com/proxied-log.xml",
+        },
+        {
+          dedupePendingArticlesFn: (rows) => rows,
+          fetchFeedXmlFn: async () => "<rss />",
+          getPublicationDateRangeFn: () => ({
+            newestPublicationDate: null,
+            oldestPublicationDate: null,
+          }),
+          parseFeedXmlFn: async () => ({ items: [] }),
+          proxyTransport: {
+            allowInsecureTls: false,
+            proxyUrl: "socks5://user:secret@proxy.example:1080",
+          },
+        },
+      );
+
+      expect(result).toEqual({ ok: true });
+    } finally {
+      logger.info = originalInfo;
+    }
   });
 
   test("refreshFeedFromUpstream supports diagnostic logging and no-valid-items path", async () => {

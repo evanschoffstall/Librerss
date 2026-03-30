@@ -35,7 +35,9 @@ describe("fetch/httpcloak-client", () => {
     );
 
     expect(result.html).toBe("<html>ok</html>");
-    expect(capturedHeaders).toEqual({});
+    expect(capturedHeaders).toBeDefined();
+    expect(result.requestHeaders).toEqual(capturedHeaders ?? {});
+    expect(capturedHeaders ?? {}).toEqual({});
   });
 
   test("rejects blocked redirect targets", async () => {
@@ -87,6 +89,7 @@ describe("fetch/httpcloak-client", () => {
     );
 
     expect(result.html).toBe("<html>ok</html>");
+    expect(result.requestHeaders).toEqual({});
     expect(requestFn).toHaveBeenCalledTimes(1);
   });
 
@@ -102,6 +105,28 @@ describe("fetch/httpcloak-client", () => {
 
     const result = await fetchHtmlWithHttpCloak(
       "https://tls.peet.ws/api/all",
+      async () => true,
+      undefined,
+      { requestFn },
+    );
+
+    expect(result.html).toBe(html);
+    expect(requestFn).toHaveBeenCalledTimes(1);
+  });
+
+  test("prefers decoded HTTPCloak text when content-encoding headers remain set", async () => {
+    const html = "<html><body>already decoded</body></html>";
+    const requestFn = mock(async () => ({
+      body: Buffer.from(html, "utf8"),
+      headers: {
+        "content-encoding": "gzip",
+      } as Record<string, string | string[] | undefined>,
+      statusCode: 200,
+      text: html,
+    }));
+
+    const result = await fetchHtmlWithHttpCloak(
+      "https://example.com/article",
       async () => true,
       undefined,
       { requestFn },

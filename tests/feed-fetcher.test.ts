@@ -432,6 +432,107 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     expect(result).toBeDefined();
   });
+
+  test("fetchAndCacheFeedArticlesBatch resolves proxy transport only for stale proxied feeds", async () => {
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>(),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>(["https://example.com/feed"]),
+    }));
+    const resolveProxyTransport = mock(async () => ({
+      allowInsecureTls: true,
+      proxyUrl: "socks5://proxy.example:1080",
+    }));
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      mapRowsToArticleMap: mock(() => new Map([["https://example.com/feed", []]])),
+      queryTopArticlesPerFeed: mock(async () => []),
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed",
+            createFeedRecord({
+              lastFetched: new Date(0),
+              proxyEnabled: true,
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed"],
+      { resolveProxyTransport },
+    );
+
+    expect(resolveProxyTransport).toHaveBeenCalledTimes(1);
+    expect(executeParallelRefreshes).toHaveBeenCalledWith(
+      mockDb,
+      expect.any(Map),
+      ["https://example.com/feed"],
+      false,
+      false,
+      false,
+      {
+        allowInsecureTls: true,
+        proxyUrl: "socks5://proxy.example:1080",
+      },
+    );
+  });
+
+  test("fetchAndCacheFeedArticlesBatch bypasses memory cache when forceResolveUpstream is enabled", async () => {
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>(),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>(["https://example.com/feed"]),
+    }));
+    const getCachedBatch = mock(() => ({
+      articles: new Map([["https://example.com/feed", []]]),
+      cachedAt: Date.now(),
+      errors: new Map<string, string>(),
+      lastFetchedByUrl: new Map([["https://example.com/feed", new Date()]]),
+    }));
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      getCachedBatch,
+      mapRowsToArticleMap: mock(() => new Map([["https://example.com/feed", []]])),
+      queryTopArticlesPerFeed: mock(async () => []),
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed",
+            createFeedRecord({ lastFetched: new Date() }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed"],
+      { forceResolveUpstream: true },
+    );
+
+    expect(getCachedBatch).toHaveBeenCalledTimes(1);
+    expect(executeParallelRefreshes).toHaveBeenCalledWith(
+      mockDb,
+      expect.any(Map),
+      ["https://example.com/feed"],
+      false,
+      true,
+      true,
+      undefined,
+    );
+  });
 });
 
 describe("Feed Fetcher - Single Feed Operations", () => {
@@ -616,5 +717,71 @@ describe("Feed Fetcher - Single Feed Operations", () => {
     );
 
     expect(Array.isArray(articles)).toBe(true);
+  });
+
+  test("fetchAndCacheFeedArticles resolves proxy transport for proxy-enabled stale feeds", async () => {
+    const refreshFeedFromUpstream = mock(async () => ({ ok: true as const }));
+    const resolveProxyTransport = mock(async () => ({
+      allowInsecureTls: false,
+      proxyUrl: "http://proxy.example:8080",
+    }));
+
+    setFeedFetcherDependenciesForTesting({
+      ensureFeedRecordByUrl: mock(async () =>
+        createFeedRecord({
+          lastFetched: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        }),
+      ),
+      refreshFeedFromUpstream,
+      shouldRefreshFeed: mock(() => true),
+    });
+
+    const mockDbLocal = {
+      select: mock(() => ({
+        from: mock(() => ({
+          leftJoin: mock(() => ({
+            where: mock(() => ({
+              orderBy: mock(() => ({
+                limit: mock(() => Promise.resolve([])),
+              })),
+            })),
+          })),
+          where: mock(() => ({
+            limit: mock(() =>
+              Promise.resolve([
+                {
+                  id: 1,
+                  proxyEnabled: true,
+                  url: "https://example.com/feed",
+                  userId: 1,
+                },
+              ]),
+            ),
+          })),
+        })),
+      })),
+    } as unknown as ReturnType<typeof getDb>;
+
+    await fetchAndCacheFeedArticles(
+      mockDbLocal,
+      1,
+      "https://example.com/feed",
+      { resolveProxyTransport },
+    );
+
+    expect(resolveProxyTransport).toHaveBeenCalledTimes(1);
+    expect(refreshFeedFromUpstream).toHaveBeenCalledWith(
+      mockDbLocal,
+      expect.objectContaining({
+        proxyEnabled: true,
+        url: "https://example.com/feed",
+      }),
+      {
+        proxyTransport: {
+          allowInsecureTls: false,
+          proxyUrl: "http://proxy.example:8080",
+        },
+      },
+    );
   });
 });
