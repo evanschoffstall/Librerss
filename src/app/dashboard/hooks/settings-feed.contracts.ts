@@ -22,7 +22,7 @@ export interface SettingsFeedStateOptions {
 }
 
 /** Mutable feed-source settings exposed by the dashboard settings surface. */
-export interface SettingsFeedUpdate {
+interface SettingsFeedUpdate {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;
 }

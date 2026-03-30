@@ -5,7 +5,8 @@ import { Geist } from "next/font/google";
 import React from "react";
 
 import "./globals.css";
-import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
+import { AppThemeProvider } from "@/components/AppThemeProvider";
+import { DebugBorder, DebugGrid } from "@/components/DebugOverlays";
 import { isDevelopment } from "@/lib/config";
 
 const geist = Geist({

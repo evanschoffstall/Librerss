@@ -2,136 +2,115 @@
  * SSRF-safe HTTP fetching for RSS feed XML.
  */
 
-import axios from "axios";
-
 import { CONFIG } from "@/lib/config";
 import { decodeTextBody } from "@/lib/utils/content-encoding";
 import {
+  HttpCloakUpstreamError,
   requestWithHttpCloakValidatedRedirects,
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
 
 import { assertPublicFeedUrl } from "./feed-url-validator";
-import { fetchTextWithValidatedRedirects } from "./upstream-http";
 
 const MAX_FEED_REDIRECTS = 5;
 
-interface FeedHttpDeps {
-  assertPublicFeedUrlFn?: (url: string) => Promise<void>;
-  axiosGetFn?: typeof axios.get;
-  httpCloakRequestFn?: ValidatedHttpCloakRequestFn;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
+export interface FeedUpstreamTransport {
+  allowInsecureTls?: boolean;
+  proxyUrl?: string;
 }
 
+interface FeedHttpDeps {
+  assertPublicFeedUrlFn?: (url: string) => Promise<void>;
+  httpCloakRequestFn?: ValidatedHttpCloakRequestFn;
+}
+
+/**
+ * Fetch feed XML through HTTPCloak only, validating each redirect hop before
+ * following it and rejecting non-success upstream responses directly.
+ */
 export async function fetchFeedXml(
   url: string,
   deps?: FeedHttpDeps,
+  transport?: FeedUpstreamTransport,
 ): Promise<string> {
   const assertUrl = deps?.assertPublicFeedUrlFn ?? assertPublicFeedUrl;
-  const requestHeaders = {
-    Accept: CONFIG.FEED_REQUEST_ACCEPT,
-    "Accept-Language": "en-US,en;q=0.8",
-    "User-Agent": CONFIG.FEED_REQUEST_USER_AGENT,
-  };
-
-  const skipHttpCloakStage =
-    deps?.axiosGetFn !== undefined && deps.httpCloakRequestFn === undefined;
-  let preferredError: Error | undefined;
-
-  if (!skipHttpCloakStage) {
-    try {
-      const response = await requestWithHttpCloakValidatedRedirects(
-        {
-          headers: requestHeaders,
-          maxRedirects: MAX_FEED_REDIRECTS,
-          timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
-          url,
-          validateUrl: async (candidateUrl) => {
-            await assertUrl(candidateUrl);
-          },
-        },
-        { requestFn: deps?.httpCloakRequestFn },
-      );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return await decodeTextBody(
-          response.body,
-          getSingleHeaderValue(response.headers, "content-encoding"),
-          { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
-        );
-      }
-
-      preferredError = createFeedStageError(
-        response.statusCode,
-        response.headers,
-      );
-    } catch (error) {
-      if (isUrlValidationError(error)) {
-        throw error;
-      }
-
-      preferredError = error instanceof Error ? error : undefined;
-    }
-  }
 
   try {
-    return await fetchTextWithValidatedRedirects(
+    const response = await requestWithHttpCloakValidatedRedirects(
       {
-        assertAllowedUrl: assertUrl,
-        headers: requestHeaders,
-        maxContentLengthBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+        allowInsecureTls: transport?.allowInsecureTls ?? false,
         maxRedirects: MAX_FEED_REDIRECTS,
-        onAxiosError: (error, isAxiosError) => {
-          if (!isAxiosError(error)) {
-            return;
-          }
-
-          const status = error.response?.status;
-          const responseHeaders = error.response?.headers as
-            | Record<string, unknown>
-            | undefined;
-          const xDataDome = responseHeaders?.["x-datadome"];
-          const dataDomeHeader =
-            typeof xDataDome === "string" ? xDataDome.toLowerCase() : "";
-
-          if (status === 403 && dataDomeHeader === "protected") {
-            throw new Error(
-              "Upstream request received a vendor access response (DataDome) [HTTP 403]",
-            );
-          }
-        },
+        proxyUrl: transport?.proxyUrl,
         timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
         url,
+        validateUrl: async (candidateUrl) => {
+          await assertUrl(candidateUrl);
+        },
       },
-      {
-        axiosGetFn: deps?.axiosGetFn,
-        isAxiosErrorFn: deps?.isAxiosErrorFn,
-      },
+      { requestFn: deps?.httpCloakRequestFn },
     );
-  } catch (error) {
-    if (preferredError) {
-      throw preferredError;
+
+    const decodedBody =
+      typeof response.text === "string"
+        ? response.text
+        : await decodeTextBody(
+            response.body,
+            getSingleHeaderValue(response.headers, "content-encoding"),
+            { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
+          );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw createFeedStageError(
+        response,
+        decodedBody,
+        transport,
+      );
     }
 
-    throw error;
+    return decodedBody;
+  } catch (error) {
+    if (isUrlValidationError(error) || error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error("Upstream request failed", { cause: error });
   }
 }
 
 function createFeedStageError(
-  statusCode: number,
-  headers?: Record<string, string | string[] | undefined>,
+  response: {
+    headers: Record<string, string | string[] | undefined>;
+    redirectHop: number;
+    requestHeaders: Record<string, string>;
+    statusCode: number;
+  },
+  responseBody: string,
+  transport?: FeedUpstreamTransport,
 ): Error {
-  const xDataDome = headers?.["x-datadome"];
+  const xDataDome = response.headers["x-datadome"];
   const dataDomeHeader =
-    typeof xDataDome === "string" ? xDataDome.toLowerCase() : "";
+    typeof xDataDome === "string"
+      ? xDataDome.toLowerCase()
+      : Array.isArray(xDataDome)
+        ? xDataDome.join(";").toLowerCase()
+        : "";
 
-  if (statusCode === 403 && dataDomeHeader === "protected") {
-    return new Error(
-      "Upstream request received a vendor access response (DataDome) [HTTP 403]",
-    );
-  }
+  const message =
+    response.statusCode === 403 && dataDomeHeader === "protected"
+      ? "Upstream request received a vendor access response (DataDome) [HTTP 403]"
+      : `Upstream responded with status ${response.statusCode}`;
 
-  return new Error(`Upstream responded with status ${statusCode}`);
+  return new HttpCloakUpstreamError(
+    response.statusCode,
+    responseBody,
+    transport?.proxyUrl ? "proxy" : "direct",
+    transport?.proxyUrl ?? null,
+    transport?.allowInsecureTls ?? false,
+    response.redirectHop,
+    response.headers,
+    response.requestHeaders,
+    message,
+  );
 }
 
 function getSingleHeaderValue(

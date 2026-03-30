@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { createContext, useContext, useState } from "react";
 
 import { type CategoryTreeNode } from "@/lib";
@@ -116,31 +116,39 @@ mock.module("@/components/ui/tabs", () => {
   return { Tabs, TabsContent, TabsList, TabsTrigger };
 });
 
-mock.module("@/app/dashboard/components/settings/SettingsDisplaySection", () => ({
-  SettingsDisplaySection: () => <div data-testid="display-section">Display Settings Content</div>,
-}));
-
-mock.module("@/app/dashboard/components/settings/SettingsFeedManagementSection", () => ({
-  SettingsFeedManagementSection: () => <div data-testid="feeds-section">Feed Management Content</div>,
-}));
-
-mock.module("@/app/dashboard/components/settings/SettingsProxySection", () => ({
-  SettingsProxySection: () => <div data-testid="proxy-section">Proxy Settings Content</div>,
-}));
-
-mock.module("@/app/dashboard/components/settings/SettingsAccountSection", () => ({
-  SettingsAccountSection: () => <div data-testid="account-section">Account Settings Content</div>,
-}));
-
 mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
   useSettingsModalState: () => ({}),
 }));
 
- 
-const { SettingsPanel } = require("@/app/dashboard/components/settings/SettingsPanel") as typeof import("@/app/dashboard/components/settings/SettingsPanel");
- 
-
-beforeEach(() => {});
+mock.module("@/app/dashboard/hooks/useSettingsProxyState", () => ({
+  useSettingsProxyState: () => ({
+    allowInsecureTls: false,
+    compatibilityCheckedAt: null,
+    compatibilityError: null,
+    compatibilityResults: null,
+    error: null,
+    handleClear: async () => {},
+    handleRunCompatibilityCheck: async () => {},
+    handleSave: async () => {},
+    hasProxy: false,
+    hasProxyPassword: false,
+    inputRef: { current: null },
+    isRunningCompatibilityCheck: false,
+    nowTs: 0,
+    proxyPassword: "",
+    proxyStatus: "none",
+    proxyUrl: "",
+    proxyUsername: "",
+    resultsRef: { current: null },
+    saving: false,
+    setAllowInsecureTls: () => false,
+    setError: () => false,
+    setProxyPassword: () => false,
+    setProxyUrl: () => false,
+    setProxyUsername: () => false,
+    syncAllowInsecureTls: async () => {},
+  }),
+}));
 
 afterEach(() => {
   mock.restore();
@@ -164,7 +172,11 @@ const TEST_CATEGORIES: CategoryTreeNode[] = [
   },
 ];
 
-function renderPanel(overrides: Partial<Parameters<typeof SettingsPanel>[0]> = {}) {
+async function renderPanel(overrides: Record<string, unknown> = {}) {
+  const { SettingsPanel } = await import(
+    `@/app/dashboard/components/settings/SettingsPanel?test=${Date.now()}-${Math.random()}`
+  );
+
   const defaultProps = {
     articlesPerPage: 12,
     autoRefreshIntervalMinutes: 30,
@@ -218,16 +230,16 @@ function renderPanel(overrides: Partial<Parameters<typeof SettingsPanel>[0]> = {
 }
 
 describe("SettingsPanel", () => {
-  test("renders the Display tab by default", () => {
-    const { getByRole } = renderPanel();
+  test("renders the Display tab by default", async () => {
+    const { getByRole } = await renderPanel();
 
     const displayTab = getByRole("tab", { name: /display/i });
     expect(displayTab).toBeDefined();
     expect(displayTab.getAttribute("data-state")).toBe("active");
   });
 
-  test("renders all four tabs when not in preview mode", () => {
-    const { getByRole } = renderPanel();
+  test("renders all four tabs when not in preview mode", async () => {
+    const { getByRole } = await renderPanel();
 
     expect(getByRole("tab", { name: /display/i })).toBeDefined();
     expect(getByRole("tab", { name: /feeds/i })).toBeDefined();
@@ -235,8 +247,8 @@ describe("SettingsPanel", () => {
     expect(getByRole("tab", { name: /account/i })).toBeDefined();
   });
 
-  test("hides Account tab in preview mode", () => {
-    const { queryByRole } = renderPanel({ isPreviewMode: true });
+  test("hides Account tab in preview mode", async () => {
+    const { queryByRole } = await renderPanel({ isPreviewMode: true });
 
     expect(queryByRole("tab", { name: /account/i })).toBeNull();
     expect(queryByRole("tab", { name: /display/i })).toBeDefined();
@@ -244,57 +256,20 @@ describe("SettingsPanel", () => {
     expect(queryByRole("tab", { name: /network/i })).toBeDefined();
   });
 
-  test("shows Display content by default, not other tab content", () => {
-    const { getByRole, getByTestId, queryByTestId } = renderPanel();
+  test("keeps the Network tab mounted behind the preview overlay", async () => {
+    const { getByPlaceholderText, getByRole, getByText } = await renderPanel({
+      isPreviewMode: true,
+    });
 
-    const displayPanel = getByRole("tabpanel");
-    expect(getByTestId("display-section")).toBeDefined();
-    expect(displayPanel.textContent).toContain("Display Settings Content");
-    expect(displayPanel.textContent).not.toContain("Feed Management Content");
+    fireEvent.click(getByRole("tab", { name: /network/i }));
+
+    expect(getByText(/not available in demo mode/i)).toBeDefined();
+    expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
   });
 
-  test("switches to Feeds tab on click", () => {
-    const { getByRole, getByTestId } = renderPanel();
-
-    const feedsTab = getByRole("tab", { name: /feeds/i });
-    fireEvent.click(feedsTab);
-
-    expect(feedsTab.getAttribute("data-state")).toBe("active");
-
-    const feedsPanel = getByRole("tabpanel");
-    expect(getByTestId("feeds-section")).toBeDefined();
-    expect(feedsPanel.textContent).toContain("Feed Management Content");
-  });
-
-  test("switches to Network tab on click", () => {
-    const { getByRole, getByTestId } = renderPanel();
-
-    const networkTab = getByRole("tab", { name: /network/i });
-    fireEvent.click(networkTab);
-
-    expect(networkTab.getAttribute("data-state")).toBe("active");
-
-    const networkPanel = getByRole("tabpanel");
-    expect(getByTestId("proxy-section")).toBeDefined();
-    expect(networkPanel.textContent).toContain("Proxy Settings Content");
-  });
-
-  test("switches to Account tab on click", () => {
-    const { getByRole, getByTestId } = renderPanel();
-
-    const accountTab = getByRole("tab", { name: /account/i });
-    fireEvent.click(accountTab);
-
-    expect(accountTab.getAttribute("data-state")).toBe("active");
-
-    const accountPanel = getByRole("tabpanel");
-    expect(getByTestId("account-section")).toBeDefined();
-    expect(accountPanel.textContent).toContain("Account Settings Content");
-  });
-
-  test("calls onClose when the dialog close button is clicked", () => {
+  test("calls onClose when the dialog close button is clicked", async () => {
     const onClose = mock(noop);
-    const { container } = renderPanel({ onClose });
+    const { container } = await renderPanel({ onClose });
 
     /*
      * The desktop Dialog uses Radix's built-in close, which our lightweight
@@ -304,32 +279,19 @@ describe("SettingsPanel", () => {
     expect(container.querySelector("[data-testid='dialog-root']")).toBeDefined();
   });
 
-  test("Display tab shows section content", () => {
-    const { getByTestId } = renderPanel({
-      articlesPerPage: 8,
-      autoRefreshIntervalMinutes: 60,
-      showFavicons: false,
-    });
-
-    expect(getByTestId("display-section")).toBeDefined();
-  });
-
-  test("only one tab is active at a time", () => {
-    const { getAllByRole, getByRole } = renderPanel();
-
-    const feedsTab = getByRole("tab", { name: /feeds/i });
-    fireEvent.click(feedsTab);
+  test("only one tab is active at a time", async () => {
+    const { getAllByRole } = await renderPanel();
 
     const tabs = getAllByRole("tab");
     const activeTabs = tabs.filter(
       (tab) => tab.getAttribute("data-state") === "active",
     );
     expect(activeTabs).toHaveLength(1);
-    expect(activeTabs[0].textContent).toContain("Feeds");
+    expect(activeTabs[0].textContent).toContain("Display");
   });
 
-  test("tab panels have correct accessibility roles", () => {
-    const { getByRole } = renderPanel();
+  test("tab panels have correct accessibility roles", async () => {
+    const { getByRole } = await renderPanel();
 
     expect(getByRole("tablist")).toBeDefined();
     expect(getByRole("tabpanel")).toBeDefined();

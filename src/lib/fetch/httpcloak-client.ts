@@ -4,13 +4,11 @@ import { CONFIG } from "@/lib/config";
 import { logger } from "@/lib/logger";
 import { decodeTextBody } from "@/lib/utils/content-encoding";
 import {
+  HttpCloakUpstreamError,
+  pickDiagnosticHeaders,
   requestWithHttpCloakValidatedRedirects,
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
-
-import { createBrowserHeaders } from "./browser-headers";
-import { CHROME } from "./constants";
-import { GotScrapingError, pickDiagnosticHeaders } from "./response";
 
 export const upstreamAxios = axios.create();
 
@@ -19,13 +17,14 @@ interface HttpCloakFetchDeps {
 }
 
 interface HttpCloakFetchOptions {
-  accept?: string;
   allowInsecureTls?: boolean;
   proxyUrl?: string;
-  referer?: string;
-  secChUa?: string;
 }
 
+/**
+ * Fetch article HTML through HTTPCloak using the shared transport request
+ * profile and SSRF-safe redirect validation.
+ */
 export async function fetchHtmlWithHttpCloak(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -33,7 +32,7 @@ export async function fetchHtmlWithHttpCloak(
   deps?: HttpCloakFetchDeps,
 ): Promise<{
   html: string;
-  requestHeaders: Record<string, string | string[] | undefined>;
+  requestHeaders: Record<string, string>;
 }> {
   const proxyMode = options?.proxyUrl ? "proxy" : "direct";
   const allowInsecureTls = options?.allowInsecureTls ?? false;
@@ -41,11 +40,6 @@ export async function fetchHtmlWithHttpCloak(
     {
       allowInsecureTls,
       browserPreset: "chrome-latest",
-      headers: createBrowserHeaders({
-        accept: options?.accept,
-        referer: options?.referer,
-        secChUa: options?.secChUa,
-      }),
       maxRedirects: 5,
       proxyUrl: options?.proxyUrl,
       timeoutMs: 25_000,
@@ -72,12 +66,11 @@ export async function fetchHtmlWithHttpCloak(
   const decodedBody = await decodeResponseBody(response);
 
   if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new GotScrapingError(
+    throw new HttpCloakUpstreamError(
       response.statusCode,
       decodedBody,
       proxyMode,
       options?.proxyUrl ?? null,
-      CHROME.version,
       allowInsecureTls,
       response.redirectHop,
       response.headers,
@@ -102,8 +95,13 @@ async function decodeResponseBody(
   response: {
     body: Buffer | string;
     headers: Record<string, string | string[] | undefined>;
+    text?: string;
   },
 ): Promise<string> {
+  if (typeof response.text === "string") {
+    return response.text;
+  }
+
   return decodeTextBody(
     Buffer.isBuffer(response.body)
       ? response.body

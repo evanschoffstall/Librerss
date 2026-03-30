@@ -16,7 +16,6 @@ const NEXT_JS_CONSOLE_ERROR_PATTERN =
 const NEXT_JS_OVERLAY_ERROR_PATTERN =
   /(?:Build Error|Runtime Error|Unhandled Runtime Error)/iu;
 const PLAYWRIGHT_SENTINEL_STORAGE_KEY = "librerss:playwright-sentinel";
-
 export interface NextJsErrorMonitor {
   assertNoNextJsErrors: () => Promise<void>;
   dispose: () => void;
@@ -29,13 +28,13 @@ interface NextJsErrorSignal {
 
 /** Returns the indexed rendered article card within the explore feed. */
 export function articleCard(page: Page, index: number): Locator {
-  return page.locator("article[data-article-key]").nth(index);
+  return page.locator("article[data-article-key]:visible").nth(index);
 }
 
 /** Returns the rendered article card matching a previously captured article key. */
 export function articleCardByKey(page: Page, articleKey: string): Locator {
   return page.locator(
-    `xpath=//article[@data-article-key=${toXPathStringLiteral(articleKey)}]`,
+    `article[data-article-key="${escapeCssAttributeValue(articleKey)}"]:visible`,
   );
 }
 
@@ -239,12 +238,7 @@ export async function expectPreviewDashboard(page: Page) {
 
 /** Returns the first rendered article card in the feed list. */
 export function firstArticleCard(page: Page): Locator {
-  return page.locator("article[data-article-key]").first();
-}
-
-/** Returns the first article title within the feed list. */
-export function firstArticleTitle(page: Page): Locator {
-  return firstArticleCard(page).getByRole("heading").first();
+  return articleCard(page, 0);
 }
 
 /** Opens the preview dashboard without waiting for the full document load event. */
@@ -259,6 +253,21 @@ export async function gotoPreviewDashboard(
 /** Returns whether the feed list is still rendering the load-more sentinel. */
 export async function hasLoadMoreSentinel(page: Page) {
   return (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0;
+}
+
+/** Returns the rendered article currently occupying the requested viewport slot. */
+export async function locateViewportArticle(page: Page, index: number) {
+  const visibleArticles = page.locator("article[data-article-key]:visible");
+  await expect(visibleArticles.nth(index)).toBeVisible({ timeout: 15_000 });
+  const resolvedArticleKey = await visibleArticles.nth(index).getAttribute(
+    "data-article-key",
+  );
+
+  if (typeof resolvedArticleKey !== "string" || resolvedArticleKey.length === 0) {
+    throw new Error(`Expected viewport article ${index} to resolve to a stable article key.`);
+  }
+
+  return articleCardByKey(page, resolvedArticleKey);
 }
 
 /** Opens the mobile feeds sidebar and waits for the tray content to render. */
@@ -520,10 +529,48 @@ export async function swipeArticle(
 
 /** Toggles an article by clicking its title region instead of nested action buttons. */
 export async function toggleArticle(article: Locator) {
-  await article
-    .locator("[data-article-swipe-zone='header']")
-    .first()
-    .click({ position: { x: 32, y: 48 } });
+  await expect(article).toBeVisible({ timeout: 15_000 });
+  await article.evaluate((node) => {
+    if (!(node instanceof HTMLElement)) {
+      throw new Error("Expected the article surface to resolve to an element.");
+    }
+
+    node.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+
+  try {
+    const beforeExpanded = await article.getAttribute("aria-expanded");
+
+    await article.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected the article surface to be clickable.");
+      }
+
+      node.click();
+    });
+
+    await expect.poll(async () => await article.getAttribute("aria-expanded")).not.toBe(
+      beforeExpanded,
+    );
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      (
+        !error.message.includes("Element is not attached to the DOM") &&
+        !error.message.includes("Timeout")
+      )
+    ) {
+      throw error;
+    }
+
+    await article.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected the article surface to be clickable.");
+      }
+
+      node.click();
+    });
+  }
 }
 
 /** Dispatches a wheel event against the active feed viewport to mark user scroll intent. */
@@ -571,7 +618,30 @@ async function clickVisibleControl(locator: Locator) {
   }
 }
 
+function escapeCssAttributeValue(value: string) {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
 async function getActiveFeedViewport(page: Page) {
+  await page.waitForFunction(() => {
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
+      ),
+    );
+
+    return candidates.some((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+
+      return (
+        candidate.querySelector("article[data-article-key]") !== null &&
+        rect.width > 0 &&
+        rect.height > 0 &&
+        window.getComputedStyle(candidate).visibility !== "hidden"
+      );
+    });
+  }, { timeout: 15_000 });
+
   const candidates = page
     .locator(
       "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",

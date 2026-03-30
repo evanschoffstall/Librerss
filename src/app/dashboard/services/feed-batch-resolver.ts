@@ -1,4 +1,5 @@
 import type { BatchFeedResponseItem } from "@/lib/api/http";
+import type { ArticleFilter } from "@/lib/core/article-filters";
 
 import { Article, FeedService } from "@/lib";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
@@ -10,7 +11,9 @@ interface FeedBatchResolverDependencies {
   fetchFeedsBatch: (
     urls: string[],
     options?: {
+      articleFilter?: ArticleFilter;
       forceRefresh?: boolean;
+      forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: FeedFetchOptions["requestSource"];
       signal?: AbortSignal;
@@ -41,6 +44,10 @@ export async function resolveFeedBatchResults(
   return dependencies.fetchFeedsBatch(
     normalizedSources.map((source) => source.url),
     {
+      articleFilter: options?.articleFilter,
+      ...(options?.forceResolveUpstream === true
+        ? { forceResolveUpstream: true }
+        : {}),
       forceRefresh: options?.forceRefresh === true,
       knownLastFetchedAtByUrl: options?.knownLastFetchedAtByUrl,
       requestSource: options?.requestSource,

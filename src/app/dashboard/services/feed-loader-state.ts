@@ -7,7 +7,7 @@ import { getFeedBatchQueryKey } from "./query-keys";
 
 const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
 
-export type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
+type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
 export function isFreshFeedBatchQuery(
   queryClient: {

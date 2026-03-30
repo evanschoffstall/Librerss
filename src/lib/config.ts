@@ -147,6 +147,27 @@ export const clientFeedRefreshDiagnosticsEnabled = (): boolean => {
   );
 };
 
+/**
+ * Reads the configured batch concurrency into client code through the
+ * build-time config payload injected by next.config.ts.
+ */
+export const clientFeedBatchConcurrency = (): number =>
+  envNumber("FEED_BATCH_CONCURRENCY");
+
+/**
+ * Reads the configured maximum batch URL count into client code through the
+ * build-time config payload injected by next.config.ts.
+ */
+export const clientFeedBatchMaxUrls = (): number =>
+  envNumber("FEED_BATCH_MAX_URLS");
+
+/**
+ * Reads the per-feed upstream request timeout into client code through the
+ * build-time config payload injected by next.config.ts.
+ */
+export const clientFeedRequestTimeoutMs = (): number =>
+  envNumber("FEED_REQUEST_TIMEOUT_MS");
+
 export const maxArticleConsecutiveBlankLines = (): number => {
   const clientKey = "NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES";
   const clientValue =
@@ -170,9 +191,7 @@ interface ConfigKeys {
   FEED_CACHE_TTL_MINUTES: number;
   FEED_FORCE_REFRESH_TTL_MINUTES: number;
   FEED_REFRESH_DIAGNOSTICS_ENABLED: boolean;
-  FEED_REQUEST_ACCEPT: string;
   FEED_REQUEST_TIMEOUT_MS: number;
-  FEED_REQUEST_USER_AGENT: string;
   LOG_LEVEL: LogLevel;
   MAX_ALL_ARTICLES_LIMIT: number;
   MAX_ARTICLE_CONSECUTIVE_BLANK_LINES: number;

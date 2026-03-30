@@ -14,7 +14,7 @@ import type {
   resetSqlQueryExecutorFactoryForTesting as resetSqlQueryExecutorFactoryForTestingType,
   setSqlQueryExecutorFactoryForTesting as setSqlQueryExecutorFactoryForTestingType,
 } from "@/lib/db/query-executor";
-import type { SqlQueryExecutor } from "@/lib/db/types";
+import type { SqlQueryExecutor, SqlQueryResult } from "@/lib/db/types";
 
 // Static type anchors so knip can detect these exports are used. The actual
 // calls go through cache-busted dynamic imports to ensure fresh module state.
@@ -228,6 +228,13 @@ describe("db-config", () => {
         ),
       ).toBe(
         "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=1",
+      );
+      expect(
+        connectionStringModule.normalizePostgresConnectionString(
+          "postgresql://user:pass@example.com/db?sslmode=prefer&uselibpqcompat=%20TRUE%20",
+        ),
+      ).toBe(
+        "postgresql://user:pass@example.com/db?sslmode=prefer&uselibpqcompat=%20TRUE%20",
       );
     });
 
@@ -606,6 +613,56 @@ describe("db initialization", () => {
     expect(result.rows[0]?.version).toBe("PostgreSQL 17.4");
     expect(result.rowCount).toBe(1);
     queryExecutorModule.resetSqlQueryExecutorFactoryForTesting();
+    restoreDbEnv(previousEnv);
+  });
+
+  test("resetSqlQueryExecutorFactoryForTesting restores the default node-postgres branch", async () => {
+    const previousEnv = {
+      DATABASE_URL: process.env.DATABASE_URL,
+      DB_DRIVER: process.env.DB_DRIVER,
+      DB_EAGER_CONNECT_CHECK: process.env.DB_EAGER_CONNECT_CHECK,
+      DB_IDLE_TIMEOUT_MS: process.env.DB_IDLE_TIMEOUT_MS,
+      DB_MAX_CONNECTIONS: process.env.DB_MAX_CONNECTIONS,
+    };
+    process.env.DATABASE_URL = "postgres://example/test";
+    process.env.DB_DRIVER = "pg";
+
+    const defaultExecutor = {
+      close: mock(async () => undefined),
+      query: mock(async () => ({ rowCount: 0, rows: [] })),
+    } satisfies SqlQueryExecutor;
+
+    const overriddenQueryMock = mock(
+      async (_queryText: string, _params?: readonly unknown[]) => ({
+      rowCount: 1,
+      rows: [{ ok: true }],
+      }),
+    );
+
+    mock.module("@/lib/db/node-postgres-provider", () => ({
+      createNodePostgresQueryExecutor: () => defaultExecutor,
+    }));
+
+    const queryExecutorModule: typeof import("@/lib/db/query-executor") =
+      await import(`@/lib/db/query-executor?node-postgres-query-executor=${Date.now()}`);
+
+    queryExecutorModule.setSqlQueryExecutorFactoryForTesting(() => ({
+      close: mock(async () => undefined),
+      query: async <TRow extends Record<string, unknown> = Record<string, unknown>>(
+        queryText: string,
+        params?: readonly unknown[],
+      ): Promise<SqlQueryResult<TRow>> =>
+        (await overriddenQueryMock(queryText, params)) as unknown as SqlQueryResult<TRow>,
+    }));
+
+    expect((await queryExecutorModule.createSqlQueryExecutor().query("SELECT 1")).rowCount).toBe(1);
+
+    queryExecutorModule.resetSqlQueryExecutorFactoryForTesting();
+
+    const executor = queryExecutorModule.createSqlQueryExecutor();
+    await executor.query("SELECT 2");
+
+    expect(defaultExecutor.query).toHaveBeenCalledWith("SELECT 2");
     restoreDbEnv(previousEnv);
   });
 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError, parsePositiveInt } from "@/lib/api/http";
-import { getArticleById, logAndRespondError, requireAuthenticatedUser, ServiceError } from "@/lib/server";
+import { getArticleById, logAndRespondError, requireAuthenticatedUser, ServerServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export async function GET(
     const article = await getArticleById(authResult.userId, articleId);
     return NextResponse.json(article);
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return (deps.logAndRespondErrorFn ?? logAndRespondError)("Article GET error", error);
   }
 }

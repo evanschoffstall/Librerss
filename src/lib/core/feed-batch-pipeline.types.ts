@@ -34,6 +34,7 @@ export interface RefreshDecision {
     | "missing-feed-record"
     | "refresh-force"
     | "refresh-stale"
+    | "refresh-upstream-override"
     | "skip-refresh-flag"
     | "use-cache";
   lastFetched?: Date;

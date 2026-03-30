@@ -37,16 +37,24 @@ afterEach(() => {
 describe("proxy settings API route", () => {
   const originalProxyEncryptionKey =
     process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY;
+  const originalDatabaseUrl = process.env.DATABASE_URL;
   const authenticatedUser = {
     email: "test@example.com",
     expiresAt: new Date("2099-01-01T00:00:00.000Z"),
     sessionId: 1,
     userId: 1,
   };
+  const proxyRoutingCheck = {
+    directIp: "198.51.100.7",
+    error: null,
+    proxyExitIp: "203.0.113.21",
+    status: "verified" as const,
+  };
 
   const routeDeps: ProxyRouteDeps = {
     detectFn: async () => "http",
     dnsCheckFn: async () => false,
+    getProxyRoutingCheckFn: async () => proxyRoutingCheck,
     probeFn: async () => true,
     requireAuthFn: async () => authenticatedUser,
   };
@@ -54,6 +62,7 @@ describe("proxy settings API route", () => {
   const unreachableDeps: ProxyRouteDeps = {
     detectFn: async () => "http",
     dnsCheckFn: async () => false,
+    getProxyRoutingCheckFn: async () => proxyRoutingCheck,
     probeFn: async () => false,
     requireAuthFn: async () => authenticatedUser,
   };
@@ -66,10 +75,16 @@ describe("proxy settings API route", () => {
   afterEach(() => {
     if (originalProxyEncryptionKey === undefined) {
       delete process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY;
+    } else {
+      process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = originalProxyEncryptionKey;
+    }
+
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
       return;
     }
 
-    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = originalProxyEncryptionKey;
+    process.env.DATABASE_URL = originalDatabaseUrl;
   });
 
   function mockDb(
@@ -151,6 +166,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(false);
     expect(body.proxyUrl).toBeNull();
+    expect(body.routingCheck).toBeNull();
     expect(body.status).toBe("unreachable");
   });
 
@@ -163,7 +179,28 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.routingCheck).toEqual(proxyRoutingCheck);
     expect(body.status).toBe("reachable");
+  });
+
+  test("GET surfaces a recoverable error when the saved proxy password cannot be materialized", async () => {
+    mockDb({
+      proxyPassword: "enc-v1:broken-format",
+      proxyUrl: "http://proxy:8080",
+      proxyUsername: "alice",
+    });
+    const { GET } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy");
+    const res = await GET(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(true);
+    expect(body.error).toContain("Save it again");
+    expect(body.hasProxyPassword).toBe(true);
+    expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.proxyUsername).toBe("alice");
+    expect(body.routingCheck).toBeNull();
+    expect(body.status).toBe("unreachable");
   });
 
   test("GET strips embedded proxy credentials from the returned URL", async () => {
@@ -194,6 +231,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.routingCheck).toBeNull();
     expect(body.status).toBe("unreachable");
   });
 
@@ -210,6 +248,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.routingCheck).toEqual(proxyRoutingCheck);
     expect(body.status).toBe("reachable");
   });
 
@@ -226,6 +265,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("socks5://proxy:1080");
+    expect(body.routingCheck).toEqual(proxyRoutingCheck);
     expect(body.status).toBe("reachable");
   });
 
@@ -257,6 +297,63 @@ describe("proxy settings API route", () => {
     expect(getBody.proxyUrl).toBe("http://proxy:8080");
     expect(getBody.proxyUsername).toBe("legacy-user");
     expect(getBody.hasProxyPassword).toBe(true);
+  });
+
+  test("PUT rejects mixing URL credentials with dedicated credential fields", async () => {
+    mockDb(null);
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyUrl: "http://alice:secret@proxy:8080",
+        proxyUsername: "alice",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const res = await PUT(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(false);
+    expect(body.error).toContain("Provide proxy credentials either");
+  });
+
+  test("PUT rejects oversized proxy usernames", async () => {
+    mockDb(null);
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyUrl: "http://proxy:8080",
+        proxyUsername: "u".repeat(256),
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const res = await PUT(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(false);
+    expect(body.error).toBe("Proxy username too long");
+  });
+
+  test("PUT rejects oversized proxy passwords", async () => {
+    mockDb(null);
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyPassword: "p".repeat(256),
+        proxyUrl: "http://proxy:8080",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const res = await PUT(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(false);
+    expect(body.error).toBe("Proxy password too long");
   });
 
   test("PUT returns 200 with error for invalid protocol", async () => {
@@ -329,6 +426,7 @@ describe("proxy settings API route", () => {
     const socksDeps: ProxyRouteDeps = {
       detectFn: async () => "socks5",
       dnsCheckFn: async () => false,
+      getProxyRoutingCheckFn: async () => proxyRoutingCheck,
       probeFn: async () => true,
       requireAuthFn: async () => authenticatedUser,
     };
@@ -502,6 +600,52 @@ describe("proxy settings API route", () => {
     expect(persistedProxyPassword.startsWith("enc-v1:")).toBe(true);
   });
 
+  test("PUT reports encryption configuration errors when no valid secret is available", async () => {
+    mockDb(null);
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = "short-secret";
+    process.env.DATABASE_URL = "";
+
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyPassword: "super-secret-pass",
+        proxyUrl: "http://proxy:8080",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const res = await PUT(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(false);
+    expect(body.error).toContain("encryption is not configured correctly");
+  });
+
+  test("PUT surfaces a recoverable error when the saved proxy password cannot be materialized after update", async () => {
+    mockDb({
+      proxyPassword: "enc-v1:broken-format",
+      proxyUrl: "http://legacy-proxy:8080",
+      proxyUsername: "alice",
+    });
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({ proxyUrl: "http://proxy:8080" }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const res = await PUT(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(true);
+    expect(body.error).toContain("Save it again");
+    expect(body.hasProxyPassword).toBe(true);
+    expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.proxyUsername).toBe("alice");
+    expect(body.status).toBe("unreachable");
+  });
+
   test("GET upgrades a plaintext saved proxy password after reading it", async () => {
     let storedProxyPassword: null | string = "legacy-plaintext-pass";
 
@@ -544,6 +688,117 @@ describe("proxy settings API route", () => {
     expect(storedProxyPassword).not.toBe("legacy-plaintext-pass");
     const rewrittenProxyPassword = String(storedProxyPassword);
     expect(rewrittenProxyPassword.startsWith("enc-v1:")).toBe(true);
+  });
+
+  test("GET returns the auth response when authentication fails", async () => {
+    mockDb(null);
+    const { GET } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy");
+    const unauthorized = new Response("nope", { status: 401 });
+
+    const res = await GET(req, {
+      ...routeDeps,
+      requireAuthFn: async () => unauthorized,
+    });
+
+    expect(res.status).toBe(401);
+    await expect(res.text()).resolves.toBe("nope");
+  });
+});
+
+describe("getProxyRoutingCheck", () => {
+  test("returns verified when proxied and direct egress IPs differ", async () => {
+    const { getProxyRoutingCheck } = await import("@/lib/server");
+
+    const fetchHtmlWithHttpCloakFn = mock(async (_url, _validator, options) => {
+      return {
+        html:
+          options?.proxyUrl === undefined
+            ? JSON.stringify({ ip: "198.51.100.7" })
+            : JSON.stringify({ ip: "203.0.113.21" }),
+        requestHeaders: {},
+      };
+    });
+
+    const result = await getProxyRoutingCheck(
+      {
+        allowInsecureTls: true,
+        proxyUrl: "socks5://proxy.example:1080",
+      },
+      { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
+    );
+
+    expect(result).toEqual({
+      directIp: "198.51.100.7",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "verified",
+    });
+  });
+
+  test("returns proxy-only when the direct comparison fails", async () => {
+    const { getProxyRoutingCheck } = await import("@/lib/server");
+
+    const fetchHtmlWithHttpCloakFn = mock(async (_url, _validator, options) => {
+      if (options?.proxyUrl === undefined) {
+        throw new Error("Direct exit probe failed");
+      }
+
+      return {
+        html: JSON.stringify({ ip: "203.0.113.21" }),
+        requestHeaders: {},
+      };
+    });
+
+    const result = await getProxyRoutingCheck(
+      {
+        allowInsecureTls: false,
+        proxyUrl: "http://proxy.example:8080",
+      },
+      { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
+    );
+
+    expect(result).toEqual({
+      directIp: null,
+      error: "Direct exit probe failed",
+      proxyExitIp: "203.0.113.21",
+      status: "proxy-only",
+    });
+  });
+
+  test("falls back to the secondary public IP provider when the primary host fails", async () => {
+    const { getProxyRoutingCheck } = await import("@/lib/server");
+
+    const fetchHtmlWithHttpCloakFn = mock(async (url) => {
+      if (
+        url === "https://checkip.amazonaws.com/" ||
+        url === "https://icanhazip.com/" ||
+        url === "https://api.ipify.org?format=json"
+      ) {
+        throw new Error("Provider unreachable");
+      }
+
+      return {
+        html: JSON.stringify({ ip: "203.0.113.21" }),
+        requestHeaders: {},
+      };
+    });
+
+    const result = await getProxyRoutingCheck(
+      {
+        allowInsecureTls: false,
+        proxyUrl: "http://proxy.example:8080",
+      },
+      { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
+    );
+
+    expect(result).toEqual({
+      directIp: "203.0.113.21",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "same-egress",
+    });
+    expect(fetchHtmlWithHttpCloakFn).toHaveBeenCalled();
   });
 });
 
@@ -625,44 +880,55 @@ describe("ArticleService proxy methods", () => {
 
 describe("fetchHtml proxy passthrough", () => {
   test("does not use proxy when useProxy is false", async () => {
-    const axiosGetFn = mock(async () => ({
-      data: "<html>ok</html>",
-      headers: {},
-      status: 200,
-    }));
+    const httpCloakFetchFn = mock(async (_url, _validator, options) => {
+      expect(options).toEqual({
+        allowInsecureTls: false,
+        proxyUrl: undefined,
+      });
+
+      return {
+        html: "<html>ok</html>",
+        requestHeaders: {},
+      };
+    });
 
     const html = await fetchHtml(
       "https://example.com/a",
       {
-        axiosGetFn: axiosGetFn as any,
+        httpCloakFetchFn: httpCloakFetchFn as any,
         isAllowedFeedUrlFn: async () => true,
       },
       { proxyUrl: "http://proxy:8080", useProxy: false },
     );
 
     expect(html).toBe("<html>ok</html>");
-    // With injected axiosGetFn, proxy is always bypassed (test path)
-    expect(axiosGetFn).toHaveBeenCalledTimes(1);
+    expect(httpCloakFetchFn).toHaveBeenCalledTimes(1);
   });
 
   test("returns HTML normally when useProxy true with injected deps", async () => {
-    const axiosGetFn = mock(async () => ({
-      data: "<html>proxied</html>",
-      headers: {},
-      status: 200,
-    }));
+    const httpCloakFetchFn = mock(async (_url, _validator, options) => {
+      expect(options).toEqual({
+        allowInsecureTls: false,
+        proxyUrl: "http://proxy:8080",
+      });
+
+      return {
+        html: "<html>proxied</html>",
+        requestHeaders: {},
+      };
+    });
 
     const html = await fetchHtml(
       "https://example.com/a",
       {
-        axiosGetFn: axiosGetFn as any,
+        httpCloakFetchFn: httpCloakFetchFn as any,
         isAllowedFeedUrlFn: async () => true,
       },
       { proxyUrl: "http://proxy:8080", useProxy: true },
     );
 
     expect(html).toBe("<html>proxied</html>");
-    expect(axiosGetFn).toHaveBeenCalledTimes(1);
+    expect(httpCloakFetchFn).toHaveBeenCalledTimes(1);
   });
 
   test("proxy option does not interfere with URL validation", async () => {

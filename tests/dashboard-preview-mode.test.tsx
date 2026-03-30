@@ -49,6 +49,25 @@ describe("dashboard preview mode", () => {
     expect(() => setDashboardPreviewPersistence(false)).not.toThrow();
   });
 
+  test("setDashboardPreviewPersistence is a no-op when document is unavailable", async () => {
+    const { setDashboardPreviewPersistence } = await import(
+      "@/app/dashboard/preview-mode"
+    );
+    const originalDocument = globalThis.document;
+
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: undefined,
+    });
+
+    expect(() => setDashboardPreviewPersistence(true)).not.toThrow();
+
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: originalDocument,
+    });
+  });
+
   test("DashboardRouter skips session fetch when preview mode is already active", async () => {
     const getSession = mock(async () => {
       throw new Error("preview mode should not fetch session");

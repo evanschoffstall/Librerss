@@ -7,6 +7,7 @@ import {
   expectArticleExpanded,
   expectNotClipped,
   gotoPreviewDashboard,
+  locateViewportArticle,
   readArticleKey,
   selectExpandedArticleText,
   toggleArticle,
@@ -22,6 +23,8 @@ interface TouchDragOptions {
   steps?: number;
 }
 
+const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+
 async function dragTouchSurface(
   target: ReturnType<typeof articleCard>,
   {
@@ -33,7 +36,14 @@ async function dragTouchSurface(
     steps = 6,
   }: TouchDragOptions,
 ) {
-  await target.scrollIntoViewIfNeeded();
+  await expect(target).toBeVisible({ timeout: 15_000 });
+  await target.evaluate((node) => {
+    if (!(node instanceof HTMLElement)) {
+      throw new Error("Expected touch target to resolve to an element.");
+    }
+
+    node.scrollIntoView({ block: "center", inline: "nearest" });
+  });
   const box = await target.boundingBox();
 
   if (!box) {
@@ -84,11 +94,14 @@ async function dragTouchSurface(
 /** Returns the owning feed scroll container for an article card. */
 function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   return article.locator(
-    "xpath=ancestor::*[@data-radix-scroll-area-viewport or @data-feed-surface-mode or @data-feed-virtualizer][1]",
+    "xpath=ancestor::*[@data-radix-scroll-area-viewport][1]",
   );
 }
 
 async function openPreviewDashboardOnMobile(page: Page) {
+  await page.addInitScript((storageKey) => {
+    window.localStorage.setItem(storageKey, JSON.stringify(false));
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
   await gotoPreviewDashboard(page);
 }
 
@@ -97,10 +110,9 @@ test.describe("dashboard mobile gestures", () => {
     page,
   }) => {
     await openPreviewDashboardOnMobile(page);
-    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
-    const article = articleCard(page, 0);
+    const article = await locateViewportArticle(page, 0);
     await toggleArticle(article);
     await expectArticleExpanded(article, true);
 
@@ -124,10 +136,9 @@ test.describe("dashboard mobile gestures", () => {
     page,
   }) => {
     await openPreviewDashboardOnMobile(page);
-    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
-    const article = articleCard(page, 0);
+    const article = await locateViewportArticle(page, 0);
     await toggleArticle(article);
     await expectArticleExpanded(article, true);
 
@@ -135,12 +146,12 @@ test.describe("dashboard mobile gestures", () => {
     const swipeSignalDuringDrag = await dragTouchSurface(
       headerZone,
       {
-      endXRatio: 0.94,
-      endYRatio: 0.58,
-      measureTarget: article,
-      startXRatio: 0.2,
-      startYRatio: 0.46,
-      steps: 7,
+        endXRatio: 0.94,
+        endYRatio: 0.58,
+        measureTarget: article,
+        startXRatio: 0.2,
+        startYRatio: 0.46,
+        steps: 7,
       },
     );
 
@@ -153,10 +164,9 @@ test.describe("dashboard mobile gestures", () => {
     page,
   }) => {
     await openPreviewDashboardOnMobile(page);
-    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
-    const article = articleCard(page, 0);
+    const article = await locateViewportArticle(page, 0);
 
     const diagonalResult = await dragTouchSurface(article, {
       endXRatio: 0.4,
@@ -193,13 +203,12 @@ test.describe("dashboard mobile gestures", () => {
     page,
   }) => {
     await openPreviewDashboardOnMobile(page);
-    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
-    const renderedArticleCount = await page
-      .locator("article[data-article-key]")
+    const visibleArticleCount = await page
+      .locator("article[data-article-key]:visible")
       .count();
-    const articleIndex = Math.max(0, renderedArticleCount - 2);
-    const articleKey = await readArticleKey(articleCard(page, articleIndex));
+    const articleIndex = Math.max(0, visibleArticleCount - 2);
+    const articleKey = await readArticleKey(await locateViewportArticle(page, articleIndex));
     const article = articleCardByKey(page, articleKey);
 
     await toggleArticle(article);

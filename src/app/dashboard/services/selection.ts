@@ -1,34 +1,18 @@
 import type { CategoryTreeNode } from "@/lib";
+import type { ArticleFilter } from "@/lib/core/article-filters";
 
 import { ALL_FEEDS_NODE_KEY, DEFAULT_FEED_URL } from "../constants";
 import { findFeedNodeByKey } from "./category-tree";
 
 export interface FeedFetchOptions {
+  articleFilter?: ArticleFilter;
   forceRefresh?: boolean;
+  forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource?: FeedRequestSource;
   skipRefresh?: boolean;
 }
-
-/**
- * Canonical request-source labels for dashboard-triggered feed fetches.
- *
- * Keeping these labels explicit prevents silent naming drift across the dashboard
- * fetch layer while preserving the existing analytics and diagnostics semantics.
- */
-export type FeedRequestSource =
-  | "auto-refresh"
-  | "dashboard-initial-cache"
-  | "feed-added"
-  | "feed-hidden-selection-fallback"
-  | "feed-reenabled"
-  | "manual-refresh"
-  | "opml-imported"
-  | "sidebar-category-prefetch"
-  | "sidebar-category-select"
-  | "sidebar-feed-prefetch"
-  | "sidebar-feed-select";
 
 /** Feed fetch callbacks used when resolving a selected dashboard surface. */
 export interface FeedSelectionFetchers {
@@ -43,6 +27,26 @@ export interface FeedSelectionFetchers {
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
 }
 
+/**
+ * Canonical request-source labels for dashboard-triggered feed fetches.
+ *
+ * Keeping these labels explicit prevents silent naming drift across the dashboard
+ * fetch layer while preserving the existing analytics and diagnostics semantics.
+ */
+type FeedRequestSource =
+  | "article-filter-change"
+  | "auto-refresh"
+  | "dashboard-initial-cache"
+  | "feed-added"
+  | "feed-hidden-selection-fallback"
+  | "feed-reenabled"
+  | "manual-refresh"
+  | "opml-imported"
+  | "sidebar-category-prefetch"
+  | "sidebar-category-select"
+  | "sidebar-feed-prefetch"
+  | "sidebar-feed-select";
+
 type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
@@ -53,6 +57,7 @@ type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
 type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   fallbackFeedUrl?: string;
   forceRefresh?: boolean;
+  forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
   requestSource?: FeedRequestSource;
   selectedCategory: string;
@@ -132,6 +137,7 @@ export async function refreshCurrentSelection(
     fetchCategoryFeeds,
     fetchFeed,
     forceRefresh = false,
+    forceResolveUpstream,
     keepExistingFeed,
     requestSource,
     selectedCategory,
@@ -141,6 +147,7 @@ export async function refreshCurrentSelection(
   } = options;
 
   const fetchOptions: FeedFetchOptions = {
+    ...(forceResolveUpstream === true ? { forceResolveUpstream: true } : {}),
     forceRefresh,
     keepExistingFeed,
     requestSource,

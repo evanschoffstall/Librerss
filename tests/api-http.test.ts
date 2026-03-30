@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { createLinkedAbortController, withRequestDeadline } from "@/lib/api/http/client";
+import {
+  BATCH_REQUEST_TIMEOUT_MS,
+  createLinkedAbortController,
+  resolveBatchRequestTimeoutMs,
+  withRequestDeadline,
+} from "@/lib/api/http/client";
 import {
   buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -15,7 +20,18 @@ import {
   parseNonNegativeInt,
   parsePositiveInt,
 } from "@/lib/api/http/request";
-import { forbiddenResponse, jsonError } from "@/lib/api/http/responses";
+import {
+  ensureArrayResponse,
+  forbiddenResponse,
+  jsonError,
+  jsonErrorWithReason,
+  normalizeBatchItem,
+} from "@/lib/api/http/responses";
+import {
+  clientFeedBatchConcurrency,
+  clientFeedBatchMaxUrls,
+  clientFeedRequestTimeoutMs,
+} from "@/lib/config";
 import { parseDateOrNull } from "@/lib/utils/dates";
 
 beforeEach(() => mock.restore());
@@ -76,6 +92,23 @@ describe("api/http-client – withRequestDeadline", () => {
       }),
     ).rejects.toThrow();
     expect(called).toBe(true);
+  });
+
+  test("scales batch timeout by request waves", () => {
+    const urlCount = 35;
+    const expectedWaveCount = Math.ceil(
+      urlCount / Math.max(1, clientFeedBatchConcurrency()),
+    );
+
+    expect(resolveBatchRequestTimeoutMs(urlCount)).toBe(
+      expectedWaveCount * clientFeedRequestTimeoutMs() + 5_000,
+    );
+  });
+
+  test("exports the max batch timeout as the upper bound for allowed batches", () => {
+    expect(BATCH_REQUEST_TIMEOUT_MS).toBe(
+      resolveBatchRequestTimeoutMs(clientFeedBatchMaxUrls()),
+    );
   });
 });
 
@@ -471,5 +504,49 @@ describe("responses", () => {
     const resp = forbiddenResponse("Access denied");
     const body = await resp.json();
     expect(body.error).toBe("Access denied");
+  });
+
+  test("ensureArrayResponse returns arrays and rejects non-arrays", () => {
+    expect(ensureArrayResponse([1, 2, 3])).toEqual([1, 2, 3]);
+    expect(() => ensureArrayResponse({ items: [] })).toThrow(
+      "Invalid response format",
+    );
+  });
+
+  test("jsonErrorWithReason includes reason only when provided", async () => {
+    const withReason = jsonErrorWithReason("Blocked", 429, "rate-limited");
+    expect(await withReason.json()).toEqual({
+      error: "Blocked",
+      reason: "rate-limited",
+    });
+
+    const withoutReason = jsonErrorWithReason("Blocked", 429);
+    expect(await withoutReason.json()).toEqual({ error: "Blocked" });
+  });
+
+  test("normalizeBatchItem normalizes partial and invalid payloads", () => {
+    const normalized = normalizeBatchItem({
+      articles: [{ id: 1 }],
+      error: "timeout",
+      lastFetchedAt: "2024-02-03T04:05:06.000Z",
+      ok: 1,
+      unchanged: true,
+      url: "https://example.com/feed.xml",
+    });
+
+    expect(normalized).toMatchObject({
+      articles: [{ id: 1 }],
+      error: "timeout",
+      ok: true,
+      unchanged: true,
+      url: "https://example.com/feed.xml",
+    });
+    expect(normalized.lastFetchedAt).toBeInstanceOf(Date);
+
+    expect(normalizeBatchItem(null)).toEqual({
+      articles: [],
+      ok: false,
+      url: "",
+    });
   });
 });

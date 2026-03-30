@@ -11,7 +11,7 @@ import { getArticleKey } from "../services/article-collection";
  * Separating classification from presentation lets callers decide whether to
  * show the toast at all (e.g. silent background refreshes).
  */
-export interface FeedBatchErrorToast {
+interface FeedBatchErrorToast {
   description: string;
   title: string;
 }

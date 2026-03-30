@@ -177,4 +177,61 @@ describe("POST /api/articles/status – ownership check", () => {
     // The ownership check must use the authenticated user's ID, not arbitrary input.
     expect(capturedUserIds).toEqual([authenticatedUser.userId]);
   });
+
+  test("returns a service error response when article status updates raise ServerServiceError", async () => {
+    const { POST } = await import("@/app/api/articles/status/route");
+    const { ServerServiceError } = await import("@/lib/server");
+    const request = createMockRequest(
+      "https://example.com/api/articles/status",
+      {
+        body: { articleId: 7, isRead: true },
+        method: "POST",
+      },
+    );
+
+    const response = await POST(request, {
+      getUserOwnedArticleByIdFn: async (_db, _userId, articleId) =>
+        createMockArticle({ id: articleId }),
+      requireMutableUserAndJsonBodyFn: requireAuthOk({
+        articleId: 7,
+        isRead: true,
+      }),
+      upsertArticleStatusesFn: async () => {
+        throw new ServerServiceError("custom failure", 409);
+      },
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "custom failure",
+    });
+  });
+
+  test("returns a generic logged error response when article status updates raise an unexpected error", async () => {
+    const { POST } = await import("@/app/api/articles/status/route");
+    const request = createMockRequest(
+      "https://example.com/api/articles/status",
+      {
+        body: { articleId: 7, isStarred: true },
+        method: "POST",
+      },
+    );
+
+    const response = await POST(request, {
+      getUserOwnedArticleByIdFn: async (_db, _userId, articleId) =>
+        createMockArticle({ id: articleId }),
+      requireMutableUserAndJsonBodyFn: requireAuthOk({
+        articleId: 7,
+        isStarred: true,
+      }),
+      upsertArticleStatusesFn: async () => {
+        throw new Error("unexpected failure");
+      },
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Internal Server Error",
+    });
+  });
 });

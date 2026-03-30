@@ -3,6 +3,7 @@ export {
   createLinkedAbortController,
   getApiClient,
   resetApiClientForTesting,
+  resolveBatchRequestTimeoutMs,
   setApiClientForTesting,
   withRequestDeadline,
 } from "./client";

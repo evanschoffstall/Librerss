@@ -10,6 +10,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Server,
   Settings2,
   Sun,
 } from "lucide-react";
@@ -47,6 +48,7 @@ export function DashboardToolbar() {
     handleOpenFeedsSidebar,
     handleOpenSettings,
     handleRefresh,
+    handleRefreshFromUpstream,
     handleReset,
     handleSearchChange,
     handleSignOut,
@@ -212,6 +214,15 @@ export function DashboardToolbar() {
               <Settings2 className="size-4" />
               Settings
             </DropdownMenuItem>
+            {isDevelopmentMode && (
+              <DropdownMenuItem
+                disabled={isRefreshing}
+                onSelect={handleRefreshFromUpstream}
+              >
+                <Server className="size-4" />
+                Upstream refresh
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={handleToggleTheme}>
               {mounted && isDark ? (
@@ -252,6 +263,15 @@ export function DashboardToolbar() {
             isPending={isToolbarActionPending}
             onClick={handleRefresh}
           />
+
+          {isDevelopmentMode && (
+            <DashboardToolbarActionButton
+              ariaLabel="Refresh selected feed from upstream"
+              icon={Server}
+              isPending={isToolbarActionPending}
+              onClick={handleRefreshFromUpstream}
+            />
+          )}
 
           <DashboardToolbarActionButton
             ariaLabel="Mark fully visible articles as read"

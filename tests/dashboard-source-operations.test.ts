@@ -605,6 +605,35 @@ describe("dashboard OPML and feed-source operations", () => {
     expect(toast.error).toHaveBeenCalledWith("Unable to import feeds from OPML.");
   });
 
+  test("reports a success toast when every OPML feed imports cleanly", async () => {
+    await importOpmlFeedsAndRefresh({
+      categories: [],
+      entries: [
+        { category: "News", name: "News", url: "https://example.com/news.xml" },
+      ],
+      fetchFeed: mock(async () => {}),
+      loadFeedSources: mock(async () => [
+        makeCategoryNode("News", [
+          makeFeedNode({
+            category: "News",
+            key: "cat-news-1",
+            sourceId: 1,
+            url: "https://example.com/news.xml",
+          }),
+        ]),
+      ]),
+      selectedCategory: "",
+      setCustomCategoryLabels: mock(() => {}) as unknown as React.Dispatch<
+        React.SetStateAction<string[]>
+      >,
+      setSelectedCategory: mock(() => {}) as unknown as React.Dispatch<
+        React.SetStateAction<string>
+      >,
+    });
+
+    expect(toast.success).toHaveBeenCalledWith("Imported 1 feeds from OPML.");
+  });
+
   test("adds feed sources with validation and selects the newly loaded feed", async () => {
     const selectedCategory = createStateHarness("");
     const fetchFeed = mock(async () => {});

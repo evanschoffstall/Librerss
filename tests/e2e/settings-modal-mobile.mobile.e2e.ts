@@ -8,15 +8,12 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
-/** Open settings and wait for the proxy form to finish loading. */
-async function openSettingsAndWaitForProxy(page: Page) {
+/** Open settings and wait for the preview-safe Network tab shell to render. */
+async function openSettingsAndWaitForNetworkPreview(page: Page) {
   await openDashboardSettingsTab(page, "Network");
   const dialog = page.getByRole("dialog", { name: "Reader Settings" });
   await expect(dialog).toBeVisible();
-  // Wait for the proxy skeleton to resolve (API call takes ~2s in demo mode)
-  await expect(dialog.getByPlaceholder(/proxy.*8080/)).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(dialog.getByText("Not available in demo mode")).toBeVisible();
   return dialog;
 }
 
@@ -30,10 +27,10 @@ test.describe("settings modal mobile tray", () => {
     await gotoPreviewDashboard(page);
   });
 
-  test("keeps the full settings dialog, including proxy controls, within the scroll viewport", async ({
+  test("keeps the preview Network overlay within the scroll viewport", async ({
     page,
   }) => {
-    const dialog = await openSettingsAndWaitForProxy(page);
+    const dialog = await openSettingsAndWaitForNetworkPreview(page);
 
     // Scan every visible child of the dialog for horizontal overflow
     const overflows = await dialog.evaluate((el) => {
@@ -83,39 +80,9 @@ test.describe("settings modal mobile tray", () => {
     );
 
     await expectNotClipped(
-      dialog.getByRole("heading", { name: "Connection Routing" }),
+      dialog.getByText("Not available in demo mode"),
       settingsScrollViewport(dialog),
-      "Connection Routing heading",
-    );
-    await expectNotClipped(
-      dialog.getByPlaceholder(/proxy.*8080/),
-      settingsScrollViewport(dialog),
-      "Proxy URL input",
-    );
-    await expectNotClipped(
-      dialog.getByRole("button", { name: "Save" }),
-      settingsScrollViewport(dialog),
-      "Save button",
-    );
-    await expectNotClipped(
-      dialog.getByLabel("Username"),
-      settingsScrollViewport(dialog),
-      "Username input",
-    );
-    await expectNotClipped(
-      dialog.getByLabel(/^Password/),
-      settingsScrollViewport(dialog),
-      "Password input",
-    );
-    await expectNotClipped(
-      dialog.getByRole("switch", { name: "Allow insecure TLS" }),
-      settingsScrollViewport(dialog),
-      "Allow insecure TLS switch",
-    );
-    await expectNotClipped(
-      dialog.getByRole("button", { name: "Run Check" }),
-      settingsScrollViewport(dialog),
-      "Run Check button",
+      "Preview overlay badge",
     );
   });
 

@@ -3,9 +3,31 @@ import { useEffect } from "react";
 
 import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
 import { SETTINGS_PANEL_TAB_STORAGE_KEY } from "@/app/dashboard/constants";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type CategoryTreeNode, type OpmlFeedImportEntry, useLocalStorage } from "@/lib";
+import {
+  type CategoryTreeNode,
+  type OpmlFeedImportEntry,
+  useIsMobile,
+  useLocalStorage,
+} from "@/lib";
 
+import { useSettingsModalState } from "../../hooks/useSettingsModalState";
 import {
   SettingsDisplaySection,
   type SettingsDisplaySectionProps,
@@ -13,24 +35,10 @@ import {
 import { SettingsFeedManagementSection } from "./SettingsFeedManagementSection";
 import { SettingsPreviewSection } from "./SettingsPreviewSection";
 import { SettingsProxySection } from "./SettingsProxySection";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  ScrollArea,
-  SETTINGS_SURFACE_DESCRIPTION,
-  SETTINGS_SURFACE_TITLE,
-  useIsMobile,
-  useSettingsModalState,
-} from "./SettingsSurface";
+
+const SETTINGS_SURFACE_TITLE = "Reader Settings";
+const SETTINGS_SURFACE_DESCRIPTION =
+  "Manage categories, feeds, ordering, and runtime behavior.";
 
 const DEFAULT_TAB = "display";
 

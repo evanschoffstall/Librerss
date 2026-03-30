@@ -2,18 +2,11 @@
 
 import { type Dispatch, type SetStateAction, useEffect } from "react";
 
-import { type UseDashboardEffectsOptions } from "./dashboard-effects.types";
+import { type UseDashboardEffectsOptions } from "./dashboard-effects.contracts";
 import { useDashboardBroadcasts } from "./useDashboardBroadcasts";
 import { useDashboardInitialization } from "./useDashboardInitialization";
 import { useFeedLoadingTimeout } from "./useFeedLoadingTimeout";
 
-/**
- * Options for broadcasting dashboard UI state to decoupled listeners.
- *
- * The dashboard uses window-level custom events to synchronize chrome concerns
- * such as the document title and search widgets that live outside this hook
- * layer.
- */
 /**
  * Runs the dashboard's shared effects from one canonical entry point.
  *
@@ -105,6 +98,7 @@ export function useRevealSidebarOnMount(
     const frame = window.requestAnimationFrame(() => {
       setIsSidebarVisible(true);
     });
+
     return () => {
       window.cancelAnimationFrame(frame);
     };

@@ -14,7 +14,32 @@ import {
   test,
 } from "bun:test";
 
+import { resetRateLimiterForTesting } from "@/lib/server/rate-limit";
+
 import { createMockRequest } from "./support/test-utils";
+
+let routeImportVersion = 0;
+
+async function loadLoginRoute() {
+  routeImportVersion += 1;
+  return import(
+    `@/app/api/auth/login/route?route-version=${routeImportVersion}`
+  );
+}
+
+async function loadLogoutRoute() {
+  routeImportVersion += 1;
+  return import(
+    `@/app/api/auth/logout/route?route-version=${routeImportVersion}`
+  );
+}
+
+async function loadSessionRoute() {
+  routeImportVersion += 1;
+  return import(
+    `@/app/api/auth/session/route?route-version=${routeImportVersion}`
+  );
+}
 
 function registerModuleMocks() {
   mock.module("@/lib/db/db", () => ({
@@ -44,24 +69,28 @@ function registerModuleMocks() {
 
 beforeAll(() => {
   registerModuleMocks();
+  resetRateLimiterForTesting();
 });
 
 beforeEach(() => {
   mock.restore();
   registerModuleMocks();
+  resetRateLimiterForTesting();
 });
 
 afterEach(() => {
   mock.restore();
+  resetRateLimiterForTesting();
 });
 
 afterAll(() => {
   mock.restore();
+  resetRateLimiterForTesting();
 });
 
 describe("Auth API - Login", () => {
   test("POST /api/auth/login requires email and password", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const request = createMockRequest("https://example.com/api/auth/login", {
       body: {},
       headers: { "sec-fetch-site": "same-origin" },
@@ -73,7 +102,7 @@ describe("Auth API - Login", () => {
   });
 
   test("POST /api/auth/login returns error for invalid credentials", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const request = createMockRequest("https://example.com/api/auth/login", {
       body: { email: "test@example.com", password: "wrong" },
       headers: { "sec-fetch-site": "same-origin" },
@@ -84,8 +113,31 @@ describe("Auth API - Login", () => {
     expect(response.status).toBeGreaterThanOrEqual(400);
   });
 
+  test("POST /api/auth/login returns a logged error response when authentication throws", async () => {
+    mock.module("@/lib/auth/session", () => ({
+      authenticateCredentials: async () => {
+        throw new Error("login boom");
+      },
+      setSessionCookie: () => undefined,
+    }));
+
+    const { POST } = await loadLoginRoute();
+    const request = createMockRequest("https://example.com/api/auth/login", {
+      body: { email: "admin@admin.com", password: "admin" },
+      headers: { "sec-fetch-site": "same-origin" },
+      method: "POST",
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Internal Server Error",
+    });
+  });
+
   test("POST /api/auth/login validates email format", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const request = createMockRequest("https://example.com/api/auth/login", {
       body: { email: "not-an-email", password: "Password123!" },
       headers: { "sec-fetch-site": "same-origin" },
@@ -135,7 +187,7 @@ describe("Auth API - Login", () => {
 
 describe("Auth API - Login extended branches", () => {
   test("POST /api/auth/login returns 400 when password is empty string", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const request = createMockRequest("https://example.com/api/auth/login", {
       body: { email: "user@example.com", password: "" },
       headers: { "sec-fetch-site": "same-origin" },
@@ -146,11 +198,14 @@ describe("Auth API - Login extended branches", () => {
   });
 
   test("POST /api/auth/login returns 401 when password exceeds max length", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const longPassword = "x".repeat(10_000);
     const request = createMockRequest("https://example.com/api/auth/login", {
       body: { email: "user@example.com", password: longPassword },
-      headers: { "sec-fetch-site": "same-origin" },
+      headers: {
+        "sec-fetch-site": "same-origin",
+        "x-forwarded-for": "203.0.113.88, 198.51.100.2",
+      },
       method: "POST",
     });
     const response = await POST(request);
@@ -158,7 +213,7 @@ describe("Auth API - Login extended branches", () => {
   });
 
   test("POST /api/auth/login returns 400 when body is not valid JSON", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const rawRequest = new Request("https://example.com/api/auth/login", {
       body: "not-json{{",
       headers: {
@@ -179,7 +234,7 @@ describe("Auth API - Login extended branches", () => {
   });
 
   test("POST /api/auth/login returns 400 when body is JSON null", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const rawRequest = new Request("https://example.com/api/auth/login", {
       body: "null",
       headers: {
@@ -209,7 +264,7 @@ describe("Auth API - Login extended branches", () => {
   // covered by the "returns error for invalid credentials" test above.
 
   test("POST /api/auth/login rejects CSRF-unsafe request", async () => {
-    const { POST } = await import("@/app/api/auth/login/route");
+    const { POST } = await loadLoginRoute();
     const request = createMockRequest("https://example.com/api/auth/login", {
       body: { email: "user@example.com", password: "ValidPass1!" },
       method: "POST",
@@ -222,7 +277,7 @@ describe("Auth API - Login extended branches", () => {
 
 describe("Auth API - Logout", () => {
   test("POST /api/auth/logout clears session", async () => {
-    const { POST } = await import("@/app/api/auth/logout/route");
+    const { POST } = await loadLogoutRoute();
     const request = createMockRequest("https://example.com/api/auth/logout", {
       cookies: { session: "test-session-token" },
       headers: { "sec-fetch-site": "same-origin" },
@@ -234,7 +289,7 @@ describe("Auth API - Logout", () => {
   });
 
   test("POST /api/auth/logout without session cookie still succeeds", async () => {
-    const { POST } = await import("@/app/api/auth/logout/route");
+    const { POST } = await loadLogoutRoute();
     const request = createMockRequest("https://example.com/api/auth/logout", {
       headers: { "sec-fetch-site": "same-origin" },
       method: "POST",
@@ -244,7 +299,7 @@ describe("Auth API - Logout", () => {
   });
 
   test("POST /api/auth/logout rejects CSRF-unsafe request", async () => {
-    const { POST } = await import("@/app/api/auth/logout/route");
+    const { POST } = await loadLogoutRoute();
     const request = createMockRequest("https://example.com/api/auth/logout", {
       method: "POST",
       // no sec-fetch-site header
@@ -256,7 +311,7 @@ describe("Auth API - Logout", () => {
 
 describe("Auth API - Session", () => {
   test("GET /api/auth/session returns unauthenticated when no cookie", async () => {
-    const { GET } = await import("@/app/api/auth/session/route");
+    const { GET } = await loadSessionRoute();
     const request = createMockRequest("https://example.com/api/auth/session");
     const response = await GET(request);
     expect(response.status).toBe(200);
@@ -267,7 +322,7 @@ describe("Auth API - Session", () => {
   });
 
   test("GET /api/auth/session with token returns valid session shape", async () => {
-    const { GET } = await import("@/app/api/auth/session/route");
+    const { GET } = await loadSessionRoute();
     const request = createMockRequest("https://example.com/api/auth/session", {
       cookies: { session: "invalid-or-expired-token" },
     });
@@ -284,13 +339,30 @@ describe("Auth API - Session", () => {
   });
 
   test("GET /api/auth/session returns current user", async () => {
-    const { GET } = await import("@/app/api/auth/session/route");
+    const { GET } = await loadSessionRoute();
     const request = createMockRequest("https://example.com/api/auth/session", {
       cookies: { session: "valid-session-token" },
     });
 
     const response = await GET(request);
     expect(response.status).toBeLessThan(500);
+  });
+
+  test("GET /api/auth/session returns a logged error response when session lookup throws", async () => {
+    mock.module("@/lib/auth/session", () => ({
+      getUserFromRequest: async () => {
+        throw new Error("session boom");
+      },
+    }));
+
+    const { GET } = await loadSessionRoute();
+    const request = createMockRequest("https://example.com/api/auth/session");
+    const response = await GET(request);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Internal Server Error",
+    });
   });
 });
 
@@ -303,7 +375,17 @@ describe("Auth API - Login success path", () => {
     const prevDbUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
     try {
-      const { POST } = await import("@/app/api/auth/login/route");
+      mock.module("@/lib/auth/session", () => ({
+        authenticateCredentials: async () => ({
+          email: "admin@admin.com",
+          ok: true as const,
+          token: "placeholder-success-token",
+          userId: 0,
+        }),
+        setSessionCookie: () => undefined,
+      }));
+
+      const { POST } = await loadLoginRoute();
       const request = createMockRequest("https://example.com/api/auth/login", {
         body: { email: "admin@admin.com", password: "admin" },
         // Use a distinct IP so previous tests' rate-limit state doesn't apply.
@@ -330,7 +412,7 @@ describe("Auth API - Login success path", () => {
 
 describe("Auth API - Logout with session cookie", () => {
   test("POST /api/auth/logout with librerss_session cookie reaches deleteSessionByToken", async () => {
-    const { POST } = await import("@/app/api/auth/logout/route");
+    const { POST } = await loadLogoutRoute();
     const request = createMockRequest("https://example.com/api/auth/logout", {
       cookies: { librerss_session: "test-session-token-xyz" },
       headers: { "sec-fetch-site": "same-origin" },
@@ -345,29 +427,23 @@ describe("Auth API - Logout with session cookie", () => {
 
 describe("Auth API - Session authenticated path", () => {
   test("GET /api/auth/session returns authenticated user when session is valid", async () => {
-    // Activate placeholder mode by temporarily removing DATABASE_URL.
-    const prevDbUrl = process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL;
-    try {
-      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
-      const { GET } = await import("@/app/api/auth/session/route");
-      const request = createMockRequest(
-        "https://example.com/api/auth/session",
-        {
-          cookies: { librerss_session: PLACEHOLDER_ADMIN_USER.sessionToken },
-        },
-      );
-      const response = await GET(request);
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body.authenticated).toBe(true);
-      expect(body.user.email).toBe(PLACEHOLDER_ADMIN_USER.email);
-    } finally {
-      if (prevDbUrl === undefined) {
-        delete process.env.DATABASE_URL;
-      } else {
-        process.env.DATABASE_URL = prevDbUrl;
-      }
-    }
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+
+    mock.module("@/lib/auth/session", () => ({
+      getUserFromRequest: async () => ({
+        email: PLACEHOLDER_ADMIN_USER.email,
+        userId: PLACEHOLDER_ADMIN_USER.id,
+      }),
+    }));
+
+    const { GET } = await loadSessionRoute();
+    const request = createMockRequest("https://example.com/api/auth/session", {
+      cookies: { librerss_session: PLACEHOLDER_ADMIN_USER.sessionToken },
+    });
+    const response = await GET(request);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.authenticated).toBe(true);
+    expect(body.user.email).toBe(PLACEHOLDER_ADMIN_USER.email);
   });
 });

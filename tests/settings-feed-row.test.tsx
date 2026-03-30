@@ -1,8 +1,9 @@
-import { fireEvent, render } from "@testing-library/react";
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   cloneElement,
   createContext,
+  forwardRef,
   isValidElement,
   type MouseEventHandler,
   type ReactElement,
@@ -13,7 +14,8 @@ import {
 
 import { type CategoryTreeNode } from "@/lib";
 
-let mockedIsMobile = false;
+const originalMatchMedia = window.matchMedia;
+let isMobileViewport = false;
 
 mock.module("@/components/ui/button", () => ({
   Button: ({
@@ -48,33 +50,8 @@ mock.module("@/components/ui/button", () => ({
 }));
 
 mock.module("@/components/ui/input", () => ({
-  Input: ({
-    autoFocus,
-    className,
-    onChange,
-    onKeyDown,
-    placeholder,
-    value,
-  }: {
-    autoFocus?: boolean;
-    className?: string;
-    onChange?: (event: { target: { value: string } }) => void;
-    onKeyDown?: (event: { key: string }) => void;
-    placeholder?: string;
-    value?: string;
-  }) => (
-    <input
-      autoFocus={autoFocus}
-      className={className}
-      onChange={(event) => {
-        onChange?.({ target: { value: event.currentTarget.value } });
-      }}
-      onKeyDown={(event) => {
-        onKeyDown?.({ key: event.key });
-      }}
-      placeholder={placeholder}
-      value={value}
-    />
+  Input: forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+    (props, ref) => <input ref={ref} {...props} />,
   ),
 }));
 
@@ -189,10 +166,6 @@ mock.module("@/components/ui/dropdown-menu", () => {
   };
 });
 
-mock.module("@/lib/hooks/useIsMobile", () => ({
-  useIsMobile: () => mockedIsMobile,
-}));
-
 mock.module("@/app/dashboard/components/MotionSpinner", () => ({
   MotionSpinner: () => <span>Loading</span>,
 }));
@@ -251,14 +224,35 @@ function renderFeedRow() {
   return { ...result, onStartEditing };
 }
 
+beforeEach(() => {
+  isMobileViewport = false;
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: isMobileViewport && query.includes("max-width"),
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    }),
+  });
+});
+
 afterEach(() => {
-  mockedIsMobile = false;
+  isMobileViewport = false;
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: originalMatchMedia,
+  });
   mock.restore();
 });
 
 describe("SettingsFeedRow", () => {
   test("uses an explicit desktop edit button instead of double-click editing", () => {
-    mockedIsMobile = false;
+    isMobileViewport = false;
     const { getByRole, getByText, onStartEditing } = renderFeedRow();
 
     fireEvent.doubleClick(getByText("Example Feed"));
@@ -274,13 +268,15 @@ describe("SettingsFeedRow", () => {
     );
   });
 
-  test("exposes edit inside the mobile action menu", () => {
-    mockedIsMobile = true;
+  test("exposes edit inside the mobile action menu", async () => {
+    isMobileViewport = true;
     const { getByRole, onStartEditing } = renderFeedRow();
 
-    fireEvent.click(
+    const actionsButton = await waitFor(() =>
       getByRole("button", { name: /open actions for example feed/i }),
     );
+
+    fireEvent.click(actionsButton);
     fireEvent.click(getByRole("button", { name: /edit feed/i }));
 
     expect(onStartEditing).toHaveBeenCalledTimes(1);

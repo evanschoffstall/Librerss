@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
-import { type UseFeedLoadingTimeoutOptions } from "./dashboard-effects.types";
+import { type UseFeedLoadingTimeoutOptions } from "./dashboard-effects.contracts";
 
 /** Enforces a client-side timeout around dashboard feed-loading sessions. */
 export function useFeedLoadingTimeout({

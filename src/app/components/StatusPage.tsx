@@ -9,7 +9,7 @@ const statusPageGridStyle = {
 } satisfies CSSProperties;
 
 /** Props for the shared status-page shell. */
-export interface StatusPageProps {
+interface StatusPageProps {
   action: ReactNode;
   code: string;
   eyebrow: string;

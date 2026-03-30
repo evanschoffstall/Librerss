@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-import { type CategoryTreeNode, isSameCategoryLabel } from "@/lib";
-
 import {
-  type SettingsFeedStateOptions,
-} from "./settings-feed-state.types";
+  type CategoryTreeNode,
+  isSameCategoryLabel,
+} from "@/lib";
+
+import { type SettingsFeedStateOptions } from "./settings-feed.contracts";
 import { useSettingsDrag, type UseSettingsDragReturn } from "./useSettingsDrag";
 
-export interface SettingsSharedFeedRowProps {
+interface SettingsSharedFeedRowProps {
   deletingKey: null | string;
   draggingFeedKey: UseSettingsDragReturn["draggingFeedKey"];
   editingFeedKey: null | string;

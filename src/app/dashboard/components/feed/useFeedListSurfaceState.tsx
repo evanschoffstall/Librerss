@@ -49,6 +49,13 @@ interface PrimedUnreadRemovalState {
   expiresAt: number;
 }
 
+interface ShouldAutoAnchorInvertedScrollViewportOptions {
+  expandedArticleKey: null | string;
+  hasClaimedInvertedScrollOwnership: boolean;
+  isInvertedScroll: boolean;
+  isUnderfilledInvertedViewport: boolean;
+}
+
 interface UseFeedListSurfaceStateOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -124,6 +131,27 @@ export function findVisibleInvertedRemovalAnchorArticleKey(
   return visibleArticles[0]?.articleKey ?? null;
 }
 
+/**
+ * Inverted feeds should only surrender bottom anchoring once the reader owns a
+ * genuinely scrollable viewport. Underfilled lists must remain pinned so they
+ * do not float upward and leave dead space beneath the newest rows.
+ */
+export function shouldAutoAnchorInvertedScrollViewport({
+  expandedArticleKey,
+  hasClaimedInvertedScrollOwnership,
+  isInvertedScroll,
+  isUnderfilledInvertedViewport,
+}: ShouldAutoAnchorInvertedScrollViewportOptions) {
+  return (
+    isInvertedScroll &&
+    expandedArticleKey === null &&
+    (
+      !hasClaimedInvertedScrollOwnership ||
+      isUnderfilledInvertedViewport
+    )
+  );
+}
+
 export function useFeedListSurfaceState({
   articleFilter,
   articlesPerPage,
@@ -179,6 +207,25 @@ export function useFeedListSurfaceState({
     hasUserScrolledRef.current = true;
     setHasClaimedInvertedScrollOwnership(true);
   }, []);
+
+  /**
+   * Underfilled inverted feeds should keep the newest rows pinned to the
+   * bottom even after an interaction claims ownership; otherwise the viewport
+   * develops a dead band beneath the cards while there is nothing to scroll.
+   */
+  const shouldAnchorUnderfilledInvertedViewport = useCallback(() => {
+    if (!scrollViewport) {
+      return false;
+    }
+
+    const scrollableOverflowPx =
+      scrollViewport.scrollHeight - scrollViewport.clientHeight;
+
+    return (
+      Number.isFinite(scrollableOverflowPx) &&
+      scrollableOverflowPx <= FEED_MIN_SCROLLABLE_OVERFLOW_PX
+    );
+  }, [scrollViewport]);
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
@@ -781,10 +828,16 @@ export function useFeedListSurfaceState({
    */
   const getInvertedScrollIntoViewLocation = useCallback(
     ({ totalCount }: { scrollingInProgress: boolean; totalCount: number }) => {
+      const shouldAutoAnchor = shouldAutoAnchorInvertedScrollViewport({
+        expandedArticleKey,
+        hasClaimedInvertedScrollOwnership,
+        isInvertedScroll: isInvertedScrollRef.current,
+        isUnderfilledInvertedViewport:
+          shouldAnchorUnderfilledInvertedViewport(),
+      });
+
       if (
-        !isInvertedScrollRef.current ||
-        expandedArticleKey !== null ||
-        hasClaimedInvertedScrollOwnership ||
+        !shouldAutoAnchor ||
         totalCount === 0
       ) {
         return false;
@@ -796,7 +849,12 @@ export function useFeedListSurfaceState({
         index: invertedScrollAnchorIndex,
       };
     },
-    [expandedArticleKey, hasClaimedInvertedScrollOwnership, invertedScrollAnchorIndex],
+    [
+      expandedArticleKey,
+      hasClaimedInvertedScrollOwnership,
+      invertedScrollAnchorIndex,
+      shouldAnchorUnderfilledInvertedViewport,
+    ],
   );
 
   /**
@@ -804,25 +862,39 @@ export function useFeedListSurfaceState({
    * initial reader-idle state. Once the reader scrolls, preserve position.
    */
   const getInvertedFollowOutput = useCallback(() => {
-    if (
-      !isInvertedScrollRef.current ||
-      expandedArticleKey !== null ||
-      hasClaimedInvertedScrollOwnership
-    ) {
+    const shouldAutoAnchor = shouldAutoAnchorInvertedScrollViewport({
+      expandedArticleKey,
+      hasClaimedInvertedScrollOwnership,
+      isInvertedScroll: isInvertedScrollRef.current,
+      isUnderfilledInvertedViewport:
+        shouldAnchorUnderfilledInvertedViewport(),
+    });
+
+    if (!shouldAutoAnchor) {
       return false;
     }
 
     return "auto" as const;
-  }, [expandedArticleKey, hasClaimedInvertedScrollOwnership]);
+  }, [
+    expandedArticleKey,
+    hasClaimedInvertedScrollOwnership,
+    shouldAnchorUnderfilledInvertedViewport,
+  ]);
 
   /** Reports whether inverted mode still owns the viewport anchor. */
   const shouldAutoAnchorInvertedScroll = useCallback(() => {
-    return (
-      isInvertedScrollRef.current &&
-      expandedArticleKey === null &&
-      !hasClaimedInvertedScrollOwnership
-    );
-  }, [expandedArticleKey, hasClaimedInvertedScrollOwnership]);
+    return shouldAutoAnchorInvertedScrollViewport({
+      expandedArticleKey,
+      hasClaimedInvertedScrollOwnership,
+      isInvertedScroll: isInvertedScrollRef.current,
+      isUnderfilledInvertedViewport:
+        shouldAnchorUnderfilledInvertedViewport(),
+    });
+  }, [
+    expandedArticleKey,
+    hasClaimedInvertedScrollOwnership,
+    shouldAnchorUnderfilledInvertedViewport,
+  ]);
 
   /** Reports whether normal mode should keep locking the viewport to the top. */
   const shouldLockInitialNormalScroll = useCallback(() => {
@@ -1109,6 +1181,11 @@ export function useFeedListSurfaceState({
               }}
             />
           );
+        },
+      ),
+      Scroller: forwardRef<HTMLDivElement, ComponentPropsWithRef<"div">>(
+        function InvertedVirtuosoScroller(props, ref) {
+          return <div {...props} ref={ref} style={{ ...props.style, height: "100%" }} />;
         },
       ),
     }),

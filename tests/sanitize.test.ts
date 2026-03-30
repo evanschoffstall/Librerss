@@ -1100,6 +1100,37 @@ describe("lib/sanitize/patterns – isRelatedHeading empty/blank headings", () =
     const { isRelatedHeading } = await import("@/lib/sanitize/patterns");
     expect(isRelatedHeading("   \t\n   ")).toBe(false);
   });
+
+  test("returns true for also-of-interest headings", async () => {
+    const { isRelatedHeading } = await import("@/lib/sanitize/patterns");
+    expect(isRelatedHeading("Also of Interest: More Reads")).toBe(true);
+  });
+
+  test("matches related heading prefixes and exact markers", async () => {
+    const { isRelatedHeading } = await import("@/lib/sanitize/patterns");
+    expect(isRelatedHeading("Related stories")).toBe(true);
+    expect(isRelatedHeading("See also")).toBe(true);
+    expect(isRelatedHeading("Also Read")).toBe(true);
+    expect(isRelatedHeading("News analysis")).toBe(false);
+  });
+
+  test("detects AP junk classes after normalization", async () => {
+    const { hasApJunkClass } = await import("@/lib/sanitize/patterns");
+    expect(hasApJunkClass('class="hub_peek sidebar"')).toBe(true);
+    expect(hasApJunkClass('class="inline-module promo"')).toBe(true);
+    expect(hasApJunkClass('class="article-body"')).toBe(false);
+  });
+
+  test("readAttrValue returns case-insensitive attribute matches", async () => {
+    const { readAttrValue } = await import("@/lib/sanitize/patterns");
+    const attrs =
+      'CLASS="hero" data-feed-id="abc-123" href="/story" aria-label="Read story"';
+
+    expect(readAttrValue(attrs, "class")).toBe("hero");
+    expect(readAttrValue(attrs, "data-feed-id")).toBe("abc-123");
+    expect(readAttrValue(attrs, "href")).toBe("/story");
+    expect(readAttrValue(attrs, "missing")).toBeNull();
+  });
 });
 
 describe("Image Sanitization", () => {
@@ -1180,6 +1211,15 @@ describe("Image Sanitization", () => {
 
     expect(result).toContain("srcset");
     expect(result).toContain("sizes");
+  });
+
+  test("should keep images whose srcset includes a sufficiently wide source", () => {
+    const input =
+      '<img src="https://example.com/photo.jpg" srcset="https://example.com/photo-small.jpg 100w, https://example.com/photo-large.jpg 640w">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).toContain("<img");
+    expect(result).toContain("srcset");
   });
 
   test("should allow width and height attributes", () => {

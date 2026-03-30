@@ -2,7 +2,7 @@
  * Server-side article operations shared across API surfaces.
  *
  * Transport-agnostic: accepts typed params, returns data or throws
- * {@link ServiceError}. Both the REST API and future GReader API call
+ * {@link ServerServiceError}. Both the REST API and future GReader API call
  * these functions.
  */
 import { and, eq } from "drizzle-orm";
@@ -25,14 +25,7 @@ import {
   sanitizeArticleTitle,
 } from "@/lib/sanitize";
 
-import { ServiceError } from "./errors";
-
-export interface ArticleServiceDeps {
-  getDbFn?: typeof getDb;
-  getUserOwnedArticleByIdFn?: typeof getUserOwnedArticleById;
-  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
-  upsertArticleStatusesFn?: typeof upsertArticleStatuses;
-}
+import { ServerServiceError } from "./errors";
 
 export interface CreateArticleParams {
   content: string;
@@ -48,6 +41,13 @@ export interface StatusUpdate {
   isStarred?: boolean;
 }
 
+interface ArticleServiceDeps {
+  getDbFn?: typeof getDb;
+  getUserOwnedArticleByIdFn?: typeof getUserOwnedArticleById;
+  isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
+  upsertArticleStatusesFn?: typeof upsertArticleStatuses;
+}
+
 export async function createArticle(
   userId: number,
   params: CreateArticleParams,
@@ -55,7 +55,7 @@ export async function createArticle(
 ) {
   const isAllowed = deps.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
   if (!(await isAllowed(params.link))) {
-    throw new ServiceError(
+    throw new ServerServiceError(
       "Article link must resolve to a public host",
       400,
     );
@@ -80,7 +80,7 @@ export async function createArticle(
     .limit(1);
 
   if (ownedFeeds.length === 0) {
-    throw new ServiceError("Feed not found for authenticated user", 403);
+    throw new ServerServiceError("Feed not found for authenticated user", 403);
   }
 
   const rows = await db
@@ -104,12 +104,12 @@ export async function getArticleById(
   deps: Pick<ArticleServiceDeps, "getDbFn"> = {},
 ) {
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    throw new ServiceError("Article not found", 404);
+    throw new ServerServiceError("Article not found", 404);
   }
 
   const db = (deps.getDbFn ?? getDb)();
   const article = await getUserOwnedArticleById(db, userId, articleId);
-  if (!article) throw new ServiceError("Article not found", 404);
+  if (!article) throw new ServerServiceError("Article not found", 404);
   return withNormalizedArticleContent(article);
 }
 
@@ -151,7 +151,7 @@ export async function updateArticleStatus(
 
   const db = getDb();
   const article = await getOwned(db, userId, articleId);
-  if (!article) throw new ServiceError("Article not found", 404);
+  if (!article) throw new ServerServiceError("Article not found", 404);
 
   await upsert(userId, [articleId], updates);
   invalidateUserCache(userId);

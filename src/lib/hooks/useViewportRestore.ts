@@ -312,11 +312,11 @@ function readSavedScroll(sessionKey: string): null | SavedScroll {
   const storage = getSessionStorage();
   if (!storage) return null;
   try {
-    const raw = storage.getItem(sessionKey);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isSavedScroll(parsed)) return null;
-    return parsed;
+    const serializedScroll = storage.getItem(sessionKey);
+    if (!serializedScroll) return null;
+    const parsedScroll: unknown = JSON.parse(serializedScroll);
+    if (!isSavedScroll(parsedScroll)) return null;
+    return parsedScroll;
   } catch {
     return null;
   }

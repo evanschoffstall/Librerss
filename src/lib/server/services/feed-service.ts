@@ -2,7 +2,7 @@
  * Server-side feed source and category operations shared across API surfaces.
  *
  * Transport-agnostic: accepts typed params, returns data or throws
- * {@link ServiceError}. Both the REST API and future GReader API call
+ * {@link ServerServiceError}. Both the REST API and future GReader API call
  * these functions.
  */
 import { eq } from "drizzle-orm";
@@ -26,9 +26,9 @@ import {
 import { getDb } from "@/lib/db/db";
 import { categoryOrders } from "@/lib/db/schema";
 
-import { ServiceError } from "./errors";
+import { ServerServiceError } from "./errors";
 
-export interface FeedServiceDeps {
+interface FeedServiceDeps {
   createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
   deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
   getDbFn?: typeof getDb;
@@ -69,7 +69,7 @@ export async function deleteFeed(
     deps.deleteFeedSourceForUserFn ?? deleteFeedSourceForUser;
   const deleted = await deleteSource(userId, sourceId);
 
-  if (!deleted) throw new ServiceError("Feed source not found", 404);
+  if (!deleted) throw new ServerServiceError("Feed source not found", 404);
 
   invalidateUserCache(userId);
   invalidateUserFeedSourceListCache(userId);
@@ -104,7 +104,7 @@ export async function renameFeed(
   const rename =
     deps.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
   const updated = await rename(userId, sourceId, name, url);
-  if (!updated) throw new ServiceError("Feed source not found", 404);
+  if (!updated) throw new ServerServiceError("Feed source not found", 404);
 
   invalidateUserCache(userId);
   invalidateUserFeedSourceListCache(userId);
@@ -141,7 +141,7 @@ export async function setFeedEnabled(
   const setEnabled =
     deps.setFeedSourceEnabledForUserFn ?? setFeedSourceEnabledForUser;
   const updated = await setEnabled(userId, sourceId, enabled);
-  if (!updated) throw new ServiceError("Feed source not found", 404);
+  if (!updated) throw new ServerServiceError("Feed source not found", 404);
 
   invalidateUserCache(userId);
   invalidateUserFeedSourceListCache(userId);
@@ -157,7 +157,7 @@ export async function updateFeedSettings(
   const update =
     deps.updateFeedSettingsForUserFn ?? updateFeedSettingsForUser;
   const updated = await update(userId, sourceId, settings);
-  if (!updated) throw new ServiceError("Feed source not found", 404);
+  if (!updated) throw new ServerServiceError("Feed source not found", 404);
 
   invalidateUserCache(userId);
   invalidateUserFeedSourceListCache(userId);

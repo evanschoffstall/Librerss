@@ -13,7 +13,7 @@ import {
   type CreateArticleParams,
   listUserArticles,
   logAndRespondError,
-  requireAuthenticatedUser, requireMutableAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServiceError } from "@/lib/server";
+  requireAuthenticatedUser, requireMutableAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
 import { parseDateOrNull } from "@/lib/utils/dates";
 import { isValidUrl } from "@/lib/utils/url";
 
@@ -45,7 +45,7 @@ export async function GET(
     });
     return NextResponse.json(articles);
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return respondError("Articles GET error", error);
   }
 }
@@ -75,7 +75,7 @@ export async function POST(
     });
     return NextResponse.json(article);
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return respondError("Articles POST error", error);
   }
 }

@@ -1,14 +1,15 @@
+import type { ArticleFilter } from "@/lib/core/article-filters";
 import type { Article, FeedSource } from "@/lib/core/types";
 
 import { normalizeDistinctUrlList } from "@/lib/utils/url";
 
 import {
-  BATCH_REQUEST_TIMEOUT_MS,
   type BatchFeedResponseItem,
   createLinkedAbortController,
   ensureArrayResponse,
   getApiClient,
   normalizeBatchItem,
+  resolveBatchRequestTimeoutMs,
   withRequestDeadline,
 } from "./http";
 
@@ -80,13 +81,17 @@ export const FeedService = {
   async getFeedsBatch(
     urls: string[],
     {
+      articleFilter = "all",
       forceRefresh = false,
+      forceResolveUpstream = false,
       knownLastFetchedAtByUrl,
       requestSource,
       signal,
       skipRefresh = false,
     }: {
+      articleFilter?: ArticleFilter;
       forceRefresh?: boolean;
+      forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: string;
       signal?: AbortSignal;
@@ -106,6 +111,8 @@ export const FeedService = {
         getApiClient().post(
           `${feedServiceBaseUrl}/feeds/batch`,
           {
+            articleFilter,
+            ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
             forceRefresh,
             ...(serializedKnownLastFetchedAtByUrl
               ? { knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl }
@@ -116,7 +123,7 @@ export const FeedService = {
           },
           { signal: controller.signal },
         ),
-        BATCH_REQUEST_TIMEOUT_MS,
+        resolveBatchRequestTimeoutMs(normalizedUrls.length),
         () => {
           controller.abort();
         },

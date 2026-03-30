@@ -4,7 +4,7 @@ import { jsonError } from "@/lib/api/http";
 import { clearSessionCookie } from "@/lib/auth/session";
 import {
   deleteAccount,
-  logAndRespondError, requireMutableAuthenticatedUser, ServiceError } from "@/lib/server";
+  logAndRespondError, requireMutableAuthenticatedUser, ServerServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function DELETE(request: NextRequest) {
     clearSessionCookie(response);
     return response;
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Account deletion error", error);
   }
 }

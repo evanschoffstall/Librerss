@@ -254,6 +254,7 @@ describe("feed-batch-resolver", () => {
       false,
       {
         forceRefresh: true,
+        forceResolveUpstream: true,
         requestSource: "manual-refresh",
         skipRefresh: true,
       },
@@ -268,6 +269,7 @@ describe("feed-batch-resolver", () => {
       ["https://example.com/feed.xml"],
       {
         forceRefresh: true,
+        forceResolveUpstream: true,
         requestSource: "manual-refresh",
         signal,
         skipRefresh: true,
@@ -1259,6 +1261,46 @@ describe("feed-batch pure helpers", () => {
     );
 
     expect(result).toEqual([previousArticle]);
+  });
+
+  test("mapBatchResultsToArticles keeps multiple unchanged articles from the same feed together", async () => {
+    const { mapBatchResultsToArticles } =
+      await import("@/app/dashboard/services/feed-batch");
+    const previousArticles = [
+      makeArticle({
+        feedName: "Feed A",
+        feedUrl: "https://example.com/feed",
+        id: 77,
+        link: "https://example.com/article-77",
+      }),
+      makeArticle({
+        feedName: "Feed A",
+        feedUrl: "https://example.com/feed",
+        id: 78,
+        link: "https://example.com/article-78",
+      }),
+    ];
+
+    const result = mapBatchResultsToArticles(
+      [
+        {
+          articles: [],
+          ok: true,
+          unchanged: true,
+          url: "https://example.com/feed",
+        },
+      ],
+      new Map([["https://example.com/feed", "Feed A"]]),
+      false,
+      () => [],
+      previousArticles,
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result.map((article) => article.link)).toEqual([
+      "https://example.com/article-77",
+      "https://example.com/article-78",
+    ]);
   });
 
   test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {

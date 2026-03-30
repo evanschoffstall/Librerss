@@ -4,6 +4,16 @@ export const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll
 
 const originalMatchMedia = window.matchMedia;
 const originalResizeObserver = globalThis.ResizeObserver;
+const originalRequestAnimationFrame = window.requestAnimationFrame;
+const originalCancelAnimationFrame = window.cancelAnimationFrame;
+const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage",
+);
+const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
 let isFeedListMobileViewport = false;
 
 export class FeedListResizeObserverMock {
@@ -76,10 +86,18 @@ export function buildFeedListArticle(overrides?: Partial<Article>): Article {
 /** Installs the DOM shims FeedList relies on in Bun's happy-dom environment. */
 export function installFeedListDomMocks() {
   isFeedListMobileViewport = false;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: window.localStorage,
+    writable: true,
+  });
   window.localStorage.setItem(
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
     JSON.stringify(false),
   );
+
+  let nextAnimationFrameId = 1;
+  const cancelledAnimationFrames = new Set<number>();
 
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -100,12 +118,47 @@ export function installFeedListDomMocks() {
     value: FeedListResizeObserverMock,
     writable: true,
   });
+  Object.defineProperty(window, "requestAnimationFrame", {
+    configurable: true,
+    value: (callback: FrameRequestCallback) => {
+      const frameId = nextAnimationFrameId++;
+      queueMicrotask(() => {
+        if (cancelledAnimationFrames.has(frameId)) {
+          cancelledAnimationFrames.delete(frameId);
+          return;
+        }
+
+        callback(performance.now());
+      });
+      return frameId;
+    },
+    writable: true,
+  });
+  Object.defineProperty(window, "cancelAnimationFrame", {
+    configurable: true,
+    value: (frameId: number) => {
+      cancelledAnimationFrames.add(frameId);
+    },
+    writable: true,
+  });
 }
 
 /** Restores global DOM shims after a feed-list test completes. */
 export function restoreFeedListDomMocks() {
   isFeedListMobileViewport = false;
   window.localStorage.removeItem(MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+
+  if (originalGlobalLocalStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "localStorage",
+      originalGlobalLocalStorageDescriptor,
+    );
+  }
+
+  if (originalWindowLocalStorageDescriptor) {
+    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+  }
 
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -115,6 +168,16 @@ export function restoreFeedListDomMocks() {
   Object.defineProperty(globalThis, "ResizeObserver", {
     configurable: true,
     value: originalResizeObserver,
+    writable: true,
+  });
+  Object.defineProperty(window, "requestAnimationFrame", {
+    configurable: true,
+    value: originalRequestAnimationFrame,
+    writable: true,
+  });
+  Object.defineProperty(window, "cancelAnimationFrame", {
+    configurable: true,
+    value: originalCancelAnimationFrame,
     writable: true,
   });
 }

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import type { ArticleFilter } from "@/lib/core/article-filters";
 import type { getDb } from "@/lib/db/db";
 
 import { CONFIG } from "@/lib/config";
@@ -73,36 +74,18 @@ export function mapRowsToArticleMap(
 }
 
 /**
- * Minimum articles guaranteed per feed in multi-feed batch queries.
+ * Queries one global page of preview article rows for the requested feed IDs.
  *
- * Prevents high-volume feeds from crowding out less prolific feeds when the
- * global article budget is divided across many feeds.
+ * The filter is applied before the global limit so unread, read, and starred
+ * views page through the correct database result set instead of filtering a
+ * smaller per-feed preview window after the fact.
  */
-const MINIMUM_ARTICLES_PER_FEED_BATCH = 20;
-
-/**
- * Computes a fair per-feed article budget that guarantees every feed
- * contributes at least {@link MINIMUM_ARTICLES_PER_FEED_BATCH} articles
- * while staying close to the configured global article limit.
- */
-export function computePerFeedBudget(feedCount: number): number {
-  return Math.min(
-    CONFIG.MAX_ARTICLES_PER_FEED,
-    Math.max(
-      Math.ceil(CONFIG.MAX_ALL_ARTICLES_LIMIT / feedCount),
-      MINIMUM_ARTICLES_PER_FEED_BATCH,
-    ),
-  );
-}
-
-/** Queries the preview article rows for the requested feed IDs. */
 export async function queryTopArticlesPerFeed(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedIds: number[],
+  articleFilter: ArticleFilter = "all",
 ): Promise<RankedRow[]> {
-  const perFeedBudget = computePerFeedBudget(feedIds.length);
-
   const queryResult = await db.execute<RankedRow>(sql`
     WITH selected_feed_ids AS (
       SELECT *
@@ -110,85 +93,61 @@ export async function queryTopArticlesPerFeed(
         feedIds.map((id) => sql`${id}`),
         sql`, `,
       )}]::int[]) AS fid(id)
-    ),
-    recent_candidates AS (
-      SELECT a.id,
-             a.title,
-             a.link,
-             a.content,
-             a.publication_date,
-             a.feed_id,
-             a.last_checked
-      FROM selected_feed_ids fid
-      CROSS JOIN LATERAL (
-        SELECT sub.id,
-               sub.title,
-               sub.link,
-               LEFT(
-                 regexp_replace(
-                   regexp_replace(sub.content, '<[^>]+>', ' ', 'gi'),
-                   '\\s+',
-                   ' ',
-                   'g'
-                 ),
-                 ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}
-               ) AS content,
-               sub.publication_date,
-               sub.feed_id,
-               sub.last_checked
-        FROM "Article" sub
-        WHERE sub.feed_id = fid.id
-        ORDER BY sub.publication_date DESC
-        LIMIT ${perFeedBudget}
-      ) a
-    ),
-    starred_candidates AS (
-      SELECT sub.id,
-             sub.title,
-             sub.link,
-             LEFT(
-               regexp_replace(
-                 regexp_replace(sub.content, '<[^>]+>', ' ', 'gi'),
-                 '\\s+',
-                 ' ',
-                 'g'
-               ),
-               ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}
-             ) AS content,
-             sub.publication_date,
-             sub.feed_id,
-             sub.last_checked
-      FROM "Article" sub
-      INNER JOIN selected_feed_ids fid
-        ON fid.id = sub.feed_id
-      INNER JOIN "ArticleStatus" starred_status
-        ON starred_status.article_id = sub.id
-       AND starred_status.user_id = ${userId}
-       AND starred_status.is_starred = true
-    ),
-    candidate_articles AS (
-      SELECT * FROM recent_candidates
-      UNION
-      SELECT * FROM starred_candidates
     )
-    SELECT candidate.id,
-           candidate.title,
-           candidate.link,
-           candidate.content,
-           candidate.publication_date AS "publicationDate",
-           candidate.feed_id          AS "feedId",
-           candidate.last_checked     AS "lastChecked",
+    SELECT article.id,
+           article.title,
+           article.link,
+           LEFT(
+             regexp_replace(
+               regexp_replace(article.content, '<[^>]+>', ' ', 'gi'),
+               '\\s+',
+               ' ',
+               'g'
+             ),
+             ${ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH}
+           ) AS content,
+           article.publication_date AS "publicationDate",
+           article.feed_id          AS "feedId",
+           article.last_checked     AS "lastChecked",
            COALESCE(status.is_read, false)    AS "isRead",
            COALESCE(status.is_starred, false) AS "isStarred"
-    FROM candidate_articles candidate
+    FROM "Article" article
+    INNER JOIN selected_feed_ids fid
+      ON fid.id = article.feed_id
     LEFT JOIN "ArticleStatus" status
-      ON status.article_id = candidate.id AND status.user_id = ${userId}
-    ORDER BY candidate.publication_date DESC
+      ON status.article_id = article.id AND status.user_id = ${userId}
+    WHERE ${buildArticleFilterCondition(articleFilter)}
+    ORDER BY article.publication_date DESC, article.id DESC
+    LIMIT ${CONFIG.MAX_ALL_ARTICLES_LIMIT}
   `);
 
-  return Array.isArray(queryResult)
-    ? (queryResult as RankedRow[])
-    : (queryResult as { rows: RankedRow[] }).rows;
+  if (Array.isArray(queryResult)) {
+    return queryResult as RankedRow[];
+  }
+
+  return Array.isArray((queryResult as { rows?: RankedRow[] }).rows)
+    ? (queryResult as { rows: RankedRow[] }).rows
+    : [];
+}
+
+function buildArticleFilterCondition(articleFilter: ArticleFilter) {
+  switch (articleFilter) {
+    case "read": {
+      return sql`COALESCE(status.is_read, false) = true`;
+    }
+
+    case "starred": {
+      return sql`COALESCE(status.is_starred, false) = true`;
+    }
+
+    case "unread": {
+      return sql`COALESCE(status.is_read, false) = false`;
+    }
+
+    default: {
+      return sql`true`;
+    }
+  }
 }
 
 function stripPreviewSpanWrappers(value: string): string {

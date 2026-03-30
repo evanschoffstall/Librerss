@@ -7,6 +7,7 @@ import {
   expectPreviewDashboard,
     gotoPreviewDashboard,
     hasLoadMoreSentinel,
+    locateViewportArticle,
     openDashboardSettings,
     readArticleKey,
     readRenderedArticleCount,
@@ -514,7 +515,9 @@ test.describe("dashboard interaction coverage", () => {
       })
       .toBe(!initialThemeIsDark);
 
-    await page.getByRole("button", { name: "Refresh selected feed" }).click();
+    await page
+      .locator('button[aria-label="Refresh selected feed"]:visible')
+      .click();
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
     const firstArticleTitle =
@@ -528,9 +531,21 @@ test.describe("dashboard interaction coverage", () => {
 
     await page.getByRole("button", { exact: true, name: "all" }).click();
     await page.getByRole("button", { name: "Mark all read" }).click();
-    await page.getByRole("button", { exact: true, name: "read" }).click();
+    const firstReadCandidate = await locateViewportArticle(page, 0);
     await expect(
-      page.getByRole("heading", { name: firstArticleTitle }).first(),
+      firstReadCandidate.getByRole("button", {
+        name: "Mark as unread",
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { exact: true, name: "read" }).click();
+    const readArticle = await locateViewportArticle(page, 0);
+    await expect(readArticle).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      readArticle.getByRole("button", {
+        name: "Mark as unread",
+      }),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("button", { exact: true, name: "all" }).click();

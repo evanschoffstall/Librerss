@@ -1,6 +1,30 @@
 import { describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+const baseSignupDeps = {
+  createSessionFn: async () => "session-token",
+  getDbFn: () => ({
+    insert: () => ({
+      values: () => ({
+        returning: () => Promise.resolve([{ email: "reader@example.com", id: 7 }]),
+      }),
+    }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: () => Promise.resolve([]),
+        }),
+      }),
+    }),
+  }),
+  hashPasswordFn: async () => "hashed-password",
+  isUniqueConstraintErrorFn: () => false,
+  logAndRespondErrorFn: () => new Response("error", { status: 500 }),
+  logger: { error: () => {}, info: () => {}, warn: () => {} },
+  requireMutableRequestFn: () => null,
+  runtimeFlags: { allowSignup: true, usePlaceholderData: false },
+};
+
 describe("auth signup legal consent", () => {
   test("POST rejects signup without the current legal acceptance version", async () => {
     const { POST } = await import("@/app/api/auth/signup/route");
@@ -17,24 +41,7 @@ describe("auth signup legal consent", () => {
         method: "POST",
       }),
       {
-        getDbFn: () => ({
-          insert: () => ({
-            values: () => ({
-              returning: () => Promise.resolve([]),
-            }),
-          }),
-          select: () => ({
-            from: () => ({
-              where: () => ({
-                limit: () => Promise.resolve([]),
-              }),
-            }),
-          }),
-        }),
-        logAndRespondErrorFn: () => new Response("error", { status: 500 }),
-        logger: { error: () => {}, info: () => {}, warn: () => {} },
-        requireMutableRequestFn: () => null,
-        runtimeFlags: { allowSignup: true, usePlaceholderData: false },
+        ...baseSignupDeps,
       },
     );
 
@@ -63,12 +70,242 @@ describe("auth signup legal consent", () => {
         method: "POST",
       }),
       {
-        createSessionFn: async () => "session-token",
+        ...baseSignupDeps,
+        setSessionCookieFn: setSessionCookie,
+      },
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      user: { email: "reader@example.com", id: 7 },
+    });
+    expect(setSessionCookie).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST returns a request guard response immediately", async () => {
+    const { POST } = await import("@/app/api/auth/signup/route");
+    const guardedResponse = new Response(JSON.stringify({ error: "blocked" }), {
+      headers: { "content-type": "application/json" },
+      status: 429,
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        requireMutableRequestFn: () => guardedResponse,
+      },
+    );
+
+    expect(response).toBe(guardedResponse);
+  });
+
+  test("POST rejects signup when server configuration disables it", async () => {
+    const warn = mock(() => {});
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        logger: { error: () => {}, info: () => {}, warn },
+        runtimeFlags: { allowSignup: false, usePlaceholderData: false },
+      },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Signup is disabled by server configuration",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST rejects signup in placeholder mode", async () => {
+    const warn = mock(() => {});
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        logger: { error: () => {}, info: () => {}, warn },
+        runtimeFlags: { allowSignup: true, usePlaceholderData: true },
+      },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "Signup is disabled when DATABASE_URL is not configured",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST returns parser errors for malformed JSON bodies", async () => {
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: "not-json{{",
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      baseSignupDeps,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  test("POST rejects invalid email addresses", async () => {
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "not-an-email",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      baseSignupDeps,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "A valid email is required",
+    });
+  });
+
+  test("POST rejects weak passwords", async () => {
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "weak",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      baseSignupDeps,
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  test("POST hides existing-user signup attempts", async () => {
+    const warn = mock(() => {});
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
         getDbFn: () => ({
           insert: () => ({
             values: () => ({
-              returning: () =>
-                Promise.resolve([{ email: "reader@example.com", id: 7 }]),
+              returning: () => Promise.resolve([]),
+            }),
+          }),
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                limit: () => Promise.resolve([{ id: 1 }]),
+              }),
+            }),
+          }),
+        }),
+        logger: { error: () => {}, info: () => {}, warn },
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "Unable to create account. Please try a different email or contact support.",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST returns 500 when user creation does not return a record", async () => {
+    const error = mock(() => {});
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        getDbFn: () => ({
+          insert: () => ({
+            values: () => ({
+              returning: () => Promise.resolve([]),
             }),
           }),
           select: () => ({
@@ -79,20 +316,91 @@ describe("auth signup legal consent", () => {
             }),
           }),
         }),
-        hashPasswordFn: async () => "hashed-password",
-        isUniqueConstraintErrorFn: () => false,
-        logAndRespondErrorFn: () => new Response("error", { status: 500 }),
-        logger: { error: () => {}, info: () => {}, warn: () => {} },
-        requireMutableRequestFn: () => null,
-        runtimeFlags: { allowSignup: true, usePlaceholderData: false },
-        setSessionCookieFn: setSessionCookie,
+        logger: { error, info: () => {}, warn: () => {} },
       },
     );
 
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      user: { email: "reader@example.com", id: 7 },
+      error: "Failed to create account",
     });
-    expect(setSessionCookie).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST maps unique-constraint insert failures to a safe 400", async () => {
+    const warn = mock(() => {});
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        getDbFn: () => ({
+          insert: () => ({
+            values: () => ({
+              returning: () => Promise.reject(new Error("duplicate email")),
+            }),
+          }),
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                limit: () => Promise.resolve([]),
+              }),
+            }),
+          }),
+        }),
+        isUniqueConstraintErrorFn: () => true,
+        logger: { error: () => {}, info: () => {}, warn },
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "Unable to create account. Please try a different email or contact support.",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST delegates unexpected failures to logAndRespondError", async () => {
+    const delegatedResponse = new Response("delegated", { status: 500 });
+    const logAndRespondErrorFn = mock(() => delegatedResponse);
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        hashPasswordFn: async () => {
+          throw new Error("hash failed");
+        },
+        logAndRespondErrorFn,
+      },
+    );
+
+    expect(response).toBe(delegatedResponse);
+    expect(logAndRespondErrorFn).toHaveBeenCalledTimes(1);
   });
 });

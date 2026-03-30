@@ -9,7 +9,7 @@ import {
 } from "../hooks/useArticleCollapseState";
 import { type ArticleFilter } from "./article-filters";
 
-export interface DashboardControllerState<
+interface DashboardControllerState<
   CategoryTreeController,
   SidebarScrollRef,
 > {
@@ -19,7 +19,7 @@ export interface DashboardControllerState<
   sidebar: DashboardSidebarState<SidebarScrollRef>;
 }
 
-export interface DashboardFeedListState {
+interface DashboardFeedListState {
   articleFilter: ArticleFilter;
   articlesPerPage: number;
   collapsingArticles: CollapsingArticles;
@@ -45,14 +45,14 @@ export interface DashboardFeedListState {
   updatingArticleState: Record<string, boolean>;
 }
 
-export interface DashboardFilterBarState {
+interface DashboardFilterBarState {
   articleFilter: ArticleFilter;
   lastRefreshLabel: string;
   loading: boolean;
   setArticleFilter: (value: ArticleFilter) => void;
 }
 
-export interface DashboardSettingsState<CategoryTreeController> {
+interface DashboardSettingsState<CategoryTreeController> {
   articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
   backgroundMode: BackgroundMode;
@@ -71,7 +71,7 @@ export interface DashboardSettingsState<CategoryTreeController> {
   usePlaceholderData: boolean;
 }
 
-export interface DashboardSidebarContentState {
+interface DashboardSidebarContentState {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
   onCategoryClick: (categoryNode: CategoryTreeNode) => void;
@@ -83,7 +83,7 @@ export interface DashboardSidebarContentState {
   sidebarCategories: CategoryTreeNode[];
 }
 
-export interface DashboardSidebarState<SidebarScrollRef> {
+interface DashboardSidebarState<SidebarScrollRef> {
   isMobileSidebarOpen: boolean;
   isSidebarVisible: boolean;
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { asTrimmedString, jsonError } from "@/lib/api/http";
 import {
   logAndRespondError,
-  markStreamRead, requireMutableUserAndJsonBody, ServiceError } from "@/lib/server";
+  markStreamRead, requireMutableUserAndJsonBody, ServerServiceError } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     await markStreamRead(parsedRequest.user.userId, streamId);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Mark all read error", error);
   }
 }

@@ -12,7 +12,7 @@ import { feeds, feedSources } from "@/lib/db/schema";
 
 import { type FeedRecord } from "./feed-refresh";
 
-export { computePerFeedBudget, mapRowsToArticleMap, queryTopArticlesPerFeed } from "./feed-batch-pipeline-articles";
+export { mapRowsToArticleMap, queryTopArticlesPerFeed } from "./feed-batch-pipeline-articles";
 export { buildRefreshPlan, executeParallelRefreshes } from "./feed-batch-pipeline-refresh";
 export type { ArticleRow, RankedRow } from "./feed-batch-pipeline.types";
 
@@ -43,6 +43,7 @@ export async function resolveAuthorizedFeedRecords(
       feedUrl: feeds.url,
       lastFetched: feeds.lastFetched,
       lastFetchError: feeds.lastFetchError,
+      proxyEnabled: feedSources.proxyEnabled,
       sourceUrl: feedSources.url,
     })
     .from(feedSources)
@@ -73,6 +74,7 @@ export async function resolveAuthorizedFeedRecords(
         id: row.feedId,
         lastFetched: row.lastFetched,
         lastFetchError: row.lastFetchError,
+        proxyEnabled: row.proxyEnabled,
         url: row.feedUrl,
       });
     }
@@ -80,6 +82,10 @@ export async function resolveAuthorizedFeedRecords(
 
   const missingUrls = allowedUrls.filter((u) => !feedByUrl.has(u));
   if (missingUrls.length > 0) {
+    const sourceProxyEnabledByUrl = new Map(
+      joinedRows.map((row) => [row.sourceUrl, row.proxyEnabled] as const),
+    );
+
     // Insert missing feed records and get them back in one round-trip.
     // onConflictDoUpdate with a no-op SET guarantees RETURNING always fires
     // even when a concurrent insert beat us to it (race-safe).
@@ -92,7 +98,12 @@ export async function resolveAuthorizedFeedRecords(
       })
       .returning(feedRecordFields);
 
-    for (const f of newFeeds) feedByUrl.set(f.url, f);
+    for (const f of newFeeds) {
+      feedByUrl.set(f.url, {
+        ...f,
+        proxyEnabled: sourceProxyEnabledByUrl.get(f.url) === true,
+      });
+    }
   }
 
   return { allowedUrls, feedByUrl };

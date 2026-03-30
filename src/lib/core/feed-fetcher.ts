@@ -6,22 +6,25 @@
  *   2. One SELECT to load all Feed records + lastFetched timestamps.
  *   3. If any Feed records are missing: one INSERT + one SELECT to resolve them.
  *   4. All stale upstream HTTP refreshes run in parallel (Promise.allSettled).
- *   5. One window-function SELECT to retrieve top-N articles per feed.
+ *   5. One SELECT to retrieve the current global article page for the URL set.
  *
  * In-memory cache (feed-cache.ts) short-circuits the entire pipeline when:
  *   - All feeds are within TTL (nothing to refresh)
  *   - No force-refresh was requested
- *   - A cached result exists for the same user + URL set
+ *   - A cached result exists for the same user + URL set + article filter
  * In that case: zero DB queries.
  */
 
 import { and, desc, eq, sql } from "drizzle-orm";
 
+import type { ArticleFilter } from "@/lib/core/article-filters";
 import type { getDb } from "@/lib/db/db";
 
 import { CONFIG } from "@/lib/config";
 import { ensureFeedRecordByUrl } from "@/lib/db/feed-records";
 import { articles, articleStatuses, feedSources, users } from "@/lib/db/schema";
+
+import type { FeedUpstreamTransport } from "./feed-http";
 
 import {
   type ArticleRow,
@@ -93,6 +96,12 @@ interface BatchFeedResult {
   unchangedUrls: Set<string>;
 }
 
+interface FeedFetchProxyOptions {
+  resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
+}
+
+// ─── Error types ──────────────────────────────────────────────────────────────
+
 /** Returned when the authenticated user doesn't own the requested feed source. */
 class FeedSourceNotFoundError extends Error {
   constructor(feedUrl: string) {
@@ -100,8 +109,6 @@ class FeedSourceNotFoundError extends Error {
     this.name = "FeedSourceNotFoundError";
   }
 }
-
-// ─── Error types ──────────────────────────────────────────────────────────────
 
 /** Thrown when an upstream feed refresh fails so callers can return a proper error. */
 class UpstreamFeedError extends Error {
@@ -120,9 +127,10 @@ export async function fetchAndCacheFeedArticles(
   db: ReturnType<typeof getDb>,
   userId: number,
   feedUrl: string,
+  options?: FeedFetchProxyOptions,
 ): Promise<ArticleRow[]> {
   const userSources = await db
-    .select({ id: feedSources.id })
+    .select({ id: feedSources.id, proxyEnabled: feedSources.proxyEnabled })
     .from(feedSources)
     .where(
       and(
@@ -134,6 +142,7 @@ export async function fetchAndCacheFeedArticles(
     .limit(1);
 
   if (userSources.length === 0) throw new FeedSourceNotFoundError(feedUrl);
+  const sourceProxyEnabled = userSources[0]?.proxyEnabled;
 
   const feed = (await feedFetcherDependencies.ensureFeedRecordByUrl(
     db,
@@ -141,9 +150,16 @@ export async function fetchAndCacheFeedArticles(
   )) as FeedRecord;
 
   if (feedFetcherDependencies.shouldRefreshFeed(feed.lastFetched)) {
+    const proxyTransport =
+      sourceProxyEnabled && options?.resolveProxyTransport
+        ? await options.resolveProxyTransport()
+        : undefined;
     const result = await feedFetcherDependencies.refreshFeedFromUpstream(
       db,
-      feed,
+      { ...feed, proxyEnabled: sourceProxyEnabled },
+      {
+        proxyTransport,
+      },
     );
     if (!result.ok) throw new UpstreamFeedError(feedUrl, result.error);
     feedFetcherDependencies.diagInfo("Single feed refreshed", { url: feedUrl });
@@ -183,21 +199,31 @@ export async function fetchAndCacheFeedArticlesBatch(
   userId: number,
   feedUrls: string[],
   {
+    articleFilter = "all",
     forceRefresh = false,
+    forceResolveUpstream = false,
     knownLastFetchedAtByUrl,
     requestSource = "unspecified",
+    resolveProxyTransport,
     skipRefresh = false,
   }: {
+    articleFilter?: ArticleFilter;
     forceRefresh?: boolean;
+    forceResolveUpstream?: boolean;
     knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
     requestSource?: string;
+    resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
     skipRefresh?: boolean;
   } = {},
 ): Promise<BatchFeedResult> {
   if (feedUrls.length === 0) return buildEmptyBatchResult();
 
+  let shouldForceRefresh = forceRefresh || forceResolveUpstream;
+
   feedFetcherDependencies.diagInfo("Batch feed fetch started", {
-    forceRefresh,
+    articleFilter,
+    forceRefresh: shouldForceRefresh,
+    forceResolveUpstream,
     requestedUrlCount: feedUrls.length,
     requestSource,
     skipRefresh,
@@ -207,7 +233,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   // ── Per-user force-refresh cooldown (DB-backed, survives restarts) ───────
   // Atomically check + claim: UPDATE returns a row only when the cooldown has
   // elapsed, preventing concurrent requests from both passing the gate.
-  if (forceRefresh) {
+  if (shouldForceRefresh && !forceResolveUpstream) {
     const claimed = await db
       .update(users)
       .set({ lastForceRefreshedAt: new Date() })
@@ -224,7 +250,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         requestSource,
         userId,
       });
-      forceRefresh = false;
+      shouldForceRefresh = false;
     }
   }
 
@@ -232,15 +258,19 @@ export async function fetchAndCacheFeedArticlesBatch(
   // Non-force requests: serve from memory if a cached result exists.
   // Force requests: serve from memory only when every feed is still within
   // the force-refresh cooldown — going to DB would produce the same result.
-  const cached = feedFetcherDependencies.getCachedBatch(userId, feedUrls);
-  if (cached) {
+  const cached = feedFetcherDependencies.getCachedBatch(
+    userId,
+    feedUrls,
+    articleFilter,
+  );
+  if (cached && !forceResolveUpstream) {
     const allWithinCooldown =
-      forceRefresh &&
+      shouldForceRefresh &&
       [...cached.lastFetchedByUrl.values()].every(
         (d) => !feedFetcherDependencies.shouldForceRefreshFeed(d),
       );
 
-    if (!forceRefresh || allWithinCooldown) {
+    if (!shouldForceRefresh || allWithinCooldown) {
       const cachedCount = feedUrls.length;
       const unchangedUrls = collectUnchangedUrls(
         feedUrls,
@@ -254,6 +284,7 @@ export async function fetchAndCacheFeedArticlesBatch(
       feedFetcherDependencies.diagInfo(
         "Batch feed fetch served from memory cache",
         {
+          articleFilter,
           feedCount: cachedCount,
           forceRefreshCooldownHit: allWithinCooldown,
           requestSource,
@@ -288,15 +319,25 @@ export async function fetchAndCacheFeedArticlesBatch(
   }
 
   const { allowedUrls, feedByUrl } = resolved;
+  const proxyTransport = await resolveRefreshProxyTransport(
+    allowedUrls,
+    feedByUrl,
+    skipRefresh,
+    shouldForceRefresh,
+    forceResolveUpstream,
+    resolveProxyTransport,
+  );
 
   feedFetcherDependencies.diagInfo("Batch feed refresh plan", {
     allowedUrlCount: allowedUrls.length,
+    articleFilter,
     missingFeedRecordCount: allowedUrls.filter((u) => !feedByUrl.has(u)).length,
     plan: feedFetcherDependencies.buildRefreshPlan(
       feedByUrl,
       allowedUrls,
       skipRefresh,
-      forceRefresh,
+      shouldForceRefresh,
+      forceResolveUpstream,
     ),
     requestSource,
     userId,
@@ -312,12 +353,15 @@ export async function fetchAndCacheFeedArticlesBatch(
     feedByUrl,
     allowedUrls,
     skipRefresh,
-    forceRefresh,
+    shouldForceRefresh,
+    forceResolveUpstream,
+    proxyTransport,
   );
 
   if (!skipRefresh) {
     if (refreshedCount > 0) {
       feedFetcherDependencies.diagInfo("Batch feed upstream refresh executed", {
+        articleFilter,
         failedFeedCount: upstreamErrors.size,
         failedUrls: [...upstreamErrors.keys()],
         refreshedFeedCount: refreshedCount,
@@ -329,6 +373,7 @@ export async function fetchAndCacheFeedArticlesBatch(
         "Batch feed refresh skipped: all feeds fresh",
         {
           allowedUrlCount: allowedUrls.length,
+          articleFilter,
           requestSource,
           userId,
         },
@@ -397,6 +442,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     db,
     userId,
     changedFeedIds,
+    articleFilter,
   );
   const articleMap = feedFetcherDependencies.mapRowsToArticleMap(
     rows,
@@ -405,6 +451,7 @@ export async function fetchAndCacheFeedArticlesBatch(
   );
 
   feedFetcherDependencies.diagInfo("Batch feed fetch completed", {
+    articleFilter,
     articlesByUrl: [...articleMap.entries()].map(([url, items]) => ({
       articleCount: items.length,
       newestReturnedPublicationDate:
@@ -431,7 +478,7 @@ export async function fetchAndCacheFeedArticlesBatch(
     allowedUrls,
   );
   if (cacheArticleMap.size === allowedUrls.length) {
-    feedFetcherDependencies.setCachedBatch(userId, allowedUrls, {
+    feedFetcherDependencies.setCachedBatch(userId, allowedUrls, articleFilter, {
       articles: cacheArticleMap,
       errors: upstreamErrors,
       lastFetchedByUrl,
@@ -538,6 +585,37 @@ function collectUnchangedUrls(
       );
     }),
   );
+}
+
+async function resolveRefreshProxyTransport(
+  allowedUrls: string[],
+  feedByUrl: ReadonlyMap<string, FeedRecord>,
+  skipRefresh: boolean,
+  forceRefresh: boolean,
+  forceResolveUpstream: boolean,
+  resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>,
+): Promise<FeedUpstreamTransport | undefined> {
+  if (!resolveProxyTransport || skipRefresh) {
+    return undefined;
+  }
+
+  const requiresProxyTransport = allowedUrls.some((url) => {
+    const feed = feedByUrl.get(url);
+
+    if (feed?.proxyEnabled !== true) {
+      return false;
+    }
+
+    if (forceResolveUpstream) {
+      return true;
+    }
+
+    return forceRefresh
+      ? shouldForceRefreshFeed(feed.lastFetched) || feed.lastFetchError !== null
+      : shouldRefreshFeed(feed.lastFetched);
+  });
+
+  return requiresProxyTransport ? resolveProxyTransport() : undefined;
 }
 
 /** Returns only the requested URLs from a cached article map. */

@@ -6,7 +6,10 @@ import type { DistilledArticle, DistillOptions } from "./types";
 const DEFAULT_MIN_BODY_LENGTH = 100;
 const EMPTY_STYLE = Object.freeze({ getPropertyValue: () => "" });
 
-export function defuddleDistill(
+/**
+ * Runs the Defuddle-backed distillation strategy against already-fetched HTML.
+ */
+export function distillWithDefuddle(
   html: string,
   url: string,
   options?: DistillOptions,
@@ -14,16 +17,16 @@ export function defuddleDistill(
   const threshold = options?.contentLengthThreshold ?? DEFAULT_MIN_BODY_LENGTH;
   const { document } = parseHTML(html);
   patchLinkedomWindow(document);
-  const defuddle = new Defuddle(document as unknown as Document, { url });
-  const result = defuddle.parse();
+  const defuddleParser = new Defuddle(document as unknown as Document, { url });
+  const distilledArticle = defuddleParser.parse();
 
-  if (result.content.trim().length < threshold) return null;
+  if (distilledArticle.content.trim().length < threshold) return null;
 
   return {
-    content: result.content,
-    description: result.description,
+    content: distilledArticle.content,
+    description: distilledArticle.description,
     source: url,
-    title: result.title,
+    title: distilledArticle.title,
   };
 }
 

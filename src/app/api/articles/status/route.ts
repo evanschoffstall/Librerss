@@ -8,7 +8,7 @@ import {
   logAndRespondError,
   requireMutableUserAndJsonBody,
   resolveRouteHandlerDeps,
-  type RouteHandlerContext, ServiceError, updateArticleStatus } from "@/lib/server";
+  type RouteHandlerContext, ServerServiceError, updateArticleStatus } from "@/lib/server";
 import { isSafePositiveItemId } from "@/lib/utils/validation";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +56,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof ServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
     return logAndRespondError("Article status update error", error);
   }
 }

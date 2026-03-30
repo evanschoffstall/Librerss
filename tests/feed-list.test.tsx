@@ -215,10 +215,11 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Starred auto-fill article 12")).toBeTruthy();
-      expect(queryByText("Starred auto-fill article 14")).toBeNull();
       expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
-    });
+    }, { timeout: 5000 });
+
+    expect(getByText("Starred auto-fill article 12")).toBeTruthy();
+    expect(queryByText("Starred auto-fill article 14")).toBeNull();
   });
 
   test("stops auto-filling with a no-op once all starred results are visible", async () => {
@@ -436,6 +437,92 @@ describe("FeedList", () => {
     expect(isFeedInvertedScrollActive(true, true)).toBe(true);
     expect(isFeedInvertedScrollActive(false, true)).toBe(false);
     expect(isFeedInvertedScrollActive(true, false)).toBe(false);
+  });
+
+  test("keeps a short mobile inverted feed surface stretched to the viewport", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    setFeedListMobileViewport(true);
+
+    const articles = Array.from({ length: 2 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/mobile-inverted-short-${index + 1}`,
+        title: `Mobile inverted short article ${index + 1}`,
+      }),
+    );
+
+    const { container, getByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 482;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              return 482;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    window.dispatchEvent(
+      new CustomEvent("librerss:storage-sync", {
+        detail: {
+          key: MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+          value: JSON.stringify(true),
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector("[data-inverted-scroll='true']")).toBeTruthy();
+      expect(
+        container.querySelector("[data-feed-surface-mode='virtualized']"),
+      ).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBeTruthy();
+    }, { timeout: 5000 });
+
+    const feedSurface = container.querySelector<HTMLElement>(
+      "[data-feed-surface-mode='virtualized']",
+    );
+
+    if (!feedSurface) {
+      throw new Error("Expected the inverted feed surface to render.");
+    }
+
+    expect(feedSurface.style.height).toBe("100%");
   });
 
   test("keeps the feed virtualized while an article is expanded", async () => {

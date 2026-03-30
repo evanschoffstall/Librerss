@@ -13,6 +13,7 @@ import {
   selectDashboardFeed,
 } from "../services/dashboard-refresh-requests";
 import {
+  type FeedFetchOptions,
   type FeedSelectionFetchers,
 } from "../services/selection";
 
@@ -68,25 +69,31 @@ export function useDashboardHandlers({
   setSelectedCategory,
 }: UseDashboardHandlersOptions) {
   /** Performs a user-initiated refresh of the current selection. */
-  const handleRefreshSelection = useCallback(async () => {
+  const handleRefreshSelection = useCallback(
+    async (options?: {
+      forceResolveUpstream?: FeedFetchOptions["forceResolveUpstream"];
+    }) => {
     await refreshDashboardSelection({
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
+      forceResolveUpstream: options?.forceResolveUpstream,
       onBeforeRefresh,
       selectedCategory,
       selectedCategoryNode,
       selectedFeedUrl,
     });
-  }, [
-    onBeforeRefresh,
-    selectedCategory,
-    selectedFeedUrl,
-    selectedCategoryNode,
-    fetchAllFeeds,
-    fetchFeed,
-    fetchCategoryFeeds,
-  ]);
+    },
+    [
+      onBeforeRefresh,
+      selectedCategory,
+      selectedFeedUrl,
+      selectedCategoryNode,
+      fetchAllFeeds,
+      fetchFeed,
+      fetchCategoryFeeds,
+    ],
+  );
 
   /** Performs a background or interval-driven refresh of the current selection. */
   const handleAutoRefreshSelection = useCallback(async () => {

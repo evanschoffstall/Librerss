@@ -8,9 +8,11 @@
 import { describe, expect, mock, test } from "bun:test";
 
 import { STALE_TAB_THRESHOLD_MS } from "@/app/dashboard/hooks/useDashboardIntervals";
+import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-batch";
 import {
   notifyFeedFailures,
 } from "@/app/dashboard/services/feed-loader-state";
+import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
 
 describe("stale tab threshold", () => {
   test("STALE_TAB_THRESHOLD_MS is a positive number of at least 10 seconds", () => {
@@ -23,6 +25,10 @@ describe("stale tab threshold", () => {
     // so that the recovery fires before the next scheduled refresh.
     const thirtyMinutesMs = 30 * 60_000;
     expect(STALE_TAB_THRESHOLD_MS).toBeLessThan(thirtyMinutesMs);
+  });
+
+  test("feed loading failsafe stays above the batch HTTP timeout ceiling", () => {
+    expect(FEED_LOADING_FAILSAFE_MS).toBeGreaterThan(BATCH_REQUEST_TIMEOUT_MS);
   });
 });
 

@@ -1,12 +1,10 @@
 // Main library exports - organized by domain
 
 // API clients
-export {
-  AccountService,
-  ArticleService,
-  AuthService,
-  FeedService,
-} from "./api/services";
+export { AccountService } from "./api/account-service";
+export { ArticleService } from "./api/article-service";
+export { AuthService } from "./api/auth-service";
+export { FeedService } from "./api/feed-service";
 // Core: types, constants, utilities, hooks
 export type {
   Article,

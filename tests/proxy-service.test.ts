@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { ServiceError } from "@/lib/server/services/errors";
+import { ServerServiceError } from "@/lib/server/services/errors";
 
 afterEach(() => {
   mock.restore();
@@ -228,7 +228,7 @@ describe("server proxy service", () => {
       thrownError = error;
     }
 
-    expect(thrownError).toBeInstanceOf(ServiceError);
+    expect(thrownError).toBeInstanceOf(ServerServiceError);
     expect(thrownError).toMatchObject({
       reason: "proxy-password-unreadable",
       status: 500,
