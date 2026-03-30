@@ -10,6 +10,7 @@ import {
 } from "./selection";
 
 interface DashboardRefreshContext extends FeedSelectionFetchers {
+  articleLimit?: number;
   onBeforeRefresh?: () => void;
   selectedCategory: string;
   selectedCategoryNode?: CategoryTreeNode;
@@ -22,6 +23,7 @@ interface ManualDashboardRefreshContext extends DashboardRefreshContext {
 
 /** Performs the interval-driven refresh for the current dashboard selection. */
 export async function autoRefreshDashboardSelection({
+  articleLimit,
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
@@ -32,6 +34,7 @@ export async function autoRefreshDashboardSelection({
 }: DashboardRefreshContext) {
   onBeforeRefresh?.();
   await refreshCurrentSelection({
+    articleLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -48,24 +51,32 @@ export async function autoRefreshDashboardSelection({
 export function prefetchDashboardCategory(
   categoryNode: CategoryTreeNode,
   options: {
+    articleLimit?: FeedFetchOptions["articleLimit"];
     prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
     prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
     selectedCategory: string;
   },
 ) {
-  const { prefetchAllFeeds, prefetchCategoryFeeds, selectedCategory } = options;
+  const {
+    articleLimit,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    selectedCategory,
+  } = options;
   if (selectedCategory === categoryNode.key) {
     return;
   }
 
   if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
     void prefetchAllFeeds(undefined, {
+      ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-category-prefetch",
     });
     return;
   }
 
   void prefetchCategoryFeeds(categoryNode, {
+    ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-category-prefetch",
   });
 }
@@ -74,11 +85,12 @@ export function prefetchDashboardCategory(
 export function prefetchDashboardFeed(
   feedNode: CategoryTreeNode,
   options: {
+    articleLimit?: FeedFetchOptions["articleLimit"];
     prefetchFeed: FeedSelectionFetchers["fetchFeed"];
     selectedCategory: string;
   },
 ) {
-  const { prefetchFeed, selectedCategory } = options;
+  const { articleLimit, prefetchFeed, selectedCategory } = options;
   if (
     selectedCategory === feedNode.key ||
     !feedNode.data?.url ||
@@ -88,12 +100,14 @@ export function prefetchDashboardFeed(
   }
 
   void prefetchFeed(feedNode.data.url, {
+    ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-feed-prefetch",
   });
 }
 
 /** Performs the explicit user-initiated refresh for the current dashboard selection. */
 export async function refreshDashboardSelection({
+  articleLimit,
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
@@ -105,6 +119,7 @@ export async function refreshDashboardSelection({
 }: ManualDashboardRefreshContext) {
   onBeforeRefresh?.();
   await refreshCurrentSelection({
+    articleLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -122,6 +137,7 @@ export async function refreshDashboardSelection({
 export function selectDashboardCategory(
   categoryNode: CategoryTreeNode,
   options: {
+    articleLimit?: FeedFetchOptions["articleLimit"];
     fetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
     fetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
     setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
@@ -129,6 +145,7 @@ export function selectDashboardCategory(
   },
 ) {
   const {
+    articleLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     setIsMobileSidebarOpen,
@@ -140,12 +157,14 @@ export function selectDashboardCategory(
 
   if (categoryNode.key === ALL_FEEDS_NODE_KEY) {
     void fetchAllFeeds(undefined, {
+      ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-category-select",
     });
     return;
   }
 
   void fetchCategoryFeeds(categoryNode, {
+    ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-category-select",
   });
 }
@@ -154,18 +173,25 @@ export function selectDashboardCategory(
 export function selectDashboardFeed(
   feedNode: CategoryTreeNode,
   options: {
+    articleLimit?: FeedFetchOptions["articleLimit"];
     fetchFeed: FeedSelectionFetchers["fetchFeed"];
     setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
     setSelectedCategory: Dispatch<SetStateAction<string>>;
   },
 ) {
-  const { fetchFeed, setIsMobileSidebarOpen, setSelectedCategory } = options;
+  const {
+    articleLimit,
+    fetchFeed,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  } = options;
 
   setSelectedCategory(feedNode.key);
   setIsMobileSidebarOpen(false);
 
   if (feedNode.data?.url && feedNode.data.enabled !== false) {
     void fetchFeed(feedNode.data.url, {
+      ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-feed-select",
     });
   }

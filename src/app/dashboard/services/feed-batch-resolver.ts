@@ -12,6 +12,7 @@ interface FeedBatchResolverDependencies {
     urls: string[],
     options?: {
       articleFilter?: ArticleFilter;
+      articleLimit?: number;
       forceRefresh?: boolean;
       forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -45,6 +46,7 @@ export async function resolveFeedBatchResults(
     normalizedSources.map((source) => source.url),
     {
       articleFilter: options?.articleFilter,
+      articleLimit: options?.articleLimit,
       ...(options?.forceResolveUpstream === true
         ? { forceResolveUpstream: true }
         : {}),

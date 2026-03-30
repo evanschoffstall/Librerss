@@ -85,7 +85,12 @@ export async function queryTopArticlesPerFeed(
   userId: number,
   feedIds: number[],
   articleFilter: ArticleFilter = "all",
+  articleLimit = CONFIG.MAX_ALL_ARTICLES_LIMIT,
 ): Promise<RankedRow[]> {
+  const normalizedArticleLimit = Math.min(
+    Math.max(1, articleLimit),
+    CONFIG.MAX_ALL_ARTICLES_LIMIT,
+  );
   const queryResult = await db.execute<RankedRow>(sql`
     WITH selected_feed_ids AS (
       SELECT *
@@ -118,7 +123,7 @@ export async function queryTopArticlesPerFeed(
       ON status.article_id = article.id AND status.user_id = ${userId}
     WHERE ${buildArticleFilterCondition(articleFilter)}
     ORDER BY article.publication_date DESC, article.id DESC
-    LIMIT ${CONFIG.MAX_ALL_ARTICLES_LIMIT}
+    LIMIT ${normalizedArticleLimit}
   `);
 
   if (Array.isArray(queryResult)) {

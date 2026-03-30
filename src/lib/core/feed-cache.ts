@@ -2,7 +2,7 @@
  * In-memory feed caches.
  *
  * Two per-user caches live here:
- * - Batch article results keyed by the requested URL-set and article filter
+ * - Batch article results keyed by the requested URL-set, article filter, and article window
  * - Feed-source list results keyed only by user ID
  *
  * Both caches share the same TTL because they serve the same dashboard boot
@@ -52,10 +52,11 @@ export function getCachedBatch(
   userId: number,
   urls: string[],
   articleFilter: ArticleFilter,
+  articleLimit?: number,
 ): CachedBatchResult | null {
   const userMap = userCaches.get(userId);
   if (!userMap) return null;
-  const key = buildUrlKey(urls, articleFilter);
+  const key = buildUrlKey(urls, articleFilter, articleLimit);
   const entry = userMap.get(key);
   if (!entry) return null;
   if (!isFresh(entry)) {
@@ -104,6 +105,7 @@ export function setCachedBatch(
   userId: number,
   urls: string[],
   articleFilter: ArticleFilter,
+  articleLimit: number | undefined,
   result: Omit<CachedBatchResult, "cachedAt">,
 ): void {
   let userMap = userCaches.get(userId);
@@ -112,7 +114,7 @@ export function setCachedBatch(
     userCaches.set(userId, userMap);
   }
 
-  const key = buildUrlKey(urls, articleFilter);
+  const key = buildUrlKey(urls, articleFilter, articleLimit);
 
   // Evict oldest if at capacity (simple LRU-ish: delete first inserted)
   if (userMap.size >= MAX_ENTRIES_PER_USER && !userMap.has(key)) {
@@ -139,8 +141,12 @@ export function setCachedFeedSourceList(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-function buildUrlKey(urls: string[], articleFilter: ArticleFilter): string {
-  return `${articleFilter}\0${[...urls].sort().join("\0")}`;
+function buildUrlKey(
+  urls: string[],
+  articleFilter: ArticleFilter,
+  articleLimit?: number,
+): string {
+  return `${articleFilter}\0${normalizeArticleLimit(articleLimit)}\0${[...urls].sort().join("\0")}`;
 }
 
 function isFresh(entry: CacheEntry): boolean {
@@ -149,6 +155,12 @@ function isFresh(entry: CacheEntry): boolean {
 
 function isTimestampFresh(cachedAt: number): boolean {
   return Date.now() - cachedAt < ttlMs();
+}
+
+function normalizeArticleLimit(articleLimit?: number): number {
+  return typeof articleLimit === "number"
+    ? articleLimit
+    : CONFIG.MAX_ALL_ARTICLES_LIMIT;
 }
 
 function ttlMs(): number {

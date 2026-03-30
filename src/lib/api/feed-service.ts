@@ -82,6 +82,7 @@ export const FeedService = {
     urls: string[],
     {
       articleFilter = "all",
+      articleLimit,
       forceRefresh = false,
       forceResolveUpstream = false,
       knownLastFetchedAtByUrl,
@@ -90,6 +91,7 @@ export const FeedService = {
       skipRefresh = false,
     }: {
       articleFilter?: ArticleFilter;
+      articleLimit?: number;
       forceRefresh?: boolean;
       forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -112,6 +114,7 @@ export const FeedService = {
           `${feedServiceBaseUrl}/feeds/batch`,
           {
             articleFilter,
+            ...(typeof articleLimit === "number" ? { articleLimit } : {}),
             ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
             forceRefresh,
             ...(serializedKnownLastFetchedAtByUrl

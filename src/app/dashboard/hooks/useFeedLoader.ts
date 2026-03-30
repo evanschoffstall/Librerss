@@ -97,8 +97,11 @@ export function useFeedLoader({
   const [loadingEpoch, setLoadingEpoch] = useState(0);
 
   const buildRequestSignature = useCallback(
-    (normalizedSources: FeedBatchSource[]) =>
-      `${articleFilter}::${buildBatchRequestSignature(normalizedSources)}`,
+    (
+      normalizedSources: FeedBatchSource[],
+      articleLimit?: FeedFetchOptions["articleLimit"],
+    ) =>
+      `${articleFilter}:${articleLimit ?? "all-articles"}::${buildBatchRequestSignature(normalizedSources)}`,
     [articleFilter],
   );
 
@@ -304,9 +307,13 @@ export function useFeedLoader({
         normalizedSources,
         options?.keepExistingFeed === true,
       );
-      const requestSignature = buildRequestSignature(normalizedSources);
+      const requestSignature = buildRequestSignature(
+        normalizedSources,
+        options?.articleLimit,
+      );
       const queryKey = getFeedBatchQueryKey(requestSignature, {
         articleFilter,
+        articleLimit: options?.articleLimit,
         knownLastFetchedAtByUrl,
         skipRefresh: options?.skipRefresh,
       });
@@ -315,6 +322,7 @@ export function useFeedLoader({
         buildFeedBatchQueryOptions(normalizedSources, queryKey, {
           ...options,
           articleFilter,
+          articleLimit: options?.articleLimit,
           knownLastFetchedAtByUrl,
         }),
       );
@@ -348,13 +356,17 @@ export function useFeedLoader({
       }
 
       const normalizedSources = normalizeFeedBatchSources(sources);
-      const requestSignature = buildRequestSignature(normalizedSources);
+      const requestSignature = buildRequestSignature(
+        normalizedSources,
+        options?.articleLimit,
+      );
       const knownLastFetchedAtByUrl = getKnownLastFetchedAtByUrl(
         normalizedSources,
         options?.keepExistingFeed === true,
       );
       const queryKey = getFeedBatchQueryKey(requestSignature, {
         articleFilter,
+        articleLimit: options?.articleLimit,
         knownLastFetchedAtByUrl,
         skipRefresh: options?.skipRefresh,
       });
@@ -408,6 +420,7 @@ export function useFeedLoader({
           {
             ...options,
             articleFilter,
+            articleLimit: options?.articleLimit,
             knownLastFetchedAtByUrl,
           },
           isBackground,

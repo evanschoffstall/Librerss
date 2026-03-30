@@ -16,13 +16,14 @@ export function getFeedBatchQueryKey(
   requestSignature: string,
   options?: Pick<
     FeedFetchOptions,
-    "articleFilter" | "knownLastFetchedAtByUrl" | "skipRefresh"
+    "articleFilter" | "articleLimit" | "knownLastFetchedAtByUrl" | "skipRefresh"
   >,
 ) {
   return [
     ...DASHBOARD_FEED_BATCH_QUERY_KEY,
     requestSignature,
     options?.articleFilter ?? "all",
+    options?.articleLimit ?? "all-articles",
     options?.skipRefresh === true ? "skip-refresh" : "refresh",
     serializeKnownLastFetchedAt(options?.knownLastFetchedAtByUrl),
   ] as const;
