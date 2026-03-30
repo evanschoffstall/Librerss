@@ -1,0 +1,190 @@
+import {
+  findDashboardFeedViewport,
+  isDashboardFeedViewport,
+  observeFeedViewportLayout,
+  resolveFeedViewport,
+} from "../../../services/feed-viewport";
+import { type ArticleExpandPreparedDetail, type InvertedExpansionScrollLockObserverOptions, type ShouldAutoAnchorInvertedScrollViewportOptions } from "./types";
+
+/** Returns article keys whose rows are fully visible inside the current viewport. */
+export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
+  const viewportRect = viewport.getBoundingClientRect();
+
+  return Array.from(
+    viewport.querySelectorAll<HTMLElement>("article[data-article-key]"),
+  )
+    .filter((articleElement) => {
+      const articleRect = articleElement.getBoundingClientRect();
+
+      return (
+        articleRect.top >= viewportRect.top &&
+        articleRect.bottom <= viewportRect.bottom
+      );
+    })
+    .map((articleElement) => articleElement.dataset.articleKey)
+    .filter((articleKey): articleKey is string => Boolean(articleKey));
+}
+
+/** Resolves the header element used as the inverted scroll lock anchor. */
+export function findInvertedExpansionHeaderAnchor(articleKey: null | string) {
+  if (!articleKey) {
+    return null;
+  }
+
+  return document.querySelector<HTMLElement>(
+    `article[data-article-key="${CSS.escape(articleKey)}"] [data-article-swipe-zone='header']`,
+  );
+}
+
+/** Resolves the lock anchor element for expansion and collapse transitions. */
+export function findInvertedExpansionLockAnchor(articleKey: null | string) {
+  if (!articleKey) {
+    return null;
+  }
+
+  return document.querySelector<HTMLElement>(
+    `[data-scroll-restore-key="${CSS.escape(articleKey)}"], article[data-article-key="${CSS.escape(articleKey)}"]`,
+  );
+}
+
+/** Finds the active feed viewport that owns the inverted expansion lock. */
+export function findInvertedExpansionLockViewport() {
+  return findDashboardFeedViewport();
+}
+
+/** Selects the visible survivor article whose header should anchor unread-removal scroll compensation. */
+export function findVisibleInvertedRemovalAnchorArticleKey(
+  excludedArticleKeys: ReadonlySet<string>,
+) {
+  const viewport = findInvertedExpansionLockViewport();
+
+  if (!viewport) {
+    return null;
+  }
+
+  const viewportRect = viewport.getBoundingClientRect();
+  const visibleArticles = Array.from(
+    viewport.querySelectorAll<HTMLElement>("article[data-article-key]"),
+  )
+    .map((articleElement) => {
+      const articleKey = articleElement.dataset.articleKey ?? null;
+
+      if (!articleKey || excludedArticleKeys.has(articleKey)) {
+        return null;
+      }
+
+      const headerElement = articleElement.querySelector<HTMLElement>(
+        "[data-article-swipe-zone='header']",
+      );
+
+      if (!headerElement) {
+        return null;
+      }
+
+      const headerRect = headerElement.getBoundingClientRect();
+
+      if (
+        headerRect.bottom <= viewportRect.top ||
+        headerRect.top >= viewportRect.bottom
+      ) {
+        return null;
+      }
+
+      return {
+        articleKey,
+        fullyVisible:
+          headerRect.top >= viewportRect.top &&
+          headerRect.bottom <= viewportRect.bottom,
+        headerTop: headerRect.top,
+      };
+    })
+    .filter((entry) => entry !== null)
+    .sort((left, right) => {
+      if (left.fullyVisible !== right.fullyVisible) {
+        return left.fullyVisible ? -1 : 1;
+      }
+
+      return left.headerTop - right.headerTop;
+    });
+
+  return visibleArticles[0]?.articleKey ?? null;
+}
+
+/** Measures an element's top offset relative to the owning viewport. */
+export function getViewportOffsetTop(
+  element: HTMLElement | null,
+  viewport: HTMLElement,
+) {
+  if (!element) {
+    return 0;
+  }
+
+  return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+}
+
+/** Detects whether a viewport belongs to the feed surface that supports restore anchors. */
+export function isInvertedExpansionLockViewport(viewport: HTMLElement) {
+  return isDashboardFeedViewport(viewport);
+}
+
+/** Watches layout changes that can invalidate an active inverted expansion lock. */
+export function observeInvertedExpansionScrollLockLayout({
+  articleKey,
+  onLayoutChange,
+  viewport,
+}: InvertedExpansionScrollLockObserverOptions) {
+  return observeFeedViewportLayout({
+    findAnchor: () =>
+      findInvertedExpansionHeaderAnchor(articleKey) ??
+      findInvertedExpansionLockAnchor(articleKey),
+    onLayoutChange,
+    viewport,
+  });
+}
+
+/** Reads the prepared article key from a dashboard custom event payload. */
+export function readPreparedArticleKey(event: Event) {
+  if (!(event instanceof CustomEvent)) {
+    return null;
+  }
+
+  const detail = event.detail as ArticleExpandPreparedDetail | null;
+
+  return typeof detail?.articleKey === "string"
+    ? detail.articleKey
+    : null;
+}
+
+/** Re-resolves the viewport after layout migration or Radix viewport replacement. */
+export function resolveInvertedExpansionLockViewport(
+  articleKey: null | string,
+  viewport: HTMLElement,
+) {
+  return resolveFeedViewport({
+    candidateViewports: [
+      findInvertedExpansionLockAnchor(articleKey)?.closest<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ) ?? null,
+      isInvertedExpansionLockViewport(viewport) ? viewport : null,
+      findInvertedExpansionLockViewport(),
+    ],
+    fallbackViewport: viewport,
+  });
+}
+
+/** Determines whether inverted mode should keep anchoring the newest visible row. */
+export function shouldAutoAnchorInvertedScrollViewport({
+  expandedArticleKey,
+  hasClaimedInvertedScrollOwnership,
+  isInvertedScroll,
+  isUnderfilledInvertedViewport,
+}: ShouldAutoAnchorInvertedScrollViewportOptions) {
+  return (
+    isInvertedScroll &&
+    expandedArticleKey === null &&
+    (
+      !hasClaimedInvertedScrollOwnership ||
+      isUnderfilledInvertedViewport
+    )
+  );
+}
