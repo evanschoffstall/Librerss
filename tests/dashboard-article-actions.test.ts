@@ -1455,6 +1455,95 @@ describe("useArticleActions - Article Hydration Integration", () => {
     window.cancelAnimationFrame = nativeCancelAnimationFrame;
   });
 
+  test("inverted feed collapse skips the generic collapse scroll restore", async () => {
+    const viewport = document.createElement("div");
+    viewport.setAttribute("data-radix-scroll-area-viewport", "");
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 440,
+      writable: true,
+    });
+
+    const invertedFeedSurface = document.createElement("div");
+    invertedFeedSurface.setAttribute("data-inverted-scroll", "true");
+    invertedFeedSurface.appendChild(viewport);
+
+    const article = createMockArticle({
+      id: 2041,
+      link: "https://example.com/inverted-collapse-no-generic-restore",
+    });
+    const articleElement = document.createElement("div");
+    articleElement.setAttribute("data-article-key", article.link);
+    articleElement.getBoundingClientRect = mock(() => ({
+      bottom: 260,
+      height: 120,
+      left: 0,
+      right: 0,
+      toJSON: () => ({}),
+      top: 140,
+      width: 0,
+      x: 0,
+      y: 140,
+    })) as typeof articleElement.getBoundingClientRect;
+    articleElement.closest = mock((selector: string) => {
+      if (selector === "[data-radix-scroll-area-viewport]") {
+        return viewport;
+      }
+
+      if (selector === "[data-inverted-scroll='true']") {
+        return invertedFeedSurface;
+      }
+
+      return null;
+    }) as typeof articleElement.closest;
+    viewport.appendChild(articleElement);
+    document.body.appendChild(invertedFeedSurface);
+
+    let expandedArticleKey: null | string = article.link;
+    const setFeed = mock(() => {});
+    const setExpandedArticleKey = mock((updater: SetStateAction<null | string>) => {
+      expandedArticleKey =
+        typeof updater === "function"
+          ? updater(expandedArticleKey)
+          : updater;
+    });
+
+    const { rerender, result } = renderHook(
+      ({ currentExpandedKey }) =>
+        useArticleActions({
+          articleFilter: "all",
+          expandedArticleKey: currentExpandedKey,
+          feed: [article],
+          setExpandedArticleKey,
+          setFeed,
+        }),
+      {
+        initialProps: {
+          currentExpandedKey: expandedArticleKey,
+        },
+      },
+    );
+
+    await runWithAct(() => {
+      result.current.capturePreExpandSnapshot(article);
+    });
+
+    await runWithAct(() => {
+      result.current.handleArticleToggle(article);
+    });
+    rerender({ currentExpandedKey: expandedArticleKey });
+
+    expect(result.current.isCollapseScrollRestoreActive).toBe(false);
+    expect(viewport.scrollTop).toBe(440);
+    expect(viewport.style.overflowAnchor).toBe("");
+
+    document.body.removeChild(invertedFeedSurface);
+  });
+
   test("collapse scroll restore returns to the pre-expand position while the expanded article is still in view", async () => {
     const nativePerformanceNow = performance.now;
     const nativeRequestAnimationFrame = window.requestAnimationFrame;

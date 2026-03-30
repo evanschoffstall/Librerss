@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
@@ -34,6 +34,97 @@ describe("DashboardFilterBar", () => {
         DASHBOARD_FEED_SURFACE_CLASS_NAME,
       );
     }
+
+    expect(
+      container.querySelector('[data-dashboard-feed-scrollbar="true"]'),
+    ).toBeTruthy();
+  });
+
+  test("renders a feed scrollbar thumb when the feed viewport overflows", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div>
+            {Array.from({ length: 40 }, (_value, index) => (
+              <div key={index}>Feed row {index + 1}</div>
+            ))}
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    expect(
+      container.querySelector('[data-dashboard-feed-scrollbar="true"]'),
+    ).toBeTruthy();
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get() {
+        return 180;
+      },
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 720;
+      },
+    });
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-feed-scrollbar-thumb="true"]'),
+      ).toBeTruthy();
+    });
+  });
+
+  test("uses a Virtuoso-driven overlay thumb on top of the plain feed viewport", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div data-feed-total-list-height="720" data-inverted-scroll="true">
+            {Array.from({ length: 40 }, (_value, index) => (
+              <div key={index}>Feed row {index + 1}</div>
+            ))}
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      const feedViewport = container.querySelector<HTMLElement>(
+        '[data-feed-scroll-viewport="true"]',
+      );
+      const thumb = container.querySelector<HTMLElement>(
+        '[data-dashboard-feed-scrollbar-thumb="true"]',
+      );
+
+      expect(feedViewport).toBeTruthy();
+      expect(feedViewport?.getAttribute("class") ?? "").toContain(
+        "[scrollbar-width:none]",
+      );
+      expect(feedViewport?.getAttribute("class") ?? "").toContain(
+        "[&::-webkit-scrollbar]:hidden",
+      );
+      expect(thumb).toBeTruthy();
+      expect(thumb?.getAttribute("style") ?? "").toContain("height:");
+      expect(thumb?.getAttribute("style") ?? "").toContain("translateY(");
+    });
   });
 
   test("shows the Motion spinner while the refresh label is skeletoning", () => {

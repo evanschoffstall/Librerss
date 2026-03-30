@@ -49,6 +49,7 @@ describe("dashboard support hooks", () => {
         hydratingArticleLinks: {},
         isCollapseScrollRestoreActive: false,
         isInitialLoading: false,
+        isLoadingMore: false,
         isRefreshing: false,
         onArticleExpandedSwipeRead: mock(() => {}),
         onArticlePrepareExpand: mock(() => {}),
