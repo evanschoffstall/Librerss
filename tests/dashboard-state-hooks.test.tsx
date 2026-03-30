@@ -315,6 +315,32 @@ describe("useDashboardEvents", () => {
       expect(ArticleService.markAllRead).toHaveBeenCalledWith(READING_LIST_STREAM);
     });
   });
+
+  test("treats refresh events without detail as a normal refresh", async () => {
+    const onRefresh = mock(async () => {});
+
+    renderHook(() =>
+      useDashboardEvents({
+        onMarkViewportRead: mock(async () => {}),
+        onOpenFeedsSidebar: mock(() => {}),
+        onOpenSettings: mock(() => {}),
+        onRefresh,
+        onSearchChange: mock(() => {}),
+        selectedCategory: ALL_FEEDS_NODE_KEY,
+        selectedCategoryNode: undefined,
+        selectedFeedUrl: undefined,
+        usePlaceholderData: false,
+      }),
+    );
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH));
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalledWith({ forceResolveUpstream: false });
+    });
+  });
 });
 
 function createCategoryNode(
