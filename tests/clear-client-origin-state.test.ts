@@ -148,6 +148,70 @@ describe("clearClientOriginState", () => {
     expect(sessionStorageClear).toHaveBeenCalledTimes(1);
     expect(document.cookie).not.toContain("cookie-gamma=");
   });
+
+  test("best-effort clears nested-path cookies and tolerates storage failures", async () => {
+    const localStorageClear = mock(() => {
+      throw new Error("local storage blocked");
+    });
+    const sessionStorageClear = mock(() => {
+      throw new Error("session storage blocked");
+    });
+
+    Object.defineProperty(window.localStorage, "clear", {
+      configurable: true,
+      value: localStorageClear,
+      writable: true,
+    });
+    Object.defineProperty(window.sessionStorage, "clear", {
+      configurable: true,
+      value: sessionStorageClear,
+      writable: true,
+    });
+
+    window.history.pushState({}, "", "/feeds/nested/path");
+    document.cookie = "cookie-root=value; Path=/";
+    document.cookie = "cookie-nested=value; Path=/feeds/nested";
+
+    await clearClientOriginState();
+
+    expect(localStorageClear).toHaveBeenCalledTimes(1);
+    expect(sessionStorageClear).toHaveBeenCalledTimes(1);
+    expect(document.cookie).not.toContain("cookie-root=");
+    expect(document.cookie).not.toContain("cookie-nested=");
+  });
+
+  test("swallows cache, IndexedDB, and service worker cleanup failures", async () => {
+    const cacheKeys = mock(async () => {
+      throw new Error("cache failure");
+    });
+    const indexedDbDatabases = mock(async () => {
+      throw new Error("database enumeration failure");
+    });
+    const getRegistrations = mock(async () => {
+      throw new Error("service worker failure");
+    });
+
+    Object.defineProperty(globalThis, "caches", {
+      configurable: true,
+      value: { keys: cacheKeys },
+      writable: true,
+    });
+    Object.defineProperty(globalThis, "indexedDB", {
+      configurable: true,
+      value: { databases: indexedDbDatabases },
+      writable: true,
+    });
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistrations },
+      writable: true,
+    });
+
+    await expect(clearClientOriginState()).resolves.toBeUndefined();
+    expect(cacheKeys).toHaveBeenCalledTimes(1);
+    expect(indexedDbDatabases).toHaveBeenCalledTimes(1);
+    expect(getRegistrations).toHaveBeenCalledTimes(1);
+  });
 });
 
 function clearTestCookies() {
