@@ -11,7 +11,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { type Article, useIsMobile, useLocalStorage } from "@/lib";
@@ -86,6 +86,18 @@ export const FeedList = memo(function FeedList({
   const isDark = (resolvedTheme ?? "dark") === "dark";
   const [measuredTotalListHeight, setMeasuredTotalListHeight] =
     useState<null | number>(null);
+  /**
+   * Ref kept in sync each render so the layout effect below can read the
+   * scroll viewport's current scrollHeight without making it a reactive dep.
+   */
+  const scrollViewportRef = useRef<HTMLElement | null>(null);
+  /**
+   * Height floor that prevents the Virtuoso wrapper from shrinking during a
+   * collapse transition. Captured synchronously in useLayoutEffect the moment
+   * the collapse commit lands (before Virtuoso's async ResizeObserver fires).
+   * Cleared on each new expansion so the list can grow freely.
+   */
+  const invertedHeightFloorRef = useRef<null | number>(null);
   const preExpandViewportSnapshotGetter =
     getPreExpandViewportSnapshot ?? EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT;
   const {
@@ -145,13 +157,58 @@ export const FeedList = memo(function FeedList({
   const invertedFirstItemIndex = isActiveInvertedScroll
     ? INVERTED_FIRST_INDEX_BASE - feedData.length
     : 0;
-  const virtualizedListHeight =
-    measuredTotalListHeight !== null
-      ? Math.max(
-          Math.ceil(measuredTotalListHeight),
-          scrollViewport?.clientHeight ?? 0,
-        )
-      : null;
+
+  scrollViewportRef.current = scrollViewport;
+
+  /**
+   * When an expanded article collapses, capture the current scrollHeight as
+   * the floor before Virtuoso's ResizeObserver fires and reduces the list
+   * height. Without the floor, the DOM shrinks → maxScrollTop drops →
+   * the browser clamps the user's scrollTop, making "scroll down" impossible.
+   * Reset the floor when a new article is expanded so the list can grow freely.
+   */
+  useLayoutEffect(() => {
+    if (!isActiveInvertedScroll) {
+      return;
+    }
+
+    if (expandedArticleKey !== null) {
+      invertedHeightFloorRef.current = null;
+      return;
+    }
+
+    const vp = scrollViewportRef.current;
+
+    if (vp) {
+      invertedHeightFloorRef.current = vp.scrollHeight;
+    }
+  // scrollViewport deliberately read from ref — not a reactive dep here.
+   
+  }, [expandedArticleKey, isActiveInvertedScroll]);
+
+  /**
+   * In inverted mode apply a height floor so the Virtuoso wrapper never
+   * shrinks below the scrollHeight captured at collapse time. This prevents
+   * scrollTop from being clamped by the browser as the DOM settles.
+   */
+  const virtualizedListHeight = useMemo(() => {
+    if (measuredTotalListHeight === null) {
+      return null;
+    }
+
+    const baseHeight = Math.max(
+      Math.ceil(measuredTotalListHeight),
+      scrollViewport?.clientHeight ?? 0,
+    );
+
+    if (!isActiveInvertedScroll) {
+      return baseHeight;
+    }
+
+    const floor = invertedHeightFloorRef.current ?? 0;
+
+    return Math.max(baseHeight, floor);
+  }, [isActiveInvertedScroll, measuredTotalListHeight, scrollViewport?.clientHeight]);
   const lastFeedArticle = feedData.at(-1);
   const lastFeedArticleKey = lastFeedArticle
     ? getArticleKey(lastFeedArticle)
@@ -266,12 +323,12 @@ export const FeedList = memo(function FeedList({
   return (
     <div
       className={listSurfaceClassName}
+      data-feed-surface-mode={feedSurfaceMode}
       data-feed-total-list-height={
         measuredTotalListHeight !== null
           ? `${Math.round(measuredTotalListHeight)}`
           : undefined
       }
-      data-feed-surface-mode={feedSurfaceMode}
       data-inverted-scroll={isInvertedScroll ? "true" : undefined}
       ref={handleFeedSurfaceRef}
       style={listFillStyle}

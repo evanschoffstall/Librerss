@@ -124,7 +124,7 @@ export const DashboardFeedScrollArea = React.forwardRef<
     }
 
     let animationFrameId = 0;
-    let resizeObserver: MutationObserver | ResizeObserver | null = null;
+    let resizeObserver: MutationObserver | null | ResizeObserver = null;
     let mutationObserver: MutationObserver | null = null;
     const scheduleMetricsUpdate = () => {
       cancelAnimationFrame(animationFrameId);
@@ -170,16 +170,15 @@ export const DashboardFeedScrollArea = React.forwardRef<
 
   return (
     <div
-      ref={ref}
       className={cn("relative overflow-hidden", className)}
+      ref={ref}
       {...props}
     >
       <div
         className={cn(
           `
-            h-full w-full overflow-x-hidden overflow-y-auto rounded-[inherit]
-            [scrollbar-gutter:stable]
-            [scrollbar-width:none]
+            size-full overflow-x-hidden overflow-y-auto rounded-[inherit]
+            [scrollbar-gutter:stable] [scrollbar-width:none]
             [&::-webkit-scrollbar]:hidden
           `,
           viewportClassName,
@@ -194,7 +193,10 @@ export const DashboardFeedScrollArea = React.forwardRef<
       <div
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-y-0 right-0 w-2.5 border-l border-l-transparent p-[1px] transition-opacity",
+          `
+            pointer-events-none absolute inset-y-0 right-0 w-2.5 border-l
+            border-l-transparent p-px transition-opacity
+          `,
           scrollbarMetrics.isVisible ? "opacity-100" : "opacity-0",
         )}
       >
