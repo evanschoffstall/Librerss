@@ -6,6 +6,11 @@ import type { Article } from "@/lib";
 
 import { DASHBOARD_EVENTS } from "../constants";
 import { getArticleKey } from "../services/article-collection";
+import {
+  findDashboardFeedViewport,
+  observeFeedViewportLayout,
+  resolveFeedViewport,
+} from "../services/feed-viewport";
 import { escapeArticleKey } from "./useArticleHydration";
 
 /**
@@ -349,21 +354,11 @@ function findCollapseRestoreAnchor(articleKey: string) {
 }
 
 function findFeedRestoreViewport() {
-  const viewports = document.querySelectorAll<HTMLElement>(
-    "[data-radix-scroll-area-viewport]",
-  );
-
-  return Array.from(viewports).find(isFeedRestoreViewport) ?? null;
+  return findDashboardFeedViewport();
 }
 
 function getViewportOffsetTop(element: HTMLElement, viewport: HTMLElement) {
   return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
-}
-
-function isFeedRestoreViewport(viewport: HTMLElement) {
-  return Boolean(
-    viewport.querySelector("[data-feed-virtualizer='true'], [data-scroll-restore-key]"),
-  );
 }
 
 function isRestorableArticleViewportSnapshot(
@@ -383,45 +378,11 @@ function observeCollapseRestoreLayout({
   onLayoutChange,
   viewport,
 }: CollapseRestoreLayoutObserverOptions) {
-  const resizeObserver =
-    typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(() => {
-          onLayoutChange();
-        });
-  const mutationObserver =
-    typeof MutationObserver === "undefined"
-      ? null
-      : new MutationObserver(() => {
-          observeResizeTargets();
-          onLayoutChange();
-        });
-
-  const observeResizeTarget = (target: Element | null) => {
-    if (!resizeObserver || !target) {
-      return;
-    }
-
-    resizeObserver.observe(target);
-  };
-
-  const observeResizeTargets = () => {
-    resizeObserver?.disconnect();
-    observeResizeTarget(viewport);
-    observeResizeTarget(viewport.firstElementChild);
-    observeResizeTarget(findCollapseRestoreAnchor(articleKey));
-  };
-
-  observeResizeTargets();
-  mutationObserver?.observe(viewport, {
-    childList: true,
-    subtree: true,
+  return observeFeedViewportLayout({
+    findAnchor: () => findCollapseRestoreAnchor(articleKey),
+    onLayoutChange,
+    viewport,
   });
-
-  return () => {
-    resizeObserver?.disconnect();
-    mutationObserver?.disconnect();
-  };
 }
 
 function removeCollapsingArticle(
@@ -444,30 +405,16 @@ function resolveCollapseRestoreViewport(
   const articleElement = document.querySelector<HTMLElement>(
     `[data-article-key="${escapeArticleKey(articleKey)}"]`,
   );
-  const articleViewport =
-    articleElement?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
-    null;
-
-  if (articleViewport) {
-    return articleViewport;
-  }
-
   const placeholderRow = document.querySelector<HTMLElement>(
     `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"]`,
   );
-  const placeholderViewport =
-    placeholderRow?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
-    null;
 
-  if (placeholderViewport) {
-    return placeholderViewport;
-  }
-
-  const liveFeedViewport = findFeedRestoreViewport();
-
-  if (liveFeedViewport) {
-    return liveFeedViewport;
-  }
-
-  return fallbackViewport.isConnected ? fallbackViewport : null;
+  return resolveFeedViewport({
+    candidateViewports: [
+      articleElement?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null,
+      placeholderRow?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null,
+      findFeedRestoreViewport(),
+    ],
+    fallbackViewport,
+  });
 }
