@@ -33,7 +33,9 @@ export {
 } from "./feed-service";
 
 export {
+  getProxyRoutingCheck,
   getProxyStatus,
+  type ProxyRoutingCheckResult,
   type ProxyStatusResult,
   type ResolvedUserProxy,
   resolveUserProxy,

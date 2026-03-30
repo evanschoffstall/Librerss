@@ -27,7 +27,10 @@ import {
 } from "../../hooks/useSettingsProxyState";
 import { previewText } from "../../services/settings-proxy";
 import { MotionSpinner } from "../MotionSpinner";
-import { StatusBadge } from "./SettingsProxyBadges";
+import {
+  ProxyRoutingBadge,
+  StatusBadge,
+} from "./SettingsProxyBadges";
 import { SettingsProxyCompatibilityPanel } from "./SettingsProxyCompatibilityPanel";
 
 export function SettingsProxySection() {
@@ -52,6 +55,7 @@ export function SettingsProxySectionContent({
   isRunningCompatibilityCheck,
   nowTs,
   proxyPassword,
+  proxyRoutingCheck,
   proxyStatus,
   proxyUrl,
   proxyUsername,
@@ -70,8 +74,11 @@ export function SettingsProxySectionContent({
     <TooltipProvider delayDuration={250}>
       <section className="settings-card">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="
+          flex flex-col gap-3
+          sm:flex-row sm:items-start sm:justify-between sm:gap-4
+        ">
+          <div className="min-w-0 flex-1">
             <h3 className="section-heading">
               <Globe className="icon-muted" />
               Connection Routing
@@ -85,7 +92,21 @@ export function SettingsProxySectionContent({
               passwords are encrypted before they are written to storage.
             </p>
           </div>
-          <StatusBadge status={proxyStatus} />
+          <div
+            className="
+              flex flex-row flex-wrap items-start gap-1.5
+              sm:flex-col sm:items-end
+            "
+          >
+            <StatusBadge
+              routingCheck={proxyRoutingCheck}
+              status={proxyStatus}
+            />
+            <ProxyRoutingBadge
+              routingCheck={proxyRoutingCheck}
+              status={proxyStatus}
+            />
+          </div>
         </div>
 
         <Separator />
@@ -268,15 +289,24 @@ export function SettingsProxySectionContent({
 function ProxySkeleton() {
   return (
     <section className="settings-card">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1.5">
+      <div className="
+        flex flex-col gap-3
+        sm:flex-row sm:items-start sm:justify-between sm:gap-4
+      ">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-1.5">
             <Skeleton className="size-4 rounded-sm" />
             <Skeleton className="h-4 w-32" />
           </div>
           <Skeleton className="h-3 w-72" />
         </div>
-        <Skeleton className="h-5 w-20 rounded-full" />
+        <div className="
+          flex flex-row flex-wrap gap-1.5
+          sm:flex-col sm:items-end
+        ">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-28 rounded-full" />
+        </div>
       </div>
 
       <Separator />

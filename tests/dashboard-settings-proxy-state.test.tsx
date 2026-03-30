@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { type PropsWithChildren, StrictMode } from "react";
 
 import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/services/settings-proxy";
 import { ArticleService } from "@/lib";
@@ -65,9 +66,14 @@ function makeProxySettings(
     hasProxyPassword: false,
     proxyUrl,
     proxyUsername: null,
+    routingCheck: null,
     status: "unreachable",
     ...overrides,
   };
+}
+
+function StrictModeWrapper({ children }: PropsWithChildren) {
+  return <StrictMode>{children}</StrictMode>;
 }
 
 describe("useSettingsProxyState", () => {
@@ -148,6 +154,7 @@ describe("useSettingsProxyState", () => {
     expect(result.current.hasProxyPassword).toBe(true);
     expect(result.current.error).toBe("Proxy responded slowly");
     expect(result.current.hasProxy).toBe(true);
+    expect(result.current.proxyRoutingCheck).toEqual(null);
     expect(result.current.compatibilityCheckedAt).toBe(checkedAt);
     expect(result.current.compatibilityResults).toEqual([
       {
@@ -157,6 +164,65 @@ describe("useSettingsProxyState", () => {
         vendor: "Cache Vendor",
       },
     ]);
+  });
+
+  test("loads proxy settings when Strict Mode remounts the effect in development", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
+
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        allowInsecureTls: true,
+        configured: true,
+        hasProxyPassword: true,
+        proxyUrl: "socks5://proxy.example.test:1080",
+        proxyUsername: "strict-user",
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
+
+    const { result } = renderHook(() => useSettingsProxyState(), {
+      wrapper: StrictModeWrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.proxyStatus).toBe("reachable");
+    });
+
+    expect(result.current.proxyUrl).toBe("socks5://proxy.example.test:1080");
+    expect(result.current.proxyUsername).toBe("strict-user");
+    expect(result.current.allowInsecureTls).toBe(true);
+    expect(result.current.hasProxyPassword).toBe(true);
+  });
+
+  test("keeps the server-provided routing proof alongside a reachable proxy", async () => {
+    const useSettingsProxyState = await loadUseSettingsProxyState();
+
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        configured: true,
+        proxyUrl: "socks5://proxy.example.test:1080",
+        routingCheck: {
+          directIp: "198.51.100.7",
+          error: null,
+          proxyExitIp: "203.0.113.21",
+          status: "verified",
+        },
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
+
+    const { result } = renderHook(() => useSettingsProxyState());
+
+    await waitFor(() => {
+      expect(result.current.proxyStatus).toBe("reachable");
+    });
+
+    expect(result.current.proxyRoutingCheck).toEqual({
+      directIp: "198.51.100.7",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "verified",
+    });
   });
 
   test("falls back to no proxy when the initial settings request fails", async () => {
@@ -264,6 +330,7 @@ describe("useSettingsProxyState", () => {
     expect(result.current.proxyUrl).toBe("https://proxy.example.test/path");
     expect(result.current.proxyUsername).toBe("bob");
     expect(result.current.proxyPassword).toBe("");
+    expect(result.current.proxyRoutingCheck).toBeNull();
     expect(result.current.proxyStatus).toBe("reachable");
     expect(result.current.compatibilityResults).toBeNull();
     expect(result.current.compatibilityCheckedAt).toBeNull();
@@ -301,6 +368,7 @@ describe("useSettingsProxyState", () => {
     expect(result.current.proxyUrl).toBe("");
     expect(result.current.proxyUsername).toBe("");
     expect(result.current.hasProxyPassword).toBe(false);
+    expect(result.current.proxyRoutingCheck).toBeNull();
     expect(result.current.proxyStatus).toBe("none");
 
     ArticleService.getProxySettings = mock(async () =>

@@ -16,6 +16,7 @@ import {
   type CompatibilityResult,
   hasConfiguredProxyStatus,
   normalizeCompatibilityResults,
+  type ProxyRoutingCheck,
   type ProxySettingsSnapshot,
   type ProxyUIStatus,
   readCompatibilityResultsCache,
@@ -39,6 +40,7 @@ export interface UseSettingsProxyStateResult {
   isRunningCompatibilityCheck: boolean;
   nowTs: number;
   proxyPassword: string;
+  proxyRoutingCheck: null | ProxyRoutingCheck;
   proxyStatus: ProxyUIStatus;
   proxyUrl: string;
   proxyUsername: string;
@@ -64,6 +66,8 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
   const [proxyUsername, setProxyUsername] = useState("");
   const [proxyPassword, setProxyPassword] = useState("");
   const [hasProxyPassword, setHasProxyPassword] = useState(false);
+  const [proxyRoutingCheck, setProxyRoutingCheck] =
+    useState<null | ProxyRoutingCheck>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [compatibilityResults, setCompatibilityResults] =
     useState<CompatibilityResult[] | null>(null);
@@ -91,6 +95,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
       setAllowInsecureTls,
       setError,
       setHasProxyPassword,
+      setProxyRoutingCheck,
       setProxyStatus,
       setProxyUrl,
       setProxyUsername,
@@ -116,6 +121,8 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     isMountedRef.current && latestCompatibilityRequestIdRef.current === requestId;
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
       isMountedRef.current = false;
       latestProxyRequestIdRef.current += 1;
@@ -139,6 +146,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
           return;
         }
 
+        setProxyRoutingCheck(null);
         setProxyStatus("none");
       });
   }, []);
@@ -197,6 +205,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     clearCompatibilityResults();
     setActiveProxyMutationRequestId(requestId);
     setError(null);
+    setProxyRoutingCheck(null);
     setProxyStatus("checking");
 
     try {
@@ -234,6 +243,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     clearCompatibilityResults();
     setActiveProxyMutationRequestId(requestId);
     setError(null);
+    setProxyRoutingCheck(null);
 
     try {
       const result = await ArticleService.saveProxyUrl(null, {
@@ -307,6 +317,8 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
 
     setActiveProxyMutationRequestId(requestId);
     setAllowInsecureTls(checked);
+    setProxyRoutingCheck(null);
+    setProxyStatus("checking");
 
     try {
       const result = await ArticleService.saveProxyUrl(currentUrl, {
@@ -324,6 +336,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
       }
 
       setAllowInsecureTls(!checked);
+      setProxyStatus("unreachable");
     } finally {
       if (isCurrentProxyRequest(requestId)) {
         setActiveProxyMutationRequestId(null);
@@ -346,6 +359,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     isRunningCompatibilityCheck,
     nowTs,
     proxyPassword,
+    proxyRoutingCheck,
     proxyStatus,
     proxyUrl,
     proxyUsername,
@@ -366,6 +380,7 @@ function applyProxySettingsSnapshot(
   setAllowInsecureTls: Dispatch<SetStateAction<boolean>>,
   setError: Dispatch<SetStateAction<null | string>>,
   setHasProxyPassword: Dispatch<SetStateAction<boolean>>,
+  setProxyRoutingCheck: Dispatch<SetStateAction<null | ProxyRoutingCheck>>,
   setProxyStatus: Dispatch<SetStateAction<ProxyUIStatus>>,
   setProxyUrl: Dispatch<SetStateAction<string>>,
   setProxyUsername: Dispatch<SetStateAction<string>>,
@@ -374,6 +389,7 @@ function applyProxySettingsSnapshot(
   setAllowInsecureTls(snapshot.allowInsecureTls);
   setProxyUsername(snapshot.proxyUsername);
   setHasProxyPassword(snapshot.hasProxyPassword);
+  setProxyRoutingCheck(snapshot.routingCheck);
   setProxyStatus(snapshot.proxyStatus);
   setError(snapshot.error);
 }

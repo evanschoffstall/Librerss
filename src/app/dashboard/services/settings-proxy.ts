@@ -6,6 +6,13 @@ export interface CompatibilityResult {
   vendor: string;
 }
 
+export interface ProxyRoutingCheck {
+  directIp: null | string;
+  error: null | string;
+  proxyExitIp: null | string;
+  status: "error" | "proxy-only" | "same-egress" | "verified";
+}
+
 export interface ProxySettingsSnapshot {
   allowInsecureTls: boolean;
   error: null | string;
@@ -13,6 +20,7 @@ export interface ProxySettingsSnapshot {
   proxyStatus: ProxyUIStatus;
   proxyUrl: string;
   proxyUsername: string;
+  routingCheck: null | ProxyRoutingCheck;
 }
 
 export type ProxyUIStatus =
@@ -33,6 +41,7 @@ interface PersistedProxySettings {
   hasProxyPassword: boolean;
   proxyUrl: null | string;
   proxyUsername: null | string;
+  routingCheck: null | ProxyRoutingCheck;
   status: Exclude<ProxyUIStatus, "loading" | "none">;
 }
 
@@ -148,6 +157,7 @@ export function toProxySettingsSnapshot(
     proxyStatus: settings.proxyUrl === null ? "none" : settings.status,
     proxyUrl: settings.proxyUrl ?? "",
     proxyUsername: settings.proxyUsername ?? "",
+    routingCheck: settings.routingCheck,
   };
 }
 

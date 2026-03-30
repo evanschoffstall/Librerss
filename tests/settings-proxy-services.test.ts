@@ -155,6 +155,7 @@ describe("settings-proxy services", () => {
         hasProxyPassword: true,
         proxyUrl: "https://proxy.example.test",
         proxyUsername: "alice",
+        routingCheck: null,
         status: "reachable",
       }),
     ).toEqual({
@@ -164,6 +165,7 @@ describe("settings-proxy services", () => {
       proxyStatus: "reachable",
       proxyUrl: "https://proxy.example.test",
       proxyUsername: "alice",
+      routingCheck: null,
     });
 
     expect(
@@ -172,6 +174,7 @@ describe("settings-proxy services", () => {
         hasProxyPassword: false,
         proxyUrl: null,
         proxyUsername: null,
+        routingCheck: null,
         status: "unreachable",
       }),
     ).toEqual({
@@ -181,6 +184,7 @@ describe("settings-proxy services", () => {
       proxyStatus: "none",
       proxyUrl: "",
       proxyUsername: "",
+      routingCheck: null,
     });
   });
 });

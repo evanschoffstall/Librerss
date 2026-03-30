@@ -44,10 +44,17 @@ describe("proxy settings API route", () => {
     sessionId: 1,
     userId: 1,
   };
+  const proxyRoutingCheck = {
+    directIp: "198.51.100.7",
+    error: null,
+    proxyExitIp: "203.0.113.21",
+    status: "verified" as const,
+  };
 
   const routeDeps: ProxyRouteDeps = {
     detectFn: async () => "http",
     dnsCheckFn: async () => false,
+    getProxyRoutingCheckFn: async () => proxyRoutingCheck,
     probeFn: async () => true,
     requireAuthFn: async () => authenticatedUser,
   };
@@ -55,6 +62,7 @@ describe("proxy settings API route", () => {
   const unreachableDeps: ProxyRouteDeps = {
     detectFn: async () => "http",
     dnsCheckFn: async () => false,
+    getProxyRoutingCheckFn: async () => proxyRoutingCheck,
     probeFn: async () => false,
     requireAuthFn: async () => authenticatedUser,
   };
@@ -158,6 +166,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(false);
     expect(body.proxyUrl).toBeNull();
+    expect(body.routingCheck).toBeNull();
     expect(body.status).toBe("unreachable");
   });
 
@@ -170,6 +179,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.routingCheck).toEqual(proxyRoutingCheck);
     expect(body.status).toBe("reachable");
   });
 
@@ -189,6 +199,7 @@ describe("proxy settings API route", () => {
     expect(body.hasProxyPassword).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
     expect(body.proxyUsername).toBe("alice");
+    expect(body.routingCheck).toBeNull();
     expect(body.status).toBe("unreachable");
   });
 
@@ -220,6 +231,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.routingCheck).toBeNull();
     expect(body.status).toBe("unreachable");
   });
 
@@ -236,6 +248,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.routingCheck).toEqual(proxyRoutingCheck);
     expect(body.status).toBe("reachable");
   });
 
@@ -252,6 +265,7 @@ describe("proxy settings API route", () => {
     const body = await res.json();
     expect(body.configured).toBe(true);
     expect(body.proxyUrl).toBe("socks5://proxy:1080");
+    expect(body.routingCheck).toEqual(proxyRoutingCheck);
     expect(body.status).toBe("reachable");
   });
 
@@ -412,6 +426,7 @@ describe("proxy settings API route", () => {
     const socksDeps: ProxyRouteDeps = {
       detectFn: async () => "socks5",
       dnsCheckFn: async () => false,
+      getProxyRoutingCheckFn: async () => proxyRoutingCheck,
       probeFn: async () => true,
       requireAuthFn: async () => authenticatedUser,
     };
@@ -688,6 +703,102 @@ describe("proxy settings API route", () => {
 
     expect(res.status).toBe(401);
     await expect(res.text()).resolves.toBe("nope");
+  });
+});
+
+describe("getProxyRoutingCheck", () => {
+  test("returns verified when proxied and direct egress IPs differ", async () => {
+    const { getProxyRoutingCheck } = await import("@/lib/server");
+
+    const fetchHtmlWithHttpCloakFn = mock(async (_url, _validator, options) => {
+      return {
+        html:
+          options?.proxyUrl === undefined
+            ? JSON.stringify({ ip: "198.51.100.7" })
+            : JSON.stringify({ ip: "203.0.113.21" }),
+        requestHeaders: {},
+      };
+    });
+
+    const result = await getProxyRoutingCheck(
+      {
+        allowInsecureTls: true,
+        proxyUrl: "socks5://proxy.example:1080",
+      },
+      { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
+    );
+
+    expect(result).toEqual({
+      directIp: "198.51.100.7",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "verified",
+    });
+  });
+
+  test("returns proxy-only when the direct comparison fails", async () => {
+    const { getProxyRoutingCheck } = await import("@/lib/server");
+
+    const fetchHtmlWithHttpCloakFn = mock(async (_url, _validator, options) => {
+      if (options?.proxyUrl === undefined) {
+        throw new Error("Direct exit probe failed");
+      }
+
+      return {
+        html: JSON.stringify({ ip: "203.0.113.21" }),
+        requestHeaders: {},
+      };
+    });
+
+    const result = await getProxyRoutingCheck(
+      {
+        allowInsecureTls: false,
+        proxyUrl: "http://proxy.example:8080",
+      },
+      { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
+    );
+
+    expect(result).toEqual({
+      directIp: null,
+      error: "Direct exit probe failed",
+      proxyExitIp: "203.0.113.21",
+      status: "proxy-only",
+    });
+  });
+
+  test("falls back to the secondary public IP provider when the primary host fails", async () => {
+    const { getProxyRoutingCheck } = await import("@/lib/server");
+
+    const fetchHtmlWithHttpCloakFn = mock(async (url) => {
+      if (
+        url === "https://checkip.amazonaws.com/" ||
+        url === "https://icanhazip.com/" ||
+        url === "https://api.ipify.org?format=json"
+      ) {
+        throw new Error("Provider unreachable");
+      }
+
+      return {
+        html: JSON.stringify({ ip: "203.0.113.21" }),
+        requestHeaders: {},
+      };
+    });
+
+    const result = await getProxyRoutingCheck(
+      {
+        allowInsecureTls: false,
+        proxyUrl: "http://proxy.example:8080",
+      },
+      { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
+    );
+
+    expect(result).toEqual({
+      directIp: "203.0.113.21",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "same-egress",
+    });
+    expect(fetchHtmlWithHttpCloakFn).toHaveBeenCalled();
   });
 });
 

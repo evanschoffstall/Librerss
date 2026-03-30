@@ -29,6 +29,12 @@ describe("SettingsProxySection", () => {
   test("renders a configured proxy surface and runs save and clear actions", async () => {
     proxyState.hasProxy = true;
     proxyState.hasProxyPassword = true;
+    proxyState.proxyRoutingCheck = {
+      directIp: "198.51.100.7",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "verified",
+    };
     proxyState.proxyStatus = "reachable";
     proxyState.proxyUrl = "https://proxy.example.test";
     proxyState.proxyUsername = "alice";
@@ -40,6 +46,7 @@ describe("SettingsProxySection", () => {
 
     expect(view.queryByText("Connection Routing")).not.toBeNull();
     expect(view.queryByText("Connected")).not.toBeNull();
+    expect(view.queryByText("Exit 203.0.113.21")).not.toBeNull();
     expect(passwordLabel.textContent ?? "").toContain("saved");
 
     fireEvent.click(view.getByRole("button", { name: "Save" }));
@@ -64,6 +71,24 @@ describe("SettingsProxySection", () => {
     expect((textboxes[1] as HTMLInputElement | undefined)?.value).toBe("bob");
     expect(passwordInput?.value).toBe("super-secret");
     expect(view.queryByText(/saved/)).toBeNull();
+  });
+
+  test("shows route failure instead of connected when proxied upstream checks fail", async () => {
+    proxyState.hasProxy = true;
+    proxyState.proxyRoutingCheck = {
+      directIp: "152.208.62.191",
+      error: "dial_proxy api64.ipify.org: host unreachable",
+      proxyExitIp: null,
+      status: "error",
+    };
+    proxyState.proxyStatus = "reachable";
+    proxyState.proxyUrl = "socks5://proxy.example.test:1080";
+
+    const view = await renderProxySection();
+
+    expect(view.queryByText("Route Failed")).not.toBeNull();
+    expect(view.queryByText("Connected")).toBeNull();
+    expect(view.queryByText("Exit IP Unknown")).not.toBeNull();
   });
 
   test("renders proxy and compatibility errors with truncated previews", async () => {
@@ -142,7 +167,7 @@ describe("SettingsProxySection", () => {
     const tlsSwitch = view.getByRole("switch");
     const proxyUrlInput = view.getByDisplayValue("https://proxy.example.test") as HTMLInputElement;
 
-    expect(view.queryByText("Checking")).not.toBeNull();
+    expect(view.getAllByText("Checking")).toHaveLength(2);
     expect((saveButton as HTMLButtonElement).disabled).toBeTrue();
     expect((runCheckButton as HTMLButtonElement).disabled).toBeTrue();
     expect(tlsSwitch.getAttribute("data-disabled")).not.toBeNull();
@@ -186,6 +211,7 @@ function createProxyState(): UseSettingsProxyStateResult {
     isRunningCompatibilityCheck: false,
     nowTs: 0,
     proxyPassword: "",
+    proxyRoutingCheck: null,
     proxyStatus: "none",
     proxyUrl: "",
     proxyUsername: "",

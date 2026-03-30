@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import {
   CompatibilityResultBadge,
+  ProxyRoutingBadge,
   StatusBadge,
 } from "@/app/dashboard/components/settings/SettingsProxyBadges";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -174,6 +175,17 @@ describe("settings real components", () => {
           <StatusBadge status="checking" />
           <StatusBadge status="reachable" />
           <StatusBadge status="unreachable" />
+          <ProxyRoutingBadge
+            status="checking"
+          />
+          <ProxyRoutingBadge
+            routingCheck={{
+              directIp: "198.51.100.7",
+              error: null,
+              proxyExitIp: "203.0.113.21",
+              status: "verified",
+            }}
+          />
           <CompatibilityResultBadge
             result={{
               compatibilitySignalDetected: false,
@@ -240,13 +252,33 @@ describe("settings real components", () => {
       expect(onRunCompatibilityCheck).toHaveBeenCalled();
     });
 
-    expect(getByText("Checking")).toBeTruthy();
+  expect(getAllByText("Checking").length).toBeGreaterThan(0);
     expect(getByText("Connected")).toBeTruthy();
+    expect(getByText("Exit 203.0.113.21")).toBeTruthy();
     expect(getByText("Unreachable")).toBeTruthy();
     expect(getAllByText("Passed").length).toBeGreaterThan(0);
     expect(getAllByText("Limited").length).toBeGreaterThan(0);
     expect(getAllByText("Connection Error").length).toBeGreaterThan(0);
     expect(getByText("Last check 1m ago")).toBeTruthy();
+  });
+
+  test("renders a route-failed primary badge when routing proof reports an error", () => {
+    const { getByText, queryByText } = render(
+      <TooltipProvider>
+        <StatusBadge
+          routingCheck={{
+            directIp: "152.208.62.191",
+            error: "dial_proxy api64.ipify.org: host unreachable",
+            proxyExitIp: null,
+            status: "error",
+          }}
+          status="reachable"
+        />
+      </TooltipProvider>,
+    );
+
+    expect(getByText("Route Failed")).toBeTruthy();
+    expect(queryByText("Connected")).toBeNull();
   });
 });
 

@@ -10,11 +10,13 @@ import {
   type AuthenticatedUser,
   detectProxyProtocol,
   encryptStoredProxyPassword,
+  getProxyRoutingCheck,
   materializeStoredProxyPassword,
   MAX_PROXY_CREDENTIAL_LENGTH,
   MAX_PROXY_URL_LENGTH,
   normalizeProxyUrl,
   probeProxy,
+  type ProxyRoutingCheckResult,
   type ProxyStatus,
   requireMutableAuthenticatedUser,
   resolveRouteHandlerDeps,
@@ -32,6 +34,7 @@ export const dynamic = "force-dynamic";
 export interface ProxyRouteDeps {
   detectFn?: (host: string, port: number) => Promise<"http" | "socks5">;
   dnsCheckFn?: (host: string) => Promise<boolean>;
+  getProxyRoutingCheckFn?: typeof getProxyRoutingCheck;
   probeFn?: (proxyUrl: string) => Promise<boolean>;
   requireAuthFn?: (
     request: NextRequest,
@@ -73,6 +76,8 @@ export async function GET(
   const proxyUrl = embeddedCredentials?.sanitizedUrl ?? canonicalProxyUrl;
   const proxyUsername =
     user.proxyUsername ?? embeddedCredentials?.username ?? null;
+  const getProxyRoutingCheckFn =
+    result.getProxyRoutingCheck ?? getProxyRoutingCheck;
 
   let decryptedProxyPassword: null | string;
   try {
@@ -101,6 +106,7 @@ export async function GET(
 
   return probeAndRespond(
     proxyUrl,
+    getProxyRoutingCheckFn,
     result.probe,
     "Proxy unreachable on GET",
     user.allowInsecureTls,
@@ -118,6 +124,8 @@ export async function PUT(
 ) {
   const result = await resolveAuthorizedProxyRequest(request, depsOrContext);
   if (result instanceof Response) return result;
+  const getProxyRoutingCheckFn =
+    result.getProxyRoutingCheck ?? getProxyRoutingCheck;
 
   const body = await parseJsonBodyOrResponse<{
     allowInsecureTls?: boolean;
@@ -285,6 +293,7 @@ export async function PUT(
   if (!proxyUrl) return unconfiguredResponse();
   return probeAndRespond(
     proxyUrl,
+    getProxyRoutingCheckFn,
     result.probe,
     "Proxy saved but unreachable",
     effectiveTls,
@@ -311,12 +320,14 @@ function configuredResponseWithError(
     hasProxyPassword,
     proxyUrl,
     proxyUsername,
+    routingCheck: null,
     status: "unreachable" as ProxyStatus,
   });
 }
 
 async function probeAndRespond(
   proxyUrl: string,
+  getProxyRoutingCheckFn: typeof getProxyRoutingCheck,
   probe: (url: string) => Promise<boolean>,
   logLabel: string,
   allowInsecureTls = false,
@@ -324,19 +335,29 @@ async function probeAndRespond(
   proxyPassword: null | string = null,
 ): Promise<Response> {
   // Inject credentials into the probe URL so SOCKS5 auth is actually tested.
-  const probeUrl =
+  const transportProxyUrl =
     proxyUsername && proxyPassword
       ? injectProxyCredentials(proxyUrl, proxyUsername, proxyPassword)
       : proxyUrl;
-  const reachable = await probe(probeUrl);
+  const reachable = await probe(transportProxyUrl);
   if (!reachable)
     logger.error(logLabel, { proxyUrl: redactUrlForLogs(proxyUrl) });
+
+  const routingCheck = reachable
+    ? await resolveRoutingCheck(
+        getProxyRoutingCheckFn,
+        allowInsecureTls,
+        transportProxyUrl,
+      )
+    : null;
+
   return NextResponse.json({
     allowInsecureTls,
     configured: true,
     hasProxyPassword: proxyPassword !== null,
     proxyUrl,
     proxyUsername,
+    routingCheck,
     status: (reachable ? "reachable" : "unreachable") as ProxyStatus,
   });
 }
@@ -350,6 +371,7 @@ async function resolveAuth(
       auth: AuthenticatedUser;
       detect: (host: string, port: number) => Promise<"http" | "socks5">;
       dnsCheck: (host: string) => Promise<boolean>;
+      getProxyRoutingCheck?: typeof getProxyRoutingCheck;
       probe: (url: string) => Promise<boolean>;
     }
 > {
@@ -360,6 +382,7 @@ async function resolveAuth(
     auth,
     detect: deps.detectFn ?? detectProxyProtocol,
     dnsCheck: deps.dnsCheckFn ?? resolvesToBlockedAddress,
+    getProxyRoutingCheck: deps.getProxyRoutingCheckFn ?? getProxyRoutingCheck,
     probe: deps.probeFn ?? probeProxy,
   };
 }
@@ -372,6 +395,38 @@ async function resolveAuthorizedProxyRequest(
   return resolveAuth(request, deps);
 }
 
+/**
+ * Keeps the richer routing proof non-fatal so the primary reachability badge
+ * continues to reflect only whether the proxy itself accepted a connection.
+ */
+async function resolveRoutingCheck(
+  getProxyRoutingCheckFn: typeof getProxyRoutingCheck,
+  allowInsecureTls: boolean,
+  proxyUrl: string,
+): Promise<ProxyRoutingCheckResult> {
+  try {
+    return await getProxyRoutingCheckFn({
+      allowInsecureTls,
+      proxyUrl,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Exit IP check failed.";
+
+    logger.error("Proxy routing check failed", {
+      error: message,
+      proxyUrl: redactUrlForLogs(proxyUrl),
+    });
+
+    return {
+      directIp: null,
+      error: message,
+      proxyExitIp: null,
+      status: "error",
+    };
+  }
+}
+
 function unconfiguredResponse(error?: string): Response {
   return NextResponse.json({
     allowInsecureTls: false,
@@ -379,6 +434,7 @@ function unconfiguredResponse(error?: string): Response {
     hasProxyPassword: false,
     proxyUrl: null,
     proxyUsername: null,
+    routingCheck: null,
     status: "unreachable" as ProxyStatus,
     ...(error && { error }),
   });

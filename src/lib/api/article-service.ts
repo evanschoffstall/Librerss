@@ -30,6 +30,12 @@ interface ProxySettings {
   hasProxyPassword: boolean;
   proxyUrl: null | string;
   proxyUsername: null | string;
+  routingCheck: null | {
+    directIp: null | string;
+    error: null | string;
+    proxyExitIp: null | string;
+    status: "error" | "proxy-only" | "same-egress" | "verified";
+  };
   status: "checking" | "reachable" | "unreachable";
 }
 
