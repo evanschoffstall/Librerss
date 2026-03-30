@@ -27,8 +27,10 @@ export interface FeedListProps {
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive?: boolean;
   isInitialLoading: boolean;
+  isLoadingMore?: boolean;
   isRefreshing: boolean;
   onExpandedSwipeRead: (article: Article) => void;
+  onLoadMore?: () => void;
   onPrepareExpand?: (article: Article) => void;
   onSwipeRead?: (article: Article) => void;
   onToggle: (article: Article) => void;

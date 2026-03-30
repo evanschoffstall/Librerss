@@ -32,6 +32,7 @@ interface DashboardFeedListState {
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive: boolean;
   isInitialLoading: boolean;
+  isLoadingMore: boolean;
   isRefreshing: boolean;
   onArticleExpandedSwipeRead: (article: Article) => void;
   onArticlePrepareExpand: (article: Article) => void;
@@ -39,6 +40,7 @@ interface DashboardFeedListState {
   onArticleToggle: (article: Article) => void;
   onArticleToggleRead: (article: Article) => void;
   onArticleToggleStarred: (article: Article) => void;
+  onLoadMore?: () => void;
   refreshEpoch: number;
   searchTerm: string;
   showFavicons: boolean;

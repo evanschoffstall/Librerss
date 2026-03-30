@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { useViewportRestore } from "@/lib";
@@ -69,6 +70,7 @@ export function useDashboardController({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardControllerProps) {
+  const serverLoadMorePageBatch = 1;
   const refreshStatus = useRefreshStatus(usePlaceholderData);
   const {
     lastRefreshLabel,
@@ -114,6 +116,14 @@ export function useDashboardController({
     setShowFavicons,
     setShowSettingsModal,
   } = dashboardState;
+  const trimmedSearchTerm = searchTerm.trim();
+  const shouldUseArticleWindow = !usePlaceholderData && trimmedSearchTerm === "";
+  const [requestedArticleLimit, setRequestedArticleLimit] = useState(articlesPerPage);
+  const [isLoadingMoreArticles, setIsLoadingMoreArticles] = useState(false);
+  const [hasMoreServerArticles, setHasMoreServerArticles] = useState(
+    shouldUseArticleWindow,
+  );
+  const isLoadingMoreArticlesRef = useRef(false);
 
   /**
    * Centralized feed loader that owns network requests, request cancellation,
@@ -215,13 +225,54 @@ export function useDashboardController({
   const articleCallbacks = useDashboardArticleCallbacks({
     articleFilter,
     capturePreExpandSnapshot,
-    handleArticleToggle,
-    handleExpandedSwipeRead,
+    handleArticleToggle: (article) => {
+      void handleArticleToggle(article);
+    },
+    handleExpandedSwipeRead: (article) => {
+      void handleExpandedSwipeRead(article);
+    },
     handleSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
     selectedCategory,
   });
+
+  useEffect(() => {
+    isLoadingMoreArticlesRef.current = false;
+    setIsLoadingMoreArticles(false);
+    setRequestedArticleLimit(articlesPerPage);
+    setHasMoreServerArticles(shouldUseArticleWindow);
+  }, [articleFilter, articlesPerPage, selectedCategory, shouldUseArticleWindow]);
+
+  useEffect(() => {
+    if (!shouldUseArticleWindow) {
+      isLoadingMoreArticlesRef.current = false;
+      setIsLoadingMoreArticles(false);
+      setHasMoreServerArticles(false);
+      return;
+    }
+
+    if (isLoadingMoreArticles) {
+      if (feed.length >= requestedArticleLimit) {
+        setHasMoreServerArticles(true);
+        isLoadingMoreArticlesRef.current = false;
+        setIsLoadingMoreArticles(false);
+      }
+
+      return;
+    }
+
+    if (feed.length < requestedArticleLimit) {
+      setHasMoreServerArticles(false);
+      return;
+    }
+
+    setHasMoreServerArticles(true);
+  }, [feed.length, isLoadingMoreArticles, requestedArticleLimit, shouldUseArticleWindow]);
+
+  const articleWindowLimit = shouldUseArticleWindow
+    ? requestedArticleLimit
+    : undefined;
 
   /**
    * Full derived dashboard model used by the sidebar, feed list, and settings.
@@ -279,6 +330,7 @@ export function useDashboardController({
     fetchCategoryFeeds,
     fetchFeed,
     hasInitializedDashboardRef,
+    initialArticleLimit: articleWindowLimit,
     isSearchPending,
     loadFeedSources,
     loading,
@@ -365,6 +417,7 @@ export function useDashboardController({
     }
 
     void refreshCurrentSelection({
+      articleLimit: articleWindowLimit,
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
@@ -377,6 +430,7 @@ export function useDashboardController({
     });
   }, [
     articleFilter,
+    articleWindowLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -395,6 +449,7 @@ export function useDashboardController({
     handleFeedPrefetch,
     handleRefreshSelection,
   } = useDashboardHandlers({
+    articleLimit: articleWindowLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -407,6 +462,61 @@ export function useDashboardController({
     setIsMobileSidebarOpen,
     setSelectedCategory,
   });
+
+  const handleLoadMoreArticles = useCallback(() => {
+    if (
+      !shouldUseArticleWindow ||
+      !hasMoreServerArticles ||
+      isLoadingMoreArticlesRef.current
+    ) {
+      return;
+    }
+
+    const nextArticleLimit =
+      requestedArticleLimit + articlesPerPage * serverLoadMorePageBatch;
+    isLoadingMoreArticlesRef.current = true;
+    setIsLoadingMoreArticles(true);
+    setRequestedArticleLimit(nextArticleLimit);
+
+    void refreshCurrentSelection({
+      articleLimit: nextArticleLimit,
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      keepExistingFeed: true,
+      requestSource: "feed-scroll-load-more",
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
+      skipRefresh: true,
+    })
+      .catch(() => {
+        setRequestedArticleLimit((currentLimit) =>
+          currentLimit === nextArticleLimit
+            ? Math.max(
+                articlesPerPage,
+                currentLimit - articlesPerPage * serverLoadMorePageBatch,
+              )
+            : currentLimit,
+        );
+      })
+      .finally(() => {
+        isLoadingMoreArticlesRef.current = false;
+        setIsLoadingMoreArticles(false);
+      });
+  }, [
+    articlesPerPage,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasMoreServerArticles,
+    requestedArticleLimit,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    serverLoadMorePageBatch,
+    shouldUseArticleWindow,
+  ]);
 
   /** Cancels stale foreground requests and clears cached query errors after a long tab suspension. */
   const handleStaleTabResume = useCallback(() => {
@@ -507,6 +617,7 @@ export function useDashboardController({
           hydratingArticleLinks,
           isCollapseScrollRestoreActive,
           isInitialLoading: isFeedListInitialLoading,
+          isLoadingMore: isLoadingMoreArticles,
           isRefreshing: isFeedListRefreshing,
           onArticleExpandedSwipeRead: articleCallbacks.onArticleExpandedSwipeRead,
           onArticlePrepareExpand: articleCallbacks.onArticlePrepareExpand,
@@ -514,6 +625,7 @@ export function useDashboardController({
           onArticleToggle: articleCallbacks.onArticleToggle,
           onArticleToggleRead: articleCallbacks.onArticleToggleRead,
           onArticleToggleStarred: articleCallbacks.onArticleToggleStarred,
+          onLoadMore: shouldUseArticleWindow ? handleLoadMoreArticles : undefined,
           refreshEpoch: loadingEpoch,
           searchTerm,
           showFavicons,
@@ -571,10 +683,12 @@ export function useDashboardController({
       expandedArticleKey,
       filteredFeed,
       getPreExpandViewportSnapshot,
+      handleLoadMoreArticles,
       hydratedArticleLinks,
       hydratingArticleLinks,
       isCollapseScrollRestoreActive,
       isFeedListInitialLoading,
+      isLoadingMoreArticles,
       isFeedListRefreshing,
       loadingEpoch,
       isMobileSidebarOpen,
@@ -591,6 +705,7 @@ export function useDashboardController({
       setAutoRefreshIntervalMinutes,
       setIsMobileSidebarOpen,
       setShowFavicons,
+      shouldUseArticleWindow,
       showFavicons,
       showSettingsModal,
       sidebarContentProps,

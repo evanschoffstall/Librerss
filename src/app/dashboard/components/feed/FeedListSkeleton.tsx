@@ -18,6 +18,10 @@ const FEED_ARTICLE_SKELETONS: FeedArticleSkeletonDescriptor[] = [
   { bodyWidth: "w-[96%]", metaSourceWidth: "w-16", titleWidths: ["w-[90%]", "w-[58%]"] },
 ];
 
+interface FeedLoadMoreSkeletonRowsProps {
+  count: number;
+}
+
 /**
  * Article-list loading surface that mirrors the collapsed article-card DOM.
  *
@@ -35,13 +39,29 @@ export function FeedListSkeleton() {
       )}
       data-dashboard-feed-list-skeleton="true"
     >
-      {FEED_ARTICLE_SKELETONS.map((descriptor, index) => (
-        <div data-dashboard-feed-list-skeleton-item="true" key={index}>
-          <FeedArticleCardSkeleton descriptor={descriptor} />
-        </div>
-      ))}
+      <FeedLoadMoreSkeletonRows count={FEED_ARTICLE_SKELETONS.length} />
     </div>
   );
+}
+
+/**
+ * Reuses the article-card skeleton anatomy for incremental page loads.
+ *
+ * The placeholder count is caller-controlled so load-more flows can reserve the
+ * exact next page footprint and grow the scrollbar immediately.
+ */
+export function FeedLoadMoreSkeletonRows({
+  count,
+}: FeedLoadMoreSkeletonRowsProps) {
+  return Array.from({ length: count }, (_value, index) => {
+    const descriptor = FEED_ARTICLE_SKELETONS[index % FEED_ARTICLE_SKELETONS.length];
+
+    return (
+      <div data-dashboard-feed-list-skeleton-item="true" key={index}>
+        <FeedArticleCardSkeleton descriptor={descriptor} />
+      </div>
+    );
+  });
 }
 
 /**

@@ -11,7 +11,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { type Article, useIsMobile, useLocalStorage } from "@/lib";
@@ -22,7 +22,7 @@ import { getArticleKey } from "../../services/article-collection";
 import { FeedArticleRow } from "./FeedArticleRow";
 import { FeedEmptyState } from "./FeedEmptyState";
 import { type FeedListProps } from "./FeedList.types";
-import { FeedListSkeleton } from "./FeedListSkeleton";
+import { FeedListSkeleton, FeedLoadMoreSkeletonRows } from "./FeedListSkeleton";
 import { useFeedListSurfaceState } from "./useFeedListSurfaceState";
 
 const EMPTY_COLLAPSING_ARTICLES: Readonly<CollapsingArticles> = {};
@@ -59,8 +59,10 @@ export const FeedList = memo(function FeedList({
   hydratingArticleLinks,
   isCollapseScrollRestoreActive = false,
   isInitialLoading,
+  isLoadingMore = false,
   isRefreshing: _isRefreshing,
   onExpandedSwipeRead,
+  onLoadMore,
   onPrepareExpand,
   onSwipeRead,
   onToggle,
@@ -108,6 +110,7 @@ export const FeedList = memo(function FeedList({
   } = useFeedListSurfaceState({
     articleFilter,
     articlesPerPage,
+    canLoadMoreFromServer: typeof onLoadMore === "function",
     collapsingArticles,
     expandedArticleKey,
     feedViewKey,
@@ -117,11 +120,14 @@ export const FeedList = memo(function FeedList({
     isCollapseScrollRestoreActive,
     isInitialLoading,
     isInvertedScroll: isActiveInvertedScroll,
+    isLoadingMore,
+    onLoadMore,
     refreshEpoch,
     searchTerm,
   });
 
   const visibleFeed = filteredFeed.slice(0, visibleArticleCount);
+  const shouldShowLoadMoreBoundary = hasMoreArticles || typeof onLoadMore === "function";
 
   /**
    * When inverted, reverse the feed so oldest articles sit at the top and
@@ -339,15 +345,25 @@ export const FeedList = memo(function FeedList({
               />
             ) : (
               <>
-                {isInvertedScroll && hasMoreArticles ? (
+                {isInvertedScroll && shouldShowLoadMoreBoundary ? (
                   <div
                     className="h-px w-full"
                     data-feed-load-more-sentinel="true"
                     ref={loadMoreSentinelRef}
                   />
                 ) : null}
+                {isInvertedScroll && !hasMoreArticles && isLoadingMore ? (
+                  <div data-feed-load-more-skeletons="true">
+                    <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                  </div>
+                ) : null}
                 {feedData.map(renderFeedRow)}
-                {!isInvertedScroll && hasMoreArticles ? (
+                {!isInvertedScroll && !hasMoreArticles && isLoadingMore ? (
+                  <div data-feed-load-more-skeletons="true">
+                    <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                  </div>
+                ) : null}
+                {!isInvertedScroll && shouldShowLoadMoreBoundary ? (
                   <div
                     className="h-px w-full"
                     data-feed-load-more-sentinel="true"
