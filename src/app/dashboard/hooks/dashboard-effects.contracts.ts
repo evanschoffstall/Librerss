@@ -21,6 +21,7 @@ export type UseDashboardEffectsOptions = UseDashboardBroadcastsOptions &
 /** Boot-time dashboard selection inputs. */
 export type UseDashboardInitializationOptions = FeedSelectionFetchers & {
   hasInitializedDashboardRef: RefObject<boolean>;
+  initialArticleLimit?: number;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setIsCategoriesLoading: Dispatch<SetStateAction<boolean>>;
