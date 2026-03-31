@@ -464,7 +464,7 @@ export const FeedList = memo(function FeedList({
                     syncViewportScrollTop(scrollViewport, 0);
                   }
 
-                  maybeAutoFillViewport();
+                  maybeAutoFillViewport(nextTotalListHeight);
                 }}
                 {...(isInvertedScroll
                   ? {

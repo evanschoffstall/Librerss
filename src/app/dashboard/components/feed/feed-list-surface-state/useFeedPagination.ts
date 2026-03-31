@@ -60,6 +60,7 @@ export function useFeedPagination({
   const hasRequestedServerLoadRef = useRef(false);
   const hasPendingServerRevealRef = useRef(false);
   const isInvertedLoadBoundaryArmedRef = useRef(true);
+  const isStandardLoadBoundaryArmedRef = useRef(true);
   const isMountedRef = useRef(true);
   const paginationFrameRef = useRef<null | number>(null);
   const filteredFeedLengthRef = useRef(filteredFeedLength);
@@ -91,6 +92,7 @@ export function useFeedPagination({
     hasRequestedServerLoadRef.current = false;
     hasPendingServerRevealRef.current = false;
     isInvertedLoadBoundaryArmedRef.current = true;
+    isStandardLoadBoundaryArmedRef.current = true;
     previousFilteredFeedLengthRef.current = filteredFeedLengthRef.current;
     commitVisibleArticleCount(articlesPerPage);
     onResetInvertedScrollOwnership();
@@ -185,7 +187,7 @@ export function useFeedPagination({
    * Standard mode advances from the bottom sentinel only. Inverted mode keeps
    * using the top-edge distance check because its sentinel sits above the list.
    */
-  const maybeLoadNextPage = useCallback((trigger: "scroll" | "sentinel") => {
+  const maybeLoadNextPage = useCallback((_trigger: "scroll" | "sentinel") => {
     if (!scrollViewport) {
       return;
     }
@@ -223,18 +225,26 @@ export function useFeedPagination({
       return;
     }
 
+    const hasReachedStandardBoundary = hasReachedStandardLoadBoundary();
+
+    if (!hasReachedStandardBoundary) {
+      isStandardLoadBoundaryArmedRef.current = true;
+      return;
+    }
+
+    if (!isStandardLoadBoundaryArmedRef.current) {
+      return;
+    }
+
     if (currentVisibleCount >= filteredFeedLength) {
-      if (
-        trigger === "sentinel" ||
-        hasReachedStandardLoadBoundary()
-      ) {
-        requestMoreFromServer();
+      if (requestMoreFromServer()) {
+        isStandardLoadBoundaryArmedRef.current = false;
       }
       return;
     }
 
-    if (trigger === "sentinel" || hasReachedStandardLoadBoundary()) {
-      expandVisibleWindow();
+    if (expandVisibleWindow()) {
+      isStandardLoadBoundaryArmedRef.current = false;
     }
   }, [
     expandVisibleWindow,
@@ -246,8 +256,12 @@ export function useFeedPagination({
     scrollViewport,
   ]);
 
-  /** Expands the current page only when the measured viewport still cannot scroll. */
-  const maybeAutoFillViewport = useCallback(() => {
+  /**
+   * Expands the current page only when the active list height still cannot scroll.
+   * Virtualized callers can pass the committed list height to avoid stale external
+   * viewport measurements while Virtuoso is still applying its wrapper size.
+   */
+  const maybeAutoFillViewport = useCallback((committedListHeight?: number) => {
     if (
       !scrollViewport ||
       isInitialLoading ||
@@ -257,8 +271,13 @@ export function useFeedPagination({
       return;
     }
 
-    const scrollableOverflowPx =
-      scrollViewport.scrollHeight - scrollViewport.clientHeight;
+    const effectiveListHeight =
+      typeof committedListHeight === "number" &&
+      Number.isFinite(committedListHeight) &&
+      committedListHeight > 0
+        ? committedListHeight
+        : scrollViewport.scrollHeight;
+    const scrollableOverflowPx = effectiveListHeight - scrollViewport.clientHeight;
 
     if (
       Number.isFinite(scrollableOverflowPx) &&
@@ -292,29 +311,19 @@ export function useFeedPagination({
   useEffect(() => {
     if (
       !scrollViewport ||
+      shouldUseVirtualizedFeed ||
       isInitialLoading ||
       visibleArticleCount >= filteredFeedLength
     ) {
       return;
     }
 
-    let settledAutoFillFrameId: null | number = null;
     const autoFillFrameId = window.requestAnimationFrame(() => {
-      if (shouldUseVirtualizedFeed && scrollViewport.scrollHeight <= 0) {
-        settledAutoFillFrameId = window.requestAnimationFrame(() => {
-          maybeAutoFillViewport();
-        });
-        return;
-      }
-
       maybeAutoFillViewport();
     });
 
     return () => {
       window.cancelAnimationFrame(autoFillFrameId);
-      if (settledAutoFillFrameId !== null) {
-        window.cancelAnimationFrame(settledAutoFillFrameId);
-      }
     };
   }, [
     filteredFeedLength,
@@ -342,6 +351,7 @@ export function useFeedPagination({
       }
 
       hasUserScrolledRef.current = true;
+      maybeLoadNextPage("scroll");
     };
 
     const handleViewportScroll = () => {
@@ -351,10 +361,11 @@ export function useFeedPagination({
       }
 
       if (shouldLockInitialNormalScroll() && !isInvertedScroll) {
-        if (scrollViewport.scrollTop !== 0) {
-          scrollViewport.scrollTop = 0;
+        if (scrollViewport.scrollTop === 0) {
+          return;
         }
-        return;
+
+        clearInitialNormalScrollLock();
       }
 
       if (scrollViewport.scrollTop > 0 && !isInvertedScroll) {

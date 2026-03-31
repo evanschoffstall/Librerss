@@ -28,10 +28,7 @@ export class FeedListResizeObserverMock {
   disconnect() {}
 
   observe(target: Element) {
-    const height =
-      target instanceof HTMLElement
-        ? target.clientHeight || target.scrollHeight || target.getBoundingClientRect().height || 96
-        : 96;
+    const height = resolveResizeObserverHeight(target);
     const width =
       target instanceof HTMLElement
         ? target.clientWidth || target.scrollWidth || target.getBoundingClientRect().width || 320
@@ -197,4 +194,18 @@ export function restoreFeedListDomMocks() {
 /** Sets the viewport mode FeedList should observe from the matchMedia mock. */
 export function setFeedListMobileViewport(isMobileViewport: boolean) {
   isFeedListMobileViewport = isMobileViewport;
+}
+
+function resolveResizeObserverHeight(target: Element) {
+  if (!(target instanceof HTMLElement)) {
+    return 96;
+  }
+
+  const renderedRows = target.querySelectorAll("[data-scroll-restore-key]").length;
+
+  if (renderedRows > 0) {
+    return renderedRows * 60;
+  }
+
+  return target.clientHeight || target.scrollHeight || target.getBoundingClientRect().height || 96;
 }

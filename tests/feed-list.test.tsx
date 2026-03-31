@@ -223,7 +223,8 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
+      expect(renderedRows).toBe(12);
     }, { timeout: 5000 });
 
     expect(getByText("Starred auto-fill article 12")).toBeTruthy();
