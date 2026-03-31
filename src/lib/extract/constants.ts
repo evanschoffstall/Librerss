@@ -10,9 +10,13 @@ const EXTRACT = {
     upstreamFetch: "Failed to fetch article content from upstream",
     upstreamRequest: "Upstream request failed",
   },
-  retries403: 2,
+  retries403: 0,
 } as const;
 
+/**
+ * Additional HTTPCloak retries for article extraction after the initial
+ * attempt. This is pinned to zero so extract failures surface immediately.
+ */
 export const EXTRACT_403_RETRIES = EXTRACT.retries403;
 export const ARTICLE_EXTRACT_CACHE_TTL_MS = EXTRACT.cacheTtlMs;
 export const ARTICLE_EXTRACT_CACHE_MAX_ENTRIES = EXTRACT.cacheMaxEntries;
