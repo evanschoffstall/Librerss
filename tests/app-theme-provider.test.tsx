@@ -48,7 +48,7 @@ async function renderAppThemeProvider(options?: {
   isMobileViewport?: boolean;
 }) {
   const {
-    isMobileToastTop = false,
+    isMobileToastTop = true,
     isMobileToolbarBottom = true,
     isMobileViewport = true,
   } = options ?? {};
@@ -180,22 +180,22 @@ describe("AppThemeProvider", () => {
     });
   });
 
-  test("mounts Sonner below the fixed dashboard header", async () => {
+  test("mounts Sonner at the true top edge when mobile top toasts are enabled by default", async () => {
     await renderAppThemeProvider();
 
     expect(toasterProps.at(-1)).toMatchObject({
       closeButton: true,
       mobileOffset: {
-        bottom: 16,
         left: 16,
         right: 16,
+        top: 16,
       },
       offset: {
-        bottom: 16,
         left: 16,
         right: 16,
+        top: 16,
       },
-      position: "bottom-right",
+      position: "top-right",
       toastOptions: {
         classNames: {
           closeButton: "!bg-background !border-border/50",

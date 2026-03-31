@@ -59,7 +59,7 @@ export function SettingsDisplaySection({
   );
   const [mobileToastTop, setMobileToastTop] = useLocalStorage(
     MOBILE_TOAST_TOP_STORAGE_KEY,
-    false,
+    true,
   );
   const [mobileToolbarBottom, setMobileToolbarBottom] = useLocalStorage(
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
