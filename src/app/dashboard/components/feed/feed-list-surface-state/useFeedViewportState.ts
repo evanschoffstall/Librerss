@@ -34,6 +34,8 @@ export function useFeedViewportState({
   const shouldLockNormalInitialScrollRef = useRef(false);
 
   useLayoutEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
       isMountedRef.current = false;
       viewportResolutionRequestRef.current += 1;
