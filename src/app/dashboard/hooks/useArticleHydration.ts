@@ -16,6 +16,11 @@ interface HydrateArticleContentOptions {
   force?: boolean;
 }
 
+interface HydrationFailurePayload {
+  error?: unknown;
+  reason?: unknown;
+}
+
 interface UseArticleHydrationOptions {
   distillStrategy?: string;
   getFeedSettings?: (feedUrl: string) => FeedExtractionSettings | undefined;
@@ -29,6 +34,10 @@ export function escapeArticleKey(articleKey: string): string {
     : articleKey.replace(/[\\"]/g, "\\$&");
 }
 
+/**
+ * Hydrate article bodies on demand while preventing overlapping requests for
+ * the same article link from committing stale state.
+ */
 export function useArticleHydration({
   distillStrategy,
   getFeedSettings,
@@ -122,7 +131,6 @@ export function useArticleHydration({
         }
       } catch (error) {
         if (abortController.signal.aborted) return;
-        console.error("Article hydration error:", error);
         if (!shouldLoadStoredContent) {
           setHydratedArticleLinks((current) => {
             if (!current[link]) return current;
@@ -130,25 +138,7 @@ export function useArticleHydration({
             return rest;
           });
         }
-        const serverReason = (() => {
-          if (!axios.isAxiosError<Record<string, unknown>>(error))
-            return undefined;
-          const data = error.response?.data;
-          if (!data || typeof data !== "object") return undefined;
-          const reason = data.reason;
-          if (typeof reason === "string") {
-            return reason;
-          }
-          const message = data.error;
-          return typeof message === "string" ? message : undefined;
-        })();
-        toast.error(
-          serverReason
-            ? `${shouldLoadStoredContent ? "Unable to load article" : "Unable to extract article"}: ${serverReason}`
-            : shouldLoadStoredContent
-              ? "Unable to load article content right now."
-              : "Unable to extract article content right now.",
-        );
+        toast.error(resolveHydrationFailureMessage(error, shouldLoadStoredContent));
       } finally {
         hydrationAbortRef.current.delete(link);
         const remainingInFlight =
@@ -189,4 +179,41 @@ export function useArticleHydration({
     hydratingArticleLinks,
     scrollArticleIntoView,
   };
+}
+
+/**
+ * Convert a structured extract response failure into the toast copy the
+ * dashboard should show for a handled hydration failure.
+ */
+function resolveHydrationFailureMessage(
+  error: unknown,
+  shouldLoadStoredContent: boolean,
+): string {
+  const fallbackMessage = shouldLoadStoredContent
+    ? "Unable to load article content right now."
+    : "Unable to extract article content right now.";
+
+  if (!axios.isAxiosError<HydrationFailurePayload>(error)) {
+    return fallbackMessage;
+  }
+
+  const payload = error.response?.data;
+  if (!payload || typeof payload !== "object") {
+    return fallbackMessage;
+  }
+
+  const serverError =
+    typeof payload.error === "string" && payload.error.trim().length > 0
+      ? payload.error.trim()
+      : undefined;
+  const serverReason =
+    typeof payload.reason === "string" && payload.reason.trim().length > 0
+      ? payload.reason.trim()
+      : undefined;
+
+  if (serverError && serverReason && serverReason !== serverError) {
+    return `${serverError}: ${serverReason}`;
+  }
+
+  return serverError ?? serverReason ?? fallbackMessage;
 }

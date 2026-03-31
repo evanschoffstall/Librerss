@@ -1000,6 +1000,49 @@ describe("useArticleHydration", () => {
     );
   });
 
+  test("hydrateArticleContent prefers the structured extract route error in the toast", async () => {
+    interface MockAxiosError extends Error {
+      isAxiosError: boolean;
+      response: {
+        data: {
+          error: string;
+          reason: string;
+        };
+        status: number;
+      };
+    }
+
+    const article = createMockArticle();
+    const setFeed = mock(() => {});
+
+    (ArticleService.extractArticleContent as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(async () => {
+        const error = new Error(
+          "Request failed with status code 502",
+        ) as MockAxiosError;
+        error.isAxiosError = true;
+        error.response = {
+          data: {
+            error: "Failed to fetch article content from upstream",
+            reason: "Upstream responded with status 403",
+          },
+          status: 502,
+        };
+        throw error;
+      });
+
+    const { result } = renderHook(() => useArticleHydration({ setFeed }));
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Failed to fetch article content from upstream: Upstream responded with status 403",
+    );
+  });
+
   test("hydrateArticleContent handles empty extracted content", async () => {
     const article = createMockArticle();
     let feedState = [article];
