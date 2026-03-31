@@ -25,15 +25,30 @@ export function useFeedViewportState({
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(null);
   const [viewportResolutionState, setViewportResolutionState] =
     useState<FeedViewportResolutionState>("pending");
+  const viewportResolutionRequestRef = useRef(0);
+  const isMountedRef = useRef(true);
   const hasResolvedInitialViewportRef = useRef(false);
   const previousFeedViewKeyRef = useRef(feedViewKey);
   const previousRefreshEpochRef = useRef(refreshEpoch);
   const previousIsInvertedRef = useRef(isInvertedScroll);
   const shouldLockNormalInitialScrollRef = useRef(false);
 
+  useLayoutEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      viewportResolutionRequestRef.current += 1;
+    };
+  }, []);
+
   /** Resolves the hosting feed viewport after the surface node mounts. */
   const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
+    const requestId = ++viewportResolutionRequestRef.current;
+
     queueMicrotask(() => {
+      if (!isMountedRef.current || viewportResolutionRequestRef.current !== requestId) {
+        return;
+      }
+
       const resolvedViewport =
         node?.closest<HTMLElement>(
           "[data-feed-scroll-viewport], [data-radix-scroll-area-viewport]",

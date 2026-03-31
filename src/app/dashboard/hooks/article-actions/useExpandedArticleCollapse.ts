@@ -54,8 +54,11 @@ export function useExpandedArticleCollapse({
     const articleElement = document.querySelector<HTMLElement>(
       `[data-article-key="${escapeArticleKey(articleKey)}"]`,
     );
+    const invertedScrollSurface = articleElement?.closest<HTMLElement>(
+      "[data-inverted-scroll='true']",
+    );
 
-    return articleElement?.closest("[data-inverted-scroll='true']") === null;
+    return invertedScrollSurface?.getAttribute("data-inverted-scroll") !== "true";
   }, []);
 
   /** Collapses the current row while preserving the relevant removal animation. */

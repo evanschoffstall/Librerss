@@ -48,6 +48,14 @@ const motion = new Proxy(
   },
 );
 
+async function flushFeedListAsyncWork() {
+  await act(async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  });
+}
+
 function renderFeedList(node: React.ReactElement) {
   return render(
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
@@ -424,6 +432,8 @@ describe("FeedList", () => {
       expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
     });
 
+    await flushFeedListAsyncWork();
+
     expect(onLoadMore).not.toHaveBeenCalled();
   });
 
@@ -520,6 +530,8 @@ describe("FeedList", () => {
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("scroll"));
     });
+
+    await flushFeedListAsyncWork();
 
     await waitFor(() => {
       expect(onLoadMore).toHaveBeenCalledTimes(1);
@@ -634,10 +646,18 @@ describe("FeedList", () => {
       throw new Error("Expected a feed viewport wrapper.");
     }
 
+    await waitFor(() => {
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+    });
+
+    await flushFeedListAsyncWork();
+
     await act(async () => {
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("scroll"));
     });
+
+    await flushFeedListAsyncWork();
 
     expect(onLoadMore).not.toHaveBeenCalled();
 
@@ -646,6 +666,8 @@ describe("FeedList", () => {
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("scroll"));
     });
+
+    await flushFeedListAsyncWork();
 
     await waitFor(() => {
       expect(onLoadMore).toHaveBeenCalledTimes(1);
@@ -954,14 +976,16 @@ describe("FeedList", () => {
       </div>,
     );
 
-    window.dispatchEvent(
-      new CustomEvent("librerss:storage-sync", {
-        detail: {
-          key: MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-          value: JSON.stringify(true),
-        },
-      }),
-    );
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent("librerss:storage-sync", {
+          detail: {
+            key: MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+            value: JSON.stringify(true),
+          },
+        }),
+      );
+    });
 
     await waitFor(() => {
       expect(container.querySelector("[data-inverted-scroll='true']")).toBeTruthy();
@@ -980,6 +1004,95 @@ describe("FeedList", () => {
     }
 
     expect(feedSurface.style.height).toBe("100%");
+  });
+
+  test("reclaims a restored mid-list viewport before inverted scroll ownership is claimed", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    setFeedListMobileViewport(true);
+
+    let viewportScrollTop = 1554;
+    const viewportClientHeight = 482;
+    const viewportScrollHeight = 2990;
+    const reclaimedViewportScrollTop = viewportScrollHeight - viewportClientHeight;
+    const articles = Array.from({ length: 12 }, (_value, index) =>
+      buildFeedListArticle({
+        id: index + 1,
+        link: `https://example.com/articles/mobile-inverted-restored-${index + 1}`,
+        title: `Mobile inverted restored article ${index + 1}`,
+      }),
+    );
+
+    const { container } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return viewportClientHeight;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              return viewportScrollHeight;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return viewportScrollTop;
+            },
+            set(nextValue: number) {
+              viewportScrollTop = nextValue;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTo", {
+            configurable: true,
+            value: ({ top }: { top?: number }) => {
+              viewportScrollTop = top ?? viewportScrollTop;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={12}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector("[data-inverted-scroll='true']")).toBeTruthy();
+      expect(container.querySelector("[data-feed-virtualizer='true']")).toBeTruthy();
+    }, { timeout: 5000 });
+
+    await flushFeedListAsyncWork();
+
+    await waitFor(() => {
+      expect(viewportScrollTop).toBe(reclaimedViewportScrollTop);
+    }, { timeout: 5000 });
   });
 
   test("keeps the feed virtualized while an article is expanded", async () => {

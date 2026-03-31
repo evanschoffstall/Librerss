@@ -60,14 +60,31 @@ export function useFeedPagination({
   const hasRequestedServerLoadRef = useRef(false);
   const hasPendingServerRevealRef = useRef(false);
   const isInvertedLoadBoundaryArmedRef = useRef(true);
+  const isMountedRef = useRef(true);
   const paginationFrameRef = useRef<null | number>(null);
   const filteredFeedLengthRef = useRef(filteredFeedLength);
   const previousFilteredFeedLengthRef = useRef(filteredFeedLength);
   const visibleArticleCountRef = useRef(articlesPerPage);
 
+  const commitVisibleArticleCount = useCallback((nextVisibleCount: number) => {
+    visibleArticleCountRef.current = nextVisibleCount;
+
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setVisibleArticleCount(nextVisibleCount);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     filteredFeedLengthRef.current = filteredFeedLength;
-  }, [filteredFeedLength]);
+  }, [commitVisibleArticleCount, filteredFeedLength]);
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
@@ -75,12 +92,12 @@ export function useFeedPagination({
     hasPendingServerRevealRef.current = false;
     isInvertedLoadBoundaryArmedRef.current = true;
     previousFilteredFeedLengthRef.current = filteredFeedLengthRef.current;
-    visibleArticleCountRef.current = articlesPerPage;
+    commitVisibleArticleCount(articlesPerPage);
     onResetInvertedScrollOwnership();
-    setVisibleArticleCount(articlesPerPage);
   }, [
     articleFilter,
     articlesPerPage,
+    commitVisibleArticleCount,
     feedViewKey,
     hasUserScrolledRef,
     isInvertedScroll,
@@ -91,7 +108,7 @@ export function useFeedPagination({
 
   useEffect(() => {
     hasRequestedServerLoadRef.current = false;
-  }, [filteredFeedLength]);
+  }, [commitVisibleArticleCount, filteredFeedLength]);
 
   useLayoutEffect(() => {
     const previousFilteredFeedLength = previousFilteredFeedLengthRef.current;
@@ -112,9 +129,8 @@ export function useFeedPagination({
     }
 
     const nextVisibleCount = filteredFeedLength;
-    visibleArticleCountRef.current = nextVisibleCount;
-    setVisibleArticleCount(nextVisibleCount);
-  }, [filteredFeedLength]);
+    commitVisibleArticleCount(nextVisibleCount);
+  }, [commitVisibleArticleCount, filteredFeedLength]);
 
   useEffect(() => {
     visibleArticleCountRef.current = visibleArticleCount;
@@ -142,11 +158,10 @@ export function useFeedPagination({
       currentCount + articlesPerPage,
       filteredFeedLength,
     );
-    visibleArticleCountRef.current = nextVisibleCount;
-    setVisibleArticleCount(nextVisibleCount);
+    commitVisibleArticleCount(nextVisibleCount);
 
     return nextVisibleCount > currentCount;
-  }, [articlesPerPage, filteredFeedLength]);
+  }, [articlesPerPage, commitVisibleArticleCount, filteredFeedLength]);
 
   /** Standard mode only advances once the viewport has actually reached the bottom edge. */
   const hasReachedStandardLoadBoundary = useCallback(() => {
@@ -284,9 +299,9 @@ export function useFeedPagination({
     }
 
     let settledAutoFillFrameId: null | number = null;
-    const autoFillFrameId = requestAnimationFrame(() => {
+    const autoFillFrameId = window.requestAnimationFrame(() => {
       if (shouldUseVirtualizedFeed && scrollViewport.scrollHeight <= 0) {
-        settledAutoFillFrameId = requestAnimationFrame(() => {
+        settledAutoFillFrameId = window.requestAnimationFrame(() => {
           maybeAutoFillViewport();
         });
         return;
@@ -296,9 +311,9 @@ export function useFeedPagination({
     });
 
     return () => {
-      cancelAnimationFrame(autoFillFrameId);
+      window.cancelAnimationFrame(autoFillFrameId);
       if (settledAutoFillFrameId !== null) {
-        cancelAnimationFrame(settledAutoFillFrameId);
+        window.cancelAnimationFrame(settledAutoFillFrameId);
       }
     };
   }, [
@@ -369,7 +384,7 @@ export function useFeedPagination({
 
     return () => {
       if (paginationFrameRef.current !== null) {
-        cancelAnimationFrame(paginationFrameRef.current);
+        window.cancelAnimationFrame(paginationFrameRef.current);
         paginationFrameRef.current = null;
       }
 
@@ -418,7 +433,7 @@ export function useFeedPagination({
           return;
         }
 
-        paginationFrameRef.current = requestAnimationFrame(() => {
+        paginationFrameRef.current = window.requestAnimationFrame(() => {
           paginationFrameRef.current = null;
           maybeLoadNextPage("sentinel");
         });
@@ -450,7 +465,7 @@ export function useFeedPagination({
   useEffect(() => {
     return () => {
       if (paginationFrameRef.current !== null) {
-        cancelAnimationFrame(paginationFrameRef.current);
+        window.cancelAnimationFrame(paginationFrameRef.current);
       }
     };
   }, []);

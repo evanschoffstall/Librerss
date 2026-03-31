@@ -4,6 +4,8 @@ export const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll
 
 const originalMatchMedia = window.matchMedia;
 const originalResizeObserver = globalThis.ResizeObserver;
+const originalGlobalRequestAnimationFrame = globalThis.requestAnimationFrame;
+const originalGlobalCancelAnimationFrame = globalThis.cancelAnimationFrame;
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;
 const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
@@ -96,8 +98,11 @@ export function installFeedListDomMocks() {
     JSON.stringify(false),
   );
 
-  let nextAnimationFrameId = 1;
-  const cancelledAnimationFrames = new Set<number>();
+  const requestAnimationFrameMock = ((callback: FrameRequestCallback) =>
+    setTimeout(() => callback(performance.now()), 0) as unknown as number) as typeof window.requestAnimationFrame;
+  const cancelAnimationFrameMock = ((frameId: number) => {
+    clearTimeout(frameId);
+  }) as typeof window.cancelAnimationFrame;
 
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -120,25 +125,22 @@ export function installFeedListDomMocks() {
   });
   Object.defineProperty(window, "requestAnimationFrame", {
     configurable: true,
-    value: (callback: FrameRequestCallback) => {
-      const frameId = nextAnimationFrameId++;
-      queueMicrotask(() => {
-        if (cancelledAnimationFrames.has(frameId)) {
-          cancelledAnimationFrames.delete(frameId);
-          return;
-        }
-
-        callback(performance.now());
-      });
-      return frameId;
-    },
+    value: requestAnimationFrameMock,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, "requestAnimationFrame", {
+    configurable: true,
+    value: requestAnimationFrameMock,
     writable: true,
   });
   Object.defineProperty(window, "cancelAnimationFrame", {
     configurable: true,
-    value: (frameId: number) => {
-      cancelledAnimationFrames.add(frameId);
-    },
+    value: cancelAnimationFrameMock,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, "cancelAnimationFrame", {
+    configurable: true,
+    value: cancelAnimationFrameMock,
     writable: true,
   });
 }
@@ -175,9 +177,19 @@ export function restoreFeedListDomMocks() {
     value: originalRequestAnimationFrame,
     writable: true,
   });
+  Object.defineProperty(globalThis, "requestAnimationFrame", {
+    configurable: true,
+    value: originalGlobalRequestAnimationFrame,
+    writable: true,
+  });
   Object.defineProperty(window, "cancelAnimationFrame", {
     configurable: true,
     value: originalCancelAnimationFrame,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, "cancelAnimationFrame", {
+    configurable: true,
+    value: originalGlobalCancelAnimationFrame,
     writable: true,
   });
 }

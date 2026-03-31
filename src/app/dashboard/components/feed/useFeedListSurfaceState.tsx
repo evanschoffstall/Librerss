@@ -244,11 +244,6 @@ export function useFeedListSurfaceState({
           );
         },
       ),
-      Scroller: forwardRef<HTMLDivElement, ComponentPropsWithRef<"div">>(
-        function InvertedVirtuosoScroller(props, ref) {
-          return <div {...props} ref={ref} style={{ ...props.style, height: "100%" }} />;
-        },
-      ),
     }),
     [articlesPerPage, canLoadMoreBoundaryFromServer, hasMoreArticles, isLoadingMore, loadMoreSentinelRef],
   );

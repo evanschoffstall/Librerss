@@ -416,7 +416,6 @@ test.describe("dashboard mobile inverted scroll", () => {
   test("activates inverted scroll by default on mobile and anchors the feed at the bottom", async ({ page }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const invertedAttr = await readInvertedScrollAttribute(page);
     expect(invertedAttr).toBe("true");

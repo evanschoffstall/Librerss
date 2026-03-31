@@ -11,7 +11,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 
 import { type Article, useIsMobile, useLocalStorage } from "@/lib";
@@ -44,6 +44,19 @@ export function isFeedInvertedScrollActive(
   mobileInvertedScroll: boolean,
 ) {
   return isMobile && mobileInvertedScroll;
+}
+
+function syncViewportScrollTop(viewport: HTMLElement, top: number) {
+  if (typeof viewport.scrollTo === "function") {
+    viewport.scrollTo({
+      behavior: "auto",
+      top,
+    });
+  }
+
+  if (Math.abs(viewport.scrollTop - top) > 1) {
+    viewport.scrollTop = top;
+  }
 }
 
 export const FeedList = memo(function FeedList({
@@ -84,6 +97,7 @@ export const FeedList = memo(function FeedList({
   );
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
+  const isMountedRef = useRef(true);
   const [measuredTotalListHeight, setMeasuredTotalListHeight] =
     useState<null | number>(null);
   /**
@@ -104,7 +118,6 @@ export const FeedList = memo(function FeedList({
     contentKey,
     feedSurfaceMode,
     getInvertedFollowOutput,
-    getInvertedScrollIntoViewLocation,
     handleViewportHostRef,
     hasMoreArticles,
     hasSearchTerm,
@@ -160,6 +173,12 @@ export const FeedList = memo(function FeedList({
 
   scrollViewportRef.current = scrollViewport;
 
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   /**
    * When an expanded article collapses, capture the current scrollHeight as
    * the floor before Virtuoso's ResizeObserver fires and reduces the list
@@ -209,10 +228,44 @@ export const FeedList = memo(function FeedList({
 
     return Math.max(baseHeight, floor);
   }, [isActiveInvertedScroll, measuredTotalListHeight, scrollViewport?.clientHeight]);
+  const virtualizedViewportHeight = scrollViewport?.clientHeight ?? null;
+  const virtualizedListStyle =
+    virtualizedListHeight !== null
+      ? { height: `${virtualizedListHeight}px` }
+      : virtualizedViewportHeight !== null
+        ? { height: `${virtualizedViewportHeight}px` }
+        : { height: "100%" };
   const lastFeedArticle = feedData.at(-1);
   const lastFeedArticleKey = lastFeedArticle
     ? getArticleKey(lastFeedArticle)
     : null;
+
+  /**
+   * Anchors the inverted feed to the true bottom whenever the rendered list
+   * height becomes known. Fires synchronously after each DOM commit so
+   * scrollHeight already reflects the new wrapper height — no timers needed.
+   */
+  useLayoutEffect(() => {
+    if (
+      !isInvertedScroll ||
+      scrollViewport === null ||
+      virtualizedListHeight === null ||
+      !shouldAutoAnchorInvertedScroll()
+    ) {
+      return;
+    }
+
+    const maxScrollTop = scrollViewport.scrollHeight - scrollViewport.clientHeight;
+
+    if (maxScrollTop > 0 && Math.abs(scrollViewport.scrollTop - maxScrollTop) > 1) {
+      scrollViewport.scrollTop = maxScrollTop;
+    }
+  }, [
+    isInvertedScroll,
+    scrollViewport,
+    virtualizedListHeight,
+    shouldAutoAnchorInvertedScroll,
+  ]);
 
   const renderFeedRow = useCallback(
     (article: Article) => {
@@ -288,28 +341,11 @@ export const FeedList = memo(function FeedList({
     element.style.minHeight = "0";
   }, []);
 
-  const applyFeedAncestorLayout = useCallback((element: HTMLElement | null) => {
-    if (!element) {
-      return;
-    }
-
-    element.style.display = "flex";
-    element.style.flexDirection = "column";
-    element.style.height = "auto";
-    element.style.minHeight = "100%";
-  }, []);
-
   const handleFeedSurfaceRef = useCallback((node: HTMLDivElement | null) => {
     if (node) {
       applyFeedSurfaceLayout(node);
-
-      if (isInvertedScroll) {
-        applyFeedAncestorLayout(node.parentElement);
-        applyFeedAncestorLayout(node.parentElement?.parentElement ?? null);
-      } else {
-        applyFeedSurfaceLayout(node.parentElement);
-        applyFeedSurfaceLayout(node.parentElement?.parentElement ?? null);
-      }
+      applyFeedSurfaceLayout(node.parentElement);
+      applyFeedSurfaceLayout(node.parentElement?.parentElement ?? null);
     }
 
     if (isInitialLoading || showEmptyState) {
@@ -318,7 +354,7 @@ export const FeedList = memo(function FeedList({
     }
 
     handleViewportHostRef(node);
-  }, [applyFeedAncestorLayout, applyFeedSurfaceLayout, handleViewportHostRef, isInitialLoading, isInvertedScroll, showEmptyState]);
+  }, [applyFeedSurfaceLayout, handleViewportHostRef, isInitialLoading, showEmptyState]);
 
   return (
     <div
@@ -398,28 +434,34 @@ export const FeedList = memo(function FeedList({
                   article ? renderFeedRow(article) : null
                 }
                 key={`${feedViewKey}:${isInvertedScroll ? "inv" : "std"}`}
-                style={
-                  isInvertedScroll && virtualizedListHeight !== null
-                    ? { height: `${virtualizedListHeight}px` }
-                    : listFillStyle
-                }
+                style={virtualizedListStyle}
                 totalListHeightChanged={(nextTotalListHeight) => {
-                  setMeasuredTotalListHeight(nextTotalListHeight);
+                  if (!isMountedRef.current) {
+                    return;
+                  }
+
+                  setMeasuredTotalListHeight((currentHeight) =>
+                    currentHeight === nextTotalListHeight
+                      ? currentHeight
+                      : nextTotalListHeight,
+                  );
 
                   if (isInvertedScroll) {
                     syncInvertedExpansionScrollLock();
 
-                    if (shouldAutoAnchorInvertedScroll()) {
-                      scrollViewport?.scrollTo({
-                        behavior: "auto",
-                        top: scrollViewport.scrollHeight,
-                      });
+                    if (scrollViewport && shouldAutoAnchorInvertedScroll()) {
+                      const maxScrollTop =
+                        scrollViewport.scrollHeight - scrollViewport.clientHeight;
+
+                      if (
+                        maxScrollTop > 0 &&
+                        Math.abs(scrollViewport.scrollTop - maxScrollTop) > 1
+                      ) {
+                        scrollViewport.scrollTop = maxScrollTop;
+                      }
                     }
-                  } else if (shouldLockInitialNormalScroll()) {
-                    scrollViewport?.scrollTo({
-                      behavior: "auto",
-                      top: 0,
-                    });
+                  } else if (scrollViewport && shouldLockInitialNormalScroll()) {
+                    syncViewportScrollTop(scrollViewport, 0);
                   }
 
                   maybeAutoFillViewport();
@@ -429,11 +471,6 @@ export const FeedList = memo(function FeedList({
                       alignToBottom: shouldAutoAnchorInvertedScroll(),
                       firstItemIndex: invertedFirstItemIndex,
                       followOutput: getInvertedFollowOutput,
-                      initialTopMostItemIndex: {
-                        align: "end" as const,
-                        index: INVERTED_FIRST_INDEX_BASE - 1,
-                      },
-                      scrollIntoViewOnChange: getInvertedScrollIntoViewLocation,
                     }
                   : {})}
               />
