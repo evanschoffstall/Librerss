@@ -1,11 +1,10 @@
-import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
   jsonErrorWithReason,
   parseJsonBodyOrResponse,
+  toBodySnippet,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
@@ -20,6 +19,7 @@ import {
   getCachedExtractPayload,
   isExtractCacheEnabled,
   parseAndValidateArticleUrl, readPlaceholderSnapshotHtml, setCachedExtractPayload } from "@/lib/extract";
+import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import {
   buildMetadataImageFallbackHtml,
@@ -54,7 +54,6 @@ interface ExtractPostDeps {
   errorFn?: typeof logger.error;
   extractFromHtmlFn?: typeof distillArticle;
   fetchHtmlFn?: typeof fetchHtml;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
   sanitizeRawContentFn?: typeof sanitizeRawContent;
@@ -87,7 +86,6 @@ export async function POST(
   const sanitizeContent = deps.sanitizeRawContentFn ?? sanitizeRawContent;
   const cleanContent = deps.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
   const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
-  const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
   const warn = deps.warnFn ?? logger.warn.bind(logger);
   const errorLog = deps.errorFn ?? logger.error.bind(logger);
   const shouldUseCache = deps.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
@@ -223,25 +221,30 @@ export async function POST(
     const safeArticleUrl = articleUrl ? redactUrlForLogs(articleUrl) : null;
     const urlSuffix = safeArticleUrl ? ` for ${safeArticleUrl}` : "";
 
-    if (isAxiosError(error)) {
-      const upstreamStatus = error.response?.status;
+    if (error instanceof HttpCloakUpstreamError) {
+      const upstreamStatus = error.statusCode;
       const status = mapUpstreamExtractStatus(upstreamStatus);
       const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
       errorLog(
-        `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
+        `Returning ${status} ${label} — article extract upstream request failed (HTTPCloak upstream ${upstreamStatus})${urlSuffix}: ${toMessage(error)}`,
         {
-          connectionMode: useProxy ? "proxy" : "direct",
+          connectionMode: error.proxyMode,
           extractAttemptId: context.extractAttemptId,
-          // SECURITY: redact credentials from proxy URL before logging
           proxyAddress: useProxy
             ? resolvedProxyUrl
               ? redactUrlForLogs(resolvedProxyUrl)
               : null
             : null,
+          redirectHop: error.redirectHop,
           requestId: context.requestId,
+          statusCode: upstreamStatus,
           url: safeArticleUrl,
           ...(verboseLoggingEnabled
-            ? buildAxiosFailureDiagnostics(error, isAxiosError)
+            ? {
+                requestHeaders: error.requestHeaders,
+                responseBodySnippet: toBodySnippet(error.responseBody),
+                responseHeaders: pickDiagnosticHeaders(error.responseHeaders),
+              }
             : {}),
         },
       );

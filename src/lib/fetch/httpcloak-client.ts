@@ -1,5 +1,3 @@
-import axios from "axios";
-
 import { CONFIG } from "@/lib/config";
 import { logger } from "@/lib/logger";
 import { decodeTextBody } from "@/lib/utils/content-encoding";
@@ -9,8 +7,6 @@ import {
   requestWithHttpCloakValidatedRedirects,
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
-
-export const upstreamAxios = axios.create();
 
 interface HttpCloakFetchDeps {
   requestFn?: ValidatedHttpCloakRequestFn;

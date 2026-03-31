@@ -1,10 +1,8 @@
-export { buildAxiosGet } from "./axios-client";
 export {
     detectResponseCompatibilitySignal,
-    detectSourceCompatibilitySignal,
 } from "./compatibility-signal";
 export type { SourceCompatibilitySignal } from "./compatibility-signal";
-export { fetchHtmlWithHttpCloak, upstreamAxios } from "./httpcloak-client";
+export { fetchHtmlWithHttpCloak } from "./httpcloak-client";
 export { buildProxyConfig, SOCKS_PROTOCOLS } from "./proxy";
 export {
     decompressBody,
