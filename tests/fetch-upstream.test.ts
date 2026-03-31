@@ -129,56 +129,43 @@ describe("fetchHtml", () => {
     expect(result).toBe(TEST_HTML);
   });
 
-  test("retries generic 403 responses up to the configured limit", async () => {
+  test("makes a single attempt for generic 403 responses", async () => {
     let attemptCount = 0;
     const httpCloakFetchFn = mock(async () => {
       attemptCount += 1;
-
-      if (attemptCount <= EXTRACT_403_RETRIES) {
-        throw createHttpCloakUpstreamError(403, "blocked");
-      }
-
-      return {
-        html: TEST_HTML,
-        requestHeaders: {},
-      };
+      throw createHttpCloakUpstreamError(403, "blocked");
     });
 
-    const result = await fetchHtml(TEST_URL, {
-      delayFn: async () => {},
-      httpCloakFetchFn,
-      isAllowedFeedUrlFn: async () => true,
-    });
+    await expect(
+      fetchHtml(TEST_URL, {
+        delayFn: async () => {},
+        httpCloakFetchFn,
+        isAllowedFeedUrlFn: async () => true,
+      }),
+    ).rejects.toThrow("403");
 
-    expect(result).toBe(TEST_HTML);
     expect(attemptCount).toBe(EXTRACT_403_RETRIES + 1);
   });
 
-  test("retries rate-limited responses", async () => {
+  test("surfaces rate-limited responses without retry when extract retries are disabled", async () => {
     let attemptCount = 0;
     const httpCloakFetchFn = mock(async () => {
       attemptCount += 1;
 
-      if (attemptCount === 1) {
-        throw createHttpCloakUpstreamError(429, "rate limited", {
-          "retry-after": "5",
-        });
-      }
-
-      return {
-        html: TEST_HTML,
-        requestHeaders: {},
-      };
+      throw createHttpCloakUpstreamError(429, "rate limited", {
+        "retry-after": "5",
+      });
     });
 
-    const result = await fetchHtml(TEST_URL, {
-      delayFn: async () => {},
-      httpCloakFetchFn,
-      isAllowedFeedUrlFn: async () => true,
-    });
+    await expect(
+      fetchHtml(TEST_URL, {
+        delayFn: async () => {},
+        httpCloakFetchFn,
+        isAllowedFeedUrlFn: async () => true,
+      }),
+    ).rejects.toThrow("429");
 
-    expect(result).toBe(TEST_HTML);
-    expect(attemptCount).toBe(2);
+    expect(attemptCount).toBe(1);
   });
 
   test("does not retry DataDome access responses", async () => {
@@ -225,7 +212,7 @@ describe("fetchHtml", () => {
     expect(attemptCount).toBe(1);
   });
 
-  test("rethrows the last error after exhausting retries", async () => {
+  test("rethrows the last error after the single extract attempt", async () => {
     const httpCloakFetchFn = mock(async () => {
       throw createHttpCloakUpstreamError(403, "blocked");
     });

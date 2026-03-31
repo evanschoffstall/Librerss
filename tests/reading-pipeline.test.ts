@@ -643,7 +643,7 @@ describe("article extract cleanup", () => {
     expect(body.content.length).toBeGreaterThan(0);
   });
 
-  test("POST maps axios and generic failures to expected error handlers", async () => {
+  test("POST maps HTTPCloak and generic failures to expected error handlers", async () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "verbose";
 
@@ -652,29 +652,38 @@ describe("article extract cleanup", () => {
     // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
     // client — they are gateway failures, not client errors. Only upstream 404
     // is special-cased to 422 Unprocessable Content.
-    const axiosError = { response: { status: 429 } };
+    const httpCloakError = new HttpCloakUpstreamError(
+      429,
+      "throttled",
+      "direct",
+      null,
+      false,
+      0,
+      { server: "cloudflare" },
+      {},
+    );
     try {
-      const axiosResult = await POST(mockReq(), {
+      const httpCloakResult = await POST(mockReq(), {
         errorFn: errorFn as any,
         fetchHtmlFn: async () => {
-          throw axiosError;
+          throw httpCloakError;
         },
-        isAxiosErrorFn: (() => true) as any,
         parseAndValidateArticleUrlFn: async () => "https://example.com/article",
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         toErrorMessageFn: () => "upstream-throttled",
       });
 
-      expect(axiosResult.status).toBe(502);
-      const axiosBody = await axiosResult.json();
-      expect(axiosBody.error).toBe(
+      expect(httpCloakResult.status).toBe(502);
+      const httpCloakBody = await httpCloakResult.json();
+      expect(httpCloakBody.error).toBe(
         "Failed to fetch article content from upstream",
       );
-      expect(axiosBody.reason).toBe("upstream-throttled");
+      expect(httpCloakBody.reason).toBe("upstream-throttled");
       expect(errorFn).toHaveBeenCalledWith(
         expect.stringContaining("upstream request failed"),
         expect.objectContaining({
           extractAttemptId: expect.any(String),
+          statusCode: 429,
         }),
       );
 
@@ -685,7 +694,6 @@ describe("article extract cleanup", () => {
         fetchHtmlFn: async () => {
           throw new Error("boom");
         },
-        isAxiosErrorFn: (() => false) as any,
         parseAndValidateArticleUrlFn: async () => "https://example.com/article",
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         toErrorMessageFn: () => "normalized-boom",
@@ -973,7 +981,7 @@ describe("article extract cleanup", () => {
       expect(getCount()).toBe(1);
     });
 
-    test("retries all 3 attempts on generic 403 (no compatibility signal)", async () => {
+    test("stops after 1 attempt on generic 403 (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(
         403,
         "<html>generic 403</html>",
@@ -991,11 +999,10 @@ describe("article extract cleanup", () => {
         ),
       ).rejects.toThrow("403");
 
-      // 3 total: 1 initial + 2 retries (EXTRACT_403_RETRIES = 2)
-      expect(getCount()).toBe(3);
+      expect(getCount()).toBe(1);
     });
 
-    test("retries all 3 attempts on 429 rate-limit (no compatibility signal)", async () => {
+    test("stops after 1 attempt on 429 rate-limit (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(429, "");
 
       await expect(
@@ -1010,7 +1017,7 @@ describe("article extract cleanup", () => {
         ),
       ).rejects.toThrow("429");
 
-      expect(getCount()).toBe(3);
+      expect(getCount()).toBe(1);
     });
 
     test("succeeds on first attempt and makes exactly 1 httpCloak-fetch call", async () => {
@@ -1037,7 +1044,7 @@ describe("article extract cleanup", () => {
       expect(callCount).toBe(1);
     });
 
-    test("retries httpcloak with the same transport-only options", async () => {
+    test("passes the same transport-only options through the single HTTPCloak attempt", async () => {
       const capturedOptions: Record<string, unknown>[] = [];
       const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
@@ -1068,14 +1075,6 @@ describe("article extract cleanup", () => {
       ).rejects.toThrow("403");
 
       expect(capturedOptions).toEqual([
-        {
-          allowInsecureTls: false,
-          proxyUrl: "socks5://127.0.0.1:1080",
-        },
-        {
-          allowInsecureTls: false,
-          proxyUrl: "socks5://127.0.0.1:1080",
-        },
         {
           allowInsecureTls: false,
           proxyUrl: "socks5://127.0.0.1:1080",
