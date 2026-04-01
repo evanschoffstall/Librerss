@@ -431,16 +431,39 @@ export const FeedList = memo(function FeedList({
         ) : (
           <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className={listFrameClassName}
+            className={FEED_LIST_FRAME_CLASSNAME}
             initial={{ opacity: 0, y: 6 }}
             key={contentKey}
-            style={listFillStyle}
-            transition={contentEnterTransition}
+            style={FEED_LIST_FILL_STYLE}
+            transition={CONTENT_ENTER_TRANSITION}
           >
             {shouldUseVirtualizedFeed ? (
-              <Virtuoso
-                className={listFrameClassName}
-                components={isInvertedScroll ? invertedVirtuosoComponents : virtuosoComponents}
+              <>
+                {/*
+                 * Skeleton rows for the next server page live OUTSIDE the Virtuoso
+                 * component tree so they appear via normal React reconciliation the
+                 * moment isLoadingMore becomes true.
+                 *
+                 * Putting them inside Virtuoso's Footer/Header caused them to be
+                 * silently dropped: every isLoadingMore flip changed the Footer
+                 * closure reference, React treated it as a new component type and
+                 * unmounted/remounted the footer — a cycle Virtuoso may defer based
+                 * on its own scheduling, meaning the skeleton never painted during
+                 * the DB round trip.
+                 *
+                 * Inverted mode: skeletons appear at the top (older articles load upward).
+                 * Standard mode: skeletons appear at the bottom (newer pages append downward).
+                 * The IntersectionObserver sentinel stays inside Virtuoso so it fires
+                 * at the correct virtual position.
+                 */}
+                {isInvertedScroll && isLoadingMore ? (
+                  <div data-feed-load-more-skeletons="true">
+                    <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                  </div>
+                ) : null}
+                <Virtuoso
+                  className={FEED_LIST_FRAME_CLASSNAME}
+                  components={isInvertedScroll ? invertedVirtuosoComponents : virtuosoComponents}
                 computeItemKey={(index, article: Article | undefined) =>
                   article
                     ? getArticleKey(article)
@@ -502,6 +525,12 @@ export const FeedList = memo(function FeedList({
                     }
                   : {})}
               />
+              {!isInvertedScroll && isLoadingMore ? (
+                <div data-feed-load-more-skeletons="true">
+                  <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                </div>
+              ) : null}
+              </>
             ) : (
               <>
                 {isInvertedScroll && shouldShowLoadMoreBoundary ? (

@@ -17,7 +17,7 @@ import { type UseFeedListSurfaceStateOptions } from "./feed-list-surface-state/t
 import { useFeedPagination } from "./feed-list-surface-state/useFeedPagination";
 import { useFeedViewportState } from "./feed-list-surface-state/useFeedViewportState";
 import { useInvertedExpansionScrollLock } from "./feed-list-surface-state/useInvertedExpansionScrollLock";
-import { FeedLoadMoreSkeletonRows } from "./FeedListSkeleton";
+
 
 export {
   findVisibleInvertedRemovalAnchorArticleKey,
@@ -31,10 +31,8 @@ const VirtuosoFeedItem = forwardRef<HTMLDivElement, ComponentPropsWithRef<"div">
 );
 
 interface RenderLoadMoreBoundaryOptions {
-  articlesPerPage: number;
   canLoadMoreFromServer: boolean;
   hasMoreArticles: boolean;
-  isLoadingMore: boolean;
   loadMoreSentinelRef: { current: HTMLDivElement | null };
 }
 
@@ -57,7 +55,7 @@ export function useFeedListSurfaceState({
   isCollapseScrollRestoreActive,
   isInitialLoading,
   isInvertedScroll,
-  isLoadingMore,
+  isLoadingMore: _isLoadingMore,
   onLoadMore,
   refreshEpoch,
   searchTerm,
@@ -207,15 +205,13 @@ export function useFeedListSurfaceState({
     () => ({
       Footer: () =>
         renderLoadMoreBoundary({
-          articlesPerPage,
           canLoadMoreFromServer: canLoadMoreBoundaryFromServer,
           hasMoreArticles,
-          isLoadingMore,
           loadMoreSentinelRef,
         }),
       Item: VirtuosoFeedItem,
     }),
-    [articlesPerPage, canLoadMoreBoundaryFromServer, hasMoreArticles, isLoadingMore, loadMoreSentinelRef],
+    [canLoadMoreBoundaryFromServer, hasMoreArticles, loadMoreSentinelRef],
   );
 
   /** Inverted mode paginates upward, so it renders the load sentinel in the header. */
@@ -223,10 +219,8 @@ export function useFeedListSurfaceState({
     () => ({
       Header: () =>
         renderLoadMoreBoundary({
-          articlesPerPage,
           canLoadMoreFromServer: canLoadMoreBoundaryFromServer,
           hasMoreArticles,
-          isLoadingMore,
           loadMoreSentinelRef,
         }),
       Item: VirtuosoFeedItem,
@@ -245,7 +239,7 @@ export function useFeedListSurfaceState({
         },
       ),
     }),
-    [articlesPerPage, canLoadMoreBoundaryFromServer, hasMoreArticles, isLoadingMore, loadMoreSentinelRef],
+    [canLoadMoreBoundaryFromServer, hasMoreArticles, loadMoreSentinelRef],
   );
 
   return {
@@ -272,31 +266,32 @@ export function useFeedListSurfaceState({
   };
 }
 
+/**
+ * Renders the invisible IntersectionObserver sentinel that fires load-more
+ * pagination at the correct virtual position within the Virtuoso list.
+ *
+ * Skeleton rows are intentionally NOT rendered here.  They live outside the
+ * Virtuoso component tree in FeedList so they appear and disappear via normal
+ * React reconciliation, independent of Virtuoso's internal render cycle.
+ * Keeping skeletons inside Virtuoso's Footer/Header caused them to be silently
+ * swallowed when the closure-captured component reference changed on every
+ * `isLoadingMore` flip, triggering a full unmount/remount of the Footer that
+ * Virtuoso may defer based on its own scheduling.
+ */
 function renderLoadMoreBoundary({
-  articlesPerPage,
   canLoadMoreFromServer,
   hasMoreArticles,
-  isLoadingMore,
   loadMoreSentinelRef,
 }: RenderLoadMoreBoundaryOptions) {
-  if (!hasMoreArticles && !canLoadMoreFromServer && !isLoadingMore) {
+  if (!hasMoreArticles && !canLoadMoreFromServer) {
     return null;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-1.5" data-feed-load-more-boundary="true">
-      {isLoadingMore ? (
-        <div data-feed-load-more-skeletons="true">
-          <FeedLoadMoreSkeletonRows count={articlesPerPage} />
-        </div>
-      ) : null}
-      {hasMoreArticles || canLoadMoreFromServer ? (
-        <div
-          className="h-px w-full"
-          data-feed-load-more-sentinel="true"
-          ref={loadMoreSentinelRef}
-        />
-      ) : null}
-    </div>
+    <div
+      className="h-px w-full"
+      data-feed-load-more-sentinel="true"
+      ref={loadMoreSentinelRef}
+    />
   );
 }
