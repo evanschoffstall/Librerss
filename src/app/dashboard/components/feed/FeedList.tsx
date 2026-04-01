@@ -39,6 +39,23 @@ const FEED_VIEWPORT_INCREASE_INVERTED_INTERACTION = { bottom: 10_000, top: 10_00
  */
 const INVERTED_FIRST_INDEX_BASE = 100_000;
 
+/** Shared class string for the Virtuoso wrapper and list frame elements. */
+const FEED_LIST_FRAME_CLASSNAME = "flex h-full min-h-0 w-full min-w-0 flex-col";
+/** Class string for the outermost surface container. */
+const FEED_LIST_SURFACE_CLASSNAME = "flex min-h-0 w-full min-w-0 flex-col";
+/** Inline style forcing the surface and its children to fill the available height. */
+const FEED_LIST_FILL_STYLE = { height: "100%" } as const;
+/** Motion transition applied when the skeleton exits. */
+const SKELETON_EXIT_TRANSITION = {
+  duration: 0.25,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
+/** Motion transition applied when real content enters. */
+const CONTENT_ENTER_TRANSITION = {
+  duration: 0.35,
+  ease: [0.16, 1, 0.3, 1] as const,
+};
+
 export function isFeedInvertedScrollActive(
   isMobile: boolean,
   mobileInvertedScroll: boolean,
@@ -346,18 +363,7 @@ export const FeedList = memo(function FeedList({
     ],
   );
 
-  const listFrameClassName = "flex h-full min-h-0 w-full min-w-0 flex-col";
-  const listSurfaceClassName = "flex min-h-0 w-full min-w-0 flex-col";
-  const listFillStyle = { height: "100%" } as const;
   const showEmptyState = !isInitialLoading && filteredFeed.length === 0;
-  const skeletonExitTransition = {
-    duration: 0.25,
-    ease: [0.16, 1, 0.3, 1] as const,
-  };
-  const contentEnterTransition = {
-    duration: 0.35,
-    ease: [0.16, 1, 0.3, 1] as const,
-  };
   const applyFeedSurfaceLayout = useCallback((element: HTMLElement | null) => {
     if (!element) {
       return;
@@ -386,7 +392,7 @@ export const FeedList = memo(function FeedList({
 
   return (
     <div
-      className={listSurfaceClassName}
+      className={FEED_LIST_SURFACE_CLASSNAME}
       data-feed-surface-mode={feedSurfaceMode}
       data-feed-total-list-height={
         measuredTotalListHeight !== null
@@ -395,7 +401,7 @@ export const FeedList = memo(function FeedList({
       }
       data-inverted-scroll={isInvertedScroll ? "true" : undefined}
       ref={handleFeedSurfaceRef}
-      style={listFillStyle}
+      style={FEED_LIST_FILL_STYLE}
     >
       <AnimatePresence mode="wait">
         {isInitialLoading || shouldShowViewportResolutionSkeleton ? (
@@ -404,7 +410,7 @@ export const FeedList = memo(function FeedList({
             exit={{ filter: "blur(4px)", opacity: 0, scale: 0.97 }}
             initial={{ opacity: 1, scale: 1 }}
             key={contentKey}
-            transition={skeletonExitTransition}
+            transition={SKELETON_EXIT_TRANSITION}
           >
             <FeedListSkeleton />
           </motion.div>
@@ -419,7 +425,7 @@ export const FeedList = memo(function FeedList({
             data-feed-empty-state-frame="true"
             initial={{ opacity: 0, scale: 0.97, y: 8 }}
             key={contentKey}
-            transition={contentEnterTransition}
+            transition={CONTENT_ENTER_TRANSITION}
           >
             <FeedEmptyState
               articleFilter={articleFilter}
