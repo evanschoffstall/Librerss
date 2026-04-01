@@ -108,9 +108,21 @@ export function useFeedPagination({
     searchTerm,
   ]);
 
+  // Track the last length used to reset the gate so we only re-arm on growth.
+  // Shrinkage from article-collapse removals must not reset the flag — every
+  // individual collapse fires its own filteredFeedLength decrease, which would
+  // re-arm the gate and let that IO recreation trigger one server request per
+  // collapsed article, causing a cascade of page loads.
+  const lastFeedLengthForServerResetRef = useRef(filteredFeedLength);
+
   useEffect(() => {
-    hasRequestedServerLoadRef.current = false;
-  }, [commitVisibleArticleCount, filteredFeedLength]);
+    const prev = lastFeedLengthForServerResetRef.current;
+    lastFeedLengthForServerResetRef.current = filteredFeedLength;
+
+    if (filteredFeedLength > prev) {
+      hasRequestedServerLoadRef.current = false;
+    }
+  }, [filteredFeedLength]);
 
   useLayoutEffect(() => {
     const previousFilteredFeedLength = previousFilteredFeedLengthRef.current;

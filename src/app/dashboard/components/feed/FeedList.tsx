@@ -206,6 +206,34 @@ export const FeedList = memo(function FeedList({
   }, [expandedArticleKey, isActiveInvertedScroll]);
 
   /**
+   * Refresh the inverted height floor when a "mark visible as read" batch
+   * begins. The floor captured at mount (or the last article expand/collapse)
+   * goes stale after server pages load, so when a batch collapse starts the
+   * list can shrink below the pre-collapse height, clamping scrollTop and
+   * causing a visible scroll jump. Taking Math.max keeps the floor at the
+   * highest seen value so any ongoing anchoring is preserved.
+   */
+  const prevCollapsingArticleCountRef = useRef(Object.keys(collapsingArticles).length);
+  useLayoutEffect(() => {
+    if (!isActiveInvertedScroll || expandedArticleKey !== null) {
+      return;
+    }
+
+    const prev = prevCollapsingArticleCountRef.current;
+    const curr = Object.keys(collapsingArticles).length;
+    prevCollapsingArticleCountRef.current = curr;
+
+    // Only refresh on the 0 → n transition (batch start) so we capture the
+    // full pre-collapse height exactly once per mark-visible-as-read action.
+    if (curr > 0 && prev === 0) {
+      const vp = scrollViewportRef.current;
+      if (vp && vp.scrollHeight > (invertedHeightFloorRef.current ?? 0)) {
+        invertedHeightFloorRef.current = vp.scrollHeight;
+      }
+    }
+  }, [collapsingArticles, expandedArticleKey, isActiveInvertedScroll]);
+
+  /**
    * In inverted mode apply a height floor so the Virtuoso wrapper never
    * shrinks below the scrollHeight captured at collapse time. This prevents
    * scrollTop from being clamped by the browser as the DOM settles.
