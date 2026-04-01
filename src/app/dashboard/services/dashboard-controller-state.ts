@@ -20,6 +20,8 @@ interface DashboardControllerState<
 }
 
 interface DashboardFeedListState {
+  /** Set of article keys whose entrance animation is currently running. */
+  animatingInArticleKeys: ReadonlySet<string>;
   articleFilter: ArticleFilter;
   articlesPerPage: number;
   collapsingArticles: CollapsingArticles;
@@ -34,6 +36,8 @@ interface DashboardFeedListState {
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
+  /** Stable callback invoked when a specific article's entrance animation finishes. */
+  onArticleEnteringDone: (articleKey: string) => void;
   onArticleExpandedSwipeRead: (article: Article) => void;
   onArticlePrepareExpand: (article: Article) => void;
   onArticleSwipeRead: (article: Article) => void;

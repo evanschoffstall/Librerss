@@ -51,6 +51,7 @@ export const DashboardView = ({
         feed={
           <DashboardFeedViewport>
             <FeedList
+              animatingInArticleKeys={feedList.animatingInArticleKeys}
               articleFilter={feedList.articleFilter}
               articlesPerPage={feedList.articlesPerPage}
               collapsingArticles={feedList.collapsingArticles}
@@ -65,6 +66,7 @@ export const DashboardView = ({
               isInitialLoading={feedList.isInitialLoading}
               isLoadingMore={feedList.isLoadingMore}
               isRefreshing={feedList.isRefreshing}
+              onEnteringDone={feedList.onArticleEnteringDone}
               onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
               onLoadMore={feedList.onLoadMore}
               onPrepareExpand={feedList.onArticlePrepareExpand}

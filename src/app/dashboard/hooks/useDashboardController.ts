@@ -77,6 +77,38 @@ export function useDashboardController({
     setLastRefreshedAt,
     setRelativeRefreshTick,
   } = refreshStatus;
+
+  /**
+   * Keys of articles whose entrance animation is currently running (arrived via
+   * background auto-refresh). Excluded from "mark visible as read" until they settle.
+   */
+  const [animatingInArticleKeys, setAnimatingInArticleKeys] = useState(
+    () => new Set<string>(),
+  );
+  /** Mirrors the auto-refresh in-flight state to the filter-bar loading indicator. */
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  /** Ref prevents concurrent auto-refresh calls from double-dispatching events. */
+  const isAutoRefreshingRef = useRef(false);
+
+  /** Merges newly arrived article keys into the animating-in set. */
+  const handleNewArticlesArrived = useCallback(
+    (newKeys: ReadonlySet<string>) => {
+      if (newKeys.size === 0) return;
+      setAnimatingInArticleKeys((prev) => new Set([...prev, ...newKeys]));
+    },
+    [],
+  );
+
+  /** Removes a settled article from the animating-in set. */
+  const handleArticleEnteringDone = useCallback((articleKey: string) => {
+    setAnimatingInArticleKeys((prev) => {
+      if (!prev.has(articleKey)) return prev;
+      const next = new Set(prev);
+      next.delete(articleKey);
+      return next;
+    });
+  }, []);
+
   const dashboardState = useDashboardState();
 
   const {
@@ -137,6 +169,7 @@ export function useDashboardController({
     categoriesRef,
     feedRef,
     onFeedBatchLoaded: setLastRefreshedAt,
+    onNewArticlesArrived: handleNewArticlesArrived,
     setCategories,
     setExpandedArticleKey,
     setFeed,
@@ -704,6 +737,7 @@ export function useDashboardController({
     () =>
       buildDashboardControllerState({
         feedList: {
+          animatingInArticleKeys,
           articleFilter,
           articlesPerPage,
           collapsingArticles,
@@ -718,6 +752,7 @@ export function useDashboardController({
           isInitialLoading: isFeedListInitialLoading,
           isLoadingMore: isLoadingMoreArticles,
           isRefreshing: isFeedListRefreshing,
+          onArticleEnteringDone: handleArticleEnteringDone,
           onArticleExpandedSwipeRead: articleCallbacks.onArticleExpandedSwipeRead,
           onArticlePrepareExpand: articleCallbacks.onArticlePrepareExpand,
           onArticleSwipeRead: articleCallbacks.onArticleSwipeRead,
@@ -765,6 +800,7 @@ export function useDashboardController({
         },
       }),
     [
+      animatingInArticleKeys,
       articleCallbacks.feedViewKey,
       articleCallbacks.onArticleExpandedSwipeRead,
       articleCallbacks.onArticlePrepareExpand,
@@ -784,9 +820,11 @@ export function useDashboardController({
       expandedArticleKey,
       filteredFeed,
       getPreExpandViewportSnapshot,
+      handleArticleEnteringDone,
       handleLoadMoreArticles,
       hydratedArticleLinks,
       hydratingArticleLinks,
+      isAutoRefreshing,
       isCollapseScrollRestoreActive,
       isFeedListInitialLoading,
       isLoadingMoreArticles,

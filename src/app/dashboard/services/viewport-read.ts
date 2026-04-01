@@ -28,6 +28,10 @@ export function collectFullyVisibleUnreadArticles(
  *
  * Any article clipped by even a single pixel on any edge is excluded so the
  * header action only affects cards that are completely visible to the reader.
+ *
+ * Articles whose row is still mid-entrance-animation (`data-article-entering="true"` on
+ * an ancestor) are also excluded — they should not count as visible until the space-making
+ * animation finishes and they are fully settled in their final position.
  */
 function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
   const viewportRect = viewport.getBoundingClientRect();
@@ -36,6 +40,11 @@ function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
     viewport.querySelectorAll<HTMLElement>(VIEWPORT_ARTICLE_SELECTOR),
   )
     .filter((articleElement) => {
+      // Exclude articles whose entrance animation is still running.
+      if (articleElement.closest('[data-article-entering="true"]') !== null) {
+        return false;
+      }
+
       const articleRect = articleElement.getBoundingClientRect();
 
       return (

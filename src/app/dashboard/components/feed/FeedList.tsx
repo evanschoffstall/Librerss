@@ -77,6 +77,7 @@ function syncViewportScrollTop(viewport: HTMLElement, top: number) {
 }
 
 export const FeedList = memo(function FeedList({
+  animatingInArticleKeys,
   articleFilter,
   articlesPerPage,
   collapsingArticles = EMPTY_COLLAPSING_ARTICLES,
@@ -91,6 +92,7 @@ export const FeedList = memo(function FeedList({
   isInitialLoading,
   isLoadingMore = false,
   isRefreshing: _isRefreshing,
+  onEnteringDone,
   onExpandedSwipeRead,
   onLoadMore,
   onPrepareExpand,
@@ -319,6 +321,7 @@ export const FeedList = memo(function FeedList({
       const isHydrating = hydratingArticleLinks[article.link] ?? false;
       const isUpdatingState = updatingArticleState[articleKey] ?? false;
       const useRichFormatting = hydratedArticleLinks[article.link] ?? false;
+      const isEntering = animatingInArticleKeys?.has(articleKey) ?? false;
 
       return (
         <FeedArticleRow
@@ -326,12 +329,14 @@ export const FeedList = memo(function FeedList({
           articleKey={articleKey}
           hasScrapedContent={Boolean(article.hasFullContent)}
           isDark={isDark}
+          isEntering={isEntering}
           isExpanded={expandedArticleKey === articleKey}
           isHydrating={isHydrating}
           isLastRow={articleKey === lastFeedArticleKey}
           isMobile={isMobile}
           isUpdatingState={isUpdatingState}
           key={articleKey}
+          onEnteringDone={onEnteringDone}
           onExpandedSwipeRead={onExpandedSwipeRead}
           onPrepareExpand={onPrepareExpand}
           onSwipeRead={onSwipeRead}
@@ -345,6 +350,7 @@ export const FeedList = memo(function FeedList({
       );
     },
     [
+      animatingInArticleKeys,
       collapsingArticles,
       expandedArticleKey,
       hydratedArticleLinks,
@@ -352,6 +358,7 @@ export const FeedList = memo(function FeedList({
       isDark,
       lastFeedArticleKey,
       isMobile,
+      onEnteringDone,
       onExpandedSwipeRead,
       onPrepareExpand,
       onSwipeRead,

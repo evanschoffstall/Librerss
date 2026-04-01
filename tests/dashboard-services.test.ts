@@ -193,6 +193,83 @@ describe("viewport-read services", () => {
       articles[0],
     ]);
   });
+
+  test("excludes unread articles whose ancestor has data-article-entering=true", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = mock(() => ({
+      bottom: 500,
+      height: 500,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 0,
+      width: 780,
+      x: 0,
+      y: 0,
+    })) as typeof viewport.getBoundingClientRect;
+
+    const articles = [
+      {
+        content: "A",
+        feedId: 1,
+        id: 1,
+        isRead: false,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/entering",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Entering",
+      },
+      {
+        content: "B",
+        feedId: 1,
+        id: 2,
+        isRead: false,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/settled",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Settled",
+      },
+    ];
+
+    // Wrap the entering article inside an ancestor with the entering attribute.
+    const enteringRow = document.createElement("div");
+    enteringRow.dataset.articleEntering = "true";
+    const enteringArticleEl = document.createElement("article");
+    enteringArticleEl.dataset.articleKey = "https://example.com/entering";
+    enteringArticleEl.getBoundingClientRect = mock(() => ({
+      bottom: 120,
+      height: 120,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 0,
+      width: 780,
+      x: 0,
+      y: 0,
+    })) as typeof enteringArticleEl.getBoundingClientRect;
+    enteringRow.append(enteringArticleEl);
+
+    const settledArticleEl = document.createElement("article");
+    settledArticleEl.dataset.articleKey = "https://example.com/settled";
+    settledArticleEl.getBoundingClientRect = mock(() => ({
+      bottom: 240,
+      height: 120,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 120,
+      width: 780,
+      x: 0,
+      y: 120,
+    })) as typeof settledArticleEl.getBoundingClientRect;
+
+    viewport.append(enteringRow, settledArticleEl);
+
+    // Only the settled article is returned; the entering one is excluded.
+    expect(collectFullyVisibleUnreadArticles(articles, viewport)).toEqual([
+      articles[1],
+    ]);
+  });
 });
 
 describe("feed-batch-resolver", () => {

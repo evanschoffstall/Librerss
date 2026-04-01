@@ -38,6 +38,7 @@ describe("dashboard support hooks", () => {
     });
     const controllerState = buildDashboardControllerState({
       feedList: {
+        animatingInArticleKeys: new Set<string>(),
         articleFilter: "all",
         articlesPerPage: 12,
         collapsingArticles: {},
@@ -51,6 +52,7 @@ describe("dashboard support hooks", () => {
         isInitialLoading: false,
         isLoadingMore: false,
         isRefreshing: false,
+        onArticleEnteringDone: mock(() => {}),
         onArticleExpandedSwipeRead: mock(() => {}),
         onArticlePrepareExpand: mock(() => {}),
         onArticleSwipeRead: mock(() => {}),
