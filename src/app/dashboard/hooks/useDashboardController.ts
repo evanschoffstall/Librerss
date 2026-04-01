@@ -11,7 +11,7 @@ import {
 
 import { useViewportRestore } from "@/lib";
 
-import { type BackgroundMode, INITIAL_CATEGORIES } from "../constants";
+import { ALL_FEEDS_NODE_KEY, type BackgroundMode, DASHBOARD_EVENTS, INITIAL_CATEGORIES } from "../constants";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import { getAllFeedNodes } from "../services/category-tree";
 import {
@@ -124,6 +124,8 @@ export function useDashboardController({
     shouldUseArticleWindow,
   );
   const isLoadingMoreArticlesRef = useRef(false);
+  /** Tracks the highest article-limit we have already prefetched to avoid duplicate background requests. */
+  const lastPrefetchedLimitRef = useRef(0);
 
   /**
    * Centralized feed loader that owns network requests, request cancellation,
@@ -239,6 +241,7 @@ export function useDashboardController({
 
   useEffect(() => {
     isLoadingMoreArticlesRef.current = false;
+    lastPrefetchedLimitRef.current = 0;
     setIsLoadingMoreArticles(false);
     setRequestedArticleLimit(articlesPerPage);
     setHasMoreServerArticles(shouldUseArticleWindow);
@@ -463,6 +466,25 @@ export function useDashboardController({
     setSelectedCategory,
   });
 
+  /**
+   * Wraps the background auto-refresh to show toolbar skeletons and the filter-bar
+   * loading indicator during the refresh, identical to a manual refresh UX.
+   * A ref guard prevents re-entrant calls from the interval tick.
+   */
+  const wrappedAutoRefreshFeedList = useCallback(async () => {
+    if (isAutoRefreshingRef.current) return;
+    isAutoRefreshingRef.current = true;
+    setIsAutoRefreshing(true);
+    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+    try {
+      await autoRefreshFeedList();
+    } finally {
+      isAutoRefreshingRef.current = false;
+      setIsAutoRefreshing(false);
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+    }
+  }, [autoRefreshFeedList]);
+
   const handleLoadMoreArticles = useCallback(() => {
     if (
       !shouldUseArticleWindow ||
@@ -523,8 +545,85 @@ export function useDashboardController({
     cancelPendingRequest();
   }, [cancelPendingRequest]);
 
+  /**
+   * Warms the TanStack Query cache for the next page of articles so the
+   * subsequent load-more resolves from cache instead of waiting on a network
+   * round-trip.  The prefetch mirrors the exact options used by
+   * `handleLoadMoreArticles` so the cache key matches on first lookup.
+   *
+   * This is strictly best-effort: if the cache expires before the user scrolls
+   * to the threshold (e.g. auto-refresh fires between prefetch and use), the
+   * load-more falls back to a normal server fetch transparently.
+   */
+  const prefetchNextPageForCurrentSelection = useCallback(
+    async (nextLimit: number) => {
+      if (usePlaceholderData) {
+        return;
+      }
+
+      const prefetchOptions = {
+        articleLimit: nextLimit,
+        keepExistingFeed: true,
+        requestSource: "feed-scroll-load-more" as const,
+        skipRefresh: true,
+      };
+
+      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+        await prefetchAllFeeds(undefined, prefetchOptions);
+        return;
+      }
+
+      if (selectedFeedUrl) {
+        await prefetchFeed(selectedFeedUrl, prefetchOptions);
+        return;
+      }
+
+      if (selectedCategoryNode) {
+        await prefetchCategoryFeeds(selectedCategoryNode, prefetchOptions);
+      }
+    },
+    [
+      prefetchAllFeeds,
+      prefetchCategoryFeeds,
+      prefetchFeed,
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
+      usePlaceholderData,
+    ],
+  );
+
+  /**
+   * Proactively pre-warms the next page in the TanStack Query cache the moment
+   * the current page finishes loading.  When the user scrolls to the threshold,
+   * `handleLoadMoreArticles` → `refreshCurrentSelection` hits the warm cache and
+   * resolves synchronously — the next page zips in with no visible latency.
+   * After each load-more the effect fires again to keep exactly one page buffered
+   * ahead at all times.
+   */
+  useEffect(() => {
+    if (!shouldUseArticleWindow || loading || !hasMoreServerArticles) {
+      return;
+    }
+
+    const nextLimit = requestedArticleLimit + articlesPerPage;
+    if (lastPrefetchedLimitRef.current >= nextLimit) {
+      return;
+    }
+
+    lastPrefetchedLimitRef.current = nextLimit;
+    void prefetchNextPageForCurrentSelection(nextLimit);
+  }, [
+    articlesPerPage,
+    hasMoreServerArticles,
+    loading,
+    prefetchNextPageForCurrentSelection,
+    requestedArticleLimit,
+    shouldUseArticleWindow,
+  ]);
+
   useDashboardIntervals({
-    autoRefreshFeedList,
+    autoRefreshFeedList: wrappedAutoRefreshFeedList,
     autoRefreshIntervalMinutes,
     onStaleTabResume: handleStaleTabResume,
     setRelativeRefreshTick,
@@ -634,7 +733,9 @@ export function useDashboardController({
         filterBar: {
           articleFilter,
           lastRefreshLabel,
-          loading,
+          // Reflect both foreground-loading state and background auto-refresh state
+          // so the filter bar spinner and label skeleton appear for both.
+          loading: loading || isAutoRefreshing,
           setArticleFilter,
         },
         settings: {
