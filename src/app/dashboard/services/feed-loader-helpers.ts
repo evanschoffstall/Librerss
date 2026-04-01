@@ -121,9 +121,15 @@ export function isCanceledBatchRequest(error: unknown): boolean {
 }
 
 /**
- * Merge hydrated (extracted) article content from the previous feed into
- * freshly-fetched articles so expanded articles retain their rich content
- * across any kind of dashboard refresh.
+ * Merges locally-hydrated content from the previous feed into the freshly fetched
+ * articles, then reuses the previous article object reference whenever all
+ * display-relevant fields are unchanged.
+ *
+ * Reference stability is the key performance contract: Virtuoso and `React.memo`
+ * can bail out of re-rendering any row whose article object reference hasn't
+ * changed, so preserving these references during background auto-refreshes
+ * prevents the entire visible list from re-rendering when no article content
+ * actually changed.
  */
 export function mergeHydratedContent(
   previousFeed: Article[],
@@ -131,17 +137,28 @@ export function mergeHydratedContent(
 ): Article[] {
   if (previousFeed.length === 0) return freshArticles;
 
-  const previousContentByLink = new Map<string, string>();
+  const previousByLink = new Map<string, Article>();
   for (const a of previousFeed) {
     const link = a.link.trim();
-    if (link) previousContentByLink.set(link, a.content);
+    if (link) previousByLink.set(link, a);
   }
 
   return freshArticles.map((a) => {
     const link = a.link.trim();
     if (!link) return a;
-    const prev = previousContentByLink.get(link);
-    return prev && prev !== a.content ? { ...a, content: prev } : a;
+
+    const prev = previousByLink.get(link);
+    if (!prev) return a;
+
+    // Restore hydrated content that the server doesn't store.
+    const mergedContent = prev.content !== a.content ? prev.content : a.content;
+    const merged: Article =
+      mergedContent !== a.content ? { ...a, content: mergedContent } : a;
+
+    // Reuse the previous reference when nothing that affects rendering changed.
+    // This keeps Virtuoso item keys stable and lets React.memo skip rows that
+    // haven't actually changed during an auto-refresh cycle.
+    return articlesAreDisplayEqual(prev, merged) ? prev : merged;
   });
 }
 
@@ -191,6 +208,29 @@ export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
     okCount,
     resultCount: batchResults.length,
   };
+}
+
+/**
+ * Merge hydrated (extracted) article content from the previous feed into
+ * freshly-fetched articles so expanded articles retain their rich content
+ * across any kind of dashboard refresh.
+ */
+/**
+ * Returns true when all display-relevant fields are identical between two
+ * article objects.  `lastChecked` is intentionally excluded because it updates
+ * on every server fetch regardless of article content changes, and it has no
+ * effect on how the article is rendered.
+ */
+function articlesAreDisplayEqual(prev: Article, next: Article): boolean {
+  return (
+    prev.content === next.content &&
+    prev.title === next.title &&
+    prev.isRead === next.isRead &&
+    prev.isStarred === next.isStarred &&
+    prev.hasFullContent === next.hasFullContent &&
+    prev.feedName === next.feedName &&
+    prev.feedUrl === next.feedUrl
+  );
 }
 
 /** Extracts the error code (e.g. `ECONNRESET`) from an axios-shaped error, if present. */

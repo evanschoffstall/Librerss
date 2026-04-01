@@ -148,7 +148,7 @@ describe("mergeHydratedContent", () => {
     expect(merged[0]!.content).toBe("fresh");
   });
 
-  test("does not merge when content is identical", () => {
+  test("does not merge when content is identical, returns prev for reference stability", () => {
     const prev = [
       makeArticle({ content: "same", link: "https://a.example" }),
     ];
@@ -156,6 +156,32 @@ describe("mergeHydratedContent", () => {
       makeArticle({ content: "same", link: "https://a.example" }),
     ];
     const merged = mergeHydratedContent(prev, fresh);
+    // Prev reference is reused when all display fields match so Virtuoso and
+    // React.memo can skip re-rendering unchanged rows during auto-refresh.
+    expect(merged[0]).toBe(prev[0]);
+  });
+
+  test("returns fresh reference when a display field changed (isRead)", () => {
+    const prev = [
+      makeArticle({ content: "same", isRead: false, link: "https://a.example" }),
+    ];
+    const fresh = [
+      makeArticle({ content: "same", isRead: true, link: "https://a.example" }),
+    ];
+    const merged = mergeHydratedContent(prev, fresh);
+    expect(merged[0]!.isRead).toBe(true);
+    expect(merged[0]).toBe(fresh[0]);
+  });
+
+  test("returns fresh reference when a display field changed (isStarred)", () => {
+    const prev = [
+      makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
+    ];
+    const fresh = [
+      makeArticle({ content: "x", isStarred: true, link: "https://a.example" }),
+    ];
+    const merged = mergeHydratedContent(prev, fresh);
+    expect(merged[0]!.isStarred).toBe(true);
     expect(merged[0]).toBe(fresh[0]);
   });
 });
