@@ -52,6 +52,7 @@ describe("dashboard support hooks", () => {
         isInitialLoading: false,
         isLoadingMore: false,
         isRefreshing: false,
+        loadingMoreArticleCount: 0,
         onArticleEnteringDone: mock(() => {}),
         onArticleExpandedSwipeRead: mock(() => {}),
         onArticlePrepareExpand: mock(() => {}),

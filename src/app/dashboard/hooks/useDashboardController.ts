@@ -655,6 +655,11 @@ export function useDashboardController({
     shouldUseArticleWindow,
   ]);
 
+  const pendingLoadMoreArticleCount =
+    shouldUseArticleWindow && isLoadingMoreArticles
+      ? Math.max(0, requestedArticleLimit - feed.length)
+      : 0;
+
   useDashboardIntervals({
     autoRefreshFeedList: wrappedAutoRefreshFeedList,
     autoRefreshIntervalMinutes,
@@ -752,6 +757,7 @@ export function useDashboardController({
           isInitialLoading: isFeedListInitialLoading,
           isLoadingMore: isLoadingMoreArticles,
           isRefreshing: isFeedListRefreshing,
+          loadingMoreArticleCount: pendingLoadMoreArticleCount,
           onArticleEnteringDone: handleArticleEnteringDone,
           onArticleExpandedSwipeRead: articleCallbacks.onArticleExpandedSwipeRead,
           onArticlePrepareExpand: articleCallbacks.onArticlePrepareExpand,
@@ -828,6 +834,7 @@ export function useDashboardController({
       isCollapseScrollRestoreActive,
       isFeedListInitialLoading,
       isLoadingMoreArticles,
+      pendingLoadMoreArticleCount,
       isFeedListRefreshing,
       loadingEpoch,
       isMobileSidebarOpen,

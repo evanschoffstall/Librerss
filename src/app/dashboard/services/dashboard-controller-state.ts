@@ -36,6 +36,7 @@ interface DashboardFeedListState {
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
+  loadingMoreArticleCount: number;
   /** Stable callback invoked when a specific article's entrance animation finishes. */
   onArticleEnteringDone: (articleKey: string) => void;
   onArticleExpandedSwipeRead: (article: Article) => void;
