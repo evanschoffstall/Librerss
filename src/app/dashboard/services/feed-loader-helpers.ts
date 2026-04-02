@@ -4,6 +4,10 @@ import type { BatchFeedResponseItem } from "@/lib/api/http";
 import type { FeedBatchSource } from "../services/feed-batch";
 
 import { getArticleKey } from "../services/article-collection";
+import {
+  mergeFeedArticleLocalState,
+  retainMissingPreviousFeedArticles,
+} from "./feed-local-state";
 
 /**
  * Classified feed batch error with a user-facing toast title and description.
@@ -125,7 +129,7 @@ export function isCanceledBatchRequest(error: unknown): boolean {
  * articles, then reuses the previous article object reference whenever all
  * display-relevant fields are unchanged.
  *
- * Reference stability is the key performance contract: Virtuoso and `React.memo`
+ * Reference stability is the key performance contract: the feed virtualizer and `React.memo`
  * can bail out of re-rendering any row whose article object reference hasn't
  * changed, so preserving these references during background auto-refreshes
  * prevents the entire visible list from re-rendering when no article content
@@ -134,8 +138,11 @@ export function isCanceledBatchRequest(error: unknown): boolean {
 export function mergeHydratedContent(
   previousFeed: Article[],
   freshArticles: Article[],
+  options?: { preserveLocalFeedState?: boolean },
 ): Article[] {
   if (previousFeed.length === 0) return freshArticles;
+
+  const preserveLocalFeedState = options?.preserveLocalFeedState ?? false;
 
   const previousByLink = new Map<string, Article>();
   for (const a of previousFeed) {
@@ -143,23 +150,28 @@ export function mergeHydratedContent(
     if (link) previousByLink.set(link, a);
   }
 
-  return freshArticles.map((a) => {
+  const mergedFreshArticles = freshArticles.map((a) => {
     const link = a.link.trim();
     if (!link) return a;
 
     const prev = previousByLink.get(link);
     if (!prev) return a;
 
-    // Restore hydrated content that the server doesn't store.
-    const mergedContent = prev.content !== a.content ? prev.content : a.content;
-    const merged: Article =
-      mergedContent !== a.content ? { ...a, content: mergedContent } : a;
+    const merged = mergeFeedArticleLocalState(prev, a, {
+      preserveLocalFeedState,
+    });
 
     // Reuse the previous reference when nothing that affects rendering changed.
-    // This keeps Virtuoso item keys stable and lets React.memo skip rows that
+    // This keeps virtualized row keys stable and lets React.memo skip rows that
     // haven't actually changed during an auto-refresh cycle.
     return articlesAreDisplayEqual(prev, merged) ? prev : merged;
   });
+
+  if (!preserveLocalFeedState) {
+    return mergedFreshArticles;
+  }
+
+  return retainMissingPreviousFeedArticles(previousFeed, mergedFreshArticles);
 }
 
 export function resolveExpandedArticleKey(

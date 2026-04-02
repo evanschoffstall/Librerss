@@ -112,10 +112,6 @@ global.window.SyntaxError = global.window.SyntaxError ?? SyntaxError;
 console.error = ((...args: unknown[]) => {
   const [firstArg] = args;
   if (typeof firstArg === "string") {
-    if (firstArg.includes("react-virtuoso: Zero-sized element")) {
-      return;
-    }
-
     if (firstArg.includes("`NaN` is an invalid value for the `paddingBottom` css style property.")) {
       return;
     }

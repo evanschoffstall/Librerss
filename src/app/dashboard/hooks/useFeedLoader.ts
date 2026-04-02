@@ -471,7 +471,9 @@ export function useFeedLoader({
         }
 
         setFeed((currentFeed) =>
-          mergeHydratedContent(currentFeed, capturedOutcome.articles),
+          mergeHydratedContent(currentFeed, capturedOutcome.articles, {
+            preserveLocalFeedState: keepExistingFeed,
+          }),
         );
 
         const {

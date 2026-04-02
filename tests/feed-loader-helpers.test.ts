@@ -137,6 +137,33 @@ describe("mergeHydratedContent", () => {
     expect(merged[0]!.content).toBe("rich HTML content");
   });
 
+    test("preserveLocalFeedState retains previously loaded older articles missing from fresh payload", () => {
+      const prev = [
+        makeArticle({
+          link: "https://example.com/newer",
+          title: "Newer",
+        }),
+        makeArticle({
+          link: "https://example.com/older",
+          title: "Older",
+        }),
+      ];
+      const fresh = [
+        makeArticle({
+          link: "https://example.com/newer",
+          title: "Newer (refetched)",
+        }),
+      ];
+
+      const merged = mergeHydratedContent(prev, fresh, {
+        preserveLocalFeedState: true,
+      });
+
+      expect(merged).toHaveLength(2);
+      expect(merged[0]?.link).toBe("https://example.com/newer");
+      expect(merged[1]?.link).toBe("https://example.com/older");
+    });
+
   test("keeps fresh content when no previous match", () => {
     const prev = [
       makeArticle({ content: "old", link: "https://old.example" }),
@@ -156,7 +183,7 @@ describe("mergeHydratedContent", () => {
       makeArticle({ content: "same", link: "https://a.example" }),
     ];
     const merged = mergeHydratedContent(prev, fresh);
-    // Prev reference is reused when all display fields match so Virtuoso and
+    // Prev reference is reused when all display fields match so the virtualizer and
     // React.memo can skip re-rendering unchanged rows during auto-refresh.
     expect(merged[0]).toBe(prev[0]);
   });
@@ -173,6 +200,33 @@ describe("mergeHydratedContent", () => {
     expect(merged[0]).toBe(fresh[0]);
   });
 
+  test("preserves local read state during keepExistingFeed merges", () => {
+    const prev = [
+      makeArticle({
+        content: "same",
+        hasFullContent: true,
+        isRead: true,
+        link: "https://a.example",
+      }),
+    ];
+    const fresh = [
+      makeArticle({
+        content: "plain",
+        hasFullContent: false,
+        isRead: false,
+        link: "https://a.example",
+      }),
+    ];
+
+    const merged = mergeHydratedContent(prev, fresh, {
+      preserveLocalFeedState: true,
+    });
+
+    expect(merged[0]!.isRead).toBe(true);
+    expect(merged[0]!.hasFullContent).toBe(true);
+    expect(merged[0]!.content).toBe("same");
+  });
+
   test("returns fresh reference when a display field changed (isStarred)", () => {
     const prev = [
       makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
@@ -183,6 +237,21 @@ describe("mergeHydratedContent", () => {
     const merged = mergeHydratedContent(prev, fresh);
     expect(merged[0]!.isStarred).toBe(true);
     expect(merged[0]).toBe(fresh[0]);
+  });
+
+  test("preserves local starred state during keepExistingFeed merges", () => {
+    const prev = [
+      makeArticle({ content: "x", isStarred: true, link: "https://a.example" }),
+    ];
+    const fresh = [
+      makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
+    ];
+
+    const merged = mergeHydratedContent(prev, fresh, {
+      preserveLocalFeedState: true,
+    });
+
+    expect(merged[0]!.isStarred).toBe(true);
   });
 });
 
