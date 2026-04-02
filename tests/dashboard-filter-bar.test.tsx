@@ -85,7 +85,7 @@ describe("DashboardFilterBar", () => {
     });
   });
 
-  test("uses a Virtuoso-driven overlay thumb on top of the plain feed viewport", async () => {
+  test("uses the virtualized feed height to size the overlay thumb", async () => {
     const { container } = render(
       <div className="h-48">
         <DashboardFeedViewport>

@@ -1,39 +1,68 @@
 import {
-  type ComponentPropsWithRef,
-  forwardRef,
   useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 
 import { FEED_MIN_SCROLLABLE_OVERFLOW_PX } from "./feed-list-surface-state/constants";
 import {
+  findTopVisibleInvertedPaginationAnchorArticleKey,
   findVisibleInvertedRemovalAnchorArticleKey,
   shouldAutoAnchorInvertedScrollViewport,
 } from "./feed-list-surface-state/dom";
 import { buildFeedSurfacePresentationState } from "./feed-list-surface-state/presentation";
-import { type UseFeedListSurfaceStateOptions } from "./feed-list-surface-state/types";
+import {
+  type FeedSurfaceMode,
+  type UseFeedListSurfaceStateOptions,
+} from "./feed-list-surface-state/types";
 import { useFeedPagination } from "./feed-list-surface-state/useFeedPagination";
 import { useFeedViewportState } from "./feed-list-surface-state/useFeedViewportState";
 import { useInvertedExpansionScrollLock } from "./feed-list-surface-state/useInvertedExpansionScrollLock";
 
-
 export {
+  findTopVisibleInvertedPaginationAnchorArticleKey,
   findVisibleInvertedRemovalAnchorArticleKey,
   shouldAutoAnchorInvertedScrollViewport,
 };
 
-const VirtuosoFeedItem = forwardRef<HTMLDivElement, ComponentPropsWithRef<"div">>(
-  function VirtuosoFeedItem(props, ref) {
-    return <div {...props} ref={ref} style={{ ...props.style, minHeight: 1 }} />;
-  },
-);
+interface FeedSurfacePresentationContract {
+  contentKey: string;
+  feedSurfaceMode: FeedSurfaceMode;
+  hasSearchTerm: boolean;
+  shouldShowViewportResolutionSkeleton: boolean;
+  trimmedSearchTerm: string;
+}
 
-interface RenderLoadMoreBoundaryOptions {
-  canLoadMoreFromServer: boolean;
+interface InvertedPaginationAnchorContract {
+  initialScrollHeight: number;
+  initialScrollTop: number;
+  releaseAt: number;
+}
+
+interface InvertedPaginationAnchorRefContract {
+  current: InvertedPaginationAnchorContract | null;
+}
+
+interface UseFeedListSurfaceStateResult {
+  contentKey: string;
+  feedSurfaceMode: FeedSurfaceMode;
+  handleViewportHostRef: (node: HTMLDivElement | null) => void;
   hasMoreArticles: boolean;
-  loadMoreSentinelRef: { current: HTMLDivElement | null };
+  hasSearchTerm: boolean;
+  invertedPaginationAnchorRef: InvertedPaginationAnchorRefContract;
+  isInvertedScroll: boolean;
+  loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
+  maybeAutoFillViewport: (committedListHeight?: number) => void;
+  scrollViewport: HTMLElement | null;
+  shouldAutoAnchorInvertedScroll: () => boolean;
+  shouldLockInitialNormalScroll: () => boolean;
+  shouldShowViewportResolutionSkeleton: boolean;
+  shouldUseVirtualizedFeed: boolean;
+  syncInvertedExpansionScrollLock: () => void;
+  syncInvertedPaginationAnchor: () => void;
+  trimmedSearchTerm: string;
+  visibleArticleCount: number;
 }
 
 /**
@@ -51,7 +80,7 @@ export function useFeedListSurfaceState({
   feedViewKey,
   filteredFeedLength,
   getPreExpandViewportSnapshot,
-  invertedScrollAnchorIndex,
+  invertedScrollAnchorIndex: _invertedScrollAnchorIndex,
   isCollapseScrollRestoreActive,
   isInitialLoading,
   isInvertedScroll,
@@ -59,10 +88,10 @@ export function useFeedListSurfaceState({
   onLoadMore,
   refreshEpoch,
   searchTerm,
-}: UseFeedListSurfaceStateOptions) {
-  const [hasClaimedInvertedScrollOwnership, setHasClaimedInvertedScrollOwnership] =
-    useState(false);
+}: UseFeedListSurfaceStateOptions): UseFeedListSurfaceStateResult {
+  const [, setHasClaimedInvertedScrollOwnership] = useState(false);
   const hasUserScrolledRef = useRef(false);
+  const hasClaimedInvertedScrollOwnershipRef = useRef(false);
 
   const {
     clearInitialNormalScrollLock,
@@ -77,25 +106,38 @@ export function useFeedListSurfaceState({
     refreshEpoch,
   });
 
-  /** Marks the inverted viewport as reader-owned after a direct interaction. */
-  const claimInvertedScrollOwnership = useCallback(() => {
+  const claimInvertedScrollOwnership = useCallback((): void => {
     hasUserScrolledRef.current = true;
-    setHasClaimedInvertedScrollOwnership(true);
+
+    if (hasClaimedInvertedScrollOwnershipRef.current) {
+      return;
+    }
+
+    hasClaimedInvertedScrollOwnershipRef.current = true;
+
+    flushSync(() => {
+      setHasClaimedInvertedScrollOwnership(true);
+    });
   }, []);
 
-  /** Resets the transient ownership state after a feed or filter change. */
-  const resetInvertedScrollOwnership = useCallback(() => {
+  const resetInvertedScrollOwnership = useCallback((): void => {
+    hasClaimedInvertedScrollOwnershipRef.current = false;
     setHasClaimedInvertedScrollOwnership(false);
   }, []);
 
-  /** Underfilled inverted feeds must remain bottom-pinned to avoid dead space. */
   const shouldAnchorUnderfilledInvertedViewport = useCallback(() => {
     if (!scrollViewport) {
       return false;
     }
 
-    const scrollableOverflowPx =
-      scrollViewport.scrollHeight - scrollViewport.clientHeight;
+    let scrollableOverflowPx: number;
+
+    try {
+      scrollableOverflowPx =
+        scrollViewport.scrollHeight - scrollViewport.clientHeight;
+    } catch {
+      return false;
+    }
 
     return (
       Number.isFinite(scrollableOverflowPx) &&
@@ -103,10 +145,10 @@ export function useFeedListSurfaceState({
     );
   }, [scrollViewport]);
 
-  const {
-    hasActiveInvertedExpansionScrollLock,
-    releaseInvertedExpansionScrollLock,
-    syncInvertedExpansionScrollLock,
+  const invertedExpansionScrollLock: {
+    hasActiveInvertedExpansionScrollLock: () => boolean;
+    releaseInvertedExpansionScrollLock: () => void;
+    syncInvertedExpansionScrollLock: () => void;
   } = useInvertedExpansionScrollLock({
     articleFilter,
     collapsingArticles,
@@ -118,10 +160,18 @@ export function useFeedListSurfaceState({
   });
 
   const {
-    loadMoreSentinelRef,
-    maybeAutoFillViewport,
-    shouldUseVirtualizedFeed,
-    visibleArticleCount,
+    hasActiveInvertedExpansionScrollLock,
+    releaseInvertedExpansionScrollLock,
+    syncInvertedExpansionScrollLock,
+  } = invertedExpansionScrollLock;
+
+  const paginationState: {
+    invertedPaginationAnchorRef: InvertedPaginationAnchorRefContract;
+    loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
+    maybeAutoFillViewport: (committedListHeight?: number) => void;
+    shouldUseVirtualizedFeed: boolean;
+    syncInvertedPaginationAnchor: () => void;
+    visibleArticleCount: number;
   } = useFeedPagination({
     articleFilter,
     articlesPerPage,
@@ -130,6 +180,7 @@ export function useFeedListSurfaceState({
     feedViewKey,
     filteredFeedLength,
     hasActiveInvertedExpansionScrollLock,
+    hasCollapsingArticles: Object.keys(collapsingArticles).length > 0,
     hasUserScrolledRef,
     isInitialLoading,
     isInvertedScroll,
@@ -144,53 +195,32 @@ export function useFeedListSurfaceState({
     shouldLockInitialNormalScroll,
   });
 
+  const {
+    invertedPaginationAnchorRef,
+    loadMoreSentinelRef,
+    maybeAutoFillViewport,
+    shouldUseVirtualizedFeed,
+    syncInvertedPaginationAnchor,
+    visibleArticleCount,
+  } = paginationState;
+
   const shouldAutoAnchor = useCallback(() => {
+    const hasClaimedScrollOwnership = hasClaimedInvertedScrollOwnershipRef.current;
+
     return shouldAutoAnchorInvertedScrollViewport({
       expandedArticleKey,
-      hasClaimedInvertedScrollOwnership,
+      hasClaimedInvertedScrollOwnership: hasClaimedScrollOwnership,
       isInvertedScroll,
       isUnderfilledInvertedViewport:
-        shouldAnchorUnderfilledInvertedViewport(),
+        !hasClaimedScrollOwnership && shouldAnchorUnderfilledInvertedViewport(),
     });
   }, [
     expandedArticleKey,
-    hasClaimedInvertedScrollOwnership,
     isInvertedScroll,
     shouldAnchorUnderfilledInvertedViewport,
   ]);
 
-  /** Keeps inverted mode anchored to the newest row until the reader takes over. */
-  const getInvertedScrollIntoViewLocation = useCallback(
-    ({ totalCount }: { scrollingInProgress: boolean; totalCount: number }) => {
-      if (!shouldAutoAnchor() || totalCount === 0) {
-        return false;
-      }
-
-      return {
-        align: "end" as const,
-        behavior: "auto" as const,
-        index: invertedScrollAnchorIndex,
-      };
-    },
-    [invertedScrollAnchorIndex, shouldAutoAnchor],
-  );
-
-  /** Continues following the newest row while the inverted viewport is idle-owned. */
-  const getInvertedFollowOutput = useCallback(() => {
-    if (!shouldAutoAnchor()) {
-      return false;
-    }
-
-    return "auto" as const;
-  }, [shouldAutoAnchor]);
-
-  const {
-    contentKey,
-    feedSurfaceMode,
-    hasSearchTerm,
-    shouldShowViewportResolutionSkeleton,
-    trimmedSearchTerm,
-  } = buildFeedSurfacePresentationState({
+  const presentationState: FeedSurfacePresentationContract = buildFeedSurfacePresentationState({
     filteredFeedLength,
     isInitialLoading,
     searchTerm,
@@ -198,59 +228,23 @@ export function useFeedListSurfaceState({
     viewportResolutionState,
   });
 
+  const {
+    contentKey,
+    feedSurfaceMode,
+    hasSearchTerm,
+    shouldShowViewportResolutionSkeleton,
+    trimmedSearchTerm,
+  } = presentationState;
+
   const hasMoreArticles = visibleArticleCount < filteredFeedLength;
-  const canLoadMoreBoundaryFromServer = Boolean(canLoadMoreFromServer);
-
-  const virtuosoComponents = useMemo(
-    () => ({
-      Footer: () =>
-        renderLoadMoreBoundary({
-          canLoadMoreFromServer: canLoadMoreBoundaryFromServer,
-          hasMoreArticles,
-          loadMoreSentinelRef,
-        }),
-      Item: VirtuosoFeedItem,
-    }),
-    [canLoadMoreBoundaryFromServer, hasMoreArticles, loadMoreSentinelRef],
-  );
-
-  /** Inverted mode paginates upward, so it renders the load sentinel in the header. */
-  const invertedVirtuosoComponents = useMemo(
-    () => ({
-      Header: () =>
-        renderLoadMoreBoundary({
-          canLoadMoreFromServer: canLoadMoreBoundaryFromServer,
-          hasMoreArticles,
-          loadMoreSentinelRef,
-        }),
-      Item: VirtuosoFeedItem,
-      List: forwardRef<HTMLDivElement, ComponentPropsWithRef<"div">>(
-        function InvertedVirtuosoList(props, ref) {
-          return (
-            <div
-              {...props}
-              ref={ref}
-              style={{
-                ...props.style,
-                paddingBottom: 0,
-              }}
-            />
-          );
-        },
-      ),
-    }),
-    [canLoadMoreBoundaryFromServer, hasMoreArticles, loadMoreSentinelRef],
-  );
 
   return {
     contentKey,
     feedSurfaceMode,
-    getInvertedFollowOutput,
-    getInvertedScrollIntoViewLocation,
     handleViewportHostRef,
     hasMoreArticles,
     hasSearchTerm,
-    invertedVirtuosoComponents,
+    invertedPaginationAnchorRef,
     isInvertedScroll,
     loadMoreSentinelRef,
     maybeAutoFillViewport,
@@ -260,38 +254,8 @@ export function useFeedListSurfaceState({
     shouldShowViewportResolutionSkeleton,
     shouldUseVirtualizedFeed,
     syncInvertedExpansionScrollLock,
+    syncInvertedPaginationAnchor,
     trimmedSearchTerm,
-    virtuosoComponents,
     visibleArticleCount,
   };
-}
-
-/**
- * Renders the invisible IntersectionObserver sentinel that fires load-more
- * pagination at the correct virtual position within the Virtuoso list.
- *
- * Skeleton rows are intentionally NOT rendered here.  They live outside the
- * Virtuoso component tree in FeedList so they appear and disappear via normal
- * React reconciliation, independent of Virtuoso's internal render cycle.
- * Keeping skeletons inside Virtuoso's Footer/Header caused them to be silently
- * swallowed when the closure-captured component reference changed on every
- * `isLoadingMore` flip, triggering a full unmount/remount of the Footer that
- * Virtuoso may defer based on its own scheduling.
- */
-function renderLoadMoreBoundary({
-  canLoadMoreFromServer,
-  hasMoreArticles,
-  loadMoreSentinelRef,
-}: RenderLoadMoreBoundaryOptions) {
-  if (!hasMoreArticles && !canLoadMoreFromServer) {
-    return null;
-  }
-
-  return (
-    <div
-      className="h-px w-full"
-      data-feed-load-more-sentinel="true"
-      ref={loadMoreSentinelRef}
-    />
-  );
 }

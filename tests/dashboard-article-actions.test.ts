@@ -1455,7 +1455,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
     window.cancelAnimationFrame = nativeCancelAnimationFrame;
   });
 
-  test("inverted feed collapse skips the generic collapse scroll restore", async () => {
+  test("collapse restore still runs even when legacy inverted feed attributes are present", async () => {
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
     Object.defineProperty(viewport, "clientHeight", {
@@ -1537,9 +1537,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
     });
     rerender({ currentExpandedKey: expandedArticleKey });
 
-    expect(result.current.isCollapseScrollRestoreActive).toBe(false);
+    expect(result.current.isCollapseScrollRestoreActive).toBe(true);
     expect(viewport.scrollTop).toBe(440);
-    expect(viewport.style.overflowAnchor).toBe("");
+    expect(viewport.style.overflowAnchor).toBe("none");
 
     document.body.removeChild(invertedFeedSurface);
   });

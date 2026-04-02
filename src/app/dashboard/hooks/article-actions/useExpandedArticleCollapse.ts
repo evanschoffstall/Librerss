@@ -49,7 +49,6 @@ export function useExpandedArticleCollapse({
   startRemovalAnimation,
   updatingArticleState,
 }: UseExpandedArticleCollapseOptions) {
-  /** The generic collapse restore is only for standard feeds; inverted mode owns its own lock. */
   const shouldRestoreCollapsedArticleScroll = useCallback((articleKey: string) => {
     const articleElement = document.querySelector<HTMLElement>(
       `[data-article-key="${escapeArticleKey(articleKey)}"]`,

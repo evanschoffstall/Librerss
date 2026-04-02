@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { findVisibleInvertedRemovalAnchorArticleKey } from "@/app/dashboard/components/feed/useFeedListSurfaceState";
+import {
+  findTopVisibleInvertedPaginationAnchorArticleKey,
+  findVisibleInvertedRemovalAnchorArticleKey,
+} from "@/app/dashboard/components/feed/useFeedListSurfaceState";
 
 function appendViewportArticle(
   viewport: HTMLElement,
@@ -78,5 +81,41 @@ describe("findVisibleInvertedRemovalAnchorArticleKey", () => {
     expect(
       findVisibleInvertedRemovalAnchorArticleKey(new Set(["article-1"])),
     ).toBe("article-2");
+  });
+});
+
+describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
+  test("keeps the partially visible top header as the pagination anchor", () => {
+    const viewport = document.createElement("div");
+    viewport.dataset.radixScrollAreaViewport = "";
+    viewport.getBoundingClientRect = () => createRect(100, 400);
+
+    const virtualizerElement = document.createElement("div");
+    virtualizerElement.dataset.feedVirtualizer = "true";
+    viewport.append(virtualizerElement);
+
+    appendViewportArticle(viewport, "article-1", 80);
+    appendViewportArticle(viewport, "article-2", 180);
+    appendViewportArticle(viewport, "article-3", 280);
+    document.body.append(viewport);
+
+    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe("article-1");
+  });
+
+  test("falls back to the next visible header when the top row is fully above the viewport", () => {
+    const viewport = document.createElement("div");
+    viewport.dataset.radixScrollAreaViewport = "";
+    viewport.getBoundingClientRect = () => createRect(100, 400);
+
+    const virtualizerElement = document.createElement("div");
+    virtualizerElement.dataset.feedVirtualizer = "true";
+    viewport.append(virtualizerElement);
+
+    appendViewportArticle(viewport, "article-1", 40);
+    appendViewportArticle(viewport, "article-2", 130);
+    appendViewportArticle(viewport, "article-3", 260);
+    document.body.append(viewport);
+
+    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe("article-2");
   });
 });
