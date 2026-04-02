@@ -66,6 +66,7 @@ export const DashboardView = ({
               isInitialLoading={feedList.isInitialLoading}
               isLoadingMore={feedList.isLoadingMore}
               isRefreshing={feedList.isRefreshing}
+              loadingMoreArticleCount={feedList.loadingMoreArticleCount}
               onEnteringDone={feedList.onArticleEnteringDone}
               onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
               onLoadMore={feedList.onLoadMore}

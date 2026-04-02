@@ -52,6 +52,57 @@ export function findInvertedExpansionLockViewport() {
   return findDashboardFeedViewport();
 }
 
+/**
+ * Selects the current topmost visible article header for inverted pagination.
+ *
+ * Prepend pagination must preserve the row the reader is currently aligned to,
+ * even when that header is only partially visible at the top edge. Reusing the
+ * unread-removal survivor selector here is wrong because that helper prefers a
+ * lower fully visible row, which makes pagination snap back to the wrong item.
+ */
+export function findTopVisibleInvertedPaginationAnchorArticleKey() {
+  const viewport = findInvertedExpansionLockViewport();
+
+  if (!viewport) {
+    return null;
+  }
+
+  const viewportRect = viewport.getBoundingClientRect();
+  const visibleHeaders = Array.from(
+    viewport.querySelectorAll<HTMLElement>(
+      "article[data-article-key] [data-article-swipe-zone='header']",
+    ),
+  )
+    .map((headerElement) => {
+      const articleElement = headerElement.closest<HTMLElement>(
+        "article[data-article-key]",
+      );
+      const articleKey = articleElement?.dataset.articleKey ?? null;
+
+      if (!articleKey) {
+        return null;
+      }
+
+      const headerRect = headerElement.getBoundingClientRect();
+
+      if (
+        headerRect.bottom <= viewportRect.top ||
+        headerRect.top >= viewportRect.bottom
+      ) {
+        return null;
+      }
+
+      return {
+        articleKey,
+        headerTop: headerRect.top,
+      };
+    })
+    .filter((entry) => entry !== null)
+    .sort((left, right) => left.headerTop - right.headerTop);
+
+  return visibleHeaders[0]?.articleKey ?? null;
+}
+
 /** Selects the visible survivor article whose header should anchor unread-removal scroll compensation. */
 export function findVisibleInvertedRemovalAnchorArticleKey(
   excludedArticleKeys: ReadonlySet<string>,

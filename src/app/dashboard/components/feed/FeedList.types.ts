@@ -35,6 +35,7 @@ export interface FeedListProps {
   isInitialLoading: boolean;
   isLoadingMore?: boolean;
   isRefreshing: boolean;
+  loadingMoreArticleCount?: number;
   /** Stable callback invoked when a specific article's entrance animation settles. */
   onEnteringDone?: (articleKey: string) => void;
   onExpandedSwipeRead: (article: Article) => void;

@@ -17,7 +17,7 @@ interface FeedScrollbarMetrics {
 
 const MIN_FEED_SCROLLBAR_THUMB_HEIGHT_PX = 32;
 
-/** Reads the current Virtuoso-owned total list height when it is exposed. */
+/** Reads the current virtualized feed height when it is exposed. */
 function readFeedTotalListHeight(viewportElement: HTMLElement) {
   const feedSurface = viewportElement.querySelector<HTMLElement>(
     "[data-feed-total-list-height]",
@@ -34,11 +34,11 @@ function readFeedTotalListHeight(viewportElement: HTMLElement) {
 }
 
 /**
- * Feed-local scroll viewport with a Virtuoso-driven shadcn-style scrollbar.
+ * Feed-local scroll viewport with a virtualizer-driven shadcn-style scrollbar.
  *
- * Articles scroll through a plain viewport so Virtuoso owns the scrolling.
+ * Articles scroll through a plain viewport so the feed virtualizer owns row layout.
  * The visible rail and thumb are a lightweight overlay whose size comes from
- * Virtuoso's total-list-height signal and whose position tracks the real
+ * the virtualizer's total-list-height signal and whose position tracks the real
  * viewport scroll offset.
  */
 export const DashboardFeedScrollArea = React.forwardRef<
@@ -72,10 +72,10 @@ export const DashboardFeedScrollArea = React.forwardRef<
     }
 
     const { clientHeight, scrollHeight, scrollTop } = viewportElement;
-    const virtuosoListHeight = readFeedTotalListHeight(viewportElement);
+    const virtualizedListHeight = readFeedTotalListHeight(viewportElement);
     const effectiveScrollHeight = Math.max(
       clientHeight,
-      virtuosoListHeight ?? scrollHeight,
+      virtualizedListHeight ?? scrollHeight,
     );
     const maxScrollTop = effectiveScrollHeight - clientHeight;
 

@@ -3,43 +3,41 @@
 /**
  * Renders the dashboard article feed inside the shared Radix ScrollArea.
  *
- * The feed now delegates viewport virtualization and dynamic-height handling to
- * react-virtuoso instead of managing manual paging, sentinels, FLIP reflow,
- * and scroll bookkeeping in-house. Feed rows stay visually idle so expand,
- * collapse, read, and filter updates resolve through plain layout changes.
+ * The feed delegates row windowing and dynamic-height measurement to a
+ * feed-owned TanStack Virtual surface instead of manual paging, sentinels,
+ * FLIP reflow, or library-managed scroll containers. Feed rows stay visually
+ * idle so expand, collapse, read, and filter updates resolve through plain
+ * layout changes.
  */
 
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Virtuoso } from "react-virtuoso";
 
 import { type Article, useIsMobile, useLocalStorage } from "@/lib";
 
 import { MOBILE_INVERTED_SCROLL_STORAGE_KEY } from "../../constants";
 import { type CollapsingArticles } from "../../hooks/useArticleCollapseState";
 import { getArticleKey } from "../../services/article-collection";
+import {
+  isInvertedFeedScrollMode,
+  resolveFeedScrollMode,
+  resolveFeedScrollModeArticles,
+} from "./feed-list-surface-state/feed-scroll-mode";
+import { syncViewportToBottomIfNeeded } from "./feed-list-surface-state/viewport-scroll";
 import { FeedArticleRow } from "./FeedArticleRow";
 import { FeedEmptyState } from "./FeedEmptyState";
 import { type FeedListProps } from "./FeedList.types";
 import { FeedListSkeleton, FeedLoadMoreSkeletonRows } from "./FeedListSkeleton";
+import { FeedVirtualList } from "./FeedVirtualList";
 import { useFeedListSurfaceState } from "./useFeedListSurfaceState";
 
 const EMPTY_COLLAPSING_ARTICLES: Readonly<CollapsingArticles> = {};
 const EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT = () => null;
 
 const FEED_DEFAULT_ITEM_HEIGHT_PX = 120;
-const FEED_VIEWPORT_INCREASE = { bottom: 1500, top: 600 };
-/** Swapped viewport overscan for inverted (bottom-to-top) scroll. */
-const FEED_VIEWPORT_INCREASE_INVERTED = { bottom: 600, top: 1500 };
-const FEED_VIEWPORT_INCREASE_INVERTED_INTERACTION = { bottom: 10_000, top: 10_000 };
-/**
- * Large base index so Virtuoso can correctly handle prepend operations
- * when inverted pagination adds older articles to the top of the reversed list.
- */
-const INVERTED_FIRST_INDEX_BASE = 100_000;
 
-/** Shared class string for the Virtuoso wrapper and list frame elements. */
+/** Shared class string for the virtualized feed wrapper and list frame elements. */
 const FEED_LIST_FRAME_CLASSNAME = "flex h-full min-h-0 w-full min-w-0 flex-col";
 /** Class string for the outermost surface container. */
 const FEED_LIST_SURFACE_CLASSNAME = "flex min-h-0 w-full min-w-0 flex-col";
@@ -55,13 +53,6 @@ const CONTENT_ENTER_TRANSITION = {
   duration: 0.35,
   ease: [0.16, 1, 0.3, 1] as const,
 };
-
-export function isFeedInvertedScrollActive(
-  isMobile: boolean,
-  mobileInvertedScroll: boolean,
-) {
-  return isMobile && mobileInvertedScroll;
-}
 
 function syncViewportScrollTop(viewport: HTMLElement, top: number) {
   if (typeof viewport.scrollTo === "function") {
@@ -92,6 +83,7 @@ export const FeedList = memo(function FeedList({
   isInitialLoading,
   isLoadingMore = false,
   isRefreshing: _isRefreshing,
+  loadingMoreArticleCount,
   onEnteringDone,
   onExpandedSwipeRead,
   onLoadMore,
@@ -110,37 +102,29 @@ export const FeedList = memo(function FeedList({
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
     true,
   );
-  const isActiveInvertedScroll = isFeedInvertedScrollActive(
+  const feedScrollMode = resolveFeedScrollMode(
     isMobile,
     mobileInvertedScroll,
   );
+  const isActiveInvertedScroll = isInvertedFeedScrollMode(feedScrollMode);
   const { resolvedTheme } = useTheme();
   const isDark = (resolvedTheme ?? "dark") === "dark";
   const isMountedRef = useRef(true);
   const [measuredTotalListHeight, setMeasuredTotalListHeight] =
     useState<null | number>(null);
-  /**
-   * Ref kept in sync each render so the layout effect below can read the
-   * scroll viewport's current scrollHeight without making it a reactive dep.
-   */
   const scrollViewportRef = useRef<HTMLElement | null>(null);
-  /**
-   * Height floor that prevents the Virtuoso wrapper from shrinking during a
-   * collapse transition. Captured synchronously in useLayoutEffect the moment
-   * the collapse commit lands (before Virtuoso's async ResizeObserver fires).
-   * Cleared on each new expansion so the list can grow freely.
-   */
   const invertedHeightFloorRef = useRef<null | number>(null);
+  const invertedHydrationAnchorFrameRef = useRef<null | number>(null);
+  const previousExpandedArticleKeyRef = useRef(expandedArticleKey);
   const preExpandViewportSnapshotGetter =
     getPreExpandViewportSnapshot ?? EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT;
   const {
     contentKey,
     feedSurfaceMode,
-    getInvertedFollowOutput,
     handleViewportHostRef,
     hasMoreArticles,
     hasSearchTerm,
-    invertedVirtuosoComponents,
+    invertedPaginationAnchorRef,
     isInvertedScroll,
     loadMoreSentinelRef,
     maybeAutoFillViewport,
@@ -150,8 +134,8 @@ export const FeedList = memo(function FeedList({
     shouldShowViewportResolutionSkeleton,
     shouldUseVirtualizedFeed,
     syncInvertedExpansionScrollLock,
+    syncInvertedPaginationAnchor,
     trimmedSearchTerm,
-    virtuosoComponents,
     visibleArticleCount,
   } = useFeedListSurfaceState({
     articleFilter,
@@ -162,7 +146,7 @@ export const FeedList = memo(function FeedList({
     feedViewKey,
     filteredFeedLength: filteredFeed.length,
     getPreExpandViewportSnapshot: preExpandViewportSnapshotGetter,
-    invertedScrollAnchorIndex: INVERTED_FIRST_INDEX_BASE - 1,
+    invertedScrollAnchorIndex: 0,
     isCollapseScrollRestoreActive,
     isInitialLoading,
     isInvertedScroll: isActiveInvertedScroll,
@@ -174,38 +158,36 @@ export const FeedList = memo(function FeedList({
 
   const visibleFeed = filteredFeed.slice(0, visibleArticleCount);
   const shouldShowLoadMoreBoundary = hasMoreArticles || typeof onLoadMore === "function";
-
-  /**
-   * When inverted, reverse the feed so oldest articles sit at the top and
-   * newest articles sit at the bottom. Combined with scroll-to-bottom on
-   * mount, this gives the user newest-first with upward scroll for older.
-   */
-  const feedData = useMemo(
-    () => (isActiveInvertedScroll ? [...visibleFeed].reverse() : visibleFeed),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleFeed identity changes every slice
-    [isActiveInvertedScroll, visibleArticleCount, filteredFeed],
+  const loadMoreSkeletonCount = Math.max(
+    0,
+    loadingMoreArticleCount ?? articlesPerPage,
   );
 
-  const invertedFirstItemIndex = isActiveInvertedScroll
-    ? INVERTED_FIRST_INDEX_BASE - feedData.length
-    : 0;
+  const feedData = useMemo(
+    () => resolveFeedScrollModeArticles(visibleFeed, feedScrollMode),
+    [feedScrollMode, visibleFeed],
+  );
 
   scrollViewportRef.current = scrollViewport;
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+
+      if (invertedHydrationAnchorFrameRef.current !== null) {
+        window.cancelAnimationFrame(invertedHydrationAnchorFrameRef.current);
+      }
     };
   }, []);
 
-  /**
-   * When an expanded article collapses, capture the current scrollHeight as
-   * the floor before Virtuoso's ResizeObserver fires and reduces the list
-   * height. Without the floor, the DOM shrinks → maxScrollTop drops →
-   * the browser clamps the user's scrollTop, making "scroll down" impossible.
-   * Reset the floor when a new article is expanded so the list can grow freely.
-   */
+  useEffect(() => {
+    invertedHeightFloorRef.current = null;
+  }, [articleFilter, feedViewKey, isActiveInvertedScroll, searchTerm]);
+
   useLayoutEffect(() => {
+    const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
+    previousExpandedArticleKeyRef.current = expandedArticleKey;
+
     if (!isActiveInvertedScroll) {
       return;
     }
@@ -215,48 +197,36 @@ export const FeedList = memo(function FeedList({
       return;
     }
 
-    const vp = scrollViewportRef.current;
-
-    if (vp) {
-      invertedHeightFloorRef.current = vp.scrollHeight;
+    if (previousExpandedArticleKey === null) {
+      return;
     }
-  // scrollViewport deliberately read from ref — not a reactive dep here.
-   
+
+    const viewport = scrollViewportRef.current;
+
+    if (viewport && viewport.scrollHeight > (invertedHeightFloorRef.current ?? 0)) {
+      invertedHeightFloorRef.current = viewport.scrollHeight;
+    }
   }, [expandedArticleKey, isActiveInvertedScroll]);
 
-  /**
-   * Refresh the inverted height floor when a "mark visible as read" batch
-   * begins. The floor captured at mount (or the last article expand/collapse)
-   * goes stale after server pages load, so when a batch collapse starts the
-   * list can shrink below the pre-collapse height, clamping scrollTop and
-   * causing a visible scroll jump. Taking Math.max keeps the floor at the
-   * highest seen value so any ongoing anchoring is preserved.
-   */
   const prevCollapsingArticleCountRef = useRef(Object.keys(collapsingArticles).length);
   useLayoutEffect(() => {
     if (!isActiveInvertedScroll || expandedArticleKey !== null) {
       return;
     }
 
-    const prev = prevCollapsingArticleCountRef.current;
-    const curr = Object.keys(collapsingArticles).length;
-    prevCollapsingArticleCountRef.current = curr;
+    const previousCount = prevCollapsingArticleCountRef.current;
+    const currentCount = Object.keys(collapsingArticles).length;
+    prevCollapsingArticleCountRef.current = currentCount;
 
-    // Only refresh on the 0 → n transition (batch start) so we capture the
-    // full pre-collapse height exactly once per mark-visible-as-read action.
-    if (curr > 0 && prev === 0) {
-      const vp = scrollViewportRef.current;
-      if (vp && vp.scrollHeight > (invertedHeightFloorRef.current ?? 0)) {
-        invertedHeightFloorRef.current = vp.scrollHeight;
+    if (currentCount > 0 && previousCount === 0) {
+      const viewport = scrollViewportRef.current;
+
+      if (viewport && viewport.scrollHeight > (invertedHeightFloorRef.current ?? 0)) {
+        invertedHeightFloorRef.current = viewport.scrollHeight;
       }
     }
   }, [collapsingArticles, expandedArticleKey, isActiveInvertedScroll]);
 
-  /**
-   * In inverted mode apply a height floor so the Virtuoso wrapper never
-   * shrinks below the scrollHeight captured at collapse time. This prevents
-   * scrollTop from being clamped by the browser as the DOM settles.
-   */
   const virtualizedListHeight = useMemo(() => {
     if (measuredTotalListHeight === null) {
       return null;
@@ -271,27 +241,13 @@ export const FeedList = memo(function FeedList({
       return baseHeight;
     }
 
-    const floor = invertedHeightFloorRef.current ?? 0;
-
-    return Math.max(baseHeight, floor);
+    return Math.max(baseHeight, invertedHeightFloorRef.current ?? 0);
   }, [isActiveInvertedScroll, measuredTotalListHeight, scrollViewport?.clientHeight]);
-  const virtualizedViewportHeight = scrollViewport?.clientHeight ?? null;
-  const virtualizedListStyle =
-    virtualizedListHeight !== null
-      ? { height: `${virtualizedListHeight}px` }
-      : virtualizedViewportHeight !== null
-        ? { height: `${virtualizedViewportHeight}px` }
-        : { height: "100%" };
   const lastFeedArticle = feedData.at(-1);
   const lastFeedArticleKey = lastFeedArticle
     ? getArticleKey(lastFeedArticle)
     : null;
 
-  /**
-   * Anchors the inverted feed to the true bottom whenever the rendered list
-   * height becomes known. Fires synchronously after each DOM commit so
-   * scrollHeight already reflects the new wrapper height — no timers needed.
-   */
   useLayoutEffect(() => {
     if (
       !isInvertedScroll ||
@@ -302,17 +258,45 @@ export const FeedList = memo(function FeedList({
       return;
     }
 
-    const maxScrollTop = scrollViewport.scrollHeight - scrollViewport.clientHeight;
-
-    if (maxScrollTop > 0 && Math.abs(scrollViewport.scrollTop - maxScrollTop) > 1) {
-      scrollViewport.scrollTop = maxScrollTop;
-    }
+    syncViewportToBottomIfNeeded(scrollViewport);
   }, [
     isInvertedScroll,
     scrollViewport,
-    virtualizedListHeight,
     shouldAutoAnchorInvertedScroll,
+    virtualizedListHeight,
   ]);
+
+  useLayoutEffect(() => {
+    if (
+      !isInvertedScroll ||
+      scrollViewport === null ||
+      !shouldAutoAnchorInvertedScroll() ||
+      feedData.length === 0
+    ) {
+      if (invertedHydrationAnchorFrameRef.current !== null) {
+        window.cancelAnimationFrame(invertedHydrationAnchorFrameRef.current);
+        invertedHydrationAnchorFrameRef.current = null;
+      }
+
+      return;
+    }
+
+    if (syncViewportToBottomIfNeeded(scrollViewport)) {
+      return;
+    }
+
+    invertedHydrationAnchorFrameRef.current = window.requestAnimationFrame(() => {
+      invertedHydrationAnchorFrameRef.current = null;
+      syncViewportToBottomIfNeeded(scrollViewport);
+    });
+
+    return () => {
+      if (invertedHydrationAnchorFrameRef.current !== null) {
+        window.cancelAnimationFrame(invertedHydrationAnchorFrameRef.current);
+        invertedHydrationAnchorFrameRef.current = null;
+      }
+    };
+  }, [feedData.length, isInvertedScroll, scrollViewport, shouldAutoAnchorInvertedScroll]);
 
   const renderFeedRow = useCallback(
     (article: Article) => {
@@ -450,99 +434,101 @@ export const FeedList = memo(function FeedList({
             style={FEED_LIST_FILL_STYLE}
             transition={CONTENT_ENTER_TRANSITION}
           >
-            {shouldUseVirtualizedFeed ? (
+            {shouldUseVirtualizedFeed && scrollViewport !== null ? (
               <>
                 {/*
-                 * Skeleton rows for the next server page live OUTSIDE the Virtuoso
-                 * component tree so they appear via normal React reconciliation the
-                 * moment isLoadingMore becomes true.
+                 * Skeleton rows for the next server page live OUTSIDE the
+                 * virtualized content tree so they appear via normal React
+                 * reconciliation the moment isLoadingMore becomes true.
                  *
-                 * Putting them inside Virtuoso's Footer/Header caused them to be
-                 * silently dropped: every isLoadingMore flip changed the Footer
-                 * closure reference, React treated it as a new component type and
-                 * unmounted/remounted the footer — a cycle Virtuoso may defer based
-                 * on its own scheduling, meaning the skeleton never painted during
-                 * the DB round trip.
+                 * Keeping them outside the measured row window avoids coupling the
+                 * loading placeholder to row measurement and ensures the skeletons
+                 * paint immediately during the server round trip.
                  *
                  * Inverted mode: skeletons appear at the top (older articles load upward).
                  * Standard mode: skeletons appear at the bottom (newer pages append downward).
-                 * The IntersectionObserver sentinel stays inside Virtuoso so it fires
-                 * at the correct virtual position.
+                 * The IntersectionObserver sentinel stays inside the virtualizer so
+                 * it fires at the correct virtual position.
                  */}
-                {isInvertedScroll && isLoadingMore ? (
+                {isInvertedScroll && isLoadingMore && loadMoreSkeletonCount > 0 ? (
                   <div data-feed-load-more-skeletons="true">
-                    <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                    <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
                   </div>
                 ) : null}
-                <Virtuoso
+                <FeedVirtualList
+                  articles={feedData}
                   className={FEED_LIST_FRAME_CLASSNAME}
-                  components={isInvertedScroll ? invertedVirtuosoComponents : virtuosoComponents}
-                computeItemKey={(index, article: Article | undefined) =>
-                  article
-                    ? getArticleKey(article)
-                    : `${feedViewKey}:pending-item:${index}`
-                }
-                customScrollParent={scrollViewport ?? undefined}
-                data={feedData}
-                data-feed-virtualizer="true"
-                defaultItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
-                increaseViewportBy={
-                  isInvertedScroll
-                    ? expandedArticleKey !== null || isCollapseScrollRestoreActive
-                      ? FEED_VIEWPORT_INCREASE_INVERTED_INTERACTION
-                      : FEED_VIEWPORT_INCREASE_INVERTED
-                    : FEED_VIEWPORT_INCREASE
-                }
-                initialItemCount={Math.min(feedData.length, visibleArticleCount)}
-                itemContent={(_index, article: Article | undefined) =>
-                  article ? renderFeedRow(article) : null
-                }
-                key={`${feedViewKey}:${isInvertedScroll ? "inv" : "std"}`}
-                style={virtualizedListStyle}
-                totalListHeightChanged={(nextTotalListHeight) => {
-                  if (!isMountedRef.current) {
-                    return;
+                  estimatedItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
+                  expandedArticleKey={expandedArticleKey}
+                  feedViewKey={feedViewKey}
+                  isCollapseScrollRestoreActive={isCollapseScrollRestoreActive}
+                  key={`${feedViewKey}:${isInvertedScroll ? "inv" : "std"}`}
+                  loadMoreSentinelRef={loadMoreSentinelRef}
+                  minimumTotalListHeight={
+                    isInvertedScroll ? virtualizedListHeight ?? undefined : undefined
                   }
+                  onTotalListHeightChange={(nextTotalListHeight) => {
+                    if (!isMountedRef.current) {
+                      return;
+                    }
 
-                  setMeasuredTotalListHeight((currentHeight) =>
-                    currentHeight === nextTotalListHeight
-                      ? currentHeight
-                      : nextTotalListHeight,
-                  );
+                    const viewport = scrollViewportRef.current;
+                    const shouldAutoAnchorViewport =
+                      isInvertedScroll && shouldAutoAnchorInvertedScroll();
 
-                  if (isInvertedScroll) {
-                    syncInvertedExpansionScrollLock();
+                    if (isInvertedScroll && viewport) {
+                      const minimumViewportFloor = viewport.scrollTop + viewport.clientHeight;
 
-                    if (scrollViewport && shouldAutoAnchorInvertedScroll()) {
-                      const maxScrollTop =
-                        scrollViewport.scrollHeight - scrollViewport.clientHeight;
-
-                      if (
-                        maxScrollTop > 0 &&
-                        Math.abs(scrollViewport.scrollTop - maxScrollTop) > 1
-                      ) {
-                        scrollViewport.scrollTop = maxScrollTop;
+                      if (invertedPaginationAnchorRef.current !== null) {
+                        invertedHeightFloorRef.current = Math.max(
+                          invertedHeightFloorRef.current ?? 0,
+                          nextTotalListHeight,
+                          minimumViewportFloor,
+                        );
+                      } else if (!shouldAutoAnchorViewport) {
+                        invertedHeightFloorRef.current = Math.max(
+                          nextTotalListHeight,
+                          minimumViewportFloor,
+                        );
+                      } else {
+                        invertedHeightFloorRef.current = null;
                       }
                     }
-                  } else if (scrollViewport && shouldLockInitialNormalScroll()) {
-                    syncViewportScrollTop(scrollViewport, 0);
-                  }
 
-                  maybeAutoFillViewport(nextTotalListHeight);
-                }}
-                {...(isInvertedScroll
-                  ? {
-                      alignToBottom: shouldAutoAnchorInvertedScroll(),
-                      firstItemIndex: invertedFirstItemIndex,
-                      followOutput: getInvertedFollowOutput,
+                    setMeasuredTotalListHeight((currentHeight) =>
+                      currentHeight === nextTotalListHeight
+                        ? currentHeight
+                        : nextTotalListHeight,
+                    );
+
+                    if (isInvertedScroll) {
+                      syncInvertedExpansionScrollLock();
+                      syncInvertedPaginationAnchor();
+
+                      if (shouldAutoAnchorViewport) {
+                        syncViewportToBottomIfNeeded(scrollViewport);
+                      }
+                    } else if (shouldLockInitialNormalScroll()) {
+                      syncViewportScrollTop(scrollViewport, 0);
                     }
-                  : {})}
-              />
-              {!isInvertedScroll && isLoadingMore ? (
-                <div data-feed-load-more-skeletons="true">
-                  <FeedLoadMoreSkeletonRows count={articlesPerPage} />
-                </div>
-              ) : null}
+
+                    maybeAutoFillViewport(
+                      Math.max(
+                        nextTotalListHeight,
+                        invertedHeightFloorRef.current ?? 0,
+                      ),
+                    );
+                  }}
+                  renderArticle={renderFeedRow}
+                  scrollMode={feedScrollMode}
+                  scrollViewport={scrollViewport}
+                  showLoadMoreBoundary={shouldShowLoadMoreBoundary}
+                />
+                {!isInvertedScroll && isLoadingMore && loadMoreSkeletonCount > 0 ? (
+                  <div data-feed-load-more-skeletons="true">
+                    <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
+                  </div>
+                ) : null}
               </>
             ) : (
               <>
@@ -553,15 +539,15 @@ export const FeedList = memo(function FeedList({
                     ref={loadMoreSentinelRef}
                   />
                 ) : null}
-                {isInvertedScroll && !hasMoreArticles && isLoadingMore ? (
+                {isInvertedScroll && !hasMoreArticles && isLoadingMore && loadMoreSkeletonCount > 0 ? (
                   <div data-feed-load-more-skeletons="true">
-                    <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                    <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
                   </div>
                 ) : null}
                 {feedData.map(renderFeedRow)}
-                {!isInvertedScroll && !hasMoreArticles && isLoadingMore ? (
+                {!isInvertedScroll && !hasMoreArticles && isLoadingMore && loadMoreSkeletonCount > 0 ? (
                   <div data-feed-load-more-skeletons="true">
-                    <FeedLoadMoreSkeletonRows count={articlesPerPage} />
+                    <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
                   </div>
                 ) : null}
                 {!isInvertedScroll && shouldShowLoadMoreBoundary ? (
