@@ -28,6 +28,7 @@ interface UseFeedPaginationOptions {
   feedViewKey: string;
   filteredFeedLength: number;
   hasActiveInvertedExpansionScrollLock: () => boolean;
+  hasCollapsingArticles: boolean;
   hasUserScrolledRef: { current: boolean };
   isInitialLoading: boolean;
   isInvertedScroll: boolean;
@@ -41,6 +42,7 @@ interface UseFeedPaginationOptions {
   searchTerm: string;
   shouldLockInitialNormalScroll: () => boolean;
 }
+
 
 /**
  * Owns visible-window sizing, scroll-triggered pagination, and viewport auto-fill.
@@ -56,6 +58,7 @@ export function useFeedPagination({
   feedViewKey,
   filteredFeedLength,
   hasActiveInvertedExpansionScrollLock,
+  hasCollapsingArticles,
   hasUserScrolledRef,
   isInitialLoading,
   isInvertedScroll,
@@ -64,19 +67,33 @@ export function useFeedPagination({
   onReleaseInvertedExpansionScrollLock,
   onResetInvertedScrollOwnership,
   onSyncInvertedExpansionScrollLock,
-  refreshEpoch,
+  refreshEpoch: _refreshEpoch,
   scrollViewport,
   searchTerm,
   shouldLockInitialNormalScroll,
 }: UseFeedPaginationOptions) {
+  const hasCollapsingArticlesRef = useRef(hasCollapsingArticles);
+
+  // Must be useLayoutEffect — the virtualized height commit lands during the
+  // layout phase before useEffect callbacks run, so a plain useEffect would
+  // leave the ref stale (false) on the very first collapse frame and let
+  // maybeAutoFillViewport fire a server request before the guard activates.
+  useLayoutEffect(() => {
+    hasCollapsingArticlesRef.current = hasCollapsingArticles;
+  }, [hasCollapsingArticles]);
   const [visibleArticleCount, setVisibleArticleCount] = useState(articlesPerPage);
-  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreSentinelRef = useCallback((node: HTMLDivElement | null) => {
+    void node;
+  }, []);
   const hasRequestedServerLoadRef = useRef(false);
   const hasPendingServerRevealRef = useRef(false);
   const isInvertedLoadBoundaryArmedRef = useRef(true);
   const isStandardLoadBoundaryArmedRef = useRef(true);
   const isMountedRef = useRef(true);
+  const invertedPaginationAnchorFrameRef = useRef<null | number>(null);
   const paginationFrameRef = useRef<null | number>(null);
+  const invertedPaginationAnchorRef =
+    useRef<InvertedPaginationAnchorState | null>(null);
   const filteredFeedLengthRef = useRef(filteredFeedLength);
   const previousFilteredFeedLengthRef = useRef(filteredFeedLength);
   const visibleArticleCountRef = useRef(articlesPerPage);
@@ -510,6 +527,19 @@ export function useFeedPagination({
         return;
       }
 
+      if (isInvertedScroll) {
+        const maxScrollTop = Math.max(
+          0,
+          scrollViewport.scrollHeight - scrollViewport.clientHeight,
+        );
+
+        if (scrollViewport.scrollTop < maxScrollTop - 1) {
+          releaseInvertedPaginationAnchor();
+          onClaimInvertedScrollOwnership();
+          hasUserScrolledRef.current = true;
+        }
+      }
+
       if (shouldLockInitialNormalScroll() && !isInvertedScroll) {
         if (scrollViewport.scrollTop === 0) {
           return;
@@ -637,9 +667,11 @@ export function useFeedPagination({
   }, []);
 
   return {
+    invertedPaginationAnchorRef,
     loadMoreSentinelRef,
     maybeAutoFillViewport,
     shouldUseVirtualizedFeed,
+    syncInvertedPaginationAnchor,
     visibleArticleCount,
   };
 }

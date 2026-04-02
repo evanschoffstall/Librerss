@@ -173,7 +173,9 @@ export function useInvertedExpansionScrollLock({
           ? lockState.viewport.scrollTop +
             getViewportOffsetTop(anchor, lockState.viewport) -
             lockState.anchorViewportOffsetTop
-          : lockState.baselineScrollTop;
+          : lockState.pinToBottom
+            ? Math.max(0, lockState.viewport.scrollHeight - lockState.viewport.clientHeight)
+            : lockState.baselineScrollTop;
 
     if (Math.abs(lockState.viewport.scrollTop - targetScrollTop) > 0.5) {
       lockState.viewport.scrollTop = targetScrollTop;
@@ -236,6 +238,13 @@ export function useInvertedExpansionScrollLock({
         existingLockState.viewport.style.overflowAnchor =
           existingLockState.viewportOverflowAnchor;
       }
+
+      // Inherit pinToBottom when the new lock replaces an all-collapsed lock
+      // mid-flight (e.g. the survivor path fires immediately after). Without
+      // this, a quick second lock would forget the intent and revert to baseline.
+      if (existingLockState.pinToBottom && articleKey === null && mode === "stable") {
+        // keep pinToBottom; handled at write time below
+      }
     }
 
     const resolvedViewport = resolveInvertedExpansionLockViewport(
@@ -273,6 +282,12 @@ export function useInvertedExpansionScrollLock({
         viewport: resolvedViewport,
       }),
       mode,
+      // Pin to bottom when there is no anchor article — this means all visible
+      // articles were collapsed at once (mark-visible-as-read). Backfill loads
+      // prepend older articles above, raising scrollHeight. A fixed baseline
+      // would leave the user just below the new bottom; dynamic maxScrollTop
+      // tracking keeps them anchored to the newest remaining articles.
+      pinToBottom: articleKey === null && mode === "stable",
       releaseAt: releaseAt ?? null,
       viewport: resolvedViewport,
       viewportOverflowAnchor,
@@ -298,7 +313,28 @@ export function useInvertedExpansionScrollLock({
       excludedArticleKeySet,
     );
 
+    const releaseAt =
+      performance.now() +
+      ARTICLE_REMOVAL_ANIMATION_MS +
+      ARTICLE_SCROLL_RESTORE_BUFFER_MS;
+
     if (!anchorArticleKey) {
+      // Every visible article is being collapsed — no survivor to anchor to.
+      // Use a longer lock window so the pinToBottom rAF loop stays active long
+      // enough to compensate for server-backfill prepends. The base buffer is
+      // too short for typical server round-trips; 5 s covers slow connections
+      // and still releases promptly when the user interacts (touchmove/wheel
+      // releases the lock immediately).
+      const pinToBottomReleaseAt =
+        performance.now() + ARTICLE_REMOVAL_ANIMATION_MS + 5_000;
+
+      if (options?.primeInteraction) {
+        primedUnreadRemovalRef.current = {
+          articleKeys: excludedArticleKeySet,
+          expiresAt: pinToBottomReleaseAt,
+        };
+      }
+      startInvertedExpansionScrollLock(null, null, "stable", pinToBottomReleaseAt);
       return;
     }
 
@@ -307,11 +343,6 @@ export function useInvertedExpansionScrollLock({
     if (!snapshot) {
       return;
     }
-
-    const releaseAt =
-      performance.now() +
-      ARTICLE_REMOVAL_ANIMATION_MS +
-      ARTICLE_SCROLL_RESTORE_BUFFER_MS;
 
     if (options?.primeInteraction) {
       primedUnreadRemovalRef.current = {

@@ -33,6 +33,13 @@ export interface InvertedExpansionScrollLockState {
   baselineScrollTop: number;
   disconnectLayoutObservers: (() => void) | null;
   mode: InvertedExpansionScrollLockMode;
+  /**
+   * When true the lock pins scrollTop to the viewport's current maxScrollTop
+   * each sync tick instead of using a fixed baselineScrollTop. Used when all
+   * visible articles are collapsed at once (no survivor anchor) so the user
+   * stays at the bottom as backfills prepend older articles above.
+   */
+  pinToBottom: boolean;
   releaseAt: null | number;
   viewport: HTMLElement;
   viewportOverflowAnchor: string;
