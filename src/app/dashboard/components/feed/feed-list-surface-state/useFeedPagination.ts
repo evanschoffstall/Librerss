@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import {
   FEED_INVERTED_LOAD_MORE_THRESHOLD_PX,
   FEED_LOAD_MORE_THRESHOLD_PX,
-  FEED_MIN_SCROLLABLE_OVERFLOW_PX,
 } from "./constants";
+import {
+  resolveNextVisibleCount,
+  resolvePaginationBoundaryState,
+  shouldAutoFillViewport,
+} from "./paginationRules";
+
+interface InvertedPaginationAnchorState {
+  initialScrollHeight: number;
+  initialScrollTop: number;
+  releaseAt: number;
+}
+
+const INVERTED_PAGINATION_ANCHOR_SYNC_WINDOW_MS = 1_500;
+
 
 interface UseFeedPaginationOptions {
   articleFilter: string;
@@ -77,6 +91,37 @@ export function useFeedPagination({
     setVisibleArticleCount(nextVisibleCount);
   }, []);
 
+  /**
+   * Re-arm pagination only after an explicit wheel/touch gesture moves the
+   * reader away from the active boundary. Passive scroll shifts caused by page
+   * reveals, layout reconciliation, or virtualization must not unlock another
+   * server request because that produces self-sustaining load cascades.
+   */
+  const rearmPaginationBoundaryFromUserIntent = useCallback(() => {
+    if (
+      !scrollViewport ||
+      hasPendingServerRevealRef.current ||
+      invertedPaginationAnchorRef.current !== null
+    ) {
+      return;
+    }
+
+    const { hasMovedAwayFromBoundary } = resolvePaginationBoundaryState({
+      isInvertedScroll,
+      scrollViewport,
+    });
+
+    if (hasMovedAwayFromBoundary) {
+      if (isInvertedScroll) {
+        isInvertedLoadBoundaryArmedRef.current = true;
+      } else {
+        isStandardLoadBoundaryArmedRef.current = true;
+      }
+
+      hasRequestedServerLoadRef.current = false;
+    }
+  }, [isInvertedScroll, scrollViewport]);
+
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -104,25 +149,8 @@ export function useFeedPagination({
     hasUserScrolledRef,
     isInvertedScroll,
     onResetInvertedScrollOwnership,
-    refreshEpoch,
     searchTerm,
   ]);
-
-  // Track the last length used to reset the gate so we only re-arm on growth.
-  // Shrinkage from article-collapse removals must not reset the flag — every
-  // individual collapse fires its own filteredFeedLength decrease, which would
-  // re-arm the gate and let that IO recreation trigger one server request per
-  // collapsed article, causing a cascade of page loads.
-  const lastFeedLengthForServerResetRef = useRef(filteredFeedLength);
-
-  useEffect(() => {
-    const prev = lastFeedLengthForServerResetRef.current;
-    lastFeedLengthForServerResetRef.current = filteredFeedLength;
-
-    if (filteredFeedLength > prev) {
-      hasRequestedServerLoadRef.current = false;
-    }
-  }, [filteredFeedLength]);
 
   useLayoutEffect(() => {
     const previousFilteredFeedLength = previousFilteredFeedLengthRef.current;
@@ -161,21 +189,95 @@ export function useFeedPagination({
     return true;
   }, [canLoadMoreFromServer, onLoadMore]);
 
+  const releaseInvertedPaginationAnchor = useCallback(() => {
+    invertedPaginationAnchorRef.current = null;
+
+    if (invertedPaginationAnchorFrameRef.current !== null) {
+      window.cancelAnimationFrame(invertedPaginationAnchorFrameRef.current);
+      invertedPaginationAnchorFrameRef.current = null;
+    }
+  }, []);
+
+  /**
+  * Keeps the inverted prepend settle window alive until measurement settles.
+   *
+  * Standard mode appends at the bottom without compensation. Inverted mode
+  * keeps a timed settle flag so FeedList can hold its wrapper height steady
+  * while late ResizeObserver passes land. The scroll correction here preserves
+  * the reader's anchor until the new measurements finish settling.
+   */
+  const syncInvertedPaginationAnchor = useCallback(() => {
+    const anchorState = invertedPaginationAnchorRef.current;
+
+    if (!anchorState || !scrollViewport) {
+      return;
+    }
+
+    const nextScrollTop = Math.max(
+      0,
+      anchorState.initialScrollTop +
+        (scrollViewport.scrollHeight - anchorState.initialScrollHeight),
+    );
+
+    if (Math.abs(scrollViewport.scrollTop - nextScrollTop) > 0.5) {
+      scrollViewport.scrollTop = nextScrollTop;
+    }
+
+    if (performance.now() >= anchorState.releaseAt) {
+      invertedPaginationAnchorRef.current = null;
+      return;
+    }
+
+    if (invertedPaginationAnchorFrameRef.current !== null) {
+      window.cancelAnimationFrame(invertedPaginationAnchorFrameRef.current);
+    }
+
+    invertedPaginationAnchorFrameRef.current = window.requestAnimationFrame(() => {
+      invertedPaginationAnchorFrameRef.current = null;
+      syncInvertedPaginationAnchor();
+    });
+  }, [scrollViewport]);
+
+  /**
+   * Arms the height-floor guard for one inverted pagination event.
+   *
+  * The feed virtualizer owns measurement while this hook owns prepend scroll
+  * compensation. We keep a short settle window so later list-height updates do
+  * not collapse the wrapper before the prepend fully resolves.
+   */
+  const primeInvertedPaginationAnchor = useCallback(() => {
+    if (!isInvertedScroll || !scrollViewport) {
+      return;
+    }
+
+    invertedPaginationAnchorRef.current = {
+      initialScrollHeight: scrollViewport.scrollHeight,
+      initialScrollTop: scrollViewport.scrollTop,
+      releaseAt: performance.now() + INVERTED_PAGINATION_ANCHOR_SYNC_WINDOW_MS,
+    };
+
+    syncInvertedPaginationAnchor();
+  }, [isInvertedScroll, scrollViewport, syncInvertedPaginationAnchor]);
+
   /** Expands the current page by one batch without overshooting the filtered feed size. */
   const expandVisibleWindow = useCallback(() => {
     const currentCount = visibleArticleCountRef.current;
-    if (currentCount >= filteredFeedLength) {
+    const currentFilteredFeedLength = filteredFeedLengthRef.current;
+
+    const nextVisibleCount = resolveNextVisibleCount({
+      articlesPerPage,
+      currentVisibleCount: currentCount,
+      filteredFeedLength: currentFilteredFeedLength,
+    });
+
+    if (nextVisibleCount === currentCount) {
       return false;
     }
 
-    const nextVisibleCount = Math.min(
-      currentCount + articlesPerPage,
-      filteredFeedLength,
-    );
     commitVisibleArticleCount(nextVisibleCount);
 
     return nextVisibleCount > currentCount;
-  }, [articlesPerPage, commitVisibleArticleCount, filteredFeedLength]);
+  }, [articlesPerPage, commitVisibleArticleCount]);
 
   /** Standard mode only advances once the viewport has actually reached the bottom edge. */
   const hasReachedStandardLoadBoundary = useCallback(() => {
@@ -183,14 +285,10 @@ export function useFeedPagination({
       return false;
     }
 
-    const remainingDistance =
-      scrollViewport.scrollHeight -
-      (scrollViewport.scrollTop + scrollViewport.clientHeight);
-
-    return (
-      Number.isFinite(remainingDistance) &&
-      remainingDistance <= FEED_MIN_SCROLLABLE_OVERFLOW_PX
-    );
+    return resolvePaginationBoundaryState({
+      isInvertedScroll: false,
+      scrollViewport,
+    }).hasReachedBoundary;
   }, [isInvertedScroll, scrollViewport]);
 
   /**
@@ -208,15 +306,24 @@ export function useFeedPagination({
       return;
     }
 
+    // Collapse animations temporarily shrink the list height, which can push
+    // the sentinel into the viewport and bring scroll position near the
+    // inverted boundary. Neither constitutes real user intent — gate both
+    // paths so no page load fires until all collapse animations have settled.
+    if (hasCollapsingArticlesRef.current) {
+      return;
+    }
+
     const currentVisibleCount = visibleArticleCountRef.current;
+    const currentFilteredFeedLength = filteredFeedLengthRef.current;
 
     if (isInvertedScroll) {
-      const hasReachedInvertedLoadBoundary =
-        Number.isFinite(scrollViewport.scrollTop) &&
-        scrollViewport.scrollTop <= FEED_INVERTED_LOAD_MORE_THRESHOLD_PX;
+      const hasReachedInvertedLoadBoundary = resolvePaginationBoundaryState({
+        isInvertedScroll: true,
+        scrollViewport,
+      }).hasReachedBoundary;
 
       if (!hasReachedInvertedLoadBoundary) {
-        isInvertedLoadBoundaryArmedRef.current = true;
         return;
       }
 
@@ -224,23 +331,33 @@ export function useFeedPagination({
         return;
       }
 
-      if (currentVisibleCount >= filteredFeedLength) {
+      if (currentVisibleCount >= currentFilteredFeedLength) {
+        primeInvertedPaginationAnchor();
         if (requestMoreFromServer()) {
           isInvertedLoadBoundaryArmedRef.current = false;
         }
         return;
       }
 
-      if (expandVisibleWindow()) {
-        isInvertedLoadBoundaryArmedRef.current = false;
-      }
+      primeInvertedPaginationAnchor();
+
+      // Flush the visibleArticleCount state update synchronously so the
+      // virtualizer receives its new data within the current task. This makes
+      // measurement settle in the next animation frame (~16 ms) instead of
+      // the ~500 ms async scheduling window — eliminating the visible flash
+      // at scrollTop ≈ 0 before the anchor restoration settles.
+      flushSync(() => {
+        if (expandVisibleWindow()) {
+          isInvertedLoadBoundaryArmedRef.current = false;
+        }
+      });
+
       return;
     }
 
     const hasReachedStandardBoundary = hasReachedStandardLoadBoundary();
 
     if (!hasReachedStandardBoundary) {
-      isStandardLoadBoundaryArmedRef.current = true;
       return;
     }
 
@@ -248,7 +365,7 @@ export function useFeedPagination({
       return;
     }
 
-    if (currentVisibleCount >= filteredFeedLength) {
+    if (currentVisibleCount >= currentFilteredFeedLength) {
       if (requestMoreFromServer()) {
         isStandardLoadBoundaryArmedRef.current = false;
       }
@@ -260,10 +377,10 @@ export function useFeedPagination({
     }
   }, [
     expandVisibleWindow,
-    filteredFeedLength,
     hasReachedStandardLoadBoundary,
     hasUserScrolledRef,
     isInvertedScroll,
+    primeInvertedPaginationAnchor,
     requestMoreFromServer,
     scrollViewport,
   ]);
@@ -271,15 +388,27 @@ export function useFeedPagination({
   /**
    * Expands the current page only when the active list height still cannot scroll.
    * Virtualized callers can pass the committed list height to avoid stale external
-   * viewport measurements while Virtuoso is still applying its wrapper size.
+  * viewport measurements while the virtualizer is still applying its wrapper size.
    */
   const maybeAutoFillViewport = useCallback((committedListHeight?: number) => {
+    const currentFilteredFeedLength = filteredFeedLengthRef.current;
+    const hasUserScrolled = hasUserScrolledRef.current;
+
     if (
       !scrollViewport ||
       isInitialLoading ||
       (!canLoadMoreFromServer &&
-        visibleArticleCountRef.current >= filteredFeedLength)
+        visibleArticleCountRef.current >= currentFilteredFeedLength)
     ) {
+      return;
+    }
+
+    // Auto-fill exists only to make an idle surface scrollable on first paint.
+    // Once the reader owns the viewport, transient underfill from prepend
+    // compensation, dynamic row measurement, or collapse reconciliation must
+    // not reveal extra pages automatically. From that point forward, pagination
+    // is owned exclusively by explicit boundary reaches in maybeLoadNextPage.
+    if (hasUserScrolled) {
       return;
     }
 
@@ -289,36 +418,34 @@ export function useFeedPagination({
       committedListHeight > 0
         ? committedListHeight
         : scrollViewport.scrollHeight;
-    const scrollableOverflowPx = effectiveListHeight - scrollViewport.clientHeight;
 
     if (
-      Number.isFinite(scrollableOverflowPx) &&
-      scrollableOverflowPx <= FEED_MIN_SCROLLABLE_OVERFLOW_PX
+      shouldAutoFillViewport({
+        clientHeight: scrollViewport.clientHeight,
+        committedListHeight: effectiveListHeight,
+        currentVisibleCount: visibleArticleCountRef.current,
+        filteredFeedLength: currentFilteredFeedLength,
+        hasUserScrolled,
+        isInitialLoading,
+      })
     ) {
       const currentVisibleCount = visibleArticleCountRef.current;
 
-      if (currentVisibleCount < filteredFeedLength) {
+      if (currentVisibleCount < currentFilteredFeedLength) {
         expandVisibleWindow();
-        return;
       }
-
-      if (!hasUserScrolledRef.current) {
-        return;
-      }
-
-      requestMoreFromServer();
     }
   }, [
     canLoadMoreFromServer,
     expandVisibleWindow,
-    filteredFeedLength,
     hasUserScrolledRef,
     isInitialLoading,
-    requestMoreFromServer,
     scrollViewport,
   ]);
 
   const shouldUseVirtualizedFeed = !isInitialLoading && scrollViewport !== null;
+  const shouldObserveLoadMoreBoundary =
+    canLoadMoreFromServer || visibleArticleCount < filteredFeedLength;
 
   useEffect(() => {
     if (
@@ -357,13 +484,24 @@ export function useFeedPagination({
       }
 
       if (isInvertedScroll) {
+        releaseInvertedPaginationAnchor();
         onClaimInvertedScrollOwnership();
       } else {
         clearInitialNormalScrollLock();
       }
 
       hasUserScrolledRef.current = true;
-      maybeLoadNextPage("scroll");
+
+      rearmPaginationBoundaryFromUserIntent();
+
+      if (paginationFrameRef.current !== null) {
+        return;
+      }
+
+      paginationFrameRef.current = window.requestAnimationFrame(() => {
+        paginationFrameRef.current = null;
+        maybeLoadNextPage("scroll");
+      });
     };
 
     const handleViewportScroll = () => {
@@ -382,14 +520,6 @@ export function useFeedPagination({
 
       if (scrollViewport.scrollTop > 0 && !isInvertedScroll) {
         hasUserScrolledRef.current = true;
-      }
-
-      if (
-        isInvertedScroll &&
-        Number.isFinite(scrollViewport.scrollTop) &&
-        scrollViewport.scrollTop > FEED_INVERTED_LOAD_MORE_THRESHOLD_PX
-      ) {
-        isInvertedLoadBoundaryArmedRef.current = true;
       }
 
       maybeLoadNextPage("scroll");
@@ -423,6 +553,8 @@ export function useFeedPagination({
     maybeLoadNextPage,
     onClaimInvertedScrollOwnership,
     onReleaseInvertedExpansionScrollLock,
+    rearmPaginationBoundaryFromUserIntent,
+    releaseInvertedPaginationAnchor,
     onSyncInvertedExpansionScrollLock,
     scrollViewport,
     shouldLockInitialNormalScroll,
@@ -432,12 +564,14 @@ export function useFeedPagination({
     if (
       !scrollViewport ||
       typeof IntersectionObserver !== "function" ||
-      (visibleArticleCount >= filteredFeedLength && !canLoadMoreFromServer)
+      !shouldObserveLoadMoreBoundary
     ) {
       return;
     }
 
-    const sentinel = loadMoreSentinelRef.current;
+    const sentinel = scrollViewport.querySelector<HTMLDivElement>(
+      "[data-feed-load-more-sentinel='true']",
+    );
     if (!sentinel) {
       return;
     }
@@ -475,18 +609,27 @@ export function useFeedPagination({
     return () => {
       observer.disconnect();
     };
+    // filteredFeedLength and visibleArticleCount are intentionally excluded.
+    // Including them causes the IO to re-register on every article reveal
+    // (server-load response), which immediately fires the callback again and
+    // triggers a cascade of additional server loads. The callback reads current
+    // values via refs (filteredFeedLengthRef, visibleArticleCountRef), so
+    // stale-closure correctness is maintained without re-registering.
+     
   }, [
-    canLoadMoreFromServer,
-    filteredFeedLength,
     hasUserScrolledRef,
     isInvertedScroll,
     maybeLoadNextPage,
     scrollViewport,
-    visibleArticleCount,
+    shouldObserveLoadMoreBoundary,
   ]);
 
   useEffect(() => {
     return () => {
+      if (invertedPaginationAnchorFrameRef.current !== null) {
+        window.cancelAnimationFrame(invertedPaginationAnchorFrameRef.current);
+      }
+
       if (paginationFrameRef.current !== null) {
         window.cancelAnimationFrame(paginationFrameRef.current);
       }
