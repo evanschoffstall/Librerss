@@ -44,20 +44,18 @@ export function useFeedViewportState({
 
   /** Resolves the hosting feed viewport after the surface node mounts. */
   const handleViewportHostRef = useCallback((node: HTMLDivElement | null) => {
-    const requestId = ++viewportResolutionRequestRef.current;
+    viewportResolutionRequestRef.current += 1;
 
-    queueMicrotask(() => {
-      if (!isMountedRef.current || viewportResolutionRequestRef.current !== requestId) {
-        return;
-      }
+    if (!isMountedRef.current) {
+      return;
+    }
 
-      const resolvedViewport =
-        node?.closest<HTMLElement>(
-          "[data-feed-scroll-viewport], [data-radix-scroll-area-viewport]",
-        ) ?? null;
-      setScrollViewport(resolvedViewport);
-      setViewportResolutionState(resolvedViewport ? "ready" : "missing");
-    });
+    const resolvedViewport =
+      node?.closest<HTMLElement>(
+        "[data-feed-scroll-viewport], [data-radix-scroll-area-viewport]",
+      ) ?? null;
+    setScrollViewport(resolvedViewport);
+    setViewportResolutionState(resolvedViewport ? "ready" : "missing");
   }, []);
 
   useLayoutEffect(() => {
