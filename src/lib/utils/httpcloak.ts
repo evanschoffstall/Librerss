@@ -265,7 +265,7 @@ function createSession(options: SessionOptions): HttpCloakSessionLike {
   return new Session(options);
 }
 
-const SOCKS_PROTOCOLS = new Set([
+export const SOCKS_PROTOCOLS = new Set([
   "socks4:",
   "socks4a:",
   "socks5:",

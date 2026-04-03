@@ -14,7 +14,6 @@ import {
 } from "@/lib/extract";
 import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
 import { decompressBody, HttpCloakUpstreamError } from "@/lib/fetch/response";
-import { parseSocksProxy } from "@/lib/fetch/socks";
 import {
     buildMetadataImageFallbackHtml,
     cleanSanitizedHtml,
@@ -27,6 +26,7 @@ import {
     toParagraphHtml,
 } from "@/lib/sanitize";
 import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
+import { promoteHttpCloakProxyUrl } from "@/lib/utils/httpcloak";
 
 const mockReq = () =>
   new NextRequest("http://localhost/api/articles/extract", {
@@ -1085,35 +1085,27 @@ describe("article extract cleanup", () => {
 
   // ─── HTTPCloak-fetch pure function tests ────────────────────────────────
 
-  describe("parseSocksProxy", () => {
-    test("parses socks5 URL with credentials", () => {
-      const result = parseSocksProxy(
-        "socks5://user:pass@proxy.example.com:1080",
+  describe("promoteHttpCloakProxyUrl", () => {
+    test("promotes socks5 URLs to remote-DNS socks5h", () => {
+      expect(promoteHttpCloakProxyUrl("socks5://user:pass@proxy.example.com:1080")).toBe(
+        "socks5h://user:pass@proxy.example.com:1080",
       );
-      expect(result.host).toBe("proxy.example.com");
-      expect(result.port).toBe(1080);
-      expect(result.type).toBe(5);
-      expect(result.userId).toBe("user");
-      expect(result.password).toBe("pass");
     });
 
-    test("parses socks4 URL without credentials", () => {
-      const result = parseSocksProxy("socks4://10.0.0.1:9050");
-      expect(result.host).toBe("10.0.0.1");
-      expect(result.port).toBe(9050);
-      expect(result.type).toBe(4);
-      expect(result.userId).toBeUndefined();
+    test("promotes socks4 URLs to remote-DNS socks4a", () => {
+      expect(promoteHttpCloakProxyUrl("socks4://10.0.0.1:9050")).toBe(
+        "socks4a://10.0.0.1:9050",
+      );
     });
 
-    test("defaults port to 1080", () => {
-      const result = parseSocksProxy("socks5://proxy.test");
-      expect(result.port).toBe(1080);
+    test("leaves non-socks URLs unchanged", () => {
+      expect(promoteHttpCloakProxyUrl("https://proxy.test:8443")).toBe(
+        "https://proxy.test:8443",
+      );
     });
 
-    test("decodes percent-encoded credentials", () => {
-      const result = parseSocksProxy("socks5://us%40er:p%23ss@proxy.test:1080");
-      expect(result.userId).toBe("us@er");
-      expect(result.password).toBe("p#ss");
+    test("returns invalid URLs unchanged", () => {
+      expect(promoteHttpCloakProxyUrl("not-a-real-url")).toBe("not-a-real-url");
     });
   });
 
