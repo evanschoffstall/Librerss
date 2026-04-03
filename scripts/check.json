@@ -272,6 +272,28 @@
       }
     },
     {
+      "key": "lizard",
+      "enabled": true,
+      "label": "lizard",
+      "cmd": "bun",
+      "args": [
+        "scripts/check-lizard.ts"
+      ],
+      "passMsg": "",
+      "failMsg": "complexity limits exceeded",
+      "summary": {
+        "type": "pattern",
+        "patterns": [
+          {
+            "regex": "complexity:\\s+(\\d+)\\s+function violations\\s+·\\s+(\\d+)\\s+file violations",
+            "type": "match",
+            "format": "{1} function violations · {2} file violations"
+          }
+        ],
+        "default": "complexity check completed"
+      }
+    },
+    {
       "key": "junit",
       "enabled": true,
       "label": "junit",

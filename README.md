@@ -78,7 +78,6 @@ Common settings:
 - `DB_DRIVER`: `pg` for pooled TCP connections, or `neon` for fetch-backed Neon mode.
 - `ALLOW_SIGNUP`: set to `true` if you want public registration.
 - `LOG_LEVEL`: one of `none`, `error`, `warn`, `info`, or `verbose`.
-- `DEV_AUTO_LOGIN_EMAIL` and `DEV_AUTO_LOGIN_PASSWORD`: in development only, automatically sign into `/dashboard` with an existing account using the normal login flow.
 
 > [!TIP]
 > Leave `ALLOW_SIGNUP=false` if you want a private or invite-only reader and create accounts with `bun run db:create-user` instead.
@@ -143,14 +142,15 @@ You should be able to:
 | `bun check summary` | Run the repository quality summary. |
 | `bun check --junit` | Run the Bun unit and integration test suite. |
 
-For a faster local auth loop in development, you can also add this to `.env.local`:
+### Quality tooling
 
-```env
-DEV_AUTO_LOGIN_EMAIL="you@example.com"
-DEV_AUTO_LOGIN_PASSWORD="your-existing-password"
+The full quality suite includes a pinned Python-based complexity check powered by `lizard`.
+
+Install the Python tooling once before running `bun check` commands that include the `lizard` step:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
 ```
-
-When both values are present and `NODE_ENV=development`, visiting `/` will route through `/dashboard` and auto-create a normal session cookie with those credentials.
 
 ### End-to-end testing
 
