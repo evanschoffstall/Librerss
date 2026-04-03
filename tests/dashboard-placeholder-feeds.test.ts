@@ -6,11 +6,27 @@ import {
   getPlaceholderSnapshotPathByArticleUrl,
   PLACEHOLDER_FEED_SOURCES,
 } from "@/lib/core/placeholder";
+import { PLACEHOLDER_ARTICLE_COUNT } from "@/lib/core/placeholder-sources";
 
 describe("placeholder feed wiring", () => {
   test("marks placeholder sources as extraction disabled", () => {
-    expect(PLACEHOLDER_FEED_SOURCES).toHaveLength(8);
+    expect(PLACEHOLDER_FEED_SOURCES).toHaveLength(19);
     expect(PLACEHOLDER_FEED_SOURCES.every((source) => source.extractionDisabled)).toBe(true);
+    expect(PLACEHOLDER_FEED_SOURCES.map((source) => source.name)).toEqual(
+      expect.arrayContaining([
+        "ESA Earth Observation",
+        "ESA Human Exploration",
+        "ESA Images",
+        "ESA Top News",
+        "NASA Breaking News",
+        "NASA Image of the Day",
+        "NASA STEM Learning",
+        "NHLBI All News",
+        "NINDS Press Releases",
+        "NIH News Releases",
+        "NIH Research Matters",
+      ]),
+    );
   });
 
   test("preserves extraction settings in preview category nodes", () => {
@@ -41,7 +57,7 @@ describe("placeholder feed wiring", () => {
       }
     }
 
-    expect(totalArticles).toBe(37);
+    expect(totalArticles).toBe(PLACEHOLDER_ARTICLE_COUNT);
     expect(uniqueUrls.size).toBe(totalArticles);
   });
 });

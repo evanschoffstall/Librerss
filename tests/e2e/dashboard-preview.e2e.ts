@@ -23,6 +23,20 @@ function createPreviewSearchTerm(title: string) {
   return candidate;
 }
 
+async function openPreviewFeeds(page: Parameters<typeof gotoPreviewDashboard>[0]) {
+  const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
+  if (await openFeedsButton.isVisible()) {
+    await openFeedsButton.click();
+  }
+}
+
+function previewFeedButton(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+  feedName: string,
+) {
+  return page.locator("button").filter({ hasText: feedName }).first();
+}
+
 async function selectPreviewSource(page: Parameters<typeof gotoPreviewDashboard>[0]) {
   const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
   if (await openFeedsButton.isVisible()) {
@@ -146,5 +160,32 @@ test.describe("dashboard preview mode", () => {
     await expect(page.getByLabel("Auto refresh")).toBeVisible();
     await openDashboardSettingsTab(page, "Feeds");
     await expect(page.getByText("Not available in demo mode")).toHaveCount(1);
+  });
+
+  test("shows the expanded placeholder feed catalog in preview mode", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await openPreviewFeeds(page);
+    await selectPreviewSource(page);
+
+    await expect(previewFeedButton(page, "NIH News Releases")).toBeVisible();
+    await expect(previewFeedButton(page, "NIH Research Matters")).toBeVisible();
+    await expect(previewFeedButton(page, "NHLBI All News")).toBeVisible();
+    await expect(previewFeedButton(page, "NINDS Press Releases")).toBeVisible();
+    await expect(previewFeedButton(page, "ESA Images")).toBeVisible();
+    await expect(previewFeedButton(page, "ESA Earth Observation")).toBeVisible();
+    await expect(previewFeedButton(page, "ESA Human Exploration")).toBeVisible();
+    await expect(previewFeedButton(page, "ESA Top News")).toBeVisible();
+    await expect(previewFeedButton(page, "NASA Breaking News")).toBeVisible();
+    await expect(previewFeedButton(page, "NASA Image of the Day")).toBeVisible();
+    await expect(previewFeedButton(page, "NASA STEM Learning")).toBeVisible();
+
+    await previewFeedButton(page, "NIH Research Matters").click();
+    await expect(
+      page.getByRole("heading", {
+        name: /Treating addiction/i,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
