@@ -3,6 +3,10 @@ import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
 import {
+  ARTICLE_FILTER_OPTIONS,
+  type ArticleFilter,
+} from "@/app/dashboard/services/article-filters";
+import {
   DASHBOARD_FEED_SURFACE_CLASS_NAME,
   DashboardFeedViewport,
 } from "@/app/dashboard/components/DashboardScaffold";
@@ -177,6 +181,51 @@ describe("DashboardFilterBar", () => {
     const idleIcon = container.querySelector("span[aria-live='polite'] svg");
     expect(idleIcon).toBeTruthy();
     expect(idleIcon?.getAttribute("class")).toContain("lucide-refresh-cw");
+  });
+
+  test("renders the idle refresh label and marks the active article filter", () => {
+    const { container, getByRole, queryByLabelText, queryByText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        lastRefreshLabel="2m ago"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const unreadButton = getByRole("button", { name: "unread" });
+    const starredButton = getByRole("button", { name: "starred" });
+
+    expect(unreadButton.getAttribute("aria-pressed")).toBe("true");
+    expect(unreadButton.getAttribute("class") ?? "").toContain("bg-muted");
+    expect(starredButton.getAttribute("aria-pressed")).toBe("false");
+    expect(starredButton.getAttribute("class") ?? "").toContain(
+      "text-muted-foreground/70",
+    );
+    expect(queryByLabelText("Refreshing")).toBeNull();
+    expect(queryByText("2m ago")).toBeTruthy();
+    expect(
+      container.querySelector("span[aria-live='polite'] svg")?.getAttribute("class") ?? "",
+    ).toContain("lucide-refresh-cw");
+  });
+
+  test("renders every article filter option as a token button", () => {
+    const { getAllByRole } = render(
+      <DashboardFilterBar
+        articleFilter="all"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const filterButtons = getAllByRole("button");
+    const filterButtonNames = filterButtons.map((button) => button.textContent?.trim());
+
+    expect(filterButtons).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
+    expect(filterButtonNames).toEqual(
+      ARTICLE_FILTER_OPTIONS.map((value: ArticleFilter) => value),
+    );
   });
 
   test("invokes the filter change callback when a filter option is clicked", () => {
