@@ -55,6 +55,7 @@ const CONTENT_ENTER_TRANSITION = {
   duration: 0.35,
   ease: [0.16, 1, 0.3, 1] as const,
 };
+
 function syncViewportScrollTop(viewport: HTMLElement, top: number) {
   if (typeof viewport.scrollTo === "function") {
     viewport.scrollTo({
@@ -406,12 +407,14 @@ export const FeedList = memo(function FeedList({
         {isInitialLoading || shouldShowViewportResolutionSkeleton ? (
           <motion.div
             animate={{ opacity: 1, scale: 1 }}
+            className={FEED_LIST_FRAME_CLASSNAME}
             exit={{ opacity: 0, scale: 0.995 }}
             initial={{ opacity: 1, scale: 1 }}
             key={contentKey}
+            style={FEED_LIST_FILL_STYLE}
             transition={SKELETON_EXIT_TRANSITION}
           >
-            <FeedListSkeleton />
+            <FeedListSkeleton isInvertedScroll={isInvertedScroll} />
           </motion.div>
         ) : showEmptyState ? (
           <motion.div

@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBarSkeleton } from "@/app/dashboard/components/DashboardFilterBar";
@@ -11,7 +11,11 @@ import { FeedListSkeleton } from "@/app/dashboard/components/feed/FeedListSkelet
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /** Constructs the same shell skeleton composition used by page.tsx and DashboardRouter. */
-function DashboardShellSkeleton() {
+function DashboardShellSkeleton({
+  isInvertedScroll = false,
+}: {
+  isInvertedScroll?: boolean;
+}) {
   return (
     <main
       aria-busy="true"
@@ -29,7 +33,7 @@ function DashboardShellSkeleton() {
         <DashboardScaffold
           feed={
             <DashboardFeedViewport>
-              <FeedListSkeleton />
+              <FeedListSkeleton isInvertedScroll={isInvertedScroll} />
             </DashboardFeedViewport>
           }
           filterBar={<DashboardFilterBarSkeleton />}
@@ -113,5 +117,151 @@ describe("DashboardShellSkeleton", () => {
     expect(filterBarSkeletonSurface?.className ?? "").toContain(
       "lg:max-w-none",
     );
+  });
+
+  test("sizes the article skeleton count to fill the feed viewport without overflow", async () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+    const firstArticleSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton-item="true"]',
+    );
+
+    expect(viewport).toBeTruthy();
+    expect(feedListSkeleton).toBeTruthy();
+    expect(firstArticleSkeleton).toBeTruthy();
+
+    Object.defineProperty(viewport!, "clientHeight", {
+      configurable: true,
+      get() {
+        return 377;
+      },
+    });
+    feedListSkeleton!.style.rowGap = "6px";
+    firstArticleSkeleton!.getBoundingClientRect = () =>
+      ({ height: 120 } as DOMRect);
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
+      ).toHaveLength(3);
+    });
+    expect(
+      feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
+    ).toBe("3");
+  });
+
+  test("keeps the default skeleton count when no feed viewport wrapper is present", () => {
+    const { container } = render(<FeedListSkeleton />);
+
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+
+    expect(
+      feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
+    ).toBe("4");
+    expect(
+      container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
+    ).toHaveLength(4);
+  });
+
+  test("clamps the feed skeleton count to one when the viewport is shorter than one row", async () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+    const firstArticleSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton-item="true"]',
+    );
+
+    expect(viewport).toBeTruthy();
+    expect(feedListSkeleton).toBeTruthy();
+    expect(firstArticleSkeleton).toBeTruthy();
+
+    Object.defineProperty(viewport!, "clientHeight", {
+      configurable: true,
+      get() {
+        return 40;
+      },
+    });
+    feedListSkeleton!.style.rowGap = "6px";
+    firstArticleSkeleton!.getBoundingClientRect = () =>
+      ({ height: 120 } as DOMRect);
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
+      ).toHaveLength(1);
+    });
+    expect(
+      feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
+    ).toBe("1");
+  });
+
+  test("ignores zero-height skeleton measurements and keeps the fallback count", async () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+    const firstArticleSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton-item="true"]',
+    );
+
+    expect(viewport).toBeTruthy();
+    expect(feedListSkeleton).toBeTruthy();
+    expect(firstArticleSkeleton).toBeTruthy();
+
+    Object.defineProperty(viewport!, "clientHeight", {
+      configurable: true,
+      get() {
+        return 377;
+      },
+    });
+    firstArticleSkeleton!.getBoundingClientRect = () =>
+      ({ height: 0 } as DOMRect);
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    await waitFor(() => {
+      expect(
+        feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
+      ).toBe("4");
+    });
+  });
+
+  test("anchors the inverted feed skeleton stack from the viewport bottom", () => {
+    const { container } = render(<DashboardShellSkeleton isInvertedScroll />);
+
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+
+    expect(feedListSkeleton?.className ?? "").toContain("h-full");
+    expect(feedListSkeleton?.className ?? "").toContain("max-sm:justify-end");
+    expect(feedListSkeleton?.className ?? "").toContain("justify-end");
   });
 });
