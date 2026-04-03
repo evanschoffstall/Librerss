@@ -132,7 +132,7 @@ export const FeedService = {
         },
       );
 
-      const batchItems = ensureArrayResponse<unknown>(response.data);
+      const batchItems = ensureArrayResponse(response.data);
       return batchItems.map(normalizeBatchItem);
     } finally {
       dispose();
