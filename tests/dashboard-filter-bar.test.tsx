@@ -3,13 +3,13 @@ import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
 import {
-  ARTICLE_FILTER_OPTIONS,
-  type ArticleFilter,
-} from "@/app/dashboard/services/article-filters";
-import {
   DASHBOARD_FEED_SURFACE_CLASS_NAME,
   DashboardFeedViewport,
 } from "@/app/dashboard/components/DashboardScaffold";
+import {
+  ARTICLE_FILTER_OPTIONS,
+  type ArticleFilter,
+} from "@/app/dashboard/services/article-filters";
 
 describe("DashboardFilterBar", () => {
   test("renders the full filter-bar skeleton while the dashboard shell is loading", () => {

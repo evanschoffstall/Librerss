@@ -1,10 +1,10 @@
 import {
-    enterPreviewFromLogin,
-    gotoPreviewDashboard,
+  enterPreviewFromLogin,
+  gotoPreviewDashboard,
   locateViewportArticle,
-    openDashboardSettings,
-    openDashboardSettingsTab,
-    readArticleKey,
+  openDashboardSettings,
+  openDashboardSettingsTab,
+  readArticleKey,
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
 } from "./helpers";
