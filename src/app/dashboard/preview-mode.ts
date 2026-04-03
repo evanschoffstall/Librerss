@@ -1,5 +1,4 @@
 export const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
-export const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
 
 const DASHBOARD_PREVIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DASHBOARD_PREVIEW_ENABLED_VALUE = "1";
@@ -11,18 +10,14 @@ export function isDashboardPreviewModeEnabled(
   return cookieValue === DASHBOARD_PREVIEW_ENABLED_VALUE;
 }
 
-/** Resolves preview mode from either the URL or persisted browser state. */
+/** Resolves preview mode from the explicit explore query only. */
 export function resolveDashboardPreviewMode(options: {
-  cookieValue: null | string | undefined;
-  hasPreviewQuery: boolean;
+  hasExploreQuery: boolean;
 }): boolean {
-  return (
-    options.hasPreviewQuery ||
-    isDashboardPreviewModeEnabled(options.cookieValue)
-  );
+  return options.hasExploreQuery;
 }
 
-/** Persists dashboard preview mode so reloads remain on the local-only path. */
+/** Writes or clears the legacy preview cookie for cleanup-only flows. */
 export function setDashboardPreviewPersistence(enabled: boolean): void {
   if (typeof document === "undefined") {
     return;

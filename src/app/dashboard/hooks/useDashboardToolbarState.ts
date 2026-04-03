@@ -4,10 +4,10 @@ import { useTheme } from "next-themes";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { AuthService, useLocalStorage } from "@/lib";
+import { AuthService } from "@/lib";
 import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 
-import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
+import { DASHBOARD_EVENTS } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
 
 interface ShellLoadingEventDetail {
@@ -69,10 +69,7 @@ export function useDashboardToolbarState(startInShellLoading = false) {
   const [search, setSearch] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage(
-    DASHBOARD_PREVIEW_STORAGE_KEY,
-    false,
-  );
+  const [isPreviewMode, setIsPreviewMode] = useState(readPreviewModeFromLocation);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [isMarkingViewportRead, setIsMarkingViewportRead] = useState(false);
@@ -104,7 +101,7 @@ export function useDashboardToolbarState(startInShellLoading = false) {
       if (shellLoading !== null) {
         hasReceivedShellLoadingEventRef.current = true;
         setIsShellLoading(shellLoading);
-        return;
+        
       }
     };
 
@@ -178,6 +175,9 @@ export function useDashboardToolbarState(startInShellLoading = false) {
     const handleEnterPreview = () => {
       setIsPreviewMode(true);
     };
+    const handleLocationChange = () => {
+      setIsPreviewMode(readPreviewModeFromLocation());
+    };
     const handleRefreshStart = () => {
       setIsRefreshing(true);
     };
@@ -210,6 +210,7 @@ export function useDashboardToolbarState(startInShellLoading = false) {
       handleSearchPending as EventListener,
     );
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
+    window.addEventListener("popstate", handleLocationChange);
     window.addEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
     window.addEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
     window.addEventListener(
@@ -246,6 +247,7 @@ export function useDashboardToolbarState(startInShellLoading = false) {
         DASHBOARD_EVENTS.ENTER_PREVIEW,
         handleEnterPreview,
       );
+      window.removeEventListener("popstate", handleLocationChange);
       window.removeEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
       window.removeEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
       window.removeEventListener(
@@ -325,10 +327,6 @@ export function useDashboardToolbarState(startInShellLoading = false) {
 
       await clearClientOriginState();
 
-      if (isPreviewMode) {
-        setDashboardPreviewPersistence(true);
-      }
-
       window.location.assign(resetTargetUrl);
     } catch {
       toast.error("Unable to reset app state.");
@@ -395,4 +393,13 @@ function dispatchDashboardEvent(
   window.dispatchEvent(
     new CustomEvent(eventName, detail ? { detail } : undefined),
   );
+}
+
+/** Returns whether the active dashboard URL is explicitly in explore mode. */
+function readPreviewModeFromLocation() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get("explore") === "1";
 }
