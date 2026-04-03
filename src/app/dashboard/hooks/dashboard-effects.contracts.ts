@@ -7,6 +7,7 @@ import { type FeedSelectionFetchers } from "../services/selection";
 /** Broadcast payload sources emitted to shell-level dashboard listeners. */
 export interface UseDashboardBroadcastsOptions {
   isSearchPending: boolean;
+  isShellLoading: boolean;
   searchTerm: string;
   selectedFeed?: string;
 }

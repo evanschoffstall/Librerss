@@ -249,7 +249,7 @@ function ThemeModeToggle() {
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardToolbar />;
+    return <DashboardToolbar startInShellLoading={true} />;
   }
 
   return (

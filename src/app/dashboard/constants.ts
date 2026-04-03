@@ -33,6 +33,7 @@ export const DASHBOARD_EVENTS = {
   SEARCH_CHANGE: "dashboard:search-change",
   SEARCH_PENDING: "dashboard:search-pending",
   SEARCH_SYNC: "dashboard:search-sync",
+  SHELL_LOADING: "dashboard:shell-loading",
   TITLE_CHANGE: "dashboard:title-change",
 } as const;
 

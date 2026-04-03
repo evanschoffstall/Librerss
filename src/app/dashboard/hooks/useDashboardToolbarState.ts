@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthService, useLocalStorage } from "@/lib";
@@ -10,10 +10,16 @@ import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
 
+interface ShellLoadingEventDetail {
+  loading?: boolean;
+}
+
 /** Bridges dashboard window events into the persistent toolbar state and actions. */
-export function useDashboardToolbarState() {
+export function useDashboardToolbarState(startInShellLoading = false) {
   const { resolvedTheme, setTheme } = useTheme();
   const isDevelopmentMode = process.env.NODE_ENV === "development";
+  const hasReceivedShellLoadingEventRef = useRef(false);
+  const [isShellLoading, setIsShellLoading] = useState(startInShellLoading);
   const [isSearchPending, setIsSearchPending] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("LibreRSS");
@@ -31,6 +37,82 @@ export function useDashboardToolbarState() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useLayoutEffect(() => {
+    const syncShellLoadingFromDocument = () => {
+      const shellLoading = document.documentElement.dataset.dashboardShellLoading;
+
+      if (shellLoading !== "true" && shellLoading !== "false") {
+        return false;
+      }
+
+      hasReceivedShellLoadingEventRef.current = true;
+      setIsShellLoading(shellLoading === "true");
+      return true;
+    };
+
+    const settleOptimisticShellLoading = () => {
+      if (syncShellLoadingFromDocument()) {
+        return;
+      }
+
+      if (
+        !hasReceivedShellLoadingEventRef.current &&
+        document.readyState === "complete"
+      ) {
+        setIsShellLoading(false);
+      }
+    };
+
+    const handleShellLoading = (event: Event) => {
+      const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
+      hasReceivedShellLoadingEventRef.current = true;
+      setIsShellLoading(detail.loading === true);
+    };
+
+    const handleReadyStateChange = () => {
+      settleOptimisticShellLoading();
+    };
+
+    window.addEventListener(
+      DASHBOARD_EVENTS.SHELL_LOADING,
+      handleShellLoading as EventListener,
+    );
+
+    const shellLoadingObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            syncShellLoadingFromDocument();
+          });
+
+    shellLoadingObserver?.observe(document.documentElement, {
+      attributeFilter: ["data-dashboard-shell-loading"],
+      attributes: true,
+    });
+
+    syncShellLoadingFromDocument();
+
+    if (startInShellLoading) {
+      document.addEventListener("readystatechange", handleReadyStateChange);
+      queueMicrotask(settleOptimisticShellLoading);
+    }
+
+    return () => {
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SHELL_LOADING,
+        handleShellLoading as EventListener,
+      );
+      shellLoadingObserver?.disconnect();
+
+      if (startInShellLoading) {
+        document.removeEventListener(
+          "readystatechange",
+          handleReadyStateChange,
+        );
+      }
+    };
+  }, [startInShellLoading]);
 
   useEffect(() => {
     const handleTitleChange = (event: Event) => {
@@ -253,6 +335,7 @@ export function useDashboardToolbarState() {
     isRefreshing,
     isResetting,
     isSearchPending,
+    isShellLoading,
     isSigningOut,
     mounted,
     search,

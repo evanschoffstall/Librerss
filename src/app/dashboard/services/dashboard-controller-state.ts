@@ -54,6 +54,7 @@ interface DashboardFeedListState {
 
 interface DashboardFilterBarState {
   articleFilter: ArticleFilter;
+  isShellLoading: boolean;
   lastRefreshLabel: string;
   loading: boolean;
   setArticleFilter: (value: ArticleFilter) => void;

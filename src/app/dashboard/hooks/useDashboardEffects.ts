@@ -23,6 +23,7 @@ export function useDashboardEffects({
   hasInitializedDashboardRef,
   initialArticleLimit,
   isSearchPending,
+  isShellLoading,
   loadFeedSources,
   loading,
   loadingEpoch,
@@ -58,6 +59,7 @@ export function useDashboardEffects({
   });
   useDashboardBroadcasts({
     isSearchPending,
+    isShellLoading,
     searchTerm,
     selectedFeed,
   });
