@@ -29,6 +29,48 @@ describe("extract/snapshot – readPlaceholderSnapshotHtml", () => {
     expect(result!.html.length).toBeGreaterThan(0);
   });
 
+  test("returns HTML for a newly bundled NASA placeholder article", async () => {
+    const { readPlaceholderSnapshotHtml } =
+      await import("@/lib/extract/snapshot");
+    const result = await readPlaceholderSnapshotHtml(
+      "https://www.nasa.gov/image-article/virgil-i-gus-grissom/",
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.snapshotPath).toBe(
+      "/placeholder-articles/nasa-breaking/virgil-i-gus-grissom.html",
+    );
+    expect(result?.html).toContain("https://www.nasa.gov");
+  });
+
+  test("returns HTML for a newly bundled ESA placeholder article", async () => {
+    const { readPlaceholderSnapshotHtml } =
+      await import("@/lib/extract/snapshot");
+    const result = await readPlaceholderSnapshotHtml(
+      "https://www.esa.int/ESA_Multimedia/Images/2026/03/Liftoff_for_Celeste_on_Rocket_Lab_s_Electron_rocket",
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.snapshotPath).toBe(
+      "/placeholder-articles/esa-images/Liftoff_for_Celeste_on_Rocket_Lab_s_Electron_rocket.html",
+    );
+    expect(result?.html).toContain("https://www.esa.int");
+  });
+
+  test("returns HTML for a newly bundled NIH placeholder article", async () => {
+    const { readPlaceholderSnapshotHtml } =
+      await import("@/lib/extract/snapshot");
+    const result = await readPlaceholderSnapshotHtml(
+      "https://www.nih.gov/news-events/nih-research-matters/treating-addiction",
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.snapshotPath).toBe(
+      "/placeholder-articles/nih-research-matters/treating-addiction.html",
+    );
+    expect(result?.html).toContain("https://www.nih.gov");
+  });
+
   test("returns html for a known placeholder article URL", async () => {
     const { readPlaceholderSnapshotHtml } =
       await import("@/lib/extract/snapshot");
