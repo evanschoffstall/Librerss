@@ -131,7 +131,7 @@ test.describe("dashboard feed pagination", () => {
       const firstRevealMetrics = await readFeedViewportMetrics(page);
       await setFeedViewportScrollTop(
         page,
-        Math.floor(firstRevealMetrics.maxScrollTop * 0.7),
+        Math.floor(firstRevealMetrics.maxScrollTop * 0.55),
       );
 
       await page.waitForTimeout(400);
@@ -152,7 +152,56 @@ test.describe("dashboard feed pagination", () => {
         .toBeGreaterThanOrEqual(11);
     });
 
-    test(`refills visible-read depletion without draining to a single page on ${viewportCase.name}`, async ({
+    test(`waits to refill visible-read depletion until unread drops below a page plus overflow on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      const feedRequestUrls: string[] = [];
+      const handleRequest = (request: { url: () => string }) => {
+        const requestUrl = new URL(request.url());
+
+        if (requestUrl.pathname === "/api/feeds") {
+          feedRequestUrls.push(request.url());
+        }
+      };
+
+      page.on("request", handleRequest);
+
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      try {
+        await gotoPreviewDashboard(page);
+        await configureArticlesPerPage(page, 4);
+
+        await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+        await expect
+          .poll(async () => {
+            return await readRenderedArticleCount(page);
+          })
+          .toBeGreaterThanOrEqual(8);
+
+        feedRequestUrls.length = 0;
+
+        await page
+          .getByRole("button", { name: "Mark fully visible articles as read" })
+          .click();
+
+        await expect
+          .poll(async () => {
+            return await readRenderedArticleCount(page);
+          })
+          .toBeGreaterThanOrEqual(8);
+
+        await page.waitForTimeout(800);
+        expect(feedRequestUrls).toEqual([]);
+      } finally {
+        page.off("request", handleRequest);
+      }
+    });
+
+    test(`resets refresh back to one page plus minimum overflow on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -161,6 +210,8 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await configureArticlesPerPage(page, 4);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expect
@@ -169,16 +220,27 @@ test.describe("dashboard feed pagination", () => {
         })
         .toBeGreaterThanOrEqual(8);
 
-      for (const _ignored of [0, 1, 2]) {
-        await page
-          .getByRole("button", { name: "Mark fully visible articles as read" })
-          .click();
-        await expect
-          .poll(async () => {
-            return await readRenderedArticleCount(page);
-          })
-          .toBeGreaterThanOrEqual(6);
-      }
+      await scrollFeedViewportToBottom(page);
+      await scrollFeedViewportToBottom(page);
+
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeGreaterThanOrEqual(12);
+
+      await page.getByRole("button", { exact: true, name: "Refresh selected feed" }).click();
+
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeGreaterThanOrEqual(8);
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeLessThan(12);
     });
   }
 });

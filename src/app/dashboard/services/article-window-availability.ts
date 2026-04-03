@@ -29,6 +29,22 @@ export interface ResolveArticleWindowAvailabilityOptions {
 }
 
 /**
+ * Inputs used to decide whether dashboard load-more should be ignored.
+ *
+ * During the initial live dashboard boot the feed surface can briefly expose a
+ * mounted load-more boundary before the first category tree and article window
+ * have fully settled. Ignoring load-more during that phase prevents the
+ * requested article limit from inflating before the first live page is ready.
+ */
+export interface ShouldBlockArticleWindowLoadMoreOptions {
+  currentFeedLength: number;
+  hasMoreServerArticles: boolean;
+  isCategoriesLoading: boolean;
+  isLoadingMoreArticles: boolean;
+  shouldUseArticleWindow: boolean;
+}
+
+/**
  * Inputs used to decide whether a locally depleted unread window should be refilled.
  *
  * When local read-state updates empty the unread filter, the feed surface swaps to the
@@ -36,6 +52,7 @@ export interface ResolveArticleWindowAvailabilityOptions {
  */
 export interface ShouldRefillDepletedUnreadWindowOptions {
   articleFilter: string;
+  articlesPerPage: number;
   currentFeedLength: number;
   currentFilteredFeedLength: number;
   hasMoreServerArticles: boolean;
@@ -43,6 +60,8 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
   isRefillingDepletedUnreadWindow: boolean;
   shouldUseArticleWindow: boolean;
 }
+
+const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 
 /**
  * Resolves whether the current dashboard selection can still paginate from the server.
@@ -104,11 +123,31 @@ export function resolveArticleWindowAvailability({
 }
 
 /**
+ * Prevents load-more from starting before the live article window is ready.
+ */
+export function shouldBlockArticleWindowLoadMore({
+  currentFeedLength,
+  hasMoreServerArticles,
+  isCategoriesLoading,
+  isLoadingMoreArticles,
+  shouldUseArticleWindow,
+}: ShouldBlockArticleWindowLoadMoreOptions) {
+  return (
+    !shouldUseArticleWindow ||
+    isCategoriesLoading ||
+    currentFeedLength === 0 ||
+    !hasMoreServerArticles ||
+    isLoadingMoreArticles
+  );
+}
+
+/**
  * Determines whether the controller should refill an unread window that local
  * read-state changes have emptied.
  */
 export function shouldRefillDepletedUnreadWindow({
   articleFilter,
+  articlesPerPage,
   currentFeedLength,
   currentFilteredFeedLength,
   hasMoreServerArticles,
@@ -116,13 +155,26 @@ export function shouldRefillDepletedUnreadWindow({
   isRefillingDepletedUnreadWindow,
   shouldUseArticleWindow,
 }: ShouldRefillDepletedUnreadWindowOptions) {
+  const unreadRefillThreshold = resolveUnreadRefillThreshold(articlesPerPage);
+
   return (
     articleFilter === "unread" &&
     shouldUseArticleWindow &&
     hasMoreServerArticles &&
     !isLoading &&
     !isRefillingDepletedUnreadWindow &&
-    currentFilteredFeedLength === 0 &&
+    currentFilteredFeedLength < unreadRefillThreshold &&
     currentFeedLength > 0
   );
+}
+
+/**
+ * Keeps one page plus a minimal overflow article buffered before unread refills.
+ *
+ * This matches the feed viewport contract: do not chase the server just because
+ * local read-state updates removed a few visible rows. Refill only when the unread
+ * window has fallen below one configured page and its smallest extra overflow.
+ */
+function resolveUnreadRefillThreshold(articlesPerPage: number) {
+  return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);
 }

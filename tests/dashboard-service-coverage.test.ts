@@ -7,6 +7,7 @@ import {
 import { filterArticlesByState } from "@/app/dashboard/services/article-filters";
 import {
   resolveArticleWindowAvailability,
+  shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
 } from "@/app/dashboard/services/article-window-availability";
 import {
@@ -226,8 +227,9 @@ describe("dashboard pure service coverage", () => {
     expect(
       shouldRefillDepletedUnreadWindow({
         articleFilter: "unread",
+        articlesPerPage: 4,
         currentFeedLength: 12,
-        currentFilteredFeedLength: 0,
+        currentFilteredFeedLength: 4,
         hasMoreServerArticles: true,
         isLoading: false,
         isRefillingDepletedUnreadWindow: false,
@@ -238,11 +240,42 @@ describe("dashboard pure service coverage", () => {
     expect(
       shouldRefillDepletedUnreadWindow({
         articleFilter: "all",
+        articlesPerPage: 4,
         currentFeedLength: 12,
         currentFilteredFeedLength: 0,
         hasMoreServerArticles: true,
         isLoading: false,
         isRefillingDepletedUnreadWindow: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldBlockArticleWindowLoadMore({
+        currentFeedLength: 0,
+        hasMoreServerArticles: true,
+        isCategoriesLoading: false,
+        isLoadingMoreArticles: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldBlockArticleWindowLoadMore({
+        currentFeedLength: 12,
+        hasMoreServerArticles: true,
+        isCategoriesLoading: true,
+        isLoadingMoreArticles: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldBlockArticleWindowLoadMore({
+        currentFeedLength: 12,
+        hasMoreServerArticles: true,
+        isCategoriesLoading: false,
+        isLoadingMoreArticles: false,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);
