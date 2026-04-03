@@ -52,6 +52,23 @@ async function flushAsyncWork() {
 // ---------------------------------------------------------------------------
 
 describe("FeedListRow entering animation", () => {
+  test("expanded rows drop layout containment so sticky headers can anchor", () => {
+    const { container } = render(
+      <FeedListRow
+        articleKey="https://example.com/sticky"
+        hasTrailingGap={false}
+        isExpanded={true}
+        removalAnimationMode={null}
+      >
+        <article data-article-key="https://example.com/sticky">content</article>
+      </FeedListRow>,
+    );
+
+    const outer = container.firstElementChild as HTMLDivElement;
+
+    expect(outer.style.contain).toBe("style");
+  });
+
   test("initial entering state: outer opacity 0, inner maxHeight 0", () => {
     const { container } = render(
       <FeedListRow

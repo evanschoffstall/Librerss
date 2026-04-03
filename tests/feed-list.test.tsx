@@ -23,6 +23,14 @@ type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
   transition?: unknown;
 };
 
+function serializeMockMotionValue(value: unknown) {
+  if (typeof value === "undefined") {
+    return undefined;
+  }
+
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 const motion = new Proxy(
   {},
   {
@@ -40,7 +48,15 @@ const motion = new Proxy(
           },
           ref,
         ) {
-          return React.createElement(tag as string, { ...props, ref }, props.children);
+          return React.createElement(
+            tag as string,
+            {
+              ...props,
+              "data-motion-initial": serializeMockMotionValue(_initial),
+              ref,
+            },
+            props.children,
+          );
         },
       ),
   },
@@ -437,6 +453,44 @@ describe("FeedList", () => {
     });
   });
 
+  test("renders hydrated feed content without an extra enter phase after skeleton loading", async () => {
+    const articles = buildSequentialFeedListArticles("hydrated-snap", 4);
+
+    const { container } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    const feedSurface = container.querySelector<HTMLElement>(
+      "[data-feed-surface-mode='plain']",
+    );
+    const feedFrame = feedSurface?.firstElementChild as HTMLElement | null;
+
+    expect(feedFrame).not.toBeNull();
+    expect(
+      container.querySelector("[data-dashboard-feed-list-skeleton='true']"),
+    ).toBeNull();
+    expect(feedFrame?.getAttribute("style") ?? "").not.toContain("opacity: 0");
+  });
+
   test("does not prefetch another server page during idle auto-fill before any scroll intent", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 8 }, (_value, index) =>
@@ -501,6 +555,339 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(getByText("Idle auto-fill article 8")).toBeTruthy();
       expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+    });
+
+    await flushFeedListAsyncWork();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
+  test("requests another desktop page after unread removals shrink a user-owned viewport", async () => {
+    let testContainer: HTMLElement | null = null;
+    let scrollTop = 0;
+    const initialArticles = buildSequentialFeedListArticles("desktop-refill", 12);
+    const onLoadMore = mock(() => {});
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 600;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                testContainer?.querySelectorAll("[data-scroll-restore-key]")
+                  .length ?? 0;
+
+              return renderedRows >= 8 ? 1200 : 400;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return scrollTop;
+            },
+            set(nextValue: number) {
+              scrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={initialArticles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onLoadMore={onLoadMore}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    await waitFor(() => {
+      expect(getByText("desktop-refill article 12")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+    });
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    scrollTop = 72;
+    await act(async () => {
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="unread"
+            articlesPerPage={4}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:unread"
+            filteredFeed={initialArticles.slice(0, 4)}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onLoadMore={onLoadMore}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(onLoadMore).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="unread"
+            articlesPerPage={4}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:unread"
+            filteredFeed={buildSequentialFeedListArticles("desktop-refill", 8)}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onLoadMore={onLoadMore}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(onLoadMore).toHaveBeenCalledTimes(1);
+    });
+
+    await flushFeedListAsyncWork();
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  test("requests another desktop page as soon as no-scroll visible-read depletion shrinks the revealed window", async () => {
+    let testContainer: HTMLElement | null = null;
+    const initialArticles = buildSequentialFeedListArticles("desktop-deplete", 12);
+    const onLoadMore = mock(() => {});
+
+    const { container, getByText, rerender } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 600;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                testContainer?.querySelectorAll("[data-scroll-restore-key]")
+                  .length ?? 0;
+
+              return renderedRows === 0 ? 2681 : 2681;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={initialArticles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onLoadMore={onLoadMore}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    testContainer = container;
+
+    await waitFor(() => {
+      expect(getByText("desktop-deplete article 12")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="unread"
+            articlesPerPage={4}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:unread"
+            filteredFeed={initialArticles.slice(0, 7)}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onLoadMore={onLoadMore}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(7);
+      expect(onLoadMore).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("hides the exhausted desktop server boundary even when the load-more callback is still wired", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+
+    const articles = buildSequentialFeedListArticles("desktop-server-exhausted", 12);
+    const onLoadMore = mock(() => {});
+    let scrollTop = 0;
+
+    const { container, getByText } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 400;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              return 12 * 140;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return scrollTop;
+            },
+            set(nextValue: number) {
+              scrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={12}
+          canLoadMoreFromServer={false}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onLoadMore={onLoadMore}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(getByText("desktop-server-exhausted article 12")).toBeTruthy();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelector("[data-feed-load-more-sentinel='true']"),
+      ).toBeNull();
+    });
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    await act(async () => {
+      scrollTop = 1280;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
     });
 
     await flushFeedListAsyncWork();
@@ -845,6 +1232,14 @@ describe("FeedList", () => {
     });
 
     await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+      scrollTop = 800;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await act(async () => {
       scrollTop = 0;
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("wheel"));
@@ -1131,7 +1526,7 @@ describe("FeedList", () => {
     expect(scrollTop).toBe(stableScrollTop);
   });
 
-  test("loads one additional standard-scroll page after explicit bottom scroll intent", async () => {
+  test("loads one additional standard-scroll page after explicit 70 percent scroll intent", async () => {
     window.localStorage.setItem(
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
       JSON.stringify(false),
@@ -1215,7 +1610,7 @@ describe("FeedList", () => {
     }
 
     await act(async () => {
-      scrollTop = 800;
+      scrollTop = 120;
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("wheel"));
       viewport.dispatchEvent(new Event("scroll"));
@@ -1226,6 +1621,150 @@ describe("FeedList", () => {
       expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
       expect(getByText("Standard scroll article 8")).toBeTruthy();
       expect(queryByText("Standard scroll article 12")).toBeNull();
+    });
+  });
+
+  test("keeps desktop server pagination locked until one second after a server reveal settles", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+
+    const firstPage = buildSequentialFeedListArticles("desktop-server-lock", 8);
+    const secondPage = buildSequentialFeedListArticles("desktop-server-lock", 12);
+    const onLoadMore = mock(() => {});
+    let scrollTop = 0;
+
+    const { container, rerender } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 400;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              const renderedRows =
+                container.querySelectorAll("[data-scroll-restore-key]").length;
+
+              return Math.max(renderedRows, 8) * 140;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return scrollTop;
+            },
+            set(nextValue: number) {
+              scrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={8}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={firstPage}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onLoadMore={onLoadMore}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    await act(async () => {
+      scrollTop = 520;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await waitFor(() => {
+      expect(onLoadMore).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <div data-radix-scroll-area-viewport="">
+          <FeedList
+            articleFilter="all"
+            articlesPerPage={8}
+            expandedArticleKey={null}
+            feedViewKey="system-all-feeds:all"
+            filteredFeed={secondPage}
+            hydratedArticleLinks={{}}
+            hydratingArticleLinks={{}}
+            isInitialLoading={false}
+            isRefreshing={false}
+            onExpandedSwipeRead={() => {}}
+            onLoadMore={onLoadMore}
+            onToggle={() => {}}
+            onToggleRead={() => {}}
+            onToggleStarred={() => {}}
+            searchTerm=""
+            showFavicons={false}
+            updatingArticleState={{}}
+          />
+        </div>
+      </ThemeProvider>,
+    );
+
+    await flushFeedListAsyncWork();
+
+    await act(async () => {
+      scrollTop = 920;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await flushFeedListAsyncWork();
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+      scrollTop = 400;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await act(async () => {
+      scrollTop = 920;
+      viewport.dispatchEvent(new Event("touchmove"));
+      viewport.dispatchEvent(new Event("wheel"));
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await waitFor(() => {
+      expect(onLoadMore).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -1313,7 +1852,7 @@ describe("FeedList", () => {
     }
 
     await act(async () => {
-      scrollTop = 120;
+      scrollTop = 100;
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("wheel"));
       viewport.dispatchEvent(new Event("scroll"));
@@ -1497,7 +2036,7 @@ describe("FeedList", () => {
     expect(container.querySelector("[data-feed-load-more-sentinel='true']")).toBeNull();
   });
 
-  test("keeps the feed virtualized while an article is expanded", async () => {
+  test("renders the standard feed surface while an article is expanded", async () => {
     const firstArticle = buildFeedListArticle();
     const secondArticle = buildFeedListArticle({
       id: 2,
@@ -1531,15 +2070,13 @@ describe("FeedList", () => {
       expect(getByText(firstArticle.title)).toBeTruthy();
       expect(getByText(secondArticle.title)).toBeTruthy();
       expect(
-        container.querySelector("[data-feed-surface-mode='virtualized']"),
-      ).toBeTruthy();
-      expect(
         container.querySelector("[data-feed-virtualizer='true']"),
-      ).toBeTruthy();
+      ).toBeNull();
+      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(2);
     });
   });
 
-  test("keeps the feed virtualized after collapsing an expanded article", async () => {
+  test("restores feed virtualization after collapsing an expanded article", async () => {
     const article = buildFeedListArticle();
     const sibling = buildFeedListArticle({
       id: 2,
@@ -1573,7 +2110,7 @@ describe("FeedList", () => {
       expect(getByText(article.title)).toBeTruthy();
       expect(
         container.querySelector("[data-feed-virtualizer='true']"),
-      ).toBeTruthy();
+      ).toBeNull();
     });
 
     rerender(

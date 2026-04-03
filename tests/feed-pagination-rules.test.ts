@@ -38,7 +38,24 @@ describe("resolvePaginationBoundaryState", () => {
     });
   });
 
-  test("re-arms standard pagination only after the reader moves away from the bottom edge", () => {
+  test("starts standard pagination once the reader crosses 70 percent scroll progress", () => {
+    const viewport = document.createElement("div");
+    defineViewportMetric(viewport, "clientHeight", 480);
+    defineViewportMetric(viewport, "scrollHeight", 1440);
+    defineViewportMetric(viewport, "scrollTop", 768);
+
+    expect(
+      resolvePaginationBoundaryState({
+        isInvertedScroll: false,
+        scrollViewport: viewport,
+      }),
+    ).toEqual({
+      hasMovedAwayFromBoundary: false,
+      hasReachedBoundary: true,
+    });
+  });
+
+  test("keeps standard pagination disarmed before the 70 percent threshold", () => {
     const viewport = document.createElement("div");
     defineViewportMetric(viewport, "clientHeight", 480);
     defineViewportMetric(viewport, "scrollHeight", 1440);
