@@ -1,7 +1,5 @@
 import { type CategoryTreeNode, DEFAULT_CATEGORY_LABEL } from "@/lib";
 
-export { DASHBOARD_PREVIEW_STORAGE_KEY } from "./preview-mode";
-
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 export const ALL_FEEDS_LABEL = "All Feeds";
 export const ALL_FEEDS_NODE_KEY = "system-all-feeds";

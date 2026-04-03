@@ -23,7 +23,7 @@ import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
 import { DevAutoLoginRedirect } from "./components/login/DevAutoLoginRedirect";
 import { LoginView } from "./components/login/LoginView";
-import { BackgroundMode, DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
+import { BackgroundMode, DASHBOARD_EVENTS } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
 import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
@@ -56,10 +56,7 @@ export function DashboardRouter({
   const [usePlaceholderData, setUsePlaceholderData] = useState(
     initialSession?.usePlaceholderData ?? false,
   );
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage(
-    DASHBOARD_PREVIEW_STORAGE_KEY,
-    initialPreviewMode,
-  );
+  const [isPreviewMode, setIsPreviewMode] = useState(initialPreviewMode);
   const { resolvedTheme } = useTheme();
   const [backgroundMode, setBackgroundMode] = useLocalStorage<BackgroundMode>(
     "librerss:backgroundMode",
@@ -95,9 +92,17 @@ export function DashboardRouter({
     }
 
     setIsPreviewMode(true);
-    setDashboardPreviewPersistence(true);
     window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.ENTER_PREVIEW));
   }, [initialPreviewMode, setIsPreviewMode]);
+
+  useEffect(() => {
+    if (!hasHydratedClientState || hasPreviewQuery) {
+      return;
+    }
+
+    setIsPreviewMode(false);
+    setDashboardPreviewPersistence(false);
+  }, [hasHydratedClientState, hasPreviewQuery]);
 
   useEffect(() => {
     if (!hasHydratedClientState) {
@@ -126,13 +131,6 @@ export function DashboardRouter({
 
         setAllowSignup(session.allowSignup);
         setUsePlaceholderData(session.usePlaceholderData);
-        if (
-          session.authenticated ||
-          (session.allowSignup && !hasPreviewQuery)
-        ) {
-          setIsPreviewMode(false);
-          setDashboardPreviewPersistence(false);
-        }
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
         if (isCanceled) {
@@ -163,7 +161,6 @@ export function DashboardRouter({
 
   const handleEnterPreview = () => {
     setIsPreviewMode(true);
-    setDashboardPreviewPersistence(true);
     window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.ENTER_PREVIEW));
     window.location.assign("/dashboard?explore=1");
   };
