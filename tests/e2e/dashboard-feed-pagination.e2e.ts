@@ -23,6 +23,46 @@ const DESKTOP_VIEWPORT_CASES: DesktopViewportCase[] = [
   { height: 780, name: "wide desktop", width: 1440 },
 ];
 
+/**
+ * Repeatedly scrolls far enough to reveal at least three configured pages so
+ * refresh regressions can prove the surface collapses back to the minimum
+ * overflow window instead of preserving stale reveal state.
+ */
+async function expandDesktopFeedWindow(page: Page) {
+  await scrollFeedViewportToBottom(page);
+  await scrollFeedViewportToBottom(page);
+
+  await expect
+    .poll(async () => {
+      return await readRenderedArticleCount(page);
+    })
+    .toBeGreaterThanOrEqual(12);
+}
+
+/**
+ * Confirms refresh collapses an expanded desktop feed back to one page plus the
+ * minimum overflow while still leaving the next page available to load.
+ */
+async function expectDesktopRefreshCollapse(page: Page) {
+  await page.getByRole("button", { exact: true, name: "Refresh selected feed" }).click();
+
+  await expect
+    .poll(async () => {
+      return await readRenderedArticleCount(page);
+    })
+    .toBeGreaterThanOrEqual(8);
+  await expect
+    .poll(async () => {
+      return await readRenderedArticleCount(page);
+    })
+    .toBeLessThan(12);
+  await expect
+    .poll(async () => {
+      return await hasLoadMoreSentinel(page);
+    })
+    .toBe(true);
+}
+
 async function readFeedViewportMetrics(page: Page) {
   return await page.evaluate(() => {
     const candidates = Array.from(
@@ -46,6 +86,17 @@ async function readFeedViewportMetrics(page: Page) {
       scrollTop: viewport.scrollTop,
     };
   });
+}
+
+/** Rearms the desktop load-more boundary after refresh by moving away, then back. */
+async function rearmDesktopPaginationAfterRefresh(page: Page) {
+  const metrics = await readFeedViewportMetrics(page);
+
+  await setFeedViewportScrollTop(page, Math.floor(metrics.maxScrollTop * 0.45));
+  await page.waitForTimeout(800);
+
+  const rearmMetrics = await readFeedViewportMetrics(page);
+  await setFeedViewportScrollTop(page, Math.floor(rearmMetrics.maxScrollTop * 0.95));
 }
 
 test.describe("dashboard feed pagination", () => {
@@ -241,6 +292,71 @@ test.describe("dashboard feed pagination", () => {
           return await readRenderedArticleCount(page);
         })
         .toBeLessThan(12);
+    });
+
+    test(`keeps repeated desktop refreshes collapsed after the feed was expanded on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await configureArticlesPerPage(page, 4);
+
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeGreaterThanOrEqual(8);
+
+      await expandDesktopFeedWindow(page);
+      const expandedCount = await readRenderedArticleCount(page);
+
+      await expectDesktopRefreshCollapse(page);
+      const firstRefreshCount = await readRenderedArticleCount(page);
+
+      expect(firstRefreshCount).toBeGreaterThanOrEqual(8);
+      expect(firstRefreshCount).toBeLessThan(expandedCount);
+
+      await expectDesktopRefreshCollapse(page);
+      const secondRefreshCount = await readRenderedArticleCount(page);
+
+      expect(secondRefreshCount).toBeGreaterThanOrEqual(8);
+      expect(secondRefreshCount).toBeLessThan(expandedCount);
+      expect(secondRefreshCount).toBeLessThan(12);
+    });
+
+    test(`rearms desktop pagination after refresh collapses an expanded explore window on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await configureArticlesPerPage(page, 4);
+
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await expandDesktopFeedWindow(page);
+
+      await expectDesktopRefreshCollapse(page);
+
+      const collapsedWindow = await readRenderedItemWindow(page);
+      expect(collapsedWindow.maxIndex).not.toBeNull();
+      expect(collapsedWindow.maxIndex!).toBeLessThan(11);
+
+      await rearmDesktopPaginationAfterRefresh(page);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThan(collapsedWindow.maxIndex!);
     });
   }
 });

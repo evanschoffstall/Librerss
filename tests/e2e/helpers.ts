@@ -121,26 +121,19 @@ export async function enterPreviewFromLogin(page: Page) {
   await expect(
     page.getByText("Access your saved feeds and reading preferences."),
   ).toBeVisible();
-  await Promise.all([
-    page.waitForURL((url) => {
-      return url.pathname === "/dashboard" && url.searchParams.get("explore") === "1";
-    }),
-    page.getByRole("button", { name: "Explore without an account" }).click(),
-  ]);
+  await page.waitForFunction(() => document.readyState === "complete");
+  await page.getByRole("button", { name: "Explore without an account" }).click();
+  await expect
+    .poll(() => {
+      const currentUrl = new URL(page.url());
 
-  const mobileActionsMenuButton = page.getByRole("button", {
-    name: "Open actions menu",
-  });
-  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
-    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
-      timeout: 15_000,
-    });
-    return;
-  }
+      return currentUrl.pathname === "/dashboard"
+        ? currentUrl.searchParams.get("explore")
+        : null;
+    })
+    .toBe("1");
 
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
-    timeout: 15_000,
-  });
+  await expectPreviewDashboard(page);
 }
 
 /** Waits for an article card to reach the expected expanded state. */
@@ -203,23 +196,40 @@ export async function expectPreviewDashboard(page: Page) {
   });
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
+  const mobileFeedsButton = page.getByRole("button", {
+    name: "Open feeds",
+  });
   const mobileActionsMenuButton = page.getByRole("button", {
     name: "Open actions menu",
   });
   const desktopSettingsButton = page.getByRole("button", {
     name: "Open dashboard settings",
   });
+  const signOutButton = page.getByRole("button", { name: "Sign out" });
+
+  await expect
+    .poll(async () => {
+      const isMobileReady =
+        (await mobileActionsMenuButton.isVisible().catch(() => false)) &&
+        (await mobileFeedsButton.isVisible().catch(() => false));
+      const isDesktopReady =
+        (await desktopSettingsButton.isVisible().catch(() => false)) &&
+        (await signOutButton.isVisible().catch(() => false));
+
+      return isMobileReady || isDesktopReady;
+    })
+    .toBe(true);
 
   if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
     await expect(mobileActionsMenuButton).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
+    await expect(mobileFeedsButton).toBeVisible({
       timeout: 15_000,
     });
     return;
   }
 
   await expect(desktopSettingsButton).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+  await expect(signOutButton).toBeVisible({
     timeout: 15_000,
   });
 }

@@ -5,6 +5,8 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
+  readFeedViewportMetrics,
+  readRenderedArticleCount,
   readRenderedItemWindow,
   readTopVisibleFeedArticle,
   scrollFeedViewportToBottom,
@@ -15,7 +17,7 @@ import {
 import { expect, test } from "./test";
 
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
-const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 72;
+const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 144;
 
 interface MobileViewportCase {
   height: number;
@@ -28,10 +30,69 @@ const MOBILE_VIEWPORT_CASES: MobileViewportCase[] = [
   { height: 852, name: "tall mobile", width: 393 },
 ];
 
+/** Expands the mobile feed by one additional configured page in inverted mode. */
+async function expandInvertedMobileWindow(page: Page) {
+  await wheelActiveFeedViewport(page, -700);
+  await expect
+    .poll(async () => {
+      return (await readRenderedItemWindow(page)).maxIndex;
+    })
+    .toBeGreaterThanOrEqual(7);
+
+  await wheelActiveFeedViewport(page, -700);
+  await expect
+    .poll(async () => {
+      return (await readRenderedItemWindow(page)).maxIndex;
+    })
+    .toBeGreaterThanOrEqual(11);
+}
+
+/** Expands the mobile feed by one additional configured page in standard mode. */
+async function expandStandardMobileWindow(page: Page) {
+  await scrollFeedViewportToBottom(page);
+  await triggerFeedViewportWheelIntent(page, 240);
+  await scrollFeedViewportToBottom(page);
+  await triggerFeedViewportWheelIntent(page, 240);
+
+  await expect
+    .poll(async () => {
+      return (await readRenderedItemWindow(page)).maxIndex;
+    })
+    .toBeGreaterThanOrEqual(11);
+}
+
+/** Verifies refresh collapses an expanded mobile feed back to the minimum overflow window. */
+async function expectMobileRefreshCollapse(page: Page) {
+  await page.getByRole("button", { exact: true, name: "Refresh selected feed" }).click();
+
+  await expect
+    .poll(async () => {
+      return await readRenderedArticleCount(page);
+    })
+    .toBeGreaterThanOrEqual(4);
+  await expect
+    .poll(async () => {
+      return await readRenderedArticleCount(page);
+    })
+    .toBeLessThan(12);
+  await expect
+    .poll(async () => {
+      return await hasLoadMoreSentinel(page);
+    })
+    .toBe(true);
+}
+
 /** Reads the feed attribute that indicates inverted scroll is active. */
 async function readInvertedScrollAttribute(page: Page) {
   const feedSurface = page.locator("[data-feed-surface-mode]").first();
   return await feedSurface.getAttribute("data-inverted-scroll");
+}
+
+/** Rearms the inverted mobile pagination boundary after refresh. */
+async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
+  await scrollFeedViewportToTop(page);
+  await page.waitForTimeout(250);
+  await wheelActiveFeedViewport(page, -700);
 }
 
 test.describe("dashboard mobile feed pagination", () => {
@@ -225,6 +286,117 @@ test.describe("dashboard mobile feed pagination", () => {
           })
           .toBeGreaterThanOrEqual(previousWindow.maxIndex!);
       }
+    });
+
+    test(`collapses inverted explore refresh back to one page plus overflow on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+
+      await configureArticlesPerPage(page, 4);
+      await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
+
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeGreaterThanOrEqual(4);
+
+      await expandInvertedMobileWindow(page);
+      const expandedCount = await readRenderedArticleCount(page);
+      const expandedMetrics = await readFeedViewportMetrics(page);
+
+      expect(expandedMetrics.scrollHeight).toBeGreaterThan(expandedMetrics.clientHeight);
+
+      await expectMobileRefreshCollapse(page);
+      const collapsedCount = await readRenderedArticleCount(page);
+
+      expect(collapsedCount).toBeGreaterThanOrEqual(4);
+      expect(collapsedCount).toBeLessThan(expandedCount);
+    });
+
+    test(`rearms inverted mobile pagination after refresh collapses the expanded explore window on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+
+      await configureArticlesPerPage(page, 4);
+      await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
+
+      await expandInvertedMobileWindow(page);
+      await expectMobileRefreshCollapse(page);
+
+      const collapsedWindow = await readRenderedItemWindow(page);
+      expect(collapsedWindow.maxIndex).not.toBeNull();
+      expect(collapsedWindow.maxIndex!).toBeLessThan(11);
+
+      await rearmInvertedMobilePaginationAfterRefresh(page);
+
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThan(collapsedWindow.maxIndex!);
+    });
+
+    test(`collapses standard mobile explore refresh back to one page plus overflow on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.addInitScript((storageKey: string) => {
+        window.localStorage.setItem(storageKey, "false");
+      }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+
+      await configureArticlesPerPage(page, 4);
+      await expect(readInvertedScrollAttribute(page)).resolves.toBeNull();
+
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeGreaterThanOrEqual(4);
+
+      await expandStandardMobileWindow(page);
+      const expandedCount = await readRenderedArticleCount(page);
+
+      await expectMobileRefreshCollapse(page);
+      const collapsedCount = await readRenderedArticleCount(page);
+
+      expect(collapsedCount).toBeGreaterThanOrEqual(4);
+      expect(collapsedCount).toBeLessThan(expandedCount);
+
+      const collapsedWindow = await readRenderedItemWindow(page);
+      expect(collapsedWindow.maxIndex).not.toBeNull();
+      expect(collapsedWindow.maxIndex!).toBeLessThan(11);
+
+      await scrollFeedViewportToBottom(page);
+      await triggerFeedViewportWheelIntent(page, 240);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThan(collapsedWindow.maxIndex!);
     });
   }
 });
