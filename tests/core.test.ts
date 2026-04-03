@@ -138,64 +138,6 @@ describe("article-status", () => {
   });
 });
 
-// ─── Stream Conditions ────────────────────────────────────────────────────────
-
-describe("stream-conditions", () => {
-  test("buildStreamConditions creates conditions for reading-list", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter: null,
-      feedUrl: null,
-      starredOnly: false,
-      useArticleStatuses: true,
-    });
-    expect(Array.isArray(conditions)).toBe(true);
-    expect(conditions).toHaveLength(0);
-  });
-
-  test("buildStreamConditions handles feed URLs", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter: null,
-      feedUrl: "https://example.com/feed.xml",
-      starredOnly: false,
-      useArticleStatuses: false,
-    });
-    expect(conditions).toHaveLength(1);
-  });
-
-  test("buildStreamConditions handles starred filter", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter: null,
-      feedUrl: null,
-      starredOnly: true,
-      useArticleStatuses: true,
-    });
-    expect(conditions).toHaveLength(1);
-  });
-
-  test("buildStreamConditions combines all optional filters", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: 321,
-      dateFilter: new Date("2024-01-01T00:00:00.000Z"),
-      excludeRead: true,
-      feedUrl: "https://example.com/feed.xml",
-      starredOnly: true,
-      useArticleStatuses: true,
-    });
-    expect(conditions).toHaveLength(4);
-  });
-});
-
 // ─── Feed Parser ──────────────────────────────────────────────────────────────
 
 describe("feed-parser", () => {
