@@ -13,24 +13,20 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
+import { FEED_ROW_COLLAPSE_FLOOR_PX } from "@/app/dashboard/components/feed/constants";
 import * as realFeedListRowModule from "@/app/dashboard/components/feed/FeedListRow";
 
 import {
+  FeedListResizeObserverMock,
   installFeedListDomMocks,
   restoreFeedListDomMocks,
 } from "./feed-list-test-utils";
 
-// Updated in beforeEach after restoring the real module to the cache.
 let FeedListRow: typeof realFeedListRowModule.FeedListRow;
 
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  // Restore the real FeedListRow in the Bun module cache. Another test file
-  // (feed-list-render-fanout) mocks FeedListRow via a relative path and can
-  // leave the stub in the cache when it shares a Bun worker with this file.
-  mock.module("@/app/dashboard/components/feed/FeedListRow", () => realFeedListRowModule);
-  mock.module("../src/app/dashboard/components/feed/FeedListRow", () => realFeedListRowModule);
   FeedListRow = realFeedListRowModule.FeedListRow;
   installFeedListDomMocks();
 });
@@ -181,5 +177,110 @@ describe("FeedListRow entering animation", () => {
     // No entering classes or forced styles.
     expect(Number(outer?.style.opacity)).toBe(1);
     expect(inner?.style.maxHeight).toBe("");
+  });
+
+  test("collapse animation commits the row exit styles after the frame", async () => {
+    const { container } = render(
+      <FeedListRow
+        articleKey="https://example.com/g"
+        hasTrailingGap={true}
+        isEntering={false}
+        removalAnimationMode="collapse"
+      >
+        <article data-article-key="https://example.com/g">content</article>
+      </FeedListRow>,
+    );
+
+    const outer = container.firstElementChild as HTMLDivElement;
+    const inner = outer?.firstElementChild as HTMLDivElement;
+
+    expect(outer?.style.willChange).toBe("margin-bottom, opacity");
+    expect(inner?.style.willChange).toBe("max-height, transform");
+
+    await flushAsyncWork();
+
+    expect(outer?.dataset.feedRowState).toBe("collapsing");
+    expect(outer?.style.marginBottom).toBe(`${-FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+    expect(Number(outer?.style.opacity)).toBe(0);
+    expect(inner?.style.maxHeight).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+    expect(inner?.style.minHeight).toBe(`${FEED_ROW_COLLAPSE_FLOOR_PX}px`);
+    expect(inner?.style.overflow).toBe("hidden");
+    expect(inner?.style.pointerEvents).toBe("none");
+  });
+
+  test("swipe-read collapse keeps opacity and translates the row body", async () => {
+    const { container, rerender } = render(
+      <FeedListRow
+        articleKey="https://example.com/h"
+        hasTrailingGap={false}
+        isEntering={false}
+        removalAnimationMode="swipe-read"
+      >
+        <article data-article-key="https://example.com/h">content</article>
+      </FeedListRow>,
+    );
+
+    const outer = container.firstElementChild as HTMLDivElement;
+    const inner = outer?.firstElementChild as HTMLDivElement;
+
+    await flushAsyncWork();
+
+    expect(Number(outer?.style.opacity)).toBe(1);
+    expect(inner?.style.transform).toBe("translate3d(2.5rem, 0, 0)");
+
+    rerender(
+      <FeedListRow
+        articleKey="https://example.com/h"
+        hasTrailingGap={false}
+        isEntering={false}
+        removalAnimationMode={null}
+      >
+        <article data-article-key="https://example.com/h">content</article>
+      </FeedListRow>,
+    );
+
+    expect(outer?.style.willChange).toBe("");
+    expect(inner?.style.willChange).toBe("");
+  });
+
+  test("cancels the pending enter frame and disconnects the resize observer on cleanup", async () => {
+    const resizeDisconnect = mock(() => {});
+    const originalDisconnect = FeedListResizeObserverMock.prototype.disconnect;
+    FeedListResizeObserverMock.prototype.disconnect = resizeDisconnect;
+    const onEnteringDone = mock((_key: string) => {});
+
+    try {
+      const { rerender, unmount } = render(
+        <FeedListRow
+          articleKey="https://example.com/i"
+          hasTrailingGap={false}
+          isEntering={true}
+          onEnteringDone={onEnteringDone}
+          removalAnimationMode={null}
+        >
+          <article data-article-key="https://example.com/i">content</article>
+        </FeedListRow>,
+      );
+
+      rerender(
+        <FeedListRow
+          articleKey="https://example.com/i"
+          hasTrailingGap={false}
+          isEntering={false}
+          onEnteringDone={onEnteringDone}
+          removalAnimationMode={null}
+        >
+          <article data-article-key="https://example.com/i">content</article>
+        </FeedListRow>,
+      );
+
+      await flushAsyncWork();
+      expect(onEnteringDone).not.toHaveBeenCalled();
+
+      unmount();
+      expect(resizeDisconnect).toHaveBeenCalled();
+    } finally {
+      FeedListResizeObserverMock.prototype.disconnect = originalDisconnect;
+    }
   });
 });

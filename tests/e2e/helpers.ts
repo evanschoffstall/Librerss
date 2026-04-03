@@ -368,9 +368,9 @@ export async function readRenderedArticleCount(page: Page) {
 export async function readRenderedItemWindow(page: Page) {
   return await page.evaluate(() => {
     const indexes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-item-index]"),
+      document.querySelectorAll<HTMLElement>("[data-index]"),
     )
-      .map((node) => Number.parseInt(node.dataset.itemIndex ?? "", 10))
+      .map((node) => Number.parseInt(node.dataset.index ?? "", 10))
       .filter((value) => Number.isFinite(value))
       .sort((left, right) => left - right);
 
