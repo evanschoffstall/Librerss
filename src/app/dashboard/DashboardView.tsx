@@ -54,6 +54,7 @@ export const DashboardView = ({
               animatingInArticleKeys={feedList.animatingInArticleKeys}
               articleFilter={feedList.articleFilter}
               articlesPerPage={feedList.articlesPerPage}
+              canLoadMoreFromServer={feedList.canLoadMoreFromServer}
               collapsingArticles={feedList.collapsingArticles}
               expandedArticleKey={feedList.expandedArticleKey}
               feedViewKey={feedList.feedViewKey}

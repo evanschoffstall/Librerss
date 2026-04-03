@@ -1,6 +1,7 @@
 import {
   FEED_INVERTED_LOAD_MORE_THRESHOLD_PX,
   FEED_MIN_SCROLLABLE_OVERFLOW_PX,
+  FEED_STANDARD_LOAD_MORE_TRIGGER_RATIO,
 } from "./constants";
 
 export interface PaginationBoundaryState {
@@ -78,14 +79,30 @@ export function resolvePaginationBoundaryState({
 
   const remainingDistance = readStandardRemainingDistance(scrollViewport);
   const hasFiniteRemainingDistance = Number.isFinite(remainingDistance);
+  const maxScrollTop = Math.max(
+    0,
+    scrollViewport.scrollHeight - scrollViewport.clientHeight,
+  );
+  const hasFiniteScrollProgress =
+    Number.isFinite(maxScrollTop) &&
+    maxScrollTop > 0 &&
+    Number.isFinite(scrollViewport.scrollTop);
+  const scrollProgress = hasFiniteScrollProgress
+    ? scrollViewport.scrollTop / maxScrollTop
+    : Number.NaN;
+  const hasReachedProgressBoundary =
+    Number.isFinite(scrollProgress) &&
+    scrollProgress >= FEED_STANDARD_LOAD_MORE_TRIGGER_RATIO;
 
   return {
     hasMovedAwayFromBoundary:
       hasFiniteRemainingDistance &&
-      remainingDistance > FEED_MIN_SCROLLABLE_OVERFLOW_PX,
+      remainingDistance > FEED_MIN_SCROLLABLE_OVERFLOW_PX &&
+      !hasReachedProgressBoundary,
     hasReachedBoundary:
-      hasFiniteRemainingDistance &&
-      remainingDistance <= FEED_MIN_SCROLLABLE_OVERFLOW_PX,
+      (hasFiniteRemainingDistance &&
+        remainingDistance <= FEED_MIN_SCROLLABLE_OVERFLOW_PX) ||
+      hasReachedProgressBoundary,
   };
 }
 

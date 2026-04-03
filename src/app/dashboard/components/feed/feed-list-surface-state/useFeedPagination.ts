@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import {
   FEED_INVERTED_LOAD_MORE_THRESHOLD_PX,
   FEED_LOAD_MORE_THRESHOLD_PX,
+  FEED_SERVER_LOAD_REARM_COOLDOWN_MS,
 } from "./constants";
 import {
   resolveNextVisibleCount,
@@ -18,6 +19,8 @@ interface InvertedPaginationAnchorState {
 }
 
 const INVERTED_PAGINATION_ANCHOR_SYNC_WINDOW_MS = 1_500;
+
+const STANDARD_VIEWPORT_REFILL_SHRINK_THRESHOLD_PX = 1;
 
 
 interface UseFeedPaginationOptions {
@@ -89,14 +92,34 @@ export function useFeedPagination({
   const hasPendingServerRevealRef = useRef(false);
   const isInvertedLoadBoundaryArmedRef = useRef(true);
   const isStandardLoadBoundaryArmedRef = useRef(true);
+  const isStandardViewportRefillActiveRef = useRef(false);
+  const hasResolvedStandardViewportRevealRef = useRef(false);
   const isMountedRef = useRef(true);
   const invertedPaginationAnchorFrameRef = useRef<null | number>(null);
   const paginationFrameRef = useRef<null | number>(null);
   const invertedPaginationAnchorRef =
     useRef<InvertedPaginationAnchorState | null>(null);
+  const serverLoadCooldownTimerRef = useRef<null | ReturnType<typeof setTimeout>>(null);
+  const lastAutoFillListHeightRef = useRef<null | number>(null);
   const filteredFeedLengthRef = useRef(filteredFeedLength);
   const previousFilteredFeedLengthRef = useRef(filteredFeedLength);
   const visibleArticleCountRef = useRef(articlesPerPage);
+
+  const clearServerLoadCooldown = useCallback(() => {
+    if (serverLoadCooldownTimerRef.current !== null) {
+      clearTimeout(serverLoadCooldownTimerRef.current);
+      serverLoadCooldownTimerRef.current = null;
+    }
+  }, []);
+
+  const startServerLoadRearmCooldown = useCallback(() => {
+    clearServerLoadCooldown();
+
+    serverLoadCooldownTimerRef.current = setTimeout(() => {
+      hasRequestedServerLoadRef.current = false;
+      serverLoadCooldownTimerRef.current = null;
+    }, FEED_SERVER_LOAD_REARM_COOLDOWN_MS);
+  }, [clearServerLoadCooldown]);
 
   const commitVisibleArticleCount = useCallback((nextVisibleCount: number) => {
     visibleArticleCountRef.current = nextVisibleCount;
@@ -118,6 +141,7 @@ export function useFeedPagination({
     if (
       !scrollViewport ||
       hasPendingServerRevealRef.current ||
+      hasRequestedServerLoadRef.current ||
       invertedPaginationAnchorRef.current !== null
     ) {
       return;
@@ -151,10 +175,14 @@ export function useFeedPagination({
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
+    clearServerLoadCooldown();
     hasRequestedServerLoadRef.current = false;
     hasPendingServerRevealRef.current = false;
     isInvertedLoadBoundaryArmedRef.current = true;
     isStandardLoadBoundaryArmedRef.current = true;
+    isStandardViewportRefillActiveRef.current = false;
+    hasResolvedStandardViewportRevealRef.current = false;
+    lastAutoFillListHeightRef.current = null;
     previousFilteredFeedLengthRef.current = filteredFeedLengthRef.current;
     commitVisibleArticleCount(articlesPerPage);
     onResetInvertedScrollOwnership();
@@ -167,6 +195,7 @@ export function useFeedPagination({
     isInvertedScroll,
     onResetInvertedScrollOwnership,
     searchTerm,
+    clearServerLoadCooldown,
   ]);
 
   useLayoutEffect(() => {
@@ -181,6 +210,11 @@ export function useFeedPagination({
     }
 
     hasPendingServerRevealRef.current = false;
+    startServerLoadRearmCooldown();
+
+    if (!isInvertedScroll && isStandardViewportRefillActiveRef.current) {
+      hasResolvedStandardViewportRevealRef.current = true;
+    }
 
     const currentVisibleCount = visibleArticleCountRef.current;
     if (currentVisibleCount >= filteredFeedLength) {
@@ -189,22 +223,34 @@ export function useFeedPagination({
 
     const nextVisibleCount = filteredFeedLength;
     commitVisibleArticleCount(nextVisibleCount);
-  }, [commitVisibleArticleCount, filteredFeedLength]);
+  }, [
+    commitVisibleArticleCount,
+    filteredFeedLength,
+    isInvertedScroll,
+    startServerLoadRearmCooldown,
+  ]);
 
   useEffect(() => {
     visibleArticleCountRef.current = visibleArticleCount;
   }, [visibleArticleCount]);
 
-  const requestMoreFromServer = useCallback(() => {
+  const requestMoreFromServer = useCallback((options?: {
+    isViewportRefill?: boolean;
+  }) => {
     if (!canLoadMoreFromServer || !onLoadMore || hasRequestedServerLoadRef.current) {
       return false;
+    }
+
+    if (!isInvertedScroll) {
+      isStandardViewportRefillActiveRef.current =
+        options?.isViewportRefill ?? false;
     }
 
     hasRequestedServerLoadRef.current = true;
     hasPendingServerRevealRef.current = true;
     onLoadMore();
     return true;
-  }, [canLoadMoreFromServer, onLoadMore]);
+  }, [canLoadMoreFromServer, isInvertedScroll, onLoadMore]);
 
   const releaseInvertedPaginationAnchor = useCallback(() => {
     invertedPaginationAnchorRef.current = null;
@@ -420,45 +466,123 @@ export function useFeedPagination({
       return;
     }
 
-    // Auto-fill exists only to make an idle surface scrollable on first paint.
-    // Once the reader owns the viewport, transient underfill from prepend
-    // compensation, dynamic row measurement, or collapse reconciliation must
-    // not reveal extra pages automatically. From that point forward, pagination
-    // is owned exclusively by explicit boundary reaches in maybeLoadNextPage.
-    if (hasUserScrolled) {
-      return;
-    }
-
     const effectiveListHeight =
       typeof committedListHeight === "number" &&
       Number.isFinite(committedListHeight) &&
       committedListHeight > 0
         ? committedListHeight
         : scrollViewport.scrollHeight;
+    const previousListHeight = lastAutoFillListHeightRef.current;
+    const hasListShrunk =
+      previousListHeight !== null &&
+      previousListHeight - effectiveListHeight > STANDARD_VIEWPORT_REFILL_SHRINK_THRESHOLD_PX;
+    const shouldAllowStandardViewportRefill =
+      !isInvertedScroll &&
+      (isStandardViewportRefillActiveRef.current || (hasUserScrolled && hasListShrunk));
 
-    if (
-      shouldAutoFillViewport({
-        clientHeight: scrollViewport.clientHeight,
-        committedListHeight: effectiveListHeight,
-        currentVisibleCount: visibleArticleCountRef.current,
-        filteredFeedLength: currentFilteredFeedLength,
-        hasUserScrolled,
-        isInitialLoading,
-      })
-    ) {
-      const currentVisibleCount = visibleArticleCountRef.current;
+    lastAutoFillListHeightRef.current = effectiveListHeight;
 
-      if (currentVisibleCount < currentFilteredFeedLength) {
-        expandVisibleWindow();
+    if (hasUserScrolled && !shouldAllowStandardViewportRefill) {
+      return;
+    }
+
+    const shouldContinueAutoFill = shouldAutoFillViewport({
+      clientHeight: scrollViewport.clientHeight,
+      committedListHeight: effectiveListHeight,
+      currentVisibleCount: visibleArticleCountRef.current,
+      filteredFeedLength: currentFilteredFeedLength,
+      hasUserScrolled: hasUserScrolled && !shouldAllowStandardViewportRefill,
+      isInitialLoading,
+    });
+
+    if (!shouldContinueAutoFill) {
+      if (!isInvertedScroll) {
+        isStandardViewportRefillActiveRef.current = false;
       }
+
+      return;
+    }
+
+    if (!isInvertedScroll) {
+      isStandardViewportRefillActiveRef.current = true;
+    }
+
+    const currentVisibleCount = visibleArticleCountRef.current;
+
+    if (currentVisibleCount < currentFilteredFeedLength) {
+      expandVisibleWindow();
+      return;
+    }
+
+    if (!isInvertedScroll) {
+      if (
+        hasPendingServerRevealRef.current ||
+        hasRequestedServerLoadRef.current
+      ) {
+        return;
+      }
+
+      if (requestMoreFromServer({ isViewportRefill: true })) {
+        return;
+      }
+
+      isStandardViewportRefillActiveRef.current = false;
     }
   }, [
     canLoadMoreFromServer,
     expandVisibleWindow,
     hasUserScrolledRef,
     isInitialLoading,
+    isInvertedScroll,
+    requestMoreFromServer,
     scrollViewport,
   ]);
+
+  /**
+   * Backfills a depleted standard revealed window even when stale wrapper
+   * height keeps the viewport looking scrollable after local filter removals.
+   */
+  const maybeBackfillDepletedStandardPage = useCallback(() => {
+    if (
+      isInvertedScroll ||
+      !canLoadMoreFromServer ||
+      hasPendingServerRevealRef.current ||
+      hasRequestedServerLoadRef.current
+    ) {
+      return;
+    }
+
+    const currentVisibleCount = visibleArticleCountRef.current;
+    const hasDepletedRevealedWindow =
+      filteredFeedLength < currentVisibleCount;
+
+    if (!hasDepletedRevealedWindow) {
+      return;
+    }
+
+    void requestMoreFromServer({ isViewportRefill: true });
+  }, [
+    canLoadMoreFromServer,
+    filteredFeedLength,
+    isInvertedScroll,
+    requestMoreFromServer,
+  ]);
+
+  useLayoutEffect(() => {
+    maybeBackfillDepletedStandardPage();
+  }, [filteredFeedLength, maybeBackfillDepletedStandardPage]);
+
+  useLayoutEffect(() => {
+    if (
+      isInvertedScroll ||
+      !hasResolvedStandardViewportRevealRef.current
+    ) {
+      return;
+    }
+
+    hasResolvedStandardViewportRevealRef.current = false;
+    maybeAutoFillViewport();
+  }, [filteredFeedLength, isInvertedScroll, maybeAutoFillViewport]);
 
   const shouldUseVirtualizedFeed = !isInitialLoading && scrollViewport !== null;
   const shouldObserveLoadMoreBoundary =
@@ -656,6 +780,8 @@ export function useFeedPagination({
 
   useEffect(() => {
     return () => {
+      clearServerLoadCooldown();
+
       if (invertedPaginationAnchorFrameRef.current !== null) {
         window.cancelAnimationFrame(invertedPaginationAnchorFrameRef.current);
       }
@@ -664,7 +790,7 @@ export function useFeedPagination({
         window.cancelAnimationFrame(paginationFrameRef.current);
       }
     };
-  }, []);
+  }, [clearServerLoadCooldown]);
 
   return {
     invertedPaginationAnchorRef,

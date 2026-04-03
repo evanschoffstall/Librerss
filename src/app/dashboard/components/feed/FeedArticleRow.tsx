@@ -58,6 +58,7 @@ export const FeedArticleRow = memo(function FeedArticleRow({
       articleKey={articleKey}
       hasTrailingGap={!isLastRow}
       isEntering={isEntering}
+      isExpanded={isExpanded}
       onEnteringDone={onEnteringDone}
       removalAnimationMode={removalAnimationMode}
     >

@@ -33,6 +33,7 @@ export const FeedListRow = memo(function FeedListRow({
   children,
   hasTrailingGap,
   isEntering = false,
+  isExpanded = false,
   onEnteringDone,
   removalAnimationMode,
 }: FeedListRowProps) {
@@ -212,7 +213,7 @@ export const FeedListRow = memo(function FeedListRow({
       data-scroll-restore-key={articleKey}
       ref={outerRef}
       style={{
-        contain: "layout style",
+        contain: isExpanded ? "style" : "layout style",
         marginBottom: isReleaseCollapsing
           ? -FEED_ROW_COLLAPSE_OFFSET_PX
           : hasTrailingGap

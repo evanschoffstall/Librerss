@@ -23,6 +23,7 @@ export interface FeedListProps {
   animatingInArticleKeys?: ReadonlySet<string>;
   articleFilter: ArticleFilter;
   articlesPerPage: number;
+  canLoadMoreFromServer?: boolean;
   collapsingArticles?: Readonly<CollapsingArticles>;
   expandedArticleKey: null | string;
   feedViewKey: string;
@@ -57,6 +58,7 @@ export interface FeedListRowProps {
   hasTrailingGap: boolean;
   /** Whether this row's entrance animation is currently running. */
   isEntering?: boolean;
+  isExpanded?: boolean;
   /** Stable callback invoked when the row's entrance animation settles. */
   onEnteringDone?: (articleKey: string) => void;
   removalAnimationMode: ArticleRemovalAnimationMode | null;

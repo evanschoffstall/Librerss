@@ -47,15 +47,14 @@ const FEED_VIRTUALIZER_CLASSNAME = "w-full min-w-0 flex-none";
 const FEED_LIST_FILL_STYLE = { height: "100%" } as const;
 /** Motion transition applied when the skeleton exits. */
 const SKELETON_EXIT_TRANSITION = {
-  duration: 0.25,
+  duration: 0.14,
   ease: [0.16, 1, 0.3, 1] as const,
 };
-/** Motion transition applied when real content enters. */
+/** Motion transition applied when non-feed placeholder states enter. */
 const CONTENT_ENTER_TRANSITION = {
   duration: 0.35,
   ease: [0.16, 1, 0.3, 1] as const,
 };
-
 function syncViewportScrollTop(viewport: HTMLElement, top: number) {
   if (typeof viewport.scrollTo === "function") {
     viewport.scrollTo({
@@ -73,6 +72,7 @@ export const FeedList = memo(function FeedList({
   animatingInArticleKeys,
   articleFilter,
   articlesPerPage,
+  canLoadMoreFromServer: canLoadMoreFromServerProp,
   collapsingArticles = EMPTY_COLLAPSING_ARTICLES,
   expandedArticleKey,
   feedViewKey,
@@ -104,6 +104,8 @@ export const FeedList = memo(function FeedList({
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
     true,
   );
+  const canLoadMoreFromServer =
+    canLoadMoreFromServerProp ?? typeof onLoadMore === "function";
   const feedScrollMode = resolveFeedScrollMode(
     isMobile,
     mobileInvertedScroll,
@@ -142,7 +144,7 @@ export const FeedList = memo(function FeedList({
   } = useFeedListSurfaceState({
     articleFilter,
     articlesPerPage,
-    canLoadMoreFromServer: typeof onLoadMore === "function",
+    canLoadMoreFromServer,
     collapsingArticles,
     expandedArticleKey,
     feedViewKey,
@@ -159,7 +161,7 @@ export const FeedList = memo(function FeedList({
   });
 
   const visibleFeed = filteredFeed.slice(0, visibleArticleCount);
-  const shouldShowLoadMoreBoundary = hasMoreArticles || typeof onLoadMore === "function";
+  const shouldShowLoadMoreBoundary = hasMoreArticles || canLoadMoreFromServer;
   const loadMoreSkeletonCount = Math.max(
     0,
     loadingMoreArticleCount ?? articlesPerPage,
@@ -171,7 +173,8 @@ export const FeedList = memo(function FeedList({
   );
   const shouldUseVirtualizedFeedSurface =
     shouldUseVirtualizedFeed &&
-    !(isInvertedScroll && (expandedArticleKey !== null || isCollapseScrollRestoreActive));
+    expandedArticleKey === null &&
+    !(isInvertedScroll && isCollapseScrollRestoreActive);
 
   scrollViewportRef.current = scrollViewport;
 
@@ -399,11 +402,11 @@ export const FeedList = memo(function FeedList({
       ref={handleFeedSurfaceRef}
       style={FEED_LIST_FILL_STYLE}
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence initial={false} mode="wait">
         {isInitialLoading || shouldShowViewportResolutionSkeleton ? (
           <motion.div
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ filter: "blur(4px)", opacity: 0, scale: 0.97 }}
+            exit={{ opacity: 0, scale: 0.995 }}
             initial={{ opacity: 1, scale: 1 }}
             key={contentKey}
             transition={SKELETON_EXIT_TRANSITION}
@@ -432,12 +435,10 @@ export const FeedList = memo(function FeedList({
           </motion.div>
         ) : (
           <motion.div
-            animate={{ opacity: 1, y: 0 }}
             className={FEED_LIST_FRAME_CLASSNAME}
-            initial={{ opacity: 0, y: 6 }}
+            initial={false}
             key={contentKey}
             style={FEED_LIST_FILL_STYLE}
-            transition={CONTENT_ENTER_TRANSITION}
           >
             {shouldUseVirtualizedFeedSurface && scrollViewport !== null ? (
               <>
