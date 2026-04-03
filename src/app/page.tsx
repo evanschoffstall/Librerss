@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { isDevAutoLoginEnabled } from "@/lib/auth/dev-auto-login";
+
 export default function Home() {
-  redirect("/landing");
+  redirect(isDevAutoLoginEnabled() ? "/dashboard" : "/landing");
 }

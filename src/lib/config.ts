@@ -107,6 +107,21 @@ export const envBooleanOptional = (
   return parseEnvBoolean(raw, key);
 };
 
+/**
+ * Reads an optional string env variable, returning `undefined` when the key is
+ * missing or empty after trimming.
+ */
+export const envStringOptional = (key: string): string | undefined => {
+  const raw = getEnv(key);
+
+  if (raw === undefined) {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 const envEnum = <T extends string>(
   key: string,
   allowedValues: readonly T[],

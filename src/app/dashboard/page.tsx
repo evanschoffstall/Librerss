@@ -5,6 +5,11 @@ import type { AuthSession } from "@/lib";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  buildDevAutoLoginRequestPath,
+  isDevAutoLoginEnabled,
+  isDevAutoLoginFailure,
+} from "@/lib/auth/dev-auto-login";
+import {
   getUserFromSessionToken,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth/session";
@@ -26,6 +31,7 @@ import {
 
 interface DashboardPageProps {
   searchParams: Promise<{
+    devLogin?: string | string[];
     explore?: string | string[];
     preview?: string | string[];
   }>;
@@ -40,6 +46,9 @@ export default async function Dashboard(props: DashboardPageProps) {
   const hasPreviewQuery =
     getSearchParamValue(resolvedSearchParams.preview) === "1" ||
     getSearchParamValue(resolvedSearchParams.explore) === "1";
+  const hasDevAutoLoginFailure = isDevAutoLoginFailure(
+    resolvedSearchParams.devLogin,
+  );
   const initialPreviewMode = resolveDashboardPreviewMode({
     cookieValue: cookieStore.get(DASHBOARD_PREVIEW_COOKIE_NAME)?.value,
     hasPreviewQuery,
@@ -47,6 +56,13 @@ export default async function Dashboard(props: DashboardPageProps) {
   const initialSession = initialPreviewMode
     ? buildAnonymousSession()
     : await getInitialSession(cookieStore);
+  const initialAutoLoginPath =
+    !initialPreviewMode &&
+    !initialSession.authenticated &&
+    !hasDevAutoLoginFailure &&
+    isDevAutoLoginEnabled()
+      ? buildDevAutoLoginRequestPath("/dashboard")
+      : undefined;
 
   const showLoginSkeleton =
     !initialPreviewMode && !initialSession.authenticated;
@@ -64,6 +80,12 @@ export default async function Dashboard(props: DashboardPageProps) {
       >
         <DashboardRouter
           hasPreviewQuery={hasPreviewQuery}
+          initialAutoLoginPath={initialAutoLoginPath}
+          initialLoginErrorMessage={
+            hasDevAutoLoginFailure
+              ? "Dev auto-login failed. Check DEV_AUTO_LOGIN_EMAIL and DEV_AUTO_LOGIN_PASSWORD."
+              : undefined
+          }
           initialPreviewMode={initialPreviewMode}
           initialSession={initialSession}
         />
