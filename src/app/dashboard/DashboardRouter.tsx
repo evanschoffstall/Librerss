@@ -21,6 +21,7 @@ import {
 } from "./components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
+import { DevAutoLoginRedirect } from "./components/login/DevAutoLoginRedirect";
 import { LoginView } from "./components/login/LoginView";
 import { BackgroundMode, DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
 import { DashboardView } from "./DashboardView";
@@ -29,12 +30,16 @@ import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
 
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;
+  initialAutoLoginPath?: string;
+  initialLoginErrorMessage?: string;
   initialPreviewMode: boolean;
   initialSession?: AuthSession;
 }
 
 export function DashboardRouter({
   hasPreviewQuery,
+  initialAutoLoginPath,
+  initialLoginErrorMessage,
   initialPreviewMode,
   initialSession,
 }: DashboardRouterProps) {
@@ -75,6 +80,10 @@ export function DashboardRouter({
   const resolvedDistillStrategy = hasHydratedClientState
     ? distillStrategy
     : "librerss";
+  const shouldAutoLogin =
+    Boolean(initialAutoLoginPath) &&
+    !currentUser &&
+    !resolvedPreviewMode;
 
   useEffect(() => {
     setHasHydratedClientState(true);
@@ -92,6 +101,11 @@ export function DashboardRouter({
 
   useEffect(() => {
     if (!hasHydratedClientState) {
+      return;
+    }
+
+    if (shouldAutoLogin) {
+      setIsSessionLoading(false);
       return;
     }
 
@@ -144,6 +158,7 @@ export function DashboardRouter({
     hasPreviewQuery,
     resolvedPreviewMode,
     setIsPreviewMode,
+    shouldAutoLogin,
   ]);
 
   const handleEnterPreview = () => {
@@ -203,11 +218,16 @@ export function DashboardRouter({
           key={viewKey}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
-          <LoginView
-            allowSignup={allowSignup}
-            onAuthenticated={setCurrentUser}
-            onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
-          />
+          {shouldAutoLogin && initialAutoLoginPath ? (
+            <DevAutoLoginRedirect autoLoginPath={initialAutoLoginPath} />
+          ) : (
+            <LoginView
+              allowSignup={allowSignup}
+              initialFormError={initialLoginErrorMessage}
+              onAuthenticated={setCurrentUser}
+              onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
+            />
+          )}
         </motion.main>
       ) : (
         <motion.main
