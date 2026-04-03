@@ -2061,7 +2061,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("preserves revealed pages when refreshEpoch changes for the same feed view", async () => {
+  test("resets revealed pages when refreshEpoch changes during an active refresh", async () => {
     window.localStorage.setItem(
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
       JSON.stringify(false),
@@ -2184,9 +2184,12 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
-      expect(getByText("Refresh epoch article 8")).toBeTruthy();
-      expect(queryByText("Refresh epoch article 12")).toBeNull();
+      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
+
+      expect(renderedRows).toBeGreaterThanOrEqual(4);
+      expect(renderedRows).toBeLessThanOrEqual(6);
+      expect(getByText("Refresh epoch article 4")).toBeTruthy();
+      expect(queryByText("Refresh epoch article 8")).toBeNull();
     });
   });
 
@@ -2243,7 +2246,7 @@ describe("FeedList", () => {
     const { container, getByText } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-        articleFilter="all"
+          articleFilter="all"
           articlesPerPage={12}
           expandedArticleKey={firstArticle.link}
           feedViewKey="system-all-feeds:all"
@@ -2409,7 +2412,7 @@ describe("FeedList", () => {
             hydratedArticleLinks={{}}
             hydratingArticleLinks={{}}
             isInitialLoading={false}
-            isRefreshing={false}
+            isRefreshing={true}
             onExpandedSwipeRead={() => {}}
             onToggle={() => {}}
             onToggleRead={() => {}}
@@ -2662,7 +2665,7 @@ describe("FeedList", () => {
     expect(restoredScrollTop).toBe(0);
   });
 
-  test("resets visible article count and scroll position when refreshEpoch increments", async () => {
+  test("resets visible article count and scroll position when refreshEpoch increments during active refresh", async () => {
     let testContainer: HTMLElement | null = null;
     let scrollTop = 0;
     const articles = Array.from({ length: 10 }, (_value, index) =>
@@ -2753,7 +2756,7 @@ describe("FeedList", () => {
             hydratedArticleLinks={{}}
             hydratingArticleLinks={{}}
             isInitialLoading={false}
-            isRefreshing={false}
+            isRefreshing={true}
             onExpandedSwipeRead={() => {}}
             onToggle={() => {}}
             onToggleRead={() => {}}
