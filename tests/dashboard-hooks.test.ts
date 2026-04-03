@@ -1001,8 +1001,8 @@ describe("useArticleHydration", () => {
   });
 
   test("hydrateArticleContent prefers the structured extract route error in the toast", async () => {
-    interface MockAxiosError extends Error {
-      isAxiosError: boolean;
+    interface MockApiError extends Error {
+      isApiError: boolean;
       response: {
         data: {
           error: string;
@@ -1020,8 +1020,8 @@ describe("useArticleHydration", () => {
       .mockImplementation(async () => {
         const error = new Error(
           "Request failed with status code 502",
-        ) as MockAxiosError;
-        error.isAxiosError = true;
+        ) as MockApiError;
+        error.isApiError = true;
         error.response = {
           data: {
             error: "Failed to fetch article content from upstream",

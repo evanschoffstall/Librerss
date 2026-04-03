@@ -1,14 +1,66 @@
-import axios from "axios";
-
 import { CONFIG } from "@/lib/config";
 
-// ── Verbose logging ───────────────────────────────────────────────────────────
+import { isApiError } from "./client";
 
 const VERBOSE_LOG_LEVEL = "verbose";
 
+const SAFE_UPSTREAM_RESPONSE_HEADERS = [
+  "server",
+  "cf-ray",
+  "cf-cache-status",
+  "x-cache",
+  "x-served-by",
+  "retry-after",
+  "content-type",
+  "content-length",
+  "x-datadome",
+] as const;
+
+const SAFE_UPSTREAM_REQUEST_HEADERS = [
+  "user-agent",
+  "accept",
+  "accept-language",
+  "accept-encoding",
+  "referer",
+  "cache-control",
+] as const;
+
+export function buildApiFailureDiagnostics(
+  error: unknown,
+  isApiErrorFn: typeof isApiError = isApiError,
+): Record<string, unknown> {
+  if (!isApiErrorFn(error)) {
+    return {};
+  }
+
+  const requestHeaders = pickAllowedHeaders(
+    error.requestHeaders,
+    SAFE_UPSTREAM_REQUEST_HEADERS,
+  );
+  const responseHeaders = pickAllowedHeaders(
+    error.response?.headers,
+    SAFE_UPSTREAM_RESPONSE_HEADERS,
+  );
+
+  return {
+    requestErrorCode: error.code ?? null,
+    requestHeaders,
+    requestMaxRedirects: null,
+    requestTimeoutMs: null,
+    responseBodySnippet: toBodySnippet(error.response?.data),
+    responseHeaders,
+    upstreamMethod: error.method.toUpperCase(),
+    upstreamStatus: error.response?.status ?? null,
+    upstreamStatusText: error.response?.statusText ?? null,
+    upstreamUrl: error.url,
+  };
+}
+
 export function isVerboseLoggingEnabled(): boolean {
   const envLevel = process.env.LOG_LEVEL?.trim().toLowerCase();
-  if (envLevel) return envLevel === VERBOSE_LOG_LEVEL;
+  if (envLevel) {
+    return envLevel === VERBOSE_LOG_LEVEL;
+  }
 
   try {
     return CONFIG.LOG_LEVEL === VERBOSE_LOG_LEVEL;
@@ -17,15 +69,16 @@ export function isVerboseLoggingEnabled(): boolean {
   }
 }
 
-// ── Header utilities ──────────────────────────────────────────────────────────
-
 export function toBodySnippet(
   data: unknown,
   maxLength = 240,
 ): string | undefined {
   if (typeof data === "string") {
     const compact = data.replace(/\s+/g, " ").trim();
-    if (!compact) return undefined;
+    if (!compact) {
+      return undefined;
+    }
+
     return compact.length > maxLength
       ? `${compact.slice(0, maxLength)}…`
       : compact;
@@ -39,7 +92,10 @@ export function toBodySnippet(
   ) {
     const text = (data as { toString: () => string }).toString();
     const compact = text.replace(/\s+/g, " ").trim();
-    if (!compact || compact === "[object Object]") return undefined;
+    if (!compact || compact === "[object Object]") {
+      return undefined;
+    }
+
     return compact.length > maxLength
       ? `${compact.slice(0, maxLength)}…`
       : compact;
@@ -86,60 +142,4 @@ function toHeaderRecord(headers: unknown): Record<string, string> {
 
     return acc;
   }, {});
-}
-
-// ── Axios diagnostics ─────────────────────────────────────────────────────────
-
-const SAFE_UPSTREAM_RESPONSE_HEADERS = [
-  "server",
-  "cf-ray",
-  "cf-cache-status",
-  "x-cache",
-  "x-served-by",
-  "retry-after",
-  "content-type",
-  "content-length",
-  "x-datadome",
-] as const;
-
-const SAFE_UPSTREAM_REQUEST_HEADERS = [
-  "user-agent",
-  "accept",
-  "accept-language",
-  "accept-encoding",
-  "referer",
-  "cache-control",
-] as const;
-
-export function buildAxiosFailureDiagnostics(
-  error: unknown,
-  isAxiosErrorFn: typeof axios.isAxiosError = axios.isAxiosError,
-): Record<string, unknown> {
-  if (!isAxiosErrorFn(error)) return {};
-
-  const requestHeaders = pickAllowedHeaders(
-    error.config?.headers,
-    SAFE_UPSTREAM_REQUEST_HEADERS,
-  );
-  const responseHeaders = pickAllowedHeaders(
-    error.response?.headers,
-    SAFE_UPSTREAM_RESPONSE_HEADERS,
-  );
-
-  return {
-    axiosErrorCode: error.code ?? null,
-    requestHeaders,
-    requestMaxRedirects:
-      typeof error.config?.maxRedirects === "number"
-        ? error.config.maxRedirects
-        : null,
-    requestTimeoutMs:
-      typeof error.config?.timeout === "number" ? error.config.timeout : null,
-    responseBodySnippet: toBodySnippet(error.response?.data),
-    responseHeaders,
-    upstreamMethod: error.config?.method?.toUpperCase() ?? null,
-    upstreamStatus: error.response?.status ?? null,
-    upstreamStatusText: error.response?.statusText ?? null,
-    upstreamUrl: error.config?.url ?? null,
-  };
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import axios from "axios";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type Article, ArticleService, isValidUrl } from "@/lib";
+import { isApiError } from "@/lib/api/http";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 
 export interface FeedExtractionSettings {
@@ -193,7 +193,7 @@ function resolveHydrationFailureMessage(
     ? "Unable to load article content right now."
     : "Unable to extract article content right now.";
 
-  if (!axios.isAxiosError<HydrationFailurePayload>(error)) {
+  if (!isApiError<HydrationFailurePayload>(error)) {
     return fallbackMessage;
   }
 

@@ -1,4 +1,5 @@
 export {
+  ApiError,
   BATCH_REQUEST_TIMEOUT_MS,
   createLinkedAbortController,
   getApiClient,
@@ -7,8 +8,9 @@ export {
   setApiClientForTesting,
   withRequestDeadline,
 } from "./client";
+export { isApiError } from "./client";
 export {
-  buildAxiosFailureDiagnostics,
+  buildApiFailureDiagnostics,
   isVerboseLoggingEnabled,
   toBodySnippet,
 } from "./diagnostics";

@@ -1,5 +1,4 @@
 "use client";
-import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -18,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthService, type AuthUser } from "@/lib";
+import { isApiError } from "@/lib/api/http";
 
 interface AuthErrorResponse {
   error?: unknown;
@@ -146,7 +146,7 @@ export const LoginView = ({
       toast.success(mode === "signup" ? "Account created." : "Welcome back.");
     } catch (error: unknown) {
       const message =
-        axios.isAxiosError<AuthErrorResponse>(error) &&
+        isApiError<AuthErrorResponse>(error) &&
         typeof error.response?.data.error === "string"
           ? error.response.data.error
           : "Authentication failed.";

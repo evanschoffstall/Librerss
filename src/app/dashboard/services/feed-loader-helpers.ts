@@ -23,8 +23,8 @@ interface FeedBatchErrorToast {
 /**
  * Classifies an error from a feed batch request into a user-actionable toast.
  *
- * The classifier duck-types the error shape to avoid importing `axios` into the
- * dashboard service layer.
+ * The classifier duck-types the error shape to avoid coupling the dashboard
+ * service layer to a specific HTTP client implementation.
  */
 export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
   const status = extractHttpStatus(error);
@@ -245,7 +245,7 @@ function articlesAreDisplayEqual(prev: Article, next: Article): boolean {
   );
 }
 
-/** Extracts the error code (e.g. `ECONNRESET`) from an axios-shaped error, if present. */
+/** Extracts the error code (e.g. `ECONNRESET`) from an HTTP client error, if present. */
 function extractErrorCode(error: unknown): string | undefined {
   if (
     error &&
@@ -262,7 +262,7 @@ export type { BatchFeedResponseItem as FeedBatchResult };
 
 // ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────
 
-/** Extracts the HTTP status code from an axios-shaped error, if present. */
+/** Extracts the HTTP status code from an HTTP client error, if present. */
 function extractHttpStatus(error: unknown): number | undefined {
   if (
     error &&
