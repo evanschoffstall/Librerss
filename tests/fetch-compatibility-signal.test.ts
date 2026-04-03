@@ -6,6 +6,12 @@ import {
 } from "@/lib/fetch";
 
 describe("fetch/compatibility-signal", () => {
+  test("treats non-challenge statuses as non-retryable and undetected", () => {
+    expect(
+      detectResponseCompatibilitySignal(200, { server: "nginx" }, "ok"),
+    ).toEqual({ retryable: false, signal: { detected: false } });
+  });
+
   test("detects DataDome responses and keeps challenge cookies", () => {
     const result = detectResponseCompatibilitySignal(
       403,

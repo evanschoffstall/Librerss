@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { EXTRACT_403_RETRIES, fetchHtml } from "@/lib/extract";
 import { HttpCloakUpstreamError } from "@/lib/fetch/response";
+import { logger } from "@/lib/logger";
 
 const TEST_URL = "https://example.com/article";
 const TEST_HTML = "<html><body>Test content</body></html>";
@@ -34,8 +35,11 @@ function createHttpCloakUpstreamError(
 describe("fetchHtml", () => {
   test("returns HTML from the HTTPCloak transport", async () => {
     const httpCloakFetchFn = mock(async () => ({
+      diagnosticHeaders: {},
       html: TEST_HTML,
+      redirectHop: 0,
       requestHeaders: {},
+      statusCode: 200,
     }));
 
     const result = await fetchHtml(TEST_URL, {
@@ -47,6 +51,59 @@ describe("fetchHtml", () => {
     expect(httpCloakFetchFn).toHaveBeenCalledTimes(1);
   });
 
+  test("logs a single merged HTTPCloak extraction success event", async () => {
+    const previousLogLevel = process.env.LOG_LEVEL;
+    const originalInfo = logger.info;
+    const info = mock(() => undefined);
+
+    process.env.LOG_LEVEL = "info";
+    logger.info = info;
+
+    try {
+      await fetchHtml(TEST_URL, {
+        httpCloakFetchFn: async () => ({
+          diagnosticHeaders: {
+            "content-type": ["text/html; charset=utf-8"],
+            via: ["1.1 cloudfront"],
+          },
+          html: TEST_HTML,
+          redirectHop: 0,
+          requestHeaders: { accept: "text/html" },
+          statusCode: 200,
+        }),
+        isAllowedFeedUrlFn: async () => true,
+      });
+
+      expect(info).toHaveBeenCalledTimes(1);
+      expect(info).toHaveBeenCalledWith(
+        "HTTPCloak extraction attempt 1/1 succeeded",
+        expect.objectContaining({
+          allowInsecureTls: false,
+          attempt: 1,
+          attempts: 1,
+          diagnosticHeaders: {
+            "content-type": ["text/html; charset=utf-8"],
+            via: ["1.1 cloudfront"],
+          },
+          headers: { accept: "text/html" },
+          proxyAddress: null,
+          proxyMode: "direct",
+          redirectHop: 0,
+          responseBodyLength: TEST_HTML.length,
+          statusCode: 200,
+          url: TEST_URL,
+        }),
+      );
+    } finally {
+      logger.info = originalInfo;
+      if (previousLogLevel === undefined) {
+        delete process.env.LOG_LEVEL;
+      } else {
+        process.env.LOG_LEVEL = previousLogLevel;
+      }
+    }
+  });
+
   test("blocks disallowed URLs before any upstream request", async () => {
     const httpCloakFetchFn = mock(async (_url, isAllowedUrl) => {
       const isAllowed = await isAllowedUrl(TEST_URL);
@@ -56,8 +113,11 @@ describe("fetchHtml", () => {
       }
 
       return {
+        diagnosticHeaders: {},
         html: TEST_HTML,
+        redirectHop: 0,
         requestHeaders: {},
+        statusCode: 200,
       };
     });
 
@@ -79,8 +139,11 @@ describe("fetchHtml", () => {
       });
 
       return {
+        diagnosticHeaders: {},
         html: TEST_HTML,
+        redirectHop: 0,
         requestHeaders: {},
+        statusCode: 200,
       };
     });
 
@@ -109,8 +172,11 @@ describe("fetchHtml", () => {
       });
 
       return {
+        diagnosticHeaders: {},
         html: TEST_HTML,
+        redirectHop: 0,
         requestHeaders: {},
+        statusCode: 200,
       };
     });
 
