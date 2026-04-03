@@ -1,3 +1,5 @@
+/// <reference types="bun" />
+
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { availableParallelism, cpus } from "node:os";
 import { dirname, join } from "node:path";
@@ -76,7 +78,7 @@ interface SummaryPattern {
 // ---------------------------------------------------------------------------
 
 const CFG: CheckConfig = JSON.parse(
-  readFileSync(join(import.meta.dir, "check.json"), "utf8"),
+  readFileSync(join(import.meta.dirname, "check.json"), "utf8"),
 ) as CheckConfig;
 
 interface PackageManifest {
