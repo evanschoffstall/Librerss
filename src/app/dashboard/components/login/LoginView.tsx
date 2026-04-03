@@ -25,6 +25,7 @@ interface AuthErrorResponse {
 
 interface LoginViewProps {
   allowSignup: boolean;
+  initialFormError?: string;
   onAuthenticated: (user: AuthUser) => void;
   onEnterPreview?: () => void;
 }
@@ -94,6 +95,7 @@ function validateLoginFields(
 
 export const LoginView = ({
   allowSignup,
+  initialFormError,
   onAuthenticated,
   onEnterPreview,
 }: LoginViewProps) => {
@@ -103,7 +105,9 @@ export const LoginView = ({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [hasAcceptedLegalTerms, setHasAcceptedLegalTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>(() =>
+    initialFormError ? { form: initialFormError } : {},
+  );
 
   const clearFieldError = (field: keyof LoginFieldErrors) => {
     setFieldErrors((current) => {
