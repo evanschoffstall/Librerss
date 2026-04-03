@@ -167,10 +167,10 @@ export function DashboardRouter({
           aria-busy="true"
           aria-label="Loading dashboard"
           className="h-full overflow-hidden bg-background"
-          exit={{ filter: "blur(4px)", opacity: 0, scale: 0.98 }}
+          exit={{ opacity: 0, scale: 0.995 }}
           initial={{ opacity: 1, scale: 1 }}
           key={viewKey}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
         >
           <div className="relative h-full overflow-hidden">
             <div

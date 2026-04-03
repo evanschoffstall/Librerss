@@ -146,6 +146,49 @@ describe("DashboardToolbar", () => {
     expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
   });
 
+  test("renders a full toolbar skeleton while the dashboard shell is loading", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { container, queryByPlaceholderText } = render(<DashboardToolbar />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.SHELL_LOADING, {
+          detail: { loading: true },
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-toolbar-skeleton-action="true"]',
+      ).length,
+    ).toBeGreaterThanOrEqual(9);
+    expect(queryByPlaceholderText("Search...")).toBeNull();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.SHELL_LOADING, {
+          detail: { loading: false },
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toBeNull();
+    expect(queryByPlaceholderText("Search...")).toBeTruthy();
+  });
+
   test("shows skeletons in all toolbar actions while refresh is processing", async () => {
     setNodeEnv("test");
 

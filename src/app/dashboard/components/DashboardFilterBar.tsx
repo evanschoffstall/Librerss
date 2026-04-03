@@ -18,6 +18,7 @@ const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
 /** Presentation props for the dashboard filter bar controls and refresh status. */
 interface DashboardFilterBarProps {
   articleFilter: ArticleFilter;
+  isShellLoading?: boolean;
   lastRefreshLabel: string;
   loading: boolean;
   onArticleFilterChange: (value: ArticleFilter) => void;
@@ -89,10 +90,15 @@ export function DashboardFilterBarSkeleton() {
 /** Renders the quick article filter strip and refresh status indicator. */
 export const DashboardFilterBar = memo(function DashboardFilterBar({
   articleFilter,
+  isShellLoading = false,
   lastRefreshLabel,
   loading,
   onArticleFilterChange,
 }: DashboardFilterBarProps) {
+  if (isShellLoading) {
+    return <DashboardFilterBarSkeleton />;
+  }
+
   return (
     <div className="sticky top-0 z-40 shrink-0 py-1">
       <div className="flex items-center gap-0">

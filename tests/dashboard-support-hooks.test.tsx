@@ -41,6 +41,7 @@ describe("dashboard support hooks", () => {
         animatingInArticleKeys: new Set<string>(),
         articleFilter: "all",
         articlesPerPage: 12,
+        canLoadMoreFromServer: true,
         collapsingArticles: {},
         expandedArticleKey: null,
         feedViewKey: "feed-1:all",
@@ -67,6 +68,7 @@ describe("dashboard support hooks", () => {
       },
       filterBar: {
         articleFilter: "all",
+        isShellLoading: false,
         lastRefreshLabel: "never",
         loading: false,
         setArticleFilter: mock(() => {}),

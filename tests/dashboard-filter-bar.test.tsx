@@ -8,6 +8,26 @@ import {
 } from "@/app/dashboard/components/DashboardScaffold";
 
 describe("DashboardFilterBar", () => {
+  test("renders the full filter-bar skeleton while the dashboard shell is loading", () => {
+    const { container, queryByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isShellLoading
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-dashboard-filter-bar-skeleton="true"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelectorAll('[data-dashboard-filter-bar-chip-skeleton="true"]'),
+    ).toHaveLength(4);
+    expect(queryByRole("button", { name: "unread" })).toBeNull();
+  });
+
   test("shares the feed-width CSS contract with the article viewport", () => {
     const { container } = render(
       <>

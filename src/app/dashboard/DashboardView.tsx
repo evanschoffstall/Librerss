@@ -86,6 +86,7 @@ export const DashboardView = ({
         filterBar={
           <DashboardFilterBar
             articleFilter={filterBar.articleFilter}
+            isShellLoading={filterBar.isShellLoading}
             lastRefreshLabel={filterBar.lastRefreshLabel}
             loading={filterBar.loading}
             onArticleFilterChange={filterBar.setArticleFilter}
