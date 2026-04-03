@@ -79,7 +79,7 @@ export class HttpCloakUpstreamError extends Error {
 
 /**
  * Retains only the upstream headers that are useful for compatibility and
- * anti-bot diagnostics.
+ * vendor compatibility diagnostics.
  */
 export function pickDiagnosticHeaders(
   headers: Record<string, string | string[] | undefined>,
