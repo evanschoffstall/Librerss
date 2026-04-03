@@ -4,7 +4,6 @@ import { type Article } from "@/lib";
 
 import { getArticleKey } from "../../services/article-collection";
 import { type ArticleRemovalAnimationMode } from "../useArticleCollapseState";
-import { escapeArticleKey } from "../useArticleHydration";
 
 interface UseExpandedArticleCollapseOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
@@ -49,17 +48,6 @@ export function useExpandedArticleCollapse({
   startRemovalAnimation,
   updatingArticleState,
 }: UseExpandedArticleCollapseOptions) {
-  const shouldRestoreCollapsedArticleScroll = useCallback((articleKey: string) => {
-    const articleElement = document.querySelector<HTMLElement>(
-      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
-    );
-    const invertedScrollSurface = articleElement?.closest<HTMLElement>(
-      "[data-inverted-scroll='true']",
-    );
-
-    return invertedScrollSurface?.getAttribute("data-inverted-scroll") !== "true";
-  }, []);
-
   /** Collapses the current row while preserving the relevant removal animation. */
   const collapseExpandedArticle = useCallback(
     (
@@ -80,9 +68,7 @@ export function useExpandedArticleCollapse({
         clearRemovalAnimation(articleKey);
       }
 
-      if (shouldRestoreCollapsedArticleScroll(articleKey)) {
-        restoreCollapseScrollPosition(articleKey);
-      }
+      restoreCollapseScrollPosition(articleKey);
 
       setExpandedArticleKey((current) =>
         current === articleKey ? null : current,
@@ -101,7 +87,6 @@ export function useExpandedArticleCollapse({
       clearRemovalAnimation,
       restoreCollapseScrollPosition,
       setExpandedArticleKey,
-      shouldRestoreCollapsedArticleScroll,
       startRemovalAnimation,
     ],
   );

@@ -6,6 +6,12 @@ import {
 } from "../../../services/feed-viewport";
 import { type ArticleExpandPreparedDetail, type InvertedExpansionScrollLockObserverOptions, type ShouldAutoAnchorInvertedScrollViewportOptions } from "./types";
 
+interface VisibleArticleHeaderEntry {
+  articleKey: string;
+  fullyVisible: boolean;
+  headerTop: number;
+}
+
 /** Returns article keys whose rows are fully visible inside the current viewport. */
 export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
   const viewportRect = viewport.getBoundingClientRect();
@@ -67,38 +73,9 @@ export function findTopVisibleInvertedPaginationAnchorArticleKey() {
     return null;
   }
 
-  const viewportRect = viewport.getBoundingClientRect();
-  const visibleHeaders = Array.from(
-    viewport.querySelectorAll<HTMLElement>(
-      "article[data-article-key] [data-article-swipe-zone='header']",
-    ),
-  )
-    .map((headerElement) => {
-      const articleElement = headerElement.closest<HTMLElement>(
-        "article[data-article-key]",
-      );
-      const articleKey = articleElement?.dataset.articleKey ?? null;
-
-      if (!articleKey) {
-        return null;
-      }
-
-      const headerRect = headerElement.getBoundingClientRect();
-
-      if (
-        headerRect.bottom <= viewportRect.top ||
-        headerRect.top >= viewportRect.bottom
-      ) {
-        return null;
-      }
-
-      return {
-        articleKey,
-        headerTop: headerRect.top,
-      };
-    })
-    .filter((entry) => entry !== null)
-    .sort((left, right) => left.headerTop - right.headerTop);
+  const visibleHeaders = collectVisibleArticleHeaderEntries(viewport).sort(
+    (left, right) => left.headerTop - right.headerTop,
+  );
 
   return visibleHeaders[0]?.articleKey ?? null;
 }
@@ -113,50 +90,16 @@ export function findVisibleInvertedRemovalAnchorArticleKey(
     return null;
   }
 
-  const viewportRect = viewport.getBoundingClientRect();
-  const visibleArticles = Array.from(
-    viewport.querySelectorAll<HTMLElement>("article[data-article-key]"),
-  )
-    .map((articleElement) => {
-      const articleKey = articleElement.dataset.articleKey ?? null;
+  const visibleArticles = collectVisibleArticleHeaderEntries(
+    viewport,
+    excludedArticleKeys,
+  ).sort((left, right) => {
+    if (left.fullyVisible !== right.fullyVisible) {
+      return left.fullyVisible ? -1 : 1;
+    }
 
-      if (!articleKey || excludedArticleKeys.has(articleKey)) {
-        return null;
-      }
-
-      const headerElement = articleElement.querySelector<HTMLElement>(
-        "[data-article-swipe-zone='header']",
-      );
-
-      if (!headerElement) {
-        return null;
-      }
-
-      const headerRect = headerElement.getBoundingClientRect();
-
-      if (
-        headerRect.bottom <= viewportRect.top ||
-        headerRect.top >= viewportRect.bottom
-      ) {
-        return null;
-      }
-
-      return {
-        articleKey,
-        fullyVisible:
-          headerRect.top >= viewportRect.top &&
-          headerRect.bottom <= viewportRect.bottom,
-        headerTop: headerRect.top,
-      };
-    })
-    .filter((entry) => entry !== null)
-    .sort((left, right) => {
-      if (left.fullyVisible !== right.fullyVisible) {
-        return left.fullyVisible ? -1 : 1;
-      }
-
-      return left.headerTop - right.headerTop;
-    });
+    return left.headerTop - right.headerTop;
+  });
 
   return visibleArticles[0]?.articleKey ?? null;
 }
@@ -238,4 +181,45 @@ export function shouldAutoAnchorInvertedScrollViewport({
       isUnderfilledInvertedViewport
     )
   );
+}
+
+function collectVisibleArticleHeaderEntries(
+  viewport: HTMLElement,
+  excludedArticleKeys: ReadonlySet<string> = new Set<string>(),
+) {
+  const viewportRect = viewport.getBoundingClientRect();
+
+  return Array.from(
+    viewport.querySelectorAll<HTMLElement>(
+      "article[data-article-key] [data-article-swipe-zone='header']",
+    ),
+  )
+    .map((headerElement) => {
+      const articleElement = headerElement.closest<HTMLElement>(
+        "article[data-article-key]",
+      );
+      const articleKey = articleElement?.dataset.articleKey ?? null;
+
+      if (!articleKey || excludedArticleKeys.has(articleKey)) {
+        return null;
+      }
+
+      const headerRect = headerElement.getBoundingClientRect();
+
+      if (
+        headerRect.bottom <= viewportRect.top ||
+        headerRect.top >= viewportRect.bottom
+      ) {
+        return null;
+      }
+
+      return {
+        articleKey,
+        fullyVisible:
+          headerRect.top >= viewportRect.top &&
+          headerRect.bottom <= viewportRect.bottom,
+        headerTop: headerRect.top,
+      } satisfies VisibleArticleHeaderEntry;
+    })
+    .filter((entry): entry is VisibleArticleHeaderEntry => entry !== null);
 }

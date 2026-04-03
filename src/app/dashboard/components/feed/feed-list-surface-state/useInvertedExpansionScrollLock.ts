@@ -166,16 +166,15 @@ export function useInvertedExpansionScrollLock({
     }
 
     const anchor = findInvertedExpansionHeaderAnchor(lockState.articleKey);
-    const targetScrollTop =
-      lockState.mode === "expand" || lockState.mode === "restore"
-        ? lockState.baselineScrollTop
-        : anchor
-          ? lockState.viewport.scrollTop +
-            getViewportOffsetTop(anchor, lockState.viewport) -
-            lockState.anchorViewportOffsetTop
-          : lockState.pinToBottom
-            ? Math.max(0, lockState.viewport.scrollHeight - lockState.viewport.clientHeight)
-            : lockState.baselineScrollTop;
+    const anchoredScrollTop = anchor
+      ? lockState.viewport.scrollTop +
+        getViewportOffsetTop(anchor, lockState.viewport) -
+        lockState.anchorViewportOffsetTop
+      : null;
+    const targetScrollTop = anchoredScrollTop ??
+      (lockState.pinToBottom
+        ? Math.max(0, lockState.viewport.scrollHeight - lockState.viewport.clientHeight)
+        : lockState.baselineScrollTop);
 
     if (Math.abs(lockState.viewport.scrollTop - targetScrollTop) > 0.5) {
       lockState.viewport.scrollTop = targetScrollTop;
