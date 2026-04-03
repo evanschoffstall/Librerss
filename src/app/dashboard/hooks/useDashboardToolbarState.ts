@@ -14,6 +14,49 @@ interface ShellLoadingEventDetail {
   loading?: boolean;
 }
 
+/** Reads the shell-loading dataset flag from the current document root. */
+export function readDashboardShellLoadingFromDocument() {
+  const shellLoading = document.documentElement.dataset.dashboardShellLoading;
+
+  if (shellLoading === "true") {
+    return true;
+  }
+
+  if (shellLoading === "false") {
+    return false;
+  }
+
+  return null;
+}
+
+/** Resolves the next shell-loading state from an incoming dashboard event. */
+export function readDashboardShellLoadingFromEvent(event: Event) {
+  const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
+
+  return detail.loading === true;
+}
+
+/** Settles the optimistic shell-loading state once document and dataset state are known. */
+export function resolveDashboardShellLoadingState({
+  hasReceivedShellLoadingEvent,
+  readyState,
+  shellLoadingFromDocument,
+}: {
+  hasReceivedShellLoadingEvent: boolean;
+  readyState: DocumentReadyState;
+  shellLoadingFromDocument: boolean | null;
+}) {
+  if (shellLoadingFromDocument !== null) {
+    return shellLoadingFromDocument;
+  }
+
+  if (!hasReceivedShellLoadingEvent && readyState === "complete") {
+    return false;
+  }
+
+  return null;
+}
+
 /** Bridges dashboard window events into the persistent toolbar state and actions. */
 export function useDashboardToolbarState(startInShellLoading = false) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -40,34 +83,34 @@ export function useDashboardToolbarState(startInShellLoading = false) {
 
   useLayoutEffect(() => {
     const syncShellLoadingFromDocument = () => {
-      const shellLoading = document.documentElement.dataset.dashboardShellLoading;
+      const shellLoading = readDashboardShellLoadingFromDocument();
 
-      if (shellLoading !== "true" && shellLoading !== "false") {
+      if (shellLoading === null) {
         return false;
       }
 
       hasReceivedShellLoadingEventRef.current = true;
-      setIsShellLoading(shellLoading === "true");
+      setIsShellLoading(shellLoading);
       return true;
     };
 
     const settleOptimisticShellLoading = () => {
-      if (syncShellLoadingFromDocument()) {
-        return;
-      }
+      const shellLoading = resolveDashboardShellLoadingState({
+        hasReceivedShellLoadingEvent: hasReceivedShellLoadingEventRef.current,
+        readyState: document.readyState,
+        shellLoadingFromDocument: readDashboardShellLoadingFromDocument(),
+      });
 
-      if (
-        !hasReceivedShellLoadingEventRef.current &&
-        document.readyState === "complete"
-      ) {
-        setIsShellLoading(false);
+      if (shellLoading !== null) {
+        hasReceivedShellLoadingEventRef.current = true;
+        setIsShellLoading(shellLoading);
+        return;
       }
     };
 
     const handleShellLoading = (event: Event) => {
-      const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
       hasReceivedShellLoadingEventRef.current = true;
-      setIsShellLoading(detail.loading === true);
+      setIsShellLoading(readDashboardShellLoadingFromEvent(event));
     };
 
     const handleReadyStateChange = () => {

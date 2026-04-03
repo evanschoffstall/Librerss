@@ -1,21 +1,11 @@
-import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import * as React from "react";
+import {
+  readDashboardShellLoadingFromDocument,
+  readDashboardShellLoadingFromEvent,
+  resolveDashboardShellLoadingState,
+} from "@/app/dashboard/hooks/useDashboardToolbarState";
 
-import * as realDashboardToolbar from "@/app/dashboard/components/DashboardToolbar";
-import * as realUiSkeleton from "@/components/ui/skeleton";
-
-async function loadDashboardToolbar() {
-  return import(
-    `@/app/dashboard/components/DashboardToolbar?toolbar-shell=${Date.now()}-${Math.random()}`
-  );
-}
-
-function MockThemeProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
-describe("DashboardToolbar shell loading", () => {
+describe("useDashboardToolbarState shell loading", () => {
   const originalReadyStateDescriptor = Object.getOwnPropertyDescriptor(
     document,
     "readyState",
@@ -26,7 +16,6 @@ describe("DashboardToolbar shell loading", () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     delete document.documentElement.dataset.dashboardShellLoading;
-    mockToolbarDependencies();
   });
 
   afterEach(() => {
@@ -40,94 +29,74 @@ describe("DashboardToolbar shell loading", () => {
     }
   });
 
-  test("settles optimistic shell loading once the document is already complete", async () => {
-    Object.defineProperty(document, "readyState", {
-      configurable: true,
-      get() {
-        return "complete";
-      },
-    });
-
-    const { DashboardToolbar } = await loadDashboardToolbar();
-    const { container, queryByPlaceholderText } = render(
-      <DashboardToolbar startInShellLoading />,
-    );
-
-    await waitFor(() => {
-      expect(queryByPlaceholderText("Search...")).toBeTruthy();
-    });
+  test("settles optimistic shell loading once the document is already complete", () => {
+    expect(
+      resolveDashboardShellLoadingState({
+        hasReceivedShellLoadingEvent: false,
+        readyState: "complete",
+        shellLoadingFromDocument: null,
+      }),
+    ).toBe(false);
 
     expect(
-      container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+      resolveDashboardShellLoadingState({
+        hasReceivedShellLoadingEvent: true,
+        readyState: "complete",
+        shellLoadingFromDocument: null,
+      }),
+    ).toBeNull();
+
+    expect(
+      resolveDashboardShellLoadingState({
+        hasReceivedShellLoadingEvent: false,
+        readyState: "loading",
+        shellLoadingFromDocument: null,
+      }),
     ).toBeNull();
   });
 
-  test("tracks shell loading from the document dataset before bus events arrive", async () => {
-    Object.defineProperty(document, "readyState", {
-      configurable: true,
-      get() {
-        return "loading";
-      },
-    });
-    document.documentElement.dataset.dashboardShellLoading = "true";
+  test("prefers the document dataset before bus events arrive", () => {
+    document.documentElement.setAttribute("data-dashboard-shell-loading", "true");
 
-    const { DashboardToolbar } = await loadDashboardToolbar();
-    const { container, queryByPlaceholderText } = render(
-      <DashboardToolbar startInShellLoading />,
-    );
+    expect(readDashboardShellLoadingFromDocument()).toBe(true);
+    expect(
+      resolveDashboardShellLoadingState({
+        hasReceivedShellLoadingEvent: false,
+        readyState: "loading",
+        shellLoadingFromDocument: readDashboardShellLoadingFromDocument(),
+      }),
+    ).toBe(true);
 
-    await waitFor(() => {
-      expect(
-        container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
-      ).toBeTruthy();
-    });
+    document.documentElement.setAttribute("data-dashboard-shell-loading", "false");
+    expect(readDashboardShellLoadingFromDocument()).toBe(false);
 
-    document.documentElement.dataset.dashboardShellLoading = "false";
+    delete document.documentElement.dataset.dashboardShellLoading;
+    expect(readDashboardShellLoadingFromDocument()).toBeNull();
+  });
 
-    await waitFor(() => {
-      expect(queryByPlaceholderText("Search...")).toBeTruthy();
-    });
+  test("updates shell loading from window bus events", () => {
+    expect(
+      readDashboardShellLoadingFromEvent(
+        new CustomEvent("dashboard:shell-loading", {
+          detail: { loading: true },
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      readDashboardShellLoadingFromEvent(
+        new CustomEvent("dashboard:shell-loading", {
+          detail: { loading: false },
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      readDashboardShellLoadingFromEvent(
+        new CustomEvent("dashboard:shell-loading", {
+          detail: {},
+        }),
+      ),
+    ).toBe(false);
   });
 });
-
-function mockToolbarDependencies() {
-  mock.module("@/app/dashboard/components/DashboardToolbar", () => realDashboardToolbar);
-  mock.module("@/components/ui/skeleton", () => realUiSkeleton);
-  mock.module("next-themes", () => ({
-    ThemeProvider: MockThemeProvider,
-    useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
-  }));
-  mock.module("sonner", () => ({
-    toast: { error: mock(() => {}) },
-  }));
-  mock.module("@/components/ui/dropdown-menu", () => ({
-    DropdownMenu: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
-    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
-    DropdownMenuItem: ({
-      children,
-      disabled,
-      onSelect,
-    }: {
-      children: React.ReactNode;
-      disabled?: boolean;
-      onSelect?: () => void;
-    }) => (
-      <button disabled={disabled} onClick={onSelect} type="button">
-        {children}
-      </button>
-    ),
-    DropdownMenuSeparator: () => <hr />,
-    DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
-  }));
-  mock.module("@/components/ui/input", () => ({
-    Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-      <input {...props} />
-    ),
-  }));
-}
