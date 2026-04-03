@@ -1,11 +1,5 @@
-import {
-  useCallback,
-  useRef,
-  useState,
-} from "react";
-import { flushSync } from "react-dom";
+import { useCallback } from "react";
 
-import { FEED_MIN_SCROLLABLE_OVERFLOW_PX } from "./feed-list-surface-state/constants";
 import {
   findTopVisibleInvertedPaginationAnchorArticleKey,
   findVisibleInvertedRemovalAnchorArticleKey,
@@ -19,6 +13,7 @@ import {
 import { useFeedPagination } from "./feed-list-surface-state/useFeedPagination";
 import { useFeedViewportState } from "./feed-list-surface-state/useFeedViewportState";
 import { useInvertedExpansionScrollLock } from "./feed-list-surface-state/useInvertedExpansionScrollLock";
+import { useInvertedScrollOwnership } from "./feed-list-surface-state/useInvertedScrollOwnership";
 
 export {
   findTopVisibleInvertedPaginationAnchorArticleKey,
@@ -90,10 +85,6 @@ export function useFeedListSurfaceState({
   refreshEpoch,
   searchTerm,
 }: UseFeedListSurfaceStateOptions): UseFeedListSurfaceStateResult {
-  const [, setHasClaimedInvertedScrollOwnership] = useState(false);
-  const hasUserScrolledRef = useRef(false);
-  const hasClaimedInvertedScrollOwnershipRef = useRef(false);
-
   const {
     clearInitialNormalScrollLock,
     handleViewportHostRef,
@@ -107,44 +98,13 @@ export function useFeedListSurfaceState({
     refreshEpoch,
   });
 
-  const claimInvertedScrollOwnership = useCallback((): void => {
-    hasUserScrolledRef.current = true;
-
-    if (hasClaimedInvertedScrollOwnershipRef.current) {
-      return;
-    }
-
-    hasClaimedInvertedScrollOwnershipRef.current = true;
-
-    flushSync(() => {
-      setHasClaimedInvertedScrollOwnership(true);
-    });
-  }, []);
-
-  const resetInvertedScrollOwnership = useCallback((): void => {
-    hasClaimedInvertedScrollOwnershipRef.current = false;
-    setHasClaimedInvertedScrollOwnership(false);
-  }, []);
-
-  const shouldAnchorUnderfilledInvertedViewport = useCallback(() => {
-    if (!scrollViewport) {
-      return false;
-    }
-
-    let scrollableOverflowPx: number;
-
-    try {
-      scrollableOverflowPx =
-        scrollViewport.scrollHeight - scrollViewport.clientHeight;
-    } catch {
-      return false;
-    }
-
-    return (
-      Number.isFinite(scrollableOverflowPx) &&
-      scrollableOverflowPx <= FEED_MIN_SCROLLABLE_OVERFLOW_PX
-    );
-  }, [scrollViewport]);
+  const {
+    claimInvertedScrollOwnership,
+    hasClaimedInvertedScrollOwnershipRef,
+    hasUserScrolledRef,
+    resetInvertedScrollOwnership,
+    shouldAnchorUnderfilledInvertedViewport,
+  } = useInvertedScrollOwnership(scrollViewport);
 
   const invertedExpansionScrollLock: {
     hasActiveInvertedExpansionScrollLock: () => boolean;
@@ -219,6 +179,7 @@ export function useFeedListSurfaceState({
     });
   }, [
     expandedArticleKey,
+    hasClaimedInvertedScrollOwnershipRef,
     isInvertedScroll,
     shouldAnchorUnderfilledInvertedViewport,
   ]);
