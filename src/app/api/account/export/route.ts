@@ -6,30 +6,38 @@ import { logger } from "@/lib/logger";
 import {
   exportAccountData,
   requireMutableAuthenticatedUser,
-  resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
+  type RouteHandlerContext,
+  ServerServiceError,
+} from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
 interface AccountExportRouteDeps {
+  exportAccountDataFn?: typeof exportAccountData;
   getDbFn?: () => unknown;
   infoFn?: typeof logger.info;
   requireAuthFn?: (
     request: NextRequest,
   ) => Promise<Response | { userId: number }>;
   runtimeFlags?: Pick<typeof RUNTIME_FLAGS, "usePlaceholderData">;
+  serverServiceErrorClass?: typeof ServerServiceError;
 }
 
 export async function GET(
   request: NextRequest,
   depsOrContext: AccountExportRouteDeps | RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<AccountExportRouteDeps>(depsOrContext);
+  const deps = resolveAccountExportRouteDeps(depsOrContext);
+  const exportAccountDataForRoute =
+    deps.exportAccountDataFn ?? exportAccountData;
+  const ServerServiceErrorForRoute =
+    deps.serverServiceErrorClass ?? ServerServiceError;
   const requireAuth = deps.requireAuthFn ?? requireMutableAuthenticatedUser;
   const authResult = await requireAuth(request);
   if (authResult instanceof Response) return authResult;
 
   try {
-    const payload = await exportAccountData(authResult.userId, {
+    const payload = await exportAccountDataForRoute(authResult.userId, {
       getDbFn: deps.getDbFn,
     });
 
@@ -43,10 +51,32 @@ export async function GET(
       status: 200,
     });
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
+    if (error instanceof ServerServiceErrorForRoute) {
+      return jsonError(error.message, error.status);
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
     );
   }
+}
+
+/**
+ * Distinguishes test dependency bags from the framework's route context.
+ *
+ * Keeping this resolver local lets the route tests inject a stable export
+ * function without depending on the globally mocked server barrel.
+ */
+export function resolveAccountExportRouteDeps(
+  depsOrContext: AccountExportRouteDeps | RouteHandlerContext | undefined,
+): AccountExportRouteDeps {
+  if (
+    depsOrContext === undefined ||
+    (typeof depsOrContext === "object" && "params" in depsOrContext)
+  ) {
+    return {};
+  }
+
+  return depsOrContext;
 }

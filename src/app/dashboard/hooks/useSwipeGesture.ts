@@ -64,7 +64,7 @@ export function useSwipeGesture(
   shouldIgnoreTarget?: (target: EventTarget | null) => boolean,
   reattachKey?: boolean | number | string,
 ) {
-  const [state, setState] = useState<SwipeState>(SWIPE_IDLE);
+  const [state, setState] = useState(SWIPE_IDLE);
   const containerRef = useRef<HTMLElement>(null);
   const startRef = useRef<null | { x: number; y: number }>(null);
   const lockedRef = useRef<"horizontal" | "vertical" | null>(null);

@@ -51,8 +51,10 @@ export const DashboardView = ({
         feed={
           <DashboardFeedViewport>
             <FeedList
+              animatingInArticleKeys={feedList.animatingInArticleKeys}
               articleFilter={feedList.articleFilter}
               articlesPerPage={feedList.articlesPerPage}
+              canLoadMoreFromServer={feedList.canLoadMoreFromServer}
               collapsingArticles={feedList.collapsingArticles}
               expandedArticleKey={feedList.expandedArticleKey}
               feedViewKey={feedList.feedViewKey}
@@ -63,8 +65,12 @@ export const DashboardView = ({
               hydratingArticleLinks={feedList.hydratingArticleLinks}
               isCollapseScrollRestoreActive={feedList.isCollapseScrollRestoreActive}
               isInitialLoading={feedList.isInitialLoading}
+              isLoadingMore={feedList.isLoadingMore}
               isRefreshing={feedList.isRefreshing}
+              loadingMoreArticleCount={feedList.loadingMoreArticleCount}
+              onEnteringDone={feedList.onArticleEnteringDone}
               onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
+              onLoadMore={feedList.onLoadMore}
               onPrepareExpand={feedList.onArticlePrepareExpand}
               onSwipeRead={feedList.onArticleSwipeRead}
               onToggle={feedList.onArticleToggle}
@@ -80,6 +86,7 @@ export const DashboardView = ({
         filterBar={
           <DashboardFilterBar
             articleFilter={filterBar.articleFilter}
+            isShellLoading={filterBar.isShellLoading}
             lastRefreshLabel={filterBar.lastRefreshLabel}
             loading={filterBar.loading}
             onArticleFilterChange={filterBar.setArticleFilter}

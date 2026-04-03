@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
 import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
@@ -6,8 +6,32 @@ import {
   DASHBOARD_FEED_SURFACE_CLASS_NAME,
   DashboardFeedViewport,
 } from "@/app/dashboard/components/DashboardScaffold";
+import {
+  ARTICLE_FILTER_OPTIONS,
+  type ArticleFilter,
+} from "@/app/dashboard/services/article-filters";
 
 describe("DashboardFilterBar", () => {
+  test("renders the full filter-bar skeleton while the dashboard shell is loading", () => {
+    const { container, queryByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isShellLoading
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-dashboard-filter-bar-skeleton="true"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelectorAll('[data-dashboard-filter-bar-chip-skeleton="true"]'),
+    ).toHaveLength(4);
+    expect(queryByRole("button", { name: "unread" })).toBeNull();
+  });
+
   test("shares the feed-width CSS contract with the article viewport", () => {
     const { container } = render(
       <>
@@ -34,6 +58,97 @@ describe("DashboardFilterBar", () => {
         DASHBOARD_FEED_SURFACE_CLASS_NAME,
       );
     }
+
+    expect(
+      container.querySelector('[data-dashboard-feed-scrollbar="true"]'),
+    ).toBeTruthy();
+  });
+
+  test("renders a feed scrollbar thumb when the feed viewport overflows", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div>
+            {Array.from({ length: 40 }, (_value, index) => (
+              <div key={index}>Feed row {index + 1}</div>
+            ))}
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    expect(
+      container.querySelector('[data-dashboard-feed-scrollbar="true"]'),
+    ).toBeTruthy();
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get() {
+        return 180;
+      },
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 720;
+      },
+    });
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-feed-scrollbar-thumb="true"]'),
+      ).toBeTruthy();
+    });
+  });
+
+  test("uses the virtualized feed height to size the overlay thumb", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div data-feed-total-list-height="720" data-inverted-scroll="true">
+            {Array.from({ length: 40 }, (_value, index) => (
+              <div key={index}>Feed row {index + 1}</div>
+            ))}
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      const feedViewport = container.querySelector<HTMLElement>(
+        '[data-feed-scroll-viewport="true"]',
+      );
+      const thumb = container.querySelector<HTMLElement>(
+        '[data-dashboard-feed-scrollbar-thumb="true"]',
+      );
+
+      expect(feedViewport).toBeTruthy();
+      expect(feedViewport?.getAttribute("class") ?? "").toContain(
+        "[scrollbar-width:none]",
+      );
+      expect(feedViewport?.getAttribute("class") ?? "").toContain(
+        "[&::-webkit-scrollbar]:hidden",
+      );
+      expect(thumb).toBeTruthy();
+      expect(thumb?.getAttribute("style") ?? "").toContain("height:");
+      expect(thumb?.getAttribute("style") ?? "").toContain("translateY(");
+    });
   });
 
   test("shows the Motion spinner while the refresh label is skeletoning", () => {
@@ -66,6 +181,51 @@ describe("DashboardFilterBar", () => {
     const idleIcon = container.querySelector("span[aria-live='polite'] svg");
     expect(idleIcon).toBeTruthy();
     expect(idleIcon?.getAttribute("class")).toContain("lucide-refresh-cw");
+  });
+
+  test("renders the idle refresh label and marks the active article filter", () => {
+    const { container, getByRole, queryByLabelText, queryByText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        lastRefreshLabel="2m ago"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const unreadButton = getByRole("button", { name: "unread" });
+    const starredButton = getByRole("button", { name: "starred" });
+
+    expect(unreadButton.getAttribute("aria-pressed")).toBe("true");
+    expect(unreadButton.getAttribute("class") ?? "").toContain("bg-muted");
+    expect(starredButton.getAttribute("aria-pressed")).toBe("false");
+    expect(starredButton.getAttribute("class") ?? "").toContain(
+      "text-muted-foreground/70",
+    );
+    expect(queryByLabelText("Refreshing")).toBeNull();
+    expect(queryByText("2m ago")).toBeTruthy();
+    expect(
+      container.querySelector("span[aria-live='polite'] svg")?.getAttribute("class") ?? "",
+    ).toContain("lucide-refresh-cw");
+  });
+
+  test("renders every article filter option as a token button", () => {
+    const { getAllByRole } = render(
+      <DashboardFilterBar
+        articleFilter="all"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const filterButtons = getAllByRole("button");
+    const filterButtonNames = filterButtons.map((button) => button.textContent?.trim());
+
+    expect(filterButtons).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
+    expect(filterButtonNames).toEqual(
+      ARTICLE_FILTER_OPTIONS.map((value: ArticleFilter) => value),
+    );
   });
 
   test("invokes the filter change callback when a filter option is clicked", () => {

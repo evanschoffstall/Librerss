@@ -140,17 +140,17 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
     <AnimatePresence mode="wait">
       {isCategoriesLoading ? (
         <motion.div
-          exit={{ filter: "blur(4px)", opacity: 0, scale: 0.97 }}
+          exit={{ opacity: 0, scale: 0.995 }}
           key="sidebar-skeleton"
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
         >
           <DashboardSidebarSkeleton />
         </motion.div>
       ) : (
         <motion.div
-          animate={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1 }}
           className="space-y-2 px-2"
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0.96 }}
           key="sidebar-content"
           transition={SIDEBAR_SECTION_TRANSITION}
         >

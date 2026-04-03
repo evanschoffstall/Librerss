@@ -34,4 +34,10 @@ describe("playwright base URL resolution", () => {
       "PLAYWRIGHT_PORT must be a valid TCP port.",
     );
   });
+
+  test("validates that the constructed host is not blank", () => {
+    expect(() => buildPlaywrightBaseUrl("   ", 3100)).toThrow(
+      "PLAYWRIGHT_HOST must not be empty.",
+    );
+  });
 });

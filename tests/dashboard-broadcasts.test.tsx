@@ -5,9 +5,16 @@ import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { useDashboardBroadcasts } from "@/app/dashboard/hooks/useDashboardBroadcasts";
 
 function collectDashboardBroadcasts() {
+  const shellLoadingStates: boolean[] = [];
   const pendingStates: boolean[] = [];
   const terms: string[] = [];
   const titles: string[] = [];
+
+  const onShellLoading = (event: Event) => {
+    shellLoadingStates.push(
+      (event as CustomEvent<{ loading: boolean }>).detail.loading,
+    );
+  };
 
   const onTitleChange = (event: Event) => {
     titles.push((event as CustomEvent<{ title: string }>).detail.title);
@@ -21,6 +28,7 @@ function collectDashboardBroadcasts() {
     );
   };
 
+  window.addEventListener(DASHBOARD_EVENTS.SHELL_LOADING, onShellLoading);
   window.addEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, onTitleChange);
   window.addEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, onSearchSync);
   window.addEventListener(DASHBOARD_EVENTS.SEARCH_PENDING, onSearchPending);
@@ -28,6 +36,7 @@ function collectDashboardBroadcasts() {
   return {
     pendingStates,
     restore() {
+      window.removeEventListener(DASHBOARD_EVENTS.SHELL_LOADING, onShellLoading);
       window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, onTitleChange);
       window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, onSearchSync);
       window.removeEventListener(
@@ -35,6 +44,7 @@ function collectDashboardBroadcasts() {
         onSearchPending,
       );
     },
+    shellLoadingStates,
     terms,
     titles,
   };
@@ -56,11 +66,13 @@ describe("dashboard broadcasts", () => {
       renderHook(() =>
         useDashboardBroadcasts({
           isSearchPending: true,
+          isShellLoading: true,
           searchTerm: "weather",
           selectedFeed: "NOAA",
         }),
       );
 
+      expect(broadcasts.shellLoadingStates).toEqual([true]);
       expect(broadcasts.titles).toEqual(["NOAA"]);
       expect(broadcasts.terms).toEqual(["weather"]);
       expect(broadcasts.pendingStates).toEqual([true]);
@@ -74,15 +86,17 @@ describe("dashboard broadcasts", () => {
 
     try {
       const { rerender } = renderHook(
-        ({ isSearchPending, searchTerm, selectedFeed }) =>
+        ({ isSearchPending, isShellLoading, searchTerm, selectedFeed }) =>
           useDashboardBroadcasts({
             isSearchPending,
+            isShellLoading,
             searchTerm,
             selectedFeed,
           }),
         {
           initialProps: {
             isSearchPending: false,
+            isShellLoading: false,
             searchTerm: "initial",
             selectedFeed: undefined as string | undefined,
           },
@@ -91,10 +105,12 @@ describe("dashboard broadcasts", () => {
 
       rerender({
         isSearchPending: true,
+        isShellLoading: true,
         searchTerm: "updated",
         selectedFeed: "USGS",
       });
 
+      expect(broadcasts.shellLoadingStates).toEqual([false, true]);
       expect(broadcasts.titles).toEqual(["LibreRSS", "USGS"]);
       expect(broadcasts.terms).toEqual(["initial", "updated"]);
       expect(broadcasts.pendingStates).toEqual([false, true]);

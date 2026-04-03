@@ -138,64 +138,6 @@ describe("article-status", () => {
   });
 });
 
-// ─── Stream Conditions ────────────────────────────────────────────────────────
-
-describe("stream-conditions", () => {
-  test("buildStreamConditions creates conditions for reading-list", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter: null,
-      feedUrl: null,
-      starredOnly: false,
-      useArticleStatuses: true,
-    });
-    expect(Array.isArray(conditions)).toBe(true);
-    expect(conditions).toHaveLength(0);
-  });
-
-  test("buildStreamConditions handles feed URLs", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter: null,
-      feedUrl: "https://example.com/feed.xml",
-      starredOnly: false,
-      useArticleStatuses: false,
-    });
-    expect(conditions).toHaveLength(1);
-  });
-
-  test("buildStreamConditions handles starred filter", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter: null,
-      feedUrl: null,
-      starredOnly: true,
-      useArticleStatuses: true,
-    });
-    expect(conditions).toHaveLength(1);
-  });
-
-  test("buildStreamConditions combines all optional filters", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-    const conditions = buildStreamConditions({
-      continuationId: 321,
-      dateFilter: new Date("2024-01-01T00:00:00.000Z"),
-      excludeRead: true,
-      feedUrl: "https://example.com/feed.xml",
-      starredOnly: true,
-      useArticleStatuses: true,
-    });
-    expect(conditions).toHaveLength(4);
-  });
-});
-
 // ─── Feed Parser ──────────────────────────────────────────────────────────────
 
 describe("feed-parser", () => {
@@ -1696,13 +1638,14 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
         userId,
         [`https://feed-${i}.example.com/`],
         "all",
+        undefined,
         makeResult(i),
       );
     }
 
     // Verify first entry exists
     expect(
-      getCachedBatch(userId, ["https://feed-0.example.com/"], "all"),
+      getCachedBatch(userId, ["https://feed-0.example.com/"], "all", undefined),
     ).not.toBeNull();
 
     // Adding one more should evict the oldest
@@ -1710,12 +1653,18 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
       userId,
       ["https://feed-overflow.example.com/"],
       "all",
+      undefined,
       makeResult(MAX_ENTRIES),
     );
 
     // Overflow entry is present; oldest may have been evicted
     expect(
-      getCachedBatch(userId, ["https://feed-overflow.example.com/"], "all"),
+      getCachedBatch(
+        userId,
+        ["https://feed-overflow.example.com/"],
+        "all",
+        undefined,
+      ),
     ).not.toBeNull();
 
     invalidateUserCache(userId); // cleanup
@@ -1965,9 +1914,9 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
       // Use a high userId to avoid colliding with other tests
       const userId = 999998;
       const urls = ["https://stale-cache-test.example.com/feed"];
-      setCachedBatch(userId, urls, "all", mockResult);
+      setCachedBatch(userId, urls, "all", undefined, mockResult);
       // With TTL=0, the entry should immediately be stale → evicted → null
-      const cached = getCachedBatch(userId, urls, "all");
+      const cached = getCachedBatch(userId, urls, "all", undefined);
       expect(cached).toBeNull();
     } finally {
       if (savedTtl !== undefined) process.env.FEED_CACHE_TTL_MINUTES = savedTtl;

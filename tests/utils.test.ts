@@ -569,6 +569,14 @@ describe("url – getUrlHostnameDisplayLabel", () => {
     );
   });
 
+  test("preserves www when stripWww is disabled", async () => {
+    expect(
+      getUrlHostnameDisplayLabel("https://www.example.com", {
+        stripWww: false,
+      }),
+    ).toBe("www.example.com");
+  });
+
   test("returns raw input for invalid URL", async () => {
     expect(getUrlHostnameDisplayLabel("not-a-url")).toBe("not-a-url");
   });

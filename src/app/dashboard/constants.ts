@@ -1,7 +1,5 @@
 import { type CategoryTreeNode, DEFAULT_CATEGORY_LABEL } from "@/lib";
 
-export { DASHBOARD_PREVIEW_STORAGE_KEY } from "./preview-mode";
-
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/world/rss.xml";
 export const ALL_FEEDS_LABEL = "All Feeds";
 export const ALL_FEEDS_NODE_KEY = "system-all-feeds";
@@ -33,6 +31,7 @@ export const DASHBOARD_EVENTS = {
   SEARCH_CHANGE: "dashboard:search-change",
   SEARCH_PENDING: "dashboard:search-pending",
   SEARCH_SYNC: "dashboard:search-sync",
+  SHELL_LOADING: "dashboard:shell-loading",
   TITLE_CHANGE: "dashboard:title-change",
 } as const;
 

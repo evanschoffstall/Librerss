@@ -1,7 +1,4 @@
-import axios from "axios";
-
 import { CONFIG } from "@/lib/config";
-import { logger } from "@/lib/logger";
 import { decodeTextBody } from "@/lib/utils/content-encoding";
 import {
   HttpCloakUpstreamError,
@@ -9,8 +6,6 @@ import {
   requestWithHttpCloakValidatedRedirects,
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
-
-export const upstreamAxios = axios.create();
 
 interface HttpCloakFetchDeps {
   requestFn?: ValidatedHttpCloakRequestFn;
@@ -22,6 +17,18 @@ interface HttpCloakFetchOptions {
 }
 
 /**
+ * Carries the decoded HTML plus the upstream metadata that higher-level
+ * extract stages use for a single canonical success log entry.
+ */
+interface HttpCloakFetchResult {
+  diagnosticHeaders?: ReturnType<typeof pickDiagnosticHeaders>;
+  html: string;
+  redirectHop?: number;
+  requestHeaders: Record<string, string>;
+  statusCode?: number;
+}
+
+/**
  * Fetch article HTML through HTTPCloak using the shared transport request
  * profile and SSRF-safe redirect validation.
  */
@@ -30,10 +37,7 @@ export async function fetchHtmlWithHttpCloak(
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
   options?: HttpCloakFetchOptions,
   deps?: HttpCloakFetchDeps,
-): Promise<{
-  html: string;
-  requestHeaders: Record<string, string>;
-}> {
+): Promise<HttpCloakFetchResult> {
   const proxyMode = options?.proxyUrl ? "proxy" : "direct";
   const allowInsecureTls = options?.allowInsecureTls ?? false;
   const response = await requestWithHttpCloakValidatedRedirects(
@@ -54,14 +58,6 @@ export async function fetchHtmlWithHttpCloak(
     },
     { requestFn: deps?.requestFn },
   );
-
-  logger.info("HTTPCloak upstream response", {
-    diagnosticHeaders: pickDiagnosticHeaders(response.headers),
-    proxyMode,
-    redirectHop: response.redirectHop,
-    statusCode: response.statusCode,
-    url,
-  });
 
   const decodedBody = await decodeResponseBody(response);
 
@@ -86,8 +82,11 @@ export async function fetchHtmlWithHttpCloak(
   }
 
   return {
+    diagnosticHeaders: pickDiagnosticHeaders(response.headers),
     html: decodedBody,
+    redirectHop: response.redirectHop,
     requestHeaders: response.requestHeaders,
+    statusCode: response.statusCode,
   };
 }
 

@@ -35,13 +35,20 @@ import {
   DashboardToolbarActionButton,
   DashboardToolbarActionIcon,
 } from "./DashboardToolbarActionButton";
+import { DashboardToolbarSkeleton } from "./DashboardToolbarSkeleton";
 import { MotionSpinner } from "./MotionSpinner";
 
 const toolbarButtonClassName =
   "cursor-pointer text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+interface DashboardToolbarProps {
+  startInShellLoading?: boolean;
+}
+
 /** Renders the persistent dashboard toolbar with search, feed actions, and settings controls. */
-export function DashboardToolbar() {
+export function DashboardToolbar({
+  startInShellLoading = false,
+}: DashboardToolbarProps) {
   const {
     handleMarkAllRead,
     handleMarkViewportRead,
@@ -60,12 +67,13 @@ export function DashboardToolbar() {
     isRefreshing,
     isResetting,
     isSearchPending,
+    isShellLoading,
     isSigningOut,
     mounted,
     search,
     themeToggleLabel,
     title,
-  } = useDashboardToolbarState();
+  } = useDashboardToolbarState(startInShellLoading);
   const [mobileToolbarBottom] = useLocalStorage(
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
     true,
@@ -76,6 +84,16 @@ export function DashboardToolbar() {
   );
   const isToolbarActionPending =
     isRefreshing || isMarkingAllRead || isMarkingViewportRead;
+
+  if (isShellLoading) {
+    return (
+      <DashboardToolbarSkeleton
+        isDevelopmentMode={isDevelopmentMode}
+        mobileToolbarBottom={mobileToolbarBottom}
+        mobileToolbarMirror={mobileToolbarMirror}
+      />
+    );
+  }
 
   return (
     <div
@@ -92,6 +110,7 @@ export function DashboardToolbar() {
             border-border/50 bg-background/80 backdrop-blur-md
           `
       }
+      data-dashboard-toolbar="true"
       suppressHydrationWarning
     >
       <div

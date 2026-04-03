@@ -51,6 +51,7 @@ interface StageLogContext {
   allowInsecureTls: boolean;
   attempt: number;
   attempts: number;
+  diagnosticHeaders?: ReturnType<typeof pickDiagnosticHeaders>;
   error?: string;
   headers?: Record<string, string | string[] | undefined>;
   note?: string;
@@ -163,18 +164,20 @@ function createCompatibilityError(provider: string, statusCode: number): Error {
 function finishStageSuccess(
   options: StageOptionsBase,
   attempt: number,
-  headers: Record<string, string | string[] | undefined> | undefined,
-  html: string,
+  result: Awaited<ReturnType<typeof fetchHtmlWithHttpCloak>>,
 ): FetchStageResult {
   logStageSuccess(
     options.label,
     buildStageLogContext(options, attempt, {
-      headers,
-      responseBodyLength: html.length,
+      diagnosticHeaders: result.diagnosticHeaders,
+      headers: result.requestHeaders,
+      redirectHop: result.redirectHop,
+      responseBodyLength: result.html.length,
+      statusCode: result.statusCode,
     }),
   );
 
-  return { html, ok: true };
+  return { html: result.html, ok: true };
 }
 
 function handleStageFailure(
@@ -249,7 +252,7 @@ async function runHttpCloakStage(
     }
 
     try {
-      const { html, requestHeaders } = await options.httpCloakFetchFn(
+      const result = await options.httpCloakFetchFn(
         options.url,
         options.isAllowedUrl,
         {
@@ -258,7 +261,7 @@ async function runHttpCloakStage(
         },
       );
 
-      return finishStageSuccess(options, attempt, requestHeaders, html);
+      return finishStageSuccess(options, attempt, result);
     } catch (error) {
       lastError = error;
 

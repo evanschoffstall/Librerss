@@ -24,6 +24,7 @@ import {
   parseToggleFeedEnabledPayloadFromBody,
   parseUpdateFeedSettingsPayloadFromBody,
 } from "@/lib/api/feeds/parsers";
+import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 import { createMockFeed, createMockRequest } from "./support/test-utils";
 
@@ -203,7 +204,7 @@ describe("Feeds API - Refresh", () => {
 });
 
 describe("Feeds API - Route branches with injected deps", () => {
-  test("GET handles source-not-found, upstream, axios, and generic errors", async () => {
+  test("GET handles source-not-found, upstream, HTTPCloak, and generic errors", async () => {
     const { GET } = await import("@/app/api/feeds/route");
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "verbose";
@@ -245,34 +246,38 @@ describe("Feeds API - Route branches with injected deps", () => {
         error: "Failed to fetch feed from upstream",
       });
 
-      const axiosError = new Error("axios") as Error & {
-        response?: { status?: number };
-      };
-      axiosError.response = { status: 429 };
-
-      const axiosResponse = await GET(request as any, {
+      const httpCloakResponse = await GET(request as any, {
         assertAllowedFeedUrlFn: async () => null,
         getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         handleFeedReadFn: async () => {
-          throw axiosError;
+          throw new HttpCloakUpstreamError(
+            429,
+            "throttled",
+            "direct",
+            null,
+            false,
+            0,
+            { server: "cloudflare" },
+            {},
+          );
         },
-        isAxiosErrorFn: (() => true) as any,
         jsonErrorFn: ((message: string, status: number) =>
           Response.json({ error: message }, { status })) as any,
         requireAuthenticatedUserFn: async () =>
           ({ email: "x@y.com", userId: 1 }) as any,
-        toErrorMessageFn: () => "axios-error",
+        toErrorMessageFn: () => "httpcloak-error",
         warnFn: warnFn as any,
       });
-      expect(axiosResponse.status).toBe(502);
-      await expect(axiosResponse.json()).resolves.toEqual({
+      expect(httpCloakResponse.status).toBe(502);
+      await expect(httpCloakResponse.json()).resolves.toEqual({
         error: "Failed to fetch feed from upstream",
       });
       expect(warnFn).toHaveBeenCalledWith(
-        expect.stringContaining("upstream feed request failed"),
+        expect.stringContaining("upstream feed HTTPCloak request failed"),
         expect.objectContaining({
           feedAttemptId: expect.any(String),
           requestId: null,
+          statusCode: 429,
         }),
       );
 
@@ -281,7 +286,6 @@ describe("Feeds API - Route branches with injected deps", () => {
         handleFeedReadFn: async () => {
           throw new Error("generic");
         },
-        isAxiosErrorFn: (() => false) as any,
         isFeedSourceNotFoundErrorFn: (() => false) as any,
         isUpstreamFeedErrorFn: (() => false) as any,
         logAndRespondErrorFn: (() =>
@@ -734,7 +738,6 @@ describe("feeds route GET – upstream error handling", () => {
       handleFeedReadFn: async () => {
         throw notFoundErr;
       },
-      isAxiosErrorFn: ((_e: unknown) => false) as any,
       isFeedSourceNotFoundErrorFn: isFeedSourceNotFoundError,
       isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
       jsonErrorFn: ((msg: string, status: number) =>
@@ -758,7 +761,6 @@ describe("feeds route GET – upstream error handling", () => {
       handleFeedReadFn: async () => {
         throw upstreamErr;
       },
-      isAxiosErrorFn: ((_e: unknown) => false) as any,
       isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
       isUpstreamFeedErrorFn: isUpstreamFeedError,
       jsonErrorFn: ((msg: string, status: number) =>
@@ -769,22 +771,24 @@ describe("feeds route GET – upstream error handling", () => {
     expect(result.status).toBe(502);
   });
 
-  test("returns 502 when axios error occurs", async () => {
+  test("returns 502 when a HTTPCloak upstream error occurs", async () => {
     const { GET } = await import("@/app/api/feeds/route");
-    const axiosErr = Object.assign(new Error("timeout"), {
-      config: {},
-      isAxiosError: true,
-      response: { status: 504 },
-    });
     const req = createMockRequest("https://host/api/feeds?url=https://x.com/f");
     const result = await GET(req, {
       assertAllowedFeedUrlFn: async () => null,
       getRequestedFeedUrlFn: () => "https://x.com/f",
       handleFeedReadFn: async () => {
-        throw axiosErr;
+        throw new HttpCloakUpstreamError(
+          504,
+          "timeout",
+          "direct",
+          null,
+          false,
+          0,
+          {},
+          {},
+        );
       },
-      isAxiosErrorFn: ((e: unknown) =>
-        !!(e && typeof e === "object" && "isAxiosError" in e)) as any,
       isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
       isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
       jsonErrorFn: ((msg: string, status: number) =>

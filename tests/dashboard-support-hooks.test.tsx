@@ -38,8 +38,10 @@ describe("dashboard support hooks", () => {
     });
     const controllerState = buildDashboardControllerState({
       feedList: {
+        animatingInArticleKeys: new Set<string>(),
         articleFilter: "all",
         articlesPerPage: 12,
+        canLoadMoreFromServer: true,
         collapsingArticles: {},
         expandedArticleKey: null,
         feedViewKey: "feed-1:all",
@@ -49,7 +51,10 @@ describe("dashboard support hooks", () => {
         hydratingArticleLinks: {},
         isCollapseScrollRestoreActive: false,
         isInitialLoading: false,
+        isLoadingMore: false,
         isRefreshing: false,
+        loadingMoreArticleCount: 0,
+        onArticleEnteringDone: mock(() => {}),
         onArticleExpandedSwipeRead: mock(() => {}),
         onArticlePrepareExpand: mock(() => {}),
         onArticleSwipeRead: mock(() => {}),
@@ -63,6 +68,7 @@ describe("dashboard support hooks", () => {
       },
       filterBar: {
         articleFilter: "all",
+        isShellLoading: false,
         lastRefreshLabel: "never",
         loading: false,
         setArticleFilter: mock(() => {}),

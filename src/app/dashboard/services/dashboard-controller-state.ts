@@ -20,8 +20,11 @@ interface DashboardControllerState<
 }
 
 interface DashboardFeedListState {
+  /** Set of article keys whose entrance animation is currently running. */
+  animatingInArticleKeys: ReadonlySet<string>;
   articleFilter: ArticleFilter;
   articlesPerPage: number;
+  canLoadMoreFromServer: boolean;
   collapsingArticles: CollapsingArticles;
   expandedArticleKey: null | string;
   feedViewKey: string;
@@ -32,13 +35,18 @@ interface DashboardFeedListState {
   hydratingArticleLinks: Record<string, boolean>;
   isCollapseScrollRestoreActive: boolean;
   isInitialLoading: boolean;
+  isLoadingMore: boolean;
   isRefreshing: boolean;
+  loadingMoreArticleCount: number;
+  /** Stable callback invoked when a specific article's entrance animation finishes. */
+  onArticleEnteringDone: (articleKey: string) => void;
   onArticleExpandedSwipeRead: (article: Article) => void;
   onArticlePrepareExpand: (article: Article) => void;
   onArticleSwipeRead: (article: Article) => void;
   onArticleToggle: (article: Article) => void;
   onArticleToggleRead: (article: Article) => void;
   onArticleToggleStarred: (article: Article) => void;
+  onLoadMore?: () => void;
   refreshEpoch: number;
   searchTerm: string;
   showFavicons: boolean;
@@ -47,6 +55,7 @@ interface DashboardFeedListState {
 
 interface DashboardFilterBarState {
   articleFilter: ArticleFilter;
+  isShellLoading: boolean;
   lastRefreshLabel: string;
   loading: boolean;
   setArticleFilter: (value: ArticleFilter) => void;

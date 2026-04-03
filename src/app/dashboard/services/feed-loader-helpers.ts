@@ -4,6 +4,10 @@ import type { BatchFeedResponseItem } from "@/lib/api/http";
 import type { FeedBatchSource } from "../services/feed-batch";
 
 import { getArticleKey } from "../services/article-collection";
+import {
+  mergeFeedArticleLocalState,
+  retainMissingPreviousFeedArticles,
+} from "./feed-local-state";
 
 /**
  * Classified feed batch error with a user-facing toast title and description.
@@ -19,8 +23,8 @@ interface FeedBatchErrorToast {
 /**
  * Classifies an error from a feed batch request into a user-actionable toast.
  *
- * The classifier duck-types the error shape to avoid importing `axios` into the
- * dashboard service layer.
+ * The classifier duck-types the error shape to avoid coupling the dashboard
+ * service layer to a specific HTTP client implementation.
  */
 export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
   const status = extractHttpStatus(error);
@@ -121,28 +125,53 @@ export function isCanceledBatchRequest(error: unknown): boolean {
 }
 
 /**
- * Merge hydrated (extracted) article content from the previous feed into
- * freshly-fetched articles so expanded articles retain their rich content
- * across any kind of dashboard refresh.
+ * Merges locally-hydrated content from the previous feed into the freshly fetched
+ * articles, then reuses the previous article object reference whenever all
+ * display-relevant fields are unchanged.
+ *
+ * Reference stability is the key performance contract: the feed virtualizer and `React.memo`
+ * can bail out of re-rendering any row whose article object reference hasn't
+ * changed, so preserving these references during background auto-refreshes
+ * prevents the entire visible list from re-rendering when no article content
+ * actually changed.
  */
 export function mergeHydratedContent(
   previousFeed: Article[],
   freshArticles: Article[],
+  options?: { preserveLocalFeedState?: boolean },
 ): Article[] {
   if (previousFeed.length === 0) return freshArticles;
 
-  const previousContentByLink = new Map<string, string>();
+  const preserveLocalFeedState = options?.preserveLocalFeedState ?? false;
+
+  const previousByLink = new Map<string, Article>();
   for (const a of previousFeed) {
     const link = a.link.trim();
-    if (link) previousContentByLink.set(link, a.content);
+    if (link) previousByLink.set(link, a);
   }
 
-  return freshArticles.map((a) => {
+  const mergedFreshArticles = freshArticles.map((a) => {
     const link = a.link.trim();
     if (!link) return a;
-    const prev = previousContentByLink.get(link);
-    return prev && prev !== a.content ? { ...a, content: prev } : a;
+
+    const prev = previousByLink.get(link);
+    if (!prev) return a;
+
+    const merged = mergeFeedArticleLocalState(prev, a, {
+      preserveLocalFeedState,
+    });
+
+    // Reuse the previous reference when nothing that affects rendering changed.
+    // This keeps virtualized row keys stable and lets React.memo skip rows that
+    // haven't actually changed during an auto-refresh cycle.
+    return articlesAreDisplayEqual(prev, merged) ? prev : merged;
   });
+
+  if (!preserveLocalFeedState) {
+    return mergedFreshArticles;
+  }
+
+  return retainMissingPreviousFeedArticles(previousFeed, mergedFreshArticles);
 }
 
 export function resolveExpandedArticleKey(
@@ -193,7 +222,30 @@ export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
   };
 }
 
-/** Extracts the error code (e.g. `ECONNRESET`) from an axios-shaped error, if present. */
+/**
+ * Merge hydrated (extracted) article content from the previous feed into
+ * freshly-fetched articles so expanded articles retain their rich content
+ * across any kind of dashboard refresh.
+ */
+/**
+ * Returns true when all display-relevant fields are identical between two
+ * article objects.  `lastChecked` is intentionally excluded because it updates
+ * on every server fetch regardless of article content changes, and it has no
+ * effect on how the article is rendered.
+ */
+function articlesAreDisplayEqual(prev: Article, next: Article): boolean {
+  return (
+    prev.content === next.content &&
+    prev.title === next.title &&
+    prev.isRead === next.isRead &&
+    prev.isStarred === next.isStarred &&
+    prev.hasFullContent === next.hasFullContent &&
+    prev.feedName === next.feedName &&
+    prev.feedUrl === next.feedUrl
+  );
+}
+
+/** Extracts the error code (e.g. `ECONNRESET`) from an HTTP client error, if present. */
 function extractErrorCode(error: unknown): string | undefined {
   if (
     error &&
@@ -210,7 +262,7 @@ export type { BatchFeedResponseItem as FeedBatchResult };
 
 // ─── Refresh time formatting (merged from refresh-time.ts) ───────────────────
 
-/** Extracts the HTTP status code from an axios-shaped error, if present. */
+/** Extracts the HTTP status code from an HTTP client error, if present. */
 function extractHttpStatus(error: unknown): number | undefined {
   if (
     error &&

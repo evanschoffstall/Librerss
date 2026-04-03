@@ -33,6 +33,7 @@ export interface BatchRouteDeps {
 
 interface BatchRequestBody {
   articleFilter?: unknown;
+  articleLimit?: unknown;
   forceRefresh?: unknown;
   forceResolveUpstream?: unknown;
   knownLastFetchedAtByUrl?: unknown;
@@ -93,6 +94,11 @@ export async function POST(
       return articleFilterOrResponse;
     }
     const articleFilter = articleFilterOrResponse;
+    const articleLimitOrResponse = parseArticleLimit(body.articleLimit);
+    if (articleLimitOrResponse instanceof Response) {
+      return articleLimitOrResponse;
+    }
+    const articleLimit = articleLimitOrResponse;
     const requestSource =
       typeof body.requestSource === "string"
         ? body.requestSource
@@ -101,6 +107,7 @@ export async function POST(
     if (diagnosticsEnabled) {
       logger.info("Feed batch request received", {
         articleFilter,
+        articleLimit,
         forceRefresh: forceRefresh || forceResolveUpstream,
         ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
         requestedUrlCount: urls.length,
@@ -179,6 +186,7 @@ export async function POST(
       normalizedUrls,
       {
         articleFilter,
+        articleLimit,
         ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
         forceRefresh,
         knownLastFetchedAtByUrl,
@@ -262,6 +270,7 @@ export async function POST(
     if (diagnosticsEnabled) {
       logger.info("Feed batch request completed", {
         articleFilter,
+        articleLimit,
         forceRefresh: forceRefresh || forceResolveUpstream,
         ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
         invalidUrlCount,
@@ -335,6 +344,23 @@ function parseArticleFilter(value: unknown): ArticleFilter | Response {
   }
 
   return value;
+}
+
+function parseArticleLimit(value: unknown): number | Response | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    return NextResponse.json(
+      {
+        error: "articleLimit must be a positive integer when provided",
+      },
+      { status: 400 },
+    );
+  }
+
+  return Math.min(value, CONFIG.MAX_ALL_ARTICLES_LIMIT);
 }
 
 function parseForceResolveUpstream(value: unknown): boolean | Response {

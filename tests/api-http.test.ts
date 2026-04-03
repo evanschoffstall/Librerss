@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import {
+  ApiError,
   BATCH_REQUEST_TIMEOUT_MS,
+  createApiClient,
   createLinkedAbortController,
   resolveBatchRequestTimeoutMs,
   withRequestDeadline,
 } from "@/lib/api/http/client";
 import {
-  buildAxiosFailureDiagnostics,
+  buildApiFailureDiagnostics,
   isVerboseLoggingEnabled,
   toBodySnippet,
 } from "@/lib/api/http/diagnostics";
@@ -108,6 +110,104 @@ describe("api/http-client – withRequestDeadline", () => {
   test("exports the max batch timeout as the upper bound for allowed batches", () => {
     expect(BATCH_REQUEST_TIMEOUT_MS).toBe(
       resolveBatchRequestTimeoutMs(clientFeedBatchMaxUrls()),
+    );
+  });
+});
+
+describe("api/http-client – createApiClient", () => {
+  test("parses JSON and text responses through the fetch adapter", async () => {
+    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/json")) {
+        expect(init?.method).toBe("GET");
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+          statusText: "OK",
+        });
+      }
+
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(JSON.stringify({ name: "LibreRSS" }));
+
+      return new Response("created", {
+        headers: { "content-type": "text/plain; charset=utf-8" },
+        status: 201,
+        statusText: "Created",
+      });
+    });
+    const client = createApiClient(fetchMock as unknown as typeof fetch);
+
+    await expect(client.get<{ ok: boolean }>("https://example.com/json")).resolves.toEqual({
+      data: { ok: true },
+      headers: { "content-type": "application/json" },
+      status: 200,
+      statusText: "OK",
+    });
+
+    await expect(
+      client.post<string>("https://example.com/text", { name: "LibreRSS" }),
+    ).resolves.toEqual({
+      data: "created",
+      headers: { "content-type": "text/plain; charset=utf-8" },
+      status: 201,
+      statusText: "Created",
+    });
+  });
+
+  test("supports blob responses and 204 empty bodies", async () => {
+    const fetchMock = mock(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/blob")) {
+        return new Response(new Blob(["hello"]), {
+          headers: { "content-type": "application/octet-stream" },
+          status: 200,
+          statusText: "OK",
+        });
+      }
+
+      return new Response(null, {
+        status: 204,
+        statusText: "No Content",
+      });
+    });
+    const client = createApiClient(fetchMock as unknown as typeof fetch);
+
+    const blobResponse = await client.get<Blob>("https://example.com/blob", {
+      responseType: "blob",
+    });
+    expect(await blobResponse.data.text()).toBe("hello");
+
+    const emptyResponse = await client.delete("https://example.com/empty");
+    expect(emptyResponse.data).toBeUndefined();
+    expect(emptyResponse.status).toBe(204);
+  });
+
+  test("throws ApiError for transport and non-ok responses", async () => {
+    const failingTransportClient = createApiClient(
+      mock(async () => {
+        throw new DOMException("aborted", "AbortError");
+      }) as unknown as typeof fetch,
+    );
+
+    await expect(failingTransportClient.get("https://example.com/abort")).rejects.toMatchObject({
+      code: "ABORT_ERR",
+      isApiError: true,
+      method: "GET",
+      response: undefined,
+      url: "https://example.com/abort",
+    });
+
+    const failingResponseClient = createApiClient(
+      mock(async () =>
+        new Response(JSON.stringify({ error: "blocked" }), {
+          headers: { "content-type": "application/json" },
+          status: 429,
+          statusText: "Too Many Requests",
+        }),
+      ) as unknown as typeof fetch,
+    );
+
+    await expect(failingResponseClient.get("https://example.com/rate-limit")).rejects.toBeInstanceOf(
+      ApiError,
     );
   });
 });
@@ -406,65 +506,55 @@ describe("http diagnostics", () => {
     expect(toBodySnippet({})).toBeUndefined();
   });
 
-  test("buildAxiosFailureDiagnostics returns empty object for non-axios errors", () => {
-    expect(buildAxiosFailureDiagnostics(new Error("boom"))).toEqual({});
-  });
-
-  test("buildAxiosFailureDiagnostics keeps only safe headers and metadata", () => {
-    const alwaysAxiosError: typeof import("axios").isAxiosError = <
-      T = unknown,
-      D = unknown,
-    >(
-      _payload: unknown,
-    ): _payload is import("axios").AxiosError<T, D> => true;
-
-    const diagnostics = buildAxiosFailureDiagnostics(
-      {
-        code: "ECONNRESET",
-        config: {
-          headers: {
-            Accept: ["application/xml", "text/xml"],
-            Authorization: "secret",
-            "User-Agent": "LibreRSS",
-          },
-          maxRedirects: 3,
-          method: "get",
-          timeout: 2000,
-          url: "https://example.com/feed.xml",
-        },
-        response: {
+  test("buildApiFailureDiagnostics keeps only safe request and response fields", () => {
+    const diagnostics = buildApiFailureDiagnostics(
+      new ApiError(
+        "Request failed with status code 503",
+        "ECONNRESET",
+        "get",
+        {
+          Accept: "application/xml",
+          Authorization: "secret",
+          "User-Agent": "LibreRSS",
+        } as Record<string, string>,
+        {
           data: "   temporary upstream failure   ",
           headers: {
-            "Retry-After": 120,
+            "Retry-After": "120",
             Server: "cloudflare",
             "Set-Cookie": "session=secret",
           },
           status: 503,
           statusText: "Service Unavailable",
         },
-      },
-      alwaysAxiosError,
+        "https://example.com/feed.xml",
+      ),
     );
 
-    expect(diagnostics).toMatchObject({
-      axiosErrorCode: "ECONNRESET",
-      requestMaxRedirects: 3,
-      requestTimeoutMs: 2000,
+    expect(diagnostics).toEqual({
+      requestErrorCode: "ECONNRESET",
+      requestHeaders: {
+        accept: "application/xml",
+        "user-agent": "LibreRSS",
+      },
+      requestMaxRedirects: null,
+      requestTimeoutMs: null,
       responseBodySnippet: "temporary upstream failure",
+      responseHeaders: {
+        "retry-after": "120",
+        server: "cloudflare",
+      },
       upstreamMethod: "GET",
       upstreamStatus: 503,
       upstreamStatusText: "Service Unavailable",
       upstreamUrl: "https://example.com/feed.xml",
     });
-    expect(diagnostics.requestHeaders).toEqual({
-      accept: "application/xml, text/xml",
-      "user-agent": "LibreRSS",
-    });
-    expect(diagnostics.responseHeaders).toEqual({
-      "retry-after": "120",
-      server: "cloudflare",
-    });
   });
+
+  test("buildApiFailureDiagnostics returns an empty object for non-api errors", () => {
+    expect(buildApiFailureDiagnostics(new Error("boom"))).toEqual({});
+  });
+
 
   test("isVerboseLoggingEnabled checks LOG_LEVEL environment", () => {
     const previous = process.env.LOG_LEVEL;

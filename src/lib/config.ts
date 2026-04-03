@@ -107,6 +107,21 @@ export const envBooleanOptional = (
   return parseEnvBoolean(raw, key);
 };
 
+/**
+ * Reads an optional string env variable, returning `undefined` when the key is
+ * missing or empty after trimming.
+ */
+export const envStringOptional = (key: string): string | undefined => {
+  const raw = getEnv(key);
+
+  if (raw === undefined) {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 const envEnum = <T extends string>(
   key: string,
   allowedValues: readonly T[],
@@ -245,7 +260,7 @@ const resolveConfigValue = (key: string): unknown => {
  * Lazily-resolved server config. Every property access reads `process.env` at
  * call time through the Proxy getter — no values are captured at module load.
  */
-export const CONFIG = new Proxy<ConfigKeys & Record<string, unknown>>(
+export const CONFIG = new Proxy(
   {} as ConfigKeys & Record<string, unknown>,
   {
     get: (_target, property) => {

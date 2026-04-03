@@ -402,6 +402,12 @@ describe("utils/url – credential extraction", () => {
       ),
     ).toBe("socks5://alice:secret@proxy.example.com:1080");
   });
+
+  test("returns the raw proxy URL when port normalization receives an invalid URL", async () => {
+    const { ensureProxyUrlHasExplicitPort } = await import("@/lib/utils/url");
+
+    expect(ensureProxyUrlHasExplicitPort("not-a-url")).toBe("not-a-url");
+  });
 });
 
 describe("lib/utils/url", () => {

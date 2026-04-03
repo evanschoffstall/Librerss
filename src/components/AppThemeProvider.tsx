@@ -156,7 +156,7 @@ function NextDevToolsThemeBridge() {
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   const isMobileViewport = useIsMobile();
-  const [isMobileToastTop] = useLocalStorage(MOBILE_TOAST_TOP_STORAGE_KEY, false);
+  const [isMobileToastTop] = useLocalStorage(MOBILE_TOAST_TOP_STORAGE_KEY, true);
   const [isMobileToolbarBottom] = useLocalStorage(
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
     true,
@@ -249,7 +249,7 @@ function ThemeModeToggle() {
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardToolbar />;
+    return <DashboardToolbar startInShellLoading={true} />;
   }
 
   return (

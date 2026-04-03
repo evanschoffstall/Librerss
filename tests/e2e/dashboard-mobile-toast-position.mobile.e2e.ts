@@ -138,27 +138,23 @@ async function triggerInvalidFeedToast(page: Page) {
 }
 
 test.describe("dashboard mobile toast placement", () => {
-  test("shows toasts near the bottom when the mobile top-toast setting is off", async ({
+  test("shows the mobile top-toast setting enabled by default and keeps toasts near the top", async ({
     page,
   }) => {
-    await setMobileToastPreferences(page, {
-      mobileToastTop: false,
-      mobileToolbarBottom: true,
-      mobileToolbarMirror: true,
-    });
     await gotoPreviewDashboard(page);
     await openDashboardSettings(page);
 
     const toastTopSwitch = mobileToastTopSwitch(page);
     await expect(toastTopSwitch).toBeVisible();
-    await expect(toastTopSwitch).not.toBeChecked();
+    await expect(toastTopSwitch).toBeChecked();
 
     await triggerInvalidFeedToast(page);
 
     const toastMetrics = await readLatestToastMetrics(page);
-    expect(toastMetrics.bottomGap).toBeLessThanOrEqual(40);
+    expect(toastMetrics.top).toBeGreaterThanOrEqual(0);
+    expect(toastMetrics.top).toBeLessThanOrEqual(32);
     expect(toastMetrics.rightGap).toBeLessThanOrEqual(24);
-    expect(toastMetrics.top).toBeGreaterThan(toastMetrics.viewportHeight / 2);
+    expect(toastMetrics.bottomGap).toBeGreaterThan(120);
   });
 
   for (const matrixCase of [

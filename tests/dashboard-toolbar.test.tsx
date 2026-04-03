@@ -146,6 +146,49 @@ describe("DashboardToolbar", () => {
     expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
   });
 
+  test("renders a full toolbar skeleton while the dashboard shell is loading", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { container, queryByPlaceholderText } = render(<DashboardToolbar />);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.SHELL_LOADING, {
+          detail: { loading: true },
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-toolbar-skeleton-action="true"]',
+      ).length,
+    ).toBeGreaterThanOrEqual(9);
+    expect(queryByPlaceholderText("Search...")).toBeNull();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.SHELL_LOADING, {
+          detail: { loading: false },
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toBeNull();
+    expect(queryByPlaceholderText("Search...")).toBeTruthy();
+  });
+
   test("shows skeletons in all toolbar actions while refresh is processing", async () => {
     setNodeEnv("test");
 
@@ -200,19 +243,19 @@ describe("DashboardToolbar", () => {
     expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
   });
 
-  test("reset clears client state and hard reloads the current page without logging out", async () => {
+  test("reset clears client state and reloads the current page without logging out", async () => {
     setNodeEnv("development");
     const logout = mock(async () => {});
-    const reload = mock(() => {});
+    const assign = mock(() => {});
 
     AuthService.logout = logout;
     window.localStorage.setItem("librerss:test", "value");
     window.sessionStorage.setItem("librerss:test", "value");
     document.cookie = "librerss_dashboard_preview=1; Path=/";
     mockToolbarDependencies();
-    Object.defineProperty(window.location, "reload", {
+    Object.defineProperty(window.location, "assign", {
       configurable: true,
-      value: reload,
+      value: assign,
       writable: true,
     });
 
@@ -223,7 +266,7 @@ describe("DashboardToolbar", () => {
 
     await waitFor(() => {
       expect(logout).not.toHaveBeenCalled();
-      expect(reload).toHaveBeenCalledTimes(1);
+      expect(assign).toHaveBeenCalledWith(window.location.href);
       expect(window.localStorage.getItem("librerss:test")).toBeNull();
       expect(window.sessionStorage.getItem("librerss:test")).toBeNull();
       expect(document.cookie).not.toContain("librerss_dashboard_preview=");

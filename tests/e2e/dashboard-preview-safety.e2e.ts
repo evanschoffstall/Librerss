@@ -1,47 +1,47 @@
 import {
-    expectDashboardLogin,
-    expectPreviewDashboard,
+  expectDashboardLogin,
+  expectPreviewDashboard,
   gotoPreviewDashboard,
-    openDashboardSettings,
-    openDashboardSettingsTab,
-    readClientStateSentinel,
-    readPreviewPersistence,
-    seedClientStateSentinel,
+  openDashboardSettings,
+  openDashboardSettingsTab,
+  readClientStateSentinel,
+  readPreviewPersistence,
+  seedClientStateSentinel,
 } from "./helpers";
 import { expect, test } from "./test";
 
 test.describe("dashboard preview safety", () => {
-  test("accepts the preview query alias and persists local preview mode", async ({
+  test("requires the explore query and avoids preview persistence", async ({
     page,
   }) => {
-    await gotoPreviewDashboard(page, "/dashboard?preview=1");
+    await gotoPreviewDashboard(page, "/dashboard?explore=1");
 
     const previewPersistence = await readPreviewPersistence(page);
 
-    expect(previewPersistence.previewCookieValue).toBe("1");
+    expect(previewPersistence.previewCookieValue).toBeNull();
     expect(previewPersistence.previewStorageValue).toBeNull();
   });
 
-  test("keeps preview mode active across direct dashboard navigation and reload", async ({
+  test("returns to the normal dashboard route when the explore query is removed", async ({
     page,
   }) => {
-    await gotoPreviewDashboard(page, "/dashboard?preview=1");
+    await gotoPreviewDashboard(page, "/dashboard?explore=1");
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-    await expectPreviewDashboard(page);
+    await expectDashboardLogin(page);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expectPreviewDashboard(page);
+    await expectDashboardLogin(page);
 
     const previewPersistence = await readPreviewPersistence(page);
 
-    expect(previewPersistence.previewCookieValue).toBe("1");
+    expect(previewPersistence.previewCookieValue).toBeNull();
     expect(previewPersistence.previewStorageValue).toBeNull();
   });
 
   test("signing out from preview clears persisted preview state and origin storage", async ({
     page,
   }) => {
-    await gotoPreviewDashboard(page, "/dashboard?preview=1");
+    await gotoPreviewDashboard(page, "/dashboard?explore=1");
     await seedClientStateSentinel(page);
 
     await page.getByRole("button", { name: "Sign out" }).click();
@@ -65,7 +65,7 @@ test.describe("dashboard preview safety", () => {
   test("reset app state clears local browser storage and reloads the active preview URL", async ({
     page,
   }) => {
-    await gotoPreviewDashboard(page, "/dashboard?preview=1");
+    await gotoPreviewDashboard(page, "/dashboard?explore=1");
     await seedClientStateSentinel(page, "reset-me");
 
     await page.getByRole("button", { name: "Reset app state" }).click();
@@ -74,7 +74,7 @@ test.describe("dashboard preview safety", () => {
     const previewPersistence = await readPreviewPersistence(page);
     const storageSentinel = await readClientStateSentinel(page);
 
-    expect(previewPersistence.previewCookieValue).toBe("1");
+    expect(previewPersistence.previewCookieValue).toBeNull();
     expect(previewPersistence.previewStorageValue).toBeNull();
     expect(storageSentinel.localStorageValue).toBeNull();
     expect(storageSentinel.sessionStorageValue).toBeNull();

@@ -6,6 +6,7 @@ import { findFeedNodeByKey } from "./category-tree";
 
 export interface FeedFetchOptions {
   articleFilter?: ArticleFilter;
+  articleLimit?: number;
   forceRefresh?: boolean;
   forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
@@ -40,6 +41,7 @@ type FeedRequestSource =
   | "feed-added"
   | "feed-hidden-selection-fallback"
   | "feed-reenabled"
+  | "feed-scroll-load-more"
   | "manual-refresh"
   | "opml-imported"
   | "sidebar-category-prefetch"
@@ -48,6 +50,7 @@ type FeedRequestSource =
   | "sidebar-feed-select";
 
 type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
+  initialArticleLimit?: number;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setIsCategoriesLoading: (value: boolean) => void;
@@ -55,6 +58,7 @@ type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
 };
 
 type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
+  articleLimit?: number;
   fallbackFeedUrl?: string;
   forceRefresh?: boolean;
   forceResolveUpstream?: boolean;
@@ -82,6 +86,7 @@ export async function initializeDashboardSelection(
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
+    initialArticleLimit,
     loadFeedSources,
     selectedCategory,
     setIsCategoriesLoading,
@@ -91,6 +96,9 @@ export async function initializeDashboardSelection(
   try {
     const loadedCategories = await loadFeedSources();
     const initialFetchOptions: FeedFetchOptions = {
+      ...(typeof initialArticleLimit === "number"
+        ? { articleLimit: initialArticleLimit }
+        : {}),
       requestSource: "dashboard-initial-cache",
       skipRefresh: true,
     };
@@ -147,6 +155,7 @@ export async function refreshCurrentSelection(
   } = options;
 
   const fetchOptions: FeedFetchOptions = {
+    articleLimit: options.articleLimit,
     ...(forceResolveUpstream === true ? { forceResolveUpstream: true } : {}),
     forceRefresh,
     keepExistingFeed,

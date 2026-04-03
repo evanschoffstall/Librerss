@@ -10,9 +10,9 @@ import {
   normalizeCategoryLabelKey,
 } from "@/lib";
 import {
-  PLACEHOLDER_CATEGORY,
   PLACEHOLDER_FEED_SOURCES,
 } from "@/lib/core/placeholder";
+import { PLACEHOLDER_CATEGORY } from "@/lib/core/placeholder-sources";
 
 import {
   ALL_FEEDS_LABEL,

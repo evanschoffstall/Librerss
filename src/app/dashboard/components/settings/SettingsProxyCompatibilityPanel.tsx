@@ -3,6 +3,7 @@
 import { Globe, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -17,11 +18,13 @@ import {
 import { MotionSpinner } from "../MotionSpinner";
 import { CompatibilityResultBadge } from "./SettingsProxyBadges";
 
+/** Renders the proxy compatibility section and its loading-safe shell. */
 export function SettingsProxyCompatibilityPanel({
   compatibilityCheckedAt,
   compatibilityError,
   compatibilityResults,
   hasProxy,
+  isLoading = false,
   isRunningCompatibilityCheck,
   nowTs,
   onRunCompatibilityCheck,
@@ -32,12 +35,20 @@ export function SettingsProxyCompatibilityPanel({
   compatibilityError: null | string;
   compatibilityResults: CompatibilityResult[] | null;
   hasProxy: boolean;
+  isLoading?: boolean;
   isRunningCompatibilityCheck: boolean;
   nowTs: number;
   onRunCompatibilityCheck: () => Promise<void>;
   resultsRef: React.RefObject<HTMLDivElement | null>;
   saving: boolean;
 }) {
+  const showLoadingSkeleton =
+    isLoading &&
+    !hasProxy &&
+    compatibilityCheckedAt === null &&
+    compatibilityError === null &&
+    compatibilityResults === null;
+
   return (
     <div className="space-y-3">
       <div className="row-between">
@@ -47,32 +58,36 @@ export function SettingsProxyCompatibilityPanel({
             Compare how a few common source environments respond from this app
             {hasProxy ? " via proxy" : ""}.
           </p>
-          {compatibilityCheckedAt && (
+          {!showLoadingSkeleton && compatibilityCheckedAt && (
             <p className="mt-1 text-[10px] text-muted-foreground">
               Last check {formatElapsed(compatibilityCheckedAt, nowTs)}
             </p>
           )}
         </div>
-        <Button
-          className="h-8 shrink-0 gap-1.5"
-          disabled={isRunningCompatibilityCheck || saving}
-          onClick={() => {
-            void onRunCompatibilityCheck();
-          }}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {isRunningCompatibilityCheck ? (
-            <MotionSpinner iconClassName="size-3.5" />
-          ) : (
-            <Globe className="size-3.5" />
-          )}
-          {isRunningCompatibilityCheck ? "Checking…" : "Run Check"}
-        </Button>
+        {showLoadingSkeleton ? (
+          <Skeleton className="h-8 w-24" />
+        ) : (
+          <Button
+            className="h-8 shrink-0 gap-1.5"
+            disabled={isRunningCompatibilityCheck || saving}
+            onClick={() => {
+              void onRunCompatibilityCheck();
+            }}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isRunningCompatibilityCheck ? (
+              <MotionSpinner iconClassName="size-3.5" />
+            ) : (
+              <Globe className="size-3.5" />
+            )}
+            {isRunningCompatibilityCheck ? "Checking…" : "Run Check"}
+          </Button>
+        )}
       </div>
 
-      {compatibilityError && (
+      {!showLoadingSkeleton && compatibilityError && (
         <div
           className="flex min-w-0 items-center gap-1.5 text-xs text-destructive"
         >
@@ -90,7 +105,7 @@ export function SettingsProxyCompatibilityPanel({
         </div>
       )}
 
-      {compatibilityResults && (
+      {!showLoadingSkeleton && compatibilityResults && (
         <div
           className="divide-y divide-border rounded-lg border bg-muted/30"
           ref={resultsRef}

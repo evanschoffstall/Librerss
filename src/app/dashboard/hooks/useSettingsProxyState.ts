@@ -24,6 +24,8 @@ import {
   writeCompatibilityResultsCache,
 } from "../services/settings-proxy";
 
+let cachedProxySettingsSnapshot: null | ProxySettingsSnapshot = null;
+
 /** Stable state contract consumed by the dashboard proxy settings surface. */
 export interface UseSettingsProxyStateResult {
   allowInsecureTls: boolean;
@@ -37,6 +39,7 @@ export interface UseSettingsProxyStateResult {
   hasProxy: boolean;
   hasProxyPassword: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
+  isInitialProxyLoadPending: boolean;
   isRunningCompatibilityCheck: boolean;
   nowTs: number;
   proxyPassword: string;
@@ -54,20 +57,36 @@ export interface UseSettingsProxyStateResult {
   syncAllowInsecureTls: (checked: boolean) => Promise<void>;
 }
 
+interface UseSettingsProxyStateOptions {
+  enabled?: boolean;
+}
+
 /**
  * Owns dashboard proxy settings state and rejects stale async completions when
  * newer user intent supersedes an older load, save, clear, or check request.
  */
-export function useSettingsProxyState(): UseSettingsProxyStateResult {
-  const [proxyUrl, setProxyUrl] = useState("");
-  const [proxyStatus, setProxyStatus] = useState<ProxyUIStatus>("loading");
-  const [error, setError] = useState<null | string>(null);
-  const [allowInsecureTls, setAllowInsecureTls] = useState(false);
-  const [proxyUsername, setProxyUsername] = useState("");
+export function useSettingsProxyState(
+  options: UseSettingsProxyStateOptions = {},
+): UseSettingsProxyStateResult {
+  const isEnabled = options.enabled ?? true;
+  const initialSnapshot = isEnabled ? cachedProxySettingsSnapshot : null;
+  const [proxyUrl, setProxyUrl] = useState(() => initialSnapshot?.proxyUrl ?? "");
+  const [proxyStatus, setProxyStatus] = useState<ProxyUIStatus>(() =>
+    initialSnapshot?.proxyStatus ?? (isEnabled ? "loading" : "none"),
+  );
+  const [error, setError] = useState<null | string>(() => initialSnapshot?.error ?? null);
+  const [allowInsecureTls, setAllowInsecureTls] = useState(
+    () => initialSnapshot?.allowInsecureTls ?? false,
+  );
+  const [proxyUsername, setProxyUsername] = useState(
+    () => initialSnapshot?.proxyUsername ?? "",
+  );
   const [proxyPassword, setProxyPassword] = useState("");
-  const [hasProxyPassword, setHasProxyPassword] = useState(false);
+  const [hasProxyPassword, setHasProxyPassword] = useState(
+    () => initialSnapshot?.hasProxyPassword ?? false,
+  );
   const [proxyRoutingCheck, setProxyRoutingCheck] =
-    useState<null | ProxyRoutingCheck>(null);
+    useState<null | ProxyRoutingCheck>(() => initialSnapshot?.routingCheck ?? null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [compatibilityResults, setCompatibilityResults] =
     useState<CompatibilityResult[] | null>(null);
@@ -75,6 +94,9 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     useState<null | string>(null);
   const [compatibilityCheckedAt, setCompatibilityCheckedAt] =
     useState<null | number>(null);
+  const [isInitialProxyLoadPending, setIsInitialProxyLoadPending] = useState(
+    isEnabled && initialSnapshot === null,
+  );
   const [nowTs, setNowTs] = useState(() => Date.now());
   const resultsRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollToResultsRef = useRef(false);
@@ -90,6 +112,8 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
   const isRunningCompatibilityCheck = activeCompatibilityRequestId !== null;
 
   const applyProxySettings = (snapshot: ProxySettingsSnapshot) => {
+    cachedProxySettingsSnapshot = snapshot;
+    setIsInitialProxyLoadPending(false);
     applyProxySettingsSnapshot(
       snapshot,
       setAllowInsecureTls,
@@ -131,6 +155,11 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
   }, []);
 
   useEffect(() => {
+    if (!isEnabled) {
+      setIsInitialProxyLoadPending(false);
+      return;
+    }
+
     const requestId = startProxyRequest();
 
     ArticleService.getProxySettings()
@@ -146,10 +175,16 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
           return;
         }
 
+        setIsInitialProxyLoadPending(false);
+
+        if (cachedProxySettingsSnapshot !== null) {
+          return;
+        }
+
         setProxyRoutingCheck(null);
         setProxyStatus("none");
       });
-  }, []);
+  }, [isEnabled]);
 
   useEffect(() => {
     const cachedResults = readCompatibilityResultsCache(window.localStorage);
@@ -356,6 +391,7 @@ export function useSettingsProxyState(): UseSettingsProxyStateResult {
     hasProxy,
     hasProxyPassword,
     inputRef,
+    isInitialProxyLoadPending,
     isRunningCompatibilityCheck,
     nowTs,
     proxyPassword,

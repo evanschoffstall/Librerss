@@ -1,11 +1,10 @@
-import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
   jsonErrorWithReason,
   parseJsonBodyOrResponse,
+  toBodySnippet,
 } from "@/lib/api/http";
 import { CONFIG } from "@/lib/config";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
@@ -20,6 +19,7 @@ import {
   getCachedExtractPayload,
   isExtractCacheEnabled,
   parseAndValidateArticleUrl, readPlaceholderSnapshotHtml, setCachedExtractPayload } from "@/lib/extract";
+import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import {
   buildMetadataImageFallbackHtml,
@@ -54,7 +54,6 @@ interface ExtractPostDeps {
   errorFn?: typeof logger.error;
   extractFromHtmlFn?: typeof distillArticle;
   fetchHtmlFn?: typeof fetchHtml;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
   parseAndValidateArticleUrlFn?: typeof parseAndValidateArticleUrl;
   requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
   sanitizeRawContentFn?: typeof sanitizeRawContent;
@@ -87,7 +86,6 @@ export async function POST(
   const sanitizeContent = deps.sanitizeRawContentFn ?? sanitizeRawContent;
   const cleanContent = deps.cleanSanitizedHtmlFn ?? cleanSanitizedHtml;
   const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
-  const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
   const warn = deps.warnFn ?? logger.warn.bind(logger);
   const errorLog = deps.errorFn ?? logger.error.bind(logger);
   const shouldUseCache = deps.shouldUseExtractCacheFn ?? isExtractCacheEnabled;
@@ -223,25 +221,30 @@ export async function POST(
     const safeArticleUrl = articleUrl ? redactUrlForLogs(articleUrl) : null;
     const urlSuffix = safeArticleUrl ? ` for ${safeArticleUrl}` : "";
 
-    if (isAxiosError(error)) {
-      const upstreamStatus = error.response?.status;
+    if (error instanceof HttpCloakUpstreamError) {
+      const upstreamStatus = error.statusCode;
       const status = mapUpstreamExtractStatus(upstreamStatus);
       const label = status === 502 ? "Bad Gateway" : "Unprocessable Content";
       errorLog(
-        `Returning ${status} ${label} — article extract upstream request failed (upstream ${upstreamStatus ?? "no response"})${urlSuffix}: ${toMessage(error)}`,
+        `Returning ${status} ${label} — article extract upstream request failed (HTTPCloak upstream ${upstreamStatus})${urlSuffix}: ${toMessage(error)}`,
         {
-          connectionMode: useProxy ? "proxy" : "direct",
+          connectionMode: error.proxyMode,
           extractAttemptId: context.extractAttemptId,
-          // SECURITY: redact credentials from proxy URL before logging
           proxyAddress: useProxy
             ? resolvedProxyUrl
               ? redactUrlForLogs(resolvedProxyUrl)
               : null
             : null,
+          redirectHop: error.redirectHop,
           requestId: context.requestId,
+          statusCode: upstreamStatus,
           url: safeArticleUrl,
           ...(verboseLoggingEnabled
-            ? buildAxiosFailureDiagnostics(error, isAxiosError)
+            ? {
+                requestHeaders: error.requestHeaders,
+                responseBodySnippet: toBodySnippet(error.responseBody),
+                responseHeaders: pickDiagnosticHeaders(error.responseHeaders),
+              }
             : {}),
         },
       );
@@ -345,6 +348,15 @@ function resolveExtractedContent(
 
   let content = cleanContent(sanitizedContent, articleUrl);
 
+  if (content.trim()) {
+    content = prependMetadataLeadImageWhenMissing(
+      content,
+      originalHtml,
+      articleUrl,
+      cleanContent,
+    );
+  }
+
   // 2. Fall back to direct sanitize of entire pre-cleaned page
   if (!content.trim()) {
     const directlySanitized = sanitizeContent(extractableHtml);
@@ -367,6 +379,53 @@ function resolveExtractedContent(
   }
 
   return content;
+}
+
+const IMAGE_ARTICLE_MARKER_RE =
+  /\b(?:download|full[-\s]?res|hi[-\s]?res|image\s+credit|taken|size|dimensions?|licen[cs]e)\b/i;
+const LEAD_IMAGE_BLOCK_RE = /<p\b[^>]*>\s*<img\b[\s\S]*?<\/p>/i;
+const LEAD_IMAGE_TAG_RE = /<img\b[^>]*>/i;
+const ANCHOR_HREF_RE = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+const IMAGE_DOWNLOAD_HREF_RE = /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i;
+
+function extractLeadImageBlock(content: string): string {
+  const leadImageBlock = LEAD_IMAGE_BLOCK_RE.exec(content)?.[0];
+  if (leadImageBlock) return leadImageBlock;
+
+  return LEAD_IMAGE_TAG_RE.exec(content)?.[0] ?? "";
+}
+
+function hasImageDownloadLinkInContent(content: string): boolean {
+  for (const match of content.matchAll(ANCHOR_HREF_RE)) {
+    if (IMAGE_DOWNLOAD_HREF_RE.test(match[1])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function prependMetadataLeadImageWhenMissing(
+  content: string,
+  originalHtml: string,
+  articleUrl: string,
+  cleanContent: (sanitizedContent: string, articleUrl: string) => string,
+): string {
+  if (!content.trim() || /<img\b/i.test(content)) return content;
+
+  const hasImageDownloadLink = hasImageDownloadLinkInContent(content);
+  const hasImageArticleMarker = IMAGE_ARTICLE_MARKER_RE.test(content);
+  if (!hasImageDownloadLink || !hasImageArticleMarker) return content;
+
+  const metadataFallbackContent = buildMetadataImageFallbackHtml(originalHtml);
+  if (!metadataFallbackContent) return content;
+
+  const metadataLeadImage = extractLeadImageBlock(metadataFallbackContent);
+  if (!metadataLeadImage) return content;
+
+  const augmented = cleanContent(`${metadataLeadImage}\n${content}`, articleUrl);
+
+  return /<img\b/i.test(augmented) ? augmented : content;
 }
 
 function sanitizeHeaderValue(value: null | string, maxLen = 64): null | string {

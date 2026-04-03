@@ -12,6 +12,7 @@ import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 
 import type { FeedFetchOptions } from "../services/selection";
 
+import { getArticleKey } from "../services/article-collection";
 import { findFeedNodeByUrl, getAllFeedNodes } from "../services/category-tree";
 import {
   buildBatchRequestSignature,
@@ -69,6 +70,8 @@ interface UseFeedLoaderOptions {
   categoriesRef: RefObject<CategoryTreeNode[]>;
   feedRef: RefObject<Article[]>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
+  /** Called when a background refresh delivers articles not present in the previous feed. */
+  onNewArticlesArrived?: (newArticleKeys: ReadonlySet<string>) => void;
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
@@ -81,6 +84,7 @@ export function useFeedLoader({
   categoriesRef,
   feedRef,
   onFeedBatchLoaded,
+  onNewArticlesArrived,
   setCategories,
   setExpandedArticleKey,
   setFeed,
@@ -97,8 +101,11 @@ export function useFeedLoader({
   const [loadingEpoch, setLoadingEpoch] = useState(0);
 
   const buildRequestSignature = useCallback(
-    (normalizedSources: FeedBatchSource[]) =>
-      `${articleFilter}::${buildBatchRequestSignature(normalizedSources)}`,
+    (
+      normalizedSources: FeedBatchSource[],
+      articleLimit?: FeedFetchOptions["articleLimit"],
+    ) =>
+      `${articleFilter}:${articleLimit ?? "all-articles"}::${buildBatchRequestSignature(normalizedSources)}`,
     [articleFilter],
   );
 
@@ -304,9 +311,13 @@ export function useFeedLoader({
         normalizedSources,
         options?.keepExistingFeed === true,
       );
-      const requestSignature = buildRequestSignature(normalizedSources);
+      const requestSignature = buildRequestSignature(
+        normalizedSources,
+        options?.articleLimit,
+      );
       const queryKey = getFeedBatchQueryKey(requestSignature, {
         articleFilter,
+        articleLimit: options?.articleLimit,
         knownLastFetchedAtByUrl,
         skipRefresh: options?.skipRefresh,
       });
@@ -315,6 +326,7 @@ export function useFeedLoader({
         buildFeedBatchQueryOptions(normalizedSources, queryKey, {
           ...options,
           articleFilter,
+          articleLimit: options?.articleLimit,
           knownLastFetchedAtByUrl,
         }),
       );
@@ -348,13 +360,17 @@ export function useFeedLoader({
       }
 
       const normalizedSources = normalizeFeedBatchSources(sources);
-      const requestSignature = buildRequestSignature(normalizedSources);
+      const requestSignature = buildRequestSignature(
+        normalizedSources,
+        options?.articleLimit,
+      );
       const knownLastFetchedAtByUrl = getKnownLastFetchedAtByUrl(
         normalizedSources,
         options?.keepExistingFeed === true,
       );
       const queryKey = getFeedBatchQueryKey(requestSignature, {
         articleFilter,
+        articleLimit: options?.articleLimit,
         knownLastFetchedAtByUrl,
         skipRefresh: options?.skipRefresh,
       });
@@ -408,6 +424,7 @@ export function useFeedLoader({
           {
             ...options,
             articleFilter,
+            articleLimit: options?.articleLimit,
             knownLastFetchedAtByUrl,
           },
           isBackground,
@@ -438,8 +455,25 @@ export function useFeedLoader({
           keepExistingFeed ? feedRef.current : [],
         );
 
+        // Detect genuinely new articles for the entrance animation.  Only fire
+        // when there is an existing feed (non-empty previous state) so we don't
+        // animate the very first load.
+        if (keepExistingFeed && feedRef.current.length > 0 && onNewArticlesArrived) {
+          const existingKeys = new Set(feedRef.current.map(getArticleKey));
+          const newKeys = new Set(
+            capturedOutcome.articles
+              .filter((article) => !existingKeys.has(getArticleKey(article)))
+              .map(getArticleKey),
+          );
+          if (newKeys.size > 0) {
+            onNewArticlesArrived(newKeys);
+          }
+        }
+
         setFeed((currentFeed) =>
-          mergeHydratedContent(currentFeed, capturedOutcome.articles),
+          mergeHydratedContent(currentFeed, capturedOutcome.articles, {
+            preserveLocalFeedState: keepExistingFeed,
+          }),
         );
 
         const {
@@ -513,6 +547,7 @@ export function useFeedLoader({
       isCurrentFeedRequest,
       isLoadingRequest,
       onFeedBatchLoaded,
+      onNewArticlesArrived,
       queryClient,
     ],
   );

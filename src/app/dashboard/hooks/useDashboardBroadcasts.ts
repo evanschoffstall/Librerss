@@ -1,16 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
 import { DASHBOARD_EVENTS } from "../constants";
 import { type UseDashboardBroadcastsOptions } from "./dashboard-effects.contracts";
 
-/** Emits dashboard title and search state changes to shell-level listeners. */
+/** Emits dashboard shell, title, and search state changes to shell-level listeners. */
 export function useDashboardBroadcasts({
   isSearchPending,
+  isShellLoading,
   searchTerm,
   selectedFeed,
 }: UseDashboardBroadcastsOptions) {
+  useLayoutEffect(() => {
+    document.documentElement.dataset.dashboardShellLoading = isShellLoading
+      ? "true"
+      : "false";
+
+    window.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.SHELL_LOADING, {
+        detail: { loading: isShellLoading },
+      }),
+    );
+  }, [isShellLoading]);
+
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent(DASHBOARD_EVENTS.TITLE_CHANGE, {

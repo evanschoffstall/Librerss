@@ -148,7 +148,7 @@ describe("content encoding utilities", () => {
     );
   });
 
-  test("falls back to the streaming zstd decoder when native zstd decompression is unavailable", async () => {
+  test("throws when native zstd decompression is unavailable", async () => {
     const nativeZstdCompress = (zlib as Record<string, unknown>).zstdCompress as
       | typeof zlib.brotliCompress
       | undefined;
@@ -179,51 +179,9 @@ describe("content encoding utilities", () => {
         value: undefined,
       });
 
-      await expect(decodeTextBody(body, undefined)).resolves.toBe(
-        "streaming zstd payload",
+      await expect(decodeTextBody(body, undefined)).rejects.toThrow(
+        "Native zstd decompression is unavailable in this runtime",
       );
-    } finally {
-      Object.defineProperty(zlib, "zstdDecompress", {
-        configurable: true,
-        value: originalZstdDecompress,
-      });
-    }
-  });
-
-  test("enforces output limits while streaming zstd fallback chunks", async () => {
-    const nativeZstdCompress = (zlib as Record<string, unknown>).zstdCompress as
-      | typeof zlib.brotliCompress
-      | undefined;
-    const originalZstdDecompress = (zlib as Record<string, unknown>).zstdDecompress;
-    const zstdDecompressDescriptor = Object.getOwnPropertyDescriptor(
-      zlib,
-      "zstdDecompress",
-    );
-
-    if (!nativeZstdCompress || zstdDecompressDescriptor?.configurable === false) {
-      return;
-    }
-
-    const body = await new Promise<Buffer>((resolve, reject) => {
-      nativeZstdCompress(Buffer.from("z".repeat(512), "utf8"), (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve(result);
-      });
-    });
-
-    try {
-      Object.defineProperty(zlib, "zstdDecompress", {
-        configurable: true,
-        value: undefined,
-      });
-
-      await expect(
-        decodeTextBody(body, "zstd", { maxOutputBytes: 32 }),
-      ).rejects.toThrow("Upstream response too large");
     } finally {
       Object.defineProperty(zlib, "zstdDecompress", {
         configurable: true,

@@ -14,7 +14,6 @@ import {
 } from "@/lib/extract";
 import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
 import { decompressBody, HttpCloakUpstreamError } from "@/lib/fetch/response";
-import { parseSocksProxy } from "@/lib/fetch/socks";
 import {
     buildMetadataImageFallbackHtml,
     cleanSanitizedHtml,
@@ -27,6 +26,7 @@ import {
     toParagraphHtml,
 } from "@/lib/sanitize";
 import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
+import { promoteHttpCloakProxyUrl } from "@/lib/utils/httpcloak";
 
 const mockReq = () =>
   new NextRequest("http://localhost/api/articles/extract", {
@@ -374,6 +374,18 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body text remains.");
   });
 
+  test("sanitizeRawContent keeps dimensionless article images while dropping dimensionless chrome", () => {
+    const cleaned = sanitizeRawContent(
+      '<p><img src="https://www.esa.int/var/esa/storage/images/esa_multimedia/images/2026/03/liftoff_for_celeste.jpg" alt="Liftoff for Celeste on Rocket Lab\'s Electron rocket" /></p>' +
+        '<p><img src="https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo@2x.png" alt="NASA Logo" /></p>' +
+        '<p>Body text remains.</p>',
+    );
+
+    expect(cleaned).toContain("liftoff_for_celeste.jpg");
+    expect(cleaned).not.toContain("nasa-logo@2x.png");
+    expect(cleaned).toContain("Body text remains.");
+  });
+
   test("stripCommentEngagementBoilerplate removes login and commenting prompt paragraphs", () => {
     const input =
       '<img src="https://cdn.mos.cms.futurecdn.net/wWN99SCnGejGkViA9SXtm6.png" alt="hero" />' +
@@ -643,7 +655,7 @@ describe("article extract cleanup", () => {
     expect(body.content.length).toBeGreaterThan(0);
   });
 
-  test("POST maps axios and generic failures to expected error handlers", async () => {
+  test("POST maps HTTPCloak and generic failures to expected error handlers", async () => {
     const previousLogLevel = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = "verbose";
 
@@ -652,29 +664,38 @@ describe("article extract cleanup", () => {
     // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
     // client — they are gateway failures, not client errors. Only upstream 404
     // is special-cased to 422 Unprocessable Content.
-    const axiosError = { response: { status: 429 } };
+    const httpCloakError = new HttpCloakUpstreamError(
+      429,
+      "throttled",
+      "direct",
+      null,
+      false,
+      0,
+      { server: "cloudflare" },
+      {},
+    );
     try {
-      const axiosResult = await POST(mockReq(), {
+      const httpCloakResult = await POST(mockReq(), {
         errorFn: errorFn as any,
         fetchHtmlFn: async () => {
-          throw axiosError;
+          throw httpCloakError;
         },
-        isAxiosErrorFn: (() => true) as any,
         parseAndValidateArticleUrlFn: async () => "https://example.com/article",
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         toErrorMessageFn: () => "upstream-throttled",
       });
 
-      expect(axiosResult.status).toBe(502);
-      const axiosBody = await axiosResult.json();
-      expect(axiosBody.error).toBe(
+      expect(httpCloakResult.status).toBe(502);
+      const httpCloakBody = await httpCloakResult.json();
+      expect(httpCloakBody.error).toBe(
         "Failed to fetch article content from upstream",
       );
-      expect(axiosBody.reason).toBe("upstream-throttled");
+      expect(httpCloakBody.reason).toBe("upstream-throttled");
       expect(errorFn).toHaveBeenCalledWith(
         expect.stringContaining("upstream request failed"),
         expect.objectContaining({
           extractAttemptId: expect.any(String),
+          statusCode: 429,
         }),
       );
 
@@ -685,7 +706,6 @@ describe("article extract cleanup", () => {
         fetchHtmlFn: async () => {
           throw new Error("boom");
         },
-        isAxiosErrorFn: (() => false) as any,
         parseAndValidateArticleUrlFn: async () => "https://example.com/article",
         requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
         toErrorMessageFn: () => "normalized-boom",
@@ -973,7 +993,7 @@ describe("article extract cleanup", () => {
       expect(getCount()).toBe(1);
     });
 
-    test("retries all 3 attempts on generic 403 (no compatibility signal)", async () => {
+    test("stops after 1 attempt on generic 403 (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(
         403,
         "<html>generic 403</html>",
@@ -991,11 +1011,10 @@ describe("article extract cleanup", () => {
         ),
       ).rejects.toThrow("403");
 
-      // 3 total: 1 initial + 2 retries (EXTRACT_403_RETRIES = 2)
-      expect(getCount()).toBe(3);
+      expect(getCount()).toBe(1);
     });
 
-    test("retries all 3 attempts on 429 rate-limit (no compatibility signal)", async () => {
+    test("stops after 1 attempt on 429 rate-limit (no compatibility signal)", async () => {
       const { fn, getCount } = makeFpFetchError(429, "");
 
       await expect(
@@ -1010,7 +1029,7 @@ describe("article extract cleanup", () => {
         ),
       ).rejects.toThrow("429");
 
-      expect(getCount()).toBe(3);
+      expect(getCount()).toBe(1);
     });
 
     test("succeeds on first attempt and makes exactly 1 httpCloak-fetch call", async () => {
@@ -1037,7 +1056,7 @@ describe("article extract cleanup", () => {
       expect(callCount).toBe(1);
     });
 
-    test("retries httpcloak with the same transport-only options", async () => {
+    test("passes the same transport-only options through the single HTTPCloak attempt", async () => {
       const capturedOptions: Record<string, unknown>[] = [];
       const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
@@ -1072,49 +1091,33 @@ describe("article extract cleanup", () => {
           allowInsecureTls: false,
           proxyUrl: "socks5://127.0.0.1:1080",
         },
-        {
-          allowInsecureTls: false,
-          proxyUrl: "socks5://127.0.0.1:1080",
-        },
-        {
-          allowInsecureTls: false,
-          proxyUrl: "socks5://127.0.0.1:1080",
-        },
       ]);
     });
   });
 
   // ─── HTTPCloak-fetch pure function tests ────────────────────────────────
 
-  describe("parseSocksProxy", () => {
-    test("parses socks5 URL with credentials", () => {
-      const result = parseSocksProxy(
-        "socks5://user:pass@proxy.example.com:1080",
+  describe("promoteHttpCloakProxyUrl", () => {
+    test("promotes socks5 URLs to remote-DNS socks5h", () => {
+      expect(promoteHttpCloakProxyUrl("socks5://user:pass@proxy.example.com:1080")).toBe(
+        "socks5h://user:pass@proxy.example.com:1080",
       );
-      expect(result.host).toBe("proxy.example.com");
-      expect(result.port).toBe(1080);
-      expect(result.type).toBe(5);
-      expect(result.userId).toBe("user");
-      expect(result.password).toBe("pass");
     });
 
-    test("parses socks4 URL without credentials", () => {
-      const result = parseSocksProxy("socks4://10.0.0.1:9050");
-      expect(result.host).toBe("10.0.0.1");
-      expect(result.port).toBe(9050);
-      expect(result.type).toBe(4);
-      expect(result.userId).toBeUndefined();
+    test("promotes socks4 URLs to remote-DNS socks4a", () => {
+      expect(promoteHttpCloakProxyUrl("socks4://10.0.0.1:9050")).toBe(
+        "socks4a://10.0.0.1:9050",
+      );
     });
 
-    test("defaults port to 1080", () => {
-      const result = parseSocksProxy("socks5://proxy.test");
-      expect(result.port).toBe(1080);
+    test("leaves non-socks URLs unchanged", () => {
+      expect(promoteHttpCloakProxyUrl("https://proxy.test:8443")).toBe(
+        "https://proxy.test:8443",
+      );
     });
 
-    test("decodes percent-encoded credentials", () => {
-      const result = parseSocksProxy("socks5://us%40er:p%23ss@proxy.test:1080");
-      expect(result.userId).toBe("us@er");
-      expect(result.password).toBe("p#ss");
+    test("returns invalid URLs unchanged", () => {
+      expect(promoteHttpCloakProxyUrl("not-a-real-url")).toBe("not-a-real-url");
     });
   });
 
@@ -1362,6 +1365,40 @@ describe("article extract cleanup", () => {
         String(call[0]).includes("empty after full extraction pipeline"),
       ),
     ).toBe(false);
+  });
+
+  test("POST prepends metadata image when image-article extraction leaves only download metadata", async () => {
+    const response = await POST(mockReq(), {
+      extractFromHtmlFn: async () => ({
+        content: `
+          <p>NASA astronaut Reid Wiseman took this picture of Earth from the Orion spacecraft's window.</p>
+          <p><a href="https://www.nasa.gov/image-article/hello-world/">Read More</a></p>
+          <a href="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg">Download</a>
+          <p>Image Credit NASA/Reid Wiseman</p>
+          <p>Size 5568x3712px</p>
+        `,
+        title: "Hello, World",
+      }),
+      fetchHtmlFn: async () => `
+        <html>
+          <head>
+            <meta property="og:image" content="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg" />
+            <meta property="og:description" content="NASA astronaut Reid Wiseman photographed Earth through Orion's window after translunar injection during Artemis II." />
+          </head>
+        </html>
+      `,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.nasa.gov/image-detail/fd02_for-pao/",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain(
+      '<img src="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg"',
+    );
+    expect(payload.content).toContain("Image Credit NASA/Reid Wiseman");
+    expect(payload.content).toContain("Size 5568x3712px");
   });
 
   test("POST keeps empty content when metadata image fallback URL is unsafe", async () => {

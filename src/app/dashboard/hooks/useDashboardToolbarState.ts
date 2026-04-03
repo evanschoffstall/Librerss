@@ -1,29 +1,75 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { AuthService, useLocalStorage } from "@/lib";
+import { AuthService } from "@/lib";
 import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 
-import { DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "../constants";
+import { DASHBOARD_EVENTS } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
 
+interface ShellLoadingEventDetail {
+  loading?: boolean;
+}
+
+/** Reads the shell-loading dataset flag from the current document root. */
+export function readDashboardShellLoadingFromDocument() {
+  const shellLoading = document.documentElement.dataset.dashboardShellLoading;
+
+  if (shellLoading === "true") {
+    return true;
+  }
+
+  if (shellLoading === "false") {
+    return false;
+  }
+
+  return null;
+}
+
+/** Resolves the next shell-loading state from an incoming dashboard event. */
+export function readDashboardShellLoadingFromEvent(event: Event) {
+  const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
+
+  return detail.loading === true;
+}
+
+/** Settles the optimistic shell-loading state once document and dataset state are known. */
+export function resolveDashboardShellLoadingState({
+  hasReceivedShellLoadingEvent,
+  readyState,
+  shellLoadingFromDocument,
+}: {
+  hasReceivedShellLoadingEvent: boolean;
+  readyState: DocumentReadyState;
+  shellLoadingFromDocument: boolean | null;
+}) {
+  if (shellLoadingFromDocument !== null) {
+    return shellLoadingFromDocument;
+  }
+
+  if (!hasReceivedShellLoadingEvent && readyState === "complete") {
+    return false;
+  }
+
+  return null;
+}
+
 /** Bridges dashboard window events into the persistent toolbar state and actions. */
-export function useDashboardToolbarState() {
+export function useDashboardToolbarState(startInShellLoading = false) {
   const { resolvedTheme, setTheme } = useTheme();
   const isDevelopmentMode = process.env.NODE_ENV === "development";
+  const hasReceivedShellLoadingEventRef = useRef(false);
+  const [isShellLoading, setIsShellLoading] = useState(startInShellLoading);
   const [isSearchPending, setIsSearchPending] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState("LibreRSS");
   const [search, setSearch] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
-    DASHBOARD_PREVIEW_STORAGE_KEY,
-    false,
-  );
+  const [isPreviewMode, setIsPreviewMode] = useState(readPreviewModeFromLocation);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [isMarkingViewportRead, setIsMarkingViewportRead] = useState(false);
@@ -31,6 +77,82 @@ export function useDashboardToolbarState() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useLayoutEffect(() => {
+    const syncShellLoadingFromDocument = () => {
+      const shellLoading = readDashboardShellLoadingFromDocument();
+
+      if (shellLoading === null) {
+        return false;
+      }
+
+      hasReceivedShellLoadingEventRef.current = true;
+      setIsShellLoading(shellLoading);
+      return true;
+    };
+
+    const settleOptimisticShellLoading = () => {
+      const shellLoading = resolveDashboardShellLoadingState({
+        hasReceivedShellLoadingEvent: hasReceivedShellLoadingEventRef.current,
+        readyState: document.readyState,
+        shellLoadingFromDocument: readDashboardShellLoadingFromDocument(),
+      });
+
+      if (shellLoading !== null) {
+        hasReceivedShellLoadingEventRef.current = true;
+        setIsShellLoading(shellLoading);
+        
+      }
+    };
+
+    const handleShellLoading = (event: Event) => {
+      hasReceivedShellLoadingEventRef.current = true;
+      setIsShellLoading(readDashboardShellLoadingFromEvent(event));
+    };
+
+    const handleReadyStateChange = () => {
+      settleOptimisticShellLoading();
+    };
+
+    window.addEventListener(
+      DASHBOARD_EVENTS.SHELL_LOADING,
+      handleShellLoading as EventListener,
+    );
+
+    const shellLoadingObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            syncShellLoadingFromDocument();
+          });
+
+    shellLoadingObserver?.observe(document.documentElement, {
+      attributeFilter: ["data-dashboard-shell-loading"],
+      attributes: true,
+    });
+
+    syncShellLoadingFromDocument();
+
+    if (startInShellLoading) {
+      document.addEventListener("readystatechange", handleReadyStateChange);
+      queueMicrotask(settleOptimisticShellLoading);
+    }
+
+    return () => {
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SHELL_LOADING,
+        handleShellLoading as EventListener,
+      );
+      shellLoadingObserver?.disconnect();
+
+      if (startInShellLoading) {
+        document.removeEventListener(
+          "readystatechange",
+          handleReadyStateChange,
+        );
+      }
+    };
+  }, [startInShellLoading]);
 
   useEffect(() => {
     const handleTitleChange = (event: Event) => {
@@ -52,6 +174,9 @@ export function useDashboardToolbarState() {
 
     const handleEnterPreview = () => {
       setIsPreviewMode(true);
+    };
+    const handleLocationChange = () => {
+      setIsPreviewMode(readPreviewModeFromLocation());
     };
     const handleRefreshStart = () => {
       setIsRefreshing(true);
@@ -85,6 +210,7 @@ export function useDashboardToolbarState() {
       handleSearchPending as EventListener,
     );
     window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
+    window.addEventListener("popstate", handleLocationChange);
     window.addEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
     window.addEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
     window.addEventListener(
@@ -121,6 +247,7 @@ export function useDashboardToolbarState() {
         DASHBOARD_EVENTS.ENTER_PREVIEW,
         handleEnterPreview,
       );
+      window.removeEventListener("popstate", handleLocationChange);
       window.removeEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
       window.removeEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
       window.removeEventListener(
@@ -196,13 +323,11 @@ export function useDashboardToolbarState() {
 
     setIsResetting(true);
     try {
+      const resetTargetUrl = window.location.href;
+
       await clearClientOriginState();
 
-      if (isPreviewMode) {
-        setDashboardPreviewPersistence(true);
-      }
-
-      window.location.reload();
+      window.location.assign(resetTargetUrl);
     } catch {
       toast.error("Unable to reset app state.");
       setIsResetting(false);
@@ -251,6 +376,7 @@ export function useDashboardToolbarState() {
     isRefreshing,
     isResetting,
     isSearchPending,
+    isShellLoading,
     isSigningOut,
     mounted,
     search,
@@ -267,4 +393,13 @@ function dispatchDashboardEvent(
   window.dispatchEvent(
     new CustomEvent(eventName, detail ? { detail } : undefined),
   );
+}
+
+/** Returns whether the active dashboard URL is explicitly in explore mode. */
+function readPreviewModeFromLocation() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get("explore") === "1";
 }

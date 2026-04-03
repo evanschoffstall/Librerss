@@ -121,31 +121,19 @@ export async function enterPreviewFromLogin(page: Page) {
   await expect(
     page.getByText("Access your saved feeds and reading preferences."),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Explore without an account" })
-    .click();
-  await page.waitForURL((url) => {
-    return (
-      url.pathname === "/dashboard" &&
-      (url.searchParams.get("explore") === "1" ||
-        url.searchParams.get("preview") === "1" ||
-        url.search === "")
-    );
-  });
+  await page.waitForFunction(() => document.readyState === "complete");
+  await page.getByRole("button", { name: "Explore without an account" }).click();
+  await expect
+    .poll(() => {
+      const currentUrl = new URL(page.url());
 
-  const mobileActionsMenuButton = page.getByRole("button", {
-    name: "Open actions menu",
-  });
-  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
-    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
-      timeout: 15_000,
-    });
-    return;
-  }
+      return currentUrl.pathname === "/dashboard"
+        ? currentUrl.searchParams.get("explore")
+        : null;
+    })
+    .toBe("1");
 
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
-    timeout: 15_000,
-  });
+  await expectPreviewDashboard(page);
 }
 
 /** Waits for an article card to reach the expected expanded state. */
@@ -204,34 +192,44 @@ export async function expectNotClipped(
 /** Waits for the preview dashboard shell to become interactive. */
 export async function expectPreviewDashboard(page: Page) {
   await page.waitForURL((url) => {
-    return (
-      url.pathname === "/dashboard" &&
-      (
-        url.searchParams.get("explore") === "1" ||
-        url.searchParams.get("preview") === "1" ||
-        url.search === ""
-      )
-    );
+    return url.pathname === "/dashboard" && url.searchParams.get("explore") === "1";
   });
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
+  const mobileFeedsButton = page.getByRole("button", {
+    name: "Open feeds",
+  });
   const mobileActionsMenuButton = page.getByRole("button", {
     name: "Open actions menu",
   });
   const desktopSettingsButton = page.getByRole("button", {
     name: "Open dashboard settings",
   });
+  const signOutButton = page.getByRole("button", { name: "Sign out" });
+
+  await expect
+    .poll(async () => {
+      const isMobileReady =
+        (await mobileActionsMenuButton.isVisible().catch(() => false)) &&
+        (await mobileFeedsButton.isVisible().catch(() => false));
+      const isDesktopReady =
+        (await desktopSettingsButton.isVisible().catch(() => false)) &&
+        (await signOutButton.isVisible().catch(() => false));
+
+      return isMobileReady || isDesktopReady;
+    })
+    .toBe(true);
 
   if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
     await expect(mobileActionsMenuButton).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("button", { name: "Open feeds" })).toBeVisible({
+    await expect(mobileFeedsButton).toBeVisible({
       timeout: 15_000,
     });
     return;
   }
 
   await expect(desktopSettingsButton).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+  await expect(signOutButton).toBeVisible({
     timeout: 15_000,
   });
 }
@@ -368,9 +366,9 @@ export async function readRenderedArticleCount(page: Page) {
 export async function readRenderedItemWindow(page: Page) {
   return await page.evaluate(() => {
     const indexes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-item-index]"),
+      document.querySelectorAll<HTMLElement>("[data-index]"),
     )
-      .map((node) => Number.parseInt(node.dataset.itemIndex ?? "", 10))
+      .map((node) => Number.parseInt(node.dataset.index ?? "", 10))
       .filter((value) => Number.isFinite(value))
       .sort((left, right) => left - right);
 
@@ -404,6 +402,35 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
       windowScrollY: window.scrollY,
     };
   });
+}
+
+/** Reads the first visible feed article plus its top offset inside the viewport. */
+export async function readTopVisibleFeedArticle(page: Page, minimumOffsetTop = 0) {
+  const viewport = await getActiveFeedViewport(page);
+
+  return await viewport.evaluate((node, minimumVisibleOffsetTop) => {
+    const viewportRect = node.getBoundingClientRect();
+    const articles = Array.from(
+      node.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    )
+      .map((article) => {
+        const rect = article.getBoundingClientRect();
+
+        return {
+          articleKey: article.dataset.articleKey ?? null,
+          offsetTop: rect.top - viewportRect.top,
+          visible: rect.bottom > viewportRect.top && rect.top < viewportRect.bottom,
+        };
+      })
+      .filter((article) => article.visible)
+      .sort((left, right) => left.offsetTop - right.offsetTop);
+
+    return (
+      articles.find((article) => article.offsetTop >= minimumVisibleOffsetTop) ??
+      articles[0] ??
+      null
+    );
+  }, minimumOffsetTop);
 }
 
 /** Scrolls the active feed viewport to its current bottom edge. */
@@ -597,6 +624,22 @@ export async function waitForPreviewDashboardHydration(page: Page) {
       return await page.locator('[data-article-hydration-state="loading"]').count();
     })
     .toBe(0);
+}
+
+/** Dispatches real mouse-wheel input against the active feed viewport. */
+export async function wheelActiveFeedViewport(page: Page, deltaY = 240) {
+  const viewport = await getActiveFeedViewport(page);
+  const box = await viewport.boundingBox();
+
+  if (!box) {
+    throw new Error("Expected the active feed viewport to have a measurable bounding box.");
+  }
+
+  await page.mouse.move(
+    box.x + box.width / 2,
+    box.y + Math.min(box.height / 2, 240),
+  );
+  await page.mouse.wheel(0, deltaY);
 }
 
 /** Clicks a visible control and falls back to a DOM click when toasts intercept the pointer. */

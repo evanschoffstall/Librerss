@@ -43,12 +43,12 @@ export default function BackgroundParticles({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const circles = useRef<Circle[]>([]);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const startedAtRef = useRef<number>(0);
-  const canvasSize = useRef<{ height: number; width: number }>({
+  const startedAtRef = useRef(0);
+  const canvasSize = useRef({
     height: 0,
     width: 0,
   });
-  const pointerOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pointerOffsetRef = useRef({ x: 0, y: 0 });
 
   const particleRgb = useMemo(
     () => (color === "dark" ? "0, 0, 0" : "255, 255, 255"),

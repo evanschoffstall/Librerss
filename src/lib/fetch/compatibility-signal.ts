@@ -1,5 +1,3 @@
-import axios from "axios";
-
 export type SourceCompatibilitySignal =
   | {
       challengeCookies: string[];
@@ -81,30 +79,6 @@ export function detectResponseCompatibilitySignal(
   }
 
   return { retryable: true, signal: { detected: false } };
-}
-
-export function detectSourceCompatibilitySignal(
-  error: unknown,
-  isAxiosError: typeof axios.isAxiosError,
-): { retryable: boolean; signal: SourceCompatibilitySignal } {
-  if (!isAxiosError(error)) {
-    return { retryable: false, signal: { detected: false } };
-  }
-
-  const resp = (
-    error as {
-      response?: {
-        data?: unknown;
-        headers?: Record<string, unknown>;
-        status?: number;
-      };
-    }
-  ).response;
-  return detectResponseCompatibilitySignal(
-    resp?.status,
-    resp?.headers,
-    typeof resp?.data === "string" ? resp.data : "",
-  );
 }
 
 function getChallengeCookies(headers: Record<string, unknown> | undefined) {

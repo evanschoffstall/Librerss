@@ -37,6 +37,34 @@ mock.module("@/components/ui/scroll-area", () => ({
  * can drive TabsContent visibility, matching Radix Tabs semantics.
  */
 const TabsCtx = createContext({ activeTab: "", setActiveTab: (_v: string) => {} });
+const useSettingsProxyStateMock = mock(() => ({
+  allowInsecureTls: false,
+  compatibilityCheckedAt: null,
+  compatibilityError: null,
+  compatibilityResults: null,
+  error: null,
+  handleClear: async () => {},
+  handleRunCompatibilityCheck: async () => {},
+  handleSave: async () => {},
+  hasProxy: false,
+  hasProxyPassword: false,
+  inputRef: { current: null },
+  isInitialProxyLoadPending: false,
+  isRunningCompatibilityCheck: false,
+  nowTs: 0,
+  proxyPassword: "",
+  proxyStatus: "none",
+  proxyUrl: "",
+  proxyUsername: "",
+  resultsRef: { current: null },
+  saving: false,
+  setAllowInsecureTls: () => false,
+  setError: () => false,
+  setProxyPassword: () => false,
+  setProxyUrl: () => false,
+  setProxyUsername: () => false,
+  syncAllowInsecureTls: async () => {},
+}));
 
 mock.module("@/components/ui/tabs", () => {
   function Tabs({
@@ -121,33 +149,7 @@ mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
 }));
 
 mock.module("@/app/dashboard/hooks/useSettingsProxyState", () => ({
-  useSettingsProxyState: () => ({
-    allowInsecureTls: false,
-    compatibilityCheckedAt: null,
-    compatibilityError: null,
-    compatibilityResults: null,
-    error: null,
-    handleClear: async () => {},
-    handleRunCompatibilityCheck: async () => {},
-    handleSave: async () => {},
-    hasProxy: false,
-    hasProxyPassword: false,
-    inputRef: { current: null },
-    isRunningCompatibilityCheck: false,
-    nowTs: 0,
-    proxyPassword: "",
-    proxyStatus: "none",
-    proxyUrl: "",
-    proxyUsername: "",
-    resultsRef: { current: null },
-    saving: false,
-    setAllowInsecureTls: () => false,
-    setError: () => false,
-    setProxyPassword: () => false,
-    setProxyUrl: () => false,
-    setProxyUsername: () => false,
-    syncAllowInsecureTls: async () => {},
-  }),
+  useSettingsProxyState: useSettingsProxyStateMock,
 }));
 
 afterEach(() => {
@@ -257,6 +259,7 @@ describe("SettingsPanel", () => {
   });
 
   test("keeps the Network tab mounted behind the preview overlay", async () => {
+    useSettingsProxyStateMock.mockClear();
     const { getByPlaceholderText, getByRole, getByText } = await renderPanel({
       isPreviewMode: true,
     });
@@ -265,6 +268,7 @@ describe("SettingsPanel", () => {
 
     expect(getByText(/not available in demo mode/i)).toBeDefined();
     expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
+    expect(useSettingsProxyStateMock).toHaveBeenCalledWith({ enabled: false });
   });
 
   test("calls onClose when the dialog close button is clicked", async () => {

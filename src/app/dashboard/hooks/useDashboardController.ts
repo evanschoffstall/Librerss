@@ -6,11 +6,17 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { useViewportRestore } from "@/lib";
 
-import { type BackgroundMode, INITIAL_CATEGORIES } from "../constants";
+import { ALL_FEEDS_NODE_KEY, type BackgroundMode, DASHBOARD_EVENTS, INITIAL_CATEGORIES } from "../constants";
+import {
+  resolveArticleWindowAvailability,
+  shouldBlockArticleWindowLoadMore,
+  shouldRefillDepletedUnreadWindow,
+} from "../services/article-window-availability";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
 import { getAllFeedNodes } from "../services/category-tree";
 import {
@@ -69,12 +75,46 @@ export function useDashboardController({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardControllerProps) {
+  const SHELL_LOADING_SETTLE_MS = 140;
+  const serverLoadMorePageBatch = 1;
   const refreshStatus = useRefreshStatus(usePlaceholderData);
   const {
     lastRefreshLabel,
     setLastRefreshedAt,
     setRelativeRefreshTick,
   } = refreshStatus;
+
+  /**
+   * Keys of articles whose entrance animation is currently running (arrived via
+   * background auto-refresh). Excluded from "mark visible as read" until they settle.
+   */
+  const [animatingInArticleKeys, setAnimatingInArticleKeys] = useState(
+    () => new Set<string>(),
+  );
+  /** Mirrors the auto-refresh in-flight state to the filter-bar loading indicator. */
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  /** Ref prevents concurrent auto-refresh calls from double-dispatching events. */
+  const isAutoRefreshingRef = useRef(false);
+
+  /** Merges newly arrived article keys into the animating-in set. */
+  const handleNewArticlesArrived = useCallback(
+    (newKeys: ReadonlySet<string>) => {
+      if (newKeys.size === 0) return;
+      setAnimatingInArticleKeys((prev) => new Set([...prev, ...newKeys]));
+    },
+    [],
+  );
+
+  /** Removes a settled article from the animating-in set. */
+  const handleArticleEnteringDone = useCallback((articleKey: string) => {
+    setAnimatingInArticleKeys((prev) => {
+      if (!prev.has(articleKey)) return prev;
+      const next = new Set(prev);
+      next.delete(articleKey);
+      return next;
+    });
+  }, []);
+
   const dashboardState = useDashboardState();
 
   const {
@@ -114,6 +154,23 @@ export function useDashboardController({
     setShowFavicons,
     setShowSettingsModal,
   } = dashboardState;
+  const trimmedSearchTerm = searchTerm.trim();
+  const shouldUseArticleWindow = !usePlaceholderData && trimmedSearchTerm === "";
+  const [requestedArticleLimit, setRequestedArticleLimit] = useState(articlesPerPage);
+  const [isLoadingMoreArticles, setIsLoadingMoreArticles] = useState(false);
+  const [hasMoreServerArticles, setHasMoreServerArticles] = useState(
+    shouldUseArticleWindow,
+  );
+  const [isShellLoading, setIsShellLoading] = useState(true);
+  const isLoadingMoreArticlesRef = useRef(false);
+  const isAwaitingArticleWindowSettlementRef = useRef(shouldUseArticleWindow);
+  const allowPartialArticleWindowGrowthRef = useRef(false);
+  const previousAwaitedFeedLengthRef = useRef(0);
+  const hasStartedArticleWindowSettlementRef = useRef(false);
+  const isRefillingDepletedUnreadWindowRef = useRef(false);
+  /** Tracks the highest article-limit we have already prefetched to avoid duplicate background requests. */
+  const lastPrefetchedLimitRef = useRef(0);
+  const shellLoadingTimeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null);
 
   /**
    * Centralized feed loader that owns network requests, request cancellation,
@@ -125,6 +182,7 @@ export function useDashboardController({
     categoriesRef,
     feedRef,
     onFeedBatchLoaded: setLastRefreshedAt,
+    onNewArticlesArrived: handleNewArticlesArrived,
     setCategories,
     setExpandedArticleKey,
     setFeed,
@@ -210,18 +268,110 @@ export function useDashboardController({
   const isSearchPending = searchTerm !== deferredSearchTerm;
   /** Initial feed loads are the only times the article surface should skeleton. */
   const isFeedListInitialLoading = loading && feed.length === 0;
+
+  useEffect(() => {
+    if (shellLoadingTimeoutRef.current !== null) {
+      clearTimeout(shellLoadingTimeoutRef.current);
+      shellLoadingTimeoutRef.current = null;
+    }
+
+    if (isFeedListInitialLoading) {
+      setIsShellLoading(true);
+      return;
+    }
+
+    shellLoadingTimeoutRef.current = setTimeout(() => {
+      shellLoadingTimeoutRef.current = null;
+      setIsShellLoading(false);
+    }, SHELL_LOADING_SETTLE_MS);
+
+    return () => {
+      if (shellLoadingTimeoutRef.current !== null) {
+        clearTimeout(shellLoadingTimeoutRef.current);
+        shellLoadingTimeoutRef.current = null;
+      }
+    };
+  }, [isFeedListInitialLoading]);
   /** Refreshes should preserve visible articles and only signal background work. */
   const isFeedListRefreshing = loading && feed.length > 0;
   const articleCallbacks = useDashboardArticleCallbacks({
     articleFilter,
     capturePreExpandSnapshot,
-    handleArticleToggle,
-    handleExpandedSwipeRead,
+    handleArticleToggle: (article) => {
+      void handleArticleToggle(article);
+    },
+    handleExpandedSwipeRead: (article) => {
+      void handleExpandedSwipeRead(article);
+    },
     handleSwipeRead,
     handleToggleReadState,
     handleToggleStarredState,
     selectedCategory,
   });
+
+  useEffect(() => {
+    isLoadingMoreArticlesRef.current = false;
+    isAwaitingArticleWindowSettlementRef.current = shouldUseArticleWindow;
+    allowPartialArticleWindowGrowthRef.current = false;
+    previousAwaitedFeedLengthRef.current = 0;
+    hasStartedArticleWindowSettlementRef.current = false;
+    isRefillingDepletedUnreadWindowRef.current = false;
+    lastPrefetchedLimitRef.current = 0;
+    setIsLoadingMoreArticles(false);
+    setRequestedArticleLimit(articlesPerPage);
+    setHasMoreServerArticles(shouldUseArticleWindow);
+  }, [articleFilter, articlesPerPage, selectedCategory, shouldUseArticleWindow]);
+
+  useEffect(() => {
+    if (shouldUseArticleWindow && loading) {
+      isAwaitingArticleWindowSettlementRef.current = true;
+      hasStartedArticleWindowSettlementRef.current = true;
+    }
+  }, [loading, shouldUseArticleWindow]);
+
+  useEffect(() => {
+    const nextAvailability = resolveArticleWindowAvailability({
+      allowPartialFeedGrowth: allowPartialArticleWindowGrowthRef.current,
+      currentFeedLength: feed.length,
+      hasStartedAwaitedWindowSettlement:
+        hasStartedArticleWindowSettlementRef.current,
+      isAwaitingWindowSettlement:
+        isAwaitingArticleWindowSettlementRef.current,
+      isLoading: loading,
+      previousFeedLength: previousAwaitedFeedLengthRef.current,
+      previousHasMoreServerArticles: hasMoreServerArticles,
+      requestedArticleLimit,
+      shouldUseArticleWindow,
+    });
+
+    if (nextAvailability.shouldClearAwaitingWindowSettlement) {
+      isAwaitingArticleWindowSettlementRef.current = false;
+      allowPartialArticleWindowGrowthRef.current = false;
+      hasStartedArticleWindowSettlementRef.current = false;
+    }
+
+    if (!shouldUseArticleWindow) {
+      isLoadingMoreArticlesRef.current = false;
+      setIsLoadingMoreArticles(false);
+    }
+
+    if (nextAvailability.hasMoreServerArticles !== hasMoreServerArticles) {
+      setHasMoreServerArticles(nextAvailability.hasMoreServerArticles);
+    }
+
+    if (
+      isLoadingMoreArticlesRef.current &&
+      !loading &&
+      !isAwaitingArticleWindowSettlementRef.current
+    ) {
+      isLoadingMoreArticlesRef.current = false;
+      setIsLoadingMoreArticles(false);
+    }
+  }, [feed.length, hasMoreServerArticles, loading, requestedArticleLimit, shouldUseArticleWindow]);
+
+  const articleWindowLimit = shouldUseArticleWindow
+    ? requestedArticleLimit
+    : undefined;
 
   /**
    * Full derived dashboard model used by the sidebar, feed list, and settings.
@@ -279,7 +429,9 @@ export function useDashboardController({
     fetchCategoryFeeds,
     fetchFeed,
     hasInitializedDashboardRef,
+    initialArticleLimit: articleWindowLimit,
     isSearchPending,
+    isShellLoading,
     loadFeedSources,
     loading,
     loadingEpoch,
@@ -365,6 +517,7 @@ export function useDashboardController({
     }
 
     void refreshCurrentSelection({
+      articleLimit: articleWindowLimit,
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
@@ -377,6 +530,7 @@ export function useDashboardController({
     });
   }, [
     articleFilter,
+    articleWindowLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -395,6 +549,7 @@ export function useDashboardController({
     handleFeedPrefetch,
     handleRefreshSelection,
   } = useDashboardHandlers({
+    articleLimit: articleWindowLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -408,13 +563,244 @@ export function useDashboardController({
     setSelectedCategory,
   });
 
+  /**
+   * Wraps the background auto-refresh to show toolbar skeletons and the filter-bar
+   * loading indicator during the refresh, identical to a manual refresh UX.
+   * A ref guard prevents re-entrant calls from the interval tick.
+   */
+  const wrappedAutoRefreshFeedList = useCallback(async () => {
+    if (isAutoRefreshingRef.current) return;
+    isAutoRefreshingRef.current = true;
+    setIsAutoRefreshing(true);
+    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+    try {
+      await autoRefreshFeedList();
+    } finally {
+      isAutoRefreshingRef.current = false;
+      setIsAutoRefreshing(false);
+      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+    }
+  }, [autoRefreshFeedList]);
+
+  /**
+   * Warms the TanStack Query cache for the next page of articles so the
+   * subsequent load-more resolves from cache instead of waiting on a network
+   * round-trip.  The prefetch mirrors the exact options used by
+   * `handleLoadMoreArticles` so the cache key matches on first lookup.
+   *
+   * This is strictly best-effort: if the cache expires before the user scrolls
+   * to the threshold (e.g. auto-refresh fires between prefetch and use), the
+   * load-more falls back to a normal server fetch transparently.
+   */
+  const prefetchNextPageForCurrentSelection = useCallback(
+    async (nextLimit: number) => {
+      if (usePlaceholderData) {
+        return;
+      }
+
+      const prefetchOptions = {
+        articleLimit: nextLimit,
+        keepExistingFeed: true,
+        requestSource: "feed-scroll-load-more" as const,
+        skipRefresh: true,
+      };
+
+      if (selectedCategory === ALL_FEEDS_NODE_KEY) {
+        await prefetchAllFeeds(undefined, prefetchOptions);
+        return;
+      }
+
+      if (selectedFeedUrl) {
+        await prefetchFeed(selectedFeedUrl, prefetchOptions);
+        return;
+      }
+
+      if (selectedCategoryNode) {
+        await prefetchCategoryFeeds(selectedCategoryNode, prefetchOptions);
+      }
+    },
+    [
+      prefetchAllFeeds,
+      prefetchCategoryFeeds,
+      prefetchFeed,
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
+      usePlaceholderData,
+    ],
+  );
+
+  const handleLoadMoreArticles = useCallback(() => {
+    if (shouldBlockArticleWindowLoadMore({
+      currentFeedLength: feed.length,
+      hasMoreServerArticles,
+      isCategoriesLoading,
+      isLoadingMoreArticles: isLoadingMoreArticlesRef.current,
+      shouldUseArticleWindow,
+    })) {
+      return;
+    }
+
+    const nextArticleLimit =
+      requestedArticleLimit + articlesPerPage * serverLoadMorePageBatch;
+    const nextPrefetchLimit = nextArticleLimit + articlesPerPage;
+    isLoadingMoreArticlesRef.current = true;
+    isAwaitingArticleWindowSettlementRef.current = true;
+    allowPartialArticleWindowGrowthRef.current = true;
+    previousAwaitedFeedLengthRef.current = feed.length;
+    hasStartedArticleWindowSettlementRef.current = true;
+
+    // Schedule the fetch on the next frame so React can commit the loading
+    // rows before a warm-cache response settles.
+    setIsLoadingMoreArticles(true);
+    setRequestedArticleLimit(nextArticleLimit);
+
+    if (lastPrefetchedLimitRef.current < nextPrefetchLimit) {
+      lastPrefetchedLimitRef.current = nextPrefetchLimit;
+      void prefetchNextPageForCurrentSelection(nextPrefetchLimit);
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void refreshCurrentSelection({
+          articleLimit: nextArticleLimit,
+          fetchAllFeeds,
+          fetchCategoryFeeds,
+          fetchFeed,
+          keepExistingFeed: true,
+          requestSource: "feed-scroll-load-more",
+          selectedCategory,
+          selectedCategoryNode,
+          selectedFeedUrl,
+          skipRefresh: true,
+        })
+          .catch(() => {
+            setRequestedArticleLimit((currentLimit) =>
+              currentLimit === nextArticleLimit
+                ? Math.max(
+                    articlesPerPage,
+                    currentLimit - articlesPerPage * serverLoadMorePageBatch,
+                  )
+                : currentLimit,
+            );
+          })
+          .finally(() => {
+            isLoadingMoreArticlesRef.current = false;
+            setIsLoadingMoreArticles(false);
+          });
+      });
+    });
+  }, [
+    articlesPerPage,
+    feed.length,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasMoreServerArticles,
+    isCategoriesLoading,
+    prefetchNextPageForCurrentSelection,
+    requestedArticleLimit,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    serverLoadMorePageBatch,
+    shouldUseArticleWindow,
+  ]);
+
   /** Cancels stale foreground requests and clears cached query errors after a long tab suspension. */
   const handleStaleTabResume = useCallback(() => {
     cancelPendingRequest();
   }, [cancelPendingRequest]);
 
+  /**
+   * Proactively pre-warms the next page in the TanStack Query cache the moment
+   * the current page finishes loading.  When the user scrolls to the threshold,
+   * `handleLoadMoreArticles` → `refreshCurrentSelection` hits the warm cache and
+   * resolves synchronously — the next page zips in with no visible latency.
+   * After each load-more the effect fires again to keep exactly one page buffered
+   * ahead at all times.
+   */
+  useEffect(() => {
+    if (!shouldUseArticleWindow || loading || !hasMoreServerArticles) {
+      return;
+    }
+
+    const nextLimit = requestedArticleLimit + articlesPerPage;
+    if (lastPrefetchedLimitRef.current >= nextLimit) {
+      return;
+    }
+
+    lastPrefetchedLimitRef.current = nextLimit;
+    void prefetchNextPageForCurrentSelection(nextLimit);
+  }, [
+    articlesPerPage,
+    hasMoreServerArticles,
+    loading,
+    prefetchNextPageForCurrentSelection,
+    requestedArticleLimit,
+    shouldUseArticleWindow,
+  ]);
+
+  const pendingLoadMoreArticleCount =
+    shouldUseArticleWindow && isLoadingMoreArticles
+      ? Math.max(0, requestedArticleLimit - feed.length)
+      : 0;
+
+  useEffect(() => {
+    if (
+      !shouldRefillDepletedUnreadWindow({
+        articleFilter,
+        articlesPerPage,
+        currentFeedLength: feed.length,
+        currentFilteredFeedLength: filteredFeed.length,
+        hasMoreServerArticles,
+        isLoading: loading,
+        isRefillingDepletedUnreadWindow:
+          isRefillingDepletedUnreadWindowRef.current,
+        shouldUseArticleWindow,
+      })
+    ) {
+      return;
+    }
+
+    isRefillingDepletedUnreadWindowRef.current = true;
+    isAwaitingArticleWindowSettlementRef.current = true;
+    allowPartialArticleWindowGrowthRef.current = true;
+    previousAwaitedFeedLengthRef.current = feed.length;
+    hasStartedArticleWindowSettlementRef.current = true;
+
+    void refreshCurrentSelection({
+      articleLimit: requestedArticleLimit,
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      requestSource: "feed-scroll-load-more",
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
+      skipRefresh: true,
+    }).finally(() => {
+      isRefillingDepletedUnreadWindowRef.current = false;
+    });
+  }, [
+    articleFilter,
+    articlesPerPage,
+    feed.length,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    filteredFeed.length,
+    hasMoreServerArticles,
+    loading,
+    requestedArticleLimit,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    shouldUseArticleWindow,
+  ]);
+
   useDashboardIntervals({
-    autoRefreshFeedList,
+    autoRefreshFeedList: wrappedAutoRefreshFeedList,
     autoRefreshIntervalMinutes,
     onStaleTabResume: handleStaleTabResume,
     setRelativeRefreshTick,
@@ -495,8 +881,10 @@ export function useDashboardController({
     () =>
       buildDashboardControllerState({
         feedList: {
+          animatingInArticleKeys,
           articleFilter,
           articlesPerPage,
+          canLoadMoreFromServer: shouldUseArticleWindow && hasMoreServerArticles,
           collapsingArticles,
           expandedArticleKey,
           feedViewKey: articleCallbacks.feedViewKey,
@@ -507,13 +895,17 @@ export function useDashboardController({
           hydratingArticleLinks,
           isCollapseScrollRestoreActive,
           isInitialLoading: isFeedListInitialLoading,
+          isLoadingMore: isLoadingMoreArticles,
           isRefreshing: isFeedListRefreshing,
+          loadingMoreArticleCount: pendingLoadMoreArticleCount,
+          onArticleEnteringDone: handleArticleEnteringDone,
           onArticleExpandedSwipeRead: articleCallbacks.onArticleExpandedSwipeRead,
           onArticlePrepareExpand: articleCallbacks.onArticlePrepareExpand,
           onArticleSwipeRead: articleCallbacks.onArticleSwipeRead,
           onArticleToggle: articleCallbacks.onArticleToggle,
           onArticleToggleRead: articleCallbacks.onArticleToggleRead,
           onArticleToggleStarred: articleCallbacks.onArticleToggleStarred,
+          onLoadMore: shouldUseArticleWindow ? handleLoadMoreArticles : undefined,
           refreshEpoch: loadingEpoch,
           searchTerm,
           showFavicons,
@@ -521,8 +913,11 @@ export function useDashboardController({
         },
         filterBar: {
           articleFilter,
+          isShellLoading,
           lastRefreshLabel,
-          loading,
+          // Reflect both foreground-loading state and background auto-refresh state
+          // so the filter bar spinner and label skeleton appear for both.
+          loading: loading || isAutoRefreshing,
           setArticleFilter,
         },
         settings: {
@@ -552,6 +947,7 @@ export function useDashboardController({
         },
       }),
     [
+      animatingInArticleKeys,
       articleCallbacks.feedViewKey,
       articleCallbacks.onArticleExpandedSwipeRead,
       articleCallbacks.onArticlePrepareExpand,
@@ -571,10 +967,17 @@ export function useDashboardController({
       expandedArticleKey,
       filteredFeed,
       getPreExpandViewportSnapshot,
+      handleArticleEnteringDone,
+      handleLoadMoreArticles,
+      hasMoreServerArticles,
       hydratedArticleLinks,
       hydratingArticleLinks,
+      isAutoRefreshing,
       isCollapseScrollRestoreActive,
       isFeedListInitialLoading,
+      isShellLoading,
+      isLoadingMoreArticles,
+      pendingLoadMoreArticleCount,
       isFeedListRefreshing,
       loadingEpoch,
       isMobileSidebarOpen,
@@ -591,6 +994,7 @@ export function useDashboardController({
       setAutoRefreshIntervalMinutes,
       setIsMobileSidebarOpen,
       setShowFavicons,
+      shouldUseArticleWindow,
       showFavicons,
       showSettingsModal,
       sidebarContentProps,

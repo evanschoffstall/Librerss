@@ -1249,13 +1249,22 @@ describe("Image Sanitization", () => {
     expect(result).not.toContain("short.jpg");
   });
 
-  test("should remove images with no size signal (no width, height, or srcset)", () => {
-    // No dimensions and no srcset = unverifiable — likely an avatar or icon.
-    const input = '<img src="https://example.com/no-dims.jpg" alt="No dims">';
+  test("should keep dimensionless images with strong content signals", () => {
+    const input =
+      '<img src="https://www.esa.int/var/esa/storage/images/esa_multimedia/images/2026/03/liftoff_for_celeste.jpg" alt="Liftoff for Celeste on Rocket Lab\'s Electron rocket">';
+    const result = sanitizeArticleHtml(input);
+
+    expect(result).toContain("<img");
+    expect(result).toContain("liftoff_for_celeste.jpg");
+  });
+
+  test("should remove dimensionless chrome images without size signal", () => {
+    const input =
+      '<img src="https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo@2x.png" alt="NASA Logo">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).not.toContain("<img");
-    expect(result).not.toContain("no-dims.jpg");
+    expect(result).not.toContain("nasa-logo@2x.png");
   });
 
   test("should keep images that have srcset but no explicit width/height", () => {

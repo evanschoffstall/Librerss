@@ -307,6 +307,32 @@ describe("Feed Fetcher - Batch Operations", () => {
     expect(result.articles).toBeInstanceOf(Map);
   });
 
+  test("fetchAndCacheFeedArticlesBatch looks up memory cache with the requested article limit", async () => {
+    const getCachedBatch = mock(() => ({
+      articles: new Map([["https://example.com/feed", []]]),
+      cachedAt: Date.now(),
+      errors: new Map<string, string>(),
+      lastFetchedByUrl: new Map([
+        ["https://example.com/feed", new Date("2026-03-14T12:00:00.000Z")],
+      ]),
+    }));
+    setFeedFetcherDependenciesForTesting({
+      getCachedBatch,
+    });
+
+    await fetchAndCacheFeedArticlesBatch(mockDb, 1, ["https://example.com/feed"], {
+      articleLimit: 24,
+      skipRefresh: true,
+    });
+
+    expect(getCachedBatch).toHaveBeenCalledWith(
+      1,
+      ["https://example.com/feed"],
+      "all",
+      24,
+    );
+  });
+
   test("fetchAndCacheFeedArticlesBatch omits unchanged cached feeds from article payloads", async () => {
     const lastFetchedAt = new Date("2026-03-14T12:00:00.000Z");
     setFeedFetcherDependenciesForTesting({
@@ -350,6 +376,50 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     expect(result.articles.size).toBe(0);
     expect(result.unchangedUrls).toEqual(new Set(["https://example.com/feed"]));
+  });
+
+  test("fetchAndCacheFeedArticlesBatch does not mark limited requests as unchanged", async () => {
+    const lastFetchedAt = new Date("2026-03-14T12:00:00.000Z");
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      getCachedBatch: mock(() => null),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed",
+            createFeedRecord({
+              id: 1,
+              lastFetched: lastFetchedAt,
+              url: "https://example.com/feed",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed"],
+      {
+        articleLimit: 24,
+        knownLastFetchedAtByUrl: new Map([
+          ["https://example.com/feed", lastFetchedAt],
+        ]),
+        skipRefresh: true,
+      },
+    );
+
+    expect(result.unchangedUrls.size).toBe(0);
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
+      mockDb,
+      1,
+      [1],
+      "all",
+      24,
+    );
   });
 
   test("fetchAndCacheFeedArticlesBatch queries only feeds whose timestamps changed", async () => {
@@ -407,6 +477,48 @@ describe("Feed Fetcher - Batch Operations", () => {
       1,
       [2],
       "all",
+      500,
+    );
+  });
+
+  test("fetchAndCacheFeedArticlesBatch forwards an explicit article limit to the ranked query", async () => {
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map<string, string>(),
+        refreshedCount: 0,
+        refreshedUrls: new Set<string>(),
+      })),
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed-a", []]]),
+      ),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed-a"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed-a",
+            createFeedRecord({
+              id: 1,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-a",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(mockDb, 1, ["https://example.com/feed-a"], {
+      articleLimit: 12,
+    });
+
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
+      mockDb,
+      1,
+      [1],
+      "all",
+      12,
     );
   });
 

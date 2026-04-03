@@ -1,7 +1,10 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { buildFeedListArticle } from "./feed-list-test-utils";
+import { buildFeedListArticle ,
+  installFeedListDomMocks,
+  restoreFeedListDomMocks,
+} from "./feed-list-test-utils";
 
 const articleRenderCounts = new Map<string, number>();
 let FeedArticleRow: typeof import("../src/app/dashboard/components/feed/FeedArticleRow").FeedArticleRow;
@@ -9,6 +12,7 @@ let FeedArticleRow: typeof import("../src/app/dashboard/components/feed/FeedArti
 beforeEach(async () => {
   articleRenderCounts.clear();
   mock.restore();
+  installFeedListDomMocks();
   mock.module("../src/app/dashboard/components/ArticleCard", () => ({
     ArticleCard: ({ articleKey }: { articleKey: string }) => {
       articleRenderCounts.set(
@@ -19,17 +23,13 @@ beforeEach(async () => {
       return <article data-article-key={articleKey}>{articleKey}</article>;
     },
   }));
-  mock.module("../src/app/dashboard/components/feed/FeedListRow", () => ({
-    FeedListRow: ({ articleKey, children }: { articleKey: string; children: React.ReactNode }) => (
-      <div data-scroll-restore-key={articleKey}>{children}</div>
-    ),
-  }));
   ({ FeedArticleRow } = await import("../src/app/dashboard/components/feed/FeedArticleRow"));
 });
 
 afterEach(() => {
   articleRenderCounts.clear();
   mock.restore();
+  restoreFeedListDomMocks();
 });
 
 describe("FeedList row render fan-out", () => {

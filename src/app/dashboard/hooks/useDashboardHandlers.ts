@@ -24,6 +24,7 @@ import {
  * services, binding the current selection context with sidebar UI state changes.
  */
 type UseDashboardHandlersOptions = FeedSelectionFetchers & {
+  articleLimit?: FeedFetchOptions["articleLimit"];
   /** Optional hook invoked immediately before a refresh starts, typically to capture scroll state. */
   onBeforeRefresh?: () => void;
   /** Silently warms the synthetic all-feeds selection. */
@@ -55,6 +56,7 @@ type UseDashboardHandlersOptions = FeedSelectionFetchers & {
  * @returns Stable callbacks for feed/category clicks and refresh actions.
  */
 export function useDashboardHandlers({
+  articleLimit,
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
@@ -73,18 +75,20 @@ export function useDashboardHandlers({
     async (options?: {
       forceResolveUpstream?: FeedFetchOptions["forceResolveUpstream"];
     }) => {
-    await refreshDashboardSelection({
-      fetchAllFeeds,
-      fetchCategoryFeeds,
-      fetchFeed,
-      forceResolveUpstream: options?.forceResolveUpstream,
-      onBeforeRefresh,
-      selectedCategory,
-      selectedCategoryNode,
-      selectedFeedUrl,
-    });
+      await refreshDashboardSelection({
+        articleLimit,
+        fetchAllFeeds,
+        fetchCategoryFeeds,
+        fetchFeed,
+        forceResolveUpstream: options?.forceResolveUpstream,
+        onBeforeRefresh,
+        selectedCategory,
+        selectedCategoryNode,
+        selectedFeedUrl,
+      });
     },
     [
+      articleLimit,
       onBeforeRefresh,
       selectedCategory,
       selectedFeedUrl,
@@ -98,6 +102,7 @@ export function useDashboardHandlers({
   /** Performs a background or interval-driven refresh of the current selection. */
   const handleAutoRefreshSelection = useCallback(async () => {
     await autoRefreshDashboardSelection({
+      articleLimit,
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
@@ -107,6 +112,7 @@ export function useDashboardHandlers({
       selectedFeedUrl,
     });
   }, [
+    articleLimit,
     onBeforeRefresh,
     selectedCategory,
     selectedFeedUrl,
@@ -125,23 +131,25 @@ export function useDashboardHandlers({
   const handleFeedClick = useCallback(
     (feedNode: CategoryTreeNode) => {
       selectDashboardFeed(feedNode, {
+        articleLimit,
         fetchFeed,
         setIsMobileSidebarOpen,
         setSelectedCategory,
       });
     },
-    [setSelectedCategory, setIsMobileSidebarOpen, fetchFeed],
+    [articleLimit, fetchFeed, setIsMobileSidebarOpen, setSelectedCategory],
   );
 
   /** Prefetches a feed on hover/focus so selection can reuse a warm query. */
   const handleFeedPrefetch = useCallback(
     (feedNode: CategoryTreeNode) => {
       prefetchDashboardFeed(feedNode, {
+        articleLimit,
         prefetchFeed,
         selectedCategory,
       });
     },
-    [prefetchFeed, selectedCategory],
+    [articleLimit, prefetchFeed, selectedCategory],
   );
 
   /**
@@ -153,6 +161,7 @@ export function useDashboardHandlers({
   const handleCategoryClick = useCallback(
     (categoryNode: CategoryTreeNode) => {
       selectDashboardCategory(categoryNode, {
+        articleLimit,
         fetchAllFeeds,
         fetchCategoryFeeds,
         setIsMobileSidebarOpen,
@@ -160,6 +169,7 @@ export function useDashboardHandlers({
       });
     },
     [
+      articleLimit,
       setSelectedCategory,
       setIsMobileSidebarOpen,
       fetchAllFeeds,
@@ -171,12 +181,13 @@ export function useDashboardHandlers({
   const handleCategoryPrefetch = useCallback(
     (categoryNode: CategoryTreeNode) => {
       prefetchDashboardCategory(categoryNode, {
+        articleLimit,
         prefetchAllFeeds,
         prefetchCategoryFeeds,
         selectedCategory,
       });
     },
-    [prefetchAllFeeds, prefetchCategoryFeeds, selectedCategory],
+    [articleLimit, prefetchAllFeeds, prefetchCategoryFeeds, selectedCategory],
   );
 
   /**

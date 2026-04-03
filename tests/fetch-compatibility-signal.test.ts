@@ -1,44 +1,17 @@
-import type { AxiosError, AxiosResponse } from "axios";
-
 import { describe, expect, test } from "bun:test";
 
 import {
   detectResponseCompatibilitySignal,
-  detectSourceCompatibilitySignal,
   pickDiagnosticHeaders,
 } from "@/lib/fetch";
 
-function createAxiosError(
-  status: number,
-  data?: string,
-  headers?: Record<string, unknown>,
-): AxiosError {
-  const error = new Error(
-    `Request failed with status code ${status}`,
-  ) as AxiosError;
-  error.isAxiosError = true;
-  error.response = {
-    config: {} as AxiosResponse["config"],
-    data,
-    headers,
-    status,
-    statusText: status === 429 ? "Too Many Requests" : "Forbidden",
-  } as AxiosResponse;
-  return error;
-}
-
-function isAxiosError<T = unknown, D = unknown>(
-  payload: unknown,
-): payload is AxiosError<T, D> {
-  return Boolean(
-    payload &&
-      typeof payload === "object" &&
-      "isAxiosError" in payload &&
-      (payload as AxiosError).isAxiosError === true,
-  );
-}
-
 describe("fetch/compatibility-signal", () => {
+  test("treats non-challenge statuses as non-retryable and undetected", () => {
+    expect(
+      detectResponseCompatibilitySignal(200, { server: "nginx" }, "ok"),
+    ).toEqual({ retryable: false, signal: { detected: false } });
+  });
+
   test("detects DataDome responses and keeps challenge cookies", () => {
     const result = detectResponseCompatibilitySignal(
       403,
@@ -124,19 +97,6 @@ describe("fetch/compatibility-signal", () => {
 
     expect(generic403).toEqual({ retryable: true, signal: { detected: false } });
     expect(generic429).toEqual({ retryable: true, signal: { detected: false } });
-  });
-
-  test("detectSourceCompatibilitySignal classifies axios-style errors", () => {
-    const result = detectSourceCompatibilitySignal(
-      createAxiosError(403, "<html>px-captcha challenge</html>", {}),
-      isAxiosError,
-    );
-
-    expect(result.retryable).toBe(false);
-    expect(result.signal.detected).toBe(true);
-    if (result.signal.detected) {
-      expect(result.signal.provider).toBe("PerimeterX");
-    }
   });
 
   test("pickDiagnosticHeaders keeps challenge diagnostics and counts cookies", () => {

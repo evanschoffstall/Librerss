@@ -1,4 +1,3 @@
-import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
@@ -20,7 +19,6 @@ import {
   updateFeedSettingsForUser,
 } from "@/lib/api/feeds/repository";
 import {
-  buildAxiosFailureDiagnostics,
   isVerboseLoggingEnabled,
   jsonError,
   parseJsonObjectBodyOrResponse,
@@ -31,6 +29,7 @@ import {
   isUpstreamFeedError,
 } from "@/lib/core/feed-fetcher";
 import { getDb } from "@/lib/db/db";
+import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "@/lib/fetch";
 import { logger } from "@/lib/logger";
 import { createFeed, deleteFeed, logAndRespondError, renameFeed, requireAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError, setFeedEnabled, updateFeedSettings } from "@/lib/server";
 import { toErrorMessage } from "@/lib/utils/errors";
@@ -49,7 +48,6 @@ interface FeedRouteDeps {
   getDbFn?: typeof getDb;
   getRequestedFeedUrlFn?: typeof getRequestedFeedUrl;
   handleFeedReadFn?: typeof handleFeedRead;
-  isAxiosErrorFn?: typeof axios.isAxiosError;
   isFeedSourceNotFoundErrorFn?: typeof isFeedSourceNotFoundError;
   isUpstreamFeedErrorFn?: typeof isUpstreamFeedError;
   jsonErrorFn?: typeof jsonError;
@@ -288,7 +286,6 @@ function handleUpstreamFeedError(
   const isSourceNotFound =
     deps.isFeedSourceNotFoundErrorFn ?? isFeedSourceNotFoundError;
   const isUpstreamError = deps.isUpstreamFeedErrorFn ?? isUpstreamFeedError;
-  const isAxiosError = deps.isAxiosErrorFn ?? axios.isAxiosError;
   const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
   const toJsonError = deps.jsonErrorFn ?? jsonError;
   const warn =
@@ -317,21 +314,24 @@ function handleUpstreamFeedError(
     return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
   }
 
-  if (isAxiosError(error)) {
-    const status = 502;
-    const label = "Bad Gateway";
+  if (error instanceof HttpCloakUpstreamError) {
     warn(
-      `Returning ${status} ${label} — upstream feed request failed${urlSuffix}: ${toMessage(error)}`,
+      `Returning 502 Bad Gateway — upstream feed HTTPCloak request failed${urlSuffix}: ${toMessage(error)}`,
       {
         feedAttemptId,
         requestId,
+        responseHeaders: pickDiagnosticHeaders(error.responseHeaders),
+        statusCode: error.statusCode,
         url: safeUrl,
         ...(verboseLoggingEnabled
-          ? buildAxiosFailureDiagnostics(error, isAxiosError)
+          ? {
+              redirectHop: error.redirectHop,
+              requestHeaders: error.requestHeaders,
+            }
           : {}),
       },
     );
-    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, status);
+    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
   }
 
   return null;

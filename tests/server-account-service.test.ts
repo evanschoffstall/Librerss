@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 let accountServiceImportVersion = 0;
 
@@ -10,6 +10,10 @@ async function loadAccountServiceModule() {
 }
 
 afterEach(() => {
+  mock.restore();
+});
+
+beforeEach(() => {
   mock.restore();
 });
 
@@ -131,4 +135,103 @@ describe("server account service", () => {
     expect(payload.user.hasProxyPassword).toBe(true);
     expect(info).toHaveBeenCalledTimes(1);
   });
+
+  test("exportAccountData throws when the user record is missing", async () => {
+    const results = [[], [], [], [], []];
+    const limitCallIndexes = new Set([0, 3]);
+    let selectCall = 0;
+
+    const db = {
+      select: () => {
+        const callIndex = selectCall;
+        const result = results[selectCall] ?? [];
+        selectCall += 1;
+
+        return {
+          from: () => ({
+            innerJoin: () => ({
+              innerJoin: () => ({
+                where: () => Promise.resolve(result),
+              }),
+            }),
+            where: () =>
+              limitCallIndexes.has(callIndex)
+                ? {
+                    limit: () => Promise.resolve(result),
+                  }
+                : Promise.resolve(result),
+          }),
+        };
+      },
+    };
+
+    const { exportAccountData } = await loadAccountServiceModule();
+
+    await expect(
+      exportAccountData(7, {
+        getDbFn: () => db,
+      }),
+    ).rejects.toMatchObject({
+      message: "Account not found",
+      status: 404,
+    });
+  });
+
+  test("exportAccountData reports legacy embedded proxy credentials even without a stored password", async () => {
+    const legacyProxyUsername = "legacy-user";
+    const legacyProxyPassword = "legacy-pass";
+    const results = [
+      [
+        {
+          allowInsecureTls: false,
+          createdAt: new Date("2024-01-01T00:00:00.000Z"),
+          email: "reader@example.com",
+          lastForceRefreshedAt: null,
+          proxyPassword: null,
+          proxyUrl: `http://${legacyProxyUsername}:${legacyProxyPassword}@example-proxy.test:8080`,
+          proxyUsername: null,
+        },
+      ],
+      [],
+      [],
+      [],
+      [],
+    ];
+    const limitCallIndexes = new Set([0, 3]);
+    let selectCall = 0;
+
+    const db = {
+      select: () => {
+        const callIndex = selectCall;
+        const result = results[selectCall] ?? [];
+        selectCall += 1;
+
+        return {
+          from: () => ({
+            innerJoin: () => ({
+              innerJoin: () => ({
+                where: () => Promise.resolve(result),
+              }),
+            }),
+            where: () =>
+              limitCallIndexes.has(callIndex)
+                ? {
+                    limit: () => Promise.resolve(result),
+                  }
+                : Promise.resolve(result),
+          }),
+        };
+      },
+    };
+
+    const { exportAccountData } = await loadAccountServiceModule();
+    const payload = await exportAccountData(7, {
+      getDbFn: () => db,
+    });
+
+    expect(payload.user.hasProxyPassword).toBe(true);
+    expect(payload.user.proxyUrl).toBe("http://example-proxy.test:8080");
+    expect(payload.user.proxyUsername).toBe("legacy-user");
+  });
+
 });

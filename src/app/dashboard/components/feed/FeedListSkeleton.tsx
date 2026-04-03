@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +19,17 @@ const FEED_ARTICLE_SKELETONS: FeedArticleSkeletonDescriptor[] = [
   { bodyWidth: "w-[90%]", metaSourceWidth: "w-14", titleWidths: ["w-[84%]", "w-[61%]"] },
   { bodyWidth: "w-[96%]", metaSourceWidth: "w-16", titleWidths: ["w-[90%]", "w-[58%]"] },
 ];
+const DEFAULT_FEED_LIST_SKELETON_COUNT = FEED_ARTICLE_SKELETONS.length;
+const MIN_FEED_LIST_SKELETON_COUNT = 1;
+const FEED_LIST_SKELETON_OVERFLOW_ROW_COUNT = 1;
+
+interface FeedListSkeletonProps {
+  isInvertedScroll?: boolean;
+}
+
+interface FeedLoadMoreSkeletonRowsProps {
+  count: number;
+}
 
 /**
  * Article-list loading surface that mirrors the collapsed article-card DOM.
@@ -26,22 +39,140 @@ const FEED_ARTICLE_SKELETONS: FeedArticleSkeletonDescriptor[] = [
  * and single-line preview — so the first hydrated frame does not shift wrapper
  * spacing, header rails, or preview rhythm when real articles replace them.
  */
-export function FeedListSkeleton() {
+export function FeedListSkeleton({
+  isInvertedScroll = false,
+}: FeedListSkeletonProps) {
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [usesMobileBottomUpFallback, setUsesMobileBottomUpFallback] = useState(true);
+  const [skeletonCount, setSkeletonCount] = useState(
+    DEFAULT_FEED_LIST_SKELETON_COUNT,
+  );
+
+  useEffect(() => {
+    setUsesMobileBottomUpFallback(isInvertedScroll);
+  }, [isInvertedScroll]);
+
+  useLayoutEffect(() => {
+    const listElement = listRef.current;
+
+    if (!listElement) {
+      return;
+    }
+
+    const viewportElement = listElement.closest<HTMLElement>(
+      "[data-feed-scroll-viewport='true'], [data-radix-scroll-area-viewport]",
+    );
+
+    if (!viewportElement) {
+      return;
+    }
+
+    let animationFrameId = 0;
+    let resizeObserver: null | ResizeObserver = null;
+
+    const measureSkeletonCount = () => {
+      const firstSkeletonRow = listElement.querySelector<HTMLElement>(
+        "[data-dashboard-feed-list-skeleton-item='true']",
+      );
+
+      if (!firstSkeletonRow) {
+        return;
+      }
+
+      const viewportHeight = Math.floor(
+        viewportElement.clientHeight || viewportElement.getBoundingClientRect().height,
+      );
+      const skeletonRowHeight = Math.ceil(
+        firstSkeletonRow.getBoundingClientRect().height || firstSkeletonRow.offsetHeight,
+      );
+
+      if (viewportHeight <= 0 || skeletonRowHeight <= 0) {
+        return;
+      }
+
+      const listStyles = getComputedStyle(listElement);
+      const rawRowGap = Number.parseFloat(listStyles.rowGap || listStyles.gap || "0");
+      const rowGap = Number.isFinite(rawRowGap) && rawRowGap > 0 ? rawRowGap : 0;
+      const nextCount = resolveFeedListSkeletonCount({
+        rowGap,
+        skeletonRowHeight,
+        viewportHeight,
+      });
+
+      setSkeletonCount((currentCount) =>
+        currentCount === nextCount ? currentCount : nextCount,
+      );
+    };
+
+    const scheduleMeasurement = () => {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        measureSkeletonCount();
+      });
+    };
+
+    measureSkeletonCount();
+
+    if (typeof ResizeObserver === "function") {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleMeasurement();
+      });
+      resizeObserver.observe(viewportElement);
+      resizeObserver.observe(listElement);
+
+      const firstSkeletonRow = listElement.querySelector<HTMLElement>(
+        "[data-dashboard-feed-list-skeleton-item='true']",
+      );
+
+      if (firstSkeletonRow) {
+        resizeObserver.observe(firstSkeletonRow);
+      }
+    }
+
+    window.addEventListener("resize", scheduleMeasurement);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleMeasurement);
+    };
+  }, [skeletonCount]);
+
   return (
     <div
       className={cn(
-        "relative grid grid-cols-1 gap-1.5",
+        "relative flex h-full min-h-0 min-w-0 flex-col gap-1.5",
         DASHBOARD_FEED_WIDTH_CLASS_NAME,
+        usesMobileBottomUpFallback ? "max-sm:justify-end" : null,
+        isInvertedScroll ? "justify-end" : null,
       )}
       data-dashboard-feed-list-skeleton="true"
+      data-dashboard-feed-list-skeleton-count={String(skeletonCount)}
+      ref={listRef}
     >
-      {FEED_ARTICLE_SKELETONS.map((descriptor, index) => (
-        <div data-dashboard-feed-list-skeleton-item="true" key={index}>
-          <FeedArticleCardSkeleton descriptor={descriptor} />
-        </div>
-      ))}
+      <FeedLoadMoreSkeletonRows count={skeletonCount} />
     </div>
   );
+}
+
+/**
+ * Reuses the article-card skeleton anatomy for incremental page loads.
+ *
+ * The placeholder count is caller-controlled so load-more flows can reserve the
+ * exact next page footprint and grow the scrollbar immediately.
+ */
+export function FeedLoadMoreSkeletonRows({
+  count,
+}: FeedLoadMoreSkeletonRowsProps) {
+  return Array.from({ length: count }, (_value, index) => {
+    const descriptor = FEED_ARTICLE_SKELETONS[index % FEED_ARTICLE_SKELETONS.length];
+
+    return (
+      <div data-dashboard-feed-list-skeleton-item="true" key={index}>
+        <FeedArticleCardSkeleton descriptor={descriptor} />
+      </div>
+    );
+  });
 }
 
 /**
@@ -136,5 +267,30 @@ function FeedArticleCardSkeleton({
         </div>
       </article>
     </div>
+  );
+}
+
+/**
+ * Returns the minimum skeleton count that fills the viewport plus one hidden row.
+ *
+ * The extra row keeps the loading surface from ending exactly on the fold while
+ * still limiting the off-screen reserve to a single article footprint.
+ */
+function resolveFeedListSkeletonCount({
+  rowGap,
+  skeletonRowHeight,
+  viewportHeight,
+}: {
+  rowGap: number;
+  skeletonRowHeight: number;
+  viewportHeight: number;
+}) {
+  const visibleRowCount = Math.floor(
+    (viewportHeight + rowGap) / (skeletonRowHeight + rowGap),
+  );
+
+  return Math.max(
+    MIN_FEED_LIST_SKELETON_COUNT,
+    visibleRowCount + FEED_LIST_SKELETON_OVERFLOW_ROW_COUNT,
   );
 }

@@ -467,50 +467,7 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
   });
 });
 
-// ─── 7. CSP includes form-action and worker-src ───────────────────────────────
-
-describe("buildCspHeader from lib/server/csp", () => {
-  test("CSP includes form-action 'self'", async () => {
-    const { buildCspHeader } = await import("@/lib/server/csp");
-    const scriptNonce = "test-script-nonce";
-    const styleNonce = "test-style-nonce";
-    const cspValue = buildCspHeader(scriptNonce, styleNonce);
-
-    expect(cspValue).toContain("form-action 'self'");
-  });
-
-  test("CSP includes worker-src 'self'", async () => {
-    const { buildCspHeader } = await import("@/lib/server/csp");
-    const scriptNonce = "test-script-nonce";
-    const styleNonce = "test-style-nonce";
-    const cspValue = buildCspHeader(scriptNonce, styleNonce);
-
-    expect(cspValue).toContain("worker-src 'self'");
-  });
-
-  test("CSP uses nonces for script-src and style-src", async () => {
-    const { buildCspHeader } = await import("@/lib/server/csp");
-    const scriptNonce = "test-script-nonce-123";
-    const styleNonce = "test-style-nonce-456";
-    const cspValue = buildCspHeader(scriptNonce, styleNonce);
-
-    expect(cspValue).toContain(`script-src 'self' 'nonce-${scriptNonce}'`);
-    expect(cspValue).toContain(
-      `style-src 'self' 'nonce-${styleNonce}' 'unsafe-inline'`,
-    );
-  });
-
-  test("CSP includes strict-dynamic for script-src", async () => {
-    const { buildCspHeader } = await import("@/lib/server/csp");
-    const scriptNonce = "test-script-nonce";
-    const styleNonce = "test-style-nonce";
-    const cspValue = buildCspHeader(scriptNonce, styleNonce);
-
-    expect(cspValue).toContain("'strict-dynamic'");
-  });
-});
-
-// ─── 8. CSRF evidence and JSON body-size limits ─────────────────────────────
+// ─── 7. CSRF evidence and JSON body-size limits ─────────────────────────────
 
 describe("requireSameOrigin", () => {
   test("rejects unsafe request when both Origin and Referer are missing", async () => {
@@ -619,37 +576,6 @@ describe("parseFormOrQueryParams", () => {
     if (result instanceof Response) {
       expect(result.status).toBe(413);
     }
-  });
-});
-
-describe("stream condition hardening", () => {
-  test("buildStreamConditions applies older-than filters with <, not >=", async () => {
-    const { buildStreamConditions } =
-      await import("@/lib/core/stream-conditions");
-
-    const dateFilter = new Date("2024-01-01T00:00:00.000Z");
-    const conditions = buildStreamConditions({
-      continuationId: null,
-      dateFilter,
-      feedUrl: null,
-      starredOnly: false,
-      useArticleStatuses: false,
-    });
-
-    expect(conditions.length).toBe(1);
-
-    const queryChunks = (
-      conditions[0] as unknown as { queryChunks?: { value?: string[] }[] }
-    ).queryChunks;
-
-    const operators = (queryChunks ?? [])
-      .flatMap((chunk) => chunk.value ?? [])
-      .filter((token): token is string => typeof token === "string")
-      .map((token) => token.trim())
-      .filter(Boolean);
-
-    expect(operators).toContain("<");
-    expect(operators).not.toContain(">=");
   });
 });
 

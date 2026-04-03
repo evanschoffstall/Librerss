@@ -13,10 +13,12 @@ function areFeedArticleRowPropsEqual(
     previousProps.articleKey === nextProps.articleKey &&
     previousProps.hasScrapedContent === nextProps.hasScrapedContent &&
     previousProps.isDark === nextProps.isDark &&
+    previousProps.isEntering === nextProps.isEntering &&
     previousProps.isExpanded === nextProps.isExpanded &&
     previousProps.isHydrating === nextProps.isHydrating &&
     previousProps.isMobile === nextProps.isMobile &&
     previousProps.isUpdatingState === nextProps.isUpdatingState &&
+    previousProps.onEnteringDone === nextProps.onEnteringDone &&
     previousProps.onExpandedSwipeRead === nextProps.onExpandedSwipeRead &&
     previousProps.onPrepareExpand === nextProps.onPrepareExpand &&
     previousProps.onSwipeRead === nextProps.onSwipeRead &&
@@ -34,11 +36,13 @@ export const FeedArticleRow = memo(function FeedArticleRow({
   articleKey,
   hasScrapedContent,
   isDark,
+  isEntering,
   isExpanded,
   isHydrating,
   isLastRow,
   isMobile,
   isUpdatingState,
+  onEnteringDone,
   onExpandedSwipeRead,
   onPrepareExpand,
   onSwipeRead,
@@ -53,6 +57,9 @@ export const FeedArticleRow = memo(function FeedArticleRow({
     <FeedListRow
       articleKey={articleKey}
       hasTrailingGap={!isLastRow}
+      isEntering={isEntering}
+      isExpanded={isExpanded}
+      onEnteringDone={onEnteringDone}
       removalAnimationMode={removalAnimationMode}
     >
       <ArticleCard

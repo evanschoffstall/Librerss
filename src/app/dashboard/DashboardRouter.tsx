@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService, AuthSession, AuthUser, useLocalStorage } from "@/lib";
+import { AuthService, AuthSession, useLocalStorage } from "@/lib";
 
 import {
   ParticlesBackground,
@@ -21,20 +21,25 @@ import {
 } from "./components/DashboardScaffold";
 import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
 import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
+import { DevAutoLoginRedirect } from "./components/login/DevAutoLoginRedirect";
 import { LoginView } from "./components/login/LoginView";
-import { BackgroundMode, DASHBOARD_EVENTS, DASHBOARD_PREVIEW_STORAGE_KEY } from "./constants";
+import { BackgroundMode, DASHBOARD_EVENTS } from "./constants";
 import { DashboardView } from "./DashboardView";
 import { setDashboardPreviewPersistence } from "./preview-mode";
 import { DashboardQueryProvider } from "./providers/DashboardQueryProvider";
 
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;
+  initialAutoLoginPath?: string;
+  initialLoginErrorMessage?: string;
   initialPreviewMode: boolean;
   initialSession?: AuthSession;
 }
 
 export function DashboardRouter({
   hasPreviewQuery,
+  initialAutoLoginPath,
+  initialLoginErrorMessage,
   initialPreviewMode,
   initialSession,
 }: DashboardRouterProps) {
@@ -42,7 +47,7 @@ export function DashboardRouter({
   const [isSessionLoading, setIsSessionLoading] = useState(
     initialSession === undefined && !initialPreviewMode,
   );
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(
+  const [currentUser, setCurrentUser] = useState(
     initialSession?.authenticated === true ? initialSession.user : null,
   );
   const [allowSignup, setAllowSignup] = useState(
@@ -51,16 +56,13 @@ export function DashboardRouter({
   const [usePlaceholderData, setUsePlaceholderData] = useState(
     initialSession?.usePlaceholderData ?? false,
   );
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
-    DASHBOARD_PREVIEW_STORAGE_KEY,
-    initialPreviewMode,
-  );
+  const [isPreviewMode, setIsPreviewMode] = useState(initialPreviewMode);
   const { resolvedTheme } = useTheme();
   const [backgroundMode, setBackgroundMode] = useLocalStorage<BackgroundMode>(
     "librerss:backgroundMode",
     "particles",
   );
-  const [distillStrategy, setDistillStrategy] = useLocalStorage<string>(
+  const [distillStrategy, setDistillStrategy] = useLocalStorage(
     "librerss:distillStrategy",
     "librerss",
   );
@@ -75,6 +77,10 @@ export function DashboardRouter({
   const resolvedDistillStrategy = hasHydratedClientState
     ? distillStrategy
     : "librerss";
+  const shouldAutoLogin =
+    Boolean(initialAutoLoginPath) &&
+    !currentUser &&
+    !resolvedPreviewMode;
 
   useEffect(() => {
     setHasHydratedClientState(true);
@@ -86,12 +92,25 @@ export function DashboardRouter({
     }
 
     setIsPreviewMode(true);
-    setDashboardPreviewPersistence(true);
     window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.ENTER_PREVIEW));
   }, [initialPreviewMode, setIsPreviewMode]);
 
   useEffect(() => {
+    if (!hasHydratedClientState || hasPreviewQuery) {
+      return;
+    }
+
+    setIsPreviewMode(false);
+    setDashboardPreviewPersistence(false);
+  }, [hasHydratedClientState, hasPreviewQuery]);
+
+  useEffect(() => {
     if (!hasHydratedClientState) {
+      return;
+    }
+
+    if (shouldAutoLogin) {
+      setIsSessionLoading(false);
       return;
     }
 
@@ -112,13 +131,6 @@ export function DashboardRouter({
 
         setAllowSignup(session.allowSignup);
         setUsePlaceholderData(session.usePlaceholderData);
-        if (
-          session.authenticated ||
-          (session.allowSignup && !hasPreviewQuery)
-        ) {
-          setIsPreviewMode(false);
-          setDashboardPreviewPersistence(false);
-        }
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
         if (isCanceled) {
@@ -144,11 +156,11 @@ export function DashboardRouter({
     hasPreviewQuery,
     resolvedPreviewMode,
     setIsPreviewMode,
+    shouldAutoLogin,
   ]);
 
   const handleEnterPreview = () => {
     setIsPreviewMode(true);
-    setDashboardPreviewPersistence(true);
     window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.ENTER_PREVIEW));
     window.location.assign("/dashboard?explore=1");
   };
@@ -167,10 +179,10 @@ export function DashboardRouter({
           aria-busy="true"
           aria-label="Loading dashboard"
           className="h-full overflow-hidden bg-background"
-          exit={{ filter: "blur(4px)", opacity: 0, scale: 0.98 }}
+          exit={{ opacity: 0, scale: 0.995 }}
           initial={{ opacity: 1, scale: 1 }}
           key={viewKey}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
         >
           <div className="relative h-full overflow-hidden">
             <div
@@ -203,11 +215,16 @@ export function DashboardRouter({
           key={viewKey}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
-          <LoginView
-            allowSignup={allowSignup}
-            onAuthenticated={setCurrentUser}
-            onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
-          />
+          {shouldAutoLogin && initialAutoLoginPath ? (
+            <DevAutoLoginRedirect autoLoginPath={initialAutoLoginPath} />
+          ) : (
+            <LoginView
+              allowSignup={allowSignup}
+              initialFormError={initialLoginErrorMessage}
+              onAuthenticated={setCurrentUser}
+              onEnterPreview={!allowSignup ? handleEnterPreview : undefined}
+            />
+          )}
         </motion.main>
       ) : (
         <motion.main

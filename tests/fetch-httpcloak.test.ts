@@ -3,16 +3,10 @@ import * as zlib from "zlib";
 
 import {
   fetchHtmlWithHttpCloak,
-  upstreamAxios,
 } from "@/lib/fetch/httpcloak-client";
 import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 describe("fetch/httpcloak-client", () => {
-  test("exports an axios fallback client", () => {
-    expect(upstreamAxios).toBeDefined();
-    expect(typeof upstreamAxios.get).toBe("function");
-  });
-
   test("does not inject custom request headers into httpcloak", async () => {
     let capturedHeaders: Record<string, string> | undefined;
     const requestFn = mock(async (_url: URL, headers: Record<string, string>) => {

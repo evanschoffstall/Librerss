@@ -12,7 +12,6 @@ import pluginReactHooks from "eslint-plugin-react-hooks";
 import pluginRegexp from "eslint-plugin-regexp";
 import pluginSecurity from "eslint-plugin-security";
 import pluginSonarjs from "eslint-plugin-sonarjs";
-import pluginTailwindcss from "eslint-plugin-tailwindcss";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import { globalIgnores } from "eslint/config";
@@ -81,11 +80,6 @@ const sourceTailwindSettings = {
     entryPoint: `${import.meta.dirname}/src/app/globals.css`,
     tsconfig: `${import.meta.dirname}/tsconfig.json`,
   },
-  tailwindcss: {
-    config: `${import.meta.dirname}/src/app/globals.css`,
-    cssFiles: [`${import.meta.dirname}/src/**/*.css`],
-    removeDuplicates: true,
-  },
 };
 const sourceTailwindRules = {
   "better-tailwindcss/enforce-canonical-classes": "error",
@@ -99,8 +93,6 @@ const sourceTailwindRules = {
   "better-tailwindcss/no-duplicate-classes": "error",
   "better-tailwindcss/no-restricted-classes": "error",
   "better-tailwindcss/no-unnecessary-whitespace": "error",
-  "tailwindcss/enforces-negative-arbitrary-values": "error",
-  "tailwindcss/no-unnecessary-arbitrary-value": "error",
 };
 const sourceTypeScriptRules = {
   "@typescript-eslint/no-base-to-string": "error",
@@ -240,7 +232,6 @@ export default [
       regexp: pluginRegexp,
       security: pluginSecurity,
       sonarjs: pluginSonarjs,
-      tailwindcss: pluginTailwindcss,
       unicorn: pluginUnicorn,
       "unused-imports": pluginUnusedImports,
     },

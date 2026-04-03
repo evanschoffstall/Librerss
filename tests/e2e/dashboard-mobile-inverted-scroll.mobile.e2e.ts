@@ -23,6 +23,8 @@ interface RenderedArticleState extends ArticleHeaderViewportOffsets {
 }
 
 const STABLE_HEADER_OFFSET_TOP_PX = 168;
+const MIN_STABLE_HEADER_OFFSET_TOP_PX = 96;
+const MIN_STABLE_HEADER_BOTTOM_CLEARANCE_PX = 120;
 
 /** Aligns an article header to the preferred stable offset before measuring expansion drift. */
 async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) {
@@ -34,37 +36,95 @@ async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) 
         return false;
       }
 
+      const targetHeaderTop = resolveStableHeaderOffsetTop(offsets.viewportHeight);
+      const stableHeaderTopMin = Math.max(48, targetHeaderTop - 72);
+      const stableHeaderTopMax = Math.max(
+        stableHeaderTopMin,
+        offsets.viewportHeight - MIN_STABLE_HEADER_BOTTOM_CLEARANCE_PX,
+      );
+
       if (
-        Math.abs(offsets.headerTop - STABLE_HEADER_OFFSET_TOP_PX) <=
-        STABLE_HEADER_POSITION_TOLERANCE_PX
+        offsets.headerTop >= stableHeaderTopMin &&
+        offsets.headerTop <= stableHeaderTopMax
       ) {
         return true;
       }
 
       await page.evaluate(
         ({ targetArticleKey, targetHeaderTop }) => {
-          const article = document.querySelector<HTMLElement>(
+          const candidate = [...document.querySelectorAll<HTMLElement>(
             `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
-          );
-          const header = article?.querySelector<HTMLElement>(
-            "[data-article-swipe-zone='header']",
-          );
-          const viewport = article?.closest<HTMLElement>(
-            "[data-radix-scroll-area-viewport]",
-          );
+          )]
+            .map((article) => {
+              const header = article.querySelector<HTMLElement>(
+                "[data-article-swipe-zone='header']",
+              );
+              const viewport = article.closest<HTMLElement>(
+                "[data-radix-scroll-area-viewport]",
+              );
 
-          if (!article || !header || !viewport) {
+              if (!header || !viewport) {
+                return null;
+              }
+
+              if (
+                !viewport.isConnected ||
+                viewport.getBoundingClientRect().height <= 0 ||
+                viewport.getBoundingClientRect().width <= 0 ||
+                window.getComputedStyle(viewport).visibility === "hidden"
+              ) {
+                return null;
+              }
+
+              const viewportRect = viewport.getBoundingClientRect();
+              const headerRect = header.getBoundingClientRect();
+              const headerTop = headerRect.top - viewportRect.top;
+              const headerBottom = headerRect.bottom - viewportRect.top;
+
+              return {
+                article,
+                header,
+                intersectsViewport:
+                  headerBottom > 0 && headerTop < viewport.clientHeight,
+                viewport,
+                visibleScore:
+                  Math.abs(Math.max(0, headerTop)) +
+                  Math.abs(
+                    Math.min(0, viewport.clientHeight - headerBottom),
+                  ),
+              };
+            })
+            .filter(
+              (
+                nextCandidate,
+              ): nextCandidate is NonNullable<typeof nextCandidate> =>
+                nextCandidate !== null,
+            )
+            .sort((left, right) => {
+              if (left.intersectsViewport !== right.intersectsViewport) {
+                return left.intersectsViewport ? -1 : 1;
+              }
+
+              return left.visibleScore - right.visibleScore;
+            })[0] ?? null;
+
+          if (!candidate) {
             return;
           }
 
+          const { header, viewport } = candidate;
           const viewportRect = viewport.getBoundingClientRect();
           const headerRect = header.getBoundingClientRect();
+          viewport.dispatchEvent(
+            new Event("touchmove", { bubbles: true, cancelable: true }),
+          );
           viewport.scrollTop +=
             (headerRect.top - viewportRect.top) - targetHeaderTop;
+          viewport.dispatchEvent(new Event("scroll"));
         },
         {
           targetArticleKey: articleKey,
-          targetHeaderTop: STABLE_HEADER_OFFSET_TOP_PX,
+          targetHeaderTop,
         },
       );
 
@@ -268,8 +328,12 @@ async function readStableVisibleArticleKey(page: Page) {
 
     const viewportRect = viewport.getBoundingClientRect();
     const viewportBottom = viewportRect.bottom;
-  const stableTop = viewportRect.top + targetHeaderTop - 72;
-    const stableBottom = viewportBottom - 180;
+    const resolvedTargetHeaderTop = Math.min(
+      targetHeaderTop,
+      Math.max(96, viewport.clientHeight - 120),
+    );
+    const stableTop = viewportRect.top + Math.max(48, resolvedTargetHeaderTop - 72);
+    const stableBottom = viewportRect.top + viewport.clientHeight - 120;
     const visibleArticles = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")]
       .map((article) => ({
         article,
@@ -291,8 +355,8 @@ async function readStableVisibleArticleKey(page: Page) {
           return leftInStableBand ? -1 : 1;
         }
 
-        return Math.abs(leftTop - (viewportRect.top + targetHeaderTop)) -
-          Math.abs(rightTop - (viewportRect.top + targetHeaderTop));
+        return Math.abs(leftTop - (viewportRect.top + resolvedTargetHeaderTop)) -
+          Math.abs(rightTop - (viewportRect.top + resolvedTargetHeaderTop));
       });
 
     const visibleArticle = visibleArticles[0]?.article ?? null;
@@ -303,6 +367,16 @@ async function readStableVisibleArticleKey(page: Page) {
 
     return visibleArticle.getAttribute("data-article-key");
   }, STABLE_HEADER_OFFSET_TOP_PX);
+}
+
+function resolveStableHeaderOffsetTop(viewportHeight: number) {
+  return Math.min(
+    STABLE_HEADER_OFFSET_TOP_PX,
+    Math.max(
+      MIN_STABLE_HEADER_OFFSET_TOP_PX,
+      viewportHeight - MIN_STABLE_HEADER_BOTTOM_CLEARANCE_PX,
+    ),
+  );
 }
 
 /** Scrolls the owning feed viewport with explicit user-scroll intent semantics. */
@@ -416,7 +490,6 @@ test.describe("dashboard mobile inverted scroll", () => {
   test("activates inverted scroll by default on mobile and anchors the feed at the bottom", async ({ page }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const invertedAttr = await readInvertedScrollAttribute(page);
     expect(invertedAttr).toBe("true");

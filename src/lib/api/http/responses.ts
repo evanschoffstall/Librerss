@@ -55,17 +55,3 @@ export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
     ...(parsedLastFetchedAt ? { lastFetchedAt: parsedLastFetchedAt } : {}),
   };
 }
-
-export function notFoundResponse(message = "Not found"): Response {
-  return jsonError(message, 404);
-}
-
-export function textResponse(body: string, status = 200): Response {
-  return new Response(body, {
-    headers: {
-      "cache-control": "no-store",
-      "content-type": "text/plain; charset=utf-8",
-    },
-    status,
-  });
-}

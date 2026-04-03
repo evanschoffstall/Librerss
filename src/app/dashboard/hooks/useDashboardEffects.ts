@@ -21,7 +21,9 @@ export function useDashboardEffects({
   fetchCategoryFeeds,
   fetchFeed,
   hasInitializedDashboardRef,
+  initialArticleLimit,
   isSearchPending,
+  isShellLoading,
   loadFeedSources,
   loading,
   loadingEpoch,
@@ -49,6 +51,7 @@ export function useDashboardEffects({
     fetchCategoryFeeds,
     fetchFeed,
     hasInitializedDashboardRef,
+    initialArticleLimit,
     loadFeedSources,
     selectedCategory,
     setIsCategoriesLoading,
@@ -56,6 +59,7 @@ export function useDashboardEffects({
   });
   useDashboardBroadcasts({
     isSearchPending,
+    isShellLoading,
     searchTerm,
     selectedFeed,
   });
