@@ -135,7 +135,7 @@ describe("api/http-client – createApiClient", () => {
         statusText: "Created",
       });
     });
-    const client = createApiClient(fetchMock as typeof fetch);
+    const client = createApiClient(fetchMock as unknown as typeof fetch);
 
     await expect(client.get<{ ok: boolean }>("https://example.com/json")).resolves.toEqual({
       data: { ok: true },
@@ -169,7 +169,7 @@ describe("api/http-client – createApiClient", () => {
         statusText: "No Content",
       });
     });
-    const client = createApiClient(fetchMock as typeof fetch);
+    const client = createApiClient(fetchMock as unknown as typeof fetch);
 
     const blobResponse = await client.get<Blob>("https://example.com/blob", {
       responseType: "blob",
@@ -185,7 +185,7 @@ describe("api/http-client – createApiClient", () => {
     const failingTransportClient = createApiClient(
       mock(async () => {
         throw new DOMException("aborted", "AbortError");
-      }) as typeof fetch,
+      }) as unknown as typeof fetch,
     );
 
     await expect(failingTransportClient.get("https://example.com/abort")).rejects.toMatchObject({
@@ -203,7 +203,7 @@ describe("api/http-client – createApiClient", () => {
           status: 429,
           statusText: "Too Many Requests",
         }),
-      ) as typeof fetch,
+      ) as unknown as typeof fetch,
     );
 
     await expect(failingResponseClient.get("https://example.com/rate-limit")).rejects.toBeInstanceOf(
