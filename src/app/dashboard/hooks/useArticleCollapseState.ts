@@ -35,7 +35,6 @@ export interface ArticleViewportSnapshot {
 }
 
 export type CollapsingArticles = Partial<Record<string, CollapsingArticleState>>;
-
 interface CollapseRestoreLayoutObserverOptions {
   articleKey: string;
   onLayoutChange: () => void;
@@ -47,6 +46,8 @@ interface CollapsingArticleState {
   index: number;
   mode: ArticleRemovalAnimationMode;
 }
+
+type RemovalAnimationTimeoutId = ReturnType<typeof setTimeout>;
 
 interface UseArticleCollapseStateOptions {
   feed: Article[];
@@ -68,9 +69,9 @@ export function getArticleRemovalAnimationDuration(
  * restoration from the higher-level article mutation workflow.
  */
 export function useArticleCollapseState({ feed }: UseArticleCollapseStateOptions) {
-  const collapseRemovalTimeoutsRef = useRef<
-    Map<string, ReturnType<typeof setTimeout>>
-  >(new Map());
+  const collapseRemovalTimeoutsRef = useRef(
+    new Map<string, RemovalAnimationTimeoutId>(),
+  );
   const collapseScrollRestoreCleanupRef = useRef<(() => void) | null>(null);
   const articleViewportSnapshotRef = useRef<ArticleViewportSnapshot | null>(null);
   const [isCollapseScrollRestoreActive, setIsCollapseScrollRestoreActive] =

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { ThemeNoticeDialog } from "@/components/ThemeNoticeDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService, AuthSession, AuthUser, useLocalStorage } from "@/lib";
+import { AuthService, AuthSession, useLocalStorage } from "@/lib";
 
 import {
   ParticlesBackground,
@@ -42,7 +42,7 @@ export function DashboardRouter({
   const [isSessionLoading, setIsSessionLoading] = useState(
     initialSession === undefined && !initialPreviewMode,
   );
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(
+  const [currentUser, setCurrentUser] = useState(
     initialSession?.authenticated === true ? initialSession.user : null,
   );
   const [allowSignup, setAllowSignup] = useState(
@@ -51,7 +51,7 @@ export function DashboardRouter({
   const [usePlaceholderData, setUsePlaceholderData] = useState(
     initialSession?.usePlaceholderData ?? false,
   );
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
+  const [isPreviewMode, setIsPreviewMode] = useLocalStorage(
     DASHBOARD_PREVIEW_STORAGE_KEY,
     initialPreviewMode,
   );
@@ -60,7 +60,7 @@ export function DashboardRouter({
     "librerss:backgroundMode",
     "particles",
   );
-  const [distillStrategy, setDistillStrategy] = useLocalStorage<string>(
+  const [distillStrategy, setDistillStrategy] = useLocalStorage(
     "librerss:distillStrategy",
     "librerss",
   );

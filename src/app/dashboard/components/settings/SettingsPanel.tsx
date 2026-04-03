@@ -117,7 +117,7 @@ export function SettingsPanel({
   showFavicons,
 }: SettingsPanelProps) {
   const isMobile = useIsMobile();
-  const [persistedTab, setPersistedTab] = useLocalStorage<string>(
+  const [persistedTab, setPersistedTab] = useLocalStorage(
     SETTINGS_PANEL_TAB_STORAGE_KEY,
     DEFAULT_TAB,
   );

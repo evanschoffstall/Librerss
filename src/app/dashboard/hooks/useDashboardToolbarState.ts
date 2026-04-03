@@ -20,7 +20,7 @@ export function useDashboardToolbarState() {
   const [search, setSearch] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useLocalStorage<boolean>(
+  const [isPreviewMode, setIsPreviewMode] = useLocalStorage(
     DASHBOARD_PREVIEW_STORAGE_KEY,
     false,
   );

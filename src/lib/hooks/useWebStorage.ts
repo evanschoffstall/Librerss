@@ -36,7 +36,7 @@ export function useWebStorage<T>(
   key: string,
   defaultValue: T,
 ): [T, Dispatch<SetStateAction<T>>] {
-  const [value, setValue] = useState<T>(defaultValue);
+  const [value, setValue] = useState(defaultValue);
   const shouldSkipNextWriteRef = useRef(true);
   const isEmittingRef = useRef(false);
 

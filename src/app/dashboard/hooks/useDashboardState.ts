@@ -10,7 +10,6 @@ import {
 
 import {
   type Article,
-  type CategoryTreeNode,
   useLocalStorage,
   useSessionState,
 } from "@/lib";
@@ -46,18 +45,18 @@ export function useDashboardState() {
   const [loading, setLoading] = useState(true);
   /** Sidebar category/feed tree currently available to the user. */
   const [categories, setCategories] =
-    useState<CategoryTreeNode[]>(INITIAL_CATEGORIES);
+    useState(INITIAL_CATEGORIES);
 
-  const categoriesRef = useRef<CategoryTreeNode[]>(INITIAL_CATEGORIES);
+  const categoriesRef = useRef(INITIAL_CATEGORIES);
   categoriesRef.current = categories;
 
   /** Persisted node key for the currently selected feed or category. */
-  const [selectedCategory, setSelectedCategory] = useLocalStorage<string>(
+  const [selectedCategory, setSelectedCategory] = useLocalStorage(
     "librerss:selectedCategory",
     ALL_FEEDS_NODE_KEY,
   );
   /** Session-scoped search text so refreshes in the same tab keep the active query. */
-  const [searchTerm, setSearchTerm] = useSessionState<string>(
+  const [searchTerm, setSearchTerm] = useSessionState(
     "librerss:searchTerm",
     "",
   );
@@ -66,7 +65,7 @@ export function useDashboardState() {
     null | string
   >("librerss:expandedArticleKey", null);
   /** Session-scoped settings modal visibility. */
-  const [showSettingsModal, setShowSettingsModal] = useSessionState<boolean>(
+  const [showSettingsModal, setShowSettingsModal] = useSessionState(
     "librerss:showSettingsModal",
     false,
   );
@@ -74,7 +73,7 @@ export function useDashboardState() {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   /** Mobile sidebar drawer state persisted for the current tab session. */
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] =
-    useSessionState<boolean>("librerss:isMobileSidebarOpen", false);
+    useSessionState("librerss:isMobileSidebarOpen", false);
 
   /** Persisted article visibility filter such as unread or starred. */
   const [articleFilter, setArticleFilter] = useLocalStorage<ArticleFilter>(
@@ -82,7 +81,7 @@ export function useDashboardState() {
     "unread",
   );
   /** Persisted preference for rendering feed favicons in the UI. */
-  const [showFavicons, setShowFavicons] = useLocalStorage<boolean>(
+  const [showFavicons, setShowFavicons] = useLocalStorage(
     "librerss:showFavicons",
     true,
   );
@@ -90,13 +89,13 @@ export function useDashboardState() {
   const [
     storedAutoRefreshIntervalMinutes,
     setStoredAutoRefreshIntervalMinutes,
-  ] = useLocalStorage<number>(
+  ] = useLocalStorage(
     AUTO_REFRESH_INTERVAL_STORAGE_KEY,
     defaultAutoRefreshIntervalMinutes,
   );
 
   /** Persisted articles-per-page for client-side infinite scroll pagination. */
-  const [articlesPerPage, setArticlesPerPage] = useLocalStorage<number>(
+  const [articlesPerPage, setArticlesPerPage] = useLocalStorage(
     "librerss:articlesPerPage",
     12,
   );

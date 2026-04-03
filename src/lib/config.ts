@@ -245,7 +245,7 @@ const resolveConfigValue = (key: string): unknown => {
  * Lazily-resolved server config. Every property access reads `process.env` at
  * call time through the Proxy getter — no values are captured at module load.
  */
-export const CONFIG = new Proxy<ConfigKeys & Record<string, unknown>>(
+export const CONFIG = new Proxy(
   {} as ConfigKeys & Record<string, unknown>,
   {
     get: (_target, property) => {

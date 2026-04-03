@@ -51,8 +51,8 @@ export default function BackgroundStars({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const context = useRef<CanvasRenderingContext2D | null>(null);
   const stars = useRef<Star[]>([]);
-  const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const canvasSize = useRef<{ h: number; w: number }>({ h: 0, w: 0 });
+  const mouse = useRef({ x: 0, y: 0 });
+  const canvasSize = useRef({ h: 0, w: 0 });
 
   const clearContext = useCallback(() => {
     if (!context.current) {
