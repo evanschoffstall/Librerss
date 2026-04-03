@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 describe("dashboard preview mode", () => {
-  test("resolveDashboardPreviewMode enables preview from query or cookie", async () => {
+  test("resolveDashboardPreviewMode enables preview only from the explore query", async () => {
     const {
       isDashboardPreviewModeEnabled,
       resolveDashboardPreviewMode,
@@ -12,17 +12,12 @@ describe("dashboard preview mode", () => {
     expect(isDashboardPreviewModeEnabled("0")).toBe(false);
     expect(
       resolveDashboardPreviewMode({
-        cookieValue: undefined,
-        hasPreviewQuery: true,
+        hasExploreQuery: true,
       }),
     ).toBe(true);
     expect(
-      resolveDashboardPreviewMode({ cookieValue: "1", hasPreviewQuery: false }),
-    ).toBe(true);
-    expect(
       resolveDashboardPreviewMode({
-        cookieValue: undefined,
-        hasPreviewQuery: false,
+        hasExploreQuery: false,
       }),
     ).toBe(false);
 

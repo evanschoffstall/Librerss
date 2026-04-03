@@ -162,9 +162,9 @@ describe("dashboard page dev auto-login bootstrap", () => {
     expect(markup).toContain('data-user-email="reader@example.com"');
   });
 
-  test("uses preview mode to suppress auto-login and boot an anonymous session", async () => {
+  test("uses the explore query to suppress auto-login and boot an anonymous session", async () => {
     mock.module("next/headers", () => ({
-      cookies: async () => createCookieStore({ dashboard_preview_mode: "1" }),
+      cookies: async () => createCookieStore({}),
     }));
     mock.module("@/lib/auth/session", () => ({
       getUserFromSessionToken: async () => {
@@ -214,7 +214,7 @@ describe("dashboard page dev auto-login bootstrap", () => {
     const { default: DashboardPage } = await loadDashboardPage();
     const markup = renderToStaticMarkup(
       await DashboardPage({
-        searchParams: Promise.resolve({ preview: ["1", "0"] }),
+        searchParams: Promise.resolve({ explore: ["1", "0"] }),
       }),
     );
 
@@ -224,6 +224,52 @@ describe("dashboard page dev auto-login bootstrap", () => {
     expect(markup).toContain('data-allow-signup="true"');
     expect(markup).toContain('data-authenticated="false"');
     expect(markup).toContain('data-use-placeholder-data="true"');
+  });
+
+  test("ignores the preview cookie when the explore query is absent", async () => {
+    mock.module("next/headers", () => ({
+      cookies: async () =>
+        createCookieStore({ librerss_dashboard_preview: "1" }),
+    }));
+    mock.module("@/lib/auth/session", () => ({
+      getUserFromSessionToken: async () => null,
+      SESSION_COOKIE_NAME: "librerss_session",
+    }));
+    mock.module("@/lib/core/runtime", () => ({
+      RUNTIME_FLAGS: {
+        allowSignup: false,
+        usePlaceholderData: true,
+      },
+    }));
+    mock.module("@/lib/auth/dev-auto-login", () => ({
+      buildDevAutoLoginRequestPath: () =>
+        "/api/auth/dev-login?returnTo=%2Fdashboard",
+      isDevAutoLoginEnabled: () => true,
+      isDevAutoLoginFailure: () => false,
+    }));
+    mock.module("@/app/dashboard/DashboardRouter", () => ({
+      DashboardRouter: (props: {
+        hasPreviewQuery?: boolean;
+        initialAutoLoginPath?: string;
+        initialPreviewMode?: boolean;
+      }) =>
+        React.createElement("div", {
+          "data-auto-login-path": props.initialAutoLoginPath ?? "",
+          "data-has-preview-query": String(props.hasPreviewQuery === true),
+          "data-preview-mode": String(props.initialPreviewMode === true),
+        }),
+    }));
+
+    const { default: DashboardPage } = await loadDashboardPage();
+    const markup = renderToStaticMarkup(
+      await DashboardPage({ searchParams: Promise.resolve({}) }),
+    );
+
+    expect(markup).toContain(
+      'data-auto-login-path="/api/auth/dev-login?returnTo=%2Fdashboard"',
+    );
+    expect(markup).toContain('data-has-preview-query="false"');
+    expect(markup).toContain('data-preview-mode="false"');
   });
 
   test("falls back to an anonymous session when reading the stored session throws", async () => {

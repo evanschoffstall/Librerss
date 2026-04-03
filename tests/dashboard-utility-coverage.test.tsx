@@ -95,7 +95,7 @@ describe("dashboard utility coverage", () => {
     document.body.innerHTML = "";
   });
 
-  test("preview-mode helpers resolve and persist the preview cookie", () => {
+  test("preview-mode helpers gate explore on the query and can clear legacy cookies", () => {
     const originalCookieDescriptor = Object.getOwnPropertyDescriptor(
       document,
       "cookie",
@@ -111,9 +111,8 @@ describe("dashboard utility coverage", () => {
     });
 
     expect(isDashboardPreviewModeEnabled("1")).toBe(true);
-    expect(resolveDashboardPreviewMode({ cookieValue: null, hasPreviewQuery: true })).toBe(true);
-    expect(resolveDashboardPreviewMode({ cookieValue: "1", hasPreviewQuery: false })).toBe(true);
-    expect(resolveDashboardPreviewMode({ cookieValue: "0", hasPreviewQuery: false })).toBe(false);
+    expect(resolveDashboardPreviewMode({ hasExploreQuery: true })).toBe(true);
+    expect(resolveDashboardPreviewMode({ hasExploreQuery: false })).toBe(false);
 
     setDashboardPreviewPersistence(true);
     expect(document.cookie).toContain(`${DASHBOARD_PREVIEW_COOKIE_NAME}=1`);
