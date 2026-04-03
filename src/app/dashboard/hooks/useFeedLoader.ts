@@ -1,8 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { type RefObject, useCallback, useRef } from "react";
 
 import type { Article, CategoryTreeNode } from "@/lib";
 import type { ArticleFilter } from "@/lib/core/article-filters";
@@ -25,11 +24,7 @@ import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
 } from "../services/feed-batch-outcome";
-import { resolveFeedBatchResults } from "../services/feed-batch-resolver";
 import {
-  classifyFeedBatchError,
-  type FeedBatchResult,
-  isCanceledBatchRequest,
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
@@ -45,25 +40,8 @@ import {
   getFeedBatchQueryKey,
   getFeedSourceTreeQueryKey,
 } from "../services/query-keys";
-
-interface BeginFeedRequestOptions {
-  forceRefresh: boolean;
-  isBackground: boolean;
-  queryKey: ReturnType<typeof getFeedBatchQueryKey>;
-  requestSignature: string;
-}
-
-type BeginFeedRequestResult =
-  | {
-      requestId: number;
-      skippedDuplicate: false;
-    }
-  | {
-      requestId: number;
-      skippedDuplicate: true;
-    };
-
-type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
+import { useFeedBatchQuery } from "./feed-loader/useFeedBatchQuery";
+import { useFeedBatchRequestState } from "./feed-loader/useFeedBatchRequestState";
 
 interface UseFeedLoaderOptions {
   articleFilter: ArticleFilter;
@@ -93,12 +71,6 @@ export function useFeedLoader({
 }: UseFeedLoaderOptions) {
   const queryClient = useQueryClient();
   const lastFetchedAtByUrlRef = useRef(new Map<string, Date>());
-  const currentRequestIdRef = useRef(0);
-  const activeRequestSignatureRef = useRef<null | string>(null);
-  const activeRequestQueryKeyRef = useRef<FeedBatchQueryKey | null>(null);
-  const loadingRef = useRef(false);
-  const [loading, setLocalLoading] = useState(false);
-  const [loadingEpoch, setLoadingEpoch] = useState(0);
 
   const buildRequestSignature = useCallback(
     (
@@ -109,99 +81,18 @@ export function useFeedLoader({
     [articleFilter],
   );
 
-  /** Mirrors loader activity into both local hook state and the shared controller state. */
-  const syncLoading = useCallback(
-    (value: boolean) => {
-      loadingRef.current = value;
-      setLocalLoading(value);
-      setLoading(value);
-    },
-    [setLoading],
-  );
-
-  /** Starts a new loader session while delegating actual cancellation to TanStack Query. */
-  const beginFeedRequest = useCallback(
-    ({
-      forceRefresh,
-      isBackground,
-      queryKey,
-      requestSignature,
-    }: BeginFeedRequestOptions): BeginFeedRequestResult => {
-      if (
-        loadingRef.current &&
-        activeRequestSignatureRef.current === requestSignature &&
-        !forceRefresh
-      ) {
-        return {
-          requestId: currentRequestIdRef.current,
-          skippedDuplicate: true,
-        };
-      }
-
-      currentRequestIdRef.current += 1;
-      const requestId = currentRequestIdRef.current;
-
-      if (activeRequestQueryKeyRef.current) {
-        void queryClient.cancelQueries({
-          exact: true,
-          queryKey: activeRequestQueryKeyRef.current,
-        });
-      }
-
-      activeRequestSignatureRef.current = requestSignature;
-      activeRequestQueryKeyRef.current = queryKey;
-
-      if (!isBackground) {
-        syncLoading(true);
-        setLoadingEpoch((epoch) => epoch + 1);
-      }
-
-      return {
-        requestId,
-        skippedDuplicate: false,
-      };
-    },
-    [queryClient, syncLoading],
-  );
-
-  /** Completes the active loader session if it still matches the latest request. */
-  const finishFeedRequest = useCallback(
-    (requestId: number) => {
-      if (currentRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      activeRequestQueryKeyRef.current = null;
-      activeRequestSignatureRef.current = null;
-      syncLoading(false);
-    },
-    [syncLoading],
-  );
-
-  /** Returns whether a request id still refers to the most recent loader session. */
-  const isCurrentFeedRequest = useCallback(
-    (requestId: number) => currentRequestIdRef.current === requestId,
-    [],
-  );
-
-  /** Cancels the active Query-backed request and clears the visible loading state. */
-  const cancelPendingRequest = useCallback(() => {
-    if (activeRequestQueryKeyRef.current) {
-      void queryClient.cancelQueries({
-        exact: true,
-        queryKey: activeRequestQueryKeyRef.current,
-      });
-    }
-
-    activeRequestQueryKeyRef.current = null;
-    activeRequestSignatureRef.current = null;
-    currentRequestIdRef.current += 1;
-    syncLoading(false);
-    return currentRequestIdRef.current;
-  }, [queryClient, syncLoading]);
-
-  /** Exposes whether a foreground feed request is currently active. */
-  const isLoadingRequest = useCallback(() => loadingRef.current, []);
+  const {
+    beginFeedRequest,
+    cancelPendingRequest,
+    finishFeedRequest,
+    isCurrentFeedRequest,
+    isLoadingRequest,
+    loading,
+    loadingEpoch,
+  } = useFeedBatchRequestState({
+    queryClient,
+    setLoading,
+  });
 
   const logRefreshDiagnostics = useCallback(
     (event: string, details: Record<string, unknown>) => {
@@ -235,28 +126,13 @@ export function useFeedLoader({
     [],
   );
 
-  /** Builds the shared query options used by fetch and prefetch paths. */
-  const buildFeedBatchQueryOptions = useCallback(
-    (
-      normalizedSources: FeedBatchSource[],
-      queryKey: FeedBatchQueryKey,
-      options?: FeedFetchOptions,
-    ) => ({
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        resolveFeedBatchResults(
-          normalizedSources,
-          usePlaceholderData,
-          {
-            ...options,
-            articleFilter,
-          },
-          signal,
-        ),
-      queryKey,
-      staleTime: resolveFeedBatchStaleTime(options),
-    }),
-    [articleFilter, usePlaceholderData],
-  );
+  const { loadBatchResults, prefetchFeedBatch } = useFeedBatchQuery({
+    articleFilter,
+    buildRequestSignature,
+    getKnownLastFetchedAtByUrl,
+    queryClient,
+    usePlaceholderData,
+  });
 
   const loadFeedSources = useCallback(async (): Promise<CategoryTreeNode[]> => {
     const nextCategories = await queryClient.fetchQuery({
@@ -267,79 +143,6 @@ export function useFeedLoader({
     setCategories(nextCategories);
     return nextCategories;
   }, [queryClient, setCategories, usePlaceholderData]);
-
-  const loadBatchResults = useCallback(
-    async (
-      normalizedSources: FeedBatchSource[],
-      queryKey: FeedBatchQueryKey,
-      options?: FeedFetchOptions,
-      silent = false,
-    ): Promise<FeedBatchResult[] | null> => {
-      try {
-        if (options?.forceRefresh) {
-          queryClient.removeQueries({ exact: true, queryKey });
-        }
-
-        return await queryClient.fetchQuery(
-          buildFeedBatchQueryOptions(normalizedSources, queryKey, options),
-        );
-      } catch (error) {
-        if (isCanceledBatchRequest(error)) {
-          return null;
-        }
-
-        console.error("Batch feed fetch error:", error);
-        if (!silent) {
-          const { description, title } = classifyFeedBatchError(error);
-          toast.error(title, { description });
-        }
-        return null;
-      }
-    },
-    [buildFeedBatchQueryOptions, queryClient],
-  );
-
-  /** Silently warms a feed-batch query so feed switches can reuse fresh cache. */
-  const prefetchFeedBatch = useCallback(
-    async (sources: FeedBatchSource[], options?: FeedFetchOptions) => {
-      const normalizedSources = normalizeFeedBatchSources(sources);
-      if (normalizedSources.length === 0 || usePlaceholderData) {
-        return;
-      }
-
-      const knownLastFetchedAtByUrl = getKnownLastFetchedAtByUrl(
-        normalizedSources,
-        options?.keepExistingFeed === true,
-      );
-      const requestSignature = buildRequestSignature(
-        normalizedSources,
-        options?.articleLimit,
-      );
-      const queryKey = getFeedBatchQueryKey(requestSignature, {
-        articleFilter,
-        articleLimit: options?.articleLimit,
-        knownLastFetchedAtByUrl,
-        skipRefresh: options?.skipRefresh,
-      });
-
-      await queryClient.prefetchQuery(
-        buildFeedBatchQueryOptions(normalizedSources, queryKey, {
-          ...options,
-          articleFilter,
-          articleLimit: options?.articleLimit,
-          knownLastFetchedAtByUrl,
-        }),
-      );
-    },
-    [
-      articleFilter,
-      buildRequestSignature,
-      buildFeedBatchQueryOptions,
-      getKnownLastFetchedAtByUrl,
-      queryClient,
-      usePlaceholderData,
-    ],
-  );
 
   const handleEmptyBatchResult = useCallback(() => {
     // Empty-state messaging is now rendered inline by FeedEmptyState
@@ -534,7 +337,6 @@ export function useFeedLoader({
     [
       articleFilter,
       buildRequestSignature,
-      usePlaceholderData,
       setFeed,
       feedRef,
       setExpandedArticleKey,
@@ -549,6 +351,7 @@ export function useFeedLoader({
       onFeedBatchLoaded,
       onNewArticlesArrived,
       queryClient,
+      usePlaceholderData,
     ],
   );
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthService } from "@/lib";
@@ -9,265 +9,44 @@ import { clearClientOriginState } from "@/lib/auth/clear-client-origin-state";
 
 import { DASHBOARD_EVENTS } from "../constants";
 import { setDashboardPreviewPersistence } from "../preview-mode";
+import { dispatchDashboardWindowEvent } from "./dashboard-toolbar/events";
+import {
+  readDashboardShellLoadingFromDocument,
+  readDashboardShellLoadingFromEvent,
+  resolveDashboardShellLoadingState,
+  useDashboardShellLoadingState,
+} from "./dashboard-toolbar/useDashboardShellLoadingState";
+import { useDashboardToolbarWindowState } from "./dashboard-toolbar/useDashboardToolbarWindowState";
 
-interface ShellLoadingEventDetail {
-  loading?: boolean;
-}
-
-/** Reads the shell-loading dataset flag from the current document root. */
-export function readDashboardShellLoadingFromDocument() {
-  const shellLoading = document.documentElement.dataset.dashboardShellLoading;
-
-  if (shellLoading === "true") {
-    return true;
-  }
-
-  if (shellLoading === "false") {
-    return false;
-  }
-
-  return null;
-}
-
-/** Resolves the next shell-loading state from an incoming dashboard event. */
-export function readDashboardShellLoadingFromEvent(event: Event) {
-  const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
-
-  return detail.loading === true;
-}
-
-/** Settles the optimistic shell-loading state once document and dataset state are known. */
-export function resolveDashboardShellLoadingState({
-  hasReceivedShellLoadingEvent,
-  readyState,
-  shellLoadingFromDocument,
-}: {
-  hasReceivedShellLoadingEvent: boolean;
-  readyState: DocumentReadyState;
-  shellLoadingFromDocument: boolean | null;
-}) {
-  if (shellLoadingFromDocument !== null) {
-    return shellLoadingFromDocument;
-  }
-
-  if (!hasReceivedShellLoadingEvent && readyState === "complete") {
-    return false;
-  }
-
-  return null;
-}
+export {
+  readDashboardShellLoadingFromDocument,
+  readDashboardShellLoadingFromEvent,
+  resolveDashboardShellLoadingState,
+};
 
 /** Bridges dashboard window events into the persistent toolbar state and actions. */
 export function useDashboardToolbarState(startInShellLoading = false) {
   const { resolvedTheme, setTheme } = useTheme();
   const isDevelopmentMode = process.env.NODE_ENV === "development";
-  const hasReceivedShellLoadingEventRef = useRef(false);
-  const [isShellLoading, setIsShellLoading] = useState(startInShellLoading);
-  const [isSearchPending, setIsSearchPending] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [title, setTitle] = useState("LibreRSS");
-  const [search, setSearch] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(readPreviewModeFromLocation);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
-  const [isMarkingViewportRead, setIsMarkingViewportRead] = useState(false);
+  const isShellLoading = useDashboardShellLoadingState(startInShellLoading);
+  const {
+    isMarkingAllRead,
+    isMarkingViewportRead,
+    isPreviewMode,
+    isRefreshing,
+    isSearchPending,
+    search,
+    setIsPreviewMode,
+    setSearch,
+    title,
+  } = useDashboardToolbarWindowState();
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useLayoutEffect(() => {
-    const syncShellLoadingFromDocument = () => {
-      const shellLoading = readDashboardShellLoadingFromDocument();
-
-      if (shellLoading === null) {
-        return false;
-      }
-
-      hasReceivedShellLoadingEventRef.current = true;
-      setIsShellLoading(shellLoading);
-      return true;
-    };
-
-    const settleOptimisticShellLoading = () => {
-      const shellLoading = resolveDashboardShellLoadingState({
-        hasReceivedShellLoadingEvent: hasReceivedShellLoadingEventRef.current,
-        readyState: document.readyState,
-        shellLoadingFromDocument: readDashboardShellLoadingFromDocument(),
-      });
-
-      if (shellLoading !== null) {
-        hasReceivedShellLoadingEventRef.current = true;
-        setIsShellLoading(shellLoading);
-        
-      }
-    };
-
-    const handleShellLoading = (event: Event) => {
-      hasReceivedShellLoadingEventRef.current = true;
-      setIsShellLoading(readDashboardShellLoadingFromEvent(event));
-    };
-
-    const handleReadyStateChange = () => {
-      settleOptimisticShellLoading();
-    };
-
-    window.addEventListener(
-      DASHBOARD_EVENTS.SHELL_LOADING,
-      handleShellLoading as EventListener,
-    );
-
-    const shellLoadingObserver =
-      typeof MutationObserver === "undefined"
-        ? null
-        : new MutationObserver(() => {
-            syncShellLoadingFromDocument();
-          });
-
-    shellLoadingObserver?.observe(document.documentElement, {
-      attributeFilter: ["data-dashboard-shell-loading"],
-      attributes: true,
-    });
-
-    syncShellLoadingFromDocument();
-
-    if (startInShellLoading) {
-      document.addEventListener("readystatechange", handleReadyStateChange);
-      queueMicrotask(settleOptimisticShellLoading);
-    }
-
-    return () => {
-      window.removeEventListener(
-        DASHBOARD_EVENTS.SHELL_LOADING,
-        handleShellLoading as EventListener,
-      );
-      shellLoadingObserver?.disconnect();
-
-      if (startInShellLoading) {
-        document.removeEventListener(
-          "readystatechange",
-          handleReadyStateChange,
-        );
-      }
-    };
-  }, [startInShellLoading]);
-
-  useEffect(() => {
-    const handleTitleChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ title?: string }>).detail;
-      const nextTitle =
-        typeof detail.title === "string" ? detail.title.trim() : "";
-      setTitle(nextTitle === "" ? "LibreRSS" : nextTitle);
-    };
-
-    const handleSearchSync = (event: Event) => {
-      const detail = (event as CustomEvent<{ term?: string }>).detail;
-      setSearch(typeof detail.term === "string" ? detail.term : "");
-    };
-
-    const handleSearchPending = (event: Event) => {
-      const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
-      setIsSearchPending(detail.pending === true);
-    };
-
-    const handleEnterPreview = () => {
-      setIsPreviewMode(true);
-    };
-    const handleLocationChange = () => {
-      setIsPreviewMode(readPreviewModeFromLocation());
-    };
-    const handleRefreshStart = () => {
-      setIsRefreshing(true);
-    };
-    const handleRefreshEnd = () => {
-      setIsRefreshing(false);
-    };
-    const handleMarkAllReadStart = () => {
-      setIsMarkingAllRead(true);
-    };
-    const handleMarkAllReadEnd = () => {
-      setIsMarkingAllRead(false);
-    };
-    const handleMarkViewportReadStart = () => {
-      setIsMarkingViewportRead(true);
-    };
-    const handleMarkViewportReadEnd = () => {
-      setIsMarkingViewportRead(false);
-    };
-
-    window.addEventListener(
-      DASHBOARD_EVENTS.TITLE_CHANGE,
-      handleTitleChange as EventListener,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.SEARCH_SYNC,
-      handleSearchSync as EventListener,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.SEARCH_PENDING,
-      handleSearchPending as EventListener,
-    );
-    window.addEventListener(DASHBOARD_EVENTS.ENTER_PREVIEW, handleEnterPreview);
-    window.addEventListener("popstate", handleLocationChange);
-    window.addEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
-    window.addEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
-    window.addEventListener(
-      DASHBOARD_EVENTS.MARK_ALL_READ_START,
-      handleMarkAllReadStart,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.MARK_ALL_READ_END,
-      handleMarkAllReadEnd,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
-      handleMarkViewportReadStart,
-    );
-    window.addEventListener(
-      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
-      handleMarkViewportReadEnd,
-    );
-
-    return () => {
-      window.removeEventListener(
-        DASHBOARD_EVENTS.TITLE_CHANGE,
-        handleTitleChange as EventListener,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.SEARCH_SYNC,
-        handleSearchSync as EventListener,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.SEARCH_PENDING,
-        handleSearchPending as EventListener,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.ENTER_PREVIEW,
-        handleEnterPreview,
-      );
-      window.removeEventListener("popstate", handleLocationChange);
-      window.removeEventListener(DASHBOARD_EVENTS.REFRESH_START, handleRefreshStart);
-      window.removeEventListener(DASHBOARD_EVENTS.REFRESH_END, handleRefreshEnd);
-      window.removeEventListener(
-        DASHBOARD_EVENTS.MARK_ALL_READ_START,
-        handleMarkAllReadStart,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.MARK_ALL_READ_END,
-        handleMarkAllReadEnd,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
-        handleMarkViewportReadStart,
-      );
-      window.removeEventListener(
-        DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
-        handleMarkViewportReadEnd,
-      );
-    };
-  }, [setIsPreviewMode]);
 
   const isDark = mounted && (resolvedTheme ?? "dark") === "dark";
   const nextTheme = isDark ? "light" : "dark";
@@ -277,7 +56,7 @@ export function useDashboardToolbarState(startInShellLoading = false) {
 
   const handleSearchChange = (term: string) => {
     setSearch(term);
-    dispatchDashboardEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { term });
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { term });
   };
 
   const handleRefresh = () => {
@@ -285,7 +64,7 @@ export function useDashboardToolbarState(startInShellLoading = false) {
       return;
     }
 
-    dispatchDashboardEvent(DASHBOARD_EVENTS.REFRESH);
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.REFRESH);
   };
 
   const handleRefreshFromUpstream = () => {
@@ -293,25 +72,25 @@ export function useDashboardToolbarState(startInShellLoading = false) {
       return;
     }
 
-    dispatchDashboardEvent(DASHBOARD_EVENTS.REFRESH, {
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.REFRESH, {
       forceResolveUpstream: true,
     });
   };
 
   const handleMarkAllRead = () => {
-    dispatchDashboardEvent(DASHBOARD_EVENTS.MARK_ALL_READ);
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.MARK_ALL_READ);
   };
 
   const handleMarkViewportRead = () => {
-    dispatchDashboardEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ);
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ);
   };
 
   const handleOpenFeedsSidebar = () => {
-    dispatchDashboardEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR);
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR);
   };
 
   const handleOpenSettings = () => {
-    dispatchDashboardEvent(DASHBOARD_EVENTS.OPEN_SETTINGS);
+    dispatchDashboardWindowEvent(DASHBOARD_EVENTS.OPEN_SETTINGS);
   };
 
   const handleToggleTheme = () => {
@@ -383,23 +162,4 @@ export function useDashboardToolbarState(startInShellLoading = false) {
     themeToggleLabel,
     title,
   };
-}
-
-/** Dispatches a dashboard-scoped custom event with an optional detail payload. */
-function dispatchDashboardEvent(
-  eventName: string,
-  detail?: Record<string, unknown>,
-) {
-  window.dispatchEvent(
-    new CustomEvent(eventName, detail ? { detail } : undefined),
-  );
-}
-
-/** Returns whether the active dashboard URL is explicitly in explore mode. */
-function readPreviewModeFromLocation() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return new URLSearchParams(window.location.search).get("explore") === "1";
 }
