@@ -6,13 +6,16 @@ import {
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
   readRenderedItemWindow,
+  readTopVisibleFeedArticle,
   scrollFeedViewportToBottom,
   scrollFeedViewportToTop,
   triggerFeedViewportWheelIntent,
+  wheelActiveFeedViewport,
 } from "./helpers";
 import { expect, test } from "./test";
 
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 72;
 
 interface MobileViewportCase {
   height: number;
@@ -76,6 +79,99 @@ test.describe("dashboard mobile feed pagination", () => {
         expect(nextWindow.minIndex!).toBeLessThanOrEqual(previousWindow.minIndex!);
         previousWindow = nextWindow;
       }
+    });
+
+    test(`rearms inverted pagination from continuous upward wheel input on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+
+      await configureArticlesPerPage(page, 4);
+
+      await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
+
+      const firstWindow = await readRenderedItemWindow(page);
+      expect(firstWindow.maxIndex).not.toBeNull();
+
+      await scrollFeedViewportToTop(page);
+      await wheelActiveFeedViewport(page, -700);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThan(firstWindow.maxIndex!);
+
+      const secondWindow = await readRenderedItemWindow(page);
+      expect(secondWindow.maxIndex).not.toBeNull();
+
+      let thirdWindow = secondWindow;
+
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await wheelActiveFeedViewport(page, -700);
+        await page.waitForTimeout(180);
+        thirdWindow = await readRenderedItemWindow(page);
+
+        if (
+          thirdWindow.maxIndex !== null &&
+          thirdWindow.maxIndex > secondWindow.maxIndex!
+        ) {
+          break;
+        }
+      }
+
+      expect(thirdWindow.maxIndex).not.toBeNull();
+      expect(thirdWindow.maxIndex!).toBeGreaterThan(secondWindow.maxIndex!);
+    });
+
+    test(`preserves the top visible article position during inverted pagination on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+
+      await configureArticlesPerPage(page, 4);
+      await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
+
+      await wheelActiveFeedViewport(page, -700);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThanOrEqual(7);
+
+      const anchorBeforeLoad = await readTopVisibleFeedArticle(
+        page,
+        STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
+      );
+      expect(anchorBeforeLoad?.articleKey).not.toBeNull();
+
+      await wheelActiveFeedViewport(page, -700);
+
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThanOrEqual(11);
+
+      const anchorAfterLoad = await readTopVisibleFeedArticle(
+        page,
+        STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
+      );
+      expect(anchorAfterLoad?.articleKey).toBe(anchorBeforeLoad?.articleKey ?? null);
+      expect(Math.abs((anchorAfterLoad?.offsetTop ?? 0) - (anchorBeforeLoad?.offsetTop ?? 0))).toBeLessThanOrEqual(24);
     });
 
     test(`keeps one configured page visible and appends older pages in standard mode on ${viewportCase.name}`, async ({
