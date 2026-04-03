@@ -27,6 +27,38 @@ function isKnownPlaceholderImage(
   );
 }
 
+const NON_CONTENT_IMAGE_SOURCE_PATTERN =
+  /(?:\/wp-content\/themes\/|\/extension\/|\/icons?\/|\/favicons?\/|favicon|logo(?:[@._-]|$)|icon(?:[@._-]|$)|avatar|placeholder|pixel|spacer|sprite)/i;
+
+const NON_CONTENT_IMAGE_TEXT_PATTERN =
+  /\b(?:avatar|logo|icon|menu|search|toggle|button|close|share|social|badge|placeholder|pixel|spacer|sprite)\b/i;
+
+function hasLikelyContentImageSignal(
+  attribs: Record<string, string | undefined> | undefined,
+): boolean {
+  if (!attribs) return false;
+
+  const source = (attribs.src ?? "").trim();
+  if (!source) return false;
+
+  if (NON_CONTENT_IMAGE_SOURCE_PATTERN.test(source)) {
+    return false;
+  }
+
+  const descriptor = `${attribs.alt ?? ""} ${attribs.title ?? ""}`.trim();
+  if (descriptor) {
+    if (NON_CONTENT_IMAGE_TEXT_PATTERN.test(descriptor)) {
+      return false;
+    }
+
+    if (descriptor.length >= 12 || /\S+\s+\S+/.test(descriptor)) {
+      return true;
+    }
+  }
+
+  return /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i.test(source);
+}
+
 function isTooSmallImage(
   attribs: Record<string, string | undefined> | undefined,
 ): boolean {
@@ -35,7 +67,9 @@ function isTooSmallImage(
   const height = parseDimension(attribs.height);
   const srcset = attribs.srcset?.trim() ?? "";
   const hasSrcset = !!srcset;
-  if (width === null && height === null && !hasSrcset) return true;
+  if (width === null && height === null && !hasSrcset) {
+    return !hasLikelyContentImageSignal(attribs);
+  }
   if (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) return true;
   if (height !== null && height < CONFIG.MIN_ARTICLE_IMAGE_HEIGHT_PX)
     return true;

@@ -374,6 +374,18 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Body text remains.");
   });
 
+  test("sanitizeRawContent keeps dimensionless article images while dropping dimensionless chrome", () => {
+    const cleaned = sanitizeRawContent(
+      '<p><img src="https://www.esa.int/var/esa/storage/images/esa_multimedia/images/2026/03/liftoff_for_celeste.jpg" alt="Liftoff for Celeste on Rocket Lab\'s Electron rocket" /></p>' +
+        '<p><img src="https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo@2x.png" alt="NASA Logo" /></p>' +
+        '<p>Body text remains.</p>',
+    );
+
+    expect(cleaned).toContain("liftoff_for_celeste.jpg");
+    expect(cleaned).not.toContain("nasa-logo@2x.png");
+    expect(cleaned).toContain("Body text remains.");
+  });
+
   test("stripCommentEngagementBoilerplate removes login and commenting prompt paragraphs", () => {
     const input =
       '<img src="https://cdn.mos.cms.futurecdn.net/wWN99SCnGejGkViA9SXtm6.png" alt="hero" />' +
