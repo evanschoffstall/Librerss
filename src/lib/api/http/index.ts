@@ -31,6 +31,4 @@ export {
   jsonError,
   jsonErrorWithReason,
   normalizeBatchItem,
-  notFoundResponse,
-  textResponse,
 } from "./responses";
