@@ -24,6 +24,7 @@ interface DashboardFeedListState {
   animatingInArticleKeys: ReadonlySet<string>;
   articleFilter: ArticleFilter;
   articlesPerPage: number;
+  canLoadMoreFromServer: boolean;
   collapsingArticles: CollapsingArticles;
   expandedArticleKey: null | string;
   feedViewKey: string;

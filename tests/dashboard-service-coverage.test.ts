@@ -6,6 +6,10 @@ import {
 } from "@/app/dashboard/services/article-collection";
 import { filterArticlesByState } from "@/app/dashboard/services/article-filters";
 import {
+  resolveArticleWindowAvailability,
+  shouldRefillDepletedUnreadWindow,
+} from "@/app/dashboard/services/article-window-availability";
+import {
   buildDisplayCategories,
   computeNextOrderedCategoryLabels,
 } from "@/app/dashboard/services/category-display";
@@ -131,6 +135,77 @@ describe("dashboard pure service coverage", () => {
 
     expect(sidebarContent.selectedCategory).toBe("all");
     expect(controllerState.sidebar.sidebarContentProps).toBe(sidebarContent);
+  });
+
+  test("preserves server pagination after local unread removals until a server window settles", () => {
+    expect(
+      resolveArticleWindowAvailability({
+        currentFeedLength: 3,
+        hasStartedAwaitedWindowSettlement: false,
+        isAwaitingWindowSettlement: false,
+        isLoading: false,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 8,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: false,
+    });
+
+    expect(
+      resolveArticleWindowAvailability({
+        currentFeedLength: 6,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 8,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: false,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+
+    expect(
+      resolveArticleWindowAvailability({
+        currentFeedLength: 8,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        previousHasMoreServerArticles: false,
+        requestedArticleLimit: 8,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+
+    expect(
+      shouldRefillDepletedUnreadWindow({
+        articleFilter: "unread",
+        currentFeedLength: 12,
+        currentFilteredFeedLength: 0,
+        hasMoreServerArticles: true,
+        isLoading: false,
+        isRefillingDepletedUnreadWindow: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRefillDepletedUnreadWindow({
+        articleFilter: "all",
+        currentFeedLength: 12,
+        currentFilteredFeedLength: 0,
+        hasMoreServerArticles: true,
+        isLoading: false,
+        isRefillingDepletedUnreadWindow: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(false);
   });
 
   test("build the dashboard view model and search filters from current selection state", () => {

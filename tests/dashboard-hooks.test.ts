@@ -149,6 +149,135 @@ describe("useFeedLoader", () => {
     }
   });
 
+  test("reuses each prefetched page limit from cache while warming the next page", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    const prefetchedFeedUrl = "https://example.com/paged.xml";
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const pageFourArticle: Article = {
+      content: "Page four article body",
+      feedId: 3,
+      feedName: "Paged Feed",
+      feedUrl: prefetchedFeedUrl,
+      id: 201,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T12:01:00.000Z"),
+      link: "https://example.com/articles/page-4",
+      publicationDate: new Date("2026-03-14T12:00:30.000Z"),
+      title: "Page four article",
+    };
+    const pageEightArticle: Article = {
+      ...pageFourArticle,
+      id: 202,
+      lastChecked: new Date("2026-03-14T12:02:00.000Z"),
+      link: "https://example.com/articles/page-8",
+      publicationDate: new Date("2026-03-14T12:01:30.000Z"),
+      title: "Page eight article",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async (_urls: string[], options?: { articleLimit?: number }) => {
+      if (options?.articleLimit === 8) {
+        return [
+          {
+            articles: [pageEightArticle],
+            lastFetchedAt: new Date("2026-03-14T12:03:00.000Z"),
+            ok: true,
+            url: prefetchedFeedUrl,
+          },
+        ];
+      }
+
+      return [
+        {
+          articles: [pageFourArticle],
+          lastFetchedAt: new Date("2026-03-14T12:02:00.000Z"),
+          ok: true,
+          url: prefetchedFeedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.prefetchFeed(prefetchedFeedUrl, {
+          articleLimit: 4,
+          keepExistingFeed: true,
+          requestSource: "feed-scroll-load-more",
+          skipRefresh: true,
+        });
+      });
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(prefetchedFeedUrl, {
+          articleLimit: 4,
+          keepExistingFeed: true,
+          requestSource: "feed-scroll-load-more",
+          skipRefresh: true,
+        });
+      });
+
+      await runWithAct(async () => {
+        await result.current.prefetchFeed(prefetchedFeedUrl, {
+          articleLimit: 8,
+          keepExistingFeed: true,
+          requestSource: "feed-scroll-load-more",
+          skipRefresh: true,
+        });
+      });
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(prefetchedFeedUrl, {
+          articleLimit: 8,
+          keepExistingFeed: true,
+          requestSource: "feed-scroll-load-more",
+          skipRefresh: true,
+        });
+      });
+
+      await waitFor(() => {
+        expect(feedState[0]?.title).toBe(pageEightArticle.title);
+      });
+
+      expect(FeedService.getFeedsBatch).toHaveBeenCalledTimes(2);
+    } finally {
+      queryClient.clear();
+    }
+  });
+
   test("builds batch outcomes from the latest feed snapshot without a state-updater side effect", () => {
     const previousFeed: Article[] = [
       {
