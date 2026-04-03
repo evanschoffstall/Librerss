@@ -28,6 +28,12 @@ function createDeferred<Value>() {
   return { promise, reject, resolve };
 }
 
+async function loadSettingsProxyStateModule() {
+  return import(
+    `@/app/dashboard/hooks/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
+  );
+}
+
 async function loadUseSettingsProxyState() {
   return (
     await import(
@@ -164,6 +170,77 @@ describe("useSettingsProxyState", () => {
         vendor: "Cache Vendor",
       },
     ]);
+  });
+
+  test("reuses the last successful proxy snapshot during remount while refreshing in the background", async () => {
+    const firstModule = await loadSettingsProxyStateModule();
+    const { useSettingsProxyState } = firstModule;
+
+    ArticleService.getProxySettings = mock(async () =>
+      makeProxySettings({
+        configured: true,
+        proxyUrl: "socks5://proxy.example.test:1080",
+        proxyUsername: "cached-user",
+        routingCheck: {
+          directIp: "198.51.100.7",
+          error: null,
+          proxyExitIp: "203.0.113.21",
+          status: "verified",
+        },
+        status: "reachable",
+      }),
+    ) as typeof ArticleService.getProxySettings;
+
+    const firstRender = renderHook(() => useSettingsProxyState());
+
+    await waitFor(() => {
+      expect(firstRender.result.current.proxyStatus).toBe("reachable");
+    });
+
+    firstRender.unmount();
+
+    const deferredRefresh = createDeferred<ProxySettingsResponse>();
+    ArticleService.getProxySettings = mock(
+      async () => deferredRefresh.promise,
+    ) as typeof ArticleService.getProxySettings;
+
+    const secondRender = renderHook(() => useSettingsProxyState());
+
+    expect(secondRender.result.current.isInitialProxyLoadPending).toBe(false);
+    expect(secondRender.result.current.proxyStatus).toBe("reachable");
+    expect(secondRender.result.current.proxyUrl).toBe(
+      "socks5://proxy.example.test:1080",
+    );
+    expect(secondRender.result.current.proxyRoutingCheck).toEqual({
+      directIp: "198.51.100.7",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "verified",
+    });
+
+    await act(async () => {
+      deferredRefresh.resolve(
+        makeProxySettings({
+          configured: true,
+          proxyUrl: "socks5://proxy.example.test:1081",
+          proxyUsername: "fresh-user",
+          routingCheck: {
+            directIp: "198.51.100.7",
+            error: null,
+            proxyExitIp: "203.0.113.42",
+            status: "verified",
+          },
+          status: "reachable",
+        }),
+      );
+      await deferredRefresh.promise;
+    });
+
+    await waitFor(() => {
+      expect(secondRender.result.current.proxyUrl).toBe(
+        "socks5://proxy.example.test:1081",
+      );
+    });
   });
 
   test("loads proxy settings when Strict Mode remounts the effect in development", async () => {
