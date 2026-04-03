@@ -41,6 +41,8 @@ const FEED_DEFAULT_ITEM_HEIGHT_PX = 120;
 const FEED_LIST_FRAME_CLASSNAME = "flex h-full min-h-0 w-full min-w-0 flex-col";
 /** Class string for the outermost surface container. */
 const FEED_LIST_SURFACE_CLASSNAME = "flex min-h-0 w-full min-w-0 flex-col";
+/** Class string for the virtualizer height owner; it must not inherit h-full. */
+const FEED_VIRTUALIZER_CLASSNAME = "w-full min-w-0 flex-none";
 /** Inline style forcing the surface and its children to fill the available height. */
 const FEED_LIST_FILL_STYLE = { height: "100%" } as const;
 /** Motion transition applied when the skeleton exits. */
@@ -167,6 +169,9 @@ export const FeedList = memo(function FeedList({
     () => resolveFeedScrollModeArticles(visibleFeed, feedScrollMode),
     [feedScrollMode, visibleFeed],
   );
+  const shouldUseVirtualizedFeedSurface =
+    shouldUseVirtualizedFeed &&
+    !(isInvertedScroll && (expandedArticleKey !== null || isCollapseScrollRestoreActive));
 
   scrollViewportRef.current = scrollViewport;
 
@@ -434,7 +439,7 @@ export const FeedList = memo(function FeedList({
             style={FEED_LIST_FILL_STYLE}
             transition={CONTENT_ENTER_TRANSITION}
           >
-            {shouldUseVirtualizedFeed && scrollViewport !== null ? (
+            {shouldUseVirtualizedFeedSurface && scrollViewport !== null ? (
               <>
                 {/*
                  * Skeleton rows for the next server page live OUTSIDE the
@@ -457,7 +462,7 @@ export const FeedList = memo(function FeedList({
                 ) : null}
                 <FeedVirtualList
                   articles={feedData}
-                  className={FEED_LIST_FRAME_CLASSNAME}
+                  className={FEED_VIRTUALIZER_CLASSNAME}
                   estimatedItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
                   expandedArticleKey={expandedArticleKey}
                   feedViewKey={feedViewKey}

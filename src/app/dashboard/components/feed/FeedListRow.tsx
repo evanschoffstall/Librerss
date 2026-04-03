@@ -42,7 +42,7 @@ export const FeedListRow = memo(function FeedListRow({
   const measuredHeightRef = useRef(0);
   const collapseCommittedRef = useRef(false);
   const [enterPhase, setEnterPhase] = useState<EnterPhase>(() =>
-    isEntering ? "initial" : "none",
+    isEntering && removalAnimationMode === null ? "initial" : "none",
   );
 
   const isCollapsing = removalAnimationMode !== null;
@@ -56,7 +56,7 @@ export const FeedListRow = memo(function FeedListRow({
   // Only transition from "none" → "initial" so we don't restart a mid-flight anim.
   useLayoutEffect(() => {
     if (!isEntering || isCollapsing) {
-      if (!isEntering) {
+      if (!isEntering || isCollapsing) {
         setEnterPhase("none");
       }
       return;
@@ -77,35 +77,25 @@ export const FeedListRow = memo(function FeedListRow({
       measuredHeightRef.current = body.scrollHeight;
     }
 
-    const frameId = requestAnimationFrame(() => {
+    const frameId = window.requestAnimationFrame(() => {
       setEnterPhase("animating");
     });
-    return () => { cancelAnimationFrame(frameId); };
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [enterPhase]);
 
-  // ── Entering "animating": set data-article-entering flag + call done handler ──
+  // ── Entering "animating": call done handler after the transition window ──
   useEffect(() => {
     if (enterPhase !== "animating") return;
 
-    const outer = outerRef.current;
-    if (outer) {
-      // Marks this article as still-animating for "mark visible as read" exclusion.
-      outer.dataset.articleEntering = "true";
-    }
-
     const timerId = setTimeout(() => {
-      if (outer) {
-        delete outer.dataset.articleEntering;
-      }
       setEnterPhase("done");
       onEnteringDone?.(articleKey);
     }, ARTICLE_ENTER_TOTAL_DONE_MS);
 
     return () => {
       clearTimeout(timerId);
-      if (outer) {
-        delete outer.dataset.articleEntering;
-      }
     };
   }, [articleKey, enterPhase, onEnteringDone]);
 
@@ -192,29 +182,30 @@ export const FeedListRow = memo(function FeedListRow({
 
   // Opacity: entering overrides collapse unless collapsing takes over
   const rowOpacity = isEnteringInitial
-    ? 0
+    ? "0"
     : isSwipeReadExit
-      ? 1
+      ? "1"
       : isReleaseCollapsing
-        ? 0
-        : 1;
+        ? "0"
+        : "1";
 
   // Inner maxHeight: entering wins unless collapsing
   const innerMaxHeight = isCollapsing
-    ? Math.max(
+    ? `${Math.max(
         isReleaseCollapsing ? FEED_ROW_COLLAPSE_FLOOR_PX : measuredHeight,
         FEED_ROW_COLLAPSE_FLOOR_PX,
-      )
+      )}px`
     : isEnteringInitial
-      ? 0
+      ? "0"
       : isEnteringAnimating
         // Extra 32px buffer absorbs padding/border rounding without visible clipping.
-        ? measuredHeight + 32
+        ? `${measuredHeight + 32}px`
         : undefined;
 
   return (
     <div
       className="overflow-visible"
+      data-article-entering={isEnteringAnimating ? "true" : undefined}
       data-feed-row-animation={removalAnimationMode ?? "idle"}
       data-feed-row-layout={isCollapsing ? "releasing" : "none"}
       data-feed-row-state={releasePhase}
