@@ -2613,7 +2613,7 @@ describe("FeedList", () => {
             hydratedArticleLinks={{}}
             hydratingArticleLinks={{}}
             isInitialLoading={false}
-            isRefreshing={false}
+            isRefreshing={true}
             onExpandedSwipeRead={() => {}}
             onToggle={() => {}}
             onToggleRead={() => {}}
@@ -2856,7 +2856,7 @@ describe("FeedList", () => {
             hydratedArticleLinks={{}}
             hydratingArticleLinks={{}}
             isInitialLoading={false}
-            isRefreshing={true}
+            isRefreshing={false}
             onExpandedSwipeRead={() => {}}
             onToggle={() => {}}
             onToggleRead={() => {}}
