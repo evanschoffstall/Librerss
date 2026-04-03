@@ -1,15 +1,17 @@
 
+import type { Page } from "@playwright/test";
+
 import {
-    articleCard,
-    articleCardByKey,
-    articleRow,
-    expectArticleExpanded,
-    expectNotClipped,
+  articleCard,
+  articleCardByKey,
+  articleRow,
+  expectArticleExpanded,
+  expectNotClipped,
   gotoPreviewDashboard,
-    readArticleKey,
-    readFeedViewportMetrics,
-    setFeedViewportScrollTop,
-    toggleArticle,
+  readArticleKey,
+  readFeedViewportMetrics,
+  setFeedViewportScrollTop,
+  toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -17,6 +19,27 @@ import { expect, test } from "./test";
 function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   return article.locator(
     "xpath=ancestor::*[@data-radix-scroll-area-viewport][1]",
+  );
+}
+
+async function openFirstArticleForFeed(page: Page, feedName: string) {
+  const feedButton = page.locator("button").filter({ hasText: feedName }).first();
+  await feedButton.scrollIntoViewIfNeeded();
+  await feedButton.click();
+
+  const article = articleCard(page, 0);
+  await toggleArticle(article);
+  await expectArticleExpanded(article, true);
+  return article;
+}
+
+async function readExpandedContentImageSources(article: ReturnType<typeof articleCard>) {
+  return await article.locator("img").evaluateAll((nodes) =>
+    nodes
+      .map((node) => node.getAttribute("src") ?? "")
+      .filter(
+        (src) => src.length > 0 && !src.includes("google.com/s2/favicons"),
+      ),
   );
 }
 
@@ -209,5 +232,29 @@ test.describe("dashboard explore article interactions", () => {
     await expect(
       article.locator("[data-article-swipe-zone='header']"),
     ).toBeVisible();
+  });
+
+  test("shows a content image for NASA Image of the Day articles in explore mode", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+
+    const article = await openFirstArticleForFeed(page, "NASA Image of the Day");
+
+    await expect
+      .poll(async () => (await readExpandedContentImageSources(article)).length)
+      .toBeGreaterThan(0);
+  });
+
+  test("shows a content image for ESA Images articles in explore mode", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+
+    const article = await openFirstArticleForFeed(page, "ESA Images");
+
+    await expect
+      .poll(async () => (await readExpandedContentImageSources(article)).length)
+      .toBeGreaterThan(0);
   });
 });

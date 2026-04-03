@@ -2,7 +2,11 @@ import { envBooleanOptional, isDevelopment } from "@/lib/config";
 
 import {
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,
-  ARTICLE_EXTRACT_CACHE_TTL_MS, CachedExtractResponse, ExtractResponsePayload } from "./constants";
+  ARTICLE_EXTRACT_CACHE_TTL_MS,
+  ARTICLE_EXTRACT_CACHE_VERSION,
+  CachedExtractResponse,
+  ExtractResponsePayload,
+} from "./constants";
 
 const articleExtractCache = new Map<string, CachedExtractResponse>();
 
@@ -15,6 +19,11 @@ export function getCachedExtractPayload(
 ): ExtractResponsePayload | null {
   const cached = articleExtractCache.get(url);
   if (!cached) return null;
+
+  if (cached.version !== ARTICLE_EXTRACT_CACHE_VERSION) {
+    articleExtractCache.delete(url);
+    return null;
+  }
 
   if (cached.expiresAt <= Date.now()) {
     articleExtractCache.delete(url);
@@ -57,5 +66,6 @@ export function setCachedExtractPayload(
   articleExtractCache.set(url, {
     expiresAt: Date.now() + ARTICLE_EXTRACT_CACHE_TTL_MS,
     payload,
+    version: ARTICLE_EXTRACT_CACHE_VERSION,
   });
 }

@@ -1355,6 +1355,40 @@ describe("article extract cleanup", () => {
     ).toBe(false);
   });
 
+  test("POST prepends metadata image when image-article extraction leaves only download metadata", async () => {
+    const response = await POST(mockReq(), {
+      extractFromHtmlFn: async () => ({
+        content: `
+          <p>NASA astronaut Reid Wiseman took this picture of Earth from the Orion spacecraft's window.</p>
+          <p><a href="https://www.nasa.gov/image-article/hello-world/">Read More</a></p>
+          <a href="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg">Download</a>
+          <p>Image Credit NASA/Reid Wiseman</p>
+          <p>Size 5568x3712px</p>
+        `,
+        title: "Hello, World",
+      }),
+      fetchHtmlFn: async () => `
+        <html>
+          <head>
+            <meta property="og:image" content="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg" />
+            <meta property="og:description" content="NASA astronaut Reid Wiseman photographed Earth through Orion's window after translunar injection during Artemis II." />
+          </head>
+        </html>
+      `,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://www.nasa.gov/image-detail/fd02_for-pao/",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain(
+      '<img src="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg"',
+    );
+    expect(payload.content).toContain("Image Credit NASA/Reid Wiseman");
+    expect(payload.content).toContain("Size 5568x3712px");
+  });
+
   test("POST keeps empty content when metadata image fallback URL is unsafe", async () => {
     const warnFn = mock(() => {});
 
