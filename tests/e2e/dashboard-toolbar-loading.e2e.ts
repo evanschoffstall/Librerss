@@ -16,6 +16,53 @@ test.describe("dashboard toolbar loading", () => {
     await expect(
       page.locator('[data-dashboard-filter-bar-skeleton="true"]'),
     ).toBeVisible();
+
+    const skeletonViewportFit = await page.evaluate(() => {
+      const viewport = document.querySelector<HTMLElement>(
+        '[data-feed-scroll-viewport="true"]',
+      );
+      const skeletonRows = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-dashboard-feed-list-skeleton-item="true"]',
+        ),
+      );
+
+      if (!viewport || skeletonRows.length === 0) {
+        return null;
+      }
+
+      const viewportRect = viewport.getBoundingClientRect();
+      const firstRowRect = skeletonRows[0]?.getBoundingClientRect();
+      const lastRowRect = skeletonRows.at(-1)?.getBoundingClientRect();
+      const secondRowRect = skeletonRows[1]?.getBoundingClientRect();
+
+      if (!firstRowRect || !lastRowRect) {
+        return null;
+      }
+
+      const rowGap = secondRowRect ? secondRowRect.top - firstRowRect.bottom : 0;
+      const nextRowBottom = lastRowRect.bottom + rowGap + firstRowRect.height;
+
+      return {
+        count: skeletonRows.length,
+        lastRowBottom: lastRowRect.bottom,
+        nextRowBottom,
+        viewportBottom: viewportRect.bottom,
+        viewportHeight: viewportRect.height,
+      };
+    });
+
+    expect(skeletonViewportFit).not.toBeNull();
+    expect(skeletonViewportFit?.count).toBeGreaterThan(0);
+    expect(
+      (skeletonViewportFit?.lastRowBottom ?? 0) <=
+        (skeletonViewportFit?.viewportBottom ?? 0) + 1,
+    ).toBe(true);
+    expect(
+      (skeletonViewportFit?.nextRowBottom ?? 0) >
+        (skeletonViewportFit?.viewportBottom ?? 0) + 1,
+    ).toBe(true);
+
     await expect(page.getByPlaceholder("Search...")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "unread" })).toHaveCount(0);
 
