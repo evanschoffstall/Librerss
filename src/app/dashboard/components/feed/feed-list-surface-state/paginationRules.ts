@@ -4,6 +4,12 @@ import {
   FEED_STANDARD_LOAD_MORE_TRIGGER_RATIO,
 } from "./constants";
 
+export interface HasMovedAwayFromBoundarySincePreviousScrollOptions {
+  isInvertedScroll: boolean;
+  previousScrollTop: null | number;
+  scrollViewport: HTMLElement;
+}
+
 export interface PaginationBoundaryState {
   hasMovedAwayFromBoundary: boolean;
   hasReachedBoundary: boolean;
@@ -33,6 +39,38 @@ export interface ShouldAutoFillViewportOptions {
   filteredFeedLength: number;
   hasUserScrolled: boolean;
   isInitialLoading: boolean;
+}
+
+/**
+ * Preserves boundary-departure evidence when the browser coalesces one scroll
+ * interaction from an away position back onto the active boundary.
+ */
+export function hasMovedAwayFromBoundarySincePreviousScroll({
+  isInvertedScroll,
+  previousScrollTop,
+  scrollViewport,
+}: HasMovedAwayFromBoundarySincePreviousScrollOptions) {
+  const currentBoundaryState = resolvePaginationBoundaryState({
+    isInvertedScroll,
+    scrollViewport,
+  });
+
+  if (currentBoundaryState.hasMovedAwayFromBoundary) {
+    return true;
+  }
+
+  if (typeof previousScrollTop !== "number" || !Number.isFinite(previousScrollTop)) {
+    return false;
+  }
+
+  return resolvePaginationBoundaryState({
+    isInvertedScroll,
+    scrollViewport: {
+      clientHeight: scrollViewport.clientHeight,
+      scrollHeight: scrollViewport.scrollHeight,
+      scrollTop: previousScrollTop,
+    } as HTMLElement,
+  }).hasMovedAwayFromBoundary;
 }
 
 export function resolveInvertedPaginationAnchorScrollTop({

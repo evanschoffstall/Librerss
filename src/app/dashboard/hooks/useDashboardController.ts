@@ -14,6 +14,7 @@ import { useViewportRestore } from "@/lib";
 import { ALL_FEEDS_NODE_KEY, type BackgroundMode, DASHBOARD_EVENTS, INITIAL_CATEGORIES } from "../constants";
 import {
   resolveArticleWindowAvailability,
+  shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
 } from "../services/article-window-availability";
 import { computeNextOrderedCategoryLabels } from "../services/category-display";
@@ -630,11 +631,13 @@ export function useDashboardController({
   );
 
   const handleLoadMoreArticles = useCallback(() => {
-    if (
-      !shouldUseArticleWindow ||
-      !hasMoreServerArticles ||
-      isLoadingMoreArticlesRef.current
-    ) {
+    if (shouldBlockArticleWindowLoadMore({
+      currentFeedLength: feed.length,
+      hasMoreServerArticles,
+      isCategoriesLoading,
+      isLoadingMoreArticles: isLoadingMoreArticlesRef.current,
+      shouldUseArticleWindow,
+    })) {
       return;
     }
 
@@ -694,6 +697,7 @@ export function useDashboardController({
     fetchCategoryFeeds,
     fetchFeed,
     hasMoreServerArticles,
+    isCategoriesLoading,
     prefetchNextPageForCurrentSelection,
     requestedArticleLimit,
     selectedCategory,
@@ -746,6 +750,7 @@ export function useDashboardController({
     if (
       !shouldRefillDepletedUnreadWindow({
         articleFilter,
+        articlesPerPage,
         currentFeedLength: feed.length,
         currentFilteredFeedLength: filteredFeed.length,
         hasMoreServerArticles,
@@ -779,6 +784,7 @@ export function useDashboardController({
     });
   }, [
     articleFilter,
+    articlesPerPage,
     feed.length,
     fetchAllFeeds,
     fetchCategoryFeeds,

@@ -82,6 +82,7 @@ export interface UseFeedListSurfaceStateOptions {
   isInitialLoading: boolean;
   isInvertedScroll: boolean;
   isLoadingMore: boolean;
+  isRefreshing: boolean;
   onLoadMore?: () => void;
   refreshEpoch: number;
   searchTerm: string;

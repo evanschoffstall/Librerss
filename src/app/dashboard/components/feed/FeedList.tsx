@@ -156,6 +156,7 @@ export const FeedList = memo(function FeedList({
     isInitialLoading,
     isInvertedScroll: isActiveInvertedScroll,
     isLoadingMore,
+    isRefreshing: _isRefreshing,
     onLoadMore,
     refreshEpoch,
     searchTerm,
@@ -486,6 +487,21 @@ export const FeedList = memo(function FeedList({
                       isInvertedScroll && shouldAutoAnchorInvertedScroll();
 
                     if (isInvertedScroll && viewport) {
+                      const activePaginationAnchor =
+                        invertedPaginationAnchorRef.current;
+
+                      if (activePaginationAnchor !== null) {
+                        const nextAnchoredScrollTop = Math.max(
+                          0,
+                          activePaginationAnchor.initialScrollTop +
+                            (nextTotalListHeight - activePaginationAnchor.initialScrollHeight),
+                        );
+
+                        syncViewportScrollTop(viewport, nextAnchoredScrollTop);
+                        activePaginationAnchor.initialScrollHeight = nextTotalListHeight;
+                        activePaginationAnchor.initialScrollTop = nextAnchoredScrollTop;
+                      }
+
                       const minimumViewportFloor = viewport.scrollTop + viewport.clientHeight;
 
                       if (invertedPaginationAnchorRef.current !== null) {
@@ -514,7 +530,10 @@ export const FeedList = memo(function FeedList({
                       syncInvertedExpansionScrollLock();
                       syncInvertedPaginationAnchor();
 
-                      if (shouldAutoAnchorViewport) {
+                      if (
+                        shouldAutoAnchorViewport &&
+                        invertedPaginationAnchorRef.current === null
+                      ) {
                         syncViewportToBottomIfNeeded(scrollViewport);
                       }
                     } else if (shouldLockInitialNormalScroll()) {
