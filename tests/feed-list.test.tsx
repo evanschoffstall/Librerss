@@ -1003,6 +1003,95 @@ describe("FeedList", () => {
     expect(onLoadMore).not.toHaveBeenCalled();
   });
 
+  test("ignores a restored standard-mode bottom scroll until the reader scrolls again", async () => {
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+
+    const articles = buildSequentialFeedListArticles("desktop-restored-bottom", 12);
+    const onLoadMore = mock(() => {});
+    let scrollTop = 0;
+
+    const { container } = renderFeedList(
+      <div
+        data-radix-scroll-area-viewport=""
+        ref={(viewport) => {
+          if (!viewport) {
+            return;
+          }
+
+          Object.defineProperty(viewport, "clientHeight", {
+            configurable: true,
+            get() {
+              return 400;
+            },
+          });
+          Object.defineProperty(viewport, "scrollHeight", {
+            configurable: true,
+            get() {
+              return 12 * 140;
+            },
+          });
+          Object.defineProperty(viewport, "scrollTop", {
+            configurable: true,
+            get() {
+              return scrollTop;
+            },
+            set(nextValue: number) {
+              scrollTop = nextValue;
+            },
+          });
+        }}
+      >
+        <FeedList
+          articleFilter="all"
+          articlesPerPage={12}
+          canLoadMoreFromServer
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:all"
+          filteredFeed={articles}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing={false}
+          onExpandedSwipeRead={() => {}}
+          onLoadMore={onLoadMore}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) {
+      throw new Error("Expected a feed viewport wrapper.");
+    }
+
+    await act(async () => {
+      scrollTop = 1280;
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+
+    await flushFeedListAsyncWork();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+
+    await act(async () => {
+      viewport.dispatchEvent(new Event("wheel"));
+    });
+
+    await flushFeedListAsyncWork();
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
   test("requests one inverted server page after explicit top-edge scroll intent on an underfilled feed", async () => {
     window.localStorage.setItem(
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
