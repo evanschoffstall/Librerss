@@ -21,6 +21,7 @@ const FEED_ARTICLE_SKELETONS: FeedArticleSkeletonDescriptor[] = [
 ];
 const DEFAULT_FEED_LIST_SKELETON_COUNT = FEED_ARTICLE_SKELETONS.length;
 const MIN_FEED_LIST_SKELETON_COUNT = 1;
+const FEED_LIST_SKELETON_OVERFLOW_ROW_COUNT = 1;
 
 interface FeedListSkeletonProps {
   isInvertedScroll?: boolean;
@@ -92,10 +93,11 @@ export function FeedListSkeleton({
       const listStyles = getComputedStyle(listElement);
       const rawRowGap = Number.parseFloat(listStyles.rowGap || listStyles.gap || "0");
       const rowGap = Number.isFinite(rawRowGap) && rawRowGap > 0 ? rawRowGap : 0;
-      const nextCount = Math.max(
-        MIN_FEED_LIST_SKELETON_COUNT,
-        Math.floor((viewportHeight + rowGap) / (skeletonRowHeight + rowGap)),
-      );
+      const nextCount = resolveFeedListSkeletonCount({
+        rowGap,
+        skeletonRowHeight,
+        viewportHeight,
+      });
 
       setSkeletonCount((currentCount) =>
         currentCount === nextCount ? currentCount : nextCount,
@@ -109,7 +111,7 @@ export function FeedListSkeleton({
       });
     };
 
-    scheduleMeasurement();
+    measureSkeletonCount();
 
     if (typeof ResizeObserver === "function") {
       resizeObserver = new ResizeObserver(() => {
@@ -265,5 +267,30 @@ function FeedArticleCardSkeleton({
         </div>
       </article>
     </div>
+  );
+}
+
+/**
+ * Returns the minimum skeleton count that fills the viewport plus one hidden row.
+ *
+ * The extra row keeps the loading surface from ending exactly on the fold while
+ * still limiting the off-screen reserve to a single article footprint.
+ */
+function resolveFeedListSkeletonCount({
+  rowGap,
+  skeletonRowHeight,
+  viewportHeight,
+}: {
+  rowGap: number;
+  skeletonRowHeight: number;
+  viewportHeight: number;
+}) {
+  const visibleRowCount = Math.floor(
+    (viewportHeight + rowGap) / (skeletonRowHeight + rowGap),
+  );
+
+  return Math.max(
+    MIN_FEED_LIST_SKELETON_COUNT,
+    visibleRowCount + FEED_LIST_SKELETON_OVERFLOW_ROW_COUNT,
   );
 }

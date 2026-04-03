@@ -35,18 +35,23 @@ test.describe("dashboard toolbar loading", () => {
       const firstRowRect = skeletonRows[0]?.getBoundingClientRect();
       const lastRowRect = skeletonRows.at(-1)?.getBoundingClientRect();
       const secondRowRect = skeletonRows[1]?.getBoundingClientRect();
+      const scrollbarThumb = document.querySelector(
+        '[data-dashboard-feed-scrollbar-thumb="true"]',
+      );
 
       if (!firstRowRect || !lastRowRect) {
         return null;
       }
 
       const rowGap = secondRowRect ? secondRowRect.top - firstRowRect.bottom : 0;
-      const nextRowBottom = lastRowRect.bottom + rowGap + firstRowRect.height;
 
       return {
         count: skeletonRows.length,
         lastRowBottom: lastRowRect.bottom,
-        nextRowBottom,
+        lastRowTop: lastRowRect.top,
+        rowGap,
+        rowHeight: firstRowRect.height,
+        scrollbarThumbVisible: scrollbarThumb !== null,
         viewportBottom: viewportRect.bottom,
         viewportHeight: viewportRect.height,
       };
@@ -55,13 +60,13 @@ test.describe("dashboard toolbar loading", () => {
     expect(skeletonViewportFit).not.toBeNull();
     expect(skeletonViewportFit?.count).toBeGreaterThan(0);
     expect(
-      (skeletonViewportFit?.lastRowBottom ?? 0) <=
-        (skeletonViewportFit?.viewportBottom ?? 0) + 1,
+      (skeletonViewportFit?.viewportBottom ?? 0) -
+        (skeletonViewportFit?.lastRowBottom ?? 0) <
+        (skeletonViewportFit?.rowHeight ?? 0) +
+          (skeletonViewportFit?.rowGap ?? 0) +
+          4,
     ).toBe(true);
-    expect(
-      (skeletonViewportFit?.nextRowBottom ?? 0) >
-        (skeletonViewportFit?.viewportBottom ?? 0) + 1,
-    ).toBe(true);
+    expect(skeletonViewportFit?.scrollbarThumbVisible).toBe(false);
 
     await expect(page.getByPlaceholder("Search...")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "unread" })).toHaveCount(0);

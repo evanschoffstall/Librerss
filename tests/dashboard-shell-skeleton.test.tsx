@@ -119,7 +119,7 @@ describe("DashboardShellSkeleton", () => {
     );
   });
 
-  test("sizes the article skeleton count to fill the feed viewport without overflow", async () => {
+  test("sizes the article skeleton count to fill the feed viewport plus one hidden overflow row", async () => {
     const { container } = render(<DashboardShellSkeleton />);
 
     const viewport = container.querySelector<HTMLElement>(
@@ -153,11 +153,11 @@ describe("DashboardShellSkeleton", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
-      ).toHaveLength(3);
+      ).toHaveLength(4);
     });
     expect(
       feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
-    ).toBe("3");
+    ).toBe("4");
   });
 
   test("keeps the default skeleton count when no feed viewport wrapper is present", () => {
@@ -263,5 +263,44 @@ describe("DashboardShellSkeleton", () => {
     expect(feedListSkeleton?.className ?? "").toContain("h-full");
     expect(feedListSkeleton?.className ?? "").toContain("max-sm:justify-end");
     expect(feedListSkeleton?.className ?? "").toContain("justify-end");
+  });
+
+  test("keeps the feed overlay scrollbar hidden while the initial shell skeleton overflows", async () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+    const firstArticleSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton-item="true"]',
+    );
+
+    expect(viewport).toBeTruthy();
+    expect(firstArticleSkeleton).toBeTruthy();
+
+    Object.defineProperty(viewport!, "clientHeight", {
+      configurable: true,
+      get() {
+        return 377;
+      },
+    });
+    Object.defineProperty(viewport!, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 498;
+      },
+    });
+    firstArticleSkeleton!.getBoundingClientRect = () =>
+      ({ height: 120 } as DOMRect);
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-feed-scrollbar-thumb="true"]'),
+      ).toBeNull();
+    });
   });
 });

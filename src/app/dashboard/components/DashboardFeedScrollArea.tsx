@@ -17,6 +17,11 @@ interface FeedScrollbarMetrics {
 
 const MIN_FEED_SCROLLBAR_THUMB_HEIGHT_PX = 32;
 
+/** Hides the overlay thumb while the shell feed skeleton owns the viewport. */
+function hasInitialFeedSkeleton(viewportElement: HTMLElement) {
+  return viewportElement.querySelector('[data-dashboard-feed-list-skeleton="true"]') !== null;
+}
+
 /** Reads the current virtualized feed height when it is exposed. */
 function readFeedTotalListHeight(viewportElement: HTMLElement) {
   const feedSurface = viewportElement.querySelector<HTMLElement>(
@@ -63,6 +68,15 @@ export const DashboardFeedScrollArea = React.forwardRef<
 
   const updateScrollbarMetrics = React.useCallback(() => {
     if (!viewportElement) {
+      setScrollbarMetrics({
+        isVisible: false,
+        thumbHeight: 0,
+        thumbOffsetTop: 0,
+      });
+      return;
+    }
+
+    if (hasInitialFeedSkeleton(viewportElement)) {
       setScrollbarMetrics({
         isVisible: false,
         thumbHeight: 0,
