@@ -379,7 +379,7 @@ function SettingsTabContent({
 
       <TabsContent className="mt-0" value="network">
         <SettingsPreviewSection isPreviewMode={isPreviewMode}>
-          <SettingsProxySection />
+          <SettingsProxySection isPreviewMode={isPreviewMode} />
         </SettingsPreviewSection>
       </TabsContent>
 

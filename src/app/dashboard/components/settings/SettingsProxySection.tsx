@@ -33,8 +33,12 @@ import {
 } from "./SettingsProxyBadges";
 import { SettingsProxyCompatibilityPanel } from "./SettingsProxyCompatibilityPanel";
 
-export function SettingsProxySection() {
-  const proxyState = useSettingsProxyState();
+export function SettingsProxySection({
+  isPreviewMode = false,
+}: {
+  isPreviewMode?: boolean;
+}) {
+  const proxyState = useSettingsProxyState({ enabled: !isPreviewMode });
 
   return <SettingsProxySectionContent {...proxyState} />;
 }
@@ -52,6 +56,7 @@ export function SettingsProxySectionContent({
   hasProxy,
   hasProxyPassword,
   inputRef,
+  isInitialProxyLoadPending,
   isRunningCompatibilityCheck,
   nowTs,
   proxyPassword,
@@ -67,8 +72,16 @@ export function SettingsProxySectionContent({
   setProxyUsername,
   syncAllowInsecureTls,
 }: UseSettingsProxyStateResult) {
-
-  if (proxyStatus === "loading") return <ProxySkeleton />;
+  const isLoading = isInitialProxyLoadPending;
+  const badgeStatus = proxyStatus === "loading" ? null : proxyStatus;
+  const showStatusBadges =
+    badgeStatus !== null &&
+    (badgeStatus !== "none" || proxyRoutingCheck !== null || hasProxy);
+  const showStatusSkeletons = isLoading && !showStatusBadges;
+  const showProxyUrlRow = !isLoading || proxyUrl.length > 0 || hasProxy;
+  const showUsernameField = !isLoading || proxyUsername.length > 0;
+  const showPasswordField = !isLoading || hasProxyPassword || proxyPassword.length > 0;
+  const showTlsToggle = !isLoading || hasProxy;
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -98,14 +111,22 @@ export function SettingsProxySectionContent({
               sm:flex-col sm:items-end
             "
           >
-            <StatusBadge
-              routingCheck={proxyRoutingCheck}
-              status={proxyStatus}
-            />
-            <ProxyRoutingBadge
-              routingCheck={proxyRoutingCheck}
-              status={proxyStatus}
-            />
+            {showStatusBadges ? (
+              <>
+                <StatusBadge
+                  routingCheck={proxyRoutingCheck}
+                  status={badgeStatus}
+                />
+                <ProxyRoutingBadge
+                  routingCheck={proxyRoutingCheck}
+                  status={badgeStatus}
+                />
+              </>
+            ) : showStatusSkeletons ? (
+              <ProxyBadgeSkeletons />
+            ) : (
+              <></>
+            )}
           </div>
         </div>
 
@@ -114,77 +135,83 @@ export function SettingsProxySectionContent({
         {/* URL input */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Proxy URL</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              className="h-9 font-mono text-sm"
-              disabled={saving}
-              onChange={(e) => {
-                setProxyUrl(e.target.value);
-                setError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  void handleSave();
-                }
-              }}
-              placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
-              ref={inputRef}
-              type="text"
-              value={proxyUrl}
-            />
-            <Button
-              className="h-9 shrink-0 gap-1.5"
-              disabled={saving || !proxyUrl.trim()}
-              onClick={() => {
-                void handleSave();
-              }}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              {saving ? (
-                <MotionSpinner iconClassName="size-3.5" />
-              ) : (
-                <Save className="size-3.5" />
+          {!showProxyUrlRow ? (
+            <ProxyUrlRowSkeleton />
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  className="h-9 font-mono text-sm"
+                  disabled={saving}
+                  onChange={(e) => {
+                    setProxyUrl(e.target.value);
+                    setError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      void handleSave();
+                    }
+                  }}
+                  placeholder="http://proxy:8080  ·  socks5://proxy:1080  ·  1.2.3.4:8080"
+                  ref={inputRef}
+                  type="text"
+                  value={proxyUrl}
+                />
+                <Button
+                  className="h-9 shrink-0 gap-1.5"
+                  disabled={saving || !proxyUrl.trim()}
+                  onClick={() => {
+                    void handleSave();
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {saving ? (
+                    <MotionSpinner iconClassName="size-3.5" />
+                  ) : (
+                    <Save className="size-3.5" />
+                  )}
+                  Save
+                </Button>
+                {hasProxy && (
+                  <Button
+                    className="
+                      h-9 shrink-0 px-2 text-muted-foreground
+                      hover:text-destructive
+                    "
+                    disabled={saving}
+                    onClick={() => {
+                      void handleClear();
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+              {error && (
+                <div
+                  className="
+                    flex min-w-0 items-center gap-1.5 text-xs text-destructive
+                  "
+                >
+                  <XCircle className="size-3.5 shrink-0" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="max-w-md min-w-0 truncate">
+                        {previewText(error)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-160 text-xs" side="top">
+                      <p className="break-all">{error}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               )}
-              Save
-            </Button>
-            {hasProxy && (
-              <Button
-                className="
-                  h-9 shrink-0 px-2 text-muted-foreground
-                  hover:text-destructive
-                "
-                disabled={saving}
-                onClick={() => {
-                  void handleClear();
-                }}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            )}
-          </div>
-          {error && (
-            <div
-              className="
-                flex min-w-0 items-center gap-1.5 text-xs text-destructive
-              "
-            >
-              <XCircle className="size-3.5 shrink-0" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="max-w-md min-w-0 truncate">
-                    {previewText(error)}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-160 text-xs" side="top">
-                  <p className="break-all">{error}</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
+            </>
           )}
         </div>
 
@@ -197,18 +224,22 @@ export function SettingsProxySectionContent({
             >
               Username
             </Label>
-            <Input
-              autoComplete="username"
-              className="h-9 font-mono text-sm"
-              disabled={saving}
-              id="proxy-username"
-              onChange={(e) => {
-                setProxyUsername(e.target.value);
-              }}
-              placeholder="optional"
-              type="text"
-              value={proxyUsername}
-            />
+            {!showUsernameField ? (
+              <Skeleton className="h-9 w-full" />
+            ) : (
+              <Input
+                autoComplete="username"
+                className="h-9 font-mono text-sm"
+                disabled={saving}
+                id="proxy-username"
+                onChange={(e) => {
+                  setProxyUsername(e.target.value);
+                }}
+                placeholder="optional"
+                type="text"
+                value={proxyUsername}
+              />
+            )}
           </div>
           <div className="space-y-1.5">
             <Label
@@ -220,20 +251,24 @@ export function SettingsProxySectionContent({
                 <span className="text-muted-foreground/60"> · saved</span>
               )}
             </Label>
-            <Input
-              autoComplete="current-password"
-              className="h-9 font-mono text-sm"
-              disabled={saving}
-              id="proxy-password"
-              onChange={(e) => {
-                setProxyPassword(e.target.value);
-              }}
-              placeholder={
-                hasProxyPassword ? "leave blank to keep" : "optional"
-              }
-              type="password"
-              value={proxyPassword}
-            />
+            {!showPasswordField ? (
+              <Skeleton className="h-9 w-full" />
+            ) : (
+              <Input
+                autoComplete="current-password"
+                className="h-9 font-mono text-sm"
+                disabled={saving}
+                id="proxy-password"
+                onChange={(e) => {
+                  setProxyPassword(e.target.value);
+                }}
+                placeholder={
+                  hasProxyPassword ? "leave blank to keep" : "optional"
+                }
+                type="password"
+                value={proxyPassword}
+              />
+            )}
           </div>
         </div>
 
@@ -258,14 +293,18 @@ export function SettingsProxySectionContent({
               </TooltipContent>
             </Tooltip>
           </div>
-          <Switch
-            checked={allowInsecureTls}
-            disabled={saving}
-            id="allow-insecure-tls"
-            onCheckedChange={(checked) => {
-              void syncAllowInsecureTls(checked);
-            }}
-          />
+          {!showTlsToggle ? (
+            <Skeleton className="h-5 w-9 rounded-full" />
+          ) : (
+            <Switch
+              checked={allowInsecureTls}
+              disabled={saving}
+              id="allow-insecure-tls"
+              onCheckedChange={(checked) => {
+                void syncAllowInsecureTls(checked);
+              }}
+            />
+          )}
         </div>
 
         <Separator />
@@ -275,6 +314,7 @@ export function SettingsProxySectionContent({
           compatibilityError={compatibilityError}
           compatibilityResults={compatibilityResults}
           hasProxy={hasProxy}
+          isLoading={isLoading}
           isRunningCompatibilityCheck={isRunningCompatibilityCheck}
           nowTs={nowTs}
           onRunCompatibilityCheck={handleRunCompatibilityCheck}
@@ -286,73 +326,29 @@ export function SettingsProxySectionContent({
   );
 }
 
-function ProxySkeleton() {
+/** Reserves the status badge footprint while the proxy snapshot is unresolved. */
+function ProxyBadgeSkeletons() {
   return (
-    <section className="settings-card">
-      <div className="
-        flex flex-col gap-3
-        sm:flex-row sm:items-start sm:justify-between sm:gap-4
-      ">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <Skeleton className="size-4 rounded-sm" />
-            <Skeleton className="h-4 w-32" />
-          </div>
-          <Skeleton className="h-3 w-72" />
-        </div>
-        <div className="
-          flex flex-row flex-wrap gap-1.5
-          sm:flex-col sm:items-end
-        ">
-          <Skeleton className="h-5 w-20 rounded-full" />
-          <Skeleton className="h-5 w-28 rounded-full" />
-        </div>
-      </div>
+    <div
+      className="
+        flex flex-row flex-wrap gap-1.5
+        sm:flex-col sm:items-end
+      "
+    >
+      <Skeleton className="h-5 w-20 rounded-full" />
+      <Skeleton className="h-5 w-28 rounded-full" />
+    </div>
+  );
+}
 
-      <Separator />
-
-      <div className="space-y-1.5">
-        <Skeleton className="h-3 w-14" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-9 flex-1" />
-          <Skeleton className="h-9 w-20" />
-          <Skeleton className="size-9" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="row-between">
-        <div className="flex items-center gap-1.5">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="size-3 rounded-full" />
-        </div>
-        <Skeleton className="h-5 w-9 rounded-full" />
-      </div>
-
-      <Separator />
-
-      <div className="space-y-3">
-        <div className="row-between">
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-36" />
-            <Skeleton className="h-3 w-64" />
-          </div>
-          <Skeleton className="h-8 w-24" />
-        </div>
-      </div>
-    </section>
+/** Mirrors the URL row while the saved proxy values are still loading. */
+function ProxyUrlRowSkeleton() {
+  return (
+    <div className="flex items-center gap-2">
+      <Skeleton className="h-9 flex-1" />
+      <Skeleton className="h-9 w-20" />
+      <Skeleton className="size-9" />
+    </div>
   );
 }
 

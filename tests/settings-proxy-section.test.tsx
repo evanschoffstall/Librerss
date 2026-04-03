@@ -16,14 +16,42 @@ afterEach(() => {
 });
 
 describe("SettingsProxySection", () => {
-  test("shows a loading skeleton until the initial proxy settings load completes", async () => {
+  test("keeps the network shell visible while the initial proxy settings load resolves", async () => {
+    proxyState.isInitialProxyLoadPending = true;
     proxyState.proxyStatus = "loading";
     const view = await renderProxySection();
 
-    const { container, queryByText } = view;
+    const { container, getByText, queryByRole } = view;
 
-    expect(queryByText("Proxy URL")).toBeNull();
+    expect(getByText("Connection Routing")).toBeTruthy();
+    expect(getByText("Proxy URL")).toBeTruthy();
+    expect(getByText("Username")).toBeTruthy();
+    expect(getByText(/^Password/u)).toBeTruthy();
+    expect(getByText("Allow insecure TLS")).toBeTruthy();
+    expect(getByText("Compatibility Check")).toBeTruthy();
+    expect(queryByRole("button", { name: "Run Check" })).toBeNull();
+    expect(queryByRole("switch")).toBeNull();
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+  });
+
+  test("keeps hydrated status badges visible while a refresh request is pending", async () => {
+    proxyState.hasProxy = true;
+    proxyState.isInitialProxyLoadPending = true;
+    proxyState.proxyRoutingCheck = {
+      directIp: "198.51.100.7",
+      error: null,
+      proxyExitIp: "203.0.113.21",
+      status: "verified",
+    };
+    proxyState.proxyStatus = "reachable";
+    proxyState.proxyUrl = "https://proxy.example.test";
+
+    const view = await renderProxySection();
+
+    expect(view.queryByText("Connected")).not.toBeNull();
+    expect(view.queryByText("Exit 203.0.113.21")).not.toBeNull();
+    expect(view.queryByRole("button", { name: "Run Check" })).not.toBeNull();
+    expect(view.queryByDisplayValue("https://proxy.example.test")).not.toBeNull();
   });
 
   test("renders a configured proxy surface and runs save and clear actions", async () => {
@@ -208,6 +236,7 @@ function createProxyState(): UseSettingsProxyStateResult {
     hasProxy: false,
     hasProxyPassword: false,
     inputRef: { current: null },
+    isInitialProxyLoadPending: false,
     isRunningCompatibilityCheck: false,
     nowTs: 0,
     proxyPassword: "",
