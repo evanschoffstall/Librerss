@@ -1,4 +1,3 @@
-import { Decompress as FzstdDecompress } from "fzstd";
 import * as zlib from "zlib";
 
 const TOO_LARGE_ERROR_MESSAGE = "Upstream response too large";
@@ -100,11 +99,15 @@ function assertWithinOutputLimit(
   }
 }
 
-function buildNodeZlibOptions(maxOutputBytes: number | undefined): zlib.ZlibOptions {
+function buildNodeZlibOptions(
+  maxOutputBytes: number | undefined,
+): zlib.ZlibOptions {
   return maxOutputBytes === undefined ? {} : { maxOutputLength: maxOutputBytes };
 }
 
-function buildNodeZstdOptions(maxOutputBytes: number | undefined): zlib.ZstdOptions {
+function buildNodeZstdOptions(
+  maxOutputBytes: number | undefined,
+): zlib.ZstdOptions {
   return maxOutputBytes === undefined ? {} : { maxOutputLength: maxOutputBytes };
 }
 
@@ -114,35 +117,34 @@ async function decompressBodyToBuffer(
   maxOutputBytes?: number,
 ): Promise<Buffer> {
   if (encoding === "br") {
-    return decompressWithNodeLimit(
-      (callback) =>
-        { zlib.brotliDecompress(
-          buf,
-          buildNodeZlibOptions(maxOutputBytes),
-          callback,
-        ); },
-    );
+    return decompressWithNodeLimit((callback) => {
+      zlib.brotliDecompress(
+        buf,
+        buildNodeZlibOptions(maxOutputBytes),
+        callback,
+      );
+    });
   }
 
   if (encoding === "gzip" || encoding === "x-gzip") {
-    return decompressWithNodeLimit((callback) =>
-      { zlib.gunzip(buf, buildNodeZlibOptions(maxOutputBytes), callback); },
-    );
+    return decompressWithNodeLimit((callback) => {
+      zlib.gunzip(buf, buildNodeZlibOptions(maxOutputBytes), callback);
+    });
   }
 
   if (encoding === "deflate") {
     try {
-      return await decompressWithNodeLimit((callback) =>
-        { zlib.inflate(buf, buildNodeZlibOptions(maxOutputBytes), callback); },
-      );
+      return await decompressWithNodeLimit((callback) => {
+        zlib.inflate(buf, buildNodeZlibOptions(maxOutputBytes), callback);
+      });
     } catch (error) {
       if (!isDataError(error)) {
         throw error;
       }
 
-      return decompressWithNodeLimit((callback) =>
-        { zlib.inflateRaw(buf, buildNodeZlibOptions(maxOutputBytes), callback); },
-      );
+      return decompressWithNodeLimit((callback) => {
+        zlib.inflateRaw(buf, buildNodeZlibOptions(maxOutputBytes), callback);
+      });
     }
   }
 
@@ -169,11 +171,6 @@ function decompressWithNodeLimit(
   });
 }
 
-/**
- * Decompress a zstd-encoded buffer. Prefers the native `zlib.zstdDecompress`
- * (available in Node.js ≥ 21.7 and Bun), falling back to the pure-JS `fzstd`
- * library for older Node.js versions (e.g. Node 20).
- */
 function decompressZstd(
   buf: Buffer,
   maxOutputBytes?: number,
@@ -181,45 +178,12 @@ function decompressZstd(
   const nativeDecompress = (zlib as Record<string, unknown>)
     .zstdDecompress as typeof zlib.brotliDecompress | undefined;
 
-  if (nativeDecompress) {
-    return decompressWithNodeLimit((callback) =>
-      { nativeDecompress(buf, buildNodeZstdOptions(maxOutputBytes), callback); },
-    );
+  if (!nativeDecompress) {
+    throw new Error("Native zstd decompression is unavailable in this runtime");
   }
 
-  return decompressZstdWithStreamingLimit(buf, maxOutputBytes);
-}
-
-function decompressZstdWithStreamingLimit(
-  buf: Buffer,
-  maxOutputBytes?: number,
-): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Uint8Array[] = [];
-    let totalBytes = 0;
-    const decoder = new FzstdDecompress((chunk, final) => {
-      if (chunk.length > 0) {
-        totalBytes += chunk.length;
-        if (
-          maxOutputBytes !== undefined &&
-          totalBytes > maxOutputBytes
-        ) {
-          throw new Error(TOO_LARGE_ERROR_MESSAGE);
-        }
-
-        chunks.push(chunk.slice());
-      }
-
-      if (final) {
-        resolve(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), totalBytes));
-      }
-    });
-
-    try {
-      decoder.push(new Uint8Array(buf), true);
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
+  return decompressWithNodeLimit((callback) => {
+    nativeDecompress(buf, buildNodeZstdOptions(maxOutputBytes), callback);
   });
 }
 
