@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  hasMovedAwayFromBoundarySincePreviousScroll,
   resolveInvertedPaginationAnchorScrollTop,
   resolveNextVisibleCount,
   resolvePaginationBoundaryState,
@@ -70,6 +71,21 @@ describe("resolvePaginationBoundaryState", () => {
       hasMovedAwayFromBoundary: true,
       hasReachedBoundary: false,
     });
+  });
+
+  test("preserves inverted boundary departure when the current scroll lands back at the top", () => {
+    const viewport = document.createElement("div");
+    defineViewportMetric(viewport, "clientHeight", 480);
+    defineViewportMetric(viewport, "scrollHeight", 1440);
+    defineViewportMetric(viewport, "scrollTop", 0);
+
+    expect(
+      hasMovedAwayFromBoundarySincePreviousScroll({
+        isInvertedScroll: true,
+        previousScrollTop: 640,
+        scrollViewport: viewport,
+      }),
+    ).toBe(true);
   });
 });
 
