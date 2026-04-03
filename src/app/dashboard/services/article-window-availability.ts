@@ -17,10 +17,12 @@ export interface ArticleWindowAvailabilityResult {
  * availability state until an awaited server-backed window fetch actually settles.
  */
 export interface ResolveArticleWindowAvailabilityOptions {
+  allowPartialFeedGrowth: boolean;
   currentFeedLength: number;
   hasStartedAwaitedWindowSettlement: boolean;
   isAwaitingWindowSettlement: boolean;
   isLoading: boolean;
+  previousFeedLength: number;
   previousHasMoreServerArticles: boolean;
   requestedArticleLimit: number;
   shouldUseArticleWindow: boolean;
@@ -50,10 +52,12 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
  * read-state changes must preserve the prior availability signal.
  */
 export function resolveArticleWindowAvailability({
+  allowPartialFeedGrowth,
   currentFeedLength,
   hasStartedAwaitedWindowSettlement,
   isAwaitingWindowSettlement,
   isLoading,
+  previousFeedLength,
   previousHasMoreServerArticles,
   requestedArticleLimit,
   shouldUseArticleWindow,
@@ -70,6 +74,13 @@ export function resolveArticleWindowAvailability({
       return {
         hasMoreServerArticles: previousHasMoreServerArticles,
         shouldClearAwaitingWindowSettlement: false,
+      };
+    }
+
+    if (allowPartialFeedGrowth && currentFeedLength > previousFeedLength) {
+      return {
+        hasMoreServerArticles: true,
+        shouldClearAwaitingWindowSettlement: true,
       };
     }
 

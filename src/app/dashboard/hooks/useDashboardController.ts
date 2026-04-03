@@ -163,6 +163,8 @@ export function useDashboardController({
   const [isShellLoading, setIsShellLoading] = useState(true);
   const isLoadingMoreArticlesRef = useRef(false);
   const isAwaitingArticleWindowSettlementRef = useRef(shouldUseArticleWindow);
+  const allowPartialArticleWindowGrowthRef = useRef(false);
+  const previousAwaitedFeedLengthRef = useRef(0);
   const hasStartedArticleWindowSettlementRef = useRef(false);
   const isRefillingDepletedUnreadWindowRef = useRef(false);
   /** Tracks the highest article-limit we have already prefetched to avoid duplicate background requests. */
@@ -309,6 +311,8 @@ export function useDashboardController({
   useEffect(() => {
     isLoadingMoreArticlesRef.current = false;
     isAwaitingArticleWindowSettlementRef.current = shouldUseArticleWindow;
+    allowPartialArticleWindowGrowthRef.current = false;
+    previousAwaitedFeedLengthRef.current = 0;
     hasStartedArticleWindowSettlementRef.current = false;
     isRefillingDepletedUnreadWindowRef.current = false;
     lastPrefetchedLimitRef.current = 0;
@@ -326,12 +330,14 @@ export function useDashboardController({
 
   useEffect(() => {
     const nextAvailability = resolveArticleWindowAvailability({
+      allowPartialFeedGrowth: allowPartialArticleWindowGrowthRef.current,
       currentFeedLength: feed.length,
       hasStartedAwaitedWindowSettlement:
         hasStartedArticleWindowSettlementRef.current,
       isAwaitingWindowSettlement:
         isAwaitingArticleWindowSettlementRef.current,
       isLoading: loading,
+      previousFeedLength: previousAwaitedFeedLengthRef.current,
       previousHasMoreServerArticles: hasMoreServerArticles,
       requestedArticleLimit,
       shouldUseArticleWindow,
@@ -339,6 +345,7 @@ export function useDashboardController({
 
     if (nextAvailability.shouldClearAwaitingWindowSettlement) {
       isAwaitingArticleWindowSettlementRef.current = false;
+      allowPartialArticleWindowGrowthRef.current = false;
       hasStartedArticleWindowSettlementRef.current = false;
     }
 
@@ -636,6 +643,8 @@ export function useDashboardController({
     const nextPrefetchLimit = nextArticleLimit + articlesPerPage;
     isLoadingMoreArticlesRef.current = true;
     isAwaitingArticleWindowSettlementRef.current = true;
+    allowPartialArticleWindowGrowthRef.current = true;
+    previousAwaitedFeedLengthRef.current = feed.length;
     hasStartedArticleWindowSettlementRef.current = true;
 
     // Schedule the fetch on the next frame so React can commit the loading
@@ -680,6 +689,7 @@ export function useDashboardController({
     });
   }, [
     articlesPerPage,
+    feed.length,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -750,6 +760,8 @@ export function useDashboardController({
 
     isRefillingDepletedUnreadWindowRef.current = true;
     isAwaitingArticleWindowSettlementRef.current = true;
+    allowPartialArticleWindowGrowthRef.current = true;
+    previousAwaitedFeedLengthRef.current = feed.length;
     hasStartedArticleWindowSettlementRef.current = true;
 
     void refreshCurrentSelection({

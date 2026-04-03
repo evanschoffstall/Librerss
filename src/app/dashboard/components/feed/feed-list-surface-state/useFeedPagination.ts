@@ -35,6 +35,7 @@ interface UseFeedPaginationOptions {
   hasUserScrolledRef: { current: boolean };
   isInitialLoading: boolean;
   isInvertedScroll: boolean;
+  isLoadingMore: boolean;
   onClaimInvertedScrollOwnership: () => void;
   onLoadMore?: () => void;
   onReleaseInvertedExpansionScrollLock: () => void;
@@ -65,6 +66,7 @@ export function useFeedPagination({
   hasUserScrolledRef,
   isInitialLoading,
   isInvertedScroll,
+  isLoadingMore,
   onClaimInvertedScrollOwnership,
   onLoadMore,
   onReleaseInvertedExpansionScrollLock,
@@ -103,6 +105,7 @@ export function useFeedPagination({
   const lastAutoFillListHeightRef = useRef<null | number>(null);
   const filteredFeedLengthRef = useRef(filteredFeedLength);
   const previousFilteredFeedLengthRef = useRef(filteredFeedLength);
+  const previousIsLoadingMoreRef = useRef(isLoadingMore);
   const visibleArticleCountRef = useRef(articlesPerPage);
 
   const clearServerLoadCooldown = useCallback(() => {
@@ -171,7 +174,7 @@ export function useFeedPagination({
 
   useEffect(() => {
     filteredFeedLengthRef.current = filteredFeedLength;
-  }, [commitVisibleArticleCount, filteredFeedLength]);
+  }, [filteredFeedLength]);
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
@@ -229,6 +232,26 @@ export function useFeedPagination({
     isInvertedScroll,
     startServerLoadRearmCooldown,
   ]);
+
+  useLayoutEffect(() => {
+    const previousIsLoadingMore = previousIsLoadingMoreRef.current;
+    previousIsLoadingMoreRef.current = isLoadingMore;
+
+    if (
+      isLoadingMore ||
+      !previousIsLoadingMore ||
+      !hasPendingServerRevealRef.current
+    ) {
+      return;
+    }
+
+    hasPendingServerRevealRef.current = false;
+    startServerLoadRearmCooldown();
+
+    if (!isInvertedScroll && isStandardViewportRefillActiveRef.current) {
+      hasResolvedStandardViewportRevealRef.current = true;
+    }
+  }, [isInvertedScroll, isLoadingMore, startServerLoadRearmCooldown]);
 
   useEffect(() => {
     visibleArticleCountRef.current = visibleArticleCount;
@@ -539,12 +562,13 @@ export function useFeedPagination({
   ]);
 
   /**
-   * Backfills a depleted standard revealed window even when stale wrapper
-   * height keeps the viewport looking scrollable after local filter removals.
+   * Backfills a depleted revealed window after local unread removals.
+   *
+   * Standard mode can append directly. Inverted mode must first prime the
+   * anchor so the prepend keeps the reader's viewport stable.
    */
-  const maybeBackfillDepletedStandardPage = useCallback(() => {
+  const maybeBackfillDepletedRevealedPage = useCallback(() => {
     if (
-      isInvertedScroll ||
       !canLoadMoreFromServer ||
       hasPendingServerRevealRef.current ||
       hasRequestedServerLoadRef.current
@@ -560,17 +584,22 @@ export function useFeedPagination({
       return;
     }
 
+    if (isInvertedScroll) {
+      primeInvertedPaginationAnchor();
+    }
+
     void requestMoreFromServer({ isViewportRefill: true });
   }, [
     canLoadMoreFromServer,
     filteredFeedLength,
     isInvertedScroll,
+    primeInvertedPaginationAnchor,
     requestMoreFromServer,
   ]);
 
   useLayoutEffect(() => {
-    maybeBackfillDepletedStandardPage();
-  }, [filteredFeedLength, maybeBackfillDepletedStandardPage]);
+    maybeBackfillDepletedRevealedPage();
+  }, [filteredFeedLength, maybeBackfillDepletedRevealedPage]);
 
   useLayoutEffect(() => {
     if (

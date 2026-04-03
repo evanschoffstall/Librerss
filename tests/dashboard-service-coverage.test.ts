@@ -140,10 +140,12 @@ describe("dashboard pure service coverage", () => {
   test("preserves server pagination after local unread removals until a server window settles", () => {
     expect(
       resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: false,
         currentFeedLength: 3,
         hasStartedAwaitedWindowSettlement: false,
         isAwaitingWindowSettlement: false,
         isLoading: false,
+        previousFeedLength: 0,
         previousHasMoreServerArticles: true,
         requestedArticleLimit: 8,
         shouldUseArticleWindow: true,
@@ -155,10 +157,12 @@ describe("dashboard pure service coverage", () => {
 
     expect(
       resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: false,
         currentFeedLength: 6,
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
+        previousFeedLength: 0,
         previousHasMoreServerArticles: true,
         requestedArticleLimit: 8,
         shouldUseArticleWindow: true,
@@ -170,16 +174,52 @@ describe("dashboard pure service coverage", () => {
 
     expect(
       resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: false,
         currentFeedLength: 8,
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
+        previousFeedLength: 0,
         previousHasMoreServerArticles: false,
         requestedArticleLimit: 8,
         shouldUseArticleWindow: true,
       }),
     ).toEqual({
       hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+
+    expect(
+      resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: true,
+        currentFeedLength: 18,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        previousFeedLength: 12,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 24,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+
+    expect(
+      resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: true,
+        currentFeedLength: 18,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        previousFeedLength: 18,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 36,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: false,
       shouldClearAwaitingWindowSettlement: true,
     });
 
